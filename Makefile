@@ -313,11 +313,11 @@ test-crosscover: setup-envtest ## Run unit tests and collect cross-package cover
 	CGO_ENABLED=1 go test -race -timeout=20m -count=1 -coverprofile=crosscover.out -covermode=atomic -p=1 -coverpkg=./... ./...
 
 .PHONY: test-integration-backup
-test-integration-backup: docker-build-controller k3d-upload-controller-image deploy-test-controller
+test-integration-backup: docker-build-controller upload-controller-image deploy-test-controller
 	chainsaw test --config test/integration/.backup.yaml test/integration/backup
 
 .PHONY: test-integration-monitoring
-test-integration-monitoring: docker-build-controller k3d-upload-controller-image deploy-test-controller
+test-integration-monitoring: docker-build-controller upload-controller-image deploy-test-controller
 	chainsaw test --config test/integration/.monitoring.yaml test/integration/monitoring
 
 ##@ Deployment management
@@ -413,6 +413,39 @@ k3d-upload-controller-image: ## Upload the Everest controller image to the testi
 k3d-upload-operator-image: ## Upload the Everest operator image to the testing k3d cluster.
 	$(info Uploading Everest operator image=$(EVEREST_OPERATOR_IMG) to K3D testing cluster)
 	k3d image import -c everest-server-test $(EVEREST_OPERATOR_IMG)
+
+# Test cluster runtime: k3d locally, kind on CI (containerized runners).
+CLUSTER_PROVIDER ?= k3d
+
+.PHONY: upload-controller-image
+upload-controller-image: $(CLUSTER_PROVIDER)-upload-controller-image ## Upload the controller image to the $(CLUSTER_PROVIDER) test cluster.
+
+KIND_CLUSTER_NAME = everest-server-test
+
+.PHONY: kind-cluster-up
+kind-cluster-up: ## Create a kind cluster for testing.
+	$(info Creating kind cluster for testing)
+	kind create cluster --config ./dev/kind_config.yaml --wait 120s
+
+.PHONY: kind-cluster-down
+kind-cluster-down: ## Destroy the kind test cluster.
+	$(info Destroying kind test cluster)
+	kind delete cluster --name $(KIND_CLUSTER_NAME)
+
+.PHONY: kind-upload-server-image
+kind-upload-server-image: ## Upload the Everest API server image to the testing kind cluster.
+	$(info Uploading Everest API server image=$(IMG) to kind testing cluster)
+	kind load docker-image --name $(KIND_CLUSTER_NAME) $(IMG)
+
+.PHONY: kind-upload-controller-image
+kind-upload-controller-image: ## Upload the Everest controller image to the testing kind cluster.
+	$(info Uploading Everest controller image=$(EVEREST_CONTROLLER_IMG) to kind testing cluster)
+	kind load docker-image --name $(KIND_CLUSTER_NAME) $(EVEREST_CONTROLLER_IMG)
+
+.PHONY: kind-upload-operator-image
+kind-upload-operator-image: ## Upload the Everest operator image to the testing kind cluster.
+	$(info Uploading Everest operator image=$(EVEREST_OPERATOR_IMG) to kind testing cluster)
+	kind load docker-image --name $(KIND_CLUSTER_NAME) $(EVEREST_OPERATOR_IMG)
 
 .PHONY: cert
 cert:                   ## Create dev TLS certificates.

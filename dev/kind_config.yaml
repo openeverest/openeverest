@@ -1,0 +1,17 @@
+---
+# kind cluster for CI. Local development uses k3d instead (see k3d_config.yaml);
+# CI uses kind because it runs cleanly on containerized (ARC) runners where
+# k3d's flannel bridge networking does not.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: everest-server-test
+nodes:
+  - role: control-plane
+  - role: worker
+    # Pairs with `make expose` (NodePort 30080): the Everest API is reachable
+    # on http://localhost:8080, same as the k3d port mapping.
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 8080
+  - role: worker
+  - role: worker

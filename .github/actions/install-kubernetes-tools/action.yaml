@@ -5,7 +5,8 @@ inputs:
   tools-path:
     description: 'Tools path to install binaries'
     required: false
-    default: '/opt/tools/bin'
+    # $HOME expands in the shell steps below; user-writable on any runner.
+    default: '$HOME/.local/bin'
   install-kubectl:
     description: 'Install Kubectl'
     required: false
@@ -22,6 +23,14 @@ inputs:
     description: 'K3D version to install'
     required: false
     default: '5.8.3'
+  install-kind:
+    description: 'Install kind'
+    required: false
+    default: false
+  kind-version:
+    description: 'kind version to install'
+    required: false
+    default: '0.32.0'
   install-chainsaw:
     description: 'Install Chainsaw'
     required: false
@@ -35,9 +44,7 @@ runs:
   steps:
     - name: Install TOOLS_PATH
       run: |
-        # sudo: /opt is not writable by the runner user on CNCF (ARC) runners.
-        sudo mkdir -p ${{ inputs.tools-path }}
-        sudo chown -R "$(id -u):$(id -g)" ${{ inputs.tools-path }}
+        mkdir -p ${{ inputs.tools-path }}
         echo ${{ inputs.tools-path }} >> $GITHUB_PATH
       shell: bash
 
@@ -55,6 +62,17 @@ runs:
         curl -s -L -o ${{ inputs.tools-path }}/k3d https://github.com/k3d-io/k3d/releases/download/v${{ inputs.k3d-version }}/k3d-linux-amd64
         chmod +x ${{ inputs.tools-path }}/k3d
         k3d version
+      shell: bash
+
+    - name: Install kind
+      if: ${{ inputs.install-kind == 'true' }}
+      run: |
+        curl -fsSL -o ${{ inputs.tools-path }}/kind https://kind.sigs.k8s.io/dl/v${{ inputs.kind-version }}/kind-linux-amd64
+        curl -fsSL -o /tmp/kind.sha256sum https://kind.sigs.k8s.io/dl/v${{ inputs.kind-version }}/kind-linux-amd64.sha256sum
+        echo "$(awk '{print $1}' /tmp/kind.sha256sum)  ${{ inputs.tools-path }}/kind" | sha256sum --check --status
+        rm /tmp/kind.sha256sum
+        chmod +x ${{ inputs.tools-path }}/kind
+        kind version
       shell: bash
 
     - name: Install Chainsaw

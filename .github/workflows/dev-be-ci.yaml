@@ -167,50 +167,11 @@ jobs:
         uses: ./.github/actions/install-kubernetes-tools
         with:
           install-kubectl: true
-          install-k3d: true
+          install-kind: true
 
-      - name: Adjust GitHub worker node
-        uses: ./.github/actions/adjust-github-node
-        with:
-          adjust-host-for-k3d: true
-          mount-docker-data: true
-
-      - name: Run K3D test cluster
-        # K3D_FIX_DNS: on CNCF (ARC) runners k3s' 8.8.8.8 fallback is unreachable, breaking
-        # external DNS in pods; route DNS through Docker's embedded resolver instead.
-        env:
-          K3D_FIX_DNS: "1"
+      - name: Run kind test cluster
         run: |
-          make k3d-cluster-up
-
-      # On CNCF (ARC) runners the CoreDNS default upstream is unreachable from the pod
-      # network, so every non-cluster lookup times out instead of resolving/NXDOMAIN-ing.
-      # Forward to the runner pod's own upstream (the host cluster's DNS), then rely on
-      # the k3s CoreDNS reload plugin and verify with an in-cluster probe: restarting the
-      # deployment proved flaky (cold image pulls stall the rollout indefinitely).
-      - name: Point cluster DNS at a reachable upstream
-        if: ${{ runner.environment != 'github-hosted' }}
-        run: |
-          UPSTREAM=$(awk '/^nameserver/ {print $2; exit}' /etc/resolv.conf)
-          kubectl -n kube-system get configmap coredns -o yaml \
-            | grep -q 'forward . /etc/resolv.conf'
-          kubectl -n kube-system get configmap coredns -o yaml \
-            | sed "s|forward . /etc/resolv.conf|forward . ${UPSTREAM}|" \
-            | kubectl apply -f -
-          kubectl run dns-probe --image=busybox:1.36 --restart=Never -- sleep 600
-          kubectl wait --for=condition=Ready pod/dns-probe --timeout=180s
-          ok=""
-          for i in $(seq 1 36); do
-            if kubectl exec dns-probe -- nslookup github.com >/dev/null 2>&1; then ok=1; break; fi
-            sleep 5
-          done
-          if [ -z "$ok" ]; then
-            echo "::error::pod DNS still broken after CoreDNS upstream patch"
-            kubectl -n kube-system logs deploy/coredns --tail=30 || true
-            docker logs k3d-everest-server-test-server-0 2>&1 | grep -i -m5 'br_netfilter\|bridge-nf' || true
-            exit 1
-          fi
-          kubectl delete pod dns-probe --wait=false
+          make kind-cluster-up
 
       - name: Build Everest API Server binary
         run: |
@@ -224,23 +185,23 @@ jobs:
         run: |
           make docker-build
 
-      - name: Upload Everest API server image to K3D test cluster
+      - name: Upload Everest API server image to kind test cluster
         run: |
-          make k3d-upload-server-image
+          make kind-upload-server-image
 
       - name: Build Everest operator docker image
         run: |
           make docker-build-operator
 
-      - name: Upload Everest operator image to K3D test cluster
+      - name: Upload Everest operator image to kind test cluster
         run: |
-          make k3d-upload-operator-image
+          make kind-upload-operator-image
 
       - name: Build Everest CLI binary
         run: |
           make build-cli-debug
 
-      - name: Deploy Everest to K3D test cluster
+      - name: Deploy Everest to kind test cluster
         timeout-minutes: 10
         run: |
           make deploy
@@ -334,48 +295,17 @@ jobs:
         uses: ./.github/actions/install-kubernetes-tools
         with:
           install-kubectl: true
-          install-k3d: true
+          install-kind: true
           install-chainsaw: true
 
-      - name: Adjust GitHub worker node
-        uses: ./.github/actions/adjust-github-node
-        with:
-          adjust-host-for-k3d: true
-          mount-docker-data: true
-
-      - name: Run K3D test cluster
-        env:
-          K3D_FIX_DNS: "1"
+      - name: Run kind test cluster
         run: |
-          make k3d-cluster-up
-
-      # See "Point cluster DNS at a reachable upstream" in integration_tests_api.
-      - name: Point cluster DNS at a reachable upstream
-        if: ${{ runner.environment != 'github-hosted' }}
-        run: |
-          UPSTREAM=$(awk '/^nameserver/ {print $2; exit}' /etc/resolv.conf)
-          kubectl -n kube-system get configmap coredns -o yaml \
-            | grep -q 'forward . /etc/resolv.conf'
-          kubectl -n kube-system get configmap coredns -o yaml \
-            | sed "s|forward . /etc/resolv.conf|forward . ${UPSTREAM}|" \
-            | kubectl apply -f -
-          kubectl run dns-probe --image=busybox:1.36 --restart=Never -- sleep 600
-          kubectl wait --for=condition=Ready pod/dns-probe --timeout=180s
-          ok=""
-          for i in $(seq 1 36); do
-            if kubectl exec dns-probe -- nslookup github.com >/dev/null 2>&1; then ok=1; break; fi
-            sleep 5
-          done
-          if [ -z "$ok" ]; then
-            echo "::error::pod DNS still broken after CoreDNS upstream patch"
-            kubectl -n kube-system logs deploy/coredns --tail=30 || true
-            docker logs k3d-everest-server-test-server-0 2>&1 | grep -i -m5 'br_netfilter\|bridge-nf' || true
-            exit 1
-          fi
-          kubectl delete pod dns-probe --wait=false
+          make kind-cluster-up
 
       - name: Run controller integration tests
         timeout-minutes: 20
+        env:
+          CLUSTER_PROVIDER: kind
         run: |
           make ${{ matrix.make_target }}
 
