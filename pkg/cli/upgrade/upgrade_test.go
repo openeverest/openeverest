@@ -229,62 +229,148 @@ func TestUpgrade_ValidateVersionToUpgrade(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		currentEverestVersion string
-		targetEverestVersion  string
-		wantErrIs             error
+		name                      string
+		currentEverestVersion     string
+		targetEverestVersion      string
+		wantErrIs                 error
+		wantErrContains           string // use this if checking error message
 	}{
+		// Downgrade scenarios: target < current
 		{
+			name:                  "downgrade minor version",
 			currentEverestVersion: "0.6.0",
 			targetEverestVersion:  "0.5.0",
 			wantErrIs:             ErrDowngradeNotAllowed,
 		},
 		{
+			name:                  "downgrade patch version",
 			currentEverestVersion: "0.6.1",
 			targetEverestVersion:  "0.6.0",
 			wantErrIs:             ErrDowngradeNotAllowed,
 		},
 		{
+			name:                  "downgrade major version",
+			currentEverestVersion: "1.0.0",
+			targetEverestVersion:  "0.9.0",
+			wantErrIs:             ErrDowngradeNotAllowed,
+		},
+
+		// Same version: no upgrade needed
+		{
+			name:                  "same version",
 			currentEverestVersion: "0.6.0",
 			targetEverestVersion:  "0.6.0",
 			wantErrIs:             ErrNoUpdateAvailable,
 		},
+
+		// Major version changes: NOT ALLOWED
 		{
+			name:                  "major bump forward 0.x to 1.x",
+			currentEverestVersion: "0.6.0",
+			targetEverestVersion:  "1.0.0",
+			wantErrIs:             ErrMajorVersionChangeNotAllowed,
+		},
+		{
+			name:                  "major bump forward 1.x to 2.x",
+			currentEverestVersion: "1.6.0",
+			targetEverestVersion:  "2.0.0",
+			wantErrIs:             ErrMajorVersionChangeNotAllowed,
+		},
+		{
+			name:                  "major bump with same minor",
+			currentEverestVersion: "1.5.0",
+			targetEverestVersion:  "2.5.0",
+			wantErrIs:             ErrMajorVersionChangeNotAllowed,
+		},
+
+		// Multi-minor version jumps: NOT ALLOWED
+		{
+			name:                  "jump two minor versions",
 			currentEverestVersion: "0.6.0",
 			targetEverestVersion:  "0.8.0",
 			wantErrIs:             ErrCannotUpgradeByMoreThanOneMinorVersion,
 		},
 		{
+			name:                  "jump two minor versions with patch",
 			currentEverestVersion: "0.6.0",
 			targetEverestVersion:  "0.8.1",
 			wantErrIs:             ErrCannotUpgradeByMoreThanOneMinorVersion,
 		},
 		{
+			name:                  "jump three minor versions",
 			currentEverestVersion: "0.6.0",
-			targetEverestVersion:  "0.7.0",
-			wantErrIs:             nil,
+			targetEverestVersion:  "0.9.0",
+			wantErrIs:             ErrCannotUpgradeByMoreThanOneMinorVersion,
 		},
+
+		// Valid upgrades: ALLOWED
 		{
+			name:                  "patch-only upgrade same minor",
 			currentEverestVersion: "0.6.0",
 			targetEverestVersion:  "0.6.1",
 			wantErrIs:             nil,
 		},
 		{
+			name:                  "patch upgrade multiple patch versions",
+			currentEverestVersion: "0.6.0",
+			targetEverestVersion:  "0.6.5",
+			wantErrIs:             nil,
+		},
+		{
+			name:                  "one minor version forward",
+			currentEverestVersion: "0.6.0",
+			targetEverestVersion:  "0.7.0",
+			wantErrIs:             nil,
+		},
+		{
+			name:                  "one minor version forward with patch",
 			currentEverestVersion: "0.6.0",
 			targetEverestVersion:  "0.7.1",
+			wantErrIs:             nil,
+		},
+		{
+			name:                  "one minor version forward with higher patch",
+			currentEverestVersion: "0.6.0",
+			targetEverestVersion:  "0.7.5",
+			wantErrIs:             nil,
+		},
+
+		// Edge cases
+		{
+			name:                  "from major.minor.patch to major.minor.0",
+			currentEverestVersion: "0.6.5",
+			targetEverestVersion:  "0.7.0",
+			wantErrIs:             nil,
+		},
+		{
+			name:                  "version with prerelease is compared correctly",
+			currentEverestVersion: "0.6.0",
+			targetEverestVersion:  "0.7.0-beta.1",
+			wantErrIs:             nil,
+		},
+		{
+			name:                  "same version with prerelease in current",
+			currentEverestVersion: "0.6.0-alpha",
+			targetEverestVersion:  "0.6.0",
 			wantErrIs:             nil,
 		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.currentEverestVersion+" to "+tt.targetEverestVersion, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			currentVer := goversion.Must(goversion.NewVersion(tt.currentEverestVersion))
 			targetVer := goversion.Must(goversion.NewVersion(tt.targetEverestVersion))
 			err := validateVersionToUpgrade(currentVer, targetVer)
+
 			if tt.wantErrIs != nil {
 				assert.ErrorIs(t, err, tt.wantErrIs)
 			} else if err != nil {
-				t.Errorf("error = %v", err)
+				t.Errorf("unexpected error: %v", err)
+			}
+
+			if tt.wantErrContains != "" && err != nil {
+				assert.Contains(t, err.Error(), tt.wantErrContains)
 			}
 		})
 	}
