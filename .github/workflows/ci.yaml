@@ -1,15 +1,27 @@
 ---
-name: API CI
+# Single PR CI pipeline.
+#
+# Design:
+# - One workflow, no workflow-level path filters: every PR produces the same set
+#   of check contexts, so required checks never hang in "Expected".
+# - The `changes` job classifies the diff once; backend/frontend jobs skip via
+#   `if:` when their area is untouched. Skipped jobs count as passing.
+# - `CI OK` aggregates every job result and is the single check that branch
+#   protection requires. No polling gatekeepers: GitHub's `needs` graph replaces
+#   upsidr/merge-gatekeeper (which burned a runner polling and hard-failed when
+#   any check took longer than its 600s timeout).
+name: CI
+
 on:
   pull_request:
-    paths-ignore:
-      - 'ui/**'
-      - '.github/workflows/dev-fe-ci.yaml'
+
+# One active run per PR: pushing a new revision supersedes the previous run.
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
-  checks: read
-  pull-requests: read
 
 env:
   GONOPROXY: 'github.com/percona'
@@ -17,14 +29,46 @@ env:
   GOPRIVATE: 'github.com/percona'
 
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: cncf-ubuntu-8-32-x86
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Classify changed files
+        id: filter
+        run: |
+          # Triple-dot: only changes introduced by the PR, matching the
+          # "Files changed" tab (see the copyright job for the same idiom).
+          FILES=$(git diff --name-only \
+            "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}")
+          echo "$FILES"
+          backend=false; frontend=false
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              ui/*) frontend=true ;;
+              .github/*) backend=true; frontend=true ;;
+              *) backend=true ;;
+            esac
+          done <<< "$FILES"
+          echo "backend=$backend"   >> "$GITHUB_OUTPUT"
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+          echo "backend=$backend frontend=$frontend"
+
   test:
     name: Test
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     timeout-minutes: 30
-    strategy:
-      fail-fast: true
-    continue-on-error: false
     runs-on: cncf-ubuntu-8-32-x86
-
     steps:
       - name: Check out code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -67,10 +111,9 @@ jobs:
 
   check:
     name: Check
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     timeout-minutes: 10
-    strategy:
-      fail-fast: true
-    continue-on-error: false
     runs-on: cncf-ubuntu-8-32-x86
     permissions:
       contents: read
@@ -137,10 +180,10 @@ jobs:
           git status
 
   integration_tests_api:
-    strategy:
-      fail-fast: true
-    continue-on-error: false
     name: API Integration Tests
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    timeout-minutes: 60
     runs-on: cncf-ubuntu-16-64-x86
     steps:
       - name: Check out code
@@ -220,9 +263,9 @@ jobs:
 
   integration_tests_cli:
     name: CLI Integration Tests
-    strategy:
-      fail-fast: true
-    continue-on-error: false
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    timeout-minutes: 45
     runs-on: cncf-ubuntu-16-64-x86
     env:
       PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
@@ -272,14 +315,16 @@ jobs:
           overwrite: true
 
   integration_tests_controller:
+    name: Controller Integration Tests (${{ matrix.make_target }})
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    timeout-minutes: 45
     strategy:
       fail-fast: true
       matrix:
         make_target:
           - test-integration-backup
           - test-integration-monitoring
-    continue-on-error: false
-    name: Controller Integration Tests (${{ matrix.make_target }})
     runs-on: cncf-ubuntu-16-64-x86
     steps:
       - name: Check out code
@@ -315,41 +360,177 @@ jobs:
           kubectl describe pod -n openeverest-system -l control-plane=controller-manager
           kubectl get events -n openeverest-system --sort-by='.lastTimestamp'
 
-  # Skip operator installations tests.
-  # Operators are now installed by the provider, not by the CLI.
-  #
-  # integration_tests_flows:
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       make_target: [
-  #         'test-all-operators',
-  #         'test-mongo-operator',
-  #         'test-pg-operator',
-  #         'test-pxc-operator',
-  #         'test-namespaces'
-  #       ]
-  #   name: CLI tests
-  #   uses: ./.github/workflows/cli-tests.yml
-  #   secrets: inherit
-  #   with:
-  #     make_target: ${{ matrix.make_target }}
-
-  merge-gatekeeper:
-    needs: [ test, check, integration_tests_api, integration_tests_cli]
-    name: Merge Gatekeeper
-    if: ${{ always() }}
+  fe_checks:
+    name: FE Checks
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    timeout-minutes: 20
     runs-on: cncf-ubuntu-8-32-x86
-    permissions:
-      contents: read
-      checks: read
+    defaults:
+      run:
+        working-directory: ui
+    env:
+      NODE_OPTIONS: "--max-old-space-size=4096"
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: Run Merge Gatekeeper
-        uses: upsidr/merge-gatekeeper@09af7a82c1666d0e64d2bd8c01797a0bcfd3bb5d # v1.2.1
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          self: Merge Gatekeeper
-          token: ${{ secrets.GITHUB_TOKEN }}
-          interval: 45
-          timeout: 600
-          ignored: "license/snyk (Percona Everest), security/snyk (Percona Everest)"
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
+        with:
+          version: 9.4.0
+
+      - name: Use Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20.x
+          cache: "pnpm"
+          cache-dependency-path: "ui/pnpm-lock.yaml"
+
+      - run: make init
+
+      - name: Lint
+        run: make lint-check
+
+      - name: Format
+        run: make format-check
+
+      - name: Build
+        run: make build
+
+  fe_unit_tests:
+    name: FE Unit Tests
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    timeout-minutes: 20
+    runs-on: cncf-ubuntu-8-32-x86
+    defaults:
+      run:
+        working-directory: ui
+    env:
+      NODE_OPTIONS: "--max-old-space-size=4096"
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
+        with:
+          version: 9.4.0
+
+      - name: Use Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20.x
+          cache: "pnpm"
+          cache-dependency-path: "ui/pnpm-lock.yaml"
+
+      - run: make init
+
+      - name: Unit tests
+        run: |
+          pnpm --filter "@percona/ui-lib" test
+          pnpm --filter "@percona/everest" test:unit
+
+  fe_browser_tests:
+    name: FE Browser Tests
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    uses: ./.github/workflows/dev-fe-browser-tests.yaml
+    secrets: inherit
+
+  fe_e2e_tests:
+    name: FE E2E Tests
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    uses: ./.github/workflows/dev-fe-e2e.yaml
+    secrets:
+      CI_USER: everestadmin
+      CI_PASSWORD: everestadmin
+      RBAC_USER: rbac_user
+      RBAC_PASSWORD: rbac-e2e-test
+
+  copyright:
+    name: Check Copyright Headers
+    timeout-minutes: 10
+    runs-on: cncf-ubuntu-8-32-x86
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # Check out the PR HEAD commit so file checks run on contributor changes,
+          # including for pull requests from forks.
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Collect changed source files
+        id: changed
+        run: |
+          # Use the PR diff, not a plain base-vs-head tree diff.
+          # This matches GitHub's "Files changed" tab and excludes files that differ
+          # only because the base branch moved forward after the feature branch split.
+          FILES=$(git diff --name-only --diff-filter=ACM \
+            "${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}" \
+            | grep -E '\.(go|ts|tsx)$' || true)
+
+          if [[ -z "$FILES" ]]; then
+            echo "No relevant files changed."
+            echo "any=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Files to check:"
+            echo "$FILES"
+            echo "$FILES" > /tmp/changed_files.txt
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python
+        if: steps.changed.outputs.any == 'true'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Check copyright headers
+        if: steps.changed.outputs.any == 'true'
+        run: |
+          make copyright-check FILES_FILE=/tmp/changed_files.txt
+
+  ci-ok:
+    name: CI OK
+    needs:
+      - changes
+      - test
+      - check
+      - integration_tests_api
+      - integration_tests_cli
+      - integration_tests_controller
+      - fe_checks
+      - fe_unit_tests
+      - fe_browser_tests
+      - fe_e2e_tests
+      - copyright
+    if: ${{ always() }}
+    timeout-minutes: 5
+    runs-on: cncf-ubuntu-8-32-x86
+    steps:
+      - name: Verify job results
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          # Skipped jobs are fine (path-filtered); anything else must succeed.
+          echo "$RESULTS" | jq -e 'to_entries | all(.value.result == "success" or .value.result == "skipped")' > /dev/null
+
+  # Transition alias: the "Protect Main" ruleset still requires a check named
+  # "Merge Gatekeeper". Remove this job once the ruleset requires "CI OK",
+  # "CodeQL", and "DCO" directly.
+  merge-gatekeeper:
+    name: Merge Gatekeeper
+    needs: [ci-ok]
+    if: ${{ always() }}
+    timeout-minutes: 5
+    runs-on: cncf-ubuntu-8-32-x86
+    steps:
+      - name: Mirror CI OK
+        run: test "${{ needs.ci-ok.result }}" = "success"
