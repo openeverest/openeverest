@@ -93,10 +93,6 @@ describe('affinityRulesToDbPayload', () => {
                     key: 'my-key',
                     operator: AffinityOperator.Exists,
                   },
-                ],
-              },
-              {
-                matchExpressions: [
                   {
                     key: 'my-other-key',
                     operator: AffinityOperator.In,
