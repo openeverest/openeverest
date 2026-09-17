@@ -100,7 +100,10 @@ jobs:
 
       - name: Enable /mnt (big volume) to be used by runner
         run: |
-          sudo chown -v runner:runner /mnt
+          # chown to the current user: the runner user differs across GitHub-hosted
+          # (runner) and CNCF ARC (ubuntu) runners.
+          sudo mkdir -p /mnt
+          sudo chown -v "$(id -u):$(id -g)" /mnt
 
       - name: Input validation
         run: |
