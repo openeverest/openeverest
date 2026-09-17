@@ -118,6 +118,47 @@ test.describe('Backups RBAC', () => {
     await expect(page.getByTestId('menu-button')).toBeVisible();
     await page.getByText('Create backup').click();
     await expect(page.getByText('Schedule', { exact: true })).toBeVisible();
+  test('TC-08: Minimal RBAC gating for Restore to New DB', async ({ page }) => {
+    // Restricted user: lacks database-clusters create permission
+    await setRBACPermissionsK8S([
+      ['namespaces', 'read', namespace],
+      ['database-engines', '*', `${namespace}/*`],
+      ['backup-storages', '*', `${namespace}/*`],
+      ['database-clusters', 'read', `${namespace}/${MOCK_CLUSTER_NAME}`],
+      ['database-cluster-backups', 'read', `${namespace}/${MOCK_CLUSTER_NAME}`],
+      ['database-cluster-restores', 'create', `${namespace}/*`],
+      [
+        'database-cluster-credentials',
+        'read',
+        `${namespace}/${MOCK_CLUSTER_NAME}`,
+      ],
+    ]);
+    await mockClusters(page, namespace);
+    await mockBackups(page, namespace);
+    await mockStorages(page, namespace);
+    await page.goto(`/databases/${namespace}/${MOCK_CLUSTER_NAME}/backups`);
+    await expect(page.getByTestId('row-actions-menu-button')).toBeVisible();
+    await page.getByTestId('row-actions-menu-button').click();
+    await expect(page.getByText('Create new DB')).not.toBeVisible();
+
+    // Authorized user: has required permissions
+    await setRBACPermissionsK8S([
+      ['namespaces', 'read', namespace],
+      ['database-engines', '*', `${namespace}/*`],
+      ['backup-storages', '*', `${namespace}/*`],
+      ['database-clusters', 'read', `${namespace}/${MOCK_CLUSTER_NAME}`],
+      ['database-clusters', 'create', `${namespace}/*`],
+      ['database-cluster-backups', 'read', `${namespace}/${MOCK_CLUSTER_NAME}`],
+      ['database-cluster-restores', 'create', `${namespace}/*`],
+      [
+        'database-cluster-credentials',
+        'read',
+        `${namespace}/${MOCK_CLUSTER_NAME}`,
+      ],
+    ]);
+    await page.reload();
+    await expect(page.getByTestId('row-actions-menu-button')).toBeVisible();
+    await page.getByTestId('row-actions-menu-button').click();
+    await expect(page.getByText('Create new DB')).toBeVisible();
   });
 });
-1;
