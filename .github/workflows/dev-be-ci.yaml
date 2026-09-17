@@ -183,6 +183,22 @@ jobs:
         run: |
           make k3d-cluster-up
 
+      # On CNCF (ARC) runners the CoreDNS default upstream is unreachable from the pod
+      # network, so every non-cluster lookup times out instead of resolving/NXDOMAIN-ing.
+      # Forward to the runner pod's own upstream (the host cluster's DNS), which is
+      # reachable via the DinD NAT path.
+      - name: Point cluster DNS at a reachable upstream
+        if: ${{ runner.environment != 'github-hosted' }}
+        run: |
+          UPSTREAM=$(awk '/^nameserver/ {print $2; exit}' /etc/resolv.conf)
+          kubectl -n kube-system get configmap coredns -o yaml \
+            | grep -q 'forward . /etc/resolv.conf'
+          kubectl -n kube-system get configmap coredns -o yaml \
+            | sed "s|forward . /etc/resolv.conf|forward . ${UPSTREAM}|" \
+            | kubectl apply -f -
+          kubectl -n kube-system rollout restart deployment coredns
+          kubectl -n kube-system rollout status deployment coredns --timeout=90s
+
       - name: Build Everest API Server binary
         run: |
           make build-debug
@@ -319,6 +335,19 @@ jobs:
           K3D_FIX_DNS: "1"
         run: |
           make k3d-cluster-up
+
+      # See "Point cluster DNS at a reachable upstream" in integration_tests_api.
+      - name: Point cluster DNS at a reachable upstream
+        if: ${{ runner.environment != 'github-hosted' }}
+        run: |
+          UPSTREAM=$(awk '/^nameserver/ {print $2; exit}' /etc/resolv.conf)
+          kubectl -n kube-system get configmap coredns -o yaml \
+            | grep -q 'forward . /etc/resolv.conf'
+          kubectl -n kube-system get configmap coredns -o yaml \
+            | sed "s|forward . /etc/resolv.conf|forward . ${UPSTREAM}|" \
+            | kubectl apply -f -
+          kubectl -n kube-system rollout restart deployment coredns
+          kubectl -n kube-system rollout status deployment coredns --timeout=90s
 
       - name: Run controller integration tests
         timeout-minutes: 20
