@@ -114,7 +114,11 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
 
   const logout = async () => {
     const token = localStorage.getItem('everestToken');
-    await api.delete('/session', { headers: { token: token } });
+    try {
+      await api.delete('/session', { headers: { token } });
+    } catch {
+      // best-effort server-side session deletion; always clean up locally
+    }
     if (isSsoEnabled) {
       await userManager.clearStaleState();
       await setLogoutStatus();
