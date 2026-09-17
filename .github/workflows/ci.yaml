@@ -1,15 +1,7 @@
 ---
-# Single PR CI pipeline.
-#
-# Design:
-# - One workflow, no workflow-level path filters: every PR produces the same set
-#   of check contexts, so required checks never hang in "Expected".
-# - The `changes` job classifies the diff once; backend/frontend jobs skip via
-#   `if:` when their area is untouched. Skipped jobs count as passing.
-# - `CI OK` aggregates every job result and is the single check that branch
-#   protection requires. No polling gatekeepers: GitHub's `needs` graph replaces
-#   upsidr/merge-gatekeeper (which burned a runner polling and hard-failed when
-#   any check took longer than its 600s timeout).
+# Single PR pipeline: `changes` classifies the diff, area jobs skip via `if:`,
+# and `CI OK` aggregates every result as the one merge-blocking check
+# (skipped-because-unrelated counts as passing).
 name: CI
 
 on:
@@ -132,15 +124,9 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
+      - name: Setup Node and pnpm
+        uses: ./.github/actions/setup-node-pnpm
         with:
-          version: 9.4.0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 20.x
-          cache: "pnpm"
           cache-dependency-path: |
             ui/pnpm-lock.yaml
             api-tests/pnpm-lock.yaml
@@ -195,15 +181,9 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
+      - name: Setup Node and pnpm
+        uses: ./.github/actions/setup-node-pnpm
         with:
-          version: 9.4.0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 20.x
-          cache: "pnpm"
           cache-dependency-path: api-tests/package-lock.json
 
       - name: Install Kubernetes tools
@@ -377,16 +357,8 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
-        with:
-          version: 9.4.0
-
-      - name: Use Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 20.x
-          cache: "pnpm"
-          cache-dependency-path: "ui/pnpm-lock.yaml"
+      - name: Setup Node and pnpm
+        uses: ./.github/actions/setup-node-pnpm
 
       - run: make init
 
@@ -416,16 +388,8 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
-        with:
-          version: 9.4.0
-
-      - name: Use Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 20.x
-          cache: "pnpm"
-          cache-dependency-path: "ui/pnpm-lock.yaml"
+      - name: Setup Node and pnpm
+        uses: ./.github/actions/setup-node-pnpm
 
       - run: make init
 
