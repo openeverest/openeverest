@@ -15,6 +15,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -40,6 +41,11 @@ type RestoreSpec struct {
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
+	// Resources sets CPU and memory requests/limits for the restore Job
+	// container. Overrides any default set in the BackupClass. Use this to
+	// prevent OOMKill on large restores (e.g. pgBackRest with big WAL).
+	// +optional
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // DataSourceType selects the restore intent: recover the state captured by a

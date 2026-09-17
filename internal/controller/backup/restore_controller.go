@@ -565,6 +565,17 @@ func (r *RestoreReconciler) getJobSpec(
 	bc *backupv1alpha1.BackupClass,
 	serviceAccountName string,
 ) batchv1.JobSpec {
+	// Start with the BackupClass-level default, then let the Restore CR override.
+	// This lets cluster admins set a sane default (e.g. 512Mi for pgBackRest)
+	// while individual restores can still raise it for unusually large datasets.
+	resources := corev1.ResourceRequirements{}
+	if bc.Spec.Job.Restore.JobSpec.Resources != nil {
+		resources = *bc.Spec.Job.Restore.JobSpec.Resources
+	}
+	if restore.Spec.Resources != nil {
+		resources = *restore.Spec.Resources
+	}
+
 	spec := batchv1.JobSpec{
 		BackoffLimit: pointer.ToInt32(0),
 		Template: corev1.PodTemplateSpec{
@@ -573,10 +584,11 @@ func (r *RestoreReconciler) getJobSpec(
 				ServiceAccountName:            serviceAccountName,
 				RestartPolicy:                 corev1.RestartPolicyNever,
 				Containers: []corev1.Container{{
-					Name:    "restorer",
-					Image:   bc.Spec.Job.Restore.JobSpec.Image,
-					Command: bc.Spec.Job.Restore.JobSpec.Command,
-					Args:    []string{fmt.Sprintf("%s/%s", payloadMountPath, backupJobJSONSecretKey)},
+					Name:      "restorer",
+					Image:     bc.Spec.Job.Restore.JobSpec.Image,
+					Command:   bc.Spec.Job.Restore.JobSpec.Command,
+					Args:      []string{fmt.Sprintf("%s/%s", payloadMountPath, backupJobJSONSecretKey)},
+					Resources: resources,
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "payload",
