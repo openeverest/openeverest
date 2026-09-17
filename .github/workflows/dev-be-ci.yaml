@@ -35,6 +35,11 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
+      # CNCF (ARC) runners export a literal, unexpanded `$HOME/.config` which breaks
+      # os.UserConfigDir(). Re-export it expanded until the runner image is fixed.
+      - name: Normalize XDG_CONFIG_HOME
+        run: echo "XDG_CONFIG_HOME=$HOME/.config" >> "$GITHUB_ENV"
+
       - name: Run tests
         timeout-minutes: 20
         run: |
