@@ -60,13 +60,21 @@ describe('collectSectionFields', () => {
     ]);
 
     expect(fields).toEqual([
-      { label: 'CPU', path: 'spec.components.engine.resources.limits.cpu', value: '1' },
+      {
+        label: 'CPU',
+        path: 'spec.components.engine.resources.limits.cpu',
+        value: '1',
+      },
       {
         label: 'Memory',
         path: 'spec.components.engine.resources.limits.memory',
         value: '0.6Gi',
       },
-      { label: 'Disk', path: 'spec.components.engine.storage.size', value: '25Gi' },
+      {
+        label: 'Disk',
+        path: 'spec.components.engine.storage.size',
+        value: '25Gi',
+      },
     ]);
   });
 
