@@ -141,6 +141,41 @@ func (mgr *Manager) Create(subject string, secondsBeforeExpiry int64, id string)
 	return mgr.signClaims(claims)
 }
 
+// SSOClaims extends the standard registered claims with the original OIDC issuer.
+// extractUsername() uses the oidc_issuer claim to distinguish SSO sessions from built-in ones.
+//
+//nolint:tagliatelle // oidc_issuer/email are OIDC/JWT claim names, not Go-style identifiers.
+type SSOClaims struct {
+	jwt.RegisteredClaims
+
+	OIDCIssuer string `json:"oidc_issuer"`
+	Email      string `json:"email,omitempty"`
+}
+
+// CreateSSO creates a new Everest-signed token for an SSO user whose identity was
+// validated against the OIDC provider. The oidcIssuer is stored as a custom claim so that
+// extractUsername() treats the resulting session as an external (non-built-in) user.
+func (mgr *Manager) CreateSSO(subject string, secondsBeforeExpiry int64, id, oidcIssuer, email string) (string, error) {
+	now := time.Now().UTC()
+	claims := SSOClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(now),
+			Issuer:    SessionManagerClaimsIssuer,
+			NotBefore: jwt.NewNumericDate(now),
+			Subject:   subject,
+			ID:        id,
+		},
+		OIDCIssuer: oidcIssuer,
+		Email:      email,
+	}
+	if secondsBeforeExpiry > 0 {
+		expires := now.Add(time.Duration(secondsBeforeExpiry) * time.Second)
+		claims.ExpiresAt = jwt.NewNumericDate(expires)
+	}
+
+	return mgr.signClaims(claims)
+}
+
 // Authenticate verifies the given username and password.
 func (mgr *Manager) Authenticate(ctx context.Context, username string, password string) error {
 	if password == "" {
@@ -283,6 +318,13 @@ func extractUsername(token *jwt.Token) (string, bool, error) {
 	iss, ok := content.Payload["iss"].(string)
 	if !ok {
 		return "", false, errExtractIss
+	}
+	// An Everest-signed SSO session carries the oidc_issuer claim; treat it as an external user
+	// whose identity lives in the OIDC provider, not the built-in account store.
+	if iss == SessionManagerClaimsIssuer {
+		if _, hasOIDC := content.Payload["oidc_issuer"].(string); hasOIDC {
+			return sub, false, nil
+		}
 	}
 	username := strings.TrimSuffix(sub, ":login")
 	return username, iss == SessionManagerClaimsIssuer, nil
