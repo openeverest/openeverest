@@ -14,6 +14,8 @@
 
 A flexible single-line or multi-line text input field. Suitable for names, descriptions, URLs, email addresses, passwords, and any other free-form text.
 
+> Common `fieldParams` properties (`label`, `defaultValue`, `disabled`, `helperText`, `info`, `tooltip`, `badge`, `modes`) apply to all field types and are documented in [Common Field Parameters](common-field-params.md).
+
 ## Properties:
 
 - `uiType`: `"text"` (**Required**)
