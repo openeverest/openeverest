@@ -74,7 +74,7 @@ func NewProviderConfig(ctx context.Context, issuer string) (ProviderConfig, erro
 	}
 	defer resp.Body.Close() //nolint:errcheck
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
 	if err != nil {
 		return ProviderConfig{}, fmt.Errorf("unable to read response body: %w", err)
 	}
@@ -103,7 +103,7 @@ func (c *ProviderConfig) NewKeyFunc(ctx context.Context) (jwt.Keyfunc, error) {
 	}
 
 	keyCache := jwk.NewCache(ctx)
-	if err := keyCache.Register(c.JWKSURL); err != nil {
+	if err := keyCache.Register(c.JWKSURL, jwk.WithHTTPClient(&http.Client{Timeout: defaultHTTPClientTimeout})); err != nil {
 		return nil, errors.Join(err, errors.New("failed to register jwk cache"))
 	}
 
