@@ -6,11 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/cmd/config"
@@ -25,7 +27,15 @@ const (
 	initialMetricsDelay = 5 * time.Minute
 
 	numEngineTypes = 3
+
+	// telemetryHTTPTimeout bounds how long a single telemetry POST may block the caller.
+	telemetryHTTPTimeout = 30 * time.Second
+	// telemetryMaxErrorBodyLogBytes limits how much of a non-OK response body we read for logs.
+	telemetryMaxErrorBodyLogBytes = 4096
 )
+
+// defaultTelemetryHTTPClient is used for outbound telemetry (bounded timeout; avoids hanging on DefaultClient).
+var defaultTelemetryHTTPClient = &http.Client{Timeout: telemetryHTTPTimeout}
 
 // Telemetry is the struct for telemetry reports.
 type Telemetry struct {
@@ -54,24 +64,54 @@ func (e *EverestServer) report(ctx context.Context, baseURL string, data Telemet
 		return err
 	}
 
+	return postTelemetryPayload(ctx, defaultTelemetryHTTPClient, baseURL, b, e.l)
+}
+
+// postTelemetryPayload POSTs a JSON payload to the telemetry GenericReport endpoint.
+// httpClient must not be nil in production; tests may pass a custom client (e.g. httptest.Server.Client()).
+func postTelemetryPayload(
+	ctx context.Context,
+	httpClient *http.Client,
+	baseURL string,
+	payload []byte,
+	l *zap.SugaredLogger,
+) error {
 	url := fmt.Sprintf("%s/v1/telemetry/GenericReport", baseURL)
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(b))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
-		e.l.Error(errors.Join(err, errors.New("failed to create http request")))
+		l.Error(errors.Join(err, errors.New("failed to create http request")))
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+
+	if httpClient == nil {
+		httpClient = defaultTelemetryHTTPClient
+	}
+
+	resp, err := httpClient.Do(req)
 	if err != nil {
-		e.l.Error(errors.Join(err, errors.New("failed to send telemetry request")))
+		l.Error(errors.Join(err, errors.New("failed to send telemetry request")))
 		return err
 	}
-	defer resp.Body.Close() //nolint:errcheck
-	if resp.StatusCode != http.StatusOK {
-		e.l.Info("Telemetry service responded with http status ", resp.StatusCode)
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusOK {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		return nil
 	}
-	return nil
+
+	snippet, readErr := io.ReadAll(io.LimitReader(resp.Body, telemetryMaxErrorBodyLogBytes))
+	if readErr != nil {
+		err := fmt.Errorf("telemetry request failed with status %d: %w", resp.StatusCode, readErr)
+		l.Errorw("telemetry non-OK response", "status", resp.StatusCode, "bodyReadErr", readErr)
+		return err
+	}
+	if len(snippet) == telemetryMaxErrorBodyLogBytes {
+		l.Warn("telemetry error response body truncated; original response is longer")
+	}
+	l.Warnw("telemetry non-OK response", "status", resp.StatusCode, "bodySnippet", string(snippet))
+	return fmt.Errorf("telemetry request failed with status %d", resp.StatusCode)
 }
 
 // RunTelemetryJob runs background job for collecting telemetry.
