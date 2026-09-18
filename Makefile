@@ -309,12 +309,16 @@ test-crosscover: setup-envtest ## Run unit tests and collect cross-package cover
 	KUBEBUILDER_ASSETS="$$("$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" \
 	CGO_ENABLED=1 go test -race -timeout=20m -count=1 -coverprofile=crosscover.out -covermode=atomic -p=1 -coverpkg=./... ./...
 
+# CI builds the controller image once (build_images in ci.yaml) and loads it
+# pre-built; SKIP_IMAGE_BUILD skips the local image build.
+CONTROLLER_IMAGE_PREREQ = $(if $(SKIP_IMAGE_BUILD),,docker-build-controller)
+
 .PHONY: test-integration-backup
-test-integration-backup: docker-build-controller upload-controller-image deploy-test-controller
+test-integration-backup: $(CONTROLLER_IMAGE_PREREQ) upload-controller-image deploy-test-controller
 	chainsaw test --config test/integration/.backup.yaml test/integration/backup
 
 .PHONY: test-integration-monitoring
-test-integration-monitoring: docker-build-controller upload-controller-image deploy-test-controller
+test-integration-monitoring: $(CONTROLLER_IMAGE_PREREQ) upload-controller-image deploy-test-controller
 	chainsaw test --config test/integration/.monitoring.yaml test/integration/monitoring
 
 ##@ Deployment management

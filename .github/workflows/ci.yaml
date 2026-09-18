@@ -274,9 +274,45 @@ jobs:
           pwd
           git status
 
+  build_images:
+    name: Build Images
+    needs: changes
+    # Frontend-only PRs need it too: FE E2E deploys the server image.
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
+    timeout-minutes: 15
+    runs-on: cncf-ubuntu-16-64-x86
+    steps:
+      - name: Check out code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Go release
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Build server and controller images
+        run: |
+          make build-debug build-controller docker-build docker-build-controller
+
+      - name: Export images
+        run: |
+          docker save -o /tmp/everest-dev-images.tar \
+            ghcr.io/openeverest/openeverest-dev:0.0.0 \
+            ghcr.io/openeverest/openeverest-controller-dev:0.0.0
+
+      - name: Upload images artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: everest-dev-images
+          path: /tmp/everest-dev-images.tar
+          retention-days: 1
+
   integration_tests_api:
     name: API Integration Tests
-    needs: changes
+    needs: [changes, build_images]
     if: needs.changes.outputs.backend == 'true'
     timeout-minutes: 90
     runs-on: cncf-ubuntu-16-64-x86
@@ -307,17 +343,14 @@ jobs:
         run: |
           make kind-cluster-up
 
-      - name: Build Everest API Server binary
-        run: |
-          make build-debug
+      - name: Download images
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: everest-dev-images
+          path: /tmp
 
-      - name: Build Everest Controller binary
-        run: |
-          make build-controller
-
-      - name: Build Everest API server docker image
-        run: |
-          make docker-build
+      - name: Load images
+        run: docker load -i /tmp/everest-dev-images.tar
 
       - name: Upload Everest API server image to kind test cluster
         run: |
@@ -346,7 +379,7 @@ jobs:
 
   integration_tests_cli:
     name: CLI Integration Tests
-    needs: changes
+    needs: [changes, build_images]
     if: needs.changes.outputs.backend == 'true'
     timeout-minutes: 45
     runs-on: cncf-ubuntu-16-64-x86
@@ -378,11 +411,14 @@ jobs:
         run: |
           make kind-cluster-up
 
-      - name: Build controller and server
-        run: |
-          make build-debug
-          make build-controller
-          make docker-build
+      - name: Download images
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: everest-dev-images
+          path: /tmp
+
+      - name: Load images
+        run: docker load -i /tmp/everest-dev-images.tar
 
       - name: Upload Everest API server image to kind test cluster
         run: |
@@ -406,7 +442,7 @@ jobs:
 
   integration_tests_controller:
     name: Controller Integration Tests (${{ matrix.make_target }})
-    needs: changes
+    needs: [changes, build_images]
     if: needs.changes.outputs.backend == 'true'
     timeout-minutes: 45
     strategy:
@@ -441,10 +477,20 @@ jobs:
         run: |
           make kind-cluster-up
 
+      - name: Download images
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: everest-dev-images
+          path: /tmp
+
+      - name: Load images
+        run: docker load -i /tmp/everest-dev-images.tar
+
       - name: Run controller integration tests
         timeout-minutes: 20
         env:
           CLUSTER_PROVIDER: kind
+          SKIP_IMAGE_BUILD: 1
         run: |
           make ${{ matrix.make_target }}
 
@@ -520,7 +566,7 @@ jobs:
 
   fe_e2e_tests:
     name: FE E2E Tests
-    needs: changes
+    needs: [changes, build_images]
     # Also on backend changes: the only job exercising install -> API -> UI.
     if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true'
     uses: ./.github/workflows/dev-fe-e2e.yaml
@@ -579,6 +625,7 @@ jobs:
       - lint_workflows
       - test
       - check
+      - build_images
       - integration_tests_api
       - integration_tests_cli
       - integration_tests_controller

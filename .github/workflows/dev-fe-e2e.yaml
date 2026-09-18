@@ -58,29 +58,15 @@ jobs:
           url=$(kubectl get svc/monitoring-service -o json | jq -r '.spec.clusterIP')
           echo -n "MONITORING_URL=http://$url" >> $GITHUB_ENV
 
-      - name: Build Everest API Server
-        run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-debug
-
-      - name: Build Everest Controller
-        run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-controller
-
-      - name: Build Everest docker container
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
-        id: meta
+      # Built once by the build_images job in ci.yaml.
+      - name: Download images
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
-          images: ghcr.io/openeverest/openeverest-dev
-          tags: 0.0.0
+          name: everest-dev-images
+          path: /tmp
 
-      - name: Build everest dev image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          context: .
-          file: build/package/server/Dockerfile
-          target: openeverest
-          load: true
-          tags: ${{ steps.meta.outputs.tags }}
+      - name: Load images
+        run: docker load -i /tmp/everest-dev-images.tar
 
       - name: Upload everest dev image to kind test cluster
         run: |
