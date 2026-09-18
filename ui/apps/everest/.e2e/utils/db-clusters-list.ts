@@ -72,13 +72,22 @@ export const gotoDbClusterRestores = async (
   await page.getByTestId('restores').click();
 };
 
-export const deleteDbCluster = async (page: Page, clusterName: string) => {
+export const deleteDbCluster = async (
+  page: Page,
+  clusterName: string,
+  // Keeping backup storage data maps to the instance's Orphan deletion
+  // policy; the default (false) maps to Cascade.
+  keepBackupStorageData = false
+) => {
   await page.goto('databases');
   await waitForDbListLoad(page);
   await findDbAndClickActions(page, clusterName, 'delete', 'Up');
   await expect(page.getByText('Delete instance')).toBeVisible();
   await expect(page.getByText('Irreversible action')).toBeVisible();
   await page.getByTestId('text-input-confirm-input').fill(clusterName);
+  if (keepBackupStorageData) {
+    await page.getByTestId('checkbox-data-checkbox').click();
+  }
   await page.getByTestId('form-dialog-delete').click();
 };
 
