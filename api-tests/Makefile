@@ -22,19 +22,23 @@ gen-types: ## Generate TypeScript types from the OpenAPI spec (api/openapi/http-
 	pnpm install
 	pnpm generate-types
 
-CI_INIT_DEPS := init deploy-monitoring create-test-users
-CI_INIT_DEPS += deploy-minio create-test-manifests
+CI_INIT_DEPS := deploy-monitoring init create-test-users
+CI_INIT_DEPS += deploy-minio create-test-manifests wait-monitoring
 .PHONY: ci-init
 ci-init: $(CI_INIT_DEPS) 	## Prepare environment for running tests.
 
 PMM_HELM_CHART_VER=1.4.13
 HELM=go tool -modfile=$(TEST_ROOT)/../go.mod helm
 .PHONY: deploy-monitoring
-deploy-monitoring:   ## Deploy monitoring instances to K3D test cluster.
-	$(info Deploying PMM instances to K3D test cluster)
+deploy-monitoring:   ## Start deploying PMM to the test cluster; wait-monitoring blocks on readiness.
+	$(info Deploying PMM instances to test cluster)
 	$(HELM) repo add percona https://percona.github.io/percona-helm-charts/
-	# PMM 3 starts really slowly, so we increase timeout to 15 minutes
-	$(HELM) install pmm --set secret.pmm_password='admin',service.type=ClusterIP percona/pmm --version $(PMM_HELM_CHART_VER) --timeout 15m -n everest-monitoring --wait
+	$(HELM) install pmm --set secret.pmm_password='admin',service.type=ClusterIP percona/pmm --version $(PMM_HELM_CHART_VER) -n everest-monitoring
+
+.PHONY: wait-monitoring
+wait-monitoring:   ## Wait for PMM readiness and port-forward it to localhost.
+	# PMM 3 starts slowly; deploy-monitoring runs first so the boot overlaps the rest of ci-init.
+	kubectl rollout status statefulset/pmm -n everest-monitoring --timeout=15m
 	$(info Port-forwarding PMM instances to localhost)
 	kubectl port-forward -n everest-monitoring svc/monitoring-service 8090:443 &
 	kubectl port-forward -n everest-monitoring svc/monitoring-service 8091:443 &

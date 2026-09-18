@@ -1,11 +1,11 @@
 ---
-# Single PR pipeline: `changes` classifies the diff, area jobs skip via `if:`,
+# Single PR pipeline: `prepare` classifies the diff, area jobs skip via `if:`,
 # and `CI OK` aggregates every result as the one merge-blocking check
 # (skipped-because-unrelated counts as passing).
 #
 # Do NOT add `paths:` filters to the triggers: if the workflow does not run at
 # all, the required "CI OK" context never reports and the PR blocks forever.
-# Path-based skipping belongs in the `changes` job.
+# Path-based skipping belongs in the `prepare` job.
 name: CI
 
 on:
@@ -30,10 +30,13 @@ permissions:
   contents: read
 
 jobs:
-  changes:
-    name: Detect changes
-    runs-on: cncf-ubuntu-8-32-x86
-    timeout-minutes: 5
+  # Classifies the diff for the whole pipeline, then builds the dev images in
+  # the same pod - a separate build job would add a full runner cold start to
+  # the critical path of every backend and frontend run.
+  prepare:
+    name: Prepare
+    runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 15
     outputs:
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
@@ -84,10 +87,44 @@ jobs:
           echo "workflows=$workflows" >> "$GITHUB_OUTPUT"
           echo "backend=$backend frontend=$frontend workflows=$workflows"
 
+      # Frontend-only PRs need the images too: FE E2E deploys the server image.
+      - name: Check out code
+        if: steps.filter.outputs.backend == 'true' || steps.filter.outputs.frontend == 'true'
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Go release
+        if: steps.filter.outputs.backend == 'true' || steps.filter.outputs.frontend == 'true'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Build server and controller images
+        if: steps.filter.outputs.backend == 'true' || steps.filter.outputs.frontend == 'true'
+        run: |
+          make build-debug build-controller docker-build docker-build-controller
+
+      - name: Export images
+        if: steps.filter.outputs.backend == 'true' || steps.filter.outputs.frontend == 'true'
+        run: |
+          docker save -o /tmp/everest-dev-images.tar \
+            ghcr.io/openeverest/openeverest-dev:0.0.0 \
+            ghcr.io/openeverest/openeverest-controller-dev:0.0.0
+
+      - name: Upload images artifact
+        if: steps.filter.outputs.backend == 'true' || steps.filter.outputs.frontend == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: everest-dev-images
+          path: /tmp/everest-dev-images.tar
+          retention-days: 1
+
   lint_workflows:
     name: Lint workflows
-    needs: changes
-    if: needs.changes.outputs.workflows == 'true'
+    needs: prepare
+    if: needs.prepare.outputs.workflows == 'true'
     timeout-minutes: 10
     runs-on: cncf-ubuntu-8-32-x86
     steps:
@@ -131,8 +168,8 @@ jobs:
 
   test:
     name: Test
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    needs: prepare
+    if: needs.prepare.outputs.backend == 'true'
     timeout-minutes: 30
     runs-on: cncf-ubuntu-8-32-x86
     steps:
@@ -170,8 +207,8 @@ jobs:
 
   check:
     name: Check
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    needs: prepare
+    if: needs.prepare.outputs.backend == 'true'
     timeout-minutes: 15
     runs-on: cncf-ubuntu-8-32-x86
     permissions:
@@ -274,46 +311,10 @@ jobs:
           pwd
           git status
 
-  build_images:
-    name: Build Images
-    needs: changes
-    # Frontend-only PRs need it too: FE E2E deploys the server image.
-    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true'
-    timeout-minutes: 15
-    runs-on: cncf-ubuntu-16-64-x86
-    steps:
-      - name: Check out code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-
-      - name: Set up Go release
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: 'go.mod'
-          cache: true
-
-      - name: Build server and controller images
-        run: |
-          make build-debug build-controller docker-build docker-build-controller
-
-      - name: Export images
-        run: |
-          docker save -o /tmp/everest-dev-images.tar \
-            ghcr.io/openeverest/openeverest-dev:0.0.0 \
-            ghcr.io/openeverest/openeverest-controller-dev:0.0.0
-
-      - name: Upload images artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: everest-dev-images
-          path: /tmp/everest-dev-images.tar
-          retention-days: 1
-
   integration_tests_api:
     name: API Integration Tests
-    needs: [changes, build_images]
-    if: needs.changes.outputs.backend == 'true'
+    needs: prepare
+    if: needs.prepare.outputs.backend == 'true'
     timeout-minutes: 90
     runs-on: cncf-ubuntu-16-64-x86
     steps:
@@ -379,8 +380,8 @@ jobs:
 
   integration_tests_cli:
     name: CLI Integration Tests
-    needs: [changes, build_images]
-    if: needs.changes.outputs.backend == 'true'
+    needs: prepare
+    if: needs.prepare.outputs.backend == 'true'
     timeout-minutes: 45
     runs-on: cncf-ubuntu-16-64-x86
     env:
@@ -442,8 +443,8 @@ jobs:
 
   integration_tests_controller:
     name: Controller Integration Tests (${{ matrix.make_target }})
-    needs: [changes, build_images]
-    if: needs.changes.outputs.backend == 'true'
+    needs: prepare
+    if: needs.prepare.outputs.backend == 'true'
     timeout-minutes: 45
     strategy:
       # The legs are independent suites; let both report so a contributor gets
@@ -502,10 +503,10 @@ jobs:
 
   fe_checks:
     name: FE Checks
-    needs: changes
+    needs: prepare
     # Also on backend changes: `make gen` regenerates UI TypeScript from the
     # OpenAPI spec, and only these jobs compile it.
-    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true'
+    if: needs.prepare.outputs.frontend == 'true' || needs.prepare.outputs.backend == 'true'
     timeout-minutes: 20
     runs-on: cncf-ubuntu-8-32-x86
     defaults:
@@ -534,8 +535,8 @@ jobs:
 
   fe_unit_tests:
     name: FE Unit Tests
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    needs: prepare
+    if: needs.prepare.outputs.frontend == 'true'
     timeout-minutes: 20
     runs-on: cncf-ubuntu-8-32-x86
     defaults:
@@ -560,15 +561,15 @@ jobs:
 
   fe_browser_tests:
     name: FE Browser Tests
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    needs: prepare
+    if: needs.prepare.outputs.frontend == 'true'
     uses: ./.github/workflows/dev-fe-browser-tests.yaml
 
   fe_e2e_tests:
     name: FE E2E Tests
-    needs: [changes, build_images]
+    needs: prepare
     # Also on backend changes: the only job exercising install -> API -> UI.
-    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true'
+    if: needs.prepare.outputs.frontend == 'true' || needs.prepare.outputs.backend == 'true'
     uses: ./.github/workflows/dev-fe-e2e.yaml
 
   copyright:
@@ -621,11 +622,10 @@ jobs:
   ci-ok:
     name: CI OK
     needs:
-      - changes
+      - prepare
       - lint_workflows
       - test
       - check
-      - build_images
       - integration_tests_api
       - integration_tests_cli
       - integration_tests_controller
