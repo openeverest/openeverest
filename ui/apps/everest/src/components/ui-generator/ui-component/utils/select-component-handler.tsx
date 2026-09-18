@@ -18,6 +18,7 @@ import {
   FieldType,
   Component,
   SelectFieldParams,
+  SelectOptionsItem,
 } from '../../ui-generator.types';
 import { Provider } from 'shared-types/api.types';
 import { getValueByPath } from './get-value-by-path';
@@ -31,7 +32,7 @@ export const isSelectComponent = (item: Component): item is SelectComponent => {
 export const resolveSelectOptions = (
   selectParams: SelectFieldParams,
   providerObject?: Provider
-): { label: string; value: string }[] => {
+): SelectOptionsItem[] => {
   if ('options' in selectParams && selectParams.options) {
     return selectParams.options;
   }
@@ -46,7 +47,7 @@ export const resolveSelectOptions = (
     const rawData = getValueByPath(providerObject, optionsPath);
 
     if (Array.isArray(rawData)) {
-      const { labelPath, valuePath } = optionsPathConfig;
+      const { labelPath, valuePath, defaultPath } = optionsPathConfig;
       return rawData.map((item) => ({
         label: String(
           getValueByPath(item as Record<string, unknown>, labelPath) ?? ''
@@ -54,6 +55,11 @@ export const resolveSelectOptions = (
         value: String(
           getValueByPath(item as Record<string, unknown>, valuePath) ?? ''
         ),
+        isDefault: defaultPath
+          ? Boolean(
+              getValueByPath(item as Record<string, unknown>, defaultPath)
+            )
+          : false,
       }));
     }
   }
