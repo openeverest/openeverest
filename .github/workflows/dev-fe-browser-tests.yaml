@@ -10,14 +10,15 @@ permissions:
 
 jobs:
   browser-tests:
+    timeout-minutes: 30
     runs-on: cncf-ubuntu-8-32-x86
     defaults:
       run:
         working-directory: ui
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ github.sha }}
+          persist-credentials: false
 
       - name: Setup Node and pnpm
         uses: ./.github/actions/setup-node-pnpm
@@ -43,7 +44,7 @@ jobs:
 
       - name: Upload browser test reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: vitest-browser-reports
           path: ui/apps/everest/test-results/
