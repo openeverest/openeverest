@@ -125,7 +125,7 @@ test.describe.serial(
   },
   () => {
     test.skip(!shouldExecuteDBCombination(db, size));
-    test.describe.configure({ timeout: 1_200_000 }); // 20 minutes
+    test.describe.configure({ timeout: 1_800_000 }); // 30 minutes
 
     const clusterName = `${db}-${size}-pitr`;
     const namespace = EVEREST_CI_NAMESPACES.EVEREST_UI;
@@ -551,7 +551,7 @@ test.describe.serial(
             return connectionResponse.status();
           },
           {
-            timeout: 12 * 60 * 1000,
+            timeout: 20 * 60 * 1000,
             intervals: [5000, 10000, 15000],
           }
         )

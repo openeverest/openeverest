@@ -55,7 +55,9 @@ export const getInstanceConnection = async (
   let token = await getCITokenFromLocalStorage();
   const start = Date.now();
   let lastStatus = 0;
-  const timeoutMs = 10 * 60 * 1000;
+  // Two 3-node PXC clusters bootstrap in parallel on one CI node, so the
+  // connection secret can take a while to appear; poll generously.
+  const timeoutMs = 20 * 60 * 1000;
   const pollIntervalMs = 5000;
 
   while (Date.now() - start < timeoutMs) {

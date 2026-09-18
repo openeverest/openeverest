@@ -74,7 +74,7 @@ function getNextScheduleMinute(incrementMinutes: number): string {
     },
     () => {
       test.skip(!shouldExecuteDBCombination(db, size));
-      test.describe.configure({ timeout: 1_200_000 });
+      test.describe.configure({ timeout: 1_800_000 });
 
       // Define primary and restored cluster names to use across related tests
       const clusterName = `${db}-${size}-pri`;
