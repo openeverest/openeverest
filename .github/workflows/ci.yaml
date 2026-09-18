@@ -117,7 +117,7 @@ jobs:
           python3 - <<'EOF'
           import sys, yaml
           ci = yaml.safe_load(open('.github/workflows/ci.yaml'))
-          aggregators = {'ci-ok', 'merge-gatekeeper'}
+          aggregators = {'ci-ok'}
           missing_agg = aggregators - set(ci['jobs'])
           if missing_agg:
               sys.exit(f"aggregator jobs renamed or removed: {sorted(missing_agg)}")
@@ -599,16 +599,3 @@ jobs:
           echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
           # Skipped jobs are fine (path-filtered); anything else must succeed.
           echo "$RESULTS" | jq -e 'to_entries | length > 0 and all(.value.result == "success" or .value.result == "skipped")' > /dev/null
-
-  # Transition alias: the "Protect Main" ruleset still requires a check named
-  # "Merge Gatekeeper". Remove this job once the ruleset requires "CI OK",
-  # "CodeQL", and "DCO" directly.
-  merge-gatekeeper:
-    name: Merge Gatekeeper
-    needs: [ci-ok]
-    if: ${{ !cancelled() }}
-    timeout-minutes: 5
-    runs-on: cncf-ubuntu-8-32-x86
-    steps:
-      - name: Mirror CI OK
-        run: test "${{ needs.ci-ok.result }}" = "success"
