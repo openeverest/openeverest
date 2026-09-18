@@ -1,0 +1,614 @@
+---
+# Single PR pipeline: `changes` classifies the diff, area jobs skip via `if:`,
+# and `CI OK` aggregates every result as the one merge-blocking check
+# (skipped-because-unrelated counts as passing).
+#
+# Do NOT add `paths:` filters to the triggers: if the workflow does not run at
+# all, the required "CI OK" context never reports and the PR blocks forever.
+# Path-based skipping belongs in the `changes` job.
+name: CI
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches:
+      - main
+  schedule:
+    # Nightly full run on main: catches semantic merge conflicts and gives an
+    # unconfounded flake-rate baseline.
+    - cron: '0 3 * * *'
+
+# One active run per PR: pushing a new revision supersedes the previous run.
+# Non-PR runs (push/nightly/queue) each get their own lane via run_id so the
+# per-commit signal is never cancelled or evicted from a shared queue.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: cncf-ubuntu-8-32-x86
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+    steps:
+      - name: Classify changed files
+        id: filter
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            # push / merge_group / schedule: always run everything.
+            echo "backend=true"   >> "$GITHUB_OUTPUT"
+            echo "frontend=true"  >> "$GITHUB_OUTPUT"
+            echo "workflows=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # The files API caps out at 3000 entries; beyond that, classification
+          # would silently miss files, so fail open and run everything.
+          if [ "${{ github.event.pull_request.changed_files }}" -gt 3000 ]; then
+            echo "backend=true"   >> "$GITHUB_OUTPUT"
+            echo "frontend=true"  >> "$GITHUB_OUTPUT"
+            echo "workflows=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          FILES=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            --paginate --jq '.[].filename')
+          echo "$FILES"
+
+          backend=false; frontend=false; workflows=false
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              docs/*|*.md|LICENSE|CODEOWNERS|.github/ISSUE_TEMPLATE/*|.github/labels.yml) ;;
+              ui/*) frontend=true ;;
+              # The pipeline itself, shared actions, and files both areas build with.
+              .github/workflows/ci.yaml|.github/workflows/dev-fe-browser-tests.yaml|.github/workflows/dev-fe-e2e.yaml|.github/actions/*|Makefile|dev/*)
+                backend=true; frontend=true; workflows=true ;;
+              # Other automation: lint it, but don't run the product suites.
+              .github/*) workflows=true ;;
+              *) backend=true ;;
+            esac
+          done <<< "$FILES"
+          echo "backend=$backend"   >> "$GITHUB_OUTPUT"
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+          echo "workflows=$workflows" >> "$GITHUB_OUTPUT"
+          echo "backend=$backend frontend=$frontend workflows=$workflows"
+
+  lint_workflows:
+    name: Lint workflows
+    needs: changes
+    if: needs.changes.outputs.workflows == 'true'
+    timeout-minutes: 10
+    runs-on: cncf-ubuntu-8-32-x86
+    steps:
+      - name: Check out code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Run actionlint
+        run: |
+          curl -fsSL -o /tmp/actionlint.tar.gz \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          curl -fsSL -o /tmp/actionlint_checksums.txt \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_checksums.txt
+          grep ' actionlint_1.7.12_linux_amd64.tar.gz$' /tmp/actionlint_checksums.txt \
+            | awk '{print $1 "  /tmp/actionlint.tar.gz"}' | sha256sum --check --status
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+          # -shellcheck='': actionlint only uses shellcheck when the runner image
+          # happens to ship it; disable so the gate's strictness is deterministic.
+          /tmp/actionlint -color -shellcheck=
+
+      # A job missing from ci-ok's `needs` would be invisible to the gate: its
+      # failure could not block a merge. Fail loudly instead of silently.
+      - name: Verify the CI OK gate covers every job
+        run: |
+          pip3 install --quiet pyyaml
+          python3 - <<'EOF'
+          import sys, yaml
+          ci = yaml.safe_load(open('.github/workflows/ci.yaml'))
+          aggregators = {'ci-ok', 'merge-gatekeeper'}
+          missing_agg = aggregators - set(ci['jobs'])
+          if missing_agg:
+              sys.exit(f"aggregator jobs renamed or removed: {sorted(missing_agg)}")
+          jobs = set(ci['jobs']) - aggregators
+          needs = set(ci['jobs']['ci-ok']['needs'])
+          missing = jobs - needs
+          if missing:
+              sys.exit(f"jobs not covered by the CI OK gate: {sorted(missing)}")
+          print(f"gate covers all {len(jobs)} jobs")
+          EOF
+
+  test:
+    name: Test
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    timeout-minutes: 30
+    runs-on: cncf-ubuntu-8-32-x86
+    steps:
+      - name: Check out code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Go release
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      # CNCF (ARC) runners export a literal, unexpanded `$HOME/.config` which breaks
+      # os.UserConfigDir(). Re-export it expanded until the runner image is fixed.
+      - name: Normalize XDG_CONFIG_HOME
+        run: echo "XDG_CONFIG_HOME=$HOME/.config" >> "$GITHUB_ENV"
+
+      # Step timeout stays above go test's own -timeout so Go wins the race and
+      # prints the goroutine dump instead of the runner killing the process.
+      - name: Run tests
+        timeout-minutes: 25
+        run: |
+          make test
+
+      - name: Run debug commands on failure
+        if: ${{ failure() }}
+        run: |
+          env
+          go version
+          go env
+          pwd
+          git status
+
+  check:
+    name: Check
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    timeout-minutes: 15
+    runs-on: cncf-ubuntu-8-32-x86
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      # Head sha (not the merge ref): the lint step maps findings onto the PR
+      # diff, and line numbers must match what the contributor sees.
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Go release
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Setup Node and pnpm
+        uses: ./.github/actions/setup-node-pnpm
+        with:
+          cache-dependency-path: |
+            ui/pnpm-lock.yaml
+            api-tests/pnpm-lock.yaml
+
+      - name: Run linters
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Fork PRs get a read-only token: inline PR reviews cannot be posted,
+          # but workflow-command annotations render for everyone.
+          REPORTER: ${{ github.event.pull_request.head.repo.full_name != github.repository && 'github-annotations' || 'github-pr-review' }}
+        run: |
+          # Stub the embedded UI build output so `//go:embed dist/*` typechecks (see `make build`/`make test`).
+          mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
+          go tool golangci-lint run --new-from-merge-base=origin/${{ github.base_ref }} --show-stats=false \
+            | go tool reviewdog -f=golangci-lint -reporter="$REPORTER" -fail-level=any
+
+      - name: Run go-consistent on changed code
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPORTER: ${{ github.event.pull_request.head.repo.full_name != github.repository && 'github-annotations' || 'github-pr-review' }}
+        run: |
+          # Incremental via reviewdog: the full tree carries a 400+ finding
+          # backlog (mostly generated files, which go-consistent cannot exclude).
+          mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
+          go tool go-consistent ./... \
+            | go tool reviewdog -efm='%f:%l:%c: %m' -reporter="$REPORTER" -filter-mode=added -fail-level=any
+
+      # Full-tree lint as a nightly ratchet input (and toolchain-bump canary):
+      # advisory only, the PR gate stays incremental.
+      - name: Run full-tree lint (nightly)
+        if: ${{ github.event_name != 'pull_request' }}
+        continue-on-error: true
+        run: |
+          mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
+          go tool golangci-lint run --show-stats=false
+
+      - name: Check that there are no source code changes
+        run: |
+          make gen
+          go mod tidy -v
+          # Stale go.sum removals are expected (Dependabot PRs); additions mean
+          # the PR forgot to commit go.sum entries and must fail.
+          added=$(git diff --numstat -- go.sum | awk '{s+=$1} END {print s+0}')
+          if [ "$added" -gt 0 ]; then
+            echo "go.sum is missing $added entr(y/ies); run 'go mod tidy' and commit"
+            git diff -- go.sum
+            exit 1
+          fi
+          git checkout go.sum
+          git status
+          git diff --exit-code
+
+      # Intentional on non-PR runs: merging a chart/pending-labelled PR turns
+      # main red until the go.mod pin bump lands, which must follow immediately
+      # after any helm-charts merge - the postsubmit is the reminder.
+      - name: Check that the pinned dev Helm chart is on the tracked branch
+        if: ${{ github.event_name != 'pull_request' || !contains(github.event.pull_request.labels.*.name, 'chart/pending') }}
+        run: make check-dev-chart
+
+      - name: Check the Makefile references dev version
+        run: |
+          if ! grep -q "RELEASE_VERSION ?= v0.0.0" Makefile; then 
+            echo "default RELEASE_VERSION in Makefile should be 0.0.0" 
+            exit 1 
+          fi 
+
+      - name: Run debug commands on failure
+        if: ${{ failure() }}
+        run: |
+          env
+          go version
+          go env
+          pwd
+          git status
+
+  integration_tests_api:
+    name: API Integration Tests
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    timeout-minutes: 90
+    runs-on: cncf-ubuntu-16-64-x86
+    steps:
+      - name: Check out code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Go release
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Setup Node and pnpm
+        uses: ./.github/actions/setup-node-pnpm
+        with:
+          cache-dependency-path: api-tests/pnpm-lock.yaml
+
+      - name: Install Kubernetes tools
+        uses: ./.github/actions/install-kubernetes-tools
+        with:
+          install-kubectl: true
+          install-kind: true
+
+      - name: Run kind test cluster
+        run: |
+          make kind-cluster-up
+
+      - name: Build Everest API Server binary
+        run: |
+          make build-debug
+
+      - name: Build Everest Controller binary
+        run: |
+          make build-controller
+
+      - name: Build Everest API server docker image
+        run: |
+          make docker-build
+
+      - name: Upload Everest API server image to kind test cluster
+        run: |
+          make kind-upload-server-image
+
+      - name: Build Everest CLI binary
+        run: |
+          make build-cli-debug
+
+      - name: Deploy Everest to kind test cluster
+        timeout-minutes: 10
+        run: |
+          make deploy
+
+      - name: Init testing (CI) environment
+        working-directory: api-tests
+        timeout-minutes: 40
+        run: |
+          make ci-init
+
+      - name: Run integration tests
+        working-directory: api-tests
+        timeout-minutes: 20
+        run: |
+          make test
+
+  integration_tests_cli:
+    name: CLI Integration Tests
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    timeout-minutes: 45
+    runs-on: cncf-ubuntu-16-64-x86
+    env:
+      PERCONA_VERSION_SERVICE_URL: https://check-dev.percona.com/versions/v1
+    steps:
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Go release
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Install Kubernetes tools
+        uses: ./.github/actions/install-kubernetes-tools
+        with:
+          install-kubectl: true
+          install-kind: true
+
+      - name: Build CLI binary
+        run: |
+          make build-cli
+
+      - name: Run kind test cluster
+        run: |
+          make kind-cluster-up
+
+      - name: Build controller and server
+        run: |
+          make build-debug
+          make build-controller
+          make docker-build
+
+      - name: Upload Everest API server image to kind test cluster
+        run: |
+          make kind-upload-server-image
+
+      - name: Run integration tests
+        id: cli-tests
+        run: |
+          cd cli-tests
+          make init
+          make install-operators
+          make test-cli
+
+      - name: Attach the report
+        if: ${{ always() && steps.cli-tests.outcome != 'skipped' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cli-tests-report
+          path: cli-tests/test-report
+          overwrite: true
+
+  integration_tests_controller:
+    name: Controller Integration Tests (${{ matrix.make_target }})
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    timeout-minutes: 45
+    strategy:
+      # The legs are independent suites; let both report so a contributor gets
+      # the full picture in one round trip.
+      fail-fast: false
+      matrix:
+        make_target:
+          - test-integration-backup
+          - test-integration-monitoring
+    runs-on: cncf-ubuntu-16-64-x86
+    steps:
+      - name: Check out code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Go release
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Install Kubernetes tools
+        uses: ./.github/actions/install-kubernetes-tools
+        with:
+          install-kubectl: true
+          install-kind: true
+          install-chainsaw: true
+
+      - name: Run kind test cluster
+        run: |
+          make kind-cluster-up
+
+      - name: Run controller integration tests
+        timeout-minutes: 20
+        env:
+          CLUSTER_PROVIDER: kind
+        run: |
+          make ${{ matrix.make_target }}
+
+      - name: Run debug commands on failure
+        if: ${{ failure() }}
+        run: |
+          kubectl describe pod -n openeverest-system -l control-plane=controller-manager
+          kubectl get events -n openeverest-system --sort-by='.lastTimestamp'
+
+  fe_checks:
+    name: FE Checks
+    needs: changes
+    # Also on backend changes: `make gen` regenerates UI TypeScript from the
+    # OpenAPI spec, and only these jobs compile it.
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true'
+    timeout-minutes: 20
+    runs-on: cncf-ubuntu-8-32-x86
+    defaults:
+      run:
+        working-directory: ui
+    env:
+      NODE_OPTIONS: "--max-old-space-size=4096"
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Node and pnpm
+        uses: ./.github/actions/setup-node-pnpm
+
+      - run: make init
+
+      - name: Lint
+        run: make lint-check
+
+      - name: Format
+        run: make format-check
+
+      - name: Build
+        run: make build
+
+  fe_unit_tests:
+    name: FE Unit Tests
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    timeout-minutes: 20
+    runs-on: cncf-ubuntu-8-32-x86
+    defaults:
+      run:
+        working-directory: ui
+    env:
+      NODE_OPTIONS: "--max-old-space-size=4096"
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Setup Node and pnpm
+        uses: ./.github/actions/setup-node-pnpm
+
+      - run: make init
+
+      - name: Unit tests
+        run: |
+          pnpm --filter "@percona/ui-lib" test
+          pnpm --filter "@percona/everest" test:unit
+
+  fe_browser_tests:
+    name: FE Browser Tests
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    uses: ./.github/workflows/dev-fe-browser-tests.yaml
+
+  fe_e2e_tests:
+    name: FE E2E Tests
+    needs: changes
+    # Also on backend changes: the only job exercising install -> API -> UI.
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true'
+    uses: ./.github/workflows/dev-fe-e2e.yaml
+
+  copyright:
+    name: Check Copyright Headers
+    # PR-only: 599 pre-policy files lack headers, so a full-tree run cannot pass.
+    # Headers are enforced incrementally, on the files each PR touches.
+    if: ${{ github.event_name == 'pull_request' }}
+    timeout-minutes: 10
+    runs-on: cncf-ubuntu-8-32-x86
+    steps:
+      # Head sha (not the merge ref): the check runs on the files exactly as the
+      # contributor wrote them, including for pull requests from forks.
+      - name: Checkout PR branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+
+      - name: Collect changed source files
+        id: changed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # The PR files list matches the "Files changed" tab and excludes files
+          # that differ only because the base branch moved forward.
+          gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            --paginate --jq '.[] | select(.status != "removed") | .filename' \
+            | grep -E '\.(go|ts|tsx)$' > /tmp/changed_files.txt || true
+
+          if [[ -s /tmp/changed_files.txt ]]; then
+            echo "Files to check:"
+            cat /tmp/changed_files.txt
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No relevant files changed."
+            echo "any=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Python
+        if: steps.changed.outputs.any == 'true'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Check copyright headers
+        if: steps.changed.outputs.any == 'true'
+        run: |
+          make copyright-check FILES_FILE=/tmp/changed_files.txt
+
+  ci-ok:
+    name: CI OK
+    needs:
+      - changes
+      - lint_workflows
+      - test
+      - check
+      - integration_tests_api
+      - integration_tests_cli
+      - integration_tests_controller
+      - fe_checks
+      - fe_unit_tests
+      - fe_browser_tests
+      - fe_e2e_tests
+      - copyright
+    # not always(): a cancelled run must not report a failed gate.
+    if: ${{ !cancelled() }}
+    timeout-minutes: 5
+    runs-on: cncf-ubuntu-8-32-x86
+    steps:
+      - name: Verify job results
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          # Skipped jobs are fine (path-filtered); anything else must succeed.
+          echo "$RESULTS" | jq -e 'to_entries | length > 0 and all(.value.result == "success" or .value.result == "skipped")' > /dev/null
+
+  # Transition alias: the "Protect Main" ruleset still requires a check named
+  # "Merge Gatekeeper". Remove this job once the ruleset requires "CI OK",
+  # "CodeQL", and "DCO" directly.
+  merge-gatekeeper:
+    name: Merge Gatekeeper
+    needs: [ci-ok]
+    if: ${{ !cancelled() }}
+    timeout-minutes: 5
+    runs-on: cncf-ubuntu-8-32-x86
+    steps:
+      - name: Mirror CI OK
+        run: test "${{ needs.ci-ok.result }}" = "success"

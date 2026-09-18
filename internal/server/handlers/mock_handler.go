@@ -689,6 +689,36 @@ func (_m *MockHandler) GetMonitoringConfig(ctx context.Context, cluster string, 
 	return r0, r1
 }
 
+// GetPluginContext provides a mock function with given fields: ctx, cluster
+func (_m *MockHandler) GetPluginContext(ctx context.Context, cluster string) (*api.PluginContext, error) {
+	ret := _m.Called(ctx, cluster)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetPluginContext")
+	}
+
+	var r0 *api.PluginContext
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*api.PluginContext, error)); ok {
+		return rf(ctx, cluster)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *api.PluginContext); ok {
+		r0 = rf(ctx, cluster)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*api.PluginContext)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, cluster)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetProvider provides a mock function with given fields: ctx, cluster, name
 func (_m *MockHandler) GetProvider(ctx context.Context, cluster string, name string) (*corev1alpha1.Provider, error) {
 	ret := _m.Called(ctx, cluster, name)
@@ -1127,6 +1157,36 @@ func (_m *MockHandler) ListNamespaces(ctx context.Context, cluster string) ([]st
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]string)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, cluster)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListPlugins provides a mock function with given fields: ctx, cluster
+func (_m *MockHandler) ListPlugins(ctx context.Context, cluster string) ([]api.PluginDescriptor, error) {
+	ret := _m.Called(ctx, cluster)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListPlugins")
+	}
+
+	var r0 []api.PluginDescriptor
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) ([]api.PluginDescriptor, error)); ok {
+		return rf(ctx, cluster)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) []api.PluginDescriptor); ok {
+		r0 = rf(ctx, cluster)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]api.PluginDescriptor)
 		}
 	}
 

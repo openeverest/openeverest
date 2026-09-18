@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +15,7 @@
 // limitations under the License.
 
 export const Messages = {
-  createDatabase: 'Create database',
+  createDatabase: 'Create',
   statusProvider: {
     up: 'Up',
     down: 'Down',
@@ -60,7 +61,7 @@ export const Messages = {
   },
   dbCluster: {
     noData:
-      'You currently do not have any database cluster. Create one to get started.',
+      'You currently do not have any instances. Create one to get started.',
   },
   responseMessages: {
     restart: 'The database is being restarted',

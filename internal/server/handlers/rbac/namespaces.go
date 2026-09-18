@@ -29,7 +29,7 @@ func (h *rbacHandler) ListNamespaces(ctx context.Context, cluster string) ([]str
 	}
 	result := make([]string, 0, len(list))
 	for _, ns := range list {
-		if err := h.enforce(ctx, rbac.ResourceNamespaces, rbac.ActionRead, ns); errors.Is(err, ErrInsufficientPermissions) {
+		if err := h.enforce(ctx, rbac.ResourceNamespaces, rbac.ActionRead, rbac.ClusterObjectName(cluster, ns)); errors.Is(err, ErrInsufficientPermissions) {
 			continue
 		} else if err != nil {
 			return nil, fmt.Errorf("enforce error: %w", err)

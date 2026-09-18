@@ -20,6 +20,10 @@ import { TestWrapper } from 'utils/test';
 import { WizardMode } from 'shared-types/wizard.types';
 import { DbWizardFormFields } from 'consts';
 import { DatabaseFormProvider } from 'pages/database-form/database-form-context';
+import {
+  PresetSelectionContext,
+  PresetSelectionContextType,
+} from 'pages/database-form/preset-selection';
 import { BaseInfoStep } from './base-step';
 import { PreviewSectionOne } from 'pages/database-form/database-preview/sections/base-step';
 import {
@@ -64,6 +68,18 @@ const makeContextValue = (topologies: string[] = ['replica']) => ({
   hasBackupStep: false,
 });
 
+const presetSelectionValue: PresetSelectionContextType = {
+  presets: [],
+  isLoadingPresets: false,
+  isError: false,
+  presetName: '',
+  resolvedPreset: null,
+  isResolving: false,
+  resolveError: null,
+  presetSelected: false,
+  presetPending: false,
+};
+
 interface WrapperProps {
   children: React.ReactNode;
   defaultValues?: ReturnType<typeof makeDefaultValues>;
@@ -86,9 +102,11 @@ const Wrapper = ({
   return (
     <TestWrapper>
       <DatabaseFormProvider value={makeContextValue(topologies)}>
-        <FormProvider {...methods}>
-          <form>{children}</form>
-        </FormProvider>
+        <PresetSelectionContext.Provider value={presetSelectionValue}>
+          <FormProvider {...methods}>
+            <form>{children}</form>
+          </FormProvider>
+        </PresetSelectionContext.Provider>
       </DatabaseFormProvider>
     </TestWrapper>
   );

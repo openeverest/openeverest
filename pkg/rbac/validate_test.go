@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidatePolicy(t *testing.T) {
@@ -157,36 +158,78 @@ func TestCheckRoles(t *testing.T) {
 func TestValidateTerms(t *testing.T) {
 	t.Parallel()
 	testcases := []struct {
+		name  string
 		terms []string
 		valid bool
 	}{
 		{
+			name:  "basic policy row",
 			terms: []string{"role:admin", "instances", "create", "*"},
 			valid: true,
 		},
 		{
+			name:  "email subject stays valid",
+			terms: []string{"alice@example.com", "instances", "read", "prod/dev/db"},
+			valid: true,
+		},
+		{
+			name:  "dotted email subject",
+			terms: []string{"jane.doe@corp.io", "backups", "read", "*/dev/*"},
+			valid: true,
+		},
+		{
+			// `+` subaddressing was accepted pre-fix (via the range) and is common
+			name:  "plus-addressed email subject",
+			terms: []string{"alice+everest@example.com", "instances", "read", "*"},
+			valid: true,
+		},
+		{
+			name:  "bang in subject",
 			terms: []string{"role:admin!!", "instances", "create", "*"},
 			valid: false,
 		},
 		{
-			terms: []string{"role:admin!!", "instances names", "create", "*"},
+			name:  "space in resource",
+			terms: []string{"role:admin", "instances names", "create", "*"},
 			valid: false,
 		},
 		{
-			terms: []string{"role:admin!!", "", "create", "*"},
+			name:  "empty term",
+			terms: []string{"role:admin", "", "create", "*"},
+			valid: false,
+		},
+		{
+			// `[` was admitted by the old `*-_` range and produces
+			// ErrBadPattern at enforce time — every request 500s.
+			name:  "glob class in object",
+			terms: []string{"role:admin", "instances", "read", "prod/[db"},
+			valid: false,
+		},
+		{
+			name:  "range-admitted metacharacters in object",
+			terms: []string{"role:admin", "instances", "read", "prod/db?;=<>@+,\\]^"},
+			valid: false,
+		},
+		{
+			name:  "at-sign in resource",
+			terms: []string{"role:admin", "instances@", "read", "*"},
+			valid: false,
+		},
+		{
+			name:  "uppercase in resource",
+			terms: []string{"role:admin", "Instances", "read", "*"},
 			valid: false,
 		},
 	}
 
-	for i, tc := range testcases {
-		t.Run(fmt.Sprintf("test-%d", i), func(t *testing.T) {
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			err := validateTerms(tc.terms)
-			if err != nil && tc.valid {
-				t.Fatalf("expected no error, got %v", err)
-			}
-			if err == nil && !tc.valid {
-				t.Fatalf("expected error, got nil")
+			if tc.valid {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
 			}
 		})
 	}

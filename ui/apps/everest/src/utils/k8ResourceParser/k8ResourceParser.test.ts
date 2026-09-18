@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { cpuParser, memoryParser } from '.';
 
 describe('cpu parser', () => {
@@ -30,5 +44,14 @@ describe('memory parser', () => {
       originalUnit: 'G',
     });
     expect(memoryParser('1G', 'G')).toEqual({ value: 1, originalUnit: 'G' });
+  });
+
+  it('parses the milli-byte quantities Kubernetes emits for non-integer conversions', () => {
+    // e.g. a 0.6Gi limit round-trips through Kubernetes as "644245094400m"
+    // because 0.6Gi is not a whole number of bytes (see #2423).
+    expect(memoryParser('644245094400m', 'Gi')).toEqual({
+      value: 0.6,
+      originalUnit: 'm',
+    });
   });
 });

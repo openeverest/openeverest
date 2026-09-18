@@ -19,7 +19,7 @@ permissions:
 jobs:
   build:
     if: github.repository == 'openeverest/openeverest'
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-8-32-x86
     permissions:
       contents: read
       packages: write
@@ -30,19 +30,9 @@ jobs:
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          lfs: true
 
-      - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
-        with:
-          version: 9.4.0
-
-      - name: Run with Node 20
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 20.x
-          cache: "pnpm"
-          cache-dependency-path: ui/pnpm-lock.yaml
+      - name: Setup Node and pnpm
+        uses: ./.github/actions/setup-node-pnpm
 
       - name: Build Everest Frontend app
         run: |
@@ -60,6 +50,10 @@ jobs:
         run: |
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build
 
+      - name: Build Controller
+        run: |
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-controller
+
       - name: Setup docker build metadata
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         id: meta
@@ -75,7 +69,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push openeverest dev image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: build/package/server/Dockerfile
@@ -91,7 +85,7 @@ jobs:
           tags: 0.0.0
 
       - name: Build and Push everestctl dev image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: build/package/cli/Dockerfile

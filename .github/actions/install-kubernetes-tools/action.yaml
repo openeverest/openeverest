@@ -1,11 +1,12 @@
 ---
 name: 'Install Kubernetes Tools'
-description: 'Installs Kubernetes-related CLI tools (kubectl, k3d, kuttl)'
+description: 'Installs Kubernetes-related CLI tools (kubectl, kind, k3d, chainsaw)'
 inputs:
   tools-path:
     description: 'Tools path to install binaries'
     required: false
-    default: '/opt/tools/bin'
+    # $HOME expands in the shell steps below; user-writable on any runner.
+    default: '$HOME/.local/bin'
   install-kubectl:
     description: 'Install Kubectl'
     required: false
@@ -13,7 +14,9 @@ inputs:
   kubectl-version:
     description: 'Kubectl version to install'
     required: false
-    default: '1.29.5'
+    # Keep within one minor of the kindest/node image pinned in dev/kind_config.yaml
+    # (kubectl version skew policy).
+    default: '1.36.1'
   install-k3d:
     description: 'Install K3D'
     required: false
@@ -22,6 +25,14 @@ inputs:
     description: 'K3D version to install'
     required: false
     default: '5.8.3'
+  install-kind:
+    description: 'Install kind'
+    required: false
+    default: false
+  kind-version:
+    description: 'kind version to install'
+    required: false
+    default: '0.32.0'
   install-chainsaw:
     description: 'Install Chainsaw'
     required: false
@@ -42,17 +53,39 @@ runs:
     - name: Install Kubectl
       if: ${{ inputs.install-kubectl == 'true' }}
       run: |
-        curl -s -L -o ${{ inputs.tools-path }}/kubectl https://dl.k8s.io/release/v${{ inputs.kubectl-version }}/bin/linux/amd64/kubectl 
-        chmod +x ${{ inputs.tools-path }}/kubectl
-        kubectl version --client --output=yaml
+        BASE=https://dl.k8s.io/release/v${{ inputs.kubectl-version }}/bin/linux/amd64
+        DEST=${{ inputs.tools-path }}/kubectl
+        curl -fsSL -o "$DEST" "$BASE/kubectl"
+        curl -fsSL -o "$DEST.sha256" "$BASE/kubectl.sha256"
+        echo "$(cat "$DEST.sha256")  $DEST" | sha256sum --check --status
+        rm "$DEST.sha256"
+        chmod +x "$DEST"
+        kubectl version --client
       shell: bash
 
     - name: Install K3D
       if: ${{ inputs.install-k3d == 'true' }}
       run: |
-        curl -s -L -o ${{ inputs.tools-path }}/k3d https://github.com/k3d-io/k3d/releases/download/v${{ inputs.k3d-version }}/k3d-linux-amd64
-        chmod +x ${{ inputs.tools-path }}/k3d
+        BASE=https://github.com/k3d-io/k3d/releases/download/v${{ inputs.k3d-version }}
+        DEST=${{ inputs.tools-path }}/k3d
+        curl -fsSL -o "$DEST" "$BASE/k3d-linux-amd64"
+        curl -fsSL -o /tmp/k3d_checksums.txt "$BASE/checksums.txt"
+        grep ' _dist/k3d-linux-amd64$' /tmp/k3d_checksums.txt \
+          | awk -v dest="$DEST" '{print $1 "  " dest}' | sha256sum --check --status
+        rm /tmp/k3d_checksums.txt
+        chmod +x "$DEST"
         k3d version
+      shell: bash
+
+    - name: Install kind
+      if: ${{ inputs.install-kind == 'true' }}
+      run: |
+        curl -fsSL -o ${{ inputs.tools-path }}/kind https://kind.sigs.k8s.io/dl/v${{ inputs.kind-version }}/kind-linux-amd64
+        curl -fsSL -o /tmp/kind.sha256sum https://kind.sigs.k8s.io/dl/v${{ inputs.kind-version }}/kind-linux-amd64.sha256sum
+        echo "$(awk '{print $1}' /tmp/kind.sha256sum)  ${{ inputs.tools-path }}/kind" | sha256sum --check --status
+        rm /tmp/kind.sha256sum
+        chmod +x ${{ inputs.tools-path }}/kind
+        kind version
       shell: bash
 
     - name: Install Chainsaw

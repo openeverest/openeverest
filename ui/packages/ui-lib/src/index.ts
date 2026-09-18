@@ -18,6 +18,8 @@ export { default as Card } from './cards/card';
 export * from './cards/overview-card';
 export { default as OverviewCard } from './cards/overview-card';
 
+export * from './cards/card-picker';
+
 export * from './buttons/toggle-card';
 export { default as ToggleCard } from './buttons/toggle-card';
 

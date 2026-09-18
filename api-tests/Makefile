@@ -14,16 +14,15 @@ init:     ## Install tests dependencies.
 	$(info Installing dependencies)
 	pnpm install
 	#npm ci
-	PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npx playwright install
+	# Tests only use the page fixture on chromium; skip firefox/webkit/ffmpeg.
+	npx playwright install chromium-headless-shell
 
 .PHONY: gen-types
 gen-types: ## Generate TypeScript types from the OpenAPI spec (api/openapi/http-api.yaml).
 	pnpm install
 	pnpm generate-types
 
-# NOTE: API tests do not wait for DB clusters to be ready.
-# The only exception is pg-data-importer test, so that only PG images are pre-uploaded to K3D cluster.
-CI_INIT_DEPS := init deploy-monitoring create-test-users k3d-upload-images
+CI_INIT_DEPS := init deploy-monitoring create-test-users
 CI_INIT_DEPS += deploy-minio create-test-manifests
 .PHONY: ci-init
 ci-init: $(CI_INIT_DEPS) 	## Prepare environment for running tests.
@@ -81,57 +80,6 @@ cleanup-test-manifests:
 	kubectl delete -f $(TEST_PRESET_RESOURCE) --ignore-not-found=true
 	kubectl delete -f $(TEST_PROVIDER_RESOURCE) --ignore-not-found=true
 	kubectl delete -f $(TEST_SECRET_RESOURCE) --ignore-not-found=true
-
-.PHONY: k3d-upload-pg-images
-k3d-upload-pg-images: ## Pre-upload Postgresql images to K3D test  cluster to speedup tests execution.
-	$(info Uploading PG images to K3D test cluster)
-	@{ \
-	pg_engine_image=$$(kubectl -n everest get dbengine/percona-postgresql-operator -ojson | jq -r '[.status.availableVersions.engine[] | select(.status == "recommended").imagePath][-1] ') ;\
-	pg_proxy_image=$$(kubectl -n everest get dbengine/percona-postgresql-operator -ojson | jq -r '[.status.availableVersions.proxy.pgbouncer[] | select(.status == "recommended").imagePath][-1] ') ;\
-	pg_backup_image=$$(kubectl -n everest get dbengine/percona-postgresql-operator -ojson | jq -r '[.status.availableVersions.backup[] | select(.status == "recommended").imagePath][-1] ') ;\
-	pg_operator_image=$$(kubectl -n everest get deploy/percona-postgresql-operator -o json | jq -r '.spec.template.spec.containers[] | select (.name == "operator").image') ;\
-	for node in $(k3d node list | grep everest-server-test | grep -v registry | awk '{print $1}'); do \
-		docker exec $node ctr image pull docker.io/$${pg_engine_image} ;\
-		docker exec $node ctr image pull docker.io/$${pg_proxy_image} ;\
-		docker exec $node ctr image pull docker.io/$${pg_backup_image} ;\
-		docker exec $node ctr image pull docker.io/$${pg_operator_image} ;\
-	done ;\
-	}
-
-.PHONY: k3d-upload-psmdb-images
-k3d-upload-psmdb-images: ## Pre-upload PSMDB images to K3D test  cluster to speedup tests execution.
-	$(info Uploading PSMDB images to K3D test cluster)
-	@{ \
-	psmdb_engine_image=$$(kubectl -n everest get dbengine/percona-server-mongodb-operator -ojson | jq -r '[.status.availableVersions.engine[] | select(.status == "recommended").imagePath][-1] ') ;\
-	psmdb_backup_image=$$(kubectl -n everest get dbengine/percona-server-mongodb-operator -ojson | jq -r '[.status.availableVersions.backup[] | select(.status == "recommended").imagePath][-1] ') ;\
-	psmdb_operator_image=$$(kubectl -n everest get deploy/percona-server-mongodb-operator -o json | jq -r '.spec.template.spec.containers[] | select (.name == "percona-server-mongodb-operator").image') ;\
-	for node in $(k3d node list | grep everest-server-test | grep -v registry | awk '{print $1}'); do \
-		docker exec $node ctr image pull docker.io/$${psmdb_engine_image} ;\
-		docker exec $node ctr image pull docker.io/$${psmdb_backup_image} ;\
-		docker exec $node ctr image pull docker.io/$${psmdb_operator_image} ;\
-	done ;\
-	}
-
-.PHONY: k3d-upload-pxc-images
-k3d-upload-pxc-images: ## Pre-upload PXC images to K3D test cluster to speedup tests execution.
-	$(info Uploading PXC images to K3D test cluster)
-	@{ \
-	pxc_engine_image=$$(kubectl -n everest get dbengine/percona-xtradb-cluster-operator -ojson | jq -r '[.status.availableVersions.engine[] | select(.status == "recommended").imagePath][-1] ') ;\
-	pxc_proxy_image=$$(kubectl -n everest get dbengine/percona-xtradb-cluster-operator -ojson | jq -r '[.status.availableVersions.proxy.haproxy[] | select(.status == "recommended").imagePath][-1] ') ;\
-	pxc_backup_image=$$(kubectl -n everest get dbengine/percona-xtradb-cluster-operator -ojson | jq -r '[.status.availableVersions.backup[] | select(.status == "recommended").imagePath][-1] ') ;\
-	pxc_operator_image=$$(kubectl -n everest get deploy/percona-xtradb-cluster-operator -o json | jq -r '.spec.template.spec.containers[] | select (.name == "percona-xtradb-cluster-operator").image') ;\
-	pmm_client_image=percona/pmm-client:2 ;\
-	for node in $(k3d node list | grep everest-server-test | grep -v registry | awk '{print $1}'); do \
-		docker exec $node ctr image pull docker.io/$${pxc_engine_image} ;\
-		docker exec $node ctr image pull docker.io/$${pxc_proxy_image} ;\
-		docker exec $node ctr image pull docker.io/$${pxc_backup_image} ;\
-		docker exec $node ctr image pull docker.io/$${pxc_operator_image} ;\
-		docker exec $node ctr image pull docker.io/$${pmm_client_image} ;\
-	done ;\
-	}
-
-.PHONY: k3d-upload-images
-k3d-upload-images: k3d-upload-pg-images k3d-upload-psmdb-images k3d-upload-pxc-images 	## Pre-upload PG,PSMDB,PXC images to K3D test cluster to speedup tests execution.
 
 ##@ Development
 

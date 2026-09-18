@@ -41,6 +41,7 @@ type Handler interface {
 	NamespacesHandler
 	BackupStorageHandler
 	ProviderHandler
+	PluginHandler
 	InstanceHandler
 	InstancePresetHandler
 	ClusterHandler
@@ -78,6 +79,12 @@ type BackupStorageHandler interface {
 type ProviderHandler interface {
 	ListProviders(ctx context.Context, cluster string) (*corev1alpha1.ProviderList, error)
 	GetProvider(ctx context.Context, cluster, name string) (*corev1alpha1.Provider, error)
+}
+
+// PluginHandler provides methods for handling generic plugin discovery.
+type PluginHandler interface {
+	ListPlugins(ctx context.Context, cluster string) (api.PluginDescriptorList, error)
+	GetPluginContext(ctx context.Context, cluster string) (*api.PluginContext, error)
 }
 
 // InstanceHandler provides methods for handling operations on instances.
