@@ -159,7 +159,7 @@ jobs:
         # cluster, and the single k3d node cannot run two in parallel without
         # starving one (it never reaches Ready -> connection 404). One worker
         # keeps a single heavy cluster live at a time.
-        run: make test PROJECT=${{ env.PROJECT }} FLAGS=--workers=1
+        run: make test PROJECT=${{ env.PROJECT }} FLAGS=--workers=2
 
       - name: Dump cluster diagnostics on failure
         if: ${{ always() && steps.e2e.outcome != 'success' }}

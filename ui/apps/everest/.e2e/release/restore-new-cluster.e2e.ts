@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { expect, test } from '@playwright/test';
+import { expect, test, request as apiRequest } from '@playwright/test';
 import {
   deleteDbCluster,
   gotoDbClusterBackups,
@@ -67,7 +67,7 @@ function getNextScheduleMinute(incrementMinutes: number): string {
   // their providers are provisioned in CI.
   { db: 'pxc', size: 3 },
 ].forEach(({ db, size }) => {
-  test.describe(
+  test.describe.serial(
     'Restore to a new cluster',
     {
       tag: '@release',
@@ -93,6 +93,29 @@ function getNextScheduleMinute(incrementMinutes: number): string {
           request
         );
         storageClasses = storageClassNames;
+      });
+
+      // Best-effort teardown: delete both the primary and the restored cluster
+      // via the API. Serial mode skips the trailing delete tests after a failure,
+      // so without this a mid-flow failure would leak 3-node clusters that starve
+      // the shared node and break the parallel release lane on re-runs.
+      test.afterAll(async () => {
+        try {
+          const cleanupToken = await getCITokenFromLocalStorage();
+          const ctx = await apiRequest.newContext({
+            baseURL: process.env.EVEREST_URL || 'http://localhost:8080',
+          });
+          for (const name of [clusterName, restoredClusterName]) {
+            await ctx.delete(
+              `/v1/clusters/main/namespaces/${namespace}/instances/${name}`,
+              { headers: { Authorization: `Bearer ${cleanupToken}` } }
+            );
+          }
+          await ctx.dispose();
+        } catch {
+          // Teardown must never fail the suite; leftovers are removed by the
+          // next run's pre-create delete.
+        }
       });
 
       test(`Create primary database cluster [${db} size ${size}]`, async ({
