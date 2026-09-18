@@ -14,7 +14,10 @@ init:     ## Install tests dependencies.
 	$(info Installing dependencies)
 	pnpm install
 	#npm ci
-	PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npx playwright install
+	# Tests only use the page fixture on chromium; skip firefox/webkit/ffmpeg.
+	# (PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD only affects postinstall, not an
+	# explicit `playwright install`, so the previous skip never worked.)
+	npx playwright install chromium-headless-shell
 
 .PHONY: gen-types
 gen-types: ## Generate TypeScript types from the OpenAPI spec (api/openapi/http-api.yaml).

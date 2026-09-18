@@ -3,7 +3,8 @@ EVEREST_SERVER_DEV_IMAGE_NAME ?= openeverest-dev
 
 init:               ## Install dependencies
 	npm ci
-	npx playwright install
+	# Tests only use the page fixture on chromium; skip firefox/webkit/ffmpeg.
+	npx playwright install chromium-headless-shell
 
 install-operators:  ## Install operators to k8s
 	../bin/everestctl install -v \
