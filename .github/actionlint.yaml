@@ -1,4 +1,5 @@
-# Runner labels for the CNCF-provided ARC scale sets (see AGENTS.md).
+# CNCF-provided ARC runner scale sets (cpu-gbRAM-arch); jobs target them by
+# scale-set name via runs-on.
 self-hosted-runner:
   labels:
     - cncf-ubuntu-8-32-x86

@@ -252,8 +252,8 @@ jobs:
           git diff --exit-code
 
       # Intentional on non-PR runs: merging a chart/pending-labelled PR turns
-      # main red until the go.mod pin lands (AGENTS.md requires the bump to
-      # follow immediately), so the postsubmit is the reminder.
+      # main red until the go.mod pin bump lands, which must follow immediately
+      # after any helm-charts merge - the postsubmit is the reminder.
       - name: Check that the pinned dev Helm chart is on the tracked branch
         if: ${{ github.event_name != 'pull_request' || !contains(github.event.pull_request.labels.*.name, 'chart/pending') }}
         run: make check-dev-chart
