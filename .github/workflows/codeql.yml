@@ -17,6 +17,9 @@ on:
   pull_request:
     # The branches below must be a subset of the branches above
     branches: ["main", "v1.x"]
+  # Advanced-setup CodeQL only reports on merge-group commits if the workflow
+  # runs on them; without this, a required "CodeQL" check stalls the queue.
+  merge_group:
   schedule:
     - cron: "0 0 * * 1"
 
