@@ -12,7 +12,6 @@ jobs:
     runs-on: cncf-ubuntu-16-64-x86
     env:
       PMM_HELM_VER: "1.3.21"
-      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.ms-playwright
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -82,6 +81,8 @@ jobs:
           target: openeverest
           load: true
           tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=min
 
       - name: Upload everest dev image to kind test cluster
         run: |
@@ -141,6 +142,22 @@ jobs:
           make init
           make build
           pnpm --filter "@percona/everest" dev &
+
+      - name: Wait for the UI dev server
+        shell: bash
+        run: |
+          for i in $(seq 1 30); do
+            curl -fs -o /dev/null http://localhost:3000 && exit 0
+            sleep 2
+          done
+          echo "::error::UI dev server is not reachable on http://localhost:3000"
+          exit 1
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('ui/pnpm-lock.yaml') }}
 
       - name: Install Chromium for Playwright
         shell: bash

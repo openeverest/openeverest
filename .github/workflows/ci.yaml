@@ -20,9 +20,10 @@ on:
     - cron: '0 3 * * *'
 
 # One active run per PR: pushing a new revision supersedes the previous run.
-# Never cancel post-merge/nightly/queue runs - the per-commit signal matters.
+# Non-PR runs (push/nightly/queue) each get their own lane via run_id so the
+# per-commit signal is never cancelled or evicted from a shared queue.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -71,7 +72,7 @@ jobs:
               docs/*|*.md|LICENSE|CODEOWNERS|.github/ISSUE_TEMPLATE/*|.github/labels.yml) ;;
               ui/*) frontend=true ;;
               # The pipeline itself, shared actions, and files both areas build with.
-              .github/workflows/ci.yaml|.github/workflows/dev-fe-*|.github/actions/*|Makefile|dev/*)
+              .github/workflows/ci.yaml|.github/workflows/dev-fe-browser-tests.yaml|.github/workflows/dev-fe-e2e.yaml|.github/actions/*|Makefile|dev/*)
                 backend=true; frontend=true; workflows=true ;;
               # Other automation: lint it, but don't run the product suites.
               .github/*) workflows=true ;;
@@ -104,7 +105,29 @@ jobs:
           grep ' actionlint_1.7.12_linux_amd64.tar.gz$' /tmp/actionlint_checksums.txt \
             | awk '{print $1 "  /tmp/actionlint.tar.gz"}' | sha256sum --check --status
           tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
-          /tmp/actionlint -color
+          # -shellcheck='': actionlint only uses shellcheck when the runner image
+          # happens to ship it; disable so the gate's strictness is deterministic.
+          /tmp/actionlint -color -shellcheck=
+
+      # A job missing from ci-ok's `needs` would be invisible to the gate: its
+      # failure could not block a merge. Fail loudly instead of silently.
+      - name: Verify the CI OK gate covers every job
+        run: |
+          pip3 install --quiet pyyaml
+          python3 - <<'EOF'
+          import sys, yaml
+          ci = yaml.safe_load(open('.github/workflows/ci.yaml'))
+          aggregators = {'ci-ok', 'merge-gatekeeper'}
+          missing_agg = aggregators - set(ci['jobs'])
+          if missing_agg:
+              sys.exit(f"aggregator jobs renamed or removed: {sorted(missing_agg)}")
+          jobs = set(ci['jobs']) - aggregators
+          needs = set(ci['jobs']['ci-ok']['needs'])
+          missing = jobs - needs
+          if missing:
+              sys.exit(f"jobs not covered by the CI OK gate: {sorted(missing)}")
+          print(f"gate covers all {len(jobs)} jobs")
+          EOF
 
   test:
     name: Test
@@ -184,30 +207,55 @@ jobs:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Fork PRs get a read-only token: inline PR reviews cannot be posted,
           # but workflow-command annotations render for everyone.
-          REPORTER: ${{ github.event.pull_request.head.repo.fork && 'github-annotations' || 'github-pr-review' }}
+          REPORTER: ${{ github.event.pull_request.head.repo.full_name != github.repository && 'github-annotations' || 'github-pr-review' }}
         run: |
           # Stub the embedded UI build output so `//go:embed dist/*` typechecks (see `make build`/`make test`).
           mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
           go tool golangci-lint run --new-from-merge-base=origin/${{ github.base_ref }} --show-stats=false \
             | go tool reviewdog -f=golangci-lint -reporter="$REPORTER" -fail-level=any
 
-      - name: Run go-consistent
+      - name: Run go-consistent on changed code
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPORTER: ${{ github.event.pull_request.head.repo.full_name != github.repository && 'github-annotations' || 'github-pr-review' }}
+        run: |
+          # Incremental via reviewdog: the full tree carries a 400+ finding
+          # backlog (mostly generated files, which go-consistent cannot exclude).
+          mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
+          go tool go-consistent ./... \
+            | go tool reviewdog -efm='%f:%l:%c: %m' -reporter="$REPORTER" -filter-mode=added -fail-level=any
+
+      # Full-tree lint as a nightly ratchet input (and toolchain-bump canary):
+      # advisory only, the PR gate stays incremental.
+      - name: Run full-tree lint (nightly)
+        if: ${{ github.event_name != 'pull_request' }}
+        continue-on-error: true
         run: |
           mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
-          go tool go-consistent -pedantic ./...
+          go tool golangci-lint run --show-stats=false
 
       - name: Check that there are no source code changes
         run: |
           make gen
-          # `go mod tidy` may legitimately drop stale go.sum entries (expected for
-          # Dependabot PRs); checksums of used modules are verified by the builds.
           go mod tidy -v
+          # Stale go.sum removals are expected (Dependabot PRs); additions mean
+          # the PR forgot to commit go.sum entries and must fail.
+          added=$(git diff --numstat -- go.sum | awk '{s+=$1} END {print s+0}')
+          if [ "$added" -gt 0 ]; then
+            echo "go.sum is missing $added entr(y/ies); run 'go mod tidy' and commit"
+            git diff -- go.sum
+            exit 1
+          fi
           git checkout go.sum
           git status
           git diff --exit-code
 
+      # Intentional on non-PR runs: merging a chart/pending-labelled PR turns
+      # main red until the go.mod pin lands (AGENTS.md requires the bump to
+      # follow immediately), so the postsubmit is the reminder.
       - name: Check that the pinned dev Helm chart is on the tracked branch
-        if: ${{ !contains(github.event.pull_request.labels.*.name, 'chart/pending') }}
+        if: ${{ github.event_name != 'pull_request' || !contains(github.event.pull_request.labels.*.name, 'chart/pending') }}
         run: make check-dev-chart
 
       - name: Check the Makefile references dev version
@@ -247,7 +295,7 @@ jobs:
       - name: Setup Node and pnpm
         uses: ./.github/actions/setup-node-pnpm
         with:
-          cache-dependency-path: api-tests/package-lock.json
+          cache-dependency-path: api-tests/pnpm-lock.yaml
 
       - name: Install Kubernetes tools
         uses: ./.github/actions/install-kubernetes-tools
@@ -409,7 +457,9 @@ jobs:
   fe_checks:
     name: FE Checks
     needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    # Also on backend changes: `make gen` regenerates UI TypeScript from the
+    # OpenAPI spec, and only these jobs compile it.
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true'
     timeout-minutes: 20
     runs-on: cncf-ubuntu-8-32-x86
     defaults:
@@ -471,7 +521,8 @@ jobs:
   fe_e2e_tests:
     name: FE E2E Tests
     needs: changes
-    if: needs.changes.outputs.frontend == 'true'
+    # Also on backend changes: the only job exercising install -> API -> UI.
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true'
     uses: ./.github/workflows/dev-fe-e2e.yaml
 
   copyright:
@@ -536,35 +587,11 @@ jobs:
       - fe_browser_tests
       - fe_e2e_tests
       - copyright
-    if: ${{ always() }}
+    # not always(): a cancelled run must not report a failed gate.
+    if: ${{ !cancelled() }}
     timeout-minutes: 5
     runs-on: cncf-ubuntu-8-32-x86
     steps:
-      - name: Check out code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          persist-credentials: false
-          sparse-checkout: .github/workflows/ci.yaml
-          sparse-checkout-cone-mode: false
-
-      # A job missing from this job's `needs` would be invisible to the gate:
-      # its failure could not block a merge. Fail loudly instead of silently.
-      - name: Verify the gate covers every job
-        env:
-          RESULTS: ${{ toJSON(needs) }}
-        run: |
-          pip3 install --quiet pyyaml
-          python3 - <<'EOF'
-          import json, os, sys, yaml
-          jobs = set(yaml.safe_load(open('.github/workflows/ci.yaml'))['jobs'])
-          jobs -= {'ci-ok', 'merge-gatekeeper'}
-          needs = set(json.loads(os.environ['RESULTS']))
-          missing = jobs - needs
-          if missing:
-              sys.exit(f"jobs not covered by the CI OK gate: {sorted(missing)}")
-          print(f"gate covers all {len(jobs)} jobs")
-          EOF
-
       - name: Verify job results
         env:
           RESULTS: ${{ toJSON(needs) }}
@@ -579,7 +606,7 @@ jobs:
   merge-gatekeeper:
     name: Merge Gatekeeper
     needs: [ci-ok]
-    if: ${{ always() }}
+    if: ${{ !cancelled() }}
     timeout-minutes: 5
     runs-on: cncf-ubuntu-8-32-x86
     steps:
