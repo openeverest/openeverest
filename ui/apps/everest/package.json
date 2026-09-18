@@ -105,7 +105,7 @@
     "playwright": "^1.58.2",
     "prettier": "^3.0.3",
     "tsc-alias": "^1.8.8",
-    "typescript": "^5.2.2",
+    "typescript": "^5.9.3",
     "vite": "^6.4.1",
     "vite-tsconfig-paths": "^5.1.2",
     "vitest": "^4.0.18",
