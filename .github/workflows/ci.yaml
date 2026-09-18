@@ -264,9 +264,10 @@ jobs:
             | go tool reviewdog -efm='%f:%l:%c: %m' -reporter="$REPORTER" -filter-mode=added -fail-level=any
 
       # Full-tree lint as a nightly ratchet input (and toolchain-bump canary):
-      # advisory only, the PR gate stays incremental.
+      # advisory only, the PR gate stays incremental. Not on merge groups - it
+      # would add minutes to every queue validation for no verdict.
       - name: Run full-tree lint (nightly)
-        if: ${{ github.event_name != 'pull_request' }}
+        if: ${{ github.event_name == 'push' || github.event_name == 'schedule' }}
         continue-on-error: true
         run: |
           mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
@@ -288,11 +289,13 @@ jobs:
           git status
           git diff --exit-code
 
-      # Intentional on non-PR runs: merging a chart/pending-labelled PR turns
+      # Intentional on push/nightly: merging a chart/pending-labelled PR turns
       # main red until the go.mod pin bump lands, which must follow immediately
-      # after any helm-charts merge - the postsubmit is the reminder.
+      # after any helm-charts merge - the postsubmit is the reminder. Merge
+      # groups skip it: the label is invisible there, so a labelled PR would be
+      # ejected from the queue.
       - name: Check that the pinned dev Helm chart is on the tracked branch
-        if: ${{ github.event_name != 'pull_request' || !contains(github.event.pull_request.labels.*.name, 'chart/pending') }}
+        if: ${{ github.event_name == 'push' || github.event_name == 'schedule' || (github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'chart/pending')) }}
         run: make check-dev-chart
 
       - name: Check the Makefile references dev version
