@@ -57,12 +57,54 @@ NOTE: for MacOS tilt needs to have installed and running `docker-desktop` tool. 
 
 ### 1. Set up k8s & registry   
 #### Option A: Local (Tilt development)
-```sh
-make dev-up
-```
-This creates a k3d cluster and starts Tilt. The Everest UI will be available at http://localhost:8080.
 
-> **NOTE**: The default k3d registry uses port `5000`, which may already be occupied on some systems (e.g., macOS Control Center). Update the `hostPort` in `k3d_config.dev.yaml`.
+`make dev-up` starts Tilt immediately after creating the cluster, so Tilt's
+configuration has to exist first. Do these in order:
+
+1. Set environment variables:
+
+   Copy file dev/.env.example to dev/.env and set the following environment variable:
+   ```sh
+   EVEREST_CHART_DIR=<path to github.com/openeverest/helm-charts>/charts/everest
+   ```
+
+   or set it manually in the terminal:
+
+   ```sh
+   export EVEREST_CHART_DIR=<path to github.com/openeverest/helm-charts>/charts/everest
+   ```
+
+   The chart branch must match the OpenEverest line you are developing: `main` for
+   v2, `v1.x` for v1. If your Tilt environment starts with errors, make sure the
+   chart checkout is up to date.
+
+2. Set namespaces for the Everest components:
+
+   Copy file dev/config.yaml.example to dev/config.yaml and:
+
+   - Set the needed DB namespaces that will be created automatically.
+   - (Mostly for FE devs) If you want to disable the Tilt frontend build, save time and avoid FE rebuilds (and, therefore, BE rebuilds), keeping the dev flow of using Vite, set `enableFrontendBuild: false`
+   - Set `enablePluginHub: false` to skip deploying the OpenEverest Plugin Hub.
+
+3. (Optional) If you want to debug the Everest Server remotely, set the following environment variable in .env file or in the terminal:
+   ```sh
+   export EVEREST_DEBUG=true
+   ```
+   In such a case you can setup your IDE to connect to port on your `localhost` and use debugging tools in your IDE.
+
+   Debugging port for Everest Server: `40000`.
+
+   Refer to instructions in your IDE on how to setup remote debugging.
+
+   For GoLand, you can refer to [this](https://www.jetbrains.com/help/go/attach-to-running-go-processes-with-debugger.html#step-2-create-the-go-remote-run-debug-configuration) link.
+
+4. Start Tilt:
+   ```sh
+   make dev-up
+   ```
+   This creates a k3d cluster and starts Tilt, using the configuration from the steps above. The Everest UI/API will be available at http://localhost:8080.
+
+   > **NOTE**: The default k3d registry uses port `5000`, which may already be occupied on some systems (e.g., macOS Control Center). Update the `hostPort` in `k3d_config.dev.yaml`.
 
 #### Option B: Local (CI-style testing)
 ```sh
@@ -91,51 +133,6 @@ gcloud auth configure-docker <REGISTRY_REGION>-docker.pkg.dev
 - Destroy external cluster when not used
 - Cleanup the registry periodically since tilt pushes a new image each time something is changed in the project. 
 
-
-### 2. Configure and start Tilt
-1. Set environment variables:
-
-Copy file dev/.env.example to dev/.env and set the following environment variable:
-```sh
-EVEREST_CHART_DIR=<path to github.com/openeverest/helm-charts>/charts/everest
-```
-
-or set it manually in the terminal:
-
-```sh
-export EVEREST_CHART_DIR=<path to github.com/openeverest/helm-charts>/charts/everest
-```
-
-The chart branch must match the OpenEverest line you are developing: `main` for
-v2, `v1.x` for v1. If your Tilt environment starts with errors, make sure the
-chart checkout is up to date.
-
-2. Set namespaces for the Everest components:
-
-Copy file dev/config.yaml.example to dev/config.yaml and:
-
-- Set the needed DB namespaces that will be created automatically.
-- (Mostly for FE devs) If you want to disable the Tilt frontend build, save time and avoid FE rebuilds (and, therefore, BE rebuilds), keeping the dev flow of using Vite, set `enableFrontendBuild: false`
-- Set `enablePluginHub: false` to skip deploying the OpenEverest Plugin Hub.
-
-3. (Optional) If you want to debug the Everest Server remotely, set the following environment variable in .env file or in the terminal:
-```sh
-export EVEREST_DEBUG=true
-```
-In such a case you can setup your IDE to connect to port on your `localhost` and use debugging tools in your IDE.
-
-Debugging port for Everest Server: `40000`.
-
-Refer to instructions in your IDE on how to setup remote debugging. 
-
-For GoLand, you can refer to [this](https://www.jetbrains.com/help/go/attach-to-running-go-processes-with-debugger.html#step-2-create-the-go-remote-run-debug-configuration) link.
-
-4. Start Tilt:
-```sh
-make dev-up
-```
-
-The everest UI/API will be available at http://localhost:8080.
 
 ## Tear down the environment
 
@@ -167,6 +164,9 @@ This Tiltfile builds and deploys the OpenEverest core only. Each provider
 repository ships its own `dev/Tiltfile` that installs a released OpenEverest
 core and then builds and deploys just that provider. For day-to-day provider
 development, use the provider repo's `make dev-up` (see its `dev/README.md`).
+
+See the [provider hub](https://github.com/openeverest/hub/tree/main/extensions/providers)
+for the current list of provider repositories.
 
 ### Testing a provider against a locally built core
 
