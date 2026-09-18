@@ -15,8 +15,6 @@ init:     ## Install tests dependencies.
 	pnpm install
 	#npm ci
 	# Tests only use the page fixture on chromium; skip firefox/webkit/ffmpeg.
-	# (PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD only affects postinstall, not an
-	# explicit `playwright install`, so the previous skip never worked.)
 	npx playwright install chromium-headless-shell
 
 .PHONY: gen-types
