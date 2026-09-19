@@ -274,7 +274,7 @@ func TestCreateRestore_Validation(t *testing.T) {
 			kubeConnector := kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).WithKubernetesClient(fakeClient)
 
 			mockNext := &handlers.MockHandler{}
-			mockNext.On("CreateRestore", mock.Anything, mock.Anything).Return(tt.restore, nil)
+			mockNext.On("CreateRestore", mock.Anything, mock.Anything, mock.Anything).Return(tt.restore, nil)
 
 			handler := &validateHandler{
 				log:           zap.NewNop().Sugar(),
@@ -282,7 +282,7 @@ func TestCreateRestore_Validation(t *testing.T) {
 				next:          mockNext,
 			}
 
-			_, err := handler.CreateRestore(ctx, tt.restore)
+			_, err := handler.CreateRestore(ctx, "prod", tt.restore)
 			if tt.err == "" {
 				require.NoError(t, err)
 				return
