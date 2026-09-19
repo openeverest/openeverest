@@ -73,6 +73,10 @@ func CheckConstraint[V version](v V, c string) bool {
 
 // NewSupportedVersion returns a new SupportedVersion struct.
 func NewSupportedVersion(meta *versionpb.MetadataVersion) (*SupportedVersion, error) {
+	if meta == nil {
+		return nil, errors.New("version metadata cannot be nil")
+	}
+
 	supVer := &SupportedVersion{}
 
 	// Parse MetadataVersion into supportedVersion struct.

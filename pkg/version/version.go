@@ -39,7 +39,10 @@ func IsRC(v string) bool {
 	if v == "" {
 		return false
 	}
-	ver := version.Must(version.NewVersion(v))
+	ver, err := version.NewVersion(v)
+	if err != nil {
+		return false
+	}
 	return strings.Contains(ver.Prerelease(), "rc")
 }
 
@@ -48,7 +51,10 @@ func IsDev(v string) bool {
 	if v == "" {
 		return false
 	}
-	ver := version.Must(version.NewVersion(v))
+	ver, err := version.NewVersion(v)
+	if err != nil {
+		return false
+	}
 	devLatestVer := version.Must(version.NewVersion("v0.0.0"))
 	return ver.Core().Equal(devLatestVer)
 }
