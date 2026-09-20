@@ -434,6 +434,10 @@ func (r *MonitoringConfigReconciler) genVMAgentSpec(mcList *monitoringv1alpha1.M
 			continue
 		}
 
+		if mc.Spec.PMM == nil {
+			continue
+		}
+
 		u, err := url.Parse(mc.Spec.PMM.URL)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse PMM URL for %q: %w", mc.GetName(), err)
