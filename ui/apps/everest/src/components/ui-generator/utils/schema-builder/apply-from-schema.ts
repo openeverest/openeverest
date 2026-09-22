@@ -19,6 +19,7 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 
 import { extractCelFieldPaths } from './cel-validation';
+import { joinPath } from '../object-path/object-path';
 import {
   buildGenericValidationSchema,
   buildNumberValidationSchema,
@@ -141,7 +142,7 @@ const extractCelValidationData = (
   const allDeps = new Set<string>();
   celExpressions.forEach((celExpr) => {
     const deps = extractCelFieldPaths(celExpr.celExpr);
-    deps.forEach((dep) => allDeps.add(dep.join('.')));
+    deps.forEach((dep) => allDeps.add(joinPath(dep)));
   });
 
   const celData: CelValidationData = {
