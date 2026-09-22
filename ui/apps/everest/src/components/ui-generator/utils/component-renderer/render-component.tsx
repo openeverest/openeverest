@@ -30,7 +30,7 @@ import {
 } from 'components/ui-generator/api-providers';
 import { ComponentErrorBoundary } from 'components/ui-generator/component-error-boundary';
 import { SecretField } from 'components/ui-generator/secret-field';
-import { joinPath } from '../object-path';
+import { appendPath } from '../object-path';
 
 export type RenderComponentProps = {
   item: Component | ComponentGroup;
@@ -45,7 +45,7 @@ export const renderComponent = ({
   root,
 }: RenderComponentProps): ReactNode => {
   const fieldId = generateFieldId(item, name);
-  const fieldName = joinPath(root, fieldId);
+  const fieldName = appendPath(root, fieldId);
   const isGroup = item?.uiType === 'group' && 'components' in item;
 
   const children = isGroup ? (
