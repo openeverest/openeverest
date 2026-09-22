@@ -14,6 +14,10 @@
 
 import { useMemo } from 'react';
 import { FieldErrors } from 'react-hook-form';
+import {
+  joinPath,
+  parsePath,
+} from 'components/ui-generator/utils/object-path/object-path';
 
 /**
  * Walks the react-hook-form `errors` object and collects all leaf
@@ -32,7 +36,7 @@ export const flattenErrorPaths = (
   return Object.keys(obj).flatMap((key) =>
     flattenErrorPaths(
       obj[key] as Record<string, unknown>,
-      prefix ? `${prefix}.${key}` : key
+      prefix ? joinPath([...parsePath(prefix), key]) : joinPath([key])
     )
   );
 };
@@ -58,9 +62,9 @@ export const useErrorRouting = (
       if (typeof path !== 'string' || path.length === 0) continue;
 
       // Try full path first, then progressively shorter prefixes.
-      const parts = path.split('.');
+      const parts = parsePath(path);
       for (let i = parts.length; i > 0; i--) {
-        const prefix = parts.slice(0, i).join('.');
+        const prefix = joinPath(parts.slice(0, i));
         if (prefix in fieldToStepMap) {
           stepsSet.add(fieldToStepMap[prefix]);
           break;
