@@ -15,7 +15,142 @@
 /**
  * Shared object-path utilities for navigating, mutating, and inspecting
  * nested objects by dot-separated paths (e.g. "spec.components.proxy.replicas").
+ *
+ * Keys that themselves contain dots (e.g. Kubernetes qualified names like
+ * "nvidia.com/gpu") must use bracket-quoted segments:
+ * "resources.limits['nvidia.com/gpu']".
  */
+
+const SIMPLE_SEGMENT = /^[A-Za-z0-9_]+$/;
+
+/**
+ * Splits a path into segments. Supports dot separators and bracket-quoted
+ * segments (`['a.b']` / `["a.b"]` / `[0]`). Backslash escapes the quote and
+ * backslash itself inside brackets.
+ */
+export const parsePath = (path: string): string[] => {
+  if (typeof path !== 'string' || path.length === 0) {
+    return [];
+  }
+
+  const parts: string[] = [];
+  let current = '';
+  let i = 0;
+
+  const pushCurrent = (): void => {
+    if (current.length > 0) {
+      parts.push(current);
+      current = '';
+    }
+  };
+
+  while (i < path.length) {
+    const char = path[i];
+
+    if (char === '.') {
+      pushCurrent();
+      i += 1;
+      continue;
+    }
+
+    if (char === '[') {
+      pushCurrent();
+      i += 1;
+      // Skip whitespace inside brackets
+      while (i < path.length && path[i] === ' ') i += 1;
+      if (i >= path.length) break;
+
+      const quote = path[i];
+      if (quote === "'" || quote === '"') {
+        i += 1;
+        let segment = '';
+        let closed = false;
+        while (i < path.length) {
+          const c = path[i];
+          if (c === '\\' && i + 1 < path.length) {
+            const next = path[i + 1];
+            if (next === quote || next === '\\') {
+              segment += next;
+              i += 2;
+              continue;
+            }
+          }
+          if (c === quote) {
+            closed = true;
+            i += 1;
+            break;
+          }
+          segment += c;
+          i += 1;
+        }
+        if (closed) {
+          parts.push(segment);
+          // Skip to closing bracket
+          while (i < path.length && path[i] === ' ') i += 1;
+          if (path[i] === ']') i += 1;
+          // Skip an optional dot after the bracket
+          if (path[i] === '.') i += 1;
+          continue;
+        }
+        // Unclosed quote: treat the rest literally
+        current = `[${quote}${segment}`;
+        continue;
+      }
+
+      // Unquoted bracket content (e.g. [0]): read until ']'
+      let segment = '';
+      while (i < path.length && path[i] !== ']') {
+        segment += path[i];
+        i += 1;
+      }
+      if (path[i] === ']') i += 1;
+      const trimmed = segment.trim();
+      if (trimmed.length > 0) {
+        parts.push(trimmed);
+      }
+      if (path[i] === '.') i += 1;
+      continue;
+    }
+
+    current += char;
+    i += 1;
+  }
+
+  pushCurrent();
+  return parts;
+};
+
+/**
+ * Joins segments into a canonical path. Segments with dots, slashes,
+ * spaces, or other special chars become bracket-quoted (`['a.b']`).
+ */
+export const joinPath = (parts: string[]): string => {
+  let out = '';
+  for (const part of parts) {
+    if (part.length === 0) continue;
+    if (SIMPLE_SEGMENT.test(part)) {
+      out += out.length > 0 ? `.${part}` : part;
+    } else {
+      const escaped = part.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      // Bracket segments never take a leading dot:
+      // "resources.limits['nvidia.com/gpu']"
+      out += `['${escaped}']`;
+    }
+  }
+  return out;
+};
+
+/**
+ * Returns canonical string prefixes for a path, including the full path.
+ */
+export const getPathPrefixes = (path: string): string[] => {
+  const parts = parsePath(path);
+  const prefixes: string[] = [];
+  for (let i = 1; i <= parts.length; i++) {
+    prefixes.push(joinPath(parts.slice(0, i)));
+  }
+  return prefixes;
+};
 
 export const isPlainObject = (
   value: unknown
@@ -51,7 +186,7 @@ export const getByPath = (
     return undefined;
   }
 
-  return path.split('.').reduce<unknown>((current, key) => {
+  return parsePath(path).reduce<unknown>((current, key) => {
     if (!isPlainObject(current)) {
       return undefined;
     }
@@ -69,7 +204,8 @@ export const setByPath = (
     return;
   }
 
-  const parts = path.split('.');
+  const parts = parsePath(path);
+  if (parts.length === 0) return;
   let current: Record<string, unknown> = obj;
 
   for (let i = 0; i < parts.length - 1; i++) {
@@ -91,7 +227,8 @@ export const deleteByPath = (
     return;
   }
 
-  const parts = path.split('.');
+  const parts = parsePath(path);
+  if (parts.length === 0) return;
   let current: Record<string, unknown> = obj;
 
   for (let i = 0; i < parts.length - 1; i++) {
@@ -112,8 +249,9 @@ export const flattenObject = (obj: unknown, prefix = ''): FlatEntry[] => {
   const result: FlatEntry[] = [];
   if (!isPlainObject(obj)) return result;
 
+  const prefixParts = prefix ? parsePath(prefix) : [];
   for (const [k, v] of Object.entries(obj)) {
-    const fullKey = prefix ? `${prefix}.${k}` : k;
+    const fullKey = joinPath([...prefixParts, k]);
     if (isPlainObject(v)) {
       result.push(...flattenObject(v, fullKey));
     } else {

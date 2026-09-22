@@ -62,7 +62,7 @@ flowchart TD
   class TP2 planned;
 ```
 
-- **`path` | `id`** — `path` (`string` | `string[]`) writes to the API; an array is a multi-path (`[0]` is the source, all entries are targets). `id` has no API binding and is used only for validation / CEL.
+- **`path` | `id`** — `path` (`string` | `string[]`) writes to the API; an array is a multi-path (`[0]` is the source, all entries are targets). `id` has no API binding and is used only for validation / CEL. Dots separate path segments; a key that itself contains a dot (e.g. `nvidia.com/gpu`) must use a bracket-quoted segment: `resources.limits['nvidia.com/gpu']`.
 - **`dataSource.provider`** — a key in the open runtime registry (`register()`), not a closed enum.
 - **`modes?`** — `{ [FormMode]: { uiType? } }`; `import` is declared in the enum but is not used by the code.
 
@@ -196,6 +196,7 @@ classDiagram
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | **FormMode**                   | `new · edit · restore · import` controls `modes` at three levels: component `uiType`, `fieldParams`, and `validation`                                                                                                            | implemented |
 | **multi-path**                 | `path: [a, b]` writes the same value to all targets                                                                                                                                                                              | implemented |
+| **bracket-quoted path segment** | `resources.limits['nvidia.com/gpu']` addresses a key containing dots; `parsePath` / `joinPath` in `utils/object-path/` is the shared tokenizer                                                                                | implemented |
 | **dataSource / API providers** | `dataSource: { provider }` names an API-backed option source; preprocess dev-validates the provider key, and at runtime `DataSourceField` loads the options through the registry (`DataSourcePrefetcher` sets defaults on mount) | implemented |
 | **CEL validation**             | Cross-field validation rules declared via `celExpressions` (with an `original` namespace available in edit mode)                                                                                                                 | implemented |
 | **CEL conditional rendering**  | Show / hide fields based on another field value through a generic mechanism                                                                                                                                                      | 🛠️          |
@@ -211,4 +212,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-17
+- Last updated: 2026-09-22

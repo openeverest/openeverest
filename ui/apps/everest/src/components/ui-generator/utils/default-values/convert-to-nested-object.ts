@@ -1,13 +1,15 @@
 // This is needed for correct reading of Zod and CEL validation errors.
 // Example: { "spec.replica.nodes": 3 } => { spec: { replica: { nodes: 3 } } }
 
+import { parsePath } from '../object-path/object-path';
+
 export const convertToNestedObject = (
   flatObj: Record<string, unknown>
 ): Record<string, unknown> => {
   const result: Record<string, unknown> = {};
 
   Object.entries(flatObj).forEach(([path, value]) => {
-    const keys = path.split('.');
+    const keys = parsePath(path);
     let current: Record<string, unknown> = result;
 
     keys.forEach((key, index) => {

@@ -148,6 +148,10 @@ collected from all sections.
 4. **The schema is a public contract** (third-party provider schemas) → prop names are frozen pre-GA.
 5. **Error isolation** — `ComponentErrorBoundary` around every render.
 6. **Engine reuse** — the section edit modal uses the same UIGenerator + `buildSectionZodSchema`.
+7. **Shared path tokenizer** — `parsePath` / `joinPath` in `utils/object-path/object-path.ts` is the
+   only path parser. Dots separate segments; keys containing dots (Kubernetes qualified names
+   like `nvidia.com/gpu`) use bracket-quoted segments: `resources.limits['nvidia.com/gpu']`.
+   All get/set/delete, nesting, flattening, and error-routing go through it.
 
 ## Modes — override matrix
 
@@ -207,4 +211,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-02
+- Last updated: 2026-09-22
