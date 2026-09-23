@@ -139,6 +139,192 @@ describe('renderComponent - string values are shown correctly in preview', () =>
     expect(screen.getByText('Replicas: 3')).toBeInTheDocument();
   });
 
+  it('appends the fieldParams badge to the value', () => {
+    const component: Component = {
+      uiType: FieldType.Number,
+      path: 'spec.engine.storage.size',
+      fieldParams: { label: 'Disk', badge: 'Gi' },
+    };
+    const formValues = { spec: { engine: { storage: { size: 25 } } } };
+
+    render(
+      <TestWrapper>
+        <>{renderComponent('disk', component, formValues)}</>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Disk: 25 Gi')).toBeInTheDocument();
+  });
+
+  it('does not append a badge when the value is missing', () => {
+    const component: Component = {
+      uiType: FieldType.Number,
+      path: 'spec.engine.storage.size',
+      fieldParams: { label: 'Disk', badge: 'Gi' },
+    };
+    const formValues = { spec: {} };
+
+    render(
+      <TestWrapper>
+        <>{renderComponent('disk', component, formValues)}</>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Disk: -')).toBeInTheDocument();
+  });
+
+  it('does not append a badge when the value is an empty string', () => {
+    // coerceNumberInputValue returns '' for a cleared/untouched number
+    // input, which is distinct from a missing (null/undefined) value.
+    const component: Component = {
+      uiType: FieldType.Number,
+      path: 'spec.engine.storage.size',
+      fieldParams: { label: 'Disk', badge: 'Gi' },
+    };
+    const formValues = { spec: { engine: { storage: { size: '' } } } };
+
+    render(
+      <TestWrapper>
+        <>{renderComponent('disk', component, formValues)}</>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Disk:')).toBeInTheDocument();
+  });
+
+  it('appends the badge for Select fields, matching the input', () => {
+    const component = makeSelectComponent('spec.databaseVersion', 'Version');
+    component.fieldParams = { ...component.fieldParams, badge: 'Gi' };
+    const formValues = { spec: { databaseVersion: '8.0' } };
+
+    render(
+      <TestWrapper>
+        <>{renderComponent('databaseVersion', component, formValues)}</>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Version: 8.0 Gi')).toBeInTheDocument();
+  });
+
+  it('does not append a badge to an empty-string Select value', () => {
+    const component = makeSelectComponent('spec.databaseVersion', 'Version');
+    component.fieldParams = { ...component.fieldParams, badge: 'Gi' };
+    const formValues = { spec: { databaseVersion: '' } };
+
+    render(
+      <TestWrapper>
+        <>{renderComponent('databaseVersion', component, formValues)}</>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Version:')).toBeInTheDocument();
+  });
+
+  it('does not append a badge for Text fields, matching the input', () => {
+    const component = makeTextComponent('spec.clusterName', 'Cluster Name');
+    component.fieldParams = { ...component.fieldParams, badge: 'Gi' };
+    const formValues = { spec: { clusterName: 'my-cluster' } };
+
+    render(
+      <TestWrapper>
+        <>{renderComponent('clusterName', component, formValues)}</>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Cluster Name: my-cluster')).toBeInTheDocument();
+  });
+
+  it('does not append a badge for a Toggle field even if one is configured', () => {
+    const component: Component = {
+      uiType: FieldType.Toggle,
+      path: 'spec.monitoring',
+      fieldParams: { label: 'Monitoring', badge: 'Gi' },
+    };
+    const formValues = { spec: { monitoring: true } };
+
+    render(
+      <TestWrapper>
+        <>{renderComponent('monitoring', component, formValues)}</>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Monitoring: Enabled')).toBeInTheDocument();
+  });
+
+  it('does not append a badge to a non-numeric leftover string while a Number field is mid-edit', () => {
+    // coerceNumberInputValue leaves the raw string in place when it fails to
+    // parse as a number (e.g. the user has typed "1a" and not yet corrected it).
+    const component: Component = {
+      uiType: FieldType.Number,
+      path: 'spec.engine.storage.size',
+      fieldParams: { label: 'Disk', badge: 'Gi' },
+    };
+    const formValues = { spec: { engine: { storage: { size: '1a' } } } };
+
+    render(
+      <TestWrapper>
+        <>{renderComponent('disk', component, formValues)}</>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Disk: 1a')).toBeInTheDocument();
+  });
+
+  it('appends the badge when a Number field holds a valid numeric string', () => {
+    // e.g. edit-mode default values extracted via extractInstanceValues, which
+    // strips the badge suffix but doesn't coerce the remainder to a number.
+    const component: Component = {
+      uiType: FieldType.Number,
+      path: 'spec.engine.storage.size',
+      fieldParams: { label: 'Disk', badge: 'Gi' },
+    };
+    const formValues = { spec: { engine: { storage: { size: '25' } } } };
+
+    render(
+      <TestWrapper>
+        <>{renderComponent('disk', component, formValues)}</>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Disk: 25 Gi')).toBeInTheDocument();
+  });
+
+  it('does not append a badge for a NaN Number value', () => {
+    const component: Component = {
+      uiType: FieldType.Number,
+      path: 'spec.engine.storage.size',
+      fieldParams: { label: 'Disk', badge: 'Gi' },
+    };
+    const formValues = { spec: { engine: { storage: { size: NaN } } } };
+
+    render(
+      <TestWrapper>
+        <>{renderComponent('disk', component, formValues)}</>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Disk: NaN')).toBeInTheDocument();
+  });
+
+  it('does not append a badge for an Infinity Number value', () => {
+    const component: Component = {
+      uiType: FieldType.Number,
+      path: 'spec.engine.storage.size',
+      fieldParams: { label: 'Disk', badge: 'Gi' },
+    };
+    const formValues = {
+      spec: { engine: { storage: { size: Infinity } } },
+    };
+
+    render(
+      <TestWrapper>
+        <>{renderComponent('disk', component, formValues)}</>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Disk: Infinity')).toBeInTheDocument();
+  });
+
   it('uses first path from multipath field for preview lookup', () => {
     const component: Component = {
       uiType: FieldType.Text,
