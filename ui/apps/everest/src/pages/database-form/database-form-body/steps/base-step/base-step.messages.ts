@@ -1,5 +1,4 @@
-// everest
-// Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,11 +13,14 @@
 // limitations under the License.
 
 export const Messages = {
-  pageTitle: 'Basic information',
+  pageTitle: 'Create an instance',
   pageDescription: 'Provide the basic information for your new instance.',
+  pageDescriptionWithPresets:
+    'Start from a preset, or configure everything from scratch.',
   labels: {
     dbName: 'Display name',
     k8sNamespace: 'Namespace',
+    topology: 'Topology',
   },
   placeholders: {
     dbName: 'E.g. postgresql-123',

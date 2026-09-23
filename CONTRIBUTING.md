@@ -195,7 +195,7 @@ same way, with `v2` in place of `release-2.0`.
 
 ### Backend
 
-The backend is written in Go. To set up a full local development environment — including a local Kubernetes cluster, the Everest operator, and all dependent services — follow the [Backend Development Guide](https://github.com/openeverest/openeverest/blob/main/dev/README.md).
+The backend is written in Go. To set up a full local development environment — a local Kubernetes cluster running the API server, the controller, the CRDs and the UI — follow the [Backend Development Guide](https://github.com/openeverest/openeverest/blob/main/dev/README.md). Database providers live in their own repositories and are developed against that environment; see the provider repository's own `dev/README.md`.
 
 ### Frontend
 

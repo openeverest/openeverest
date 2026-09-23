@@ -41,9 +41,7 @@ export const useApplySchemaDefaults = (
     if (!schemaKey || appliedKeyRef.current === schemaKey) return;
     if (!components) return;
 
-    const defaults = buildDefaultsFromComponents(components, '', {
-      schemaDefaultsOnly: true,
-    });
+    const defaults = buildDefaultsFromComponents(components, '', true);
     Object.entries(defaults).forEach(([fieldName, value]) => {
       if (onlyWhenEmpty && getValues(fieldName) !== undefined) return;
       setValue(fieldName, value, {

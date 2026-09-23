@@ -23,10 +23,16 @@ on:
 permissions:
   contents: read
 
+# Supersede per-PR runs; never cancel push/schedule analyses.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   analyze:
     name: Analyze
-    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    runs-on: cncf-ubuntu-8-32-x86
     permissions:
       actions: read
       contents: read

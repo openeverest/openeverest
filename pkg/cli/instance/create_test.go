@@ -212,34 +212,42 @@ func TestValidateTopology_Invalid(t *testing.T) {
 	assert.Contains(t, err.Error(), "standalone")
 }
 
-// ---- validateComponents -----------------------------------------------------
+// ---- validateComponentNames (via the same patchedComponents(parseSetFlags(...))
+// path create.Run and update.Run both use, so -f is covered along with --set) --
 
-func TestValidateComponents_ValidPath(t *testing.T) {
+func namesFromSet(t *testing.T, setFlags []string) []string {
+	t.Helper()
+	overrides, err := parseSetFlags(setFlags)
+	require.NoError(t, err)
+	return patchedComponents(overrides)
+}
+
+func TestValidateComponentNames_ValidPath(t *testing.T) {
 	t.Parallel()
 	prov := buildProvider("psmdb", nil, map[string][]string{"replicaset": {"engine", "proxy"}})
-	err := validateComponents([]string{"components.engine.replicas=3"}, prov, "replicaset")
+	err := validateComponentNames(namesFromSet(t, []string{"components.engine.replicas=3"}), prov, "replicaset")
 	assert.NoError(t, err)
 }
 
-func TestValidateComponents_InvalidComponent(t *testing.T) {
+func TestValidateComponentNames_InvalidComponent(t *testing.T) {
 	t.Parallel()
 	prov := buildProvider("psmdb", nil, map[string][]string{"replicaset": {"engine", "proxy"}})
-	err := validateComponents([]string{"components.mongos.replicas=3"}, prov, "replicaset")
+	err := validateComponentNames(namesFromSet(t, []string{"components.mongos.replicas=3"}), prov, "replicaset")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "mongos")
 	assert.Contains(t, err.Error(), "engine")
 	assert.Contains(t, err.Error(), "proxy")
 }
 
-func TestValidateComponents_NonComponentPathSkipped(t *testing.T) {
+func TestValidateComponentNames_NonComponentPathSkipped(t *testing.T) {
 	t.Parallel()
 	// --set backup.enabled=true is not a components.* path — must not be rejected
 	prov := buildProvider("psmdb", nil, map[string][]string{"replicaset": {"engine"}})
-	err := validateComponents([]string{"backup.enabled=true"}, prov, "replicaset")
+	err := validateComponentNames(namesFromSet(t, []string{"backup.enabled=true"}), prov, "replicaset")
 	assert.NoError(t, err)
 }
 
-func TestValidateComponents_EmptyTopologyFallsBackToGlobal(t *testing.T) {
+func TestValidateComponentNames_EmptyTopologyFallsBackToGlobal(t *testing.T) {
 	t.Parallel()
 	// Topology has no components (simulates API stripping null entries).
 	// Validation should fall back to spec.components.
@@ -250,8 +258,25 @@ func TestValidateComponents_EmptyTopologyFallsBackToGlobal(t *testing.T) {
 	}
 	prov.Spec.Topologies = &empty
 	// engine IS in spec.components (set by buildProvider), so this should pass.
-	err := validateComponents([]string{"components.engine.replicas=3"}, prov, "replicaset")
+	err := validateComponentNames(namesFromSet(t, []string{"components.engine.replicas=3"}), prov, "replicaset")
 	assert.NoError(t, err)
+}
+
+// The bug this refactor fixes: a misspelt component supplied via -f, not --set,
+// used to sail through because the old check only parsed opts.Set strings.
+func TestValidateComponentNames_CatchesTypoFromValuesFileShapedMap(t *testing.T) {
+	t.Parallel()
+	prov := buildProvider("psmdb", nil, map[string][]string{"replicaset": {"engine", "proxy"}})
+	// Shape a -f-file-like map directly, the way buildSpecOverrides would produce
+	// it from YAML, rather than going through --set string parsing.
+	overrides := map[string]any{
+		"components": map[string]any{
+			"engien": map[string]any{"replicas": 5},
+		},
+	}
+	err := validateComponentNames(patchedComponents(overrides), prov, "replicaset")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "engien")
 }
 
 // ---- parseSetFlags ----------------------------------------------------------
@@ -283,6 +308,15 @@ func TestParseSetFlags_StringFallback(t *testing.T) {
 	assert.Equal(t, "50Gi", storage["size"])
 }
 
+func TestParseSetFlags_NullCoercion(t *testing.T) {
+	t.Parallel()
+	m, err := parseSetFlags([]string{"version=null"})
+	require.NoError(t, err)
+	value, present := m["version"]
+	require.True(t, present, "null must survive as a member: it is what removes the field")
+	assert.Nil(t, value)
+}
+
 func TestParseSetFlags_MissingEquals(t *testing.T) {
 	t.Parallel()
 	_, err := parseSetFlags([]string{"components.engine.replicas"})
@@ -294,6 +328,17 @@ func TestParseSetFlags_EmptyPath(t *testing.T) {
 	t.Parallel()
 	_, err := parseSetFlags([]string{"=value"})
 	require.Error(t, err)
+}
+
+// --set has no notion of list indices; deepSet would otherwise build the literal
+// map key "storages[0]" instead of indexing, which then reads as a schema typo
+// (unknown field) rather than "indexing isn't supported here".
+func TestParseSetFlags_ListIndexRejected(t *testing.T) {
+	t.Parallel()
+	_, err := parseSetFlags([]string{"backup.storages[0].pitr.enabled=true"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "does not support list indices")
+	assert.Contains(t, err.Error(), "-f")
 }
 
 func TestParseSetFlags_ConflictingPaths(t *testing.T) {

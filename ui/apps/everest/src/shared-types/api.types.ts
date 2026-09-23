@@ -30,6 +30,10 @@ export type InstanceConnectionDetails =
   CrdsGen.components['schemas']['InstanceConnectionDetails'];
 export type PhaseType = NonNullable<Instance['status']>['phase'];
 
+export type InstancePreset = CrdsGen.components['schemas']['InstancePreset'];
+export type InstancePresetList =
+  CrdsGen.components['schemas']['InstancePresetList'];
+
 export type CreateDbInstancePayload =
   HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances']['post']['requestBody']['content']['application/json'];
 export type GetDbInstanceConnectionPayload =

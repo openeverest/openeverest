@@ -226,6 +226,18 @@ func (i *Installer) Install(ctx context.Context) error {
 	return i.Upgrade(ctx, UpgradeOptions{})
 }
 
+// InstallOrUpgrade installs the Helm chart if the release does not exist yet,
+// otherwise it upgrades the existing release, possibly to a different chart version.
+func (i *Installer) InstallOrUpgrade(ctx context.Context, opts UpgradeOptions) error {
+	if _, err := action.NewGet(i.cfg).Run(i.ReleaseName); err != nil {
+		if errors.Is(err, driver.ErrReleaseNotFound) {
+			return i.install(ctx)
+		}
+		return err
+	}
+	return i.Upgrade(ctx, opts)
+}
+
 // GetRelease gets the installed Helm release.
 func (i *Installer) GetRelease() (*release.Release, error) {
 	if i.release == nil {

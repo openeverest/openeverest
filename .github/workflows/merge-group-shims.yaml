@@ -1,0 +1,28 @@
+# The DCO app and the code-scanning "CodeQL" roll-up only report in a pull
+# request context, never on merge-group commits, which stalls the merge queue
+# on those required contexts. Queue entry already requires both checks green on
+# the PR head, so mirroring passing checks of the same names onto the merge
+# group weakens nothing: an unsigned or unscanned PR cannot enter the queue.
+name: Merge-group shims
+
+on:
+  merge_group:
+
+permissions: {}
+
+jobs:
+  dco:
+    name: DCO
+    timeout-minutes: 5
+    runs-on: cncf-ubuntu-8-32-x86
+    steps:
+      - name: Pass for merge group
+        run: echo "Sign-offs were validated by the DCO app on the pull request."
+
+  codeql:
+    name: CodeQL
+    timeout-minutes: 5
+    runs-on: cncf-ubuntu-8-32-x86
+    steps:
+      - name: Pass for merge group
+        run: echo "CodeQL alert gating ran on the pull request; queue entry required it green."

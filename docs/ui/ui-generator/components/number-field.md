@@ -5,6 +5,7 @@
 - [Properties](#properties)
 - [Native Validation](#native-validation)
 - [Validation Auto-Mapping](#validation-auto-mapping)
+- [Unit Badge](#unit-badge)
 - [Examples](#examples)
   - [Basic Number Field](#basic-number-field)
   - [Exclusive Bounds](#exclusive-bounds)
@@ -25,6 +26,8 @@ A numeric input field for integer and decimal values.
   - `autoFocus`: Automatically focus this field on render
   - `helperText`: Help text displayed below the field
   - `step`: Increment/decrement step for arrow buttons (e.g., `0.1`, `5`, `10`)
+  - `badge`: Unit/suffix rendered at the end of the input (e.g. `Gi`). See [Unit Badge](#unit-badge)
+  - `badgeToApi`: When `true`, the `badge` is treated as a **unit** — appended to the value on write and converted back on read. See [Unit Badge](#unit-badge)
 - `validation` (optional): Validation rules object with the following properties:
   - `required`: Whether the field is required (default: `false`)
   - `min`: Minimum value (inclusive) - value must be >= specified number
@@ -40,6 +43,27 @@ A numeric input field for integer and decimal values.
 ## Native Validation:
 
 Validates that input is numeric
+
+## Unit Badge:
+
+`fieldParams.badge` renders a unit/suffix at the end of the input (e.g. `Gi`, `GB`, `%`). When `badgeToApi: true`, the badge is treated as a **unit** and participates in value conversion:
+
+- **On write** the badge is appended to the value: `0.6` with `badge: Gi` becomes `0.6Gi`.
+- **On read** the stored value is coerced back into the badge unit. Kubernetes may persist a resource quantity in a _different_ unit than the badge — for example it normalises `0.6Gi` to the milli-byte value `644245094400m` — so a value stored in any supported unit is converted into the badge unit (`644245094400m` with `badge: Gi` becomes `0.6`).
+
+Supported units (Kubernetes resource quantities): `m, k, M, G, T, P, E, Ki, Mi, Gi, Ti, Pi, Ei`.
+
+A value stored in any other (non-standard) unit is **not** converted and is shown as-is. This is expected behavior: if a stored value uses a unit outside the list above (e.g. `kg`), the raw value passes through unchanged.
+
+```yaml
+memory:
+  uiType: number
+  path: spec.components.engine.resources.limits.memory
+  fieldParams:
+    label: Memory
+    badge: Gi
+    badgeToApi: true
+```
 
 ## Validation Auto-Mapping:
 

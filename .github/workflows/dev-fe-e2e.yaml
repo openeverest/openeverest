@@ -2,41 +2,21 @@ name: FE E2E Workflow
 
 on:
   workflow_call:
-    secrets:
-      CI_USER:
-        required: true
-      CI_PASSWORD:
-        required: true
-      RBAC_USER:
-        required: true
-      RBAC_PASSWORD:
-        required: true
 
 permissions:
   contents: read
 
-env:
-  GONOPROXY: "github.com/percona"
-  GONOSUMDB: "github.com/percona"
-  GOPRIVATE: "github.com/percona"
-
 jobs:
   e2e:
-    strategy:
-      fail-fast: true
-    continue-on-error: false
-    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    runs-on: cncf-ubuntu-16-64-x86
     env:
       PMM_HELM_VER: "1.3.21"
-      # Store Playwright browsers on the roomier /mnt partition to avoid
-      # ENOSPC failures when installing Chromium on the smaller root volume.
-      PLAYWRIGHT_BROWSERS_PATH: /mnt/ms-playwright
     steps:
       - name: Check out code into the Go module directory
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          lfs: true
-          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Set up Go release
@@ -45,37 +25,19 @@ jobs:
           go-version-file: "go.mod"
           cache: true
 
-      - name: Adjust GitHub worker node
-        uses: ./.github/actions/adjust-github-node
-        with:
-          adjust-host-for-k3d: true
-          mount-docker-data: true
-
       # Setup Node
-      - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
-        with:
-          version: 9.4.0
+      - name: Setup Node and pnpm
+        uses: ./.github/actions/setup-node-pnpm
 
-      - name: Use Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - name: Install Kubernetes tools
+        uses: ./.github/actions/install-kubernetes-tools
         with:
-          node-version: 20.x
-          cache: "pnpm"
-          cache-dependency-path: ui/pnpm-lock.yaml
+          install-kubectl: true
+          install-kind: true
 
-      - name: Start local Kubernetes cluster with the local registry
-        uses: medyagh/setup-minikube@e9e035a86bbc3caea26a450bd4dbf9d0c453682e # latest
-        id: minikube
-        with:
-          cpus: 4
-          memory: 12g
-          addons: registry
-          kubernetes-version: v1.32.8
-          insecure-registry: "localhost:5000"
-
-      - name: Expose local registry
+      - name: Run kind test cluster
         run: |
-          kubectl port-forward --namespace kube-system service/registry 5000:80 &
+          make kind-cluster-up
 
       - name: Set MinIO
         run: kubectl apply -f ./.github/minio.conf.yaml
@@ -96,29 +58,19 @@ jobs:
           url=$(kubectl get svc/monitoring-service -o json | jq -r '.spec.clusterIP')
           echo -n "MONITORING_URL=http://$url" >> $GITHUB_ENV
 
-      - name: Build Everest API Server
-        run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-debug
-
-      - name: Build Everest Controller
-        run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 make build-controller
-
-      - name: Build Everest docker container
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
-        id: meta
+      # Built once by the build_images job in ci.yaml.
+      - name: Download images
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
-          images: localhost:5000/openeverest/openeverest-dev
-          tags: 0.0.0
+          name: everest-dev-images
+          path: /tmp
 
-      - name: Build and Push everest dev image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
-        with:
-          context: .
-          file: build/package/server/Dockerfile
-          target: openeverest
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+      - name: Load images
+        run: docker load -i /tmp/everest-dev-images.tar
+
+      - name: Upload everest dev image to kind test cluster
+        run: |
+          make kind-upload-server-image
 
       - name: Build CLI
         shell: bash
@@ -134,12 +86,9 @@ jobs:
           --version-metadata-url https://check-dev.percona.com \
           --skip-wizard \
           --skip-db-namespace \
-          --helm.set server.image.repository=localhost:5000/openeverest/openeverest-dev \
+          --helm.set server.image.repository=ghcr.io/openeverest/openeverest-dev \
           --helm.set server.apiRequestsRateLimit=200 \
-          --helm.set versionMetadataURL=https://check-dev.percona.com \
-          --helm.set operator.init=false \
-          --helm.set operator.image=ghcr.io/openeverest/openeverest-operator-dev \
-          --helm.set olm.catalogSourceImage=ghcr.io/openeverest/openeverest-catalog-dev
+          --helm.set versionMetadataURL=https://check-dev.percona.com
 
       - name: Add everest namespace
         shell: bash
@@ -156,10 +105,19 @@ jobs:
         run: |
           echo "EVEREST_ADMIN_PASSWORD=$(./bin/everestctl accounts initial-admin-password)" >> $GITHUB_ENV
 
+      # NodePort 30080 is mapped to host port 8080 by dev/kind_config.yaml; unlike a
+      # long-lived background `kubectl port-forward`, this cannot go stale before the
+      # tests start.
       - name: Expose Everest API Server
         shell: bash
         run: |
-          kubectl port-forward -n everest-system deployment/everest-server 8080:8080 &
+          make expose
+          for i in $(seq 1 30); do
+            curl -fs -o /dev/null http://localhost:8080/healthz && exit 0
+            sleep 2
+          done
+          echo "::error::Everest API is not reachable on http://localhost:8080"
+          exit 1
 
       - name: Run Everest UI
         shell: bash
@@ -169,13 +127,28 @@ jobs:
           make build
           pnpm --filter "@percona/everest" dev &
 
+      - name: Wait for the UI dev server
+        shell: bash
+        run: |
+          for i in $(seq 1 30); do
+            curl -fs -o /dev/null http://localhost:3000 && exit 0
+            sleep 2
+          done
+          echo "::error::UI dev server is not reachable on http://localhost:3000"
+          exit 1
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('ui/pnpm-lock.yaml') }}
+
       - name: Install Chromium for Playwright
         shell: bash
         run: |
-          sudo mkdir -p "$PLAYWRIGHT_BROWSERS_PATH"
-          sudo chown -R "$(id -u):$(id -g)" "$PLAYWRIGHT_BROWSERS_PATH"
           cd ui/apps/everest
-          npx playwright install chromium
+          # --with-deps: the CNCF runner image does not preinstall browser libraries.
+          npx playwright install --with-deps chromium
 
       - name: Run integration tests
         shell: bash

@@ -22,14 +22,17 @@ import { DatabaseFormBodyProps } from './types';
 import { useFormContext } from 'react-hook-form';
 import { WizardMode } from 'shared-types/wizard.types';
 import { useDatabaseFormContext } from '../database-form-context';
-import { StepHeader } from './steps/step-header/step-header';
+import { StepHeader } from './steps-old/step-header/step-header';
 import DatabaseFormStepControllers from './database-form-step-controllers';
+import { isSubmitDisabled } from './database-form-body.utils';
 
 const DatabaseFormBody = ({
   steps,
   activeStep,
   isSubmitting,
   disableNext,
+  presetSelected,
+  presetPending,
   onCancel,
   onSubmit,
   handleNextStep,
@@ -72,11 +75,17 @@ const DatabaseFormBody = ({
       </Box>
       <DatabaseFormStepControllers
         disableBack={isFirstStep}
-        disableSubmit={isSubmitting || !isValid}
+        disableSubmit={isSubmitDisabled({
+          isSubmitting,
+          presetPending: presetPending ?? false,
+          presetSelected: presetSelected ?? false,
+          isValid,
+        })}
         disableCancel={isSubmitting}
         disableNext={disableNext}
         showSubmit={isLastStep || isFirstStep}
         showConfigMore={isFirstStep}
+        disableConfigMore={presetSelected}
         onPreviousClick={handlePreviousStep}
         onNextClick={handleNextStep}
         onCancel={onCancel}

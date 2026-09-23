@@ -43,14 +43,6 @@ if not os.path.exists(frontend_dir):
     fail('Frontend dir does not exist: {0}'.format(frontend_dir))
 print('Using frontend dir: {0}'.format(frontend_dir))
 
-operator_dir = os.getenv('EVEREST_OPERATOR_DIR')
-if not operator_dir:
-    fail('EVEREST_OPERATOR_DIR must be set')
-operator_dir = os.path.realpath(operator_dir)
-if not os.path.exists(operator_dir):
-    fail('Operator dir does not exist: {0}'.format(operator_dir))
-print('Using operator dir: {0}'.format(operator_dir))
-
 everest_chart_dir = os.getenv('EVEREST_CHART_DIR')
 if not everest_chart_dir:
     fail('EVEREST_CHART_DIR must be set')
@@ -65,12 +57,8 @@ print('Using chart dir: {0}'.format(everest_chart_dir))
 # run the provider's Tiltfile in a separate Tilt instance with
 # INSTALL_OPENEVEREST=false (see the provider repo's dev/README.md).
 
-# Check for Everest operator Go build options
-go_default_build_env = 'CGO_ENABLED=0 GOOS=linux'
-everest_operator_build_env = os.getenv('EVEREST_OPERATOR_BUILD_ENV', go_default_build_env)
-print('Using Everest operator build ENV vars: {0}'.format(everest_operator_build_env))
-
 # Check for Everest server backend Go build options
+go_default_build_env = 'CGO_ENABLED=0 GOOS=linux'
 everest_backend_build_env = os.getenv('EVEREST_BACKEND_BUILD_ENV', go_default_build_env)
 print('Using Everest server backend build ENV vars: {0}'.format(everest_backend_build_env))
 
@@ -89,10 +77,6 @@ if docker_registry_url:
 everest_debug = str2bool(os.getenv('EVEREST_DEBUG', 'False'))
 print('Using Everest debug: {0}'.format(everest_debug))
 
-# Check for Everest Operator debug
-everest_operator_debug = str2bool(os.getenv('EVEREST_OPERATOR_DEBUG', 'False'))
-print('Using Everest Operator debug: {0}'.format(everest_operator_debug))
-
 # Check whether we need to create backup storage
 need_backup_storage=False
 for namespace in config_yaml['namespaces']:
@@ -107,12 +91,8 @@ watch_settings(
     ignore=[
         '%s/**/*.tgz' % everest_chart_dir,
         '%s/**/*tmpcharts*' % everest_chart_dir,
-        '%s/config/**' % operator_dir,
     ]
 )
-
-# Ensure operator's kustomize is installed
-local('[ -x "{0}/bin/kustomize" ] || make -C "{0}" kustomize'.format(operator_dir), quiet=True)
 
 # Create namespace
 load('ext://namespace', 'namespace_create')
@@ -212,21 +192,13 @@ fi'''.format(
     deps=[
         '{0}/Chart.lock'.format(everest_chart_dir),
         '{0}/charts/pmm3/Chart.lock'.format(everest_chart_dir),
-        '{0}/charts/everest-db-namespace/Chart.lock'.format(everest_chart_dir),
     ],
     labels=['everest'],
 )
 
-
-# First apply the CRDs since we will not apply them in the helm chart.
-everest_crds = kustomize('%s/config/crd' % operator_dir)
-k8s_yaml(everest_crds)
-
 everest_helm_set = [
-    'dbNamespace.enabled=false',
-    'operator.init=false',
+    'telemetry=false',
     'upgrade.preflightChecks=false',
-    'olm.install=false',
     'createMonitoringResources=false',
     'monitoring.crds.enabled=true',
     'monitoring.crds.plain=false',
@@ -244,11 +216,8 @@ everest_yaml = helm(
     values=['./helm-values/webhook-tls-cert-values.yaml'],
     set=everest_helm_set,
 )
-# we don't need the catalog source
-everest_catalog_source_yaml, everest_yaml = filter_yaml(everest_yaml, kind='CatalogSource', name='everest-catalog')
-
-# we don't need to run default PodSchedulingPolicies cleanup hook
-default_psp_cleanup_yaml, everest_yaml = filter_yaml(everest_yaml, kind='Job', namespace=EVEREST_NAMESPACE)
+# Helm hooks (upgrade preflight checks) are not needed in a dev environment.
+hooks_yaml, everest_yaml = filter_yaml(everest_yaml, kind='Job', namespace=EVEREST_NAMESPACE)
 
 # Patch Everest Server deployment for running with debugger
 def patch_everest_debug(in_yaml):
@@ -263,27 +232,6 @@ def patch_everest_debug(in_yaml):
       for c in o['spec']['template']['spec']['containers']:
         if c.get('name') == 'everest':
           c['ports'] = [{'containerPort': 8080}, {'containerPort': 40000}]
-          # In debugger mode the process may be in paused state, need to avoid pod restart
-          c['readinessProbe'] = None
-          c['livenessProbe'] = None
-          c['resources'] = None
-  return encode_yaml_stream(objects)
-
-# Patch Everest Operator deployment for running with debugger
-def patch_everest_operator_debug(in_yaml):
-  if not everest_operator_debug:
-    return in_yaml
-
-  print('Patching Everest operator deployment for running with debugger')
-  objects = decode_yaml_stream(in_yaml)
-  for o in objects:
-    if o.get('kind') == 'Deployment' and o.get('metadata').get('name') == 'everest-operator':
-      o['spec']['template']['spec']['securityContext']= {'runAsNonRoot': False}
-      for c in o['spec']['template']['spec']['containers']:
-        if c.get('name') == 'manager':
-          c['ports'] = [{'containerPort': 40001}]
-          # Need to disable security context for debugger
-          c['securityContext'] = None
           # In debugger mode the process may be in paused state, need to avoid pod restart
           c['readinessProbe'] = None
           c['livenessProbe'] = None
@@ -315,7 +263,6 @@ def patch_controller_tilt_image(in_yaml):
   return encode_yaml_stream(objects)
 
 everest_yaml=patch_everest_debug(everest_yaml)
-everest_yaml=patch_everest_operator_debug(everest_yaml)
 everest_yaml=patch_server_tilt_image(everest_yaml)
 everest_yaml=patch_controller_tilt_image(everest_yaml)
 k8s_yaml(everest_yaml)
@@ -389,142 +336,11 @@ k8s_resource(
     labels=["everest-monitoring"]
 )
 
-################################
-####### Everest operator #######
-################################
-
-# everest_operator_build_target='build'
-# everest_operator_target='dev'
-# everest_operator_entrypoint=["./manager"]
-# everest_operator_port_forwards=[]
-# if everest_operator_debug:
-#     everest_operator_build_target='build-debug'
-#     everest_operator_target='debug'
-#     everest_operator_entrypoint=[
-#         "/dlv",
-#         "--listen=:40001",
-#         "--headless=true",
-#         "--api-version=2",
-#         "--continue=true",
-#         "--accept-multiclient=true",
-#         "exec",
-#         "/home/everest/manager",
-#         "--",
-#     ]
-#     everest_operator_port_forwards=[
-#         port_forward(40001, 40001, 'Everest Operator debugger'),
-#     ]
-
-# # Build the Everest operator manager locally to take advantage of the go cache
-# local_resource(
-#   'operator-build',
-#   '{0} make -C {1} {2}'.format(everest_operator_build_env, operator_dir, everest_operator_build_target),
-#   deps=[
-#     '{0}/go.mod'.format(operator_dir),
-#     '{0}/go.sum'.format(operator_dir),
-#     '{0}/internal'.format(operator_dir),
-#     '{0}/cmd'.format(operator_dir),
-#   ],
-#   ignore=[
-#       '{0}/**/*.deepcopy.go*'.format(operator_dir),
-#       '{0}/**/mock_*.go*'.format(operator_dir),
-#       '{0}/**/*_test.go'.format(operator_dir),
-#       '{0}/**/*.gen.go*'.format(operator_dir),
-#   ],
-#   labels=["everest-operator"],
-# )
-
-# # Live update the Everest operator manager without generating a new pod
-load('ext://restart_process', 'docker_build_with_restart')
-# docker_build_with_restart('ghcr.io/openeverest/openeverest-operator',
-#   context=operator_dir,
-#   dockerfile='./everest-operator.Dockerfile',
-#   target=everest_operator_target,
-#   entrypoint=everest_operator_entrypoint,
-#   only=['{0}/bin/manager'.format(operator_dir)],
-#   live_update=[
-#     sync('{0}/bin/manager'.format(operator_dir), '/home/everest/manager'),
-#   ]
-# )
-
-# k8s_resource(
-#     objects=[
-#         'backupstorages.everest.percona.com:customresourcedefinition',
-#         'databaseclusterbackups.everest.percona.com:customresourcedefinition',
-#         'databaseclusterrestores.everest.percona.com:customresourcedefinition',
-#         'databaseclusters.everest.percona.com:customresourcedefinition',
-#         'databaseengines.everest.percona.com:customresourcedefinition',
-#         'monitoringconfigs.everest.percona.com:customresourcedefinition',
-#         'podschedulingpolicies.everest.percona.com:customresourcedefinition',
-#         'loadbalancerconfigs.everest.percona.com:customresourcedefinition',
-#         'dataimporters.everest.percona.com:customresourcedefinition',
-#         'dataimportjobs.everest.percona.com:customresourcedefinition',
-#         'splithorizondnsconfigs.enginefeatures.everest.percona.com:customresourcedefinition',
-#     ],
-#     new_name='everest-crds',
-#     labels=["everest-operator"]
-# )
-# k8s_resource(
-#     workload='everest-operator',
-#     objects=[
-#     'everest-operator-controller-manager:serviceaccount:{0}'.format(EVEREST_NAMESPACE),
-#     'everest-operator-leader-election-role:role:{0}'.format(EVEREST_NAMESPACE),
-#     'everest-operator-local:rolebinding:{0}'.format(EVEREST_NAMESPACE),
-#     'everest-operator-metrics-reader:clusterrole',
-#     'everest-operator-metrics-auth-role:clusterrole',
-#     'everest-operator-metrics-auth-rolebinding:clusterrolebinding',
-#     'everest-operator-manager-role:clusterrole',
-#     'everest-operator-leader-election-rolebinding:rolebinding',
-#     'everest-operator-manager-rolebinding:clusterrolebinding',
-#     'webhook-server-cert:secret',
-#     'everest-operator-validating-webhook-configuration:validatingwebhookconfiguration',
-#     'everest-operator-mutating-webhook-configuration:mutatingwebhookconfiguration',
-#     'everest-operator-backupstorage-editor-role:clusterrole',
-#     'everest-operator-backupstorage-viewer-role:clusterrole',
-#     'everest-operator-databasecluster-editor-role:clusterrole',
-#     'everest-operator-databasecluster-viewer-role:clusterrole',
-#     'everest-operator-databaseclusterbackup-editor-role:clusterrole',
-#     'everest-operator-databaseclusterbackup-viewer-role:clusterrole',
-#     'everest-operator-databaseclusterrestore-editor-role:clusterrole',
-#     'everest-operator-databaseclusterrestore-viewer-role:clusterrole',
-#     'everest-operator-databaseengine-editor-role:clusterrole',
-#     'everest-operator-databaseengine-viewer-role:clusterrole',
-#     'everest-operator-monitoringconfig-editor-role:clusterrole',
-#     'everest-operator-monitoringconfig-viewer-role:clusterrole',
-#     'everest-operator-podschedulingpolicy-editor-role:clusterrole',
-#     'everest-operator-podschedulingpolicy-viewer-role:clusterrole',
-#     'everest-operator-loadbalancerconfig-editor-role:clusterrole',
-#     'everest-operator-loadbalancerconfig-viewer-role:clusterrole',
-#     'enginefeatures.everest-splithorizondnsconfig-editor-role:clusterrole',
-#     'enginefeatures.everest-splithorizondnsconfig-viewer-role:clusterrole',
-#     'everest-helm-lbc-cleanup-hook:serviceaccount',
-#     'everest-helm-lbc-cleanup-hook:clusterrole',
-#     'everest-helm-lbc-cleanup-hook:clusterrolebinding',
-#     'everest-helm-psp-cleanup-hook:serviceaccount',
-#     'everest-helm-psp-cleanup-hook:clusterrole',
-#     'everest-helm-psp-cleanup-hook:clusterrolebinding',
-#     'everest-percona-pg-operator:dataimporter',
-#     'everest-percona-psmdb-operator:dataimporter',
-#     'everest-percona-pxc-operator:dataimporter',
-#     'eks-default:loadbalancerconfig',
-#     'everest-default-mysql:podschedulingpolicy',
-#     'everest-default-postgresql:podschedulingpolicy',
-#     'everest-default-mongodb:podschedulingpolicy'
-#     ],
-#     resource_deps = [
-#       'everest-namespace',
-#       'everest-crds',
-#       'operator-build',
-#       'helm-deps',
-#     ],
-#     port_forwards=everest_operator_port_forwards,
-#     new_name='everest-operator-deploy',
-#     labels=["everest-operator"]
-# )
-
 #################################
 ############ Everest ############
 #################################
+
+load('ext://restart_process', 'docker_build_with_restart')
 
 if enable_frontend:
   # Build frontend

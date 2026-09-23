@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package rbac
 
 import (
@@ -93,11 +107,24 @@ func checkRoles(roles []string, policies [][]string) error {
 	return nil
 }
 
+// Per-position charsets: the old single pattern `^[/*-_:a-zA-Z0-9]+$` hid a
+// `*-_` range (0x2A-0x5F) that admitted glob metacharacters — an accepted term
+// like `prod/[db` makes the matcher return ErrBadPattern at enforce time and
+// fails every request. Subjects additionally allow `.`/`@`/`+` (email local
+// parts, subaddressing included — they previously validated only *because* of
+// that range bug).
+var (
+	subjectTermRegex = regexp.MustCompile(`^[/*_:.@+a-zA-Z0-9-]+$`)
+	otherTermRegex   = regexp.MustCompile(`^[/*:a-z0-9-]+$`)
+)
+
 func validateTerms(terms []string) error {
-	pattern := `^[/*-_:a-zA-Z0-9]+$`
-	compiled := regexp.MustCompile(pattern)
-	for _, term := range terms {
-		if !compiled.MatchString(term) {
+	for i, term := range terms {
+		re := otherTermRegex
+		if i == 0 {
+			re = subjectTermRegex
+		}
+		if !re.MatchString(term) {
 			return fmt.Errorf("invalid policy term '%s'", term)
 		}
 	}

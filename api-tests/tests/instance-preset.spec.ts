@@ -77,11 +77,15 @@ test.describe('Instance Preset tests', () => {
       await checkError(resolveResponse);
       const preset = await resolveResponse.json();
 
-      // Inline parameters are untouched by resolution; storage defaults are filled.
+      // Inline parameters are untouched by resolution; storage defaults are filled
+      // with the cluster's default storage class.
       expect(preset.spec.components.engine.parameters.configuration).toBe(
         'key = value\n'
       );
-      expect(preset.spec.components.engine.storage.storageClass).toBe("local-path");
+      const infoResponse = await request.get('/v1/cluster-info');
+      await checkError(infoResponse);
+      const clusterInfo = await infoResponse.json();
+      expect(preset.spec.components.engine.storage.storageClass).toBe(clusterInfo.storageClassNames[0]);
 
       // Copy the preset spec and add annotation
       const instancePayload = {
