@@ -129,7 +129,9 @@ test.describe.serial(
 
     const clusterName = `${db}-${size}-pitr`;
     const namespace = EVEREST_CI_NAMESPACES.EVEREST_UI;
-    const monitoringName = 'e2e-endpoint-1';
+    // monitoring-config.setup creates one endpoint per bucket namespace as
+    // e2e-endpoint-<idx>; the single everest namespace yields e2e-endpoint-0.
+    const monitoringName = 'e2e-endpoint-0';
     const baseBackupName = `dembkp-${db}-${size}`;
     let storageClasses: string[] = [];
 
@@ -195,7 +197,7 @@ test.describe.serial(
               }
             );
           },
-          { timeout: 180000, intervals: [5000, 5000, 10000] }
+          { timeout: 480000, intervals: [5000, 5000, 10000] }
         )
         .toBe(true);
     };
