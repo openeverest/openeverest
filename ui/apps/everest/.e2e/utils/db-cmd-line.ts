@@ -132,6 +132,11 @@ export const getDBClientPod = async (dbType: string, namespace: string) => {
   }
 
   if (podName) {
+    // Another worker may have just created it; exec fails until it is Ready.
+    execSync(
+      `kubectl wait --namespace ${namespace} --for=condition=Ready pod/${podName} --timeout=180s`,
+      { stdio: 'pipe' }
+    );
     return podName;
   }
 
