@@ -81,7 +81,7 @@ jobs:
       github.event_name == 'push' ||
       (github.event_name == 'pull_request' &&
         contains(github.event.pull_request.labels.*.name, 'run-release-e2e'))
-    runs-on: cncf-ubuntu-16-64-x86
+    runs-on: ubuntu-latest
     # The live 3-node PXC PITR restores alone take ~20 min; give the whole lane
     # generous headroom.
     timeout-minutes: 120
@@ -129,6 +129,15 @@ jobs:
 
       # CNCF (ARC) runners export a literal, unexpanded `$HOME/.config` which breaks
       # os.UserConfigDir(). Re-export it expanded until the runner image is fixed.
+      # DEBUG: the host's usr.sbin.mysqld profile attaches to mysqld inside
+      # privileged kind nodes and blocks /etc/my.cnf.
+      - name: Unload host mysqld AppArmor profile
+        run: |
+          df -h / /mnt || true
+          sudo aa-status | grep -i mysql || true
+          if [ -f /etc/apparmor.d/usr.sbin.mysqld ]; then sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.mysqld; fi
+          sudo aa-status | grep -i mysql || echo "no mysqld profile loaded"
+
       - name: Normalize XDG_CONFIG_HOME
         run: echo "XDG_CONFIG_HOME=$HOME/.config" >> "$GITHUB_ENV"
 
