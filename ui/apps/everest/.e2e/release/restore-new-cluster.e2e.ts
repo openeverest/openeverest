@@ -26,6 +26,7 @@ import {
   submitWizard,
   populateBasicInformation,
   populateResources,
+  populateEngineResources,
   populateAdvancedConfig,
 } from '@e2e/utils/db-wizard';
 import {
@@ -163,6 +164,9 @@ function getNextScheduleMinute(incrementMinutes: number): string {
 
             await expect(page.getByText('Nodes (' + size + ')')).toBeVisible();
             await populateResources(page, 0.6, 1, 1, size);
+          } else {
+            // The topology defaults (4 CPU / 8Gi / 100Gi per node) do not fit a CI runner.
+            await populateEngineResources(page, 0.6, 1, 1);
           }
           await moveForward(page);
         });
