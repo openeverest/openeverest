@@ -199,9 +199,7 @@ func render(
 				return c.Update(ctx, obj, opts...)
 			},
 			Apply: func(ctx context.Context, c client.WithWatch, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
-				if data, err := json.Marshal(obj); err == nil {
-					obs.applied = append(obs.applied, string(data))
-				}
+				obs.applied = append(obs.applied, serialize(obj))
 				return c.Apply(ctx, obj, opts...)
 			},
 		}).
@@ -278,7 +276,7 @@ func addressesComponent(path, component string) bool {
 	return strings.HasPrefix(path, "spec."+componentsSegment+"."+component+".")
 }
 
-func serialize(obj client.Object) string {
+func serialize(obj any) string {
 	data, err := json.Marshal(obj)
 	if err != nil {
 		return ""

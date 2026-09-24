@@ -144,40 +144,64 @@ func (c *Context) ProviderSpec() (*v1alpha1.ProviderSpec, error) {
 // RESOURCE OPERATIONS
 // =============================================================================
 
-// Apply creates or updates a resource, setting ownership automatically.
-// This is the primary way to manage resources - just describe what you want.
+// Apply server-side applies obj and sets the owner reference.
+//
+// Rules:
+//   - Build the whole desired object every time. Fields you stop setting are
+//     removed; fields you never set are left to the engine operator.
+//   - Zero values (false, 0, "", {}) count as set. Nil fields do not.
+//   - Pass a freshly built object, never one from Get.
+//
+// obj is not updated with the server response; use Get to read it back.
 func (c *Context) Apply(obj client.Object) error {
-	// Set the owner reference automatically
+	// A Get result carries every field the operator wrote; force-applying it
+	// would claim them all and fight the operator on each reconcile.
+	if len(obj.GetManagedFields()) > 0 || obj.GetResourceVersion() != "" {
+		return errors.New("Apply expects a freshly built object; read state with Get, build desired state separately")
+	}
+
 	if err := controllerutil.SetControllerReference(c.in, obj, c.client.Scheme()); err != nil {
 		return fmt.Errorf("failed to set owner: %w", err)
 	}
 
-	// Server-side apply so the provider owns only the fields it sets. Fields the
-	// target engine operator defaults or injects into its own CR (e.g. the
-	// milvus-operator hydrating spec.dependencies values or defaulting component
-	// fields) keep their own field manager and are preserved, instead of being
-	// clobbered by a full-object update and triggering a reconcile battle.
 	gvk, err := apiutil.GVKForObject(obj, c.client.Scheme())
 	if err != nil {
 		return fmt.Errorf("failed to resolve GVK for apply: %w", err)
 	}
 	obj.GetObjectKind().SetGroupVersionKind(gvk)
-	// Apply configurations must not carry managedFields or a resourceVersion.
-	obj.SetManagedFields(nil)
-	obj.SetResourceVersion("")
 
-	// The typed object is converted to an unstructured apply configuration:
-	// omitempty tags drop zero values, so the provider only claims the fields it
-	// actually populates.
+	// omitempty does not cover untagged fields, so nulls are pruned. Zero
+	// scalars and empty objects stay: a zero struct is indistinguishable
+	// from one set on purpose (emptyDir: {} selects a volume type).
 	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
 		return fmt.Errorf("failed to build apply configuration: %w", err)
 	}
+	delete(raw, "status")
+	pruneNulls(raw)
 	return c.client.Apply(c.ctx,
 		client.ApplyConfigurationFromUnstructured(&unstructured.Unstructured{Object: raw}),
 		client.FieldOwner("provider-"+c.providerName),
 		client.ForceOwnership,
 	)
+}
+
+// pruneNulls drops null values, recursing into objects and lists.
+func pruneNulls(v any) {
+	switch val := v.(type) {
+	case map[string]any:
+		for k, child := range val {
+			if child == nil {
+				delete(val, k)
+				continue
+			}
+			pruneNulls(child)
+		}
+	case []any:
+		for _, child := range val {
+			pruneNulls(child)
+		}
+	}
 }
 
 // Get retrieves a resource by name (in the instance's namespace).
