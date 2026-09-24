@@ -578,7 +578,10 @@ test.describe.serial(
         ['4', '5', '6'],
         ['1', '2', '3', '4', '5', '6']
       );
+      // The restore replays binlogs with --stop-datetime, which is second-granular and exclusive.
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       pitrRestoreTime = getCurrentPITRTime();
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       await insertTestDB(
         clusterName,
         namespace,
