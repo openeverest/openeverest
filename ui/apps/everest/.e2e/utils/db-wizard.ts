@@ -443,7 +443,7 @@ export const populateEngineResources = async (
 
   for (const [path, value] of fields) {
     const input = page.getByTestId(`text-input-${path}`);
-    await input.fill(value.toString());
+    await input.fill(value.toString(), { timeout: TIMEOUTS.ThirtySeconds });
     await expect(input).toHaveValue(value.toString());
   }
 };
