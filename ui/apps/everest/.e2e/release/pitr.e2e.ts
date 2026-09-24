@@ -316,11 +316,13 @@ test.describe.serial(
             .click();
           await expect(page.getByText('Nodes (' + size + ')')).toBeVisible();
           await populateResources(page, 0.6, 1, 1, size);
+          await moveForward(page);
         } else {
+          // Resources comes after Database Version in the PXC wizard.
+          await moveForward(page);
           // The topology defaults (4 CPU / 8Gi / 100Gi per node) do not fit a CI runner.
           await populateEngineResources(page, 0.6, 1, 1);
         }
-        await moveForward(page);
       });
 
       await test.step('Add a schedule and enable per-storage PITR', async () => {
