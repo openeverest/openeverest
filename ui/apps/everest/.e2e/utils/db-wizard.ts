@@ -423,6 +423,32 @@ export const populateResources = async (
 };
 
 /**
+ * Fills the per-node engine resources of a provider-schema driven wizard (v2).
+ * @param page Page instance
+ * @param cpu CPU limit per node
+ * @param memory Memory limit per node in Gi
+ * @param disk Disk size per node in Gi
+ */
+export const populateEngineResources = async (
+  page: Page,
+  cpu: number,
+  memory: number,
+  disk: number
+) => {
+  const fields: [string, number][] = [
+    ['spec.components.engine.resources.limits.cpu', cpu],
+    ['spec.components.engine.resources.limits.memory', memory],
+    ['spec.components.engine.storage.size', disk],
+  ];
+
+  for (const [path, value] of fields) {
+    const input = page.getByTestId(`text-input-${path}`);
+    await input.fill(value.toString());
+    await expect(input).toHaveValue(value.toString());
+  }
+};
+
+/**
  * Populates the advanced configuration in the db wizard
  * @param page Page instance
  * @param dbType Database type (pxc, psmdb, postgresql)
