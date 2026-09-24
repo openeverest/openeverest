@@ -108,6 +108,19 @@ function getBackupStorage(): string {
   return 'bucket-1';
 }
 
+// The dialog sends the restore request asynchronously and navigating away
+// before it settles aborts it, so wait for the response before leaving the page.
+async function submitRestoreDialog(page: Page, namespace: string) {
+  const restoreResponse = page.waitForResponse(
+    (resp) =>
+      resp.request().method() === 'POST' &&
+      resp.url().endsWith(`/namespaces/${namespace}/restores`)
+  );
+  await page.getByTestId('form-dialog-restore').click({ timeout: 10000 });
+  const response = await restoreResponse;
+  expect(response.ok(), await response.text()).toBeTruthy();
+}
+
 test.describe.configure({ retries: 0 });
 
 // Reference provider for the UI golden path. Flag/engine variations are covered
@@ -673,7 +686,7 @@ test.describe.serial(
         getFormattedPITRTime(pitrRestoreTime)
       );
 
-      await page.getByTestId('form-dialog-restore').click({ timeout: 5000 });
+      await submitRestoreDialog(page, namespace);
 
       await page.goto('/databases');
       await waitForStatus(page, clusterName, 'Restoring', 30000);
@@ -757,7 +770,7 @@ test.describe.serial(
         timeout: 10000,
       });
 
-      await page.getByTestId('form-dialog-restore').click({ timeout: 10000 });
+      await submitRestoreDialog(page, namespace);
 
       await page.goto('/databases');
       await waitForStatus(page, clusterName, 'Restoring', 30000);
