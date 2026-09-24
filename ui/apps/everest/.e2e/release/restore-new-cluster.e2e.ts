@@ -418,26 +418,16 @@ function getNextScheduleMinute(incrementMinutes: number): string {
           await moveForward(page);
         });
 
-        await test.step('Populate resources', async () => {
-          await moveForward(page);
-        });
-
-        await test.step('Populate backups', async () => {
-          await moveForward(page);
-        });
-        await test.step('Populate advanced db config', async () => {
-          await moveForward(page);
-        });
-
-        await test.step('Submit restore request (monitoring step)', async () => {
-          await expect(
-            page.getByTestId('db-wizard-submit-button')
-          ).toBeVisible();
-          await page.getByTestId('db-wizard-submit-button').click();
+        // Restore mode inserts a Backups step, so walk the remaining steps up
+        // to submit rather than counting them.
+        await test.step('Submit restore request', async () => {
+          await submitWizard(page);
         });
 
         await test.step('Check restored DB list and status', async () => {
-          if (db !== 'postgresql') {
+          // A PXC instance seeded from a backup reports Restoring from the moment
+          // its engine exists, so it never shows Initializing.
+          if (db !== 'postgresql' && db !== 'pxc') {
             await waitForStatus(
               page,
               restoredClusterName,
@@ -446,12 +436,22 @@ function getNextScheduleMinute(incrementMinutes: number): string {
             );
           }
           await waitForStatus(page, restoredClusterName, 'Restoring', 660000);
-          await waitForStatus(page, restoredClusterName, 'Up', 2400000);
+          await waitForStatus(
+            page,
+            restoredClusterName,
+            db === 'pxc' ? 'Ready' : 'Up',
+            2400000
+          );
         });
 
         await test.step(`Delete primary database cluster`, async () => {
           await deleteDbCluster(page, clusterName);
-          await waitForStatus(page, clusterName, 'Deleting', 15000);
+          await waitForStatus(
+            page,
+            clusterName,
+            db === 'pxc' ? 'Terminating' : 'Deleting',
+            15000
+          );
           await waitForDelete(page, clusterName, 240000);
         });
 
@@ -585,7 +585,12 @@ function getNextScheduleMinute(incrementMinutes: number): string {
         page,
       }) => {
         await deleteDbCluster(page, restoredClusterName);
-        await waitForStatus(page, restoredClusterName, 'Deleting', 15000);
+        await waitForStatus(
+          page,
+          restoredClusterName,
+          db === 'pxc' ? 'Terminating' : 'Deleting',
+          15000
+        );
         await waitForDelete(page, restoredClusterName, 240000);
       });
     }
