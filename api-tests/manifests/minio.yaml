@@ -36,7 +36,7 @@ spec:
     spec:
       containers:
         - name: minio
-          image: quay.io/minio/minio:latest
+          image: docker.io/pgsty/minio:latest
           command:
             - /bin/bash
             - -c
