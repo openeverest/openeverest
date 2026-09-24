@@ -488,14 +488,7 @@ test.describe.serial(
         } catch {
           // Transitional status can be short-lived; continue with readiness checks.
         }
-        // Provider rollout can be slow/flaky in CI; keep test progressing once
-        // provisioning is visible and let later DB operations prove readiness.
-        try {
-          await waitForStatus(page, clusterName, 'Ready', 180000);
-        } catch {
-          // Status labels can lag or briefly disappear during list refreshes.
-          // Later DB operations and API assertions validate cluster usability.
-        }
+        await waitForStatus(page, clusterName, 'Ready', 900000);
       });
 
       await test.step('Verify PITR is enabled on the created cluster', async () => {
