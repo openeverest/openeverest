@@ -169,7 +169,8 @@ function getNextScheduleMinute(incrementMinutes: number): string {
             // Resources comes after Database Version in the PXC wizard.
             await moveForward(page);
             // The topology defaults (4 CPU / 8Gi / 100Gi per node) do not fit a CI runner.
-            await populateEngineResources(page, 0.6, 1, 1);
+            // Whole CPUs only: the wizard sends 0.6 as a JSON float, which the API rejects.
+            await populateEngineResources(page, 1, 1, 1);
           }
         });
 
