@@ -48,6 +48,7 @@ export const mockInstances: Instance[] = [
       phase: 'Ready',
       components: [
         {
+          name: 'engine',
           podRefs: [{ name: 'psmdb-primary-0' }],
           ready: 3,
           state: 'Ready',

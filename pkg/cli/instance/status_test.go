@@ -61,6 +61,7 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
+				Name    string `json:"name"`
 				PodRefs *[]struct {
 					Name string `json:"name"`
 				} `json:"podRefs,omitempty"`
@@ -92,6 +93,7 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 			Version: &version,
 			Message: &msg,
 			Components: &[]struct {
+				Name    string `json:"name"`
 				PodRefs *[]struct {
 					Name string `json:"name"`
 				} `json:"podRefs,omitempty"`
@@ -99,7 +101,7 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 				State *string `json:"state,omitempty"`
 				Total *int32  `json:"total,omitempty"`
 			}{
-				{Ready: &ready, Total: &total, State: &state},
+				{Name: "engine", Ready: &ready, Total: &total, State: &state},
 			},
 			Conditions: &[]struct {
 				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
@@ -218,6 +220,7 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
+				Name    string `json:"name"`
 				PodRefs *[]struct {
 					Name string `json:"name"`
 				} `json:"podRefs,omitempty"`
@@ -288,6 +291,7 @@ func minimalInst() *client.Instance {
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
+				Name    string `json:"name"`
 				PodRefs *[]struct {
 					Name string `json:"name"`
 				} `json:"podRefs,omitempty"`

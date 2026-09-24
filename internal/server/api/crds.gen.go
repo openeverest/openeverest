@@ -2701,6 +2701,9 @@ type Instance struct {
 
 		// Components Components is the status of the components in the database cluster.
 		Components *[]struct {
+			// Name Name is a key of spec.components.
+			Name string `json:"name"`
+
 			// PodRefs PodRefs references the Pods backing this component.
 			PodRefs *[]struct {
 				// Name Name of the referenced object.

@@ -117,7 +117,7 @@ func componentSummary(inst *client.Instance) string {
 		if comp.Total != nil {
 			total = *comp.Total
 		}
-		parts = append(parts, fmt.Sprintf("%s %d/%d ready", state, ready, total))
+		parts = append(parts, fmt.Sprintf("%s: %s %d/%d ready", comp.Name, state, ready, total))
 	}
 	return strings.Join(parts, ", ")
 }
