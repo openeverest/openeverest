@@ -161,6 +161,7 @@ jobs:
       - name: Start PXC log collector
         run: |
           mkdir -p "$RUNNER_TEMP/pxc-debug"
+          { sudo cat /sys/kernel/security/apparmor/profiles; sudo aa-status; } > "$RUNNER_TEMP/pxc-debug/host-apparmor.txt" 2>&1 || true
           nohup bash -c '
             d="$RUNNER_TEMP/pxc-debug"
             while true; do
@@ -170,6 +171,7 @@ jobs:
                 r=$(kubectl -n everest get "$p" -o jsonpath="{.status.containerStatuses[?(@.name==\"pxc\")].restartCount}" 2>/dev/null)
                 kubectl -n everest logs "$p" -c pxc --timestamps > "$d/$n.attempt$r.log" 2>&1
                 [ "${r:-0}" -gt 0 ] && kubectl -n everest logs "$p" -c pxc --timestamps --previous > "$d/$n.attempt$((r-1)).previous.log" 2>&1
+                kubectl -n everest exec "$p" -c pxc -- sh -c "cat /proc/1/attr/current; echo; cat /proc/1/cmdline | tr \"\\0\" \" \"" >> "$d/$n.apparmor.txt" 2>&1
               done
               kubectl -n everest describe pods -l app.kubernetes.io/component=pxc > "$d/describe.$ts.txt" 2>&1
               kubectl -n everest get pxc -o yaml > "$d/pxc.$ts.yaml" 2>&1
