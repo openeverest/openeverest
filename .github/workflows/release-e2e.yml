@@ -156,6 +156,26 @@ jobs:
         working-directory: ui/apps/everest/.e2e
         run: make ci-init
 
+      # DEBUG: snapshot PXC pod logs while the tests run; afterAll deletes the
+      # Instances before the diagnostics step, so the logs are otherwise lost.
+      - name: Start PXC log collector
+        run: |
+          mkdir -p "$RUNNER_TEMP/pxc-debug"
+          nohup bash -c '
+            d="$RUNNER_TEMP/pxc-debug"
+            while true; do
+              ts=$(date -u +%H%M%S)
+              for p in $(kubectl -n everest get pods -l app.kubernetes.io/component=pxc -o name 2>/dev/null); do
+                n=${p#pod/}
+                kubectl -n everest logs "$p" --all-containers --timestamps > "$d/$n.log" 2>&1
+                kubectl -n everest logs "$p" --all-containers --timestamps --previous > "$d/$n.previous.$ts.log" 2>/dev/null || rm -f "$d/$n.previous.$ts.log"
+              done
+              kubectl -n everest describe pods -l app.kubernetes.io/component=pxc > "$d/describe.$ts.txt" 2>&1
+              kubectl -n everest get pxc -o yaml > "$d/pxc.$ts.yaml" 2>&1
+              kubectl describe nodes > "$d/nodes.$ts.txt" 2>&1
+              sleep 30
+            done' > /dev/null 2>&1 &
+
       - name: Run release e2e (${{ env.PROJECT }})
         id: e2e
         working-directory: ui/apps/everest/.e2e
@@ -186,3 +206,11 @@ jobs:
             ui/apps/everest/.e2e/test-results
           retention-days: 14
           overwrite: true
+
+      - name: Upload PXC debug logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pxc-debug
+          path: ${{ runner.temp }}/pxc-debug
+          retention-days: 7
