@@ -219,15 +219,7 @@ function getNextScheduleMinute(incrementMinutes: number): string {
           }
 
           if (db === 'pxc') {
-            // In CI the provider may stay in Provisioning longer while pods are
-            // recycled; keep flow moving and let subsequent DB operations
-            // validate actual connection readiness.
-            try {
-              await waitForStatus(page, clusterName, 'Ready', 180000);
-            } catch {
-              // Status labels can lag or refresh while the table updates.
-              // Subsequent checks validate actual API/connection readiness.
-            }
+            await waitForStatus(page, clusterName, 'Ready', 900000);
           } else {
             await waitForStatus(page, clusterName, 'Up', 900000);
           }
