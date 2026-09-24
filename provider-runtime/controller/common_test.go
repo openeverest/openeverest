@@ -38,6 +38,55 @@ func TestStatus_ToV2Alpha1(t *testing.T) {
 	assert.Equal(t, "waiting for cluster...", status.Message)
 }
 
+func TestStatus_ToV2Alpha1_Components(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		components []ComponentStatus
+		expected   []v1alpha1.ComponentStatus
+	}{
+		{
+			name:       "no components",
+			components: nil,
+			expected:   nil,
+		},
+		{
+			name:       "empty components are cleared",
+			components: []ComponentStatus{},
+			expected:   nil,
+		},
+		{
+			name: "components keep their name, counts and state",
+			components: []ComponentStatus{
+				{Name: "engine", Ready: 2, Total: 3, State: "InProgress"},
+				{Name: "proxy", Ready: 1, Total: 1, State: "Ready"},
+			},
+			expected: []v1alpha1.ComponentStatus{
+				{Name: "engine", Ready: new(int32(2)), Total: new(int32(3)), State: "InProgress"},
+				{Name: "proxy", Ready: new(int32(1)), Total: new(int32(1)), State: "Ready"},
+			},
+		},
+		{
+			name:       "zero counts are reported rather than omitted",
+			components: []ComponentStatus{{Name: "engine", State: "Error"}},
+			expected: []v1alpha1.ComponentStatus{
+				{Name: "engine", Ready: new(int32(0)), Total: new(int32(0)), State: "Error"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			status := Status{Phase: v1alpha1.InstancePhaseProvisioning, Components: tt.components}
+
+			assert.Equal(t, tt.expected, status.ToV2Alpha1().Components)
+		})
+	}
+}
+
 func TestReconcileExternalBackupStatus(t *testing.T) {
 	t.Parallel()
 
