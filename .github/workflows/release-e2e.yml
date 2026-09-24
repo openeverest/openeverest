@@ -1,7 +1,7 @@
 ---
 # Release e2e (live PITR golden and the rest of the release lane).
 #
-# These tests stand up a full k3d cluster (core Everest + the PXC provider +
+# These tests stand up a full kind cluster (core Everest + the PXC provider +
 # MinIO + PMM) and drive the UI against real databases, so they are slow and
 # heavy — hence they run on a schedule and on demand, NOT on every push.
 #
@@ -81,12 +81,13 @@ jobs:
       github.event_name == 'push' ||
       (github.event_name == 'pull_request' &&
         contains(github.event.pull_request.labels.*.name, 'run-release-e2e'))
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-16-64-x86
     # The live 3-node PXC PITR restores alone take ~20 min; give the whole lane
     # generous headroom.
     timeout-minutes: 120
     env:
       PROJECT: ${{ github.event.inputs.project || 'release' }}
+      CLUSTER_PROVIDER: kind
       # deploy-pxc-provider defaults PXC_PROVIDER_DIR to ../provider-…; on CI we
       # check the provider out under the workspace and point at it explicitly.
       PXC_PROVIDER_DIR: ${{ github.workspace }}/provider-percona-xtradb-cluster
@@ -94,7 +95,6 @@ jobs:
       - name: Check out openeverest
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          lfs: true
           # PR label runs test the PR head; dispatch can target any ref; schedule
           # uses the default branch.
           ref: ${{ github.event.inputs.ref || github.event.pull_request.head.sha || github.ref }}
@@ -127,20 +127,24 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: "ui/pnpm-lock.yaml"
 
-      - name: Install Kubernetes tools (kubectl, k3d)
+      # CNCF (ARC) runners export a literal, unexpanded `$HOME/.config` which breaks
+      # os.UserConfigDir(). Re-export it expanded until the runner image is fixed.
+      - name: Normalize XDG_CONFIG_HOME
+        run: echo "XDG_CONFIG_HOME=$HOME/.config" >> "$GITHUB_ENV"
+
+      - name: Install Kubernetes tools (kubectl, kind)
         uses: ./.github/actions/install-kubernetes-tools
         with:
           install-kubectl: true
-          install-k3d: true
+          install-kind: true
 
-      - name: Adjust GitHub worker node for k3d
-        uses: ./.github/actions/adjust-github-node
-        with:
-          adjust-host-for-k3d: true
-          mount-docker-data: true
+      # The provider Makefile calls `helm` directly; the CNCF runner image does
+      # not ship it. Build the version pinned in go.mod.
+      - name: Install helm
+        run: go build -o "$HOME/.local/bin/helm" helm.sh/helm/v3/cmd/helm
 
-      - name: Create k3d test cluster
-        run: make k3d-cluster-up
+      - name: Create kind test cluster
+        run: make kind-cluster-up
 
       - name: Build and deploy core Everest
         run: make deploy-all
@@ -155,10 +159,6 @@ jobs:
       - name: Run release e2e (${{ env.PROJECT }})
         id: e2e
         working-directory: ui/apps/everest/.e2e
-        # Serialize the lane: each release project stands up its own 3-node PXC
-        # cluster, and the single k3d node cannot run two in parallel without
-        # starving one (it never reaches Ready -> connection 404). One worker
-        # keeps a single heavy cluster live at a time.
         run: make test PROJECT=${{ env.PROJECT }} FLAGS=--workers=2
 
       - name: Dump cluster diagnostics on failure
