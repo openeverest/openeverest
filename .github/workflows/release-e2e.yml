@@ -167,8 +167,9 @@ jobs:
               ts=$(date -u +%H%M%S)
               for p in $(kubectl -n everest get pods -l app.kubernetes.io/component=pxc -o name 2>/dev/null); do
                 n=${p#pod/}
-                kubectl -n everest logs "$p" --all-containers --timestamps > "$d/$n.log" 2>&1
-                kubectl -n everest logs "$p" --all-containers --timestamps --previous > "$d/$n.previous.$ts.log" 2>/dev/null || rm -f "$d/$n.previous.$ts.log"
+                r=$(kubectl -n everest get "$p" -o jsonpath="{.status.containerStatuses[?(@.name==\"pxc\")].restartCount}" 2>/dev/null)
+                kubectl -n everest logs "$p" -c pxc --timestamps > "$d/$n.attempt$r.log" 2>&1
+                [ "${r:-0}" -gt 0 ] && kubectl -n everest logs "$p" -c pxc --timestamps --previous > "$d/$n.attempt$((r-1)).previous.log" 2>&1
               done
               kubectl -n everest describe pods -l app.kubernetes.io/component=pxc > "$d/describe.$ts.txt" 2>&1
               kubectl -n everest get pxc -o yaml > "$d/pxc.$ts.yaml" 2>&1
