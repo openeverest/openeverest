@@ -26,9 +26,14 @@ import (
 )
 
 // UserInfo contains the subset of claims returned by the OIDC provider's UserInfo endpoint.
+// Name and PreferredUsername are only present when the `profile` scope was granted.
+//
+//nolint:tagliatelle // preferred_username is an OIDC claim name, not a Go-style identifier.
 type UserInfo struct {
-	Subject string `json:"sub"`
-	Email   string `json:"email"`
+	Subject           string `json:"sub"`
+	Email             string `json:"email"`
+	Name              string `json:"name"`
+	PreferredUsername string `json:"preferred_username"`
 }
 
 // FetchUserInfo calls the OIDC provider's UserInfo endpoint with the given access token

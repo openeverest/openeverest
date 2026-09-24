@@ -35,7 +35,7 @@ func TestFetchUserInfo(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			gotAuth = r.Header.Get("Authorization")
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"sub":"oidc-subject-uuid","email":"user@example.com"}`))
+			_, _ = w.Write([]byte(`{"sub":"oidc-subject-uuid","email":"user@example.com","name":"Example User","preferred_username":"euser"}`))
 		}))
 		defer srv.Close()
 
@@ -43,6 +43,8 @@ func TestFetchUserInfo(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "oidc-subject-uuid", info.Subject)
 		assert.Equal(t, "user@example.com", info.Email)
+		assert.Equal(t, "Example User", info.Name)
+		assert.Equal(t, "euser", info.PreferredUsername)
 		// The opaque token must be forwarded as a bearer credential to the IdP.
 		assert.Equal(t, "Bearer opaque-random-string", gotAuth)
 	})

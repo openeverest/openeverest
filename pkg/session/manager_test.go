@@ -166,9 +166,13 @@ func TestCreateSSO(t *testing.T) {
 	subject := "oidc-subject-uuid"
 	id := "9d1c1f98-a479-41e3-8939-c7cb3e049a"
 	issuer := "https://idp.example.com/application/o/everest/"
-	email := "user@example.com"
+	identity := SSOIdentity{
+		Email:             "user@example.com",
+		Name:              "Example User",
+		PreferredUsername: "euser",
+	}
 
-	tokenStr, err := mgr.CreateSSO(subject, int64(time.Hour.Seconds()), id, issuer, email)
+	tokenStr, err := mgr.CreateSSO(subject, int64(time.Hour.Seconds()), id, issuer, identity)
 	require.NoError(t, err)
 
 	parsed, err := jwt.Parse(tokenStr, func(_ *jwt.Token) (any, error) {
@@ -183,7 +187,10 @@ func TestCreateSSO(t *testing.T) {
 	assert.Equal(t, SessionManagerClaimsIssuer, claims["iss"])
 	assert.Equal(t, id, claims["jti"])
 	assert.Equal(t, issuer, claims["oidc_issuer"])
-	assert.Equal(t, email, claims["email"])
+	assert.Equal(t, identity.Email, claims["email"])
+	// The UI resolves the displayed user as preferred_username || name || email || sub.
+	assert.Equal(t, identity.Name, claims["name"])
+	assert.Equal(t, identity.PreferredUsername, claims["preferred_username"])
 	assert.Contains(t, claims, "exp")
 
 	// An SSO session token must be treated as an external (non-built-in) user keyed on the OIDC subject.

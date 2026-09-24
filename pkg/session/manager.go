@@ -141,21 +141,31 @@ func (mgr *Manager) Create(subject string, secondsBeforeExpiry int64, id string)
 	return mgr.signClaims(claims)
 }
 
+// SSOIdentity holds the human-readable identity claims mirrored from the OIDC provider
+// into the Everest token, so that the UI can show a display name instead of the raw subject.
+type SSOIdentity struct {
+	Email             string
+	Name              string
+	PreferredUsername string
+}
+
 // SSOClaims extends the standard registered claims with the original OIDC issuer.
 // extractUsername() uses the oidc_issuer claim to distinguish SSO sessions from built-in ones.
 //
-//nolint:tagliatelle // oidc_issuer/email are OIDC/JWT claim names, not Go-style identifiers.
+//nolint:tagliatelle // oidc_issuer/email/preferred_username are OIDC/JWT claim names, not Go-style identifiers.
 type SSOClaims struct {
 	jwt.RegisteredClaims
 
-	OIDCIssuer string `json:"oidc_issuer"`
-	Email      string `json:"email,omitempty"`
+	OIDCIssuer        string `json:"oidc_issuer"`
+	Email             string `json:"email,omitempty"`
+	Name              string `json:"name,omitempty"`
+	PreferredUsername string `json:"preferred_username,omitempty"`
 }
 
 // CreateSSO creates a new Everest-signed token for an SSO user whose identity was
 // validated against the OIDC provider. The oidcIssuer is stored as a custom claim so that
 // extractUsername() treats the resulting session as an external (non-built-in) user.
-func (mgr *Manager) CreateSSO(subject string, secondsBeforeExpiry int64, id, oidcIssuer, email string) (string, error) {
+func (mgr *Manager) CreateSSO(subject string, secondsBeforeExpiry int64, id, oidcIssuer string, identity SSOIdentity) (string, error) {
 	now := time.Now().UTC()
 	claims := SSOClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -165,8 +175,10 @@ func (mgr *Manager) CreateSSO(subject string, secondsBeforeExpiry int64, id, oid
 			Subject:   subject,
 			ID:        id,
 		},
-		OIDCIssuer: oidcIssuer,
-		Email:      email,
+		OIDCIssuer:        oidcIssuer,
+		Email:             identity.Email,
+		Name:              identity.Name,
+		PreferredUsername: identity.PreferredUsername,
 	}
 	if secondsBeforeExpiry > 0 {
 		expires := now.Add(time.Duration(secondsBeforeExpiry) * time.Second)

@@ -30,6 +30,7 @@ import (
 	"github.com/percona/everest/pkg/accounts"
 	"github.com/percona/everest/pkg/common"
 	"github.com/percona/everest/pkg/oidc"
+	"github.com/percona/everest/pkg/session"
 )
 
 const (
@@ -113,7 +114,11 @@ func (e *EverestServer) CreateSSOSession(ctx echo.Context) error {
 	}
 	secondsBeforeExpiry := int64(jwtSSOExpiry.Seconds())
 
-	jwtToken, err := e.sessionMgr.CreateSSO(userInfo.Subject, secondsBeforeExpiry, uniqueID.String(), issuerURL, userInfo.Email)
+	jwtToken, err := e.sessionMgr.CreateSSO(userInfo.Subject, secondsBeforeExpiry, uniqueID.String(), issuerURL, session.SSOIdentity{
+		Email:             userInfo.Email,
+		Name:              userInfo.Name,
+		PreferredUsername: userInfo.PreferredUsername,
+	})
 	if err != nil {
 		return err
 	}
