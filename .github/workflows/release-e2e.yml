@@ -81,7 +81,8 @@ jobs:
       github.event_name == 'push' ||
       (github.event_name == 'pull_request' &&
         contains(github.event.pull_request.labels.*.name, 'run-release-e2e'))
-    runs-on: cncf-ubuntu-16-64-x86
+    # Not CNCF: the host mysqld AppArmor profile below must not be unloaded on shared ARC nodes.
+    runs-on: ubuntu-latest
     # The live 3-node PXC PITR restores alone take ~20 min; give the whole lane
     # generous headroom.
     timeout-minutes: 120
@@ -127,21 +128,18 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: "ui/pnpm-lock.yaml"
 
-      # CNCF (ARC) runners export a literal, unexpanded `$HOME/.config` which breaks
-      # os.UserConfigDir(). Re-export it expanded until the runner image is fixed.
-      - name: Normalize XDG_CONFIG_HOME
-        run: echo "XDG_CONFIG_HOME=$HOME/.config" >> "$GITHUB_ENV"
+      # It confines mysqld inside the privileged kind nodes, so PXC never reads /etc/my.cnf.
+      - name: Unload host mysqld AppArmor profile
+        run: |
+          if [ -f /etc/apparmor.d/usr.sbin.mysqld ]; then
+            sudo apparmor_parser -R /etc/apparmor.d/usr.sbin.mysqld
+          fi
 
       - name: Install Kubernetes tools (kubectl, kind)
         uses: ./.github/actions/install-kubernetes-tools
         with:
           install-kubectl: true
           install-kind: true
-
-      # The provider Makefile calls `helm` directly; the CNCF runner image does
-      # not ship it. Build the version pinned in go.mod.
-      - name: Install helm
-        run: go build -o "$HOME/.local/bin/helm" helm.sh/helm/v3/cmd/helm
 
       - name: Create kind test cluster
         run: make kind-cluster-up
