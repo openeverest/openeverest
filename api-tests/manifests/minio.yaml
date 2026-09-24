@@ -36,12 +36,15 @@ spec:
     spec:
       containers:
         - name: minio
-          image: quay.io/minio/minio:latest
-          command:
-            - /bin/bash
-            - -c
+          # quay.io/minio/minio and docker.io/minio/minio are no longer publicly pullable.
+          image: cgr.dev/chainguard/minio:latest
           args:
-            - minio server /data --certs-dir /tmp/.minio/certs --console-address :9090
+            - server
+            - /data
+            - --certs-dir
+            - /tmp/.minio/certs
+            - --console-address
+            - :9090
           volumeMounts:
             - mountPath: /data
               name: minio-data-vol
@@ -59,6 +62,7 @@ spec:
           args:
             - |
               IFS=',' ; for i in $BUCKET_DIRS; do mkdir -p /data/$i || true ; done
+              chown -R 65532:65532 /data
           volumeMounts:
             - mountPath: /data
               name: minio-data-vol
