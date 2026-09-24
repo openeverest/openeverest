@@ -180,8 +180,11 @@ test.describe.serial(
       await expect
         .poll(
           async () => {
+            // The suite outlives the token taken in beforeAll; this returns a cached, fresh one.
             const response = await request.get(instancePath, {
-              headers: { Authorization: `Bearer ${token}` },
+              headers: {
+                Authorization: `Bearer ${await getCITokenFromLocalStorage()}`,
+              },
             });
             if (response.status() !== 200) {
               return false;
