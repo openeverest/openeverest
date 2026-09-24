@@ -140,7 +140,7 @@ func TestPruneNulls(t *testing.T) {
 	got := map[string]any{
 		"keep":  "value",
 		"drop":  nil,
-		"empty": map[string]any{},
+		"empty": make(map[string]any),
 		"nested": map[string]any{
 			"drop": nil,
 			"keep": false,
@@ -152,13 +152,17 @@ func TestPruneNulls(t *testing.T) {
 	}
 	pruneNulls(got)
 
-	assert.Equal(t, map[string]any{
-		"keep":   "value",
-		"empty":  map[string]any{},
-		"nested": map[string]any{"keep": false},
-		"list": []any{
-			map[string]any{"keep": int64(0)},
-			"item",
+	assert.Equal(
+		t,
+		map[string]any{
+			"keep":   "value",
+			"empty":  make(map[string]any),
+			"nested": map[string]any{"keep": false},
+			"list": []any{
+				map[string]any{"keep": int64(0)},
+				"item",
+			},
 		},
-	}, got)
+		got,
+	)
 }
