@@ -257,10 +257,12 @@ jobs:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPORTER: ${{ github.event.pull_request.head.repo.full_name != github.repository && 'github-pr-annotations' || 'github-pr-review' }}
         run: |
-          # Incremental via reviewdog: the full tree carries a 400+ finding
-          # backlog (mostly generated files, which go-consistent cannot exclude).
+          # Incremental via reviewdog: the full tree carries a large backlog.
+          # go-consistent cannot exclude files, so controller-gen output is
+          # dropped here: every new pointer field makes it emit a `new(T)`.
           mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
           go tool go-consistent ./... \
+            | { grep -v '/zz_generated\.' || true; } \
             | go tool reviewdog -efm='%f:%l:%c: %m' -reporter="$REPORTER" -filter-mode=added -fail-level=any
 
       # Full-tree lint as a nightly ratchet input (and toolchain-bump canary):
