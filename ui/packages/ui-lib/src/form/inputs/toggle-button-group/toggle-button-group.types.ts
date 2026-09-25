@@ -1,4 +1,4 @@
-// percona-everest-frontend-everest-frontend
+// everest
 // Copyright (C) 2023 Percona LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,15 +12,21 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 import { ToggleButtonGroupProps } from '@mui/material';
-import { LabeledContentProps } from '../../../labeled-content';
-import { UseControllerProps } from 'react-hook-form';
+import { Control, UseControllerProps } from 'react-hook-form';
+
+export type ToggleButtonGroupOption = {
+  label: string;
+  value: string | number;
+};
 
 export type ToggleButtonGroupInputProps = {
+  control?: Control;
+  controllerProps?: Omit<UseControllerProps, 'name'>;
   name: string;
   label?: string;
-  labelProps?: LabeledContentProps;
-  controllerProps?: UseControllerProps;
   toggleButtonGroupProps?: ToggleButtonGroupProps;
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  options?: ToggleButtonGroupOption[];
 };
