@@ -20,6 +20,7 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import { mergeTopologyDefaults } from 'components/ui-generator/utils/default-values/merge-topology-defaults';
+import { dropOtherTopologyValues } from 'components/ui-generator/utils/postprocess/postprocess-schema';
 import { InstancePreset } from 'shared-types/api.types';
 import { usePresetFormSync } from '../preset-selection';
 import { DbWizardType } from '../database-form-schema';
@@ -72,8 +73,9 @@ export const useDatabaseFormSync = ({
   });
 
   // Source 2 — topology defaults: on a manual topology switch (no preset),
-  // merge the new topology's defaults over the current values. Registered after
-  // the preset source so it runs before the page's revalidation effect.
+  // drop the previous topology's values, then merge the new topology's
+  // defaults over what remains. Registered after the preset source so it runs
+  // before the page's revalidation effect.
   const prevTopologyTypeRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     const topologyType = selectedTopology;
@@ -90,7 +92,11 @@ export const useDatabaseFormSync = ({
 
     const topologyDefaults = getDefaultValues(uiSchema, topologyType);
     const merged = mergeTopologyDefaults(
-      getValues() as Record<string, unknown>,
+      dropOtherTopologyValues(
+        getValues() as Record<string, unknown>,
+        uiSchema,
+        topologyType
+      ),
       topologyDefaults
     );
     reset(merged as DbWizardType, { keepDirty: true, keepIsSubmitted: true });

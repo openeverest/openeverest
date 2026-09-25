@@ -4,10 +4,17 @@
 
 `postprocessSchemaData` runs after React Hook Form submission and before sending payload to API.
 
-It does two things:
+It does three things:
 
-1. Removes empty values.
-2. Applies multipath mapping for fields defined with `path: string[]`.
+1. Drops values that only other topologies bind (leftovers from a topology switch).
+2. Removes empty values.
+3. Applies multipath mapping for fields defined with `path: string[]`.
+
+## Topology Scoping
+
+`dropOtherTopologyValues` deletes every path declared by a non-selected topology unless the selected
+topology declares the same path, a parent of it, or a child of it. Values no topology binds (`dbName`,
+`backup`, ...) are never touched. The emptied parents are then removed by the empty-value cleanup.
 
 ## Empty Value Rules
 
