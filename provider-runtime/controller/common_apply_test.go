@@ -121,17 +121,17 @@ func TestApplyBodyOmitsStatusAndNulls(t *testing.T) {
 		},
 	})
 
-	// A Service serializes an empty status and a null creationTimestamp.
-	require.NoError(t, c.Apply(&corev1.Service{
-		ObjectMeta: c.ObjectMeta("svc"),
-		Spec:       corev1.ServiceSpec{Ports: []corev1.ServicePort{{Port: 80}}},
+	// A StatefulSet serializes an empty status and a null spec.selector.
+	require.NoError(t, c.Apply(&appsv1.StatefulSet{
+		ObjectMeta: c.ObjectMeta("sts"),
+		Spec:       appsv1.StatefulSetSpec{ServiceName: "svc"},
 	}))
 
 	require.NotNil(t, body)
 	assert.NotContains(t, body, "status")
-	metadata, ok := body["metadata"].(map[string]any)
+	spec, ok := body["spec"].(map[string]any)
 	require.True(t, ok)
-	assert.NotContains(t, metadata, "creationTimestamp")
+	assert.NotContains(t, spec, "selector")
 }
 
 func TestPruneNulls(t *testing.T) {
