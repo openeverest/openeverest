@@ -21,6 +21,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,6 +41,7 @@ func applyTestContext(t *testing.T, funcs interceptor.Funcs) *Context {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
 	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
 
 	cl := fake.NewClientBuilder().WithScheme(scheme).WithInterceptorFuncs(funcs).Build()
 	in := &v1alpha1.Instance{
