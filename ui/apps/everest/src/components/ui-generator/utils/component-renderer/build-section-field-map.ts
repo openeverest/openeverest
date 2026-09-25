@@ -15,6 +15,7 @@
 import type { Section } from '../../ui-generator.types';
 import { generateFieldId } from './generate-field-id';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
+import { parsePath, joinPath } from '../object-path/object-path';
 import { walkLeafComponents } from '../schema-walker';
 
 export const buildSectionFieldMap = (
@@ -36,13 +37,17 @@ export const buildSectionFieldMap = (
           if (!path || typeof path !== 'string') return;
 
           map[path] = sectionKey;
+          const canonical = joinPath(parsePath(path));
+          if (canonical !== path) {
+            map[canonical] = sectionKey;
+          }
           // Register ALL intermediate path prefixes so that Zod errors at parent
           // nodes (e.g. when a nested object is undefined on topology switch) still
           // map to the correct step, rather than falling back to the top-level key
           // which may belong to a completely different step.
-          const parts = path.split('.');
+          const parts = parsePath(path);
           for (let i = 1; i < parts.length; i++) {
-            const prefix = parts.slice(0, i).join('.');
+            const prefix = joinPath(parts.slice(0, i));
             if (!(prefix in map)) {
               map[prefix] = sectionKey;
             }

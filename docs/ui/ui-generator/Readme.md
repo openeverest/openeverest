@@ -230,6 +230,9 @@ Each component must have either a `path` or an `id` property (but not both):
 
 - **`path`**: Dot-notation string representing where the value should be stored in the form data
   - Example: `"spec.replica.nodes"` → `{ spec: { replica: { nodes: value } } }`
+  - Keys that themselves contain a dot (Kubernetes qualified names like `nvidia.com/gpu`,
+    `app.kubernetes.io/name`) must use a bracket-quoted segment:
+    `resources.limits['nvidia.com/gpu']` → `{ resources: { limits: { 'nvidia.com/gpu': value } } }`
   - **Use relative field names — never absolute paths, and never array segments (`[]`).**
     See [Path scoping](#path-scoping).
 - **`id`**: Custom identifier used when you don’t want to include field data in the final API request, but need it for validation or conditional rendering.

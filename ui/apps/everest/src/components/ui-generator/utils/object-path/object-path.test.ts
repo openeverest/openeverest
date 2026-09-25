@@ -20,7 +20,10 @@ import {
   flattenObject,
   formatDisplayValue,
   getByPath,
+  getPathPrefixes,
   isPlainObject,
+  joinPath,
+  parsePath,
   resolvePath,
   setByPath,
 } from './object-path';
@@ -112,7 +115,6 @@ describe('object-path utils', () => {
       deleteByPath(data, 'spec.components.proxy.replicas');
       expect(getByPath(data, 'spec.components.proxy.replicas')).toBeUndefined();
     });
-
     it('is a no-op when the path does not exist', () => {
       const data = { a: 1 };
       deleteByPath(data, 'x.y.z');
@@ -123,6 +125,65 @@ describe('object-path utils', () => {
       const data = { a: 1 };
       deleteByPath(data, '');
       expect(data).toEqual({ a: 1 });
+    });
+  });
+
+  describe('parsePath & joinPath (Kubernetes qualified names)', () => {
+    it('parses dot-separated paths normally', () => {
+      expect(parsePath('spec.replicas')).toEqual(['spec', 'replicas']);
+    });
+
+    it('parses bracketed keys with single quotes', () => {
+      expect(parsePath("resources.limits['nvidia.com/gpu']")).toEqual([
+        'resources',
+        'limits',
+        'nvidia.com/gpu',
+      ]);
+    });
+
+    it('parses bracketed keys with double quotes', () => {
+      expect(
+        parsePath('metadata.annotations["app.kubernetes.io/name"]')
+      ).toEqual(['metadata', 'annotations', 'app.kubernetes.io/name']);
+    });
+
+    it('handles mid-path bracketed keys', () => {
+      expect(parsePath("spec.template['custom.io/label'].value")).toEqual([
+        'spec',
+        'template',
+        'custom.io/label',
+        'value',
+      ]);
+    });
+
+    it('formats canonical path using joinPath', () => {
+      expect(joinPath(['resources', 'limits', 'nvidia.com/gpu'])).toBe(
+        "resources.limits['nvidia.com/gpu']"
+      );
+      expect(joinPath(['spec', 'replicas'])).toBe('spec.replicas');
+    });
+
+    it('correctly sets and reads bracketed paths on objects', () => {
+      const obj: Record<string, unknown> = {};
+      setByPath(obj, "resources.limits['nvidia.com/gpu']", '2');
+
+      expect(obj).toEqual({
+        resources: {
+          limits: {
+            'nvidia.com/gpu': '2',
+          },
+        },
+      });
+
+      expect(getByPath(obj, "resources.limits['nvidia.com/gpu']")).toBe('2');
+    });
+
+    it('returns ancestor prefixes via getPathPrefixes', () => {
+      expect(getPathPrefixes("resources.limits['nvidia.com/gpu']")).toEqual([
+        'resources',
+        'resources.limits',
+        "resources.limits['nvidia.com/gpu']",
+      ]);
     });
   });
 
