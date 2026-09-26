@@ -244,10 +244,10 @@ export const getBackupStoragePayload = (bsName: string) => {
       s3: {
         bucket: 'bucket-4',
         region: 'us-east-1',
-        endpointURL: 'https://minio.minio.svc',
+        endpointURL: 'https://seaweedfs.seaweedfs.svc',
         credentialsSecretRef: { name: `${bsName}-creds` },
-        accessKeyId: 'minioadmin',
-        secretAccessKey: 'minioadmin',
+        accessKeyId: 'seaweedfsadmin',
+        secretAccessKey: 'seaweedfsadmin',
         forcePathStyle: true,
         verifyTLS: false,
       },

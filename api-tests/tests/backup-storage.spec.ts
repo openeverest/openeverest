@@ -71,8 +71,8 @@ test.describe.parallel('Backup Storage V2 tests', () => {
             s3: {
               ...backupStorage.spec.s3,
               bucket: 'bucket-5',
-              accessKeyId: 'minioadmin',
-              secretAccessKey: 'minioadmin',
+              accessKeyId: 'seaweedfsadmin',
+              secretAccessKey: 'seaweedfsadmin',
             },
           },
         }
