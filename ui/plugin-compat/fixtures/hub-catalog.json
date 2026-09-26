@@ -1,0 +1,59 @@
+{
+  "extensions": [
+    {
+      "name": "plugin-inspector",
+      "type": "plugin",
+      "displayName": "Inspector",
+      "description": "Inspect database cluster components and logs.",
+      "icon": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='10' fill='%2322c55e'/></svg>",
+      "license": "Apache-2.0",
+      "verified": true,
+      "categories": ["observability"],
+      "maturity": "beta",
+      "artifacts": {
+        "chart": {
+          "defaultChannel": "stable",
+          "channels": { "stable": { "ref": "oci://ghcr.io/openeverest/charts/plugin-inspector", "version": "0.3.0" } }
+        }
+      },
+      "install": {
+        "helm": { "namespace": "everest-system" },
+        "prerequisites": [
+          {
+            "name": "metrics-server",
+            "description": "Required for resource graphs.",
+            "installUrl": "https://example.com/metrics-server",
+            "helm": { "oci": "oci://example.com/metrics-server", "version": "3.12.0", "namespace": "kube-system" }
+          }
+        ]
+      },
+      "plugin": { "extensionPoints": ["clusterDetailTab"] },
+      "capabilities": { "logs": true, "exec": false, "engines": ["postgresql", "mongodb"] }
+    },
+    {
+      "name": "percona-postgresql",
+      "type": "provider",
+      "displayName": "Percona PostgreSQL",
+      "description": "PostgreSQL provider.",
+      "categories": ["database"],
+      "maturity": "stable",
+      "artifacts": {
+        "chart": {
+          "defaultChannel": "stable",
+          "channels": { "stable": { "ref": "oci://ghcr.io/openeverest/charts/pg", "version": "2.1.0" } }
+        }
+      },
+      "provider": { "supportedEngines": ["postgresql"] }
+    },
+    {
+      "name": "enterprise-backup",
+      "type": "plugin",
+      "displayName": "Enterprise Backup",
+      "access": "gated",
+      "gated": { "contactUrl": "https://example.com/contact", "provider": "Example Corp" },
+      "maturity": "alpha",
+      "categories": ["backup"]
+    }
+  ],
+  "metadata": { "catalogId": "compat-fixture", "totalExtensions": 3 }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "canary",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && vite build"
+  },
+  "dependencies": {
+    "@emotion/cache": "^11.11.0",
+    "@emotion/react": "^11.11.0",
+    "@emotion/styled": "^11.11.0",
+    "@mui/material": "^7.3.0",
+    "@openeverest/ui-lib": "file:../../packages/plugin-ui-lib"
+  },
+  "devDependencies": {
+    "@openeverest/plugin-sdk": "file:../../packages/plugin-sdk",
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.2.7",
+    "@vitejs/plugin-react-swc": "^4.3.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.2.2",
+    "vite": "^8.2.0"
+  }
+}
