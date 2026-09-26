@@ -15,6 +15,35 @@
 import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { Instance } from 'shared-types/api.types';
 
+type ScheduleRetention = NonNullable<
+  NonNullable<
+    NonNullable<
+      NonNullable<Instance['spec']['backup']>['storages']
+    >[number]['schedules']
+  >[number]['retention']
+>;
+
+// Map API retention - form copies. Only count retention is surfaced in the UI
+// for now. unset / time-based schedules read as "keep all" (undefined)
+export const retentionCopiesFromApi = (
+  retention: ScheduleRetention | undefined
+): number | undefined => {
+  if (retention?.type === 'count' && retention.count != null) {
+    return retention.count;
+  }
+  return undefined;
+};
+
+// Map form copies - API retention. 0 / unset means keep all (omit retention).
+export const retentionToApi = (
+  retentionCopies: number | undefined
+): ScheduleRetention | undefined => {
+  if (retentionCopies == null || retentionCopies <= 0) {
+    return undefined;
+  }
+  return { type: 'count', count: retentionCopies };
+};
+
 // Project an Instance's nested spec.backup.storages[].schedules[] onto the flat
 // per-schedule shape shared by the schedule dialog, the cluster-details backups
 // panel, and the wizard backup step. Feature-neutral so both the details and
@@ -25,7 +54,7 @@ export const flattenSchedules = (instance: Instance): FlattenedSchedule[] =>
       name: schedule.name,
       cron: schedule.cron,
       enabled: schedule.enabled,
-      retentionCopies: schedule.retentionCopies,
+      retentionCopies: retentionCopiesFromApi(schedule.retention),
       parameters: schedule.parameters as Record<string, unknown> | undefined,
       storageName: storage.storageRef.name ?? '',
     }))

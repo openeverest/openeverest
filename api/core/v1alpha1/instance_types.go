@@ -273,6 +273,49 @@ type InstanceBackupStorage struct {
 	PITR *InstanceBackupStoragePITR `json:"pitr,omitempty"`
 }
 
+// BackupScheduleRetentionType selects how a schedule's retention is expressed.
+//
+// +kubebuilder:validation:Enum=count;time
+type BackupScheduleRetentionType string
+
+const (
+	// BackupScheduleRetentionTypeCount keeps the N most recent backups.
+	BackupScheduleRetentionTypeCount BackupScheduleRetentionType = "count"
+	// BackupScheduleRetentionTypeTime keeps backups inside a recovery window
+	// expressed as Nd/Nw/Nm.
+	BackupScheduleRetentionTypeTime BackupScheduleRetentionType = "time"
+)
+
+// BackupScheduleRetention configures how backups produced by a schedule are
+// retained. Type selects which field is meaningful:
+//   - count: keep Count recent backups (Count >= 1)
+//   - time:  keep backups within Duration (e.g. "30d", "4w", "2m")
+//
+// Omit Retention on the schedule to keep all backups.
+//
+// +kubebuilder:validation:XValidation:rule="self.type == 'count' ? has(self.count) : true",message="count is required when retention type is count"
+// +kubebuilder:validation:XValidation:rule="self.type == 'count' ? !has(self.duration) : true",message="duration is only allowed when retention type is time"
+// +kubebuilder:validation:XValidation:rule="self.type == 'time' ? !has(self.count) : true",message="count is only allowed when retention type is count"
+// +kubebuilder:validation:XValidation:rule="self.type == 'time' ? has(self.duration) : true",message="duration is required when retention type is time"
+type BackupScheduleRetention struct {
+	// Type selects count-based or time-based retention.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:default=count
+	Type BackupScheduleRetentionType `json:"type"`
+	// Count is the number of recent backups to keep when Type is count.
+	// Required when Type is count (minimum 1). Forbidden when Type is time.
+	// Omit Retention on the schedule to keep all backups.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	Count *int32 `json:"count,omitempty"`
+	// Duration is the recovery window when Type is time, in the form
+	// <positive-integer><unit> where unit is d (days), w (weeks), or m
+	// (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^[1-9][0-9]*[dwm]$`
+	Duration string `json:"duration,omitempty"`
+}
+
 // InstanceBackupSchedule configures a recurring backup task on the engine
 // for the parent storage. The provider translates each schedule into the
 // engine's native scheduler (e.g. PSMDB BackupTaskSpec, PXC
@@ -296,12 +339,10 @@ type InstanceBackupSchedule struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Cron string `json:"cron"`
-	// RetentionCopies is the number of recent backups to keep for this
-	// schedule. Zero (or unset) means "keep all". Negative values are
-	// rejected.
-	// +kubebuilder:validation:Minimum=0
+	// Retention configures count-based or time-based backup retention for
+	// this schedule. Unset keeps all backups.
 	// +optional
-	RetentionCopies int32 `json:"retentionCopies,omitempty"`
+	Retention *BackupScheduleRetention `json:"retention,omitempty"`
 	// Parameters is schedule-specific structured configuration validated
 	// against the BackupClass's .spec.parametersSchema. When unset the
 	// provider falls back to engine defaults. The schema is the same as for

@@ -79,6 +79,23 @@ describe('buildBackupSpecFromWizard', () => {
     expect(storages[0].name).toBe('s3');
     expect(storages[0].pitr).toBeUndefined();
   });
+
+  it('maps retentionCopies to count retention and omits keep-all', () => {
+    const withCopies = buildBackupSpecFromWizard(
+      [schedule('s3', { retentionCopies: 5 })],
+      'cls'
+    );
+    const keepAll = buildBackupSpecFromWizard(
+      [schedule('s3', { retentionCopies: 0 })],
+      'cls'
+    );
+
+    expect(storagesOf(withCopies)[0].schedules[0].retention).toEqual({
+      type: 'count',
+      count: 5,
+    });
+    expect(storagesOf(keepAll)[0].schedules[0].retention).toBeUndefined();
+  });
 });
 
 describe('extractWizardBackup', () => {
@@ -95,7 +112,7 @@ describe('extractWizardBackup', () => {
                 name: 'daily',
                 cron: '0 2 * * *',
                 enabled: true,
-                retentionCopies: 2,
+                retention: { type: 'count', count: 2 },
               },
             ],
             pitr: { enabled: true },

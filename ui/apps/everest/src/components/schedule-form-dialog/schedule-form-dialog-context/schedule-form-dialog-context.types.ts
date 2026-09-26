@@ -24,8 +24,14 @@ type InstanceSchedule = NonNullable<
   >[number]['schedules']
 >[number];
 
-export type FlattenedSchedule = Omit<InstanceSchedule, 'parameters'> & {
+export type FlattenedSchedule = Omit<
+  InstanceSchedule,
+  'parameters' | 'retention'
+> & {
   parameters?: Record<string, unknown>;
+  // Form/UI keeps the copies field mapped to/from schedule.retention at the
+  // Instance API boundary (count-only for now)
+  retentionCopies?: number;
   storageName: string;
 };
 

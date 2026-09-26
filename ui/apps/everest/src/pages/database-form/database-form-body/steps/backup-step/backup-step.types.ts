@@ -35,7 +35,11 @@ export interface WizardBackupSpec {
       name: string;
       cron: string;
       enabled: boolean;
-      retentionCopies?: number;
+      retention?: {
+        type: 'count' | 'time';
+        count?: number;
+        duration?: string;
+      };
       parameters?: Record<string, unknown>;
     }>;
     pitr?: { enabled: boolean; parameters?: Record<string, unknown> };
