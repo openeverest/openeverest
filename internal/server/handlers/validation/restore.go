@@ -28,19 +28,19 @@ import (
 )
 
 // GetRestore returns a specific restore by namespace and name.
-func (h *validateHandler) GetRestore(ctx context.Context, namespace, name string) (*backupv1alpha1.Restore, error) {
-	return h.next.GetRestore(ctx, namespace, name)
+func (h *validateHandler) GetRestore(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Restore, error) {
+	return h.next.GetRestore(ctx, cluster, namespace, name)
 }
 
 // CreateRestore creates a new restore.
-func (h *validateHandler) CreateRestore(ctx context.Context, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error) {
+func (h *validateHandler) CreateRestore(ctx context.Context, cluster string, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error) {
 	if err := h.validateRestoreRefs(ctx, restore); err != nil {
 		if isValidationError(err) {
 			return nil, errors.Join(ErrInvalidRequest, err)
 		}
 		return nil, err
 	}
-	return h.next.CreateRestore(ctx, restore)
+	return h.next.CreateRestore(ctx, cluster, restore)
 }
 
 // validateRestoreRefs rejects restores whose source cannot be resolved, or is
@@ -185,6 +185,6 @@ func (h *validateHandler) getBackupClassRef(
 }
 
 // DeleteRestore deletes a restore by namespace and name.
-func (h *validateHandler) DeleteRestore(ctx context.Context, namespace, name string) error {
-	return h.next.DeleteRestore(ctx, namespace, name)
+func (h *validateHandler) DeleteRestore(ctx context.Context, cluster, namespace, name string) error {
+	return h.next.DeleteRestore(ctx, cluster, namespace, name)
 }

@@ -126,9 +126,9 @@ type BackupHandler interface {
 
 // RestoreHandler provides methods for handling operations on restores.
 type RestoreHandler interface {
-	GetRestore(ctx context.Context, namespace, name string) (*backupv1alpha1.Restore, error)
-	CreateRestore(ctx context.Context, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error)
-	DeleteRestore(ctx context.Context, namespace, name string) error
+	GetRestore(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Restore, error)
+	CreateRestore(ctx context.Context, cluster string, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error)
+	DeleteRestore(ctx context.Context, cluster, namespace, name string) error
 }
 
 // InstanceBackupHandler provides methods for handling operations on instance backups.

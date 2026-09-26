@@ -173,9 +173,9 @@ func (_m *MockHandler) CreateMonitoringConfig(ctx context.Context, cluster strin
 	return r0, r1
 }
 
-// CreateRestore provides a mock function with given fields: ctx, restore
-func (_m *MockHandler) CreateRestore(ctx context.Context, restore *v1alpha1.Restore) (*v1alpha1.Restore, error) {
-	ret := _m.Called(ctx, restore)
+// CreateRestore provides a mock function with given fields: ctx, cluster, restore
+func (_m *MockHandler) CreateRestore(ctx context.Context, cluster string, restore *v1alpha1.Restore) (*v1alpha1.Restore, error) {
+	ret := _m.Called(ctx, cluster, restore)
 
 	if len(ret) == 0 {
 		panic("no return value specified for CreateRestore")
@@ -183,19 +183,19 @@ func (_m *MockHandler) CreateRestore(ctx context.Context, restore *v1alpha1.Rest
 
 	var r0 *v1alpha1.Restore
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *v1alpha1.Restore) (*v1alpha1.Restore, error)); ok {
-		return rf(ctx, restore)
+	if rf, ok := ret.Get(0).(func(context.Context, string, *v1alpha1.Restore) (*v1alpha1.Restore, error)); ok {
+		return rf(ctx, cluster, restore)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *v1alpha1.Restore) *v1alpha1.Restore); ok {
-		r0 = rf(ctx, restore)
+	if rf, ok := ret.Get(0).(func(context.Context, string, *v1alpha1.Restore) *v1alpha1.Restore); ok {
+		r0 = rf(ctx, cluster, restore)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1alpha1.Restore)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, *v1alpha1.Restore) error); ok {
-		r1 = rf(ctx, restore)
+	if rf, ok := ret.Get(1).(func(context.Context, string, *v1alpha1.Restore) error); ok {
+		r1 = rf(ctx, cluster, restore)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -323,17 +323,17 @@ func (_m *MockHandler) DeleteMonitoringConfig(ctx context.Context, cluster strin
 	return r0
 }
 
-// DeleteRestore provides a mock function with given fields: ctx, namespace, name
-func (_m *MockHandler) DeleteRestore(ctx context.Context, namespace string, name string) error {
-	ret := _m.Called(ctx, namespace, name)
+// DeleteRestore provides a mock function with given fields: ctx, cluster, namespace, name
+func (_m *MockHandler) DeleteRestore(ctx context.Context, cluster string, namespace string, name string) error {
+	ret := _m.Called(ctx, cluster, namespace, name)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteRestore")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
-		r0 = rf(ctx, namespace, name)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = rf(ctx, cluster, namespace, name)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -749,9 +749,9 @@ func (_m *MockHandler) GetProvider(ctx context.Context, cluster string, name str
 	return r0, r1
 }
 
-// GetRestore provides a mock function with given fields: ctx, namespace, name
-func (_m *MockHandler) GetRestore(ctx context.Context, namespace string, name string) (*v1alpha1.Restore, error) {
-	ret := _m.Called(ctx, namespace, name)
+// GetRestore provides a mock function with given fields: ctx, cluster, namespace, name
+func (_m *MockHandler) GetRestore(ctx context.Context, cluster string, namespace string, name string) (*v1alpha1.Restore, error) {
+	ret := _m.Called(ctx, cluster, namespace, name)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetRestore")
@@ -759,19 +759,19 @@ func (_m *MockHandler) GetRestore(ctx context.Context, namespace string, name st
 
 	var r0 *v1alpha1.Restore
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*v1alpha1.Restore, error)); ok {
-		return rf(ctx, namespace, name)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) (*v1alpha1.Restore, error)); ok {
+		return rf(ctx, cluster, namespace, name)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) *v1alpha1.Restore); ok {
-		r0 = rf(ctx, namespace, name)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *v1alpha1.Restore); ok {
+		r0 = rf(ctx, cluster, namespace, name)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1alpha1.Restore)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
-		r1 = rf(ctx, namespace, name)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = rf(ctx, cluster, namespace, name)
 	} else {
 		r1 = ret.Error(1)
 	}

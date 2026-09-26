@@ -16,21 +16,55 @@ package rbac
 
 import (
 	"context"
+	"fmt"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
-// GetRestore returns a specific restore by namespace and name.
-func (h *rbacHandler) GetRestore(ctx context.Context, namespace, name string) (*backupv1alpha1.Restore, error) {
-	return h.next.GetRestore(ctx, namespace, name)
+// GetRestore returns a specific restore by namespace and name, gated by RBAC
+// on the instance it targets. A restore not found and a restore the caller
+// isn't authorized for both come back as ErrInsufficientPermissions, so a
+// name cannot be probed for existence.
+func (h *rbacHandler) GetRestore(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Restore, error) {
+	restore, err := h.next.GetRestore(ctx, cluster, namespace, name)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, ErrInsufficientPermissions
+		}
+		return nil, fmt.Errorf("GetRestore failed: %w", err)
+	}
+	object := rbac.ClusterNamespacedObjectName(cluster, namespace, restore.Spec.InstanceRef.Name)
+	if err := h.enforce(ctx, rbac.ResourceRestores, rbac.ActionRead, object); err != nil {
+		return nil, err
+	}
+	return restore, nil
 }
 
-// CreateRestore creates a new restore.
-func (h *rbacHandler) CreateRestore(ctx context.Context, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error) {
-	return h.next.CreateRestore(ctx, restore)
+// CreateRestore creates a new restore, gated by RBAC on the instance it targets.
+func (h *rbacHandler) CreateRestore(ctx context.Context, cluster string, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error) {
+	object := rbac.ClusterNamespacedObjectName(cluster, restore.GetNamespace(), restore.Spec.InstanceRef.Name)
+	if err := h.enforce(ctx, rbac.ResourceRestores, rbac.ActionCreate, object); err != nil {
+		return nil, err
+	}
+	return h.next.CreateRestore(ctx, cluster, restore)
 }
 
-// DeleteRestore deletes a restore by namespace and name.
-func (h *rbacHandler) DeleteRestore(ctx context.Context, namespace, name string) error {
-	return h.next.DeleteRestore(ctx, namespace, name)
+// DeleteRestore deletes a restore by namespace and name, gated by RBAC on the
+// instance it targets. Same not-found/denied collapsing as GetRestore.
+func (h *rbacHandler) DeleteRestore(ctx context.Context, cluster, namespace, name string) error {
+	restore, err := h.next.GetRestore(ctx, cluster, namespace, name)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return ErrInsufficientPermissions
+		}
+		return fmt.Errorf("GetRestore failed: %w", err)
+	}
+	object := rbac.ClusterNamespacedObjectName(cluster, namespace, restore.Spec.InstanceRef.Name)
+	if err := h.enforce(ctx, rbac.ResourceRestores, rbac.ActionDelete, object); err != nil {
+		return err
+	}
+	return h.next.DeleteRestore(ctx, cluster, namespace, name)
 }
