@@ -157,6 +157,41 @@ export const removeEmptyFieldValues = (
   return result;
 };
 
+const collectTopologyPaths = (
+  schema: TopologyUISchemas,
+  topology: string
+): string[] => {
+  const paths: string[] = [];
+  walkTopologyComponents(schema, topology, ({ component }) => {
+    paths.push(...getComponentTargetPaths(component));
+  });
+  return paths;
+};
+
+const isSameOrNested = (a: string, b: string): boolean =>
+  a === b || a.startsWith(`${b}.`) || b.startsWith(`${a}.`);
+
+// Values bound only by other topologies are leftovers from a topology switch.
+export const dropOtherTopologyValues = (
+  input: PostprocessInput,
+  schema: TopologyUISchemas,
+  selectedTopology: string
+): PostprocessInput => {
+  const selectedPaths = collectTopologyPaths(schema, selectedTopology);
+  const result = deepClone(input);
+
+  Object.keys(schema)
+    .filter((topology) => topology !== selectedTopology)
+    .flatMap((topology) => collectTopologyPaths(schema, topology))
+    .filter(
+      (path) =>
+        !selectedPaths.some((selected) => isSameOrNested(path, selected))
+    )
+    .forEach((path) => deleteByPath(result, path));
+
+  return result;
+};
+
 // TODO this can be refactored with adding separate number input into ui-lib
 export const coerceSchemaNumbers = (
   input: PostprocessInput,
@@ -200,7 +235,16 @@ export const postprocessSchemaData = (
     ...(options?.multiPathMappings ?? []),
   ];
 
-  const mapped = applyMultiPathMappings(formValues, allMappings);
+  const scoped =
+    options?.schema && options.selectedTopology
+      ? dropOtherTopologyValues(
+          formValues,
+          options.schema,
+          options.selectedTopology
+        )
+      : formValues;
+
+  const mapped = applyMultiPathMappings(scoped, allMappings);
 
   const coerced =
     options?.schema && options.selectedTopology

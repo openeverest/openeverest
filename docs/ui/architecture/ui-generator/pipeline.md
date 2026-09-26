@@ -61,6 +61,9 @@ flowchart TD
 **Output:** a `defaultValues` object for `useForm`.
 
 - Collects initial values from `fieldParams.defaultValue` (create).
+- **Topology switch** (create wizard, no preset) — `useDatabaseFormSync` drops the previous
+  topology's values with `dropOtherTopologyValues`, then merges the new topology's defaults over the
+  rest (`mergeTopologyDefaults`). Switching back therefore starts from defaults, not stale values.
 - **`extractInstanceValues`** — in edit/restore, reads values **only from the instance** (by
   `sourcePath`), **without** schema defaults (so edit doesn't inject defaults).
 
@@ -112,6 +115,10 @@ mount and `DataSourceField` when the specific field renders. Both check the curr
 **Input:** form data (RHF). **Output:** a clean API payload.
 
 - **`postprocessSchemaData(formData, { schema, selectedTopology })`**:
+  - **`dropOtherTopologyValues`** — removes values bound only by other topologies' paths (leftovers
+    from a topology switch, e.g. `spec.components.mixCoord` after switching Milvus cluster →
+    standalone). Paths shared with the selected topology, or nested under/over one of its paths, are
+    kept; values no topology binds (`dbName`, `backup`, …) are untouched.
   - **`extractMultiPathMappings` / `applyMultiPathMappings`** — one value → all `targetPaths`.
   - **`extractBadgeMappings` / `applyBadgesToFormData`** — unit suffix (`8` → `8Gi`).
   - **`removeEmptyFieldValues`** — strip `undefined` / `null` / `""`.
@@ -207,4 +214,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-02
+- Last updated: 2026-09-25
