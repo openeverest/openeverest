@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,12 +29,12 @@ setup.describe.serial('PG Backup Storage setup', () => {
     const payload = {
       type: 's3',
       name: backupStorageName,
-      url: 'https://minio.minio.svc',
+      url: 'https://seaweedfs.seaweedfs.svc',
       description: 'PG backup storage',
       bucketName: PG_BACKUP_BUCKET_NAME,
       region: 'us-east-1',
-      accessKey: 'minioadmin',
-      secretKey: 'minioadmin',
+      accessKey: 'seaweedfsadmin',
+      secretKey: 'seaweedfsadmin',
       allowedNamespaces: [EVEREST_CI_NAMESPACE],
       verifyTLS: false,
       forcePathStyle: true,
