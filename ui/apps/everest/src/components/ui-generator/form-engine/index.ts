@@ -15,6 +15,11 @@
 export { useFormEngine } from './use-form-engine';
 export { useStepNavigation } from './use-step-navigation';
 export { useErrorRouting, flattenErrorPaths } from './use-error-routing';
+export {
+  mergeWizardSteps,
+  DEFAULT_PINNED_STEP_ID,
+  DEFAULT_RESERVED_STATIC_STEP_IDS,
+} from './merge-wizard-steps';
 export type {
   StepDefinition,
   StepProps,
@@ -22,3 +27,4 @@ export type {
   FormEngineResult,
 } from './types';
 export type { StepNavigationResult } from './use-step-navigation';
+export type { MergeWizardStepsOptions } from './merge-wizard-steps';

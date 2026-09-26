@@ -198,4 +198,130 @@ describe('DatabasePreview - Sections Order', () => {
     expect(screen.getByText(/Resources/)).toBeInTheDocument();
     expect(screen.getByText(/Advanced Configurations/)).toBeInTheDocument();
   });
+
+  it('should render backups at the end when specified in sectionsOrder', () => {
+    const sections: { [key: string]: Section } = {
+      resources: {
+        label: 'Resources',
+        components: {},
+      },
+      advancedConfigurations: {
+        label: 'Advanced Configurations',
+        components: {},
+      },
+    };
+
+    const sectionsOrder = ['resources', 'advancedConfigurations', 'backups'];
+
+    render(
+      <FormProviderWrapper>
+        <TestWrapper>
+          <DatabaseFormProvider
+            value={{
+              uiSchema: {},
+              topologies: ['replica'],
+              hasMultipleTopologies: false,
+              defaultTopology: 'replica',
+              sections,
+              sectionsOrder,
+              providerObject: undefined,
+              hasBackupStep: true,
+            }}
+          >
+            <DatabasePreview stepsWithErrors={[]} activeStepId="base" />
+          </DatabaseFormProvider>
+        </TestWrapper>
+      </FormProviderWrapper>
+    );
+
+    const allSections = screen.getAllByText(/^\d+\./);
+    expect(allSections[0]).toHaveTextContent('1. Basic Information');
+    expect(allSections[1]).toHaveTextContent('2. Resources');
+    expect(allSections[2]).toHaveTextContent('3. Advanced Configurations');
+    expect(allSections[3]).toHaveTextContent('4. Backups');
+  });
+
+  it('should render backups between schema sections when specified in sectionsOrder', () => {
+    const sections: { [key: string]: Section } = {
+      resources: {
+        label: 'Resources',
+        components: {},
+      },
+      advancedConfigurations: {
+        label: 'Advanced Configurations',
+        components: {},
+      },
+    };
+
+    const sectionsOrder = ['resources', 'backups', 'advancedConfigurations'];
+
+    render(
+      <FormProviderWrapper>
+        <TestWrapper>
+          <DatabaseFormProvider
+            value={{
+              uiSchema: {},
+              topologies: ['replica'],
+              hasMultipleTopologies: false,
+              defaultTopology: 'replica',
+              sections,
+              sectionsOrder,
+              providerObject: undefined,
+              hasBackupStep: true,
+            }}
+          >
+            <DatabasePreview stepsWithErrors={[]} activeStepId="base" />
+          </DatabaseFormProvider>
+        </TestWrapper>
+      </FormProviderWrapper>
+    );
+
+    const allSections = screen.getAllByText(/^\d+\./);
+    expect(allSections[0]).toHaveTextContent('1. Basic Information');
+    expect(allSections[1]).toHaveTextContent('2. Resources');
+    expect(allSections[2]).toHaveTextContent('3. Backups');
+    expect(allSections[3]).toHaveTextContent('4. Advanced Configurations');
+  });
+
+  it('should keep backups before schema sections when not listed in sectionsOrder (backward compat)', () => {
+    const sections: { [key: string]: Section } = {
+      resources: {
+        label: 'Resources',
+        components: {},
+      },
+      advancedConfigurations: {
+        label: 'Advanced Configurations',
+        components: {},
+      },
+    };
+
+    const sectionsOrder = ['resources', 'advancedConfigurations'];
+
+    render(
+      <FormProviderWrapper>
+        <TestWrapper>
+          <DatabaseFormProvider
+            value={{
+              uiSchema: {},
+              topologies: ['replica'],
+              hasMultipleTopologies: false,
+              defaultTopology: 'replica',
+              sections,
+              sectionsOrder,
+              providerObject: undefined,
+              hasBackupStep: true,
+            }}
+          >
+            <DatabasePreview stepsWithErrors={[]} activeStepId="base" />
+          </DatabaseFormProvider>
+        </TestWrapper>
+      </FormProviderWrapper>
+    );
+
+    const allSections = screen.getAllByText(/^\d+\./);
+    expect(allSections[0]).toHaveTextContent('1. Basic Information');
+    expect(allSections[1]).toHaveTextContent('2. Backups');
+    expect(allSections[2]).toHaveTextContent('3. Resources');
+    expect(allSections[3]).toHaveTextContent('4. Advanced Configurations');
+  });
 });
