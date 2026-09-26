@@ -198,6 +198,10 @@ func render(
 				obs.applied = append(obs.applied, serialize(obj))
 				return c.Update(ctx, obj, opts...)
 			},
+			Apply: func(ctx context.Context, c client.WithWatch, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+				obs.applied = append(obs.applied, serialize(obj))
+				return c.Apply(ctx, obj, opts...)
+			},
 		}).
 		Build()
 
@@ -272,7 +276,7 @@ func addressesComponent(path, component string) bool {
 	return strings.HasPrefix(path, "spec."+componentsSegment+"."+component+".")
 }
 
-func serialize(obj client.Object) string {
+func serialize(obj any) string {
 	data, err := json.Marshal(obj)
 	if err != nil {
 		return ""
