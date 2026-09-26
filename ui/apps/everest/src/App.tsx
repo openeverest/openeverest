@@ -24,7 +24,11 @@ import { AxiosError } from 'axios';
 import { RouterProvider } from 'react-router-dom';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthProvider } from 'contexts/auth';
-import { logAuthError, SSO_LOGIN_ERROR_KEY } from 'contexts/auth/auth.utils';
+import {
+  logAuthError,
+  SSO_LOGIN_ERROR_KEY,
+  exchangeSsoToken,
+} from 'contexts/auth/auth.utils';
 import { DrawerContextProvider } from 'contexts/drawer/drawer.context';
 import router from 'router';
 import { useEffect, useState } from 'react';
@@ -113,11 +117,20 @@ const App = () => {
                   // response itself (it calls userManager.signinCallback() when
                   // it sees `code` in the URL). Handling the callback here keeps
                   // that as the single owner of the OIDC state
-                  onSignIn: (user) => {
-                    if (user?.access_token) {
-                      localStorage.setItem('everestToken', user.access_token);
+                  onSignIn: async (user) => {
+                    try {
+                      if (user?.access_token) {
+                        const everestToken = await exchangeSsoToken(
+                          user.access_token
+                        );
+                        localStorage.setItem('everestToken', everestToken);
+                      }
+                      window.location.href = '/';
+                    } catch (error) {
+                      logAuthError('SSO token exchange failed', error);
+                      sessionStorage.setItem(SSO_LOGIN_ERROR_KEY, '1');
+                      window.location.href = '/login';
                     }
-                    window.location.href = '/';
                   },
                   onSignInError: (error) => {
                     logAuthError('SSO login callback failed', error);

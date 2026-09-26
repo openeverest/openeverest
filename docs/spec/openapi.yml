@@ -102,6 +102,64 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  '/session/sso':
+    post:
+      tags:
+        - Authentication & Authorization
+      security: []
+      summary: SSO Token Exchange
+      description: |
+        Exchanges an OIDC access token (JWT or opaque) for an Everest-signed JWT.
+        The OIDC token is validated by calling the IdP's UserInfo endpoint.
+        The returned Everest JWT can be used as a Bearer token for subsequent API calls.
+      operationId: createSSOSession
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid OIDC token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Too many attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        description: The OIDC access token to exchange
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  description: The OIDC access token (JWT or opaque)
   '/permissions':
     get:
       tags:
