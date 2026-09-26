@@ -529,7 +529,7 @@ def getBackupStorageNames():
 if need_backup_storage:
     # Deploy SeaweedFS as backup storage
     print('Deploying SeaweedFS as backup storage')
-    seaweedfs_path = os.path.realpath('{0}/.github/seaweedfs.yaml'.format(backend_dir))
+    seaweedfs_path = os.path.realpath('{0}/resources/seaweedfs.yaml'.format(config.main_dir))
     seaweedfs_objs=read_yaml_stream(seaweedfs_path)
     bsListStr=','.join(getBackupStorageNames())
     for seaweedfs_obj in seaweedfs_objs:

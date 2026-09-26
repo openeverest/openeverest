@@ -52,7 +52,7 @@ create-test-users: ## Create test users and add everest_ci user to admin role.
 	kubectl patch configmap everest-rbac -n everest-system --patch "$$(kubectl get configmap everest-rbac -n everest-system -o json | jq '.data["policy.csv"] += "\ng, everest_ci, role:admin"' | jq '{data: { "policy.csv": .data["policy.csv"] } }')"
 	kubectl get configmap everest-rbac -n everest-system -ojsonpath='{.data.policy\.csv}'
 
-SEAWEEDFS_RESOURCE=$(TEST_ROOT)/manifests/seaweedfs.yaml
+SEAWEEDFS_RESOURCE=$(TEST_ROOT)/../dev/resources/seaweedfs.yaml
 .PHONY: deploy-seaweedfs
 deploy-seaweedfs:
 	$(info Deploying SeaweedFS to the test cluster)

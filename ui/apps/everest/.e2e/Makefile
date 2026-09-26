@@ -22,7 +22,7 @@ CI_INIT_DEPS := init deploy-seaweedfs create-db-namespaces deploy-monitoring
 .PHONY: ci-init
 ci-init: $(CI_INIT_DEPS) 	## Prepare environment for running tests.
 
-SEAWEEDFS_RESOURCE=$(REPO_ROOT)/.github/seaweedfs.yaml
+SEAWEEDFS_RESOURCE=$(REPO_ROOT)/dev/resources/seaweedfs.yaml
 .PHONY: deploy-seaweedfs
 deploy-seaweedfs:
 	$(info Installing SeaweedFS instance to the test cluster)

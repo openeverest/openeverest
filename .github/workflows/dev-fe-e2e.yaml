@@ -40,7 +40,7 @@ jobs:
           make kind-cluster-up
 
       - name: Deploy SeaweedFS
-        run: kubectl apply -f ./.github/seaweedfs.yaml
+        run: kubectl apply -f ./dev/resources/seaweedfs.yaml
 
       - name: Add Helm Percona repository
         shell: bash
