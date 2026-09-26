@@ -3780,8 +3780,18 @@ export interface components {
                 /**
                  * @description CompatibleHostVersions is a SemVer range expression specifying which
                  *     OpenEverest host versions this plugin supports (e.g. ">=2.0.0 <3.0.0").
+                 *     This is the API-compatibility gate: it guards the host application version,
+                 *     which bumps for backend reasons unrelated to the UI runtime.
                  */
                 compatibleHostVersions?: string;
+                /**
+                 * @description CompatibleUIContractVersions is a SemVer range expression specifying which
+                 *     UI-contract versions this plugin's frontend supports (e.g. "^18.0.0"). The
+                 *     UI contract is the shared React major — the only runtime a bundled-MUI
+                 *     plugin shares with the host (see issue #2661) — so this is checked
+                 *     separately from CompatibleHostVersions at load time.
+                 */
+                compatibleUiContractVersions?: string;
                 /** @description Description is a short human-readable description of what the plugin does. */
                 description?: string;
                 /** @description DisplayName is the human-readable name shown in the UI sidebar. */

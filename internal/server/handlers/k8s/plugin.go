@@ -54,14 +54,16 @@ func (h *k8sHandler) ListPlugins(ctx context.Context, cluster string) (api.Plugi
 			}
 		}
 		descriptors = append(descriptors, api.PluginDescriptor{
-			Name:            p.Name,
-			DisplayName:     p.Spec.DisplayName,
-			Description:     p.Spec.Description,
-			Version:         p.Spec.Version,
-			Vendor:          p.Spec.Vendor,
-			Icon:            resolvePluginAssetPath(cluster, p.Name, p.Spec.Icon),
-			BundleUrl:       path.Join(pluginBasePath(cluster, p.Name), bundlePath),
-			ExtensionPoints: extPoints,
+			Name:                         p.Name,
+			DisplayName:                  p.Spec.DisplayName,
+			Description:                  p.Spec.Description,
+			Version:                      p.Spec.Version,
+			Vendor:                       p.Spec.Vendor,
+			Icon:                         resolvePluginAssetPath(cluster, p.Name, p.Spec.Icon),
+			CompatibleHostVersions:       p.Spec.CompatibleHostVersions,
+			CompatibleUiContractVersions: p.Spec.CompatibleUIContractVersions,
+			BundleUrl:                    path.Join(pluginBasePath(cluster, p.Name), bundlePath),
+			ExtensionPoints:              extPoints,
 		})
 	}
 	return descriptors, nil

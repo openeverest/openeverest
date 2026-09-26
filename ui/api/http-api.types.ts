@@ -1391,6 +1391,17 @@ export interface components {
             version?: string;
             vendor?: string;
             icon?: string;
+            /**
+             * @description API-compatibility gate: the host application semver range this
+             *     plugin supports. Enforced against the host version at load time.
+             */
+            compatibleHostVersions?: string;
+            /**
+             * @description UI-contract gate: the React-major semver range this plugin's
+             *     frontend supports. Enforced against the host React major at load
+             *     time (the only runtime a bundled-MUI plugin shares with the host).
+             */
+            compatibleUiContractVersions?: string;
             bundleUrl: string;
             extensionPoints?: components["schemas"]["PluginExtensionPoint"][];
         };

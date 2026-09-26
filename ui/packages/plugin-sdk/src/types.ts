@@ -261,6 +261,25 @@ export interface PluginApi {
    * through `fetch`. Plugins should never reconstruct this path themselves.
    */
   basePath: string;
+
+  /**
+   * CSP nonce for <style> tags the plugin injects (e.g. its Emotion cache).
+   * Pass this to PluginThemeProvider from @openeverest/ui-lib.
+   */
+  cssNonce: string;
+
+  /**
+   * Host application version (semver), or "dev" when unknown. This is the
+   * API-compatibility axis, gated by `spec.compatibleHostVersions`.
+   */
+  hostVersion: string;
+
+  /**
+   * The host's shared React major — the UI contract a bundled-MUI plugin builds
+   * against. The host enforces `spec.compatibleUiContractVersions` against this
+   * at load time and rejects a plugin that declares an incompatible range.
+   */
+  uiContractVersion: string;
 }
 
 // ---------------------------------------------------------------------------

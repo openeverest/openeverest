@@ -44,8 +44,18 @@ type PluginSpec struct {
 
 	// CompatibleHostVersions is a SemVer range expression specifying which
 	// OpenEverest host versions this plugin supports (e.g. ">=2.0.0 <3.0.0").
+	// This is the API-compatibility gate: it guards the host application version,
+	// which bumps for backend reasons unrelated to the UI runtime.
 	// +optional
 	CompatibleHostVersions string `json:"compatibleHostVersions,omitempty"`
+
+	// CompatibleUIContractVersions is a SemVer range expression specifying which
+	// UI-contract versions this plugin's frontend supports (e.g. "^18.0.0"). The
+	// UI contract is the shared React major — the only runtime a bundled-MUI
+	// plugin shares with the host (see issue #2661) — so this is checked
+	// separately from CompatibleHostVersions at load time.
+	// +optional
+	CompatibleUIContractVersions string `json:"compatibleUiContractVersions,omitempty"`
 
 	// Frontend defines the optional frontend contribution of the plugin.
 	// +optional
