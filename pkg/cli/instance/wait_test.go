@@ -114,10 +114,11 @@ func TestProgressMessage_WithComponents(t *testing.T) {
 	t.Parallel()
 
 	inst := instFromJSON(t, `{"status":{"phase":"Provisioning","components":[
-		{"state":"initializing","ready":1,"total":3}
+		{"name":"engine","state":"InProgress","ready":2,"total":3},
+		{"name":"proxy","state":"Ready","ready":1,"total":1}
 	]}}`)
 	_, msg := instanceCondition(inst)
-	assert.Equal(t, "Provisioning (initializing 1/3 ready)", msg)
+	assert.Equal(t, "Provisioning (engine: InProgress 2/3 ready, proxy: Ready 1/1 ready)", msg)
 }
 
 // ---- Run --wait integration -------------------------------------------------

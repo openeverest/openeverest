@@ -509,6 +509,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	instanceStatus := status.ToV2Alpha1()
 	in.Status.Phase = instanceStatus.Phase
 	in.Status.Message = instanceStatus.Message
+	in.Status.Components = instanceStatus.Components
 
 	// Collect per-storage backup observability data (e.g. the latest
 	// restorable time for PITR) when the provider opts into reporting it.

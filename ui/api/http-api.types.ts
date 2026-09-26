@@ -4179,6 +4179,8 @@ export interface components {
                 };
                 /** @description Components is the status of the components in the database cluster. */
                 components?: {
+                    /** @description Name is a key of spec.components. */
+                    name: string;
                     /** @description PodRefs references the Pods backing this component. */
                     podRefs?: {
                         /** @description Name of the referenced object. */

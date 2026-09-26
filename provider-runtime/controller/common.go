@@ -391,6 +391,7 @@ type Status struct {
 
 // ComponentStatus represents the status of a single component.
 type ComponentStatus struct {
+	// Name must be unique and match a key of spec.components.
 	Name  string
 	Ready int32
 	Total int32
@@ -400,9 +401,30 @@ type ComponentStatus struct {
 // ToV2Alpha1 converts Status to the API type.
 func (s Status) ToV2Alpha1() v1alpha1.InstanceStatus {
 	return v1alpha1.InstanceStatus{
-		Phase:   s.Phase,
-		Message: s.Message,
+		Phase:      s.Phase,
+		Message:    s.Message,
+		Components: componentsToV2Alpha1(s.Components),
 	}
+}
+
+// componentsToV2Alpha1 returns nil when there is nothing to report, so stale
+// components are cleared.
+func componentsToV2Alpha1(components []ComponentStatus) []v1alpha1.ComponentStatus {
+	if len(components) == 0 {
+		return nil
+	}
+
+	converted := make([]v1alpha1.ComponentStatus, 0, len(components))
+	for _, component := range components {
+		converted = append(converted, v1alpha1.ComponentStatus{
+			Name:  component.Name,
+			Ready: new(component.Ready),
+			Total: new(component.Total),
+			State: component.State,
+		})
+	}
+
+	return converted
 }
 
 // =============================================================================

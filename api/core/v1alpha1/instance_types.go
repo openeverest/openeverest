@@ -503,6 +503,9 @@ type InstanceStatus struct {
 	// +optional
 	ConnectionSecretRef *common.SecretRef `json:"connectionSecretRef,omitempty"`
 	// Components is the status of the components in the database cluster.
+	//
+	// +listType=map
+	// +listMapKey=name
 	Components []ComponentStatus `json:"components,omitempty"`
 
 	// Message is a custom user-facing message describing the current state of the instance.
@@ -852,6 +855,8 @@ const (
 )
 
 type ComponentStatus struct {
+	// Name is a key of spec.components.
+	Name string `json:"name"`
 	// PodRefs references the Pods backing this component.
 	// +optional
 	PodRefs []common.ObjectRef `json:"podRefs,omitempty"`

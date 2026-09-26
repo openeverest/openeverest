@@ -181,7 +181,7 @@ func printComponentTable(w io.Writer, inst *client.Instance) {
 	}
 	fmt.Fprintln(w, "\nComponents:")
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "  STATE\tREADY\tTOTAL")
+	fmt.Fprintln(tw, "  NAME\tSTATE\tREADY\tTOTAL")
 	for _, comp := range *inst.Status.Components {
 		state := "-"
 		if comp.State != nil {
@@ -194,7 +194,7 @@ func printComponentTable(w io.Writer, inst *client.Instance) {
 		if comp.Total != nil {
 			total = *comp.Total
 		}
-		fmt.Fprintf(tw, "  %s\t%d\t%d\n", state, ready, total)
+		fmt.Fprintf(tw, "  %s\t%s\t%d\t%d\n", comp.Name, state, ready, total)
 	}
 	tw.Flush() //nolint:errcheck,gosec
 }

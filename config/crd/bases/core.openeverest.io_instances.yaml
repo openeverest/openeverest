@@ -1863,6 +1863,9 @@ spec:
                   cluster.
                 items:
                   properties:
+                    name:
+                      description: Name is a key of spec.components.
+                      type: string
                     podRefs:
                       description: PodRefs references the Pods backing this component.
                       items:
@@ -1890,8 +1893,13 @@ spec:
                     total:
                       format: int32
                       type: integer
+                  required:
+                  - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               conditions:
                 items:
                   description: Condition contains details for one aspect of the current
