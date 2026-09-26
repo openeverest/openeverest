@@ -19,7 +19,7 @@ init:     ## Install tests dependencies.
 # NOTE: API tests do not wait for DB clusters to be ready.
 # The only exception is pg-data-importer test, so that only PG images are pre-uploaded to K3D cluster.
 CI_INIT_DEPS := init deploy-monitoring create-test-users k3d-upload-images
-CI_INIT_DEPS += deploy-data-importer deploy-minio
+CI_INIT_DEPS += deploy-data-importer deploy-seaweedfs
 .PHONY: ci-init
 ci-init: $(CI_INIT_DEPS) 	## Prepare environment for running tests.
 
@@ -50,19 +50,19 @@ deploy-data-importer:
 	$(info Deploying Data Importer to K3D cluster)
 	kubectl apply -f $(DATA_IMPORTER_RESOURCE)
 
-MINIO_RESOURCE=$(TEST_ROOT)/manifests/minio.yaml
-.PHONY: deploy-minio
-deploy-minio:
-	$(info Deploying MinIO to K3D cluster)
-	kubectl apply -f $(MINIO_RESOURCE)
-	if ! kubectl wait deploy/minio --for=condition=Available -n minio --timeout=600s; then \
-		echo "❌ MinIO deployment did not become ready in time"; \
+SEAWEEDFS_RESOURCE=$(TEST_ROOT)/../dev/resources/seaweedfs.yaml
+.PHONY: deploy-seaweedfs
+deploy-seaweedfs:
+	$(info Deploying SeaweedFS to the test cluster)
+	kubectl apply -f $(SEAWEEDFS_RESOURCE)
+	if ! kubectl wait deploy/seaweedfs --for=condition=Available -n seaweedfs --timeout=600s; then \
+		echo "❌ SeaweedFS deployment did not become ready in time"; \
 		echo "🔎 Deployment YAML:"; \
-		kubectl get deploy minio -n minio -o yaml || true; \
+		kubectl get deploy seaweedfs -n seaweedfs -o yaml || true; \
 		echo "🔎 Pods:"; \
-		kubectl get pods -n minio -o wide || true; \
+		kubectl get pods -n seaweedfs -o wide || true; \
 		echo "🔎 Events:"; \
-		kubectl get events -n minio --sort-by=.lastTimestamp || true; \
+		kubectl get events -n seaweedfs --sort-by=.lastTimestamp || true; \
 		exit 1; \
     fi
 
