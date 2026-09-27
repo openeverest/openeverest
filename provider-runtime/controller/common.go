@@ -797,7 +797,7 @@ type BackupImportExecutionStatus struct {
 	// as Backup CRs.
 	Backups []*backupv1alpha1.Backup
 	// State is the current state of the import. The state must be set;
-	// an empty state is retired as an error. Failed and Succeeded are
+	// an empty state is retried as an error. Failed and Succeeded are
 	// terminal states; the runtime will not re-attempt the import.
 	State backupv1alpha1.BackupImportState
 	// Message is a human-readable description of the current state.
