@@ -26,6 +26,7 @@ import type {
 } from '@openeverest/plugin-sdk';
 import AuthContext from 'contexts/auth/auth.context';
 import { getAuthToken } from 'api/session-token';
+import { useClusterName } from 'hooks/api/useClusterName';
 
 export interface PluginRegistration {
   name: string;
@@ -62,6 +63,7 @@ export const usePlugins = () => useContext(PluginContext);
 // Build the PluginApi object that the host passes to each plugin's register().
 // When allowedTypes is provided, only extensions whose type is in the set will be registered.
 function createPluginApi(
+  clusterName: string,
   pluginName: string,
   registrations: PluginRegistration[],
   allowedTypes?: Set<string>
@@ -85,9 +87,11 @@ function createPluginApi(
         ...getAuthHeaders(),
         ...(init?.headers as Record<string, string>),
       };
-      const url = `/v1/plugins/${pluginName}${path}`;
+      const url = `/v1/clusters/${clusterName}/plugins/${pluginName}${path}`;
       return window.fetch(url, { ...init, headers });
     },
+
+    basePath: `/v1/clusters/${clusterName}/plugins/${pluginName}`,
   };
 }
 
@@ -99,9 +103,11 @@ function getAuthHeaders(): Record<string, string> {
   return {};
 }
 
-async function loadPluginDescriptors(): Promise<PluginDescriptor[]> {
+async function loadPluginDescriptors(
+  clusterName: string
+): Promise<PluginDescriptor[]> {
   try {
-    const resp = await window.fetch('/v1/plugins', {
+    const resp = await window.fetch(`/v1/clusters/${clusterName}/plugins`, {
       headers: getAuthHeaders(),
     });
     if (!resp.ok) return [];
@@ -115,6 +121,7 @@ export const PluginProvider = ({ children }: { children: ReactNode }) => {
   const [plugins, setPlugins] = useState<PluginRegistration[]>([]);
   const [loading, setLoading] = useState(true);
   const { authStatus } = useContext(AuthContext);
+  const clusterName = useClusterName();
 
   useEffect(() => {
     if (authStatus !== 'loggedIn') {
@@ -124,7 +131,7 @@ export const PluginProvider = ({ children }: { children: ReactNode }) => {
     let cancelled = false;
 
     (async () => {
-      const descriptors = await loadPluginDescriptors();
+      const descriptors = await loadPluginDescriptors(clusterName);
       const registrations: PluginRegistration[] = [];
 
       for (const descriptor of descriptors) {
@@ -137,6 +144,7 @@ export const PluginProvider = ({ children }: { children: ReactNode }) => {
               ? new Set(descriptor.extensionPoints.map((ep) => ep.type))
               : undefined;
             const pluginApi = createPluginApi(
+              clusterName,
               descriptor.name,
               registrations,
               allowedTypes
@@ -178,7 +186,7 @@ export const PluginProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       cancelled = true;
     };
-  }, [authStatus]);
+  }, [authStatus, clusterName]);
 
   return (
     <PluginContext.Provider value={{ plugins, loading }}>

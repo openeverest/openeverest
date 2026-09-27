@@ -60,31 +60,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/session": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Everest API Login
-         * @description This API issues a new JWT token for logging in from the Everest API.
-         *     The provided user must have the `login` capability.
-         */
-        post: operations["createSession"];
-        /**
-         * Everest API Logout
-         * @description This API invalidates Everest API JWT token.
-         */
-        delete: operations["deleteSession"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/permissions": {
         parameters: {
             query?: never;
@@ -389,6 +364,50 @@ export interface paths {
          * @description This API gets the database provider specified by the `provider` name in the specified `cluster`.
          */
         get: operations["getProvider"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/plugins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List plugins
+         * @description This API lists the enabled generic plugins available in the specified cluster
+         *     that the caller is permitted to see. The response drives the frontend plugin
+         *     loader and the CLI plugin discovery.
+         */
+        get: operations["listPlugins"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/plugin-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get plugin context
+         * @description This API returns the calling user's identity and the namespaces they can
+         *     access in the specified cluster. Plugins use it to scope their queries per
+         *     tenant.
+         */
+        get: operations["getPluginContext"];
         put?: never;
         post?: never;
         delete?: never;
@@ -928,10 +947,6 @@ export interface components {
              */
             token?: string;
         };
-        UserCredentials: {
-            username?: string;
-            password?: string;
-        };
         /** @description Backup storage parameters */
         CreateBackupStorageParams: {
             /**
@@ -1359,6 +1374,33 @@ export interface components {
         };
         ClusterList: {
             items: components["schemas"]["Cluster"][];
+        };
+        /** @description A single UI/CLI extension point contributed by a plugin. */
+        PluginExtensionPoint: {
+            type: string;
+            label?: string;
+            path?: string;
+            icon?: string;
+            providers?: string[];
+        };
+        /** @description A single enabled plugin as advertised to the frontend loader. */
+        PluginDescriptor: {
+            name: string;
+            displayName: string;
+            description?: string;
+            version?: string;
+            vendor?: string;
+            icon?: string;
+            bundleUrl: string;
+            extensionPoints?: components["schemas"]["PluginExtensionPoint"][];
+        };
+        /** @description A list of enabled plugins the caller is permitted to see. */
+        PluginDescriptorList: components["schemas"]["PluginDescriptor"][];
+        /** @description The calling user's identity and accessible namespaces in a cluster. */
+        PluginContext: {
+            user: string;
+            groups?: string[];
+            namespaces: string[];
         };
         /** @description ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server. */
         ObjectMeta: {
@@ -5352,96 +5394,6 @@ export interface operations {
             };
         };
     };
-    createSession: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The user credentials */
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserCredentials"];
-            };
-        };
-        responses: {
-            /** @description Successful operation */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        token?: string;
-                    };
-                };
-            };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Too many attempts */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    deleteSession: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful operation */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Too many attempts */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     getUserPermissions: {
         parameters: {
             query?: never;
@@ -5875,6 +5827,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listPlugins: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of plugins */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginDescriptorList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getPluginContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plugin context */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PluginContext"];
                 };
             };
             /** @description Error */

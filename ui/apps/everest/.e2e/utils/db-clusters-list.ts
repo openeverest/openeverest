@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -75,7 +76,7 @@ export const deleteDbCluster = async (page: Page, clusterName: string) => {
   await page.goto('databases');
   await waitForDbListLoad(page);
   await findDbAndClickActions(page, clusterName, 'delete', 'Up');
-  await expect(page.getByText('Delete database')).toBeVisible();
+  await expect(page.getByText('Delete instance')).toBeVisible();
   await expect(page.getByText('Irreversible action')).toBeVisible();
   await page.getByTestId('text-input-confirm-input').fill(clusterName);
   await page.getByTestId('form-dialog-delete').click();

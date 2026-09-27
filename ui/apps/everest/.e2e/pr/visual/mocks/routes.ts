@@ -176,7 +176,7 @@ export const mockClusterInfoRoute = (page: Page) =>
     route.fulfill(json(mockClusterInfo))
   );
 
-// GET /v1/plugins (may carry a query string)
+// GET /v1/clusters/{cluster}/plugins (may carry a query string)
 export const mockPluginsRoute = (page: Page) =>
   page.route(/\/plugins(\?|$)/, (route) => route.fulfill(json(mockPlugins)));
 

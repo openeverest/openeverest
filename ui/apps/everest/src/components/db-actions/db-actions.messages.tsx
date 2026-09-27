@@ -24,14 +24,14 @@ export const Messages = {
     dbDetails: 'View details',
   },
   deleteModal: {
-    header: 'Delete database',
+    header: 'Delete instance',
     content: (dbName: string) => (
       <>
         Are you sure you want to permanently delete <b>{dbName}</b>? To confirm
         this action, type the name of your database.
       </>
     ),
-    databaseName: 'Database name',
+    databaseName: 'Name',
     alertMessage:
       'This action will permanently destroy your database and you will not be able to recover it.',
     checkboxMessage: 'Keep backups storage data',

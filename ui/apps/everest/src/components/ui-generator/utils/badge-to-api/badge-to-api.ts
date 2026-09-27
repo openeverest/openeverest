@@ -16,6 +16,7 @@ import type { Section, TopologyUISchemas } from '../../ui-generator.types';
 import { walkLeafComponents, walkTopologyComponents } from '../schema-walker';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
 import { getByPath, setByPath, deepClone } from '../object-path';
+import { memoryParser, isKubernetesMemoryUnit } from 'utils/k8ResourceParser';
 
 export type BadgeMapping = {
   path: string;
@@ -72,11 +73,27 @@ export const stripBadgeFromValue = (
   }
 
   const trimmedValue = value.trim();
-  if (!trimmedValue.endsWith(badge)) {
-    return value;
+  if (trimmedValue.endsWith(badge)) {
+    return trimmedValue.slice(0, -badge.length).trimEnd();
   }
 
-  return trimmedValue.slice(0, -badge.length).trimEnd();
+  // Kubernetes may store the quantity in a different unit than the badge — e.g.
+  // it normalises "0.6Gi" to the milli-byte value "644245094400m" (see #2423).
+  // When both the badge and the stored unit are known Kubernetes memory units,
+  // convert the quantity into the badge's unit. Non-standard units are left
+  // untouched: their conversion is not supported.
+  if (isKubernetesMemoryUnit(badge)) {
+    const parsed = memoryParser(trimmedValue, badge);
+    if (
+      parsed.originalUnit &&
+      isKubernetesMemoryUnit(parsed.originalUnit) &&
+      Number.isFinite(parsed.value)
+    ) {
+      return String(parsed.value);
+    }
+  }
+
+  return value;
 };
 
 export const extractBadgeMappingsFromSections = (

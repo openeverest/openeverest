@@ -1,5 +1,4 @@
-// everest
-// Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,23 +11,18 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-// @ts-nocheck
-// TODO remove this file after release of v2
+
 export const Messages = {
-  pageTitle: 'Basic information',
-  pageDescription: 'Provide the basic information for your new database.',
+  pageTitle: 'Create an instance',
+  pageDescription: 'Provide the basic information for your new instance.',
+  pageDescriptionWithPresets:
+    'Start from a preset, or configure everything from scratch.',
   labels: {
-    dbType: 'Database type',
     dbName: 'Display name',
     k8sNamespace: 'Namespace',
-    dbEnvironment: 'Database environment',
-    dbVersion: 'Database version',
-    shardedCluster: 'Sharded Cluster',
+    topology: 'Topology',
   },
   placeholders: {
     dbName: 'E.g. postgresql-123',
   },
-  disableShardingTooltip:
-    'Sharding cannot be enabled unless the PSMDB operator version is 1.17.0 or higher',
-  noEnginesAvailable: 'No engines available for any namespace',
 };
