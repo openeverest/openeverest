@@ -63,6 +63,7 @@ export enum FieldType {
 
 export enum GroupType {
   Accordion = 'accordion',
+  Bordered = 'bordered',
   Line = 'line',
 }
 

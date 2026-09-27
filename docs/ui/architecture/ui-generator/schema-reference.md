@@ -33,7 +33,7 @@ flowchart TD
 flowchart TD
   G["ComponentGroup"] --> U["uiType<br/>(group, hidden)"]
   G --> LD["label? / description?"]
-  G --> GT["groupType?<br/>(accordion, line, bordered🛠️, collapsible🛠️, toggleable🛠️)"]
+  G --> GT["groupType?<br/>(accordion, line, bordered, collapsible🛠️, toggleable🛠️)"]
   G --> GP["groupParams?<br/>(Record&lt;string, unknown&gt;, GroupParams🛠️)"]
   G --> CH["components / componentsOrder?"]
   CH --> GATE["child toggle: gate? 🛠️"]
@@ -199,7 +199,7 @@ classDiagram
 | **dataSource / API providers** | `dataSource: { provider }` names an API-backed option source; preprocess dev-validates the provider key, and at runtime `DataSourceField` loads the options through the registry (`DataSourcePrefetcher` sets defaults on mount) | implemented |
 | **CEL validation**             | Cross-field validation rules declared via `celExpressions` (with an `original` namespace available in edit mode)                                                                                                                 | implemented |
 | **CEL conditional rendering**  | Show / hide fields based on another field value through a generic mechanism                                                                                                                                                      | 🛠️          |
-| **group kernel**               | `groupType: bordered/collapsible/toggleable` + `gate` + `direction`                                                                                                                                                              | 🛠️          |
+| **group kernel**               | `groupType: bordered` (implemented; the group renderer forwards `label`, `description` and `groupParams` to the wrapper) + planned `collapsible/toggleable` + `gate` + `direction`                                              | partial     |
 
 ## To Consider
 
@@ -211,4 +211,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-17
+- Last updated: 2026-09-27
