@@ -54,7 +54,6 @@ type (
 	}
 )
 
-func boolPtr(b bool) *bool    { return &b }
 func strPtr(s string) *string { return &s }
 
 // buildProvider builds a minimal Provider fixture for tests.
@@ -65,21 +64,24 @@ func buildProvider(name string, versions []struct {
 ) *client.Provider {
 	meta := metav1.ObjectMeta{Name: name}
 
+	prov := &client.Provider{
+		Metadata: &meta,
+	}
+
 	var vers []struct {
 		Components *map[string]string `json:"components,omitempty"`
-		Default    *bool              `json:"default,omitempty"`
 		Name       string             `json:"name"`
 	}
 	for _, v := range versions {
-		v := v
 		vers = append(vers, struct {
 			Components *map[string]string `json:"components,omitempty"`
-			Default    *bool              `json:"default,omitempty"`
 			Name       string             `json:"name"`
 		}{
-			Name:    v.name,
-			Default: boolPtr(v.isDefault),
+			Name: v.name,
 		})
+		if v.isDefault {
+			prov.Spec.DefaultVersion = strPtr(v.name)
+		}
 	}
 
 	topos := map[string]topologySpec{}
@@ -108,9 +110,6 @@ func buildProvider(name string, versions []struct {
 		}
 	}
 
-	prov := &client.Provider{
-		Metadata: &meta,
-	}
 	prov.Spec.Versions = &vers
 	prov.Spec.Topologies = &topos
 	prov.Spec.Components = &globalComps

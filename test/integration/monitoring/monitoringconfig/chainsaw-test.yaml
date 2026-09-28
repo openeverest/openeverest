@@ -22,9 +22,9 @@ spec:
               spec:
                 componentTypes:
                   pmm:
+                    defaultVersion: 2.44.1
                     versions:
-                      - default: true
-                        image: percona/pmm-client:2.44.1
+                      - image: percona/pmm-client:2.44.1
                         version: 2.44.1
                 components:
                   monitoring:
