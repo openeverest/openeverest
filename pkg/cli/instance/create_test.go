@@ -54,8 +54,6 @@ type (
 	}
 )
 
-func strPtr(s string) *string { return &s }
-
 // buildProvider builds a minimal Provider fixture for tests.
 func buildProvider(name string, versions []struct {
 	name      string
@@ -80,7 +78,7 @@ func buildProvider(name string, versions []struct {
 			Name: v.name,
 		})
 		if v.isDefault {
-			prov.Spec.DefaultVersion = strPtr(v.name)
+			prov.Spec.DefaultVersion = new(v.name)
 		}
 	}
 
