@@ -8,9 +8,9 @@
 # Triggers:
 #   * schedule            — nightly regression run.
 #   * workflow_dispatch   — run manually (optionally against a chosen branch).
-#   * pull_request        — opt-in per PR by adding the `run-release-e2e` label
-#                           (GitHub's equivalent of a "tag" on a PR). While the
-#                           label is present, new pushes re-run the suite.
+#   * pull_request        — opt-in per PR by adding the `run-release-e2e` label.
+#                           While the label is present, new pushes re-run the
+#                           suite.
 #
 # NOTE: for `schedule` / `workflow_dispatch` to be offered and for the label
 # trigger to fire, this file must exist on the repository's DEFAULT branch.
@@ -38,20 +38,7 @@ on:
         required: false
         default: "release"
   pull_request:
-    types: [labeled, synchronize, reopened]
-
-  # -------------------------------------------------------------------------
-  # TEMPORARY (debugging only). While this workflow lives on a feature branch,
-  # neither `schedule` nor `workflow_dispatch` fire — they only run from the
-  # repository's DEFAULT branch. `push` and `pull_request`, however, use the
-  # workflow file from the branch itself, so a push trigger lets us iterate on
-  # the branch. REMOVE this block once the workflow is on the default branch and
-  # the nightly schedule takes over.
-  push:
-    branches:
-      - pitr-tests
-      - "release-e2e-debug/**"
-  # -------------------------------------------------------------------------
+    types: [labeled, opened, ready_for_review, reopened, synchronize]
 
 permissions:
   contents: read
@@ -73,12 +60,10 @@ env:
 jobs:
   release-e2e:
     name: Release e2e (${{ github.event.inputs.project || 'release' }})
-    # Run on schedule, on manual dispatch, on the temporary debug push trigger,
-    # or on PRs that carry the opt-in label.
+    # Run nightly, manually, or on PRs that carry the opt-in label.
     if: >-
       github.event_name == 'schedule' ||
       github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'push' ||
       (github.event_name == 'pull_request' &&
         contains(github.event.pull_request.labels.*.name, 'run-release-e2e'))
     # Not CNCF: the host mysqld AppArmor profile below must not be unloaded on shared ARC nodes.
@@ -184,3 +169,28 @@ jobs:
             ui/apps/everest/.e2e/test-results
           retention-days: 14
           overwrite: true
+
+      - name: Notify Slack
+        if: ${{ always() }}
+        env:
+          RELEASE_E2E_SLACK_WEBHOOK_URL: ${{ secrets.RELEASE_E2E_SLACK_WEBHOOK_URL }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [ -z "$RELEASE_E2E_SLACK_WEBHOOK_URL" ]; then
+            echo "RELEASE_E2E_SLACK_WEBHOOK_URL is not configured; skipping notification"
+            exit 0
+          fi
+
+          jq -n \
+            --arg status "$JOB_STATUS" \
+            --arg event "$EVENT_NAME" \
+            --arg url "$RUN_URL" \
+            '{text: ("Release e2e " + $status + " (" + $event + ")\n" + $url)}' \
+            | curl --fail --silent --show-error \
+                -X POST \
+                -H 'Content-Type: application/json' \
+                --data-binary @- \
+                "$RELEASE_E2E_SLACK_WEBHOOK_URL" \
+            || echo "Slack notification failed"
