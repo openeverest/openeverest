@@ -23,6 +23,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -844,7 +845,14 @@ type DataSourceStatus struct {
 // reconciler reads it after Sync completes and reflects the result onto the
 // ConditionDataSourceReady condition. Providers do not normally call this
 // directly — ReconcileDataSource does it for them.
+//
+// Seeding is one-shot (.spec.dataSource is immutable), so once the Instance
+// records a successful seeding the staged status stays Succeeded whatever the
+// provider reports: an engine that later leaves Ready is not being seeded.
 func (c *Context) SetDataSourceStatus(s DataSourceStatus) {
+	if seeded := c.seededDataSourceStatus(); seeded != nil {
+		s = *seeded
+	}
 	c.dataSourceStatus = &s
 }
 
@@ -875,12 +883,22 @@ func (c *Context) GetDataSourceStatus() *DataSourceStatus {
 // phase — either no DataSource is configured, or the restore reached a
 // terminal state (Succeeded or Failed). Providers should report
 // InstancePhaseRestoring while Done is false.
+//
+// Once seeding has Succeeded the helper returns that result without touching
+// the source or the Restore: the source Backup may since have been deleted
+// (e.g. cascaded with its Instance) and the seeding Restore pruned, and neither
+// un-seeds the Instance or warrants restoring it again.
 func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 	ds := c.in.Spec.DataSource
 	if ds == nil {
 		s := DataSourceStatus{Done: true, State: DataSourceStateNone}
 		c.SetDataSourceStatus(s)
 		return s, nil
+	}
+
+	if seeded := c.seededDataSourceStatus(); seeded != nil {
+		c.SetDataSourceStatus(*seeded)
+		return *seeded, nil
 	}
 
 	// 1. Resolve the source and the read BackupClass that describes it.
@@ -1003,6 +1021,21 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 	}
 	c.SetDataSourceStatus(s)
 	return s, nil
+}
+
+// seededDataSourceStatus returns the Succeeded status recorded on the Instance
+// by an earlier reconcile, or nil when seeding has not succeeded yet.
+func (c *Context) seededDataSourceStatus() *DataSourceStatus {
+	cond := meta.FindStatusCondition(c.in.Status.Conditions, v1alpha1.ConditionDataSourceReady)
+	if cond == nil || cond.Status != metav1.ConditionTrue {
+		return nil
+	}
+	return &DataSourceStatus{
+		Done:    true,
+		State:   DataSourceStateSucceeded,
+		Reason:  cond.Reason,
+		Message: cond.Message,
+	}
 }
 
 // dataSourceOrigin describes where a DataSource reads from: the BackupClass

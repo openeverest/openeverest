@@ -23,7 +23,7 @@ gen-types: ## Generate TypeScript types from the OpenAPI spec (api/openapi/http-
 	pnpm generate-types
 
 CI_INIT_DEPS := deploy-monitoring init create-test-users
-CI_INIT_DEPS += deploy-minio create-test-manifests wait-monitoring
+CI_INIT_DEPS += deploy-seaweedfs create-test-manifests wait-monitoring
 .PHONY: ci-init
 ci-init: $(CI_INIT_DEPS) 	## Prepare environment for running tests.
 
@@ -52,19 +52,19 @@ create-test-users: ## Create test users and add everest_ci user to admin role.
 	kubectl patch configmap everest-rbac -n everest-system --patch "$$(kubectl get configmap everest-rbac -n everest-system -o json | jq '.data["policy.csv"] += "\ng, everest_ci, role:admin"' | jq '{data: { "policy.csv": .data["policy.csv"] } }')"
 	kubectl get configmap everest-rbac -n everest-system -ojsonpath='{.data.policy\.csv}'
 
-MINIO_RESOURCE=$(TEST_ROOT)/manifests/minio.yaml
-.PHONY: deploy-minio
-deploy-minio:
-	$(info Deploying MinIO to K3D cluster)
-	kubectl apply -f $(MINIO_RESOURCE)
-	if ! kubectl wait deploy/minio --for=condition=Available -n minio --timeout=600s; then \
-		echo "❌ MinIO deployment did not become ready in time"; \
+SEAWEEDFS_RESOURCE=$(TEST_ROOT)/../dev/resources/seaweedfs.yaml
+.PHONY: deploy-seaweedfs
+deploy-seaweedfs:
+	$(info Deploying SeaweedFS to the test cluster)
+	kubectl apply -f $(SEAWEEDFS_RESOURCE)
+	if ! kubectl wait deploy/seaweedfs --for=condition=Available -n seaweedfs --timeout=600s; then \
+		echo "❌ SeaweedFS deployment did not become ready in time"; \
 		echo "🔎 Deployment YAML:"; \
-		kubectl get deploy minio -n minio -o yaml || true; \
+		kubectl get deploy seaweedfs -n seaweedfs -o yaml || true; \
 		echo "🔎 Pods:"; \
-		kubectl get pods -n minio -o wide || true; \
+		kubectl get pods -n seaweedfs -o wide || true; \
 		echo "🔎 Events:"; \
-		kubectl get events -n minio --sort-by=.lastTimestamp || true; \
+		kubectl get events -n seaweedfs --sort-by=.lastTimestamp || true; \
 		exit 1; \
     fi
 
