@@ -116,7 +116,7 @@ tier:
 
 In this example, the `self` keyword refers to the current field's value. The validation passes when the tier is 'pro' or 'enterprise', or when the number of users is less than 10.
 
-**Note:** All validation rules only apply when a value is entered. Empty fields will pass validation by default since fields are optional unless explicitly marked as `required: true`.
+**Note:** All validation rules only apply when a value is entered. Empty fields will pass validation by default since fields are optional unless explicitly marked as `required: true`. For CEL this holds for rules that reference `self`: they are skipped while the field is empty.
 
 More CEL examples can be found in the documentation for a specific field in the **examples => CEL section**
 
@@ -164,8 +164,10 @@ CEL expressions have access to the following variables:
 | Variable          | Description                                                                              |
 | ----------------- | ---------------------------------------------------------------------------------------- |
 | `<field path>`    | Each field is referenced by its `path` value (e.g., `spec.replicas`, `config.timeout`)   |
-| `self`            | Current field value                                                                      |
+| `self`            | Value of the field that declares the rule (a multi-path field is read from its first path; a number field is a number). Rules referencing `self` are skipped while the field is empty |
 | `original.<path>` | Original persisted instance data at the same path; available in edit mode for comparison |
+
+`self` and `original` are reserved names: a top-level form key with the same name is shadowed.
 
 The `original` namespace allows write-once or no-descale rules:
 

@@ -50,8 +50,10 @@ flowchart TD
   - **`buildShapeFromComponents`** — `ZOD_SCHEMA_MAP[uiType]` (base zod type) +
     `applyValidationFromSchema` (min/max/regex/required/…) + CEL expression collection.
   - **`convertToNestedSchema`** — flat fields → nested `z.object`.
-  - **`applyCelValidation(schema, celExprs, originalData?)`** — attaches CEL (in edit mode the
-    `original` namespace — persisted instance data — is available).
+  - **`applyCelValidation(schema, celExprs, originalData?)`** — attaches CEL. Each rule sees
+    `self` (the declaring field's value, read from its source path; rules referencing `self`
+    are skipped while the field is empty) and, in edit mode, the `original` namespace —
+    persisted instance data.
 
 **Principle:** validation is **mode-aware** and **declarative** — providers don't write resolvers by hand.
 
@@ -207,4 +209,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-02
+- Last updated: 2026-09-28
