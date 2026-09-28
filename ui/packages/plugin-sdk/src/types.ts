@@ -264,7 +264,7 @@ export interface PluginApi {
 
   /**
    * CSP nonce for <style> tags the plugin injects (e.g. its Emotion cache).
-   * Pass this to PluginThemeProvider from @openeverest/ui-lib.
+   * Pass this to PluginThemeProvider from @openeverest/plugin-theme.
    */
   cssNonce: string;
 

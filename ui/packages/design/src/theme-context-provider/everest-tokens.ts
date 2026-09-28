@@ -18,7 +18,7 @@ import type { Theme } from '@mui/material';
 // contract* plugins build against (they bundle their own MUI and read these
 // instead of MUI's internal `--mui-*` names, which a host MUI upgrade could
 // rename). Keep the names below stable; changing one is a breaking change for
-// every plugin. The reader lives in `@openeverest/ui-lib` (plugin-ui-lib).
+// every plugin. The reader lives in `@openeverest/plugin-theme`.
 
 const PALETTE_COLORS = [
   'primary',
