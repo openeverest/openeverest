@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Builds a ui-lib plugin against a pinned @mui/material version so the bundle can
-# be loaded under a host running a different MUI (plugin/host independence test).
+# Builds a plugin-theme plugin against a pinned @mui/material version so the bundle
+# can be loaded under a host running a different MUI (plugin/host independence test).
 #
-# Usage: build-plugin-variant.sh <plugin-dir> <mui-version> [--ui-lib link|pack] [--no-dedupe]
-#   --ui-lib link  consume ui-lib from this checkout (default, like local dev)
-#   --ui-lib pack  consume an `npm pack`ed ui-lib (what a third-party plugin gets from npm)
-#   --no-dedupe    drop resolve.dedupe, as a plugin author who didn't copy it would
+# Usage: build-plugin-variant.sh <plugin-dir> <mui-version> [--theme link|pack] [--no-dedupe]
+#   --theme link  consume plugin-theme from this checkout (default, like local dev)
+#   --theme pack  consume an `npm pack`ed plugin-theme (what a third-party plugin gets from npm)
+#   --no-dedupe   drop resolve.dedupe, as a plugin author who didn't copy it would
 # Output: .variants/<plugin>/<variant>/{main.js,main.js.map,variant.json}
 set -euo pipefail
 
@@ -17,11 +17,11 @@ fi
 PLUGIN_DIR="$(cd "$1" && pwd)"
 MUI_VERSION="$2"
 shift 2
-UI_LIB_MODE=link
+THEME_MODE=link
 DEDUPE=1
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --ui-lib) UI_LIB_MODE="$2"; shift 2 ;;
+    --theme) THEME_MODE="$2"; shift 2 ;;
     --no-dedupe) DEDUPE=0; shift ;;
     *) echo "unknown argument: $1" >&2; exit 1 ;;
   esac
@@ -30,7 +30,7 @@ done
 COMPAT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CORE_PACKAGES="$(cd "$COMPAT_DIR/../packages" && pwd)"
 NAME="mui-${MUI_VERSION}"
-[[ "$UI_LIB_MODE" == pack ]] && NAME="${NAME}-pack"
+[[ "$THEME_MODE" == pack ]] && NAME="${NAME}-pack"
 [[ "$DEDUPE" == 0 ]] && NAME="${NAME}-nodedupe"
 OUT="$COMPAT_DIR/.variants/$(basename "$PLUGIN_DIR")/$NAME"
 
@@ -39,13 +39,13 @@ trap 'rm -rf "$WORK"' EXIT
 cp -R "$PLUGIN_DIR/src" "$PLUGIN_DIR/tsconfig.json" "$PLUGIN_DIR/vite.config.ts" "$PLUGIN_DIR/package.json" "$WORK/"
 cd "$WORK"
 
-if [[ "$UI_LIB_MODE" == pack ]]; then
-  (cd "$CORE_PACKAGES/plugin-ui-lib" && npm pack --silent --pack-destination "$WORK" >/dev/null)
-  UI_LIB_SPEC="file:$(ls "$WORK"/openeverest-ui-lib-*.tgz)"
+if [[ "$THEME_MODE" == pack ]]; then
+  (cd "$CORE_PACKAGES/plugin-theme" && npm pack --silent --pack-destination "$WORK" >/dev/null)
+  THEME_SPEC="file:$(ls "$WORK"/openeverest-plugin-theme-*.tgz)"
 else
-  UI_LIB_SPEC="file:$CORE_PACKAGES/plugin-ui-lib"
+  THEME_SPEC="file:$CORE_PACKAGES/plugin-theme"
 fi
-npm pkg set "dependencies.@openeverest/ui-lib=$UI_LIB_SPEC"
+npm pkg set "dependencies.@openeverest/plugin-theme=$THEME_SPEC"
 npm pkg set "devDependencies.@openeverest/plugin-sdk=file:$CORE_PACKAGES/plugin-sdk"
 npm pkg set "dependencies.@mui/material=$MUI_VERSION"
 
@@ -70,7 +70,8 @@ export default defineConfig((env) => {
 });
 EOF
 
-npm install --silent --no-audit --no-fund --legacy-peer-deps
+# No --legacy-peer-deps: a MUI version outside plugin-theme's peer range must fail here, as it would for a plugin author.
+npm install --loglevel=error --no-audit --no-fund
 
 TYPECHECK=pass
 npx tsc --noEmit >"$WORK/tsc.log" 2>&1 || TYPECHECK=fail
@@ -102,17 +103,17 @@ console.log([...found].sort().join(","));
 ')"
 
 node -e '
-const [out, requested, uiLib, dedupe, typecheck, installed, mui5Alias] = process.argv.slice(1);
+const [out, requested, theme, dedupe, typecheck, installed, mui5Alias] = process.argv.slice(1);
 require("fs").writeFileSync(out + "/variant.json", JSON.stringify({
   requestedMui: requested,
-  uiLib,
+  theme,
   dedupe: dedupe === "1",
   mui5EsmAlias: mui5Alias === "1",
   typecheck,
   installedMui: installed ? installed.split(",") : [],
   builtAt: new Date().toISOString(),
 }, null, 2) + "\n");
-' "$OUT" "$MUI_VERSION" "$UI_LIB_MODE" "$DEDUPE" "$TYPECHECK" "$INSTALLED_MUI" "$MUI5_ESM_ALIAS"
+' "$OUT" "$MUI_VERSION" "$THEME_MODE" "$DEDUPE" "$TYPECHECK" "$INSTALLED_MUI" "$MUI5_ESM_ALIAS"
 
 if [[ "$TYPECHECK" == fail ]]; then cp "$WORK/tsc.log" "$OUT/tsc.log"; fi
 echo "built $OUT (typecheck: $TYPECHECK, installed MUI: $INSTALLED_MUI)"

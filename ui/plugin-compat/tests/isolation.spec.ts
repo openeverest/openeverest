@@ -99,8 +99,6 @@ for (const v of listVariants()) {
         const radius = parseFloat(await rawToken(page, '--everest-radius'));
         const paperRadius = await page.getByTestId('canary-paper').evaluate((el) => parseFloat(getComputedStyle(el).borderTopLeftRadius));
         expect(paperRadius, 'Paper radius follows --everest-radius').toBe(radius);
-        // A component imported straight from @mui/material must be themed too.
-        await expectThemedLike(page, 'canary-direct-button', 'light');
       }
       await expectClean(page, issues);
     });

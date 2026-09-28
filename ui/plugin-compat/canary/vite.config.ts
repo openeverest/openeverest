@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import type { Plugin } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 
-// Same build contract as a real ui-lib plugin (see plugin-inspector/plugin-hub).
+// Same build contract as a real plugin (see plugin-inspector/plugin-hub).
 const HOST_PROVIDED = ['react', 'react-dom', 'react/jsx-runtime'];
 
 const failOnHostRequire = (): Plugin => ({

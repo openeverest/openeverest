@@ -3,10 +3,9 @@
 // hooks through the host React) and reports what it runs on.
 import { useState } from 'react';
 import * as React from 'react';
-import { Button as DirectMuiButton, version as muiVersion } from '@mui/material';
 import type { PluginApi, PluginRegisterFn } from '@openeverest/plugin-sdk';
+import { PluginThemeProvider } from '@openeverest/plugin-theme';
 import {
-  PluginThemeProvider,
   Box,
   Button,
   Chip,
@@ -20,7 +19,8 @@ import {
   TextField,
   Tooltip,
   Typography,
-} from '@openeverest/ui-lib';
+  version as muiVersion,
+} from '@mui/material';
 
 interface CanaryProbe {
   muiVersion: string;
@@ -55,10 +55,6 @@ const CanaryPage = () => {
             <Button variant="contained" data-testid="canary-button">
               Primary
             </Button>
-            {/* Plugins import MUI directly for anything ui-lib doesn't re-export. */}
-            <DirectMuiButton variant="contained" data-testid="canary-direct-button">
-              Direct MUI
-            </DirectMuiButton>
             <Button
               variant="outlined"
               data-testid="canary-counter"
