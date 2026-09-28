@@ -169,28 +169,3 @@ jobs:
             ui/apps/everest/.e2e/test-results
           retention-days: 14
           overwrite: true
-
-      - name: Notify Slack
-        if: ${{ always() }}
-        env:
-          RELEASE_E2E_SLACK_WEBHOOK_URL: ${{ secrets.RELEASE_E2E_SLACK_WEBHOOK_URL }}
-          JOB_STATUS: ${{ job.status }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          EVENT_NAME: ${{ github.event_name }}
-        run: |
-          if [ -z "$RELEASE_E2E_SLACK_WEBHOOK_URL" ]; then
-            echo "RELEASE_E2E_SLACK_WEBHOOK_URL is not configured; skipping notification"
-            exit 0
-          fi
-
-          jq -n \
-            --arg status "$JOB_STATUS" \
-            --arg event "$EVENT_NAME" \
-            --arg url "$RUN_URL" \
-            '{text: ("Release e2e " + $status + " (" + $event + ")\n" + $url)}' \
-            | curl --fail --silent --show-error \
-                -X POST \
-                -H 'Content-Type: application/json' \
-                --data-binary @- \
-                "$RELEASE_E2E_SLACK_WEBHOOK_URL" \
-            || echo "Slack notification failed"
