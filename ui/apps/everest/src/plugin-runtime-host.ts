@@ -30,8 +30,15 @@ declare global {
   }
 }
 
-window.__EVEREST_PLUGIN_RUNTIME__ = {
-  React,
-  ReactDOM,
-  ReactJSXRuntime,
-};
+// Read-only and non-replaceable so one plugin (or injected script) can't swap
+// the React every other plugin resolves through the import map.
+Object.defineProperty(window, '__EVEREST_PLUGIN_RUNTIME__', {
+  value: Object.freeze({
+    React,
+    ReactDOM,
+    ReactJSXRuntime,
+  }),
+  writable: false,
+  configurable: false,
+  enumerable: true,
+});
