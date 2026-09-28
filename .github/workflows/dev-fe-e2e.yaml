@@ -39,8 +39,8 @@ jobs:
         run: |
           make kind-cluster-up
 
-      - name: Set MinIO
-        run: kubectl apply -f ./.github/minio.conf.yaml
+      - name: Deploy SeaweedFS
+        run: kubectl apply -f ./dev/resources/seaweedfs.yaml
 
       - name: Add Helm Percona repository
         shell: bash
@@ -155,10 +155,10 @@ jobs:
         env:
           EVEREST_URL: "http://localhost:3000"
           EVEREST_BUCKETS_NAMESPACES_MAP: '[["bucket-1","everest"]]'
-          EVEREST_LOCATION_ACCESS_KEY: "minioadmin"
-          EVEREST_LOCATION_SECRET_KEY: "minioadmin"
+          EVEREST_LOCATION_ACCESS_KEY: "seaweedfsadmin"
+          EVEREST_LOCATION_SECRET_KEY: "seaweedfsadmin"
           EVEREST_LOCATION_REGION: "us-east-1"
-          EVEREST_LOCATION_URL: "https://minio.minio.svc.cluster.local"
+          EVEREST_LOCATION_URL: "https://seaweedfs.seaweedfs.svc.cluster.local"
           CI_USER: "admin"
           CI_PASSWORD: "${{ env.EVEREST_ADMIN_PASSWORD }}"
           RBAC_USER: "rbac_user"

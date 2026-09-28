@@ -527,27 +527,29 @@ def getBackupStorageNames():
     return to_return
 
 if need_backup_storage:
-    # Deploy minIO as backup storage
-    print('Deploying minIO as backup storage')
-    minio_path = os.path.realpath('{0}/.github/minio.conf.yaml'.format(backend_dir))
-    minio_objs=read_yaml_stream(minio_path)
+    # Deploy SeaweedFS as backup storage
+    print('Deploying SeaweedFS as backup storage')
+    seaweedfs_path = os.path.realpath('{0}/resources/seaweedfs.yaml'.format(config.main_dir))
+    seaweedfs_objs=read_yaml_stream(seaweedfs_path)
     bsListStr=','.join(getBackupStorageNames())
-    for minio_obj in minio_objs:
-        if minio_obj['kind'] == 'Deployment' and minio_obj['metadata']['name'] == 'minio':
+    for seaweedfs_obj in seaweedfs_objs:
+        if seaweedfs_obj['kind'] == 'Deployment' and seaweedfs_obj['metadata']['name'] == 'seaweedfs':
             # Redefine the env variable with the list of bucket names
-            minio_obj['spec']['template']['spec']['initContainers'][0]['env'][0]['value']=bsListStr
+            for env in seaweedfs_obj['spec']['template']['spec']['containers'][0]['env']:
+                if env['name'] == 'S3_BUCKET':
+                    env['value']=bsListStr
             break
-    k8s_yaml(encode_yaml_stream(minio_objs))
+    k8s_yaml(encode_yaml_stream(seaweedfs_objs))
     k8s_resource(
-        workload='minio',
+        workload='seaweedfs',
         objects=[
-            'minio:Namespace',
-            'minio-data:PersistentVolumeClaim:minio',
-            'minio-cert:Secret:minio'
+            'seaweedfs:Namespace',
+            'seaweedfs-data:PersistentVolumeClaim:seaweedfs',
+            'seaweedfs-cert:Secret:seaweedfs'
         ],
-        new_name='minIO-deploy',
+        new_name='seaweedfs-deploy',
         port_forwards=[
-            port_forward(9090, 9090, 'MinIO Console'),
+            port_forward(9090, 8888, 'SeaweedFS Filer UI'),
         ],
         labels=["backup-storage"]
     )
@@ -589,7 +591,7 @@ if need_backup_storage:
                 labels=["backup-storage"],
                 resource_deps=[
                     'crds',
-                    'minIO-deploy'
+                    'seaweedfs-deploy'
                 ]
             )
 

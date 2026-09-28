@@ -19,12 +19,15 @@ package namespaces
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"slices"
 	"strings"
 
 	goversion "github.com/hashicorp/go-version"
 	everestOperator "github.com/percona/everest-operator/api/everest/v1alpha1"
+	"github.com/rodaine/table"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -57,9 +60,9 @@ type (
 	// NamespaceInfo contains information about a namespace.
 	NamespaceInfo struct {
 		// Name is the namespace name.
-		Name string
+		Name string `json:"name"`
 		// InstalledOperators is a list of installed Percona operators in the namespace.
-		InstalledOperators []string
+		InstalledOperators []string `json:"installedOperators"`
 	}
 
 	// NamespaceLister is the CLI operation to list namespaces.
@@ -115,7 +118,7 @@ func (nsL *NamespaceLister) Run(ctx context.Context) ([]NamespaceInfo, error) {
 		return slices.Contains(skip, ns.Name)
 	})
 
-	var toReturn []NamespaceInfo
+	toReturn := make([]NamespaceInfo, 0, len(nsList.Items))
 	for _, ns := range nsList.Items {
 		nsInfo := NamespaceInfo{Name: ns.GetName()}
 		if nsInfo.InstalledOperators, err = nsL.getNamespaceOperators(ctx, &ns); err != nil {
@@ -127,10 +130,22 @@ func (nsL *NamespaceLister) Run(ctx context.Context) ([]NamespaceInfo, error) {
 	return toReturn, nil
 }
 
+// Render formats namespaces to w as either JSON or an ASCII table based on cfg.Pretty.
+func (nsL *NamespaceLister) Render(w io.Writer, nsList []NamespaceInfo) {
+	if !nsL.cfg.Pretty {
+		if nsList == nil {
+			nsList = []NamespaceInfo{}
+		}
+		_ = json.NewEncoder(w).Encode(nsList) //nolint:errchkjson
+		return
+	}
+	printNamespacesTable(w, nsList)
+}
+
 // getNamespaceOperators returns a list of installed operators in the namespace.
 // It returns an empty list if the namespace is not managed by Everest.
 func (nsL *NamespaceLister) getNamespaceOperators(ctx context.Context, ns *corev1.Namespace) ([]string, error) {
-	var toReturn []string
+	toReturn := []string{}
 	if isManagedByEverest(ns) {
 		// no need to look for installed operators from namespaces not managed by Everest.
 		subList, err := nsL.kubeClient.ListInstalledOperators(ctx, client.InNamespace(ns.GetName()))
@@ -172,4 +187,16 @@ func convertDbOperatorName(name string) string {
 	default:
 		return name
 	}
+}
+
+func printNamespacesTable(w io.Writer, nsList []NamespaceInfo) {
+	tbl := table.New("NAMESPACE", "MANAGED", "OPERATORS").WithWriter(w)
+	for _, ns := range nsList {
+		tbl.AddRow(
+			ns.Name,
+			len(ns.InstalledOperators) > 0,
+			strings.Join(ns.InstalledOperators, ", "),
+		)
+	}
+	tbl.Print()
 }
