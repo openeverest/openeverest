@@ -12,9 +12,11 @@ It does three things:
 
 ## Topology Scoping
 
-`dropOtherTopologyValues` deletes every path declared by a non-selected topology unless the selected
-topology declares the same path, a parent of it, or a child of it. Values no topology binds (`dbName`,
-`backup`, ...) are never touched. The emptied parents are then removed by the empty-value cleanup.
+Leftovers from a topology switch are dropped first via `dropOtherTopologyValues` from
+`utils/topology-scope/` (shared with the create wizard's topology-switch sync). It deletes every path
+declared by a non-selected topology unless the selected topology declares the same path, a parent of
+it, or a child of it. Values no topology binds (`dbName`, `backup`, ...) are never touched. The
+emptied parents are then removed by the empty-value cleanup.
 
 ## Empty Value Rules
 

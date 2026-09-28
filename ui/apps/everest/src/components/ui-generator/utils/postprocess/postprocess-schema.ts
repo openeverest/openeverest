@@ -21,6 +21,7 @@ import {
   deleteByPath,
 } from '../object-path';
 import { walkTopologyComponents } from '../schema-walker';
+import { dropOtherTopologyValues } from '../topology-scope';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
 import {
   extractBadgeMappings,
@@ -154,41 +155,6 @@ export const removeEmptyFieldValues = (
   };
 
   prune(result);
-  return result;
-};
-
-const collectTopologyPaths = (
-  schema: TopologyUISchemas,
-  topology: string
-): string[] => {
-  const paths: string[] = [];
-  walkTopologyComponents(schema, topology, ({ component }) => {
-    paths.push(...getComponentTargetPaths(component));
-  });
-  return paths;
-};
-
-const isSameOrNested = (a: string, b: string): boolean =>
-  a === b || a.startsWith(`${b}.`) || b.startsWith(`${a}.`);
-
-// Values bound only by other topologies are leftovers from a topology switch.
-export const dropOtherTopologyValues = (
-  input: PostprocessInput,
-  schema: TopologyUISchemas,
-  selectedTopology: string
-): PostprocessInput => {
-  const selectedPaths = collectTopologyPaths(schema, selectedTopology);
-  const result = deepClone(input);
-
-  Object.keys(schema)
-    .filter((topology) => topology !== selectedTopology)
-    .flatMap((topology) => collectTopologyPaths(schema, topology))
-    .filter(
-      (path) =>
-        !selectedPaths.some((selected) => isSameOrNested(path, selected))
-    )
-    .forEach((path) => deleteByPath(result, path));
-
   return result;
 };
 

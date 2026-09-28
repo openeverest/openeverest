@@ -13,15 +13,9 @@
 // limitations under the License.
 
 import { describe, expect, it } from 'vitest';
-import {
-  dropOtherTopologyValues,
-  postprocessSchemaData,
-} from './postprocess-schema';
-import {
-  Component,
-  FieldType,
-  TopologyUISchemas,
-} from '../../ui-generator.types';
+import { postprocessSchemaData } from './postprocess-schema';
+import { FieldType, TopologyUISchemas } from '../../ui-generator.types';
+import { twoTopologySchema } from '../topology-scope/__mocks__/topology-schemas';
 
 describe('postprocessSchemaData', () => {
   it('removes empty values recursively and preserves meaningful falsy values', () => {
@@ -288,104 +282,6 @@ describe('postprocessSchemaData', () => {
           monitoring: { enabled: true },
         },
       },
-    });
-  });
-});
-
-const numberField = (path: string): Component => ({
-  uiType: FieldType.Number,
-  path,
-  fieldParams: { label: path },
-});
-
-const monitoringField: Component = {
-  uiType: FieldType.Toggle,
-  path: 'spec.components.monitoring.enabled',
-  fieldParams: { label: 'Monitoring' },
-};
-
-// Milvus-shaped: each topology owns its own components; monitoring is shared.
-const twoTopologySchema: TopologyUISchemas = {
-  standalone: {
-    sections: {
-      resources: {
-        components: {
-          replicas: numberField('spec.components.standalone.replicas'),
-          monitoring: monitoringField,
-        },
-      },
-    },
-  },
-  cluster: {
-    sections: {
-      resources: {
-        components: {
-          coordinator: numberField('spec.components.mixCoord.replicas'),
-          proxy: numberField('spec.components.proxy.replicas'),
-          monitoring: monitoringField,
-        },
-      },
-    },
-  },
-};
-
-describe('dropOtherTopologyValues', () => {
-  it('keeps values of paths shared with the selected topology', () => {
-    const input = {
-      spec: {
-        components: {
-          mixCoord: { replicas: 1 },
-          monitoring: { enabled: false },
-        },
-      },
-    };
-
-    expect(
-      dropOtherTopologyValues(input, twoTopologySchema, 'standalone')
-    ).toEqual({
-      spec: { components: { mixCoord: {}, monitoring: { enabled: false } } },
-    });
-  });
-
-  it('keeps values the selected topology owns through a parent or child path', () => {
-    const schema: TopologyUISchemas = {
-      a: {
-        sections: {
-          s: {
-            components: {
-              storage: {
-                uiType: FieldType.Text,
-                path: 'spec.topology.parameters.storage',
-                fieldParams: { label: 'Storage' },
-              },
-            },
-          },
-        },
-      },
-      b: {
-        sections: {
-          s: {
-            components: {
-              size: numberField('spec.topology.parameters.storage.size'),
-            },
-          },
-        },
-      },
-    };
-    const input = {
-      spec: { topology: { parameters: { storage: { size: 5 } } } },
-    };
-
-    expect(dropOtherTopologyValues(input, schema, 'a')).toEqual(input);
-  });
-
-  it('does not mutate its input', () => {
-    const input = { spec: { components: { mixCoord: { replicas: 1 } } } };
-
-    dropOtherTopologyValues(input, twoTopologySchema, 'standalone');
-
-    expect(input).toEqual({
-      spec: { components: { mixCoord: { replicas: 1 } } },
     });
   });
 });

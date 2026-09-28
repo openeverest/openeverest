@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { act, renderHook } from '@testing-library/react';
-import { UseFormGetValues, UseFormReset, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { vi } from 'vitest';
 import {
   Component,
@@ -63,7 +63,7 @@ const NO_PRESET = {
 const setup = () =>
   renderHook(
     ({ selectedTopology }: { selectedTopology: string }) => {
-      const methods = useForm({
+      const methods = useForm<DbWizardType>({
         defaultValues: {
           dbName: 'my-db',
           topology: { type: 'cluster' },
@@ -77,9 +77,8 @@ const setup = () =>
         defaultTopology: 'cluster',
         selectedTopology,
         preset: NO_PRESET,
-        reset: methods.reset as unknown as UseFormReset<DbWizardType>,
-        getValues:
-          methods.getValues as unknown as UseFormGetValues<DbWizardType>,
+        reset: methods.reset,
+        getValues: methods.getValues,
       });
       return methods;
     },
@@ -92,8 +91,11 @@ describe('useDatabaseFormSync topology switch', () => {
 
     rerender({ selectedTopology: 'standalone' });
 
-    expect(result.current.getValues('spec')).toEqual({
-      components: { standalone: { replicas: 1 }, mixCoord: {} },
+    expect(
+      result.current.getValues('spec.components.mixCoord.replicas')
+    ).toBeUndefined();
+    expect(result.current.getValues('spec.components')).toMatchObject({
+      standalone: { replicas: 1 },
     });
     expect(result.current.getValues('dbName')).toBe('my-db');
   });

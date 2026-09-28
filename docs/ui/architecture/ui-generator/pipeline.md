@@ -62,8 +62,9 @@ flowchart TD
 
 - Collects initial values from `fieldParams.defaultValue` (create).
 - **Topology switch** (create wizard, no preset) — `useDatabaseFormSync` drops the previous
-  topology's values with `dropOtherTopologyValues`, then merges the new topology's defaults over the
-  rest (`mergeTopologyDefaults`). Switching back therefore starts from defaults, not stale values.
+  topology's values with `dropOtherTopologyValues` (`utils/topology-scope/`), then merges the new
+  topology's defaults over the rest (`mergeTopologyDefaults`). Switching back therefore starts from
+  defaults, not stale values.
 - **`extractInstanceValues`** — in edit/restore, reads values **only from the instance** (by
   `sourcePath`), **without** schema defaults (so edit doesn't inject defaults).
 
@@ -115,9 +116,9 @@ mount and `DataSourceField` when the specific field renders. Both check the curr
 **Input:** form data (RHF). **Output:** a clean API payload.
 
 - **`postprocessSchemaData(formData, { schema, selectedTopology })`**:
-  - **`dropOtherTopologyValues`** — removes values bound only by other topologies' paths (leftovers
-    from a topology switch, e.g. `spec.components.mixCoord` after switching Milvus cluster →
-    standalone). Paths shared with the selected topology, or nested under/over one of its paths, are
+  - **`dropOtherTopologyValues`** (`utils/topology-scope/`) — removes values bound only by other
+    topologies' paths, walking all sections regardless of `sectionsOrder` (leftovers from a topology
+    switch, e.g. `spec.components.mixCoord` after switching Milvus cluster → standalone). Paths shared with the selected topology, or nested under/over one of its paths, are
     kept; values no topology binds (`dbName`, `backup`, …) are untouched.
   - **`extractMultiPathMappings` / `applyMultiPathMappings`** — one value → all `targetPaths`.
   - **`extractBadgeMappings` / `applyBadgesToFormData`** — unit suffix (`8` → `8Gi`).
@@ -201,6 +202,7 @@ components:
 | UI component mapper        | `ui-component/`                                            |
 | Postprocess                | `utils/postprocess/postprocess-schema.ts`                  |
 | Schema walker              | `utils/schema-walker/schema-walker.ts`                     |
+| Topology scope             | `utils/topology-scope/topology-scope.ts`                   |
 | Object path                | `utils/object-path/object-path.ts`                         |
 | API provider registry      | `api-providers/registry.ts`                                |
 | API provider registrations | `api-providers/providers.ts`                               |
@@ -214,4 +216,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-25
+- Last updated: 2026-09-28
