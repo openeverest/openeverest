@@ -219,7 +219,9 @@ const zephyrMap: Record<string, string> = {
             expect(addedCluster?.spec.proxy.expose.type).toBe('ClusterIP');
           }
           if (db != 'psmdb') {
-            expect(addedCluster?.spec.proxy.replicas).toBe(size);
+            expect(addedCluster?.spec.proxy.replicas).toBe(
+              db === 'pxc' ? 2 : size
+            );
           }
         });
       });
