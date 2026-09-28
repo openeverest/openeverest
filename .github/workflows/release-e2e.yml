@@ -1,5 +1,5 @@
 ---
-# Release e2e (live PITR golden and the rest of the release lane).
+# Release e2e test lane.
 #
 # These tests stand up a full kind cluster (core Everest + the PXC provider +
 # MinIO + PMM) and drive the UI against real databases, so they are slow and

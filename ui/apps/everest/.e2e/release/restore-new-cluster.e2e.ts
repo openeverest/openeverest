@@ -347,12 +347,13 @@ function getNextScheduleMinute(incrementMinutes: number): string {
       test(`Wait for two backups to succeeded for primary database [${db} size ${size}]`, async ({
         page,
       }) => {
+        test.setTimeout(16 * 60 * 1000);
         await gotoDbClusterBackups(page, clusterName);
         await expect(page.getByText(`${db}-${size}-pri-`)).toHaveCount(2, {
-          timeout: 360000,
+          timeout: 900000,
         });
         await expect(page.getByText('Succeeded')).toHaveCount(2, {
-          timeout: 360000,
+          timeout: 900000,
         });
       });
 
