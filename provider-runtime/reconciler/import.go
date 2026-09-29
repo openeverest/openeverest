@@ -78,7 +78,8 @@ func (r *backupImportReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	if err := r.client.Get(ctx, client.ObjectKey{
 		Namespace: imp.Namespace,
 		Name:      imp.Spec.StorageRef.Name,
-	}, storage); err != nil {
+	}, storage,
+	); err != nil {
 		return r.updateErrorStatus(ctx, imp, fmt.Errorf("failed to get BackupStorage %q: %w", imp.Spec.StorageRef.Name, err))
 	}
 
@@ -225,7 +226,7 @@ func (r *backupImportReconciler) createBackups(
 	count := 0
 	for _, backup := range backups {
 		if backup.Labels == nil {
-			backup.Labels = map[string]string{}
+			backup.Labels = make(map[string]string)
 		}
 
 		// Imported Backups always live alongside the BackupImport; override
