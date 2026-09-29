@@ -19,6 +19,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
+	"slices"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -32,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/structured-merge-diff/v6/value"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
@@ -150,8 +154,15 @@ func (c *Context) ProviderSpec() (*v1alpha1.ProviderSpec, error) {
 // Rules:
 //   - Build the whole desired object every time. Fields you stop setting are
 //     removed; fields you never set are left to the engine operator.
-//   - Zero values (false, 0, "", {}) count as set. Nil fields do not.
+//   - Zero scalars (false, 0, "") and non-nil pointers to empty structs
+//     (emptyDir: {}) count as set. Nil fields and empty non-pointer
+//     omitempty structs do not, so CRD defaults nested directly under such
+//     a struct are not applied either.
 //   - Pass a freshly built object, never one from Get.
+//
+// Emptying a pointer struct you previously filled (&EmptyDirVolumeSource{}
+// after one with SizeLimit) still fails: SSA stores it as null, and that {}
+// cannot be told apart from a deliberate one.
 //
 // obj is not updated with the server response; use Get to read it back.
 func (c *Context) Apply(obj client.Object) error {
@@ -171,15 +182,14 @@ func (c *Context) Apply(obj client.Object) error {
 	}
 	obj.GetObjectKind().SetGroupVersionKind(gvk)
 
-	// omitempty does not cover untagged fields, so nulls are pruned. Zero
-	// scalars and empty objects stay: a zero struct is indistinguishable
-	// from one set on purpose (emptyDir: {} selects a volume type).
+	// omitempty does not cover untagged fields, so nulls are pruned.
 	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 	if err != nil {
 		return fmt.Errorf("failed to build apply configuration: %w", err)
 	}
 	delete(raw, "status")
 	pruneNulls(raw)
+	pruneEmptyStructs(reflect.ValueOf(obj), raw)
 	return c.client.Apply(c.ctx,
 		client.ApplyConfigurationFromUnstructured(&unstructured.Unstructured{Object: raw}),
 		client.FieldOwner("provider-"+c.providerName),
@@ -203,6 +213,88 @@ func pruneNulls(v any) {
 			pruneNulls(child)
 		}
 	}
+}
+
+// pruneEmptyStructs drops the {} ToUnstructured emits for empty non-pointer
+// omitempty structs: Go cannot leave them unset, and once SSA prunes the
+// children they replaced, the API server stores null, which CRDs reject.
+// A non-nil pointer keeps its {} (emptyDir: {} selects a volume type).
+//
+// The null is kubernetes-sigs/structured-merge-diff#305; once a server-side
+// fix ships, this walk becomes redundant and can go.
+func pruneEmptyStructs(v reflect.Value, raw any) {
+	for v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface {
+		if v.IsNil() {
+			return
+		}
+		v = v.Elem()
+	}
+	// Custom marshalers (Quantity, Time, RawExtension) decide their own shape.
+	if !v.IsValid() || value.TypeReflectEntryOf(v.Type()).CanConvertToUnstructured() {
+		return
+	}
+
+	switch r := raw.(type) {
+	case map[string]any:
+		if v.Kind() == reflect.Struct {
+			pruneStructFields(v, r)
+			return
+		}
+		pruneMapValues(v, r)
+	case []any:
+		if (v.Kind() == reflect.Slice || v.Kind() == reflect.Array) && v.Len() == len(r) {
+			for i := range r {
+				pruneEmptyStructs(v.Index(i), r[i])
+			}
+		}
+	}
+}
+
+func pruneStructFields(v reflect.Value, m map[string]any) {
+	for i := range v.NumField() {
+		field := v.Type().Field(i)
+		name, omitempty := jsonField(field)
+		if name == "-" {
+			continue
+		}
+		if name == "" {
+			pruneEmptyStructs(v.Field(i), m)
+			continue
+		}
+		child, ok := m[name]
+		if !ok {
+			continue
+		}
+		pruneEmptyStructs(v.Field(i), child)
+		if childMap, isMap := child.(map[string]any); isMap && len(childMap) == 0 && omitempty && isPlainStruct(field.Type) {
+			delete(m, name)
+		}
+	}
+}
+
+func pruneMapValues(v reflect.Value, m map[string]any) {
+	if v.Kind() != reflect.Map || v.Type().Key().Kind() != reflect.String {
+		return
+	}
+	for it := v.MapRange(); it.Next(); {
+		if child, ok := m[it.Key().String()]; ok {
+			pruneEmptyStructs(it.Value(), child)
+		}
+	}
+}
+
+func isPlainStruct(t reflect.Type) bool {
+	return t.Kind() == reflect.Struct && !value.TypeReflectEntryOf(t).CanConvertToUnstructured()
+}
+
+// jsonField returns a field's key as runtime.DefaultUnstructuredConverter
+// names it ("" when inlined) and whether it is tagged omitempty.
+func jsonField(f reflect.StructField) (string, bool) {
+	name, opts, _ := strings.Cut(f.Tag.Get("json"), ",")
+	if name == "" && !f.Anonymous {
+		name = f.Name
+	}
+	return name, slices.Contains(strings.Split(opts, ","), "omitempty")
 }
 
 // Get retrieves a resource by name (in the instance's namespace).
