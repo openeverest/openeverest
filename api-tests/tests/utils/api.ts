@@ -324,6 +324,66 @@ export const deleteBackupStorageRaw = async (request, name) => {
   return await request.delete(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`)
 }
 
+// --------------------- Backup Import helpers ------------------------------------------
+
+export const getBackupImportPayload = (name: string, storageName: string, className = 'test-backup-class') => {
+  return {
+    metadata: {
+      name: name,
+    },
+    spec: {
+      classRef: {name: className},
+      storageRef: {name: storageName},
+    },
+  }
+}
+
+export const createBackupImport = async (request, data) => {
+  const response = await createBackupImportRaw(request, data)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const createBackupImportRaw = async (request, data) => {
+  return await request.post(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-imports`, {data: data})
+}
+
+export const getBackupImport = async (request, name) => {
+  const response = await getBackupImportRaw(request, name)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const getBackupImportRaw = async (request, name) => {
+  return await request.get(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-imports/${name}`)
+}
+
+export const listBackupImports = async (request) => {
+  const response = await listBackupImportsRaw(request)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const listBackupImportsRaw = async (request) => {
+  return await request.get(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-imports`)
+}
+
+export const deleteBackupImportRaw = async (request, name) => {
+  return await request.delete(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-imports/${name}`)
+}
+
+export const deleteBackupImport = async (request, name) => {
+  // Wait for deletion mark.
+  await expect(async () => {
+    await deleteBackupImportRaw(request, name)
+    const res = await getBackupImportRaw(request, name)
+    await checkResourceDeletion(res)
+  }).toPass({
+    intervals: [1000],
+    timeout: 60 * 1000,
+  })
+}
+
 // --------------------- Monitoring Config helpers (V2 - using new endpoints) -----
 
 export const createMonitoringConfigV2 = async (request, name) => {

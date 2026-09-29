@@ -134,6 +134,7 @@ export default defineConfig({
       name: 'api-tests',
       dependencies: [
         'auth',
+        'backup-import',
         'backup-storage',
         'config-map',
         'instance',
@@ -155,6 +156,18 @@ export default defineConfig({
       use: {
         extraHTTPHeaders: {
           'Authorization': `Bearer ${process.env[API_TEST_TOKEN]}`,
+        }
+      },
+    },
+    // backup-import tests
+    {
+      name: 'backup-import',
+      testDir: 'tests',
+      testMatch: /backup-import\.spec\.ts/,
+      dependencies: ['global:auth:ci:setup'],
+      use: {
+        extraHTTPHeaders: {
+          'Authorization': `Bearer ${process.env[API_CI_TOKEN]}`,
         }
       },
     },

@@ -70,11 +70,13 @@ deploy-seaweedfs:
 
 TEST_PROVIDER_RESOURCE=$(TEST_ROOT)/manifests/test-provider.yaml
 TEST_PRESET_RESOURCE=$(TEST_ROOT)/manifests/test-preset.yaml
+TEST_BACKUP_CLASS_RESOURCE=$(TEST_ROOT)/manifests/test-backup-class.yaml
 TEST_SECRET_RESOURCE=$(TEST_ROOT)/manifests/test-secret.yaml
 .PHONY: create-test-manifests
 create-test-manifests:
 	$(info Deploying test provider and preset)
 	kubectl apply -f $(TEST_PROVIDER_RESOURCE)
+	kubectl apply -f $(TEST_BACKUP_CLASS_RESOURCE)
 	kubectl apply -f $(TEST_PRESET_RESOURCE)
 	kubectl apply -f $(TEST_SECRET_RESOURCE)
 
@@ -83,6 +85,7 @@ cleanup-test-manifests:
 	$(info Cleaning up test provider and preset)
 	kubectl delete -f $(TEST_PRESET_RESOURCE) --ignore-not-found=true
 	kubectl delete -f $(TEST_PROVIDER_RESOURCE) --ignore-not-found=true
+	kubectl delete -f $(TEST_BACKUP_CLASS_RESOURCE) --ignore-not-found=true
 	kubectl delete -f $(TEST_SECRET_RESOURCE) --ignore-not-found=true
 
 ##@ Development

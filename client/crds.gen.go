@@ -4149,7 +4149,16 @@ type Plugin struct {
 
 		// CompatibleHostVersions CompatibleHostVersions is a SemVer range expression specifying which
 		// OpenEverest host versions this plugin supports (e.g. ">=2.0.0 <3.0.0").
+		// This is the API-compatibility gate: it guards the host application version,
+		// which bumps for backend reasons unrelated to the UI runtime.
 		CompatibleHostVersions *string `json:"compatibleHostVersions,omitempty"`
+
+		// CompatibleUiContractVersions CompatibleUIContractVersions is a SemVer range expression specifying which
+		// UI-contract versions this plugin's frontend supports (e.g. "^18.0.0"). The
+		// UI contract is the shared React major — the only runtime a bundled-MUI
+		// plugin shares with the host (see issue #2661) — so this is checked
+		// separately from CompatibleHostVersions at load time.
+		CompatibleUiContractVersions *string `json:"compatibleUiContractVersions,omitempty"`
 
 		// Description Description is a short human-readable description of what the plugin does.
 		Description *string `json:"description,omitempty"`
@@ -4289,9 +4298,10 @@ type Provider struct {
 	// Spec ProviderSpec defines the desired state of Provider
 	Spec struct {
 		ComponentTypes *map[string]struct {
-			Versions *[]struct {
-				Default *bool `json:"default,omitempty"`
-
+			// DefaultVersion DefaultVersion names the entry in Versions used when neither the
+			// Instance nor a version bundle selects one.
+			DefaultVersion *string `json:"defaultVersion,omitempty"`
+			Versions       *[]struct {
 				// Deprecated Deprecated marks a version as still supported but scheduled for
 				// removal. Instances running on it get a proactive warning with a
 				// remediation runway instead of a blocked upgrade.
@@ -4328,6 +4338,10 @@ type Provider struct {
 			// UiSchema UISchema holds UI rendering hints for the configmap creation form.
 			UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
 		} `json:"configMaps,omitempty"`
+
+		// DefaultVersion DefaultVersion names the bundle in Versions used when an Instance
+		// omits Spec.Version.
+		DefaultVersion *string `json:"defaultVersion,omitempty"`
 
 		// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for the instance-wide
 		// parameters payload (Instance.spec.parameters).
@@ -4403,15 +4417,11 @@ type Provider struct {
 		// Versions Versions defines curated version bundles — named sets of component
 		// versions that are known to be mutually compatible. Users reference
 		// a bundle via Instance.Spec.Version. If the user does not set a version,
-		// the bundle whose Default field is true is used automatically.
+		// the bundle named by DefaultVersion is used automatically.
 		Versions *[]struct {
 			// Components Components maps component names to their version strings for this bundle.
 			// Keys must match component names defined in ProviderSpec.Components.
 			Components *map[string]string `json:"components,omitempty"`
-
-			// Default Default marks this bundle as the implicit choice when an Instance omits
-			// Spec.Version entirely. Exactly one bundle should have Default: true.
-			Default *bool `json:"default,omitempty"`
 
 			// Name Name is the unique identifier for this bundle (e.g. "8.0.12").
 			// Users set Instance.Spec.Version to this value to select the bundle.

@@ -61,12 +61,12 @@ import (
 // Returns nil if the component type doesn't exist or has no default version.
 func GetDefaultVersion(spec *v1alpha1.ProviderSpec, componentType string) *v1alpha1.ComponentVersion {
 	ct, ok := spec.ComponentTypes[componentType]
-	if !ok {
+	if !ok || ct.DefaultVersion == "" {
 		return nil
 	}
 
 	for i, v := range ct.Versions {
-		if v.Default {
+		if v.Version == ct.DefaultVersion {
 			return &ct.Versions[i]
 		}
 	}
@@ -145,26 +145,23 @@ func ResolveVersionBundle(spec *v1alpha1.ProviderSpec, version string) (*v1alpha
 	return nil, fmt.Errorf("version bundle %q not found in provider spec", version)
 }
 
-// GetDefaultVersionBundle returns the bundle marked as Default: true.
-// Returns nil if no bundles are defined or none is marked as default.
+// GetDefaultVersionBundle returns the bundle named by spec.defaultVersion.
+// Returns nil if no default is declared or it names no bundle.
 func GetDefaultVersionBundle(spec *v1alpha1.ProviderSpec) *v1alpha1.VersionBundle {
-	for i := range spec.Versions {
-		if spec.Versions[i].Default {
-			return &spec.Versions[i]
-		}
+	if spec.DefaultVersion == "" {
+		return nil
 	}
-	return nil
+	bundle, err := ResolveVersionBundle(spec, spec.DefaultVersion)
+	if err != nil {
+		return nil
+	}
+	return bundle
 }
 
-// GetDefaultVersionBundleName returns the name of the bundle marked as
-// Default: true. Returns empty string if no default bundle is defined.
+// GetDefaultVersionBundleName returns spec.defaultVersion. Returns empty
+// string if no default bundle is declared.
 func GetDefaultVersionBundleName(spec *v1alpha1.ProviderSpec) string {
-	for _, b := range spec.Versions {
-		if b.Default {
-			return b.Name
-		}
-	}
-	return ""
+	return spec.DefaultVersion
 }
 
 // EffectiveVersionBundleName returns the bundle in force for an Instance:
@@ -198,6 +195,7 @@ func EffectiveVersionBundleName(spec *v1alpha1.ProviderSpec, in *v1alpha1.Instan
 //   - All component types referenced by components exist
 //   - All components referenced by topologies exist
 //   - All component versions referenced in version bundles exist in the catalog
+//   - Every defaultVersion names an existing entry
 func ValidateProviderSpec(spec *v1alpha1.ProviderSpec) error {
 	// Check that component types referenced by components exist
 	for compName, comp := range spec.Components {
@@ -236,6 +234,18 @@ func ValidateProviderSpec(spec *v1alpha1.ProviderSpec) error {
 			if !found {
 				return fmt.Errorf("version bundle %q: component %q version %q not found in componentTypes[%q]", bundle.Name, compName, ver, comp.Type)
 			}
+		}
+	}
+
+	if spec.DefaultVersion != "" {
+		if _, err := ResolveVersionBundle(spec, spec.DefaultVersion); err != nil {
+			return fmt.Errorf("defaultVersion: %w", err)
+		}
+	}
+
+	for typeName, ct := range spec.ComponentTypes {
+		if ct.DefaultVersion != "" && GetDefaultVersion(spec, typeName) == nil {
+			return fmt.Errorf("componentTypes[%q]: defaultVersion %q not found in versions", typeName, ct.DefaultVersion)
 		}
 	}
 
