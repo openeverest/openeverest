@@ -136,6 +136,61 @@ func TestApplyBodyOmitsStatusAndNulls(t *testing.T) {
 	assert.NotContains(t, spec, "selector")
 }
 
+func TestApplyBodyDropsOnlyImplicitEmptyStructs(t *testing.T) {
+	t.Parallel()
+	var body map[string]any
+	c := applyTestContext(t, interceptor.Funcs{
+		Apply: func(ctx context.Context, cl client.WithWatch, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+			data, err := json.Marshal(obj)
+			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal(data, &body))
+			return cl.Apply(ctx, obj, opts...)
+		},
+	})
+
+	require.NoError(t, c.Apply(&appsv1.StatefulSet{
+		ObjectMeta: c.ObjectMeta("sts"),
+		Spec: appsv1.StatefulSetSpec{
+			ServiceName: "svc",
+			Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{
+				Containers: []corev1.Container{{Name: "c", Image: "img"}},
+				Volumes: []corev1.Volume{{
+					Name:         "v",
+					VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+				}},
+			}},
+		},
+	}))
+
+	template := nested(t, body, "spec", "template")
+	assert.NotContains(t, template, "metadata", "empty value ObjectMeta is dropped")
+	podSpec := nested(t, template, "spec")
+	container := firstItem(t, podSpec, "containers")
+	assert.NotContains(t, container, "resources", "empty value struct is dropped")
+	volume := firstItem(t, podSpec, "volumes")
+	assert.Equal(t, make(map[string]any), volume["emptyDir"], "empty pointer struct is kept")
+}
+
+func nested(t *testing.T, m map[string]any, keys ...string) map[string]any {
+	t.Helper()
+	for _, k := range keys {
+		next, ok := m[k].(map[string]any)
+		require.True(t, ok, "missing object at %q", k)
+		m = next
+	}
+	return m
+}
+
+func firstItem(t *testing.T, m map[string]any, key string) map[string]any {
+	t.Helper()
+	list, ok := m[key].([]any)
+	require.True(t, ok, "missing list at %q", key)
+	require.NotEmpty(t, list)
+	item, ok := list[0].(map[string]any)
+	require.True(t, ok, "first %q item is not an object", key)
+	return item
+}
+
 func TestPruneNulls(t *testing.T) {
 	t.Parallel()
 
