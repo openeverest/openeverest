@@ -1391,6 +1391,17 @@ export interface components {
             version?: string;
             vendor?: string;
             icon?: string;
+            /**
+             * @description API-compatibility gate: the host application semver range this
+             *     plugin supports. Enforced against the host version at load time.
+             */
+            compatibleHostVersions?: string;
+            /**
+             * @description UI-contract gate: the React-major semver range this plugin's
+             *     frontend supports. Enforced against the host React major at load
+             *     time (the only runtime a bundled-MUI plugin shares with the host).
+             */
+            compatibleUiContractVersions?: string;
             bundleUrl: string;
             extensionPoints?: components["schemas"]["PluginExtensionPoint"][];
         };
@@ -2710,8 +2721,12 @@ export interface components {
             spec: {
                 componentTypes?: {
                     [key: string]: {
+                        /**
+                         * @description DefaultVersion names the entry in Versions used when neither the
+                         *     Instance nor a version bundle selects one.
+                         */
+                        defaultVersion?: string;
                         versions?: {
-                            default?: boolean;
                             /**
                              * @description Deprecated marks a version as still supported but scheduled for
                              *     removal. Instances running on it get a proactive warning with a
@@ -2760,6 +2775,11 @@ export interface components {
                         uiSchema?: Record<string, never>;
                     };
                 };
+                /**
+                 * @description DefaultVersion names the bundle in Versions used when an Instance
+                 *     omits Spec.Version.
+                 */
+                defaultVersion?: string;
                 /**
                  * @description ParametersSchema declares the OpenAPI v3 schema for the instance-wide
                  *     parameters payload (Instance.spec.parameters).
@@ -2853,7 +2873,7 @@ export interface components {
                  * @description Versions defines curated version bundles — named sets of component
                  *     versions that are known to be mutually compatible. Users reference
                  *     a bundle via Instance.Spec.Version. If the user does not set a version,
-                 *     the bundle whose Default field is true is used automatically.
+                 *     the bundle named by DefaultVersion is used automatically.
                  */
                 versions?: {
                     /**
@@ -2863,11 +2883,6 @@ export interface components {
                     components?: {
                         [key: string]: string;
                     };
-                    /**
-                     * @description Default marks this bundle as the implicit choice when an Instance omits
-                     *     Spec.Version entirely. Exactly one bundle should have Default: true.
-                     */
-                    default?: boolean;
                     /**
                      * @description Name is the unique identifier for this bundle (e.g. "8.0.12").
                      *     Users set Instance.Spec.Version to this value to select the bundle.

@@ -331,21 +331,13 @@ func (ic *InstanceCreator) resolvePreset(ctx context.Context, c *client.ClientWi
 }
 
 func defaultVersion(prov *client.Provider) string {
-	if prov.Spec.Versions == nil {
+	if prov.Spec.DefaultVersion != nil && *prov.Spec.DefaultVersion != "" {
+		return *prov.Spec.DefaultVersion
+	}
+	if prov.Spec.Versions == nil || len(*prov.Spec.Versions) == 0 {
 		return ""
 	}
-
-	versions := *prov.Spec.Versions
-	first := ""
-	for _, v := range versions {
-		if first == "" {
-			first = v.Name
-		}
-		if v.Default != nil && *v.Default {
-			return v.Name
-		}
-	}
-	return first
+	return (*prov.Spec.Versions)[0].Name
 }
 
 func firstTopology(prov *client.Provider) string {

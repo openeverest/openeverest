@@ -343,11 +343,14 @@ deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
 	--helm.set server.initialAdminPassword=admin
 	$(MAKE) expose
 
+# Test cluster runtime: k3d locally, kind on CI (containerized runners).
+CLUSTER_PROVIDER ?= k3d
+
 DEPLOY_ALL_DEPS := build-ui build-debug build-controller-debug docker-build
 DEPLOY_ALL_DEPS += build-cli-debug
-DEPLOY_ALL_DEPS += k3d-upload-server-image k3d-upload-server-image deploy
+DEPLOY_ALL_DEPS += $(CLUSTER_PROVIDER)-upload-server-image deploy
 .PHONY: deploy-all
-deploy-all: $(DEPLOY_ALL_DEPS) ## Helper to build Everest and its dependencies and deploy to K3D test cluster.
+deploy-all: $(DEPLOY_ALL_DEPS) ## Helper to build Everest and its dependencies and deploy to the $(CLUSTER_PROVIDER) test cluster.
 
 .PHONY: undeploy-cli
 undeploy: build-cli-debug ## Undeploy Everest from K8S cluster using Everest CLI.
@@ -363,6 +366,32 @@ add-shared-everest-namespace: ## Add shared Everest namespace with all operators
 	--operator.mysql=true \
 	--take-ownership \
 	--skip-wizard
+
+PXC_PROVIDER_DIR ?= ../provider-percona-xtradb-cluster
+PXC_PROVIDER_IMG ?= ghcr.io/openeverest/provider-percona-xtradb-cluster-dev:latest
+PXC_PROVIDER_K3D_CLUSTER ?= everest-server-test
+# Matches the pxc-operator Helm dependency pinned in the provider chart.
+PXC_OPERATOR_VERSION ?= 1.20.0
+PXC_PROVIDER_NAMESPACE ?= provider-system
+PXC_OPERATOR_DEPLOYMENT ?= provider-percona-xtradb-cluster-operator
+.PHONY: deploy-pxc-provider
+deploy-pxc-provider: ## Build + Helm-install the PXC provider into the test cluster (needs the provider repo checked out at PXC_PROVIDER_DIR).
+	$(info Building and Helm-installing the PXC provider from $(PXC_PROVIDER_DIR))
+	$(MAKE) -C "$(PXC_PROVIDER_DIR)" docker-build IMG=$(PXC_PROVIDER_IMG)
+	$(MAKE) $(CLUSTER_PROVIDER)-upload-pxc-provider-image
+	$(MAKE) -C "$(PXC_PROVIDER_DIR)" install-crds deploy-provider-ci IMG=$(PXC_PROVIDER_IMG) PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION)
+	# deploy-provider-ci installs the native PXC operator scaled to zero; scale it
+	# up so PerconaXtraDBCluster CRs actually reconcile into running databases.
+	kubectl -n $(PXC_PROVIDER_NAMESPACE) scale deploy $(PXC_OPERATOR_DEPLOYMENT) --replicas=1
+	kubectl -n $(PXC_PROVIDER_NAMESPACE) rollout status deploy/$(PXC_OPERATOR_DEPLOYMENT) --timeout=180s
+
+.PHONY: k3d-upload-pxc-provider-image
+k3d-upload-pxc-provider-image:
+	k3d image import -c $(PXC_PROVIDER_K3D_CLUSTER) $(PXC_PROVIDER_IMG)
+
+.PHONY: kind-upload-pxc-provider-image
+kind-upload-pxc-provider-image:
+	kind load docker-image --name $(KIND_CLUSTER_NAME) $(PXC_PROVIDER_IMG)
 
 .PHONY: expose
 expose:
@@ -391,9 +420,6 @@ k3d-upload-server-image: ## Upload the Everest API server image to the testing k
 k3d-upload-controller-image: ## Upload the Everest controller image to the testing k3d cluster.
 	$(info Uploading Everest controller image=$(EVEREST_CONTROLLER_IMG) to K3D testing cluster)
 	k3d image import -c everest-server-test $(EVEREST_CONTROLLER_IMG)
-
-# Test cluster runtime: k3d locally, kind on CI (containerized runners).
-CLUSTER_PROVIDER ?= k3d
 
 .PHONY: upload-controller-image
 upload-controller-image: $(CLUSTER_PROVIDER)-upload-controller-image ## Upload the controller image to the $(CLUSTER_PROVIDER) test cluster.

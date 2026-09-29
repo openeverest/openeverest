@@ -42,9 +42,11 @@ deploy-monitoring:     ## Deploy monitoring instances to K3D test cluster.
 #	kubectl port-forward --namespace default svc/monitoring-service 8070:443 &
 
 .PHONY: create-db-namespaces
+# Run from the repo root so the root Makefile's LOCALBIN (repo-relative bin/)
+# resolves to <repo>/bin/everestctl, not <repo>/.e2e/bin.
 create-db-namespaces:
 	$(info Creating DB namespaces in Everest)
-	$(MAKE) -f $(REPO_ROOT_MAKEFILE) add-shared-everest-namespace DB_NAMESPACES=everest
+	cd $(REPO_ROOT) && $(MAKE) -f $(REPO_ROOT_MAKEFILE) add-shared-everest-namespace DB_NAMESPACES=everest
 
 #EVERESTCTL=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/../bin/everestctl
 #.PHONY: create-test-users
@@ -78,7 +80,7 @@ test:
     export SESSION_USER="session" ;\
     export SESSION_PASS="session1234" ;\
 	export EVEREST_BUCKETS_NAMESPACES_MAP='[["bucket-1","everest"]]' ;\
-  	export EVEREST_LOCATION_ACCESS_KEY="seaweedfsadmin" ;\
+	export EVEREST_LOCATION_ACCESS_KEY="seaweedfsadmin" ;\
 	export EVEREST_LOCATION_SECRET_KEY="seaweedfsadmin" ;\
 	export EVEREST_LOCATION_REGION="us-east-1" ;\
 	export EVEREST_LOCATION_URL="https://seaweedfs.seaweedfs.svc.cluster.local" ;\
