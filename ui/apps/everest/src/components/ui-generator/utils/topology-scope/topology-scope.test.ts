@@ -13,10 +13,24 @@
 // limitations under the License.
 
 import { describe, expect, it } from 'vitest';
-import { FieldType, TopologyUISchemas } from '../../ui-generator.types';
+import {
+  ComponentGroup,
+  FieldType,
+  GroupType,
+  TopologyUISchemas,
+} from '../../ui-generator.types';
 import { getByPath } from '../object-path';
+import { preprocessSchema } from '../preprocess/preprocess-schema';
+import { TOGGLEABLE_SWITCHES_KEY } from '../toggleable/toggleable';
 import { numberField, twoTopologySchema } from './__mocks__/topology-schemas';
 import { dropOtherTopologyValues } from './topology-scope';
+
+const toggleableGroup = (path: string): ComponentGroup => ({
+  uiType: 'group',
+  groupType: GroupType.Toggleable,
+  label: path,
+  components: { field: numberField(path) },
+});
 
 describe('dropOtherTopologyValues', () => {
   it('drops values only other topologies bind and keeps shared ones', () => {
@@ -92,6 +106,40 @@ describe('dropOtherTopologyValues', () => {
     const input = { spec: { replicas: 3 } };
 
     expect(dropOtherTopologyValues(input, schema, 'a')).toEqual(input);
+  });
+
+  it('resets switches of toggleable groups the selected topology lacks', () => {
+    const schema = preprocessSchema({
+      cluster: {
+        sections: {
+          advanced: {
+            components: {
+              monitoring: toggleableGroup('spec.monitoring.interval'),
+              sharding: toggleableGroup('spec.sharding.shards'),
+            },
+          },
+        },
+      },
+      standalone: {
+        sections: {
+          advanced: {
+            components: {
+              monitoring: toggleableGroup('spec.monitoring.interval'),
+            },
+          },
+        },
+      },
+    });
+    const input = {
+      [TOGGLEABLE_SWITCHES_KEY]: {
+        'advanced~monitoring': true,
+        'advanced~sharding': true,
+      },
+    };
+
+    expect(dropOtherTopologyValues(input, schema, 'standalone')).toEqual({
+      [TOGGLEABLE_SWITCHES_KEY]: { 'advanced~monitoring': true },
+    });
   });
 
   it('does not mutate its input', () => {

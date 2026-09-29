@@ -100,6 +100,7 @@ monitoring:
 
 - **Off:** fields are hidden, not validated, and removed from the request. On an existing instance, turning it off deletes the saved values.
 - **Initial state:** off for a new instance; on if the instance already has a value in any of the group's fields.
+- **Topology switch:** a group with the same section and group keys in both topologies keeps its state; any other group starts off.
 
 **Rules** — if one is broken, the group renders as a plain bordered group:
 
