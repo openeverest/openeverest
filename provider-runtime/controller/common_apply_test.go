@@ -168,7 +168,7 @@ func TestApplyBodyDropsOnlyImplicitEmptyStructs(t *testing.T) {
 	container := firstItem(t, podSpec, "containers")
 	assert.NotContains(t, container, "resources", "empty value struct is dropped")
 	volume := firstItem(t, podSpec, "volumes")
-	assert.Equal(t, map[string]any{}, volume["emptyDir"], "empty pointer struct is kept")
+	assert.Equal(t, make(map[string]any), volume["emptyDir"], "empty pointer struct is kept")
 }
 
 func nested(t *testing.T, m map[string]any, keys ...string) map[string]any {
