@@ -59,7 +59,6 @@ func (e *EverestServer) CreateBackupImport(c echo.Context, cluster string, names
 		return err
 	}
 
-	// Ensure the namespace and name match
 	backupImport.Namespace = namespace
 	result, err := e.handler.CreateBackupImport(c.Request().Context(), cluster, backupImport)
 	if err != nil {
