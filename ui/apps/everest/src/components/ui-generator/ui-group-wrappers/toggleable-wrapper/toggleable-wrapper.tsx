@@ -14,7 +14,7 @@
 
 import { useEffect, useRef } from 'react';
 import { SwitchInput } from '@percona/ui-lib';
-import { useFormContext, useWatch } from 'react-hook-form';
+import { useWatch } from 'react-hook-form';
 import { TOGGLEABLE_SWITCHES_KEY } from 'components/ui-generator/utils/toggleable/toggleable';
 import BorderedWrapper from '../bordered-wrapper';
 import { ToggleableWrapperProps } from './toggleable-wrapper.types';
@@ -29,7 +29,6 @@ const ToggleableWrapper = ({
   children,
 }: ToggleableWrapperProps) => {
   const switchName = toggleable?.switchName;
-  const { trigger } = useFormContext();
   const bodyRef = useRef<HTMLDivElement>(null);
   const enabledByUser = useRef(false);
   // Watched unconditionally (hook rules); the fallback name is never read.
@@ -45,13 +44,12 @@ const ToggleableWrapper = ({
     }
   }, [switchName, label]);
 
-  // Show why the form just became invalid instead of silently disabling submit.
+  // Untouched fields are not flagged: errors appear on input, like elsewhere in the form.
   useEffect(() => {
-    if (!isOn || !enabledByUser.current || !toggleable) return;
+    if (!isOn || !enabledByUser.current) return;
     enabledByUser.current = false;
-    trigger(toggleable.fieldIds);
     bodyRef.current?.querySelector<HTMLElement>(FOCUSABLE_FIELD)?.focus();
-  }, [isOn, toggleable, trigger]);
+  }, [isOn]);
 
   return (
     <BorderedWrapper

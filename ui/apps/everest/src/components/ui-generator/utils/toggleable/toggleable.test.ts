@@ -100,11 +100,10 @@ const metaOf = (group: ComponentGroup): ToggleableMeta => {
 };
 
 describe('toggleable group switch', () => {
-  it('names the switch after the group position and lists its fields', () => {
+  it('names the switch after the group position and lists its paths', () => {
     expect(getToggleableMeta(groupAt(sections, 'monitoring'))).toEqual({
       switchName: SWITCH,
       childPaths: ['spec.monitoring.configName', 'spec.monitoring.interval'],
-      fieldIds: ['spec.monitoring.configName', 'spec.monitoring.interval'],
     });
   });
 

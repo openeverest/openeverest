@@ -175,14 +175,14 @@ describe('UIGenerator - toggleable group', () => {
     consoleError.mockRestore();
   });
 
-  it('turning a section on focuses its first field and shows why it is required', async () => {
+  it('turning a section on focuses its first field without flagging it', async () => {
     renderForm();
 
     fireEvent.click(getSwitch());
 
     const endpoint = await screen.findByLabelText(/Endpoint/);
     await waitFor(() => expect(endpoint).toHaveFocus());
-    expect(await screen.findByText(/required/i)).toBeInTheDocument();
+    expect(screen.queryByText(/required/i)).not.toBeInTheDocument();
   });
 });
 

@@ -22,10 +22,7 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import { getByPath, isEmptyFieldValue } from '../object-path/object-path';
 import { walkLeafComponents } from '../schema-walker/schema-walker';
-import {
-  getComponentSourcePath,
-  getComponentTargetPaths,
-} from '../preprocess/normalized-component';
+import { getComponentTargetPaths } from '../preprocess/normalized-component';
 
 // Reserved root form key holding every toggleable group's form-only switch.
 // Postprocess strips it so the switches never reach the API payload.
@@ -54,18 +51,12 @@ const getToggleableSwitchName = (groupKeyPath: string[]): string =>
 // or be split by React Hook Form.
 const SWITCH_KEY_PATTERN = /^[A-Za-z0-9_-]+$/;
 
-const getGroupFields = (
-  group: ComponentGroup
-): { paths: string[]; fieldIds: string[] } => {
+const getGroupPaths = (group: ComponentGroup): string[] => {
   const paths: string[] = [];
-  const fieldIds: string[] = [];
   walkLeafComponents(group.components, ({ component }) => {
-    const targetPaths = getComponentTargetPaths(component);
-    const sourcePath = getComponentSourcePath(component);
-    paths.push(...targetPaths);
-    if (targetPaths.length > 0 && sourcePath) fieldIds.push(sourcePath);
+    paths.push(...getComponentTargetPaths(component));
   });
-  return { paths, fieldIds };
+  return paths;
 };
 
 const countPaths = (paths: string[]): Map<string, number> => {
@@ -121,7 +112,7 @@ export const resolveToggleable = (
     return { degradeReason: 'unsafe-key', childScope: scope };
   }
 
-  const { paths: childPaths, fieldIds } = getGroupFields(item);
+  const childPaths = getGroupPaths(item);
   if (childPaths.length === 0) {
     return { degradeReason: 'no-fields', childScope: scope };
   }
@@ -140,7 +131,6 @@ export const resolveToggleable = (
     meta: {
       switchName: getToggleableSwitchName(groupKeyPath),
       childPaths,
-      fieldIds,
     },
     childScope: { ...scope, insideToggleable: true },
   };

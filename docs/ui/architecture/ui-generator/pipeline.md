@@ -31,7 +31,7 @@ flowchart TD
     the provider is not registered. Options are not resolved here — they are loaded at runtime by
     `DataSourceField` and prefetched by `DataSourcePrefetcher`.
   - **`resolveToggleable`** (`utils/toggleable/toggleable.ts`) — sets
-    `_toggleable: { switchName, childPaths, fieldIds }` on a `toggleable` group. The switch is
+    `_toggleable: { switchName, childPaths }` on a `toggleable` group. The switch is
     named after the group's key path (`toggleable-switches.advanced~monitoring`), so form modes
     never change it. The group degrades to `bordered` (dev warning) if a key is outside
     `[A-Za-z0-9_-]`, it has no path-bound fields, it is nested in another toggleable, or a field
@@ -96,7 +96,7 @@ flowchart TD
       (the wrapper loads options through `api-providers/registry` and sets a default via `useEffect`);
     - otherwise → `<ComponentErrorBoundary><UIComponent/></ComponentErrorBoundary>`.
 - **`UIGroup`** — picks the wrapper by `groupType`. `ToggleableWrapper` mounts the body only
-  while the switch is on; turning it on validates `fieldIds` and focuses the first field.
+  while the switch is on; turning it on focuses the first field without validating untouched ones.
 - **`UIComponent`** — maps `uiType` to a concrete input (`@percona/ui-lib`: SelectInput / TextInput /
   SwitchInput …).
 

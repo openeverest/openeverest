@@ -227,8 +227,6 @@ export interface ToggleableMeta {
   switchName: string;
   // Every API path written by fields nested (at any depth) inside the group.
   childPaths: string[];
-  // Form names of those fields, e.g. to validate them when the group turns on.
-  fieldIds: string[];
 }
 
 // What UIGroup forwards to every groupType wrapper.
