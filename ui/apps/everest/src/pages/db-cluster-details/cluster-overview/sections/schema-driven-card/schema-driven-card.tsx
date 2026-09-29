@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Box, IconButton, Stack } from '@mui/material';
+import { Box, IconButton, Stack, Typography } from '@mui/material';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { DatabaseIcon, OverviewCard } from '@percona/ui-lib';
 import type { SchemaDrivenCardProps } from './schema-driven-card.types';
@@ -51,13 +51,25 @@ const SchemaDrivenCard = ({
       >
         <OverviewSection dataTestId={card.key} loading={loading}>
           {card.fields.length > 0 ? (
-            card.fields.map(({ label, path, value }) => (
-              <OverviewSectionRow
-                key={`${card.key}:${path}`}
-                label={label}
-                content={value}
-              />
-            ))
+            card.fields.map((field) =>
+              field.summary ? (
+                <Stack key={`${card.key}:${field.path}`} sx={{ gap: 0.5 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    {field.label}
+                  </Typography>
+                  <field.summary.Component
+                    item={field.summary.item}
+                    value={field.summary.value}
+                  />
+                </Stack>
+              ) : (
+                <OverviewSectionRow
+                  key={`${card.key}:${field.path}`}
+                  label={field.label}
+                  content={field.value}
+                />
+              )
+            )
           ) : (
             <OverviewSectionRow label="Info" content="No data available" />
           )}

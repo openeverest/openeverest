@@ -15,12 +15,21 @@
 import type {
   Component,
   ComponentGroup,
+  WidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
+import { isWidgetComponent } from 'components/ui-generator/ui-generator.types';
+import type {
+  WidgetSummary,
+  WidgetSummaryRegistry,
+} from 'components/ui-generator/widget-summary-registry';
 import {
   getByPath,
   formatDisplayValue,
 } from 'components/ui-generator/utils/object-path';
-import { getComponentTargetPaths } from 'components/ui-generator/utils/preprocess/normalized-component';
+import {
+  getComponentSourcePath,
+  getComponentTargetPaths,
+} from 'components/ui-generator/utils/preprocess/normalized-component';
 import { stripBadgeFromValue } from 'components/ui-generator/utils/badge-to-api/badge-to-api';
 import {
   getToggleableMeta,
@@ -32,6 +41,13 @@ export type SectionField = {
   label: string;
   path: string;
   value: string;
+  // When set, the field renders its own read-only widget summary full-width
+  // instead of the scalar `value` row.
+  summary?: {
+    Component: WidgetSummary;
+    value: unknown;
+    item: WidgetComponent;
+  };
 };
 
 // Kubernetes may store a quantity in a different unit than the field's badge —
@@ -51,7 +67,8 @@ const formatBadgedValue = (rawValue: unknown, badge?: string): string => {
 export const collectSectionFields = (
   components: Record<string, Component | ComponentGroup>,
   instance: Record<string, unknown>,
-  componentsOrder?: string[]
+  componentsOrder?: string[],
+  summaryRegistry?: WidgetSummaryRegistry
 ): SectionField[] => {
   const fields: SectionField[] = [];
   const keys = componentsOrder ?? Object.keys(components);
@@ -76,7 +93,8 @@ export const collectSectionFields = (
           ...collectSectionFields(
             group.components,
             instance,
-            group.componentsOrder
+            group.componentsOrder,
+            summaryRegistry
           )
         );
       }
@@ -84,6 +102,27 @@ export const collectSectionFields = (
     }
 
     const component = comp as Component;
+
+    // Widget components (e.g. affinity) hold structured values that don't
+    // flatten to a scalar row; delegate to their registered read-only summary.
+    if (isWidgetComponent(component)) {
+      const path = getComponentSourcePath(component);
+      const Summary = summaryRegistry?.[component.uiType];
+      if (!path || !Summary) continue;
+
+      fields.push({
+        label: component.fieldParams?.label ?? key,
+        path,
+        value: '',
+        summary: {
+          Component: Summary,
+          value: getByPath(instance, path),
+          item: component,
+        },
+      });
+      continue;
+    }
+
     const paths = getComponentTargetPaths(component);
     const path = paths[0];
     if (!path) continue;

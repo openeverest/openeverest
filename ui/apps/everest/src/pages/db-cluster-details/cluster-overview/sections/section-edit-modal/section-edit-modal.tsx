@@ -31,6 +31,7 @@ import { useKubernetesClusterInfo } from 'hooks/api/kubernetesClusters/useKubern
 import type { Instance } from 'shared-types/api.types';
 import type { SectionEditModalProps } from './section-edit-modal.types';
 import { applyRuntimeOverrides } from './section-edit-modal.utils';
+import { overviewWidgetRegistry } from './overview-widget-registry';
 import { Messages } from './section-edit-modal.messages';
 
 const SectionEditModal = ({
@@ -129,6 +130,7 @@ const SectionEditModal = ({
         providerObject={provider}
         formMode={FormMode.Edit}
         namespace={namespace}
+        widgetRegistry={overviewWidgetRegistry}
       />
     </FormDialog>
   );
