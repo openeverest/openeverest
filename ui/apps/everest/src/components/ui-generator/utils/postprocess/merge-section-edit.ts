@@ -12,15 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { Section } from '../../ui-generator.types';
+import { type Section, isWidgetComponent } from '../../ui-generator.types';
 import { postprocessSchemaData } from './postprocess-schema';
 import {
   deepClone,
   deepMerge,
   deleteByPathAndEmptyParents,
+  getByPath,
   isPlainObject,
+  setByPath,
 } from '../object-path';
 import { getInactiveToggleablePaths } from '../toggleable/toggleable';
+import { walkLeafComponents } from '../schema-walker';
+import { getComponentSourcePath } from '../preprocess/normalized-component';
+
+const collectWidgetPaths = (section: Section | undefined): string[] => {
+  const paths: string[] = [];
+  if (!section?.components) return paths;
+  walkLeafComponents(section.components, ({ component }) => {
+    const path = isWidgetComponent(component)
+      ? getComponentSourcePath(component)
+      : undefined;
+    if (path) paths.push(path);
+  });
+  return paths;
+};
 
 export interface MergeSectionEditParams {
   spec: Record<string, unknown>;
@@ -33,7 +49,7 @@ export interface MergeSectionEditParams {
 
 // Applies one section's form values to a saved spec for a full update. The
 // merge keeps saved values, so a switched-off group's paths are deleted
-// explicitly (with parents left empty).
+// explicitly (with parents left empty), and widget values are replaced whole.
 export const mergeSectionEdit = ({
   spec,
   formData,
@@ -58,6 +74,15 @@ export const mergeSectionEdit = ({
     { [sectionKey]: sections[sectionKey] },
     formData
   ).forEach((path) => deleteByPathAndEmptyParents(root, path));
+
+  collectWidgetPaths(sections[sectionKey]).forEach((path) => {
+    const value = getByPath(processed, path);
+    if (value === undefined) {
+      deleteByPathAndEmptyParents(root, path);
+    } else {
+      setByPath(root, path, value);
+    }
+  });
 
   return isPlainObject(root.spec) ? root.spec : {};
 };
