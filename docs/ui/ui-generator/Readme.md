@@ -169,7 +169,7 @@ The label and description display format may look different for different groups
 
 - **`components`**: Nested components (can include other groups)
 - **`componentsOrder`** (optional): Order of nested components
-- **`groupParams`** (optional): Additional configuration for the group
+- **`groupParams`** (optional): Reserved for group-specific settings; no group type reads it yet, so it currently has no effect.
 
 Example:
 

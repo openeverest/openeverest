@@ -80,26 +80,28 @@ storage:
 A bordered card with an **Enable** switch. The switch exists only in the form and is not sent to the API.
 
 ```yaml
-monitoring:
+customConfig:
   uiType: group
   groupType: toggleable
-  label: Monitoring
+  label: Custom engine configuration
+  description: Override mongod settings for this instance.
   components:
-    endpoint:
+    configuration:
       uiType: text
-      path: spec.monitoring.endpoint
+      path: spec.components.engine.parameters.configuration
       fieldParams:
-        label: Endpoint
+        label: Engine configuration
+        multiline: true
       validation:
         required: true
   componentsOrder:
-    - endpoint
+    - configuration
 ```
 
 **Behavior**
 
 - **Off:** fields are hidden, not validated, and removed from the request. On an existing instance, turning it off deletes the saved values.
-- **Initial state:** off for a new instance; on if the instance already has a value in any of the group's fields.
+- **Initial state:** off for a new instance; on if the instance or the selected preset already has a value in any of the group's fields.
 - **Topology switch:** a group with the same section and group keys in both topologies keeps its state; any other group starts off.
 
 **Rules** — if one is broken, the group renders as a plain bordered group:
