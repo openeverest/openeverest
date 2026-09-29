@@ -1,16 +1,17 @@
 import { ToggleButtonGroupInput, ToggleCard } from '@percona/ui-lib';
+import { SxProps, Theme } from '@mui/material';
 import {
   AffinityPriority,
   AffinityPriorityValue,
 } from 'shared-types/affinity.types';
 import { AffinityFormFields } from '../affinity-form.types';
 
-const PriorityToggle = () => (
+const PriorityToggle = ({ sx }: { sx?: SxProps<Theme> }) => (
   <ToggleButtonGroupInput // TODO needs extra styling to look like FIGMA
     name={AffinityFormFields.priority}
     toggleButtonGroupProps={{
       size: 'small',
-      sx: {
+      sx: sx ?? {
         height: '30px',
         width: '160px',
         marginTop: '20px',
