@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { TopologyUISchemas } from '../../ui-generator.types';
-import { deepClone, deleteByPath } from '../object-path';
+import { deepClone, deleteByPath, isSameOrNestedPath } from '../object-path';
 import { collectAllSchemaPaths } from '../schema-walker';
 import { collectToggleableMetas } from '../toggleable/toggleable';
 
@@ -31,9 +31,6 @@ const collectTopologySwitches = (
     (meta) => meta.switchName
   );
 
-const isSameOrNested = (a: string, b: string): boolean =>
-  a === b || a.startsWith(`${b}.`) || b.startsWith(`${a}.`);
-
 // Values bound only by other topologies are leftovers from a topology switch.
 export const dropOtherTopologyValues = (
   input: Record<string, unknown>,
@@ -48,7 +45,7 @@ export const dropOtherTopologyValues = (
     .flatMap((topology) => collectTopologyPaths(schema, topology))
     .filter(
       (path) =>
-        !selectedPaths.some((selected) => isSameOrNested(path, selected))
+        !selectedPaths.some((selected) => isSameOrNestedPath(path, selected))
     )
     .forEach((path) => deleteByPath(result, path));
 

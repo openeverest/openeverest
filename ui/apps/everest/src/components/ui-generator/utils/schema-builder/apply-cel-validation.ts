@@ -15,7 +15,12 @@
 import { z } from 'zod';
 import type { ToggleableMeta } from 'components/ui-generator/ui-generator.types';
 import { validateCelExpression } from './cel-validation';
-import { deepClone, deleteByPath, getByPath } from '../object-path/object-path';
+import {
+  deepClone,
+  deleteByPathAndEmptyParents,
+  getByPath,
+  isPlainObject,
+} from '../object-path/object-path';
 import { getSwitchedOffPaths } from '../toggleable/toggleable';
 import type { CelExpValidation } from './schema-builder.types';
 
@@ -28,7 +33,14 @@ const withoutSwitchedOffFields = (
   const offPaths = getSwitchedOffPaths(toggleables, data);
   if (offPaths.length === 0) return data;
   const visible = deepClone(data);
-  offPaths.forEach((path) => deleteByPath(visible, path));
+  offPaths.forEach((path) => {
+    const [root, ...rest] = path.split('.');
+    const scope = visible[root];
+    // Keep the root (e.g. `spec`): CEL fails on an unknown variable, not on an absent field.
+    if (isPlainObject(scope) && rest.length > 0) {
+      deleteByPathAndEmptyParents(scope, rest.join('.'));
+    }
+  });
   return visible;
 };
 

@@ -111,7 +111,7 @@ monitoring:
 
 **Keep in mind**
 
-- A CEL rule outside the group sees the group's fields as absent while it is off. Guard them with `has()`: `!has(spec.monitoring.endpoint) || ...`.
+- A CEL rule outside the group sees the group's fields as absent while it is off, the same way the API does: a parent left empty (e.g. `spec.monitoring`) is absent too. Guard them with `has()` on the field or on the section: `!has(spec.monitoring.endpoint) || ...` or `!has(spec.monitoring) || ...`.
 - Don't put fields that are read-only in edit mode inside the group: turning it off deletes them too.
 
 **Current limitations**

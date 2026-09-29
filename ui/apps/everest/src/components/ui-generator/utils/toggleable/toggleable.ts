@@ -20,7 +20,11 @@ import {
   Section,
   ToggleableMeta,
 } from 'components/ui-generator/ui-generator.types';
-import { getByPath, isEmptyFieldValue } from '../object-path/object-path';
+import {
+  getByPath,
+  isEmptyFieldValue,
+  isSameOrNestedPath,
+} from '../object-path/object-path';
 import { walkLeafComponents } from '../schema-walker/schema-walker';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
 
@@ -191,7 +195,11 @@ export const withToggleableSwitchDependencies = (
 ): string[][] =>
   celDependencyGroups.map((group) => {
     const switches = metas
-      .filter((meta) => meta.childPaths.some((path) => group.includes(path)))
+      .filter((meta) =>
+        meta.childPaths.some((path) =>
+          group.some((dep) => isSameOrNestedPath(path, dep))
+        )
+      )
       .map((meta) => meta.switchName);
     return switches.length > 0 ? [...group, ...switches] : group;
   });

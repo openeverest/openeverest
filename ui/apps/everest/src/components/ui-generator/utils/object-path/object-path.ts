@@ -28,6 +28,9 @@ export const isPlainObject = (
 export const isEmptyFieldValue = (value: unknown): boolean =>
   value === undefined || value === null || value === '';
 
+export const isSameOrNestedPath = (a: string, b: string): boolean =>
+  a === b || a.startsWith(`${b}.`) || b.startsWith(`${a}.`);
+
 export const deepClone = <T>(value: T): T => {
   if (typeof structuredClone === 'function') {
     return structuredClone(value);
