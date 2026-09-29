@@ -21,7 +21,7 @@ const register: PluginRegisterFn = (api) => {
     type: 'clusterDetailTab',
     label: 'Query',
     path: 'query',
-    providers: ['postgresql'],
+    providers: ['provider-percona-postgresql'],
     component: QueryTab,
   });
 };
