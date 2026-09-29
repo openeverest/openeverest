@@ -16,6 +16,7 @@ import {
   Component,
   ComponentGroup,
   FieldType,
+  GroupType,
   SelectFieldParams,
   TopologyUISchemas,
 } from '../../ui-generator.types';
@@ -23,19 +24,56 @@ import { Provider } from 'shared-types/api.types';
 import { resolveSelectOptions } from '../../ui-component/utils/select-component-handler';
 import { withNormalizedPathMeta } from './normalized-component';
 import { providerRegistry } from '../../api-providers';
+import {
+  ToggleableResolution,
+  ToggleableScope,
+  createToggleableScope,
+  resolveToggleable,
+} from '../toggleable/toggleable';
+
+const describeDegrade = (
+  resolution: ToggleableResolution
+): string | undefined => {
+  switch (resolution.degradeReason) {
+    case 'unsafe-key':
+      return 'has a section or group key outside [A-Za-z0-9_-], so it cannot name a switch';
+    case 'no-fields':
+      return 'has no fields with a `path`, so there is nothing to switch off';
+    case 'nested':
+      return 'is nested inside another toggleable group';
+    case 'overlap':
+      return `shares the path "${resolution.overlappingPath}" with a field outside it`;
+    default:
+      return undefined;
+  }
+};
 
 const preprocessComponent = (
   item: Component | ComponentGroup,
+  keyPath: string[],
+  scope: ToggleableScope,
   providerObject?: Provider
 ): Component | ComponentGroup => {
   if (
     (item.uiType === 'group' || item.uiType === 'hidden') &&
     'components' in item
   ) {
+    const resolution = resolveToggleable(item, keyPath, scope);
+    const warning = describeDegrade(resolution);
+    if (warning && import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[UISchema] Toggleable group "${keyPath.join('.')}" ${warning}; rendering it as bordered.`
+      );
+    }
     return {
       ...item,
+      ...(resolution.degradeReason && { groupType: GroupType.Bordered }),
+      _toggleable: resolution.meta,
       components: preprocessComponents(
-        (item as ComponentGroup).components,
+        item.components,
+        keyPath,
+        resolution.childScope,
         providerObject
       ),
     };
@@ -109,12 +147,14 @@ const preprocessComponent = (
 
 const preprocessComponents = (
   components: { [key: string]: Component | ComponentGroup },
+  parentKeyPath: string[],
+  scope: ToggleableScope,
   providerObject?: Provider
 ): { [key: string]: Component | ComponentGroup } => {
   return Object.fromEntries(
     Object.entries(components).map(([key, item]) => [
       key,
-      preprocessComponent(item, providerObject),
+      preprocessComponent(item, [...parentKeyPath, key], scope, providerObject),
     ])
   );
 };
@@ -133,24 +173,23 @@ export const preprocessSchema = (
         return [topologyKey, topology];
       }
 
-      return [
-        topologyKey,
-        {
-          ...topology,
-          sections: Object.fromEntries(
-            Object.entries(topology.sections).map(([sectionKey, section]) => [
-              sectionKey,
-              {
-                ...section,
-                components: preprocessComponents(
-                  section.components,
-                  providerObject
-                ),
-              },
-            ])
-          ),
-        },
-      ];
+      const scope = createToggleableScope(topology.sections);
+      const sections = Object.fromEntries(
+        Object.entries(topology.sections).map(([sectionKey, section]) => [
+          sectionKey,
+          {
+            ...section,
+            components: preprocessComponents(
+              section.components,
+              [sectionKey],
+              scope,
+              providerObject
+            ),
+          },
+        ])
+      );
+
+      return [topologyKey, { ...topology, sections }];
     })
   ) as TopologyUISchemas;
 };

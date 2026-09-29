@@ -88,6 +88,7 @@ export const useDatabaseFormSync = ({
     // Preset owns topology while selected; its own sync handles population.
     if (preset.presetSelected) return;
 
+    // TODO(#3254, after #3255): recompute toggleable switches from the kept values (as on load); they survive a topology switch.
     const topologyDefaults = getDefaultValues(uiSchema, topologyType);
     const merged = mergeTopologyDefaults(
       getValues() as Record<string, unknown>,

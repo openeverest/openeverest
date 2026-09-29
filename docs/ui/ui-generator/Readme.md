@@ -23,6 +23,8 @@
 - [Groups](groups.md)
   - [Line Group](groups.md#line-group)
   - [Accordion Group](groups.md#accordion-group)
+  - [Bordered Group](groups.md#bordered-group)
+  - [Toggleable Group](groups.md#toggleable-group)
 - [Validation](validation.md)
   - [Default Validation](validation.md#default-validation)
   - [Schema Custom Validation](validation.md#schema-custom-validation)

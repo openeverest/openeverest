@@ -22,6 +22,11 @@ import {
 } from 'components/ui-generator/utils/object-path';
 import { getComponentTargetPaths } from 'components/ui-generator/utils/preprocess/normalized-component';
 import { stripBadgeFromValue } from 'components/ui-generator/utils/badge-to-api/badge-to-api';
+import {
+  getToggleableMeta,
+  isToggleableOnInInstance,
+} from 'components/ui-generator/utils/toggleable/toggleable';
+import { Messages } from '../cluster-overview.messages';
 
 export type SectionField = {
   label: string;
@@ -57,6 +62,15 @@ export const collectSectionFields = (
 
     if (comp.uiType === 'group' || comp.uiType === 'hidden') {
       const group = comp as ComponentGroup;
+      const toggleable = getToggleableMeta(group);
+      if (toggleable && !isToggleableOnInInstance(toggleable, instance)) {
+        fields.push({
+          label: group.label || key,
+          path: toggleable.switchName,
+          value: Messages.fields.disabled,
+        });
+        continue;
+      }
       if (group.components) {
         fields.push(
           ...collectSectionFields(

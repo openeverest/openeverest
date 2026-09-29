@@ -22,6 +22,11 @@ import {
   FieldType,
 } from 'components/ui-generator/ui-generator.types';
 import { getValueByPath } from 'components/ui-generator/ui-component/utils/get-value-by-path';
+import {
+  getToggleableMeta,
+  isToggleableOn,
+} from 'components/ui-generator/utils/toggleable/toggleable';
+import { Messages } from './dynamic-section-preview.messages';
 
 const getPrimaryPath = (
   path: Component['path'] | undefined
@@ -48,6 +53,17 @@ export const renderComponent = (
   if (!component) return null;
 
   if (component.uiType === 'group' && 'components' in component) {
+    // Sections are preprocessed, so degraded toggleables are already bordered.
+    const toggleable = getToggleableMeta(component);
+    if (toggleable && !isToggleableOn(toggleable, formValues)) {
+      return (
+        <PreviewContentText
+          key={`${parentPrefix}:${toggleable.switchName}`}
+          text={`${component.label || componentKey.split('.').pop()}: ${Messages.disabled}`}
+        />
+      );
+    }
+
     return orderComponents(component.components, component.componentsOrder).map(
       ([subKey, subComp]) =>
         renderComponent(
@@ -71,7 +87,7 @@ export const renderComponent = (
   if (value === null || value === undefined) {
     displayValue = '-';
   } else if (typeof value === 'boolean') {
-    displayValue = value ? 'Enabled' : 'Disabled';
+    displayValue = value ? Messages.enabled : Messages.disabled;
   } else if (typeof value === 'object' && !Array.isArray(value)) {
     displayValue = JSON.stringify(value);
   } else {

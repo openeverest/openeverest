@@ -1,6 +1,6 @@
 import { GroupWrapperProps } from 'components/ui-generator/ui-generator.types';
 
-export type AccordionWrapperProps = Pick<
+export type ToggleableWrapperProps = Pick<
   GroupWrapperProps,
-  'children' | 'label'
+  'children' | 'label' | 'description' | 'toggleable'
 >;

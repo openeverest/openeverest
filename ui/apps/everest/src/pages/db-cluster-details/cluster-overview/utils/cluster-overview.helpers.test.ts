@@ -18,7 +18,11 @@ import type {
   Component,
   ComponentGroup,
 } from 'components/ui-generator/ui-generator.types';
-import { FieldType } from 'components/ui-generator/ui-generator.types';
+import {
+  FieldType,
+  GroupType,
+} from 'components/ui-generator/ui-generator.types';
+import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 
 const numberField = (
   path: string,
@@ -93,5 +97,46 @@ describe('collectSectionFields', () => {
     const fields = collectSectionFields(components, instance, ['memory']);
 
     expect(fields[0].value).toBe('16kg');
+  });
+
+  describe('toggleable group', () => {
+    const { advanced } = preprocessSchema({
+      replicaSet: {
+        sections: {
+          advanced: {
+            components: {
+              monitoring: {
+                uiType: 'group',
+                groupType: GroupType.Toggleable,
+                label: 'Monitoring',
+                components: {
+                  url: {
+                    uiType: FieldType.Text,
+                    path: 'spec.monitoring.url',
+                    fieldParams: { label: 'URL' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    }).replicaSet.sections;
+
+    it('shows a switched-off group as a single Disabled row', () => {
+      expect(
+        collectSectionFields(advanced.components, { spec: {} }).map(
+          ({ label, value }) => ({ label, value })
+        )
+      ).toEqual([{ label: 'Monitoring', value: 'Disabled' }]);
+    });
+
+    it('lists the fields of a switched-on group', () => {
+      expect(
+        collectSectionFields(advanced.components, {
+          spec: { monitoring: { url: 'http://pmm' } },
+        }).map(({ label, value }) => ({ label, value }))
+      ).toEqual([{ label: 'URL', value: 'http://pmm' }]);
+    });
   });
 });

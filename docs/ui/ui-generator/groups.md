@@ -7,6 +7,7 @@ Groups allow you to organize multiple fields together with different layout opti
 - [Line Group](#line-group)
 - [Accordion Group](#accordion-group)
 - [Bordered Group](#bordered-group)
+- [Toggleable Group](#toggleable-group)
 
 Related: [Number Field](components/number-field.md), [Select Field](components/select-field.md), [Text Field](components/text-field.md), [Validation](validation.md)
 
@@ -51,20 +52,17 @@ advancedSettings:
 
 ## Bordered Group
 
-Displays components inside a static bordered card. Use it to visually separate a block of related fields from the rest of the section. The card has no chevron or switch: it is always expanded.
+A static bordered card around related fields. Visual only: fields keep their own `path`.
 
-- **Heading is optional.** With `label` and/or `description`, the card shows a heading: `label` as the title, `description` as a caption below it.
-- **Without `label` and `description`**, it is just a bordered box around the fields, with no heading row.
-- Grouping is visual only: nested fields keep their own `path`, so a bordered group does not change the API payload.
-
-### Card with a heading
+- `label` and `description` are optional. Omit both for a plain box without a heading.
+- Can contain other groups, e.g. a `line` group.
 
 ```yaml
 storage:
   uiType: group
   groupType: bordered
   label: Storage
-  description: Defines the type and performance of storage for your database.
+  description: Defines the type and performance of storage for your instance.
   components:
     storageClass:
       uiType: text
@@ -75,49 +73,47 @@ storage:
     - storageClass
 ```
 
-### Box without a heading
+![Bordered group](images/bordered-group.png)
+
+## Toggleable Group
+
+A bordered card with an **Enable** switch. The switch exists only in the form and is not sent to the API.
 
 ```yaml
-resourcesBox:
+monitoring:
   uiType: group
-  groupType: bordered
+  groupType: toggleable
+  label: Monitoring
   components:
-    cpu:
-      uiType: number
-      path: spec.components.engine.resources.limits.cpu
+    endpoint:
+      uiType: text
+      path: spec.monitoring.endpoint
       fieldParams:
-        label: CPU
-    memory:
-      uiType: number
-      path: spec.components.engine.resources.limits.memory
-      fieldParams:
-        label: Memory
+        label: Endpoint
+      validation:
+        required: true
   componentsOrder:
-    - cpu
-    - memory
+    - endpoint
 ```
 
-### Nesting other groups
+**Behavior**
 
-A bordered group can contain other groups, for example a `line` group to put fields in one row:
+- **Off:** fields are hidden, not validated, and removed from the request. On an existing instance, turning it off deletes the saved values.
+- **Initial state:** off for a new instance; on if the instance already has a value in any of the group's fields.
 
-```yaml
-advanced:
-  uiType: group
-  groupType: bordered
-  label: Advanced
-  components:
-    inner:
-      uiType: group
-      groupType: line
-      components:
-        replicas: { ... }
-        image: { ... }
-      componentsOrder:
-        - replicas
-        - image
-  componentsOrder:
-    - inner
-```
+**Rules** — if one is broken, the group renders as a plain bordered group (with a warning in development builds):
 
-//TODO visual example
+- The group has at least one field with a `path`.
+- No field outside the group writes the same `path`.
+- No toggleable inside another toggleable.
+- Section and group keys use only letters, digits, `_` and `-`.
+
+**Keep in mind**
+
+- A CEL rule outside the group sees the group's fields as absent while it is off. Guard them with `has()`: `!has(spec.monitoring.endpoint) || ...`.
+- Don't put fields that are read-only in edit mode inside the group: turning it off deletes them too.
+- Supported in instance (topology) schemas only, not in backup-class schemas.
+
+![Toggleable group, off](images/toggleable-group-off.png)
+
+![Toggleable group, on](images/toggleable-group-on.png)

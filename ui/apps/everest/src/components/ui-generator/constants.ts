@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { ComponentType } from 'react';
 import { SelectInput, SwitchInput, TextInput } from '@percona/ui-lib';
-import { FieldType, GroupType } from './ui-generator.types';
+import { FieldType, GroupType, GroupWrapperProps } from './ui-generator.types';
 import AccordionWrapper from './ui-group-wrappers/accordion-wrapper';
 import BorderedWrapper from './ui-group-wrappers/bordered-wrapper';
 import StackWrapper from './ui-group-wrappers/stack-wrapper';
+import ToggleableWrapper from './ui-group-wrappers/toggleable-wrapper';
 import { z } from 'zod';
 
 export const UI_TYPE_DEFAULT_VALUE: Partial<Record<FieldType, unknown>> = {
@@ -26,10 +28,14 @@ export const UI_TYPE_DEFAULT_VALUE: Partial<Record<FieldType, unknown>> = {
   [FieldType.Hidden]: undefined,
 };
 
-export const componentGroupMap: Record<string, React.ElementType> = {
+export const componentGroupMap: Record<
+  GroupType,
+  ComponentType<GroupWrapperProps>
+> = {
   [GroupType.Accordion]: AccordionWrapper,
   [GroupType.Bordered]: BorderedWrapper,
   [GroupType.Line]: StackWrapper,
+  [GroupType.Toggleable]: ToggleableWrapper,
 };
 export const muiComponentMap: Record<FieldType, React.ElementType> = {
   [FieldType.Number]: TextInput,

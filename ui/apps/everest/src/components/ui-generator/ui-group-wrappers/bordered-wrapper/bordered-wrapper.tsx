@@ -12,32 +12,53 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import RoundedBox from 'components/rounded-box';
 import { BorderedWrapperProps } from './bordered-wrapper.types';
 
 // A static bordered card grouping distinct fields. The heading region renders
-// only when a label and/or description is given; with neither it's a plain
-// bordered box. Shared card chrome (RoundedBox) so collapsible/toggleable cards
+// only when a label, description or action is given; otherwise it's a plain
+// bordered box. Shared card chrome (RoundedBox) so toggleable cards
 // stay pixel-identical to a static bordered card.
 const BorderedWrapper = ({
   label,
   description,
+  action,
+  bodyRef,
   children,
 }: BorderedWrapperProps) => {
   const heading =
-    label || description ? (
-      <Stack sx={{ gap: 0.5, mb: 1 }}>
-        {label && <Typography variant="sectionHeading">{label}</Typography>}
-        {description && (
-          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            {description}
-          </Typography>
-        )}
+    label || description || action ? (
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 2,
+          mb: children ? 2 : 0,
+        }}
+      >
+        <Stack sx={{ gap: 0.5 }}>
+          {label && <Typography variant="sectionHeading">{label}</Typography>}
+          {description && (
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {description}
+            </Typography>
+          )}
+        </Stack>
+        {action && <Box sx={{ flexShrink: 0 }}>{action}</Box>}
       </Stack>
     ) : undefined;
 
-  return <RoundedBox title={heading}>{children}</RoundedBox>;
+  return (
+    <RoundedBox title={heading}>
+      {children && (
+        <Stack ref={bodyRef} spacing={2}>
+          {children}
+        </Stack>
+      )}
+    </RoundedBox>
+  );
 };
 
 export default BorderedWrapper;

@@ -65,6 +65,7 @@ export enum GroupType {
   Accordion = 'accordion',
   Bordered = 'bordered',
   Line = 'line',
+  Toggleable = 'toggleable',
 }
 
 interface CommonFieldParams {
@@ -218,7 +219,26 @@ export type ComponentGroup = {
   groupParams?: Record<string, unknown>;
   components: { [key: string]: Component | ComponentGroup };
   componentsOrder?: string[];
+  _toggleable?: ToggleableMeta;
 };
+
+export interface ToggleableMeta {
+  // Form-only switch field, e.g. `toggleable-switches.advanced~monitoring`.
+  switchName: string;
+  // Every API path written by fields nested (at any depth) inside the group.
+  childPaths: string[];
+  // Form names of those fields, e.g. to validate them when the group turns on.
+  fieldIds: string[];
+}
+
+// What UIGroup forwards to every groupType wrapper.
+export interface GroupWrapperProps {
+  children: ReactNode;
+  label?: string;
+  description?: string;
+  // Set only for an active toggleable group.
+  toggleable?: ToggleableMeta;
+}
 
 export type Section = {
   label?: string;
