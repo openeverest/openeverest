@@ -1,0 +1,381 @@
+# Shared contract for toggleable group rules.
+# Go: pkg/uischema (Validate) reports `issues`.
+# UI: preprocessSchema renders every group with a degrade rule (all rules but
+#     toggleable-cel-unguarded) as bordered and every other toggleable group as
+#     toggleable; findUnguardedCelReferences reports toggleable-cel-unguarded.
+cases:
+  - name: a group owning its paths is a valid toggleable
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              monitoring:
+                uiType: group
+                groupType: toggleable
+                components:
+                  url: { uiType: text, path: spec.monitoring.url, fieldParams: { label: URL } }
+                  interval: { uiType: number, path: spec.monitoring.interval, fieldParams: { label: Interval } }
+    issues: []
+
+  - name: independent toggleable groups are all valid
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              monitoring:
+                uiType: group
+                groupType: toggleable
+                components:
+                  url: { uiType: text, path: spec.monitoring.url, fieldParams: { label: URL } }
+              backup:
+                uiType: group
+                groupType: toggleable
+                components:
+                  schedule: { uiType: text, path: spec.backup.schedule, fieldParams: { label: Schedule } }
+    issues: []
+
+  - name: a group without path-bound fields has nothing to switch off
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              scheduling:
+                uiType: group
+                groupType: toggleable
+                components:
+                  policy: { uiType: podSchedulingPolicy, id: policy, fieldParams: { label: Policy } }
+                  internal: { uiType: hidden, path: spec.internal, fieldParams: {} }
+    issues:
+      - { rule: toggleable-no-fields, topology: replicaSet, group: advanced.scheduling }
+
+  - name: a toggleable nested in another toggleable degrades, the outer one stays
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              outer:
+                uiType: group
+                groupType: toggleable
+                components:
+                  url: { uiType: text, path: spec.monitoring.url, fieldParams: { label: URL } }
+                  inner:
+                    uiType: group
+                    groupType: toggleable
+                    components:
+                      interval: { uiType: number, path: spec.monitoring.interval, fieldParams: { label: Interval } }
+    issues:
+      - { rule: toggleable-nested, topology: replicaSet, group: advanced.outer.inner }
+
+  - name: a group sharing a path with a plain field in another section degrades
+    uiSchema:
+      replicaSet:
+        sections:
+          resources:
+            components:
+              interval: { uiType: number, path: spec.monitoring.interval, fieldParams: { label: Interval } }
+          advanced:
+            components:
+              monitoring:
+                uiType: group
+                groupType: toggleable
+                components:
+                  url: { uiType: text, path: spec.monitoring.url, fieldParams: { label: URL } }
+                  interval: { uiType: number, path: spec.monitoring.interval, fieldParams: { label: Interval } }
+    issues:
+      - { rule: toggleable-overlap, topology: replicaSet, group: advanced.monitoring }
+
+  - name: two toggleables sharing a path both degrade, whatever their order
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              first:
+                uiType: group
+                groupType: toggleable
+                components:
+                  url: { uiType: text, path: spec.monitoring.url, fieldParams: { label: URL } }
+              second:
+                uiType: group
+                groupType: toggleable
+                components:
+                  url: { uiType: text, path: spec.monitoring.url, fieldParams: { label: URL } }
+    issues:
+      - { rule: toggleable-overlap, topology: replicaSet, group: advanced.first }
+      - { rule: toggleable-overlap, topology: replicaSet, group: advanced.second }
+
+  - name: every target of a multi-path field counts as the group's path
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              versions:
+                uiType: group
+                groupType: toggleable
+                components:
+                  version:
+                    uiType: text
+                    path: [spec.engine.version, spec.proxy.version]
+                    fieldParams: { label: Version }
+              proxyVersion: { uiType: text, path: spec.proxy.version, fieldParams: { label: Proxy version } }
+    issues:
+      - { rule: toggleable-overlap, topology: replicaSet, group: advanced.versions }
+
+  - name: a toggleable inside a degraded toggleable is not nested
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              outer:
+                uiType: group
+                groupType: toggleable
+                components:
+                  url: { uiType: text, path: spec.monitoring.url, fieldParams: { label: URL } }
+                  inner:
+                    uiType: group
+                    groupType: toggleable
+                    components:
+                      interval: { uiType: number, path: spec.monitoring.interval, fieldParams: { label: Interval } }
+              urlCopy: { uiType: text, path: spec.monitoring.url, fieldParams: { label: URL } }
+    issues:
+      - { rule: toggleable-overlap, topology: replicaSet, group: advanced.outer }
+
+  - name: path usage is counted per topology
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              monitoring:
+                uiType: group
+                groupType: toggleable
+                components:
+                  url: { uiType: text, path: spec.monitoring.url, fieldParams: { label: URL } }
+      sharded:
+        sections:
+          basic:
+            components:
+              url: { uiType: text, path: spec.monitoring.url, fieldParams: { label: URL } }
+          advanced:
+            components:
+              monitoring:
+                uiType: group
+                groupType: toggleable
+                components:
+                  url: { uiType: text, path: spec.monitoring.url, fieldParams: { label: URL } }
+    issues:
+      - { rule: toggleable-overlap, topology: sharded, group: advanced.monitoring }
+
+  - name: a hidden field or an item without uiType writes no path, so it does not overlap
+    uiSchema:
+      replicaSet:
+        sections:
+          basic:
+            components:
+              hiddenUrl: { uiType: hidden, path: spec.monitoring.url, fieldParams: {} }
+              untypedUrl: { path: spec.monitoring.url, fieldParams: { label: URL } }
+          advanced:
+            components:
+              monitoring:
+                uiType: group
+                groupType: toggleable
+                components:
+                  url: { uiType: text, path: spec.monitoring.url, fieldParams: { label: URL } }
+    issues: []
+
+  - name: fields inside a hidden container count as the group's paths
+    uiSchema:
+      replicaSet:
+        sections:
+          basic:
+            components:
+              url: { uiType: text, path: spec.monitoring.url, fieldParams: { label: URL } }
+          advanced:
+            components:
+              monitoring:
+                uiType: group
+                groupType: toggleable
+                components:
+                  wrapper:
+                    uiType: hidden
+                    components:
+                      url: { uiType: text, path: spec.monitoring.url, fieldParams: { label: URL } }
+    issues:
+      - { rule: toggleable-overlap, topology: replicaSet, group: advanced.monitoring }
+
+  - name: a key outside [A-Za-z0-9_-] cannot name a switch
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              monitoring.v2:
+                uiType: group
+                groupType: toggleable
+                components:
+                  url: { uiType: text, path: spec.monitoring.url, fieldParams: { label: URL } }
+    issues:
+      - { rule: toggleable-unsafe-key, topology: replicaSet, group: advanced.monitoring.v2 }
+
+  - name: a CEL rule outside the group must guard the group's path with has()
+    uiSchema:
+      replicaSet:
+        sections:
+          backup:
+            components:
+              retention:
+                uiType: number
+                path: spec.backup.retention
+                fieldParams: { label: Retention }
+                validation:
+                  celExpressions:
+                    - celExpr: spec.backup.retention >= spec.monitoring.interval
+          advanced:
+            components:
+              monitoring:
+                uiType: group
+                groupType: toggleable
+                components:
+                  interval: { uiType: number, path: spec.monitoring.interval, fieldParams: { label: Interval } }
+    issues:
+      - { rule: toggleable-cel-unguarded, topology: replicaSet, group: advanced.monitoring, field: backup.retention }
+
+  - name: a has() on the exact path guards the reference
+    uiSchema:
+      replicaSet:
+        sections:
+          backup:
+            components:
+              retention:
+                uiType: number
+                path: spec.backup.retention
+                fieldParams: { label: Retention }
+                validation:
+                  celExpressions:
+                    - celExpr: "!has(spec.monitoring.interval) || spec.backup.retention >= spec.monitoring.interval"
+          advanced:
+            components:
+              monitoring:
+                uiType: group
+                groupType: toggleable
+                components:
+                  interval: { uiType: number, path: spec.monitoring.interval, fieldParams: { label: Interval } }
+    issues: []
+
+  - name: a has() on a parent path does not guard the reference
+    uiSchema:
+      replicaSet:
+        sections:
+          backup:
+            components:
+              retention:
+                uiType: number
+                path: spec.backup.retention
+                fieldParams: { label: Retention }
+                validation:
+                  celExpressions:
+                    - celExpr: "!has(spec.monitoring) || spec.backup.retention >= spec.monitoring.interval"
+          advanced:
+            components:
+              monitoring:
+                uiType: group
+                groupType: toggleable
+                components:
+                  interval: { uiType: number, path: spec.monitoring.interval, fieldParams: { label: Interval } }
+    issues:
+      - { rule: toggleable-cel-unguarded, topology: replicaSet, group: advanced.monitoring, field: backup.retention }
+
+  - name: CEL rules inside the group and reads of the saved object need no guard
+    uiSchema:
+      replicaSet:
+        sections:
+          backup:
+            components:
+              retention:
+                uiType: number
+                path: spec.backup.retention
+                fieldParams: { label: Retention }
+                validation:
+                  celExpressions:
+                    - celExpr: spec.backup.retention >= original.spec.monitoring.interval
+          advanced:
+            components:
+              monitoring:
+                uiType: group
+                groupType: toggleable
+                components:
+                  url: { uiType: text, path: spec.monitoring.url, fieldParams: { label: URL } }
+                  interval:
+                    uiType: number
+                    path: spec.monitoring.interval
+                    fieldParams: { label: Interval }
+                    validation:
+                      celExpressions:
+                        - celExpr: spec.monitoring.interval > 0 && spec.monitoring.url != ''
+    issues: []
+
+  - name: CEL rules in mode branches and in another toggleable group are checked too
+    uiSchema:
+      replicaSet:
+        sections:
+          backup:
+            components:
+              retention:
+                uiType: number
+                path: spec.backup.retention
+                fieldParams: { label: Retention }
+                validation:
+                  modes:
+                    edit:
+                      celExpressions:
+                        - celExpr: spec.backup.retention >= spec.monitoring.interval
+          advanced:
+            components:
+              monitoring:
+                uiType: group
+                groupType: toggleable
+                components:
+                  interval: { uiType: number, path: spec.monitoring.interval, fieldParams: { label: Interval } }
+              alerts:
+                uiType: group
+                groupType: toggleable
+                components:
+                  threshold:
+                    uiType: number
+                    path: spec.alerts.threshold
+                    fieldParams: { label: Threshold }
+                    validation:
+                      celExpressions:
+                        - celExpr: spec.alerts.threshold < spec.monitoring.interval
+    issues:
+      - { rule: toggleable-cel-unguarded, topology: replicaSet, group: advanced.monitoring, field: advanced.alerts.threshold }
+      - { rule: toggleable-cel-unguarded, topology: replicaSet, group: advanced.monitoring, field: backup.retention }
+
+  - name: a degraded group never switches off, so its paths need no guard
+    uiSchema:
+      replicaSet:
+        sections:
+          backup:
+            components:
+              interval:
+                uiType: number
+                path: spec.monitoring.interval
+                fieldParams: { label: Interval }
+                validation:
+                  celExpressions:
+                    - celExpr: spec.monitoring.interval > 0
+          advanced:
+            components:
+              monitoring:
+                uiType: group
+                groupType: toggleable
+                components:
+                  interval: { uiType: number, path: spec.monitoring.interval, fieldParams: { label: Interval } }
+    issues:
+      - { rule: toggleable-overlap, topology: replicaSet, group: advanced.monitoring }

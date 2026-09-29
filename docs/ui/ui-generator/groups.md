@@ -110,7 +110,7 @@ monitoring:
 
 **Keep in mind**
 
-- A CEL rule outside the group sees the group's fields as absent while it is off. Guard them with `has()`: `!has(spec.monitoring.endpoint) || ...`.
+- A CEL rule outside the group sees the group's fields as absent while it is off. Guard them with `has()` on the exact field path: `!has(spec.monitoring.endpoint) || ...`. Development builds warn about an unguarded reference.
 - Don't put fields that are read-only in edit mode inside the group: turning it off deletes them too.
 - Supported in instance (topology) schemas only, not in backup-class schemas.
 

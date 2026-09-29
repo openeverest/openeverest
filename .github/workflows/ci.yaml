@@ -77,6 +77,8 @@ jobs:
               # The pipeline itself, shared actions, and files both areas build with.
               .github/workflows/ci.yaml|.github/workflows/dev-fe-browser-tests.yaml|.github/workflows/dev-fe-e2e.yaml|.github/actions/*|Makefile|dev/*)
                 backend=true; frontend=true; workflows=true ;;
+              # UI schema cases tested by both the Go validator and the UI.
+              pkg/uischema/testdata/*) backend=true; frontend=true ;;
               # Other automation: lint it, but don't run the product suites.
               .github/*) workflows=true ;;
               *) backend=true ;;
