@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ReactNode } from 'react';
+import { ComponentType, ReactNode } from 'react';
 import { Provider } from 'shared-types/api.types';
 
 export enum FormMode {
@@ -59,6 +59,15 @@ export enum FieldType {
   Text = 'text',
   Toggle = 'toggle',
   Hidden = 'hidden',
+}
+
+export enum WidgetType {
+  // Public marker a provider authors to place the scheduling section; the
+  // consumer expands it (per-component support, tabs) at render time.
+  PodSchedulingPolicy = 'podSchedulingPolicy',
+  // Internal to the scheduling orchestrator's own UIGenerator, not authored by
+  // providers.
+  Affinity = 'affinity',
 }
 
 export enum GroupType {
@@ -202,13 +211,39 @@ export type ModeAwareValidation<T extends CommonValidation> = T & {
   modes?: Partial<Record<FormMode, T & { inheritShared?: boolean }>>;
 };
 
-export type Component = {
+type FieldComponent = {
   [K in keyof FieldParamsMap]: ComponentCommonFields & {
     uiType: K;
     validation?: ModeAwareValidation<ValidationMap[K]>;
     fieldParams: FieldParamsMap[K];
   } & PathOrId;
 }[keyof FieldParamsMap];
+
+export type WidgetComponent = ComponentCommonFields & {
+  uiType: WidgetType;
+  validation?: CommonValidation;
+  fieldParams: CommonFieldParams;
+  // A pure marker widget (e.g. podSchedulingPolicy) binds no value.
+} & (PathOrId | { path?: never; id?: never });
+
+export type Component = FieldComponent | WidgetComponent;
+
+const WIDGET_TYPES = Object.values(WidgetType);
+
+export const isWidgetComponent = (item: Component): item is WidgetComponent =>
+  WIDGET_TYPES.some((widgetType) => widgetType === item.uiType);
+
+export type WidgetRendererProps = {
+  // Engine-resolved RHF field key. A widget is a first-class component: it flows
+  // through the same preprocess / name-resolution / render pipeline as a field,
+  // and only its final render is delegated to a host renderer. Handing over
+  // `name` keeps the widget on that shared pipeline, so it (or parts of it) can
+  // later migrate to plain schema fields without reworking name/path handling.
+  name: string;
+  item: WidgetComponent;
+};
+export type WidgetRenderer = ComponentType<WidgetRendererProps>;
+export type WidgetRegistry = Partial<Record<WidgetType, WidgetRenderer>>;
 
 export type ComponentGroup = {
   uiType: 'group' | 'hidden';
@@ -267,4 +302,5 @@ export type UIGeneratorProps = {
   formMode?: FormMode;
   namespace?: string;
   emptySectionMessage?: ReactNode;
+  widgetRegistry?: WidgetRegistry;
 };

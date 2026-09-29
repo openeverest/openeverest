@@ -17,6 +17,7 @@ import {
   ComponentGroup,
   FormMode,
   Section,
+  isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { UI_TYPE_DEFAULT_VALUE } from 'components/ui-generator/constants';
 import { stripBadgeFromValue } from '../badge-to-api/badge-to-api';
@@ -96,6 +97,8 @@ const extractFlat = (
     // Fallback to schema default, then type default
     if (component.fieldParams?.defaultValue !== undefined) {
       result[fieldId] = component.fieldParams.defaultValue;
+    } else if (isWidgetComponent(component)) {
+      // Widget components manage their own default value.
     } else {
       result[fieldId] = UI_TYPE_DEFAULT_VALUE[component.uiType];
     }

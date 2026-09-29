@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component } from 'components/ui-generator/ui-generator.types';
+import {
+  Component,
+  isWidgetComponent,
+} from 'components/ui-generator/ui-generator.types';
 import React from 'react';
 import { useFormContext, get } from 'react-hook-form';
 import { muiComponentMap } from '../constants';
@@ -36,12 +39,23 @@ export type ComponentProps<
 };
 
 const UIComponent: React.FC<ComponentProps> = ({ item, name }) => {
-  const { uiType, fieldParams, validation } = item;
   const methods = useFormContext();
   const errors = methods?.formState?.errors || {};
-  const { providerObject, loadingDefaultsForEdition, formMode } =
-    useUiGeneratorContext();
+  const {
+    providerObject,
+    loadingDefaultsForEdition,
+    formMode,
+    widgetRegistry,
+  } = useUiGeneratorContext();
 
+  // A consumer-registered widget fully owns rendering for a WidgetComponent; the
+  // engine stays domain-free and skips its standard input pipeline.
+  if (isWidgetComponent(item)) {
+    const Widget = widgetRegistry?.[item.uiType];
+    return Widget ? <Widget name={name} item={item} /> : null;
+  }
+
+  const { uiType, fieldParams, validation } = item;
   const isDisabled = !!loadingDefaultsForEdition || !!fieldParams?.disabled;
   const resolvedValidation = resolveValidationForMode(validation, formMode);
   const errorObj = get(errors, name);
