@@ -346,6 +346,23 @@ type BackupMirror interface {
 }
 
 // =============================================================================
+// BACKUP IMPORTER (Optional interface for backup discovery / import)
+// =============================================================================
+
+// BackupImporter is an optional interface that providers implement to import
+// restorable backups already sitting in a BackupStorage and turn them into
+// Backup CRs.
+type BackupImporter interface {
+	// ImportBackups lists and parses the BackupStorage and returns the
+	// discovered Backups to create along with the resulting import state.
+	// The return Backups must be named deterministically based on the
+	// storage path so concurrent imports are de-duplicated.
+	// A returned error is treated as transient (the runtime retries);
+	// a Failed State in the result is treated as terminal.
+	ImportBackups(ctx context.Context, imp *backupv1alpha1.BackupImport, storage *backupv1alpha1.BackupStorage) (BackupImportExecutionStatus, error)
+}
+
+// =============================================================================
 // UPGRADE PREFLIGHT (Optional interface for provider-specific upgrade checks)
 // =============================================================================
 
