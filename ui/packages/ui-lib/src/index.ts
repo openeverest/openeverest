@@ -72,6 +72,9 @@ export { default as DateTimePickerInput } from './form/inputs/date-time-picker';
 export * from './form/inputs/checkbox';
 export { default as CheckboxInput } from './form/inputs/checkbox';
 
+export * from './form/segmented-field';
+export { default as SegmentedField } from './form/segmented-field';
+
 export * from './loadable-children';
 export { default as LoadableChildren } from './loadable-children';
 
