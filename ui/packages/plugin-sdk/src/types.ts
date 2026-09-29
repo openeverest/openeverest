@@ -238,8 +238,9 @@ export interface InstanceEditFormSectionProps {
 /** The API object provided to a plugin's register() function by the host. */
 export interface PluginApi {
   /**
-   * The host's React instance. Plugins MUST use this instead of importing
-   * their own React to avoid duplicate-React issues with hooks.
+   * The host's React instance, the same one the host import map serves for
+   * `import 'react'`. Useful for plugins built without a bundler; never bundle
+   * your own React copy.
    */
   React: typeof import("react");
 
