@@ -101,7 +101,7 @@ monitoring:
 - **Off:** fields are hidden, not validated, and removed from the request. On an existing instance, turning it off deletes the saved values.
 - **Initial state:** off for a new instance; on if the instance already has a value in any of the group's fields.
 
-**Rules** — if one is broken, the group renders as a plain bordered group (with a warning in development builds):
+**Rules** — if one is broken, the group renders as a plain bordered group:
 
 - The group has at least one field with a `path`.
 - No field outside the group writes the same `path`.
