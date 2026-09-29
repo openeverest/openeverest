@@ -106,13 +106,18 @@ monitoring:
 - The group has at least one field with a `path`.
 - No field outside the group writes the same `path`.
 - No toggleable inside another toggleable.
-- Section and group keys use only letters, digits, `_` and `-`.
+- Section and group keys use only letters, digits, `_` and `-` (temporary, see below).
 
 **Keep in mind**
 
 - A CEL rule outside the group sees the group's fields as absent while it is off. Guard them with `has()`: `!has(spec.monitoring.endpoint) || ...`.
 - Don't put fields that are read-only in edit mode inside the group: turning it off deletes them too.
-- Supported in instance (topology) schemas only, not in backup-class schemas.
+
+**Current limitations**
+
+- The switch can't be disabled: form `modes` apply to fields, not to groups, so the group is always switchable. Group-level `modes` (`hidden` / `disabled` per form mode) are planned in [#3080](https://github.com/openeverest/openeverest/issues/3080).
+- The key rule is temporary: the switch name is built from the keys, and keys with `.`, `~` or brackets need the shared path encoding planned in [#3221](https://github.com/openeverest/openeverest/issues/3221).
+- Backup-class schemas (backups, schedules, PITR) don't support toggleable groups yet: see [#3268](https://github.com/openeverest/openeverest/issues/3268).
 
 ![Toggleable group, off](images/toggleable-group-off.png)
 
