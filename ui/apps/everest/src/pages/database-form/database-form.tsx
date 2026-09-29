@@ -56,6 +56,7 @@ import {
   useErrorRouting,
   StepDefinition,
 } from 'components/ui-generator/form-engine';
+import { wizardWidgetRegistry } from './widget-registry';
 import { DataSourcePrefetcher } from 'components/ui-generator/api-providers';
 import { BaseInfoStep } from './database-form-body/steps/base-step/base-step';
 import { ImportStep } from './database-form-body/steps-old/import/import-step';
@@ -353,6 +354,7 @@ export const DatabasePage = () => {
     providerObject,
     namespace: selectedNamespace || namespaces[0],
     formMode: mode,
+    widgetRegistry: wizardWidgetRegistry,
   });
 
   // Navigation
