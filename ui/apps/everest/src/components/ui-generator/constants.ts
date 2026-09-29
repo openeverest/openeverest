@@ -16,9 +16,9 @@ import { ComponentType } from 'react';
 import { SelectInput, SwitchInput, TextInput } from '@percona/ui-lib';
 import { FieldType, GroupType, GroupWrapperProps } from './ui-generator.types';
 import AccordionWrapper from './ui-group-wrappers/accordion-wrapper';
-import BorderedWrapper from './ui-group-wrappers/bordered-wrapper';
+import { BorderedWrapper } from './ui-group-wrappers/bordered-wrapper';
 import StackWrapper from './ui-group-wrappers/stack-wrapper';
-import ToggleableWrapper from './ui-group-wrappers/toggleable-wrapper';
+import { ToggleableWrapper } from './ui-group-wrappers/toggleable-wrapper';
 import { z } from 'zod';
 
 export const UI_TYPE_DEFAULT_VALUE: Partial<Record<FieldType, unknown>> = {

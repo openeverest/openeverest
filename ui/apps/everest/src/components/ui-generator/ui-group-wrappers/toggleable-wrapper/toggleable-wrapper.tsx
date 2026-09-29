@@ -16,13 +16,13 @@ import { useEffect, useRef } from 'react';
 import { SwitchInput } from '@percona/ui-lib';
 import { useWatch } from 'react-hook-form';
 import { TOGGLEABLE_SWITCHES_KEY } from 'components/ui-generator/utils/toggleable/toggleable';
-import BorderedWrapper from '../bordered-wrapper';
+import { BorderedWrapper } from '../bordered-wrapper';
 import { ToggleableWrapperProps } from './toggleable-wrapper.types';
 import { Messages } from './toggleable-wrapper.messages';
 import { FOCUSABLE_FIELD } from './toggleable-wrapper.constants';
 
 // A bordered card whose heading switch shows or hides its fields.
-const ToggleableWrapper = ({
+export const ToggleableWrapper = ({
   label,
   description,
   toggleable,
@@ -80,5 +80,3 @@ const ToggleableWrapper = ({
     </BorderedWrapper>
   );
 };
-
-export default ToggleableWrapper;

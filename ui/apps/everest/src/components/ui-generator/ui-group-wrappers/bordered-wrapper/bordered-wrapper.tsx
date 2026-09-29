@@ -20,7 +20,7 @@ import { BorderedWrapperProps } from './bordered-wrapper.types';
 // only when a label, description or action is given; otherwise it's a plain
 // bordered box. Shared card chrome (RoundedBox) so toggleable cards
 // stay pixel-identical to a static bordered card.
-const BorderedWrapper = ({
+export const BorderedWrapper = ({
   label,
   description,
   action,
@@ -60,5 +60,3 @@ const BorderedWrapper = ({
     </RoundedBox>
   );
 };
-
-export default BorderedWrapper;
