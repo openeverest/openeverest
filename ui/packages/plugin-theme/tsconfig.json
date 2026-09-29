@@ -1,0 +1,15 @@
+{
+  "extends": "@percona/tsconfig/react-library.json",
+  "include": ["src"],
+  "exclude": [
+    "dist",
+    "build",
+    "node_modules",
+    "src/**/*.test.tsx",
+    "src/setup-tests.ts"
+  ],
+  "compilerOptions": {
+    "declaration": true,
+    "declarationDir": "dist/typings"
+  }
+}

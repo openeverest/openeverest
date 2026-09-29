@@ -79,7 +79,7 @@ export const DbClusterView = () => {
       },
       {
         accessorKey: 'instanceName',
-        header: 'Database name',
+        header: 'Name',
       },
       {
         accessorFn: ({ provider }) => provider,

@@ -14,9 +14,9 @@
 
 export const Messages = {
   welcome:
-    'Welcome to OpenEverest, an open source cloud-native database platform!',
-  intro: `OpenEverest accelerates code deployment and scaling, and reduces database administration overhead.
-    With the help of OpenEverest, you can regain control over data access, database configuration, and cloud database costs. Provision your first database cluster with OpenEverest today!`,
+    'Welcome to OpenEverest, an open source cloud-native data infrastructure platform!',
+  intro: `OpenEverest accelerates deployment and scaling of your data infrastructure, and reduces operational overhead.
+    With the help of OpenEverest, you can regain control over data access, configuration, and cloud costs. Provision your first instance with OpenEverest today!`,
   login: 'Log in',
   insertCredentials: 'Enter your username and password to log in.',
   ok: 'OK',

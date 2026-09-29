@@ -18,15 +18,15 @@ init:     ## Install tests dependencies.
 	$(info Install Chromium for Playwright)
 	npx playwright install --with-deps chromium
 
-CI_INIT_DEPS := init deploy-minio create-db-namespaces deploy-monitoring
+CI_INIT_DEPS := init deploy-seaweedfs create-db-namespaces deploy-monitoring
 .PHONY: ci-init
 ci-init: $(CI_INIT_DEPS) 	## Prepare environment for running tests.
 
-MINIO_RESOURCE=$(REPO_ROOT)/.github/minio.conf.yaml
-.PHONY: install-minio
-deploy-minio:
-	$(info Installing MinIO instance to K3D test cluster)
-	kubectl apply -f $(MINIO_RESOURCE)
+SEAWEEDFS_RESOURCE=$(REPO_ROOT)/dev/resources/seaweedfs.yaml
+.PHONY: deploy-seaweedfs
+deploy-seaweedfs:
+	$(info Installing SeaweedFS instance to the test cluster)
+	kubectl apply -f $(SEAWEEDFS_RESOURCE)
 
 PMM_HELM_CHART_VER=1.3.21
 HELM=go tool -modfile=$(REPO_ROOT)/go.mod helm
@@ -42,9 +42,11 @@ deploy-monitoring:     ## Deploy monitoring instances to K3D test cluster.
 #	kubectl port-forward --namespace default svc/monitoring-service 8070:443 &
 
 .PHONY: create-db-namespaces
+# Run from the repo root so the root Makefile's LOCALBIN (repo-relative bin/)
+# resolves to <repo>/bin/everestctl, not <repo>/.e2e/bin.
 create-db-namespaces:
 	$(info Creating DB namespaces in Everest)
-	$(MAKE) -f $(REPO_ROOT_MAKEFILE) add-shared-everest-namespace DB_NAMESPACES=everest
+	cd $(REPO_ROOT) && $(MAKE) -f $(REPO_ROOT_MAKEFILE) add-shared-everest-namespace DB_NAMESPACES=everest
 
 #EVERESTCTL=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/../bin/everestctl
 #.PHONY: create-test-users
@@ -78,10 +80,10 @@ test:
     export SESSION_USER="session" ;\
     export SESSION_PASS="session1234" ;\
 	export EVEREST_BUCKETS_NAMESPACES_MAP='[["bucket-1","everest"]]' ;\
-  	export EVEREST_LOCATION_ACCESS_KEY="minioadmin" ;\
-	export EVEREST_LOCATION_SECRET_KEY="minioadmin" ;\
+	export EVEREST_LOCATION_ACCESS_KEY="seaweedfsadmin" ;\
+	export EVEREST_LOCATION_SECRET_KEY="seaweedfsadmin" ;\
 	export EVEREST_LOCATION_REGION="us-east-1" ;\
-	export EVEREST_LOCATION_URL="https://minio.minio.svc.cluster.local" ;\
+	export EVEREST_LOCATION_URL="https://seaweedfs.seaweedfs.svc.cluster.local" ;\
 	projects=$$(echo $(PROJECT) | tr ',' ' ') ;\
 	cmd_proj="" ;\
 	for project in $${projects} ; do \

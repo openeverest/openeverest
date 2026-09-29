@@ -14,28 +14,31 @@ init:     ## Install tests dependencies.
 	$(info Installing dependencies)
 	pnpm install
 	#npm ci
-	PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npx playwright install
+	# Tests only use the page fixture on chromium; skip firefox/webkit/ffmpeg.
+	npx playwright install chromium-headless-shell
 
 .PHONY: gen-types
 gen-types: ## Generate TypeScript types from the OpenAPI spec (api/openapi/http-api.yaml).
 	pnpm install
 	pnpm generate-types
 
-# NOTE: API tests do not wait for DB clusters to be ready.
-# The only exception is pg-data-importer test, so that only PG images are pre-uploaded to K3D cluster.
-CI_INIT_DEPS := init deploy-monitoring create-test-users k3d-upload-images
-CI_INIT_DEPS += deploy-minio create-test-manifests
+CI_INIT_DEPS := deploy-monitoring init create-test-users
+CI_INIT_DEPS += deploy-seaweedfs create-test-manifests wait-monitoring
 .PHONY: ci-init
 ci-init: $(CI_INIT_DEPS) 	## Prepare environment for running tests.
 
 PMM_HELM_CHART_VER=1.4.13
 HELM=go tool -modfile=$(TEST_ROOT)/../go.mod helm
 .PHONY: deploy-monitoring
-deploy-monitoring:   ## Deploy monitoring instances to K3D test cluster.
-	$(info Deploying PMM instances to K3D test cluster)
+deploy-monitoring:   ## Start deploying PMM to the test cluster; wait-monitoring blocks on readiness.
+	$(info Deploying PMM instances to test cluster)
 	$(HELM) repo add percona https://percona.github.io/percona-helm-charts/
-	# PMM 3 starts really slowly, so we increase timeout to 15 minutes
-	$(HELM) install pmm --set secret.pmm_password='admin',service.type=ClusterIP percona/pmm --version $(PMM_HELM_CHART_VER) --timeout 15m -n everest-monitoring --wait
+	$(HELM) install pmm --set secret.pmm_password='admin',service.type=ClusterIP percona/pmm --version $(PMM_HELM_CHART_VER) -n everest-monitoring
+
+.PHONY: wait-monitoring
+wait-monitoring:   ## Wait for PMM readiness and port-forward it to localhost.
+	# PMM 3 starts slowly; deploy-monitoring runs first so the boot overlaps the rest of ci-init.
+	kubectl rollout status statefulset/pmm -n everest-monitoring --timeout=15m
 	$(info Port-forwarding PMM instances to localhost)
 	kubectl port-forward -n everest-monitoring svc/monitoring-service 8090:443 &
 	kubectl port-forward -n everest-monitoring svc/monitoring-service 8091:443 &
@@ -49,19 +52,19 @@ create-test-users: ## Create test users and add everest_ci user to admin role.
 	kubectl patch configmap everest-rbac -n everest-system --patch "$$(kubectl get configmap everest-rbac -n everest-system -o json | jq '.data["policy.csv"] += "\ng, everest_ci, role:admin"' | jq '{data: { "policy.csv": .data["policy.csv"] } }')"
 	kubectl get configmap everest-rbac -n everest-system -ojsonpath='{.data.policy\.csv}'
 
-MINIO_RESOURCE=$(TEST_ROOT)/manifests/minio.yaml
-.PHONY: deploy-minio
-deploy-minio:
-	$(info Deploying MinIO to K3D cluster)
-	kubectl apply -f $(MINIO_RESOURCE)
-	if ! kubectl wait deploy/minio --for=condition=Available -n minio --timeout=600s; then \
-		echo "❌ MinIO deployment did not become ready in time"; \
+SEAWEEDFS_RESOURCE=$(TEST_ROOT)/../dev/resources/seaweedfs.yaml
+.PHONY: deploy-seaweedfs
+deploy-seaweedfs:
+	$(info Deploying SeaweedFS to the test cluster)
+	kubectl apply -f $(SEAWEEDFS_RESOURCE)
+	if ! kubectl wait deploy/seaweedfs --for=condition=Available -n seaweedfs --timeout=600s; then \
+		echo "❌ SeaweedFS deployment did not become ready in time"; \
 		echo "🔎 Deployment YAML:"; \
-		kubectl get deploy minio -n minio -o yaml || true; \
+		kubectl get deploy seaweedfs -n seaweedfs -o yaml || true; \
 		echo "🔎 Pods:"; \
-		kubectl get pods -n minio -o wide || true; \
+		kubectl get pods -n seaweedfs -o wide || true; \
 		echo "🔎 Events:"; \
-		kubectl get events -n minio --sort-by=.lastTimestamp || true; \
+		kubectl get events -n seaweedfs --sort-by=.lastTimestamp || true; \
 		exit 1; \
     fi
 
@@ -84,57 +87,6 @@ cleanup-test-manifests:
 	kubectl delete -f $(TEST_PROVIDER_RESOURCE) --ignore-not-found=true
 	kubectl delete -f $(TEST_BACKUP_CLASS_RESOURCE) --ignore-not-found=true
 	kubectl delete -f $(TEST_SECRET_RESOURCE) --ignore-not-found=true
-
-.PHONY: k3d-upload-pg-images
-k3d-upload-pg-images: ## Pre-upload Postgresql images to K3D test  cluster to speedup tests execution.
-	$(info Uploading PG images to K3D test cluster)
-	@{ \
-	pg_engine_image=$$(kubectl -n everest get dbengine/percona-postgresql-operator -ojson | jq -r '[.status.availableVersions.engine[] | select(.status == "recommended").imagePath][-1] ') ;\
-	pg_proxy_image=$$(kubectl -n everest get dbengine/percona-postgresql-operator -ojson | jq -r '[.status.availableVersions.proxy.pgbouncer[] | select(.status == "recommended").imagePath][-1] ') ;\
-	pg_backup_image=$$(kubectl -n everest get dbengine/percona-postgresql-operator -ojson | jq -r '[.status.availableVersions.backup[] | select(.status == "recommended").imagePath][-1] ') ;\
-	pg_operator_image=$$(kubectl -n everest get deploy/percona-postgresql-operator -o json | jq -r '.spec.template.spec.containers[] | select (.name == "operator").image') ;\
-	for node in $(k3d node list | grep everest-server-test | grep -v registry | awk '{print $1}'); do \
-		docker exec $node ctr image pull docker.io/$${pg_engine_image} ;\
-		docker exec $node ctr image pull docker.io/$${pg_proxy_image} ;\
-		docker exec $node ctr image pull docker.io/$${pg_backup_image} ;\
-		docker exec $node ctr image pull docker.io/$${pg_operator_image} ;\
-	done ;\
-	}
-
-.PHONY: k3d-upload-psmdb-images
-k3d-upload-psmdb-images: ## Pre-upload PSMDB images to K3D test  cluster to speedup tests execution.
-	$(info Uploading PSMDB images to K3D test cluster)
-	@{ \
-	psmdb_engine_image=$$(kubectl -n everest get dbengine/percona-server-mongodb-operator -ojson | jq -r '[.status.availableVersions.engine[] | select(.status == "recommended").imagePath][-1] ') ;\
-	psmdb_backup_image=$$(kubectl -n everest get dbengine/percona-server-mongodb-operator -ojson | jq -r '[.status.availableVersions.backup[] | select(.status == "recommended").imagePath][-1] ') ;\
-	psmdb_operator_image=$$(kubectl -n everest get deploy/percona-server-mongodb-operator -o json | jq -r '.spec.template.spec.containers[] | select (.name == "percona-server-mongodb-operator").image') ;\
-	for node in $(k3d node list | grep everest-server-test | grep -v registry | awk '{print $1}'); do \
-		docker exec $node ctr image pull docker.io/$${psmdb_engine_image} ;\
-		docker exec $node ctr image pull docker.io/$${psmdb_backup_image} ;\
-		docker exec $node ctr image pull docker.io/$${psmdb_operator_image} ;\
-	done ;\
-	}
-
-.PHONY: k3d-upload-pxc-images
-k3d-upload-pxc-images: ## Pre-upload PXC images to K3D test cluster to speedup tests execution.
-	$(info Uploading PXC images to K3D test cluster)
-	@{ \
-	pxc_engine_image=$$(kubectl -n everest get dbengine/percona-xtradb-cluster-operator -ojson | jq -r '[.status.availableVersions.engine[] | select(.status == "recommended").imagePath][-1] ') ;\
-	pxc_proxy_image=$$(kubectl -n everest get dbengine/percona-xtradb-cluster-operator -ojson | jq -r '[.status.availableVersions.proxy.haproxy[] | select(.status == "recommended").imagePath][-1] ') ;\
-	pxc_backup_image=$$(kubectl -n everest get dbengine/percona-xtradb-cluster-operator -ojson | jq -r '[.status.availableVersions.backup[] | select(.status == "recommended").imagePath][-1] ') ;\
-	pxc_operator_image=$$(kubectl -n everest get deploy/percona-xtradb-cluster-operator -o json | jq -r '.spec.template.spec.containers[] | select (.name == "percona-xtradb-cluster-operator").image') ;\
-	pmm_client_image=percona/pmm-client:2 ;\
-	for node in $(k3d node list | grep everest-server-test | grep -v registry | awk '{print $1}'); do \
-		docker exec $node ctr image pull docker.io/$${pxc_engine_image} ;\
-		docker exec $node ctr image pull docker.io/$${pxc_proxy_image} ;\
-		docker exec $node ctr image pull docker.io/$${pxc_backup_image} ;\
-		docker exec $node ctr image pull docker.io/$${pxc_operator_image} ;\
-		docker exec $node ctr image pull docker.io/$${pmm_client_image} ;\
-	done ;\
-	}
-
-.PHONY: k3d-upload-images
-k3d-upload-images: k3d-upload-pg-images k3d-upload-psmdb-images k3d-upload-pxc-images 	## Pre-upload PG,PSMDB,PXC images to K3D test cluster to speedup tests execution.
 
 ##@ Development
 

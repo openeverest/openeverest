@@ -295,3 +295,29 @@ func sessionErrToHTTPRes(ctx echo.Context, err error) error {
 	}
 	return err
 }
+
+// publishAuthEvent emits an authentication-related event onto the hub.
+// `reason` is included only for the login-failed type.
+func (e *EverestServer) publishAuthEvent(t events.Type, subject, remoteIP, reason string) {
+	if e.eventHub == nil {
+		return
+	}
+	evt := events.Event{
+		Type:       t,
+		OccurredAt: time.Now().UTC(),
+		Resource: events.ResourceRef{
+			Kind: "Session",
+			Name: subject,
+		},
+		Actor: events.Actor{Type: "user", ID: subject},
+	}
+	if reason != "" {
+		evt.NewState = events.StateSnapshot{Phase: reason}
+	}
+	if remoteIP != "" {
+		// Use prevState slot to carry the IP without inventing new schema
+		// fields. Audit plugins read both prev/new phases for free-form context.
+		evt.PrevState = events.StateSnapshot{Phase: "ip=" + remoteIP}
+	}
+	e.eventHub.Publish(evt)
+}

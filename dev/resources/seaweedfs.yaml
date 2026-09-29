@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: seaweedfs
+  labels:
+    name: seaweedfs
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: seaweedfs-data
+  namespace: seaweedfs
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 512Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: seaweedfs
+  name: seaweedfs
+  namespace: seaweedfs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: seaweedfs
+  template:
+    metadata:
+      labels:
+        app: seaweedfs
+    spec:
+      containers:
+        - name: seaweedfs
+          image: chrislusf/seaweedfs:4.47
+          args:
+            - mini
+            - -dir=/data
+            - -s3.cert.file=/etc/seaweedfs/certs/public.crt
+            - -s3.key.file=/etc/seaweedfs/certs/private.key
+            - -webdav=false
+            - -admin.ui=false
+            - -s3.port.iceberg=0
+            - -s3.port.lance=0
+            - -master.telemetry=false
+          env:
+            - name: S3_BUCKET
+              value: "bucket-1,bucket-2,bucket-3,bucket-4,bucket-5,bucket-6"
+            - name: AWS_ACCESS_KEY_ID
+              value: seaweedfsadmin
+            - name: AWS_SECRET_ACCESS_KEY
+              value: seaweedfsadmin
+          ports:
+            - name: s3
+              containerPort: 8333
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: s3
+              scheme: HTTPS
+          volumeMounts:
+            - mountPath: /data
+              name: seaweedfs-data-vol
+            - mountPath: /etc/seaweedfs/certs
+              name: seaweedfs-cert
+              readOnly: true
+      volumes:
+        - name: seaweedfs-data-vol
+          persistentVolumeClaim:
+            claimName: seaweedfs-data
+        - name: seaweedfs-cert
+          secret:
+            secretName: seaweedfs-cert
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: seaweedfs
+  namespace: seaweedfs
+spec:
+  type: ClusterIP
+  selector:
+    app: seaweedfs
+  ports:
+    - protocol: TCP
+      port: 443
+      targetPort: s3
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: seaweedfs-cert
+  namespace: seaweedfs
+type: Opaque
+data:
+  private.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JSUV2UUlCQURBTkJna3Foa2lHOXcwQkFRRUZBQVNDQktjd2dnU2pBZ0VBQW9JQkFRQ2FvN3lLWFdoNTZwSjEKazc5SlhhQmppYmxlQm5jVFRVNUZMNHgzZzdpSG11OFJEVExzQnFOVFppTHpRNndxTGtVM3VMaXoybnZxdld3VQp2UlkyQUhjNFEwN21JcGxBYXIyWmlEVmIyYmd3aVFjWGxSK3pKNkhpWnphSStKbmVKZ3g2SktJOEVvNDBQaUpqCllydnAxYzdxZzJVdDNtdjRHcUlZVTRMQ3hYbVpIaGVjZHYyMUZibE41VG9BRk5XaVMzUWhTVklubDI2WjIxVWMKMlVMaWxkVzhsWWRNZzhucys3bEcvTXZCTlQwWFR0MTZrcGw3WHBUMVIrbjEvSEVBREJqK3krUUhnaDZ2UnJWcgpacmhYOGxJaFA3RElFNER1d2JjZ1pKYVp6ZmxqRFFWQ3ZEQ2ZWeTVxVk1xQ29WM0QzcHZFTmdCMFMxYW5ZaWpGCmFCWGRHS2RMQWdNQkFBRUNnZ0VBUVlxK2dhS2ZnblRpaUlVTG9VdldpL20yb0Z4N0lhbzFUMnVjekpiK29qTVAKdXBsdWlNMHpja2lxN1pJMEtWaWRLOFhXT3h5U1F1YndKVVlUWU9ZSG9jZ2RhN3NrVzBJaWhDMVArRk1xRnlBcwo2bGpoSzZ6VGwwTUp3VG9rOVJ3SlU4ZXRIMnI1N0xpZEdLU2pZck9sVkk1R1Z3K2JrWGV3VmtFbS9laDI1bWRLCmcrbTlLMlRSd1RPM0kzcERkbG45UENrc01MSWxPRXQzeitEaWdpMElaL1BaUmtVekt5Yi90Y2tWSkZOVEg4VnEKaTByMFhHN1kwV21OMU5veVZHRHY4RXFsdmhlejV5dGxzQzU4Sy9KTkhJUXc3WGcya0FjZjBnSWJyU1RwMGx2RQpSdktCenFXK29KZDlmRUFLOHI4dVd5WDFMVytqVnlNZTc1TnZjUDZmT1FLQmdRRFhtOSsyTDJWbXVEYTRTQk43CkpQRk9qVExvb1RqOWRHZ1JnOWJmL1VxbmpPbGxiY0svSVpXYlVXK0c2YzF5Q0N4ck5NM3JSekpkSTFOSWpnZjAKV3NOaG4zeUFWUzVEK2J0YWxYaU1LczZDb1pUMkVvczF5NkRXQVVQbFZNSW9MZnBxNE5ObTg2bkRTOThUVEpBMwpzMUhwN2Q1WStVYkFXTzRhSnZjaFVBdm9qd0tCZ1FDM20ra0NKblVQaVVXeVAvTmF3cTZQODMyUkNVT3JaZkIwCjYzOWtYcVg3bTRjbE51dndsdWJMc21VV01iWVV4M0lOc3J5WjNDVjEwTVhCSFkrbWI2STlkM3o1QlZNMzdHOEIKeGd5VlBObG9PM0lFZ2I2MHZDRmpQcVhoSjdJM2tkMmhvUXJ0VTY5SmE5YWtjS2k2Qmo2ZmNFZFdwQi9HODdKVQpwL0x3OCtKYmhRS0JnRzc3N3FreU5va3NsQVpDRzcwTTVDWGlLdTF5YUFxWGpDWlA3aUM0bW1BcStjMWJOWjc3Ckk2Nml1YjBCeHQ1RzlNNXVqUHpxVmpONVJwcVhlZUsvZ2NsVHRsdTgvU2JDZXoyQ3FWM0ZmeTNoRFBPcDBmenMKQjZ1QlZUak1hM0VSVWRFSVQrbXp6WlFaRHdnNUpoZDE5OWxwdDBXbmMxTDVzLzdFUmZ2ZzMzQmpBb0dBRGhLTwpEbE1pUDdtV3RPMi8yaUgzdlNLOWFnTmF3MlZCdzhSVTlEMW8zVnJ6UmIvcTMzckJYN1ZobUF6aFZzQmVsbnd2CmhsOWdJNktIdGFCdFpTVkRPeERRYkVtak1qTVY0djNwOHZwQjg0SXkzL09OeVU1dUJLeEZqSGM5YXBMc2VMbmUKRzRpQmM5QW5HRjFtSVRQZlV0c0pMTFBSbDY4UDZQc2lYS05rb3YwQ2dZRUF6eUtuTlZsUG92T0FhRmE2dWoxbQplN2huWFN0RTMyUmlwM2N2SFNoK0llVFBDVmk1czdUZlJoZHhNZVlsVWFmalBIbTVkS2lhb2Z5VXpHZ0N2RGg1CkRseERtWjdxd2dvZnFjYnQ4enBjdCs1NmMyYXRrYnZGMGpHSWhDaHZ3eUM0MVRJUUpoTzdzeTRKdC9QcnlESFEKOVJZbDBwSVRYMmxZSFE5MnlIaEd2emc9Ci0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0K
+  public.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURyakNDQXBhZ0F3SUJBZ0lVZE5HMTV3T3BCR2ZHWnViY20zZmpDQlo4WlRvd0RRWUpLb1pJaHZjTkFRRUwKQlFBd01ERXVNQ3dHQTFVRUF3d2xjMlZoZDJWbFpHWnpMbk5sWVhkbFpXUm1jeTV6ZG1NdVkyeDFjM1JsY2k1cwpiMk5oYkRBZUZ3MHlOakE1TWpZeE1EQTRNVGRhRncwek5qQTVNak14TURBNE1UZGFNREF4TGpBc0JnTlZCQU1NCkpYTmxZWGRsWldSbWN5NXpaV0YzWldWa1puTXVjM1pqTG1Oc2RYTjBaWEl1Ykc5allXd3dnZ0VpTUEwR0NTcUcKU0liM0RRRUJBUVVBQTRJQkR3QXdnZ0VLQW9JQkFRQ2FvN3lLWFdoNTZwSjFrNzlKWGFCamlibGVCbmNUVFU1RgpMNHgzZzdpSG11OFJEVExzQnFOVFppTHpRNndxTGtVM3VMaXoybnZxdld3VXZSWTJBSGM0UTA3bUlwbEFhcjJaCmlEVmIyYmd3aVFjWGxSK3pKNkhpWnphSStKbmVKZ3g2SktJOEVvNDBQaUpqWXJ2cDFjN3FnMlV0M212NEdxSVkKVTRMQ3hYbVpIaGVjZHYyMUZibE41VG9BRk5XaVMzUWhTVklubDI2WjIxVWMyVUxpbGRXOGxZZE1nOG5zKzdsRwovTXZCTlQwWFR0MTZrcGw3WHBUMVIrbjEvSEVBREJqK3krUUhnaDZ2UnJWclpyaFg4bEloUDdESUU0RHV3YmNnClpKYVp6ZmxqRFFWQ3ZEQ2ZWeTVxVk1xQ29WM0QzcHZFTmdCMFMxYW5ZaWpGYUJYZEdLZExBZ01CQUFHamdiOHcKZ2J3d0hRWURWUjBPQkJZRUZEYjkxVkJEVHQ2Y1ExTHJhd1MwWVExdWhzVURNQjhHQTFVZEl3UVlNQmFBRkRiOQoxVkJEVHQ2Y1ExTHJhd1MwWVExdWhzVURNQThHQTFVZEV3RUIvd1FGTUFNQkFmOHdhUVlEVlIwUkJHSXdZSUlsCmMyVmhkMlZsWkdaekxuTmxZWGRsWldSbWN5NXpkbU11WTJ4MWMzUmxjaTVzYjJOaGJJSVhjMlZoZDJWbFpHWnoKTG5ObFlYZGxaV1JtY3k1emRtT0NFM05sWVhkbFpXUm1jeTV6WldGM1pXVmtabk9DQ1d4dlkyRnNhRzl6ZERBTgpCZ2txaGtpRzl3MEJBUXNGQUFPQ0FRRUFqUEk2d3FoSGx0NFRVSER5Unh6RHdmc0daNkRud1kyRDlxeVlxYnQ2CkkrTmswV1c0ZE5qRk9qaVBHclloUHJtNzJ6Ujk0OHovNzg3bURSL1FqaDFDUG1oS2U3UFllN2tUMjhXVXcrRDcKT1hKaDNQdkZzU1hGVzVYcWRXVTRwY3BweXh6MzhzSnNoQjBoSkg4SWZ4UUxLTnR0RnhzWklRWThweVVFRmhIawppUWp4cWFRbWRNWlBMK01ISVduOFVRcWlIS0F3UzhLdFBxaXVjMFRWR1VveDZUMFRwWXlna0QrSEJKdk1ma3FaCnBVZ1dWZjQ4NEsrTGtjQnFKVmlSNnBENnIwSG5wb3pNTEJOM2pxMnVaaWwwT0dWTzhVRG9qRjNGQk9YL1liYkIKUnU3OU1VL08vWlQ4VVFUMlB0S0xFMWt3K0lmRG5vWE1DbEJrV1hTOG56NThQZz09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K

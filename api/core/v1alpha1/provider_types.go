@@ -27,10 +27,15 @@ type ProviderSpec struct {
 	Components     map[string]Component     `json:"components,omitempty"`
 	Topologies     map[string]Topology      `json:"topologies,omitempty"`
 
+	// DefaultVersion names the bundle in Versions used when an Instance
+	// omits Spec.Version.
+	// +optional
+	DefaultVersion string `json:"defaultVersion,omitempty"`
+
 	// Versions defines curated version bundles — named sets of component
 	// versions that are known to be mutually compatible. Users reference
 	// a bundle via Instance.Spec.Version. If the user does not set a version,
-	// the bundle whose Default field is true is used automatically.
+	// the bundle named by DefaultVersion is used automatically.
 	Versions []VersionBundle `json:"versions,omitempty"`
 
 	// ParametersSchema declares the OpenAPI v3 schema for the instance-wide
@@ -84,20 +89,20 @@ type VersionBundle struct {
 	// Components maps component names to their version strings for this bundle.
 	// Keys must match component names defined in ProviderSpec.Components.
 	Components map[string]string `json:"components,omitempty"`
-
-	// Default marks this bundle as the implicit choice when an Instance omits
-	// Spec.Version entirely. Exactly one bundle should have Default: true.
-	Default bool `json:"default,omitempty"`
 }
 
 type ComponentType struct {
+	// DefaultVersion names the entry in Versions used when neither the
+	// Instance nor a version bundle selects one.
+	// +optional
+	DefaultVersion string `json:"defaultVersion,omitempty"`
+
 	Versions []ComponentVersion `json:"versions,omitempty"`
 }
 
 type ComponentVersion struct {
 	Version string `json:"version,omitempty"`
 	Image   string `json:"image,omitempty"`
-	Default bool   `json:"default,omitempty"`
 
 	// Deprecated marks a version as still supported but scheduled for
 	// removal. Instances running on it get a proactive warning with a
