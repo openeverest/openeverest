@@ -72,6 +72,10 @@ flowchart TD
 **Output:** a `defaultValues` object for `useForm`.
 
 - Collects initial values from `fieldParams.defaultValue` (create).
+- **Topology switch** (create wizard, no preset) — `useDatabaseFormSync` drops the previous
+  topology's values with `dropOtherTopologyValues` (`utils/topology-scope/`), then merges the new
+  topology's defaults over the rest (`mergeTopologyDefaults`). Switching back therefore starts from
+  defaults, not stale values.
 - **`extractInstanceValues`** — in edit/restore, reads values **only from the instance** (by
   `sourcePath`), **without** schema defaults (so edit doesn't inject defaults).
 - **Toggleable switches** — `false` on create; when values come from an instance or preset, on
@@ -130,6 +134,10 @@ triggers no request.
 **Input:** form data (RHF). **Output:** a clean API payload.
 
 - **`postprocessSchemaData(formData, { schema, selectedTopology })`**:
+  - **`dropOtherTopologyValues`** (`utils/topology-scope/`) — removes values bound only by other
+    topologies' paths, walking all sections regardless of `sectionsOrder` (leftovers from a topology
+    switch, e.g. `spec.components.mixCoord` after switching Milvus cluster → standalone). Paths shared with the selected topology, or nested under/over one of its paths, are
+    kept; values no topology binds (`dbName`, `backup`, …) are untouched.
   - **`extractMultiPathMappings` / `applyMultiPathMappings`** — one value → all `targetPaths`.
   - **`extractBadgeMappings` / `applyBadgesToFormData`** — unit suffix (`8` → `8Gi`).
   - **`getInactiveToggleablePaths`** — returns the `childPaths` of switched-off toggleable groups;
@@ -220,6 +228,7 @@ components:
 | Toggleable groups          | `utils/toggleable/toggleable.ts`                           |
 | Toggleable validation      | `utils/schema-builder/apply-toggleable-validation.ts`      |
 | Section edit merge         | `utils/postprocess/merge-section-edit.ts`                  |
+| Topology scope             | `utils/topology-scope/topology-scope.ts`                   |
 | Object path                | `utils/object-path/object-path.ts`                         |
 | API provider registry      | `api-providers/registry.ts`                                |
 | API provider registrations | `api-providers/providers.ts`                               |

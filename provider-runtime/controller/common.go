@@ -25,8 +25,11 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -142,27 +145,64 @@ func (c *Context) ProviderSpec() (*v1alpha1.ProviderSpec, error) {
 // RESOURCE OPERATIONS
 // =============================================================================
 
-// Apply creates or updates a resource, setting ownership automatically.
-// This is the primary way to manage resources - just describe what you want.
+// Apply server-side applies obj and sets the owner reference.
+//
+// Rules:
+//   - Build the whole desired object every time. Fields you stop setting are
+//     removed; fields you never set are left to the engine operator.
+//   - Zero values (false, 0, "", {}) count as set. Nil fields do not.
+//   - Pass a freshly built object, never one from Get.
+//
+// obj is not updated with the server response; use Get to read it back.
 func (c *Context) Apply(obj client.Object) error {
-	// Set the owner reference automatically
+	// A Get result carries every field the operator wrote; force-applying it
+	// would claim them all and fight the operator on each reconcile.
+	if len(obj.GetManagedFields()) > 0 || obj.GetResourceVersion() != "" {
+		return errors.New("Apply expects a freshly built object; read state with Get, build desired state separately")
+	}
+
 	if err := controllerutil.SetControllerReference(c.in, obj, c.client.Scheme()); err != nil {
 		return fmt.Errorf("failed to set owner: %w", err)
 	}
 
-	// Use create-or-update semantics
-	existing := obj.DeepCopyObject().(client.Object)
-	err := c.client.Get(c.ctx, client.ObjectKeyFromObject(obj), existing)
+	gvk, err := apiutil.GVKForObject(obj, c.client.Scheme())
 	if err != nil {
-		if client.IgnoreNotFound(err) != nil {
-			return err
-		}
-		// Doesn't exist, create it
-		return c.client.Create(c.ctx, obj)
+		return fmt.Errorf("failed to resolve GVK for apply: %w", err)
 	}
-	// Exists, update it
-	obj.SetResourceVersion(existing.GetResourceVersion())
-	return c.client.Update(c.ctx, obj)
+	obj.GetObjectKind().SetGroupVersionKind(gvk)
+
+	// omitempty does not cover untagged fields, so nulls are pruned. Zero
+	// scalars and empty objects stay: a zero struct is indistinguishable
+	// from one set on purpose (emptyDir: {} selects a volume type).
+	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return fmt.Errorf("failed to build apply configuration: %w", err)
+	}
+	delete(raw, "status")
+	pruneNulls(raw)
+	return c.client.Apply(c.ctx,
+		client.ApplyConfigurationFromUnstructured(&unstructured.Unstructured{Object: raw}),
+		client.FieldOwner("provider-"+c.providerName),
+		client.ForceOwnership,
+	)
+}
+
+// pruneNulls drops null values, recursing into objects and lists.
+func pruneNulls(v any) {
+	switch val := v.(type) {
+	case map[string]any:
+		for k, child := range val {
+			if child == nil {
+				delete(val, k)
+				continue
+			}
+			pruneNulls(child)
+		}
+	case []any:
+		for _, child := range val {
+			pruneNulls(child)
+		}
+	}
 }
 
 // Get retrieves a resource by name (in the instance's namespace).

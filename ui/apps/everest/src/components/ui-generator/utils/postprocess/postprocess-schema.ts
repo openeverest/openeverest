@@ -22,6 +22,7 @@ import {
   isEmptyFieldValue,
 } from '../object-path';
 import { walkTopologyComponents } from '../schema-walker';
+import { dropOtherTopologyValues } from '../topology-scope';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
 import {
   extractBadgeMappings,
@@ -199,7 +200,16 @@ export const postprocessSchemaData = (
     ...(options?.multiPathMappings ?? []),
   ];
 
-  const mapped = applyMultiPathMappings(formValues, allMappings);
+  const scoped =
+    options?.schema && options.selectedTopology
+      ? dropOtherTopologyValues(
+          formValues,
+          options.schema,
+          options.selectedTopology
+        )
+      : formValues;
+
+  const mapped = applyMultiPathMappings(scoped, allMappings);
 
   const coerced =
     options?.schema && options.selectedTopology

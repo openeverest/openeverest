@@ -170,13 +170,13 @@ jobs:
           retention-days: 14
           overwrite: true
 
-      - name: Notify Slack
-        if: ${{ always() }}
+      - name: Notify Slack about failed nightly run
+        if: ${{ failure() && github.event_name == 'schedule' }}
         env:
           RELEASE_E2E_SLACK_WEBHOOK_URL: ${{ secrets.RELEASE_E2E_SLACK_WEBHOOK_URL }}
-          JOB_STATUS: ${{ job.status }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          EVENT_NAME: ${{ github.event_name }}
+          RUN_NUMBER: ${{ github.run_number }}
+          HEAD_BRANCH: ${{ github.ref_name }}
         run: |
           if [ -z "$RELEASE_E2E_SLACK_WEBHOOK_URL" ]; then
             echo "RELEASE_E2E_SLACK_WEBHOOK_URL is not configured; skipping notification"
@@ -184,13 +184,12 @@ jobs:
           fi
 
           jq -n \
-            --arg status "$JOB_STATUS" \
-            --arg event "$EVENT_NAME" \
+            --arg run "$RUN_NUMBER" \
+            --arg branch "$HEAD_BRANCH" \
             --arg url "$RUN_URL" \
-            '{text: ("Release e2e " + $status + " (" + $event + ")\n" + $url)}' \
+            '{text: ("Nightly Release e2e failed (run " + $run + ", branch " + $branch + ")\n" + $url)}' \
             | curl --fail --silent --show-error \
                 -X POST \
                 -H 'Content-Type: application/json' \
                 --data-binary @- \
-                "$RELEASE_E2E_SLACK_WEBHOOK_URL" \
-            || echo "Slack notification failed"
+                "$RELEASE_E2E_SLACK_WEBHOOK_URL"
