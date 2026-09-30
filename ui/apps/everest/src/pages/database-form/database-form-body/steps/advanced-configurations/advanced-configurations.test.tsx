@@ -86,25 +86,15 @@ describe('FourthStep', () => {
       </TestWrapper>
     );
 
-    fireEvent.mouseDown(
-      screen
-        .getAllByRole('combobox')
-        .find((el) => el.id === 'mui-component-select-exposureMethod')!
+    const loadBalancerButton = screen.getByTestId(
+      `toggle-button-${ProxyExposeType.LoadBalancer}`
     );
-    await waitFor(() =>
-      expect(screen.getByRole('listbox')).toBeInTheDocument()
-    );
-    const loadBalancerOption = screen
-      .getAllByRole('option')
-      .find((el) => el.textContent === 'Load balancer');
-
-    expect(loadBalancerOption).toBeDefined();
-    fireEvent.click(loadBalancerOption!);
+    fireEvent.click(loadBalancerButton);
 
     await waitFor(() =>
-      expect(screen.getByTestId('select-input-exposure-method')).toHaveValue(
-        ProxyExposeType.LoadBalancer
-      )
+      expect(
+        screen.getByTestId(`toggle-button-${ProxyExposeType.LoadBalancer}`)
+      ).toHaveAttribute('aria-pressed', 'true')
     );
 
     await waitFor(() =>
@@ -186,20 +176,11 @@ describe('FourthStep', () => {
     expect(
       screen.queryByTestId('external-access-fields')
     ).not.toBeInTheDocument();
-    fireEvent.mouseDown(
-      screen
-        .getAllByRole('combobox')
-        .find((el) => el.id === 'mui-component-select-exposureMethod')!
-    );
-    await waitFor(() =>
-      expect(screen.getByRole('listbox')).toBeInTheDocument()
-    );
-    const loadBalancerOption = screen
-      .getAllByRole('option')
-      .find((el) => el.textContent === 'Load balancer');
 
-    expect(loadBalancerOption).toBeDefined();
-    fireEvent.click(loadBalancerOption!);
+    const loadBalancerButton = screen.getByTestId(
+      `toggle-button-${ProxyExposeType.LoadBalancer}`
+    );
+    fireEvent.click(loadBalancerButton);
 
     await waitFor(() =>
       expect(screen.getByTestId('external-access-fields')).toBeInTheDocument()
