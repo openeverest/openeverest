@@ -18,6 +18,7 @@ import {
   TopologyUISchemas,
 } from 'components/ui-generator/ui-generator.types';
 import { Provider } from 'shared-types/api.types';
+import { StepDefinition } from 'components/ui-generator/form-engine';
 
 type DatabaseFormContextType = {
   uiSchema: TopologyUISchemas;
@@ -28,6 +29,7 @@ type DatabaseFormContextType = {
   sectionsOrder?: string[];
   providerObject?: Provider;
   hasBackupStep: boolean;
+  steps?: StepDefinition[];
 };
 
 const DatabaseFormContext = createContext<DatabaseFormContextType | null>(null);
