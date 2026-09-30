@@ -12,7 +12,7 @@ Build and runtime logs can be easily accessed using tilt's web UI.
 
 ## Prerequisites
 
-1. Install [Go](https://go.dev/dl/) (version 1.26 or later)
+1. Install [Go](https://go.dev/dl/) (version 1.27 or later)
 
 2. Install [Docker](https://docs.docker.com/engine/install/)
 
