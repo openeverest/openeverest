@@ -20,6 +20,7 @@ import {
   SwitchInput,
   TextArray,
   TextInput,
+  ToggleButtonGroupInput,
 } from '@percona/ui-lib';
 import { getProxyConfigLabel, Messages } from './messages';
 import {
@@ -426,22 +427,19 @@ export const AdvancedConfigurationForm = ({
               <Typography variant="sectionHeading">
                 {Messages.cards.exposureMethod.title}
               </Typography>
-              <SelectInput
+              <ToggleButtonGroupInput
                 name={AdvancedConfigurationFields.exposureMethod}
-                loading={loadingDefaultsForEdition}
-                formControlProps={{
+                toggleButtonGroupProps={{
                   sx: {
                     width: SELECT_WIDTH,
                     mt: 0,
                   },
                 }}
-              >
-                {exposureMethods.map((method) => (
-                  <MenuItem value={method} key={method}>
-                    {PROXY_EXPOSE_TYPE_TO_LABEL[method]}
-                  </MenuItem>
-                ))}
-              </SelectInput>
+                options={exposureMethods.map((method) => ({
+                  label: PROXY_EXPOSE_TYPE_TO_LABEL[method],
+                  value: method,
+                }))}
+              />
             </Box>
 
             {exposureMethod === ProxyExposeType.LoadBalancer && (
