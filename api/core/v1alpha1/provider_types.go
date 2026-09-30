@@ -61,6 +61,11 @@ type ProviderSpec struct {
 	// upgrade-path constraints. It is read by the pre-upgrade preflight.
 	// +optional
 	Release *Release `json:"release,omitempty"`
+
+	// Monitoring is the provider's monitoring contract: the operator-native
+	// integrations it renders itself and what each component type exposes.
+	// +optional
+	Monitoring *ProviderMonitoring `json:"monitoring,omitempty"`
 }
 
 // Release identifies a provider release and its upgrade-path constraints.

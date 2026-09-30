@@ -1726,6 +1726,78 @@ spec:
                     - Downtime
                     type: string
                 type: object
+              monitoring:
+                description: |-
+                  Monitoring configures where this Instance sends monitoring data. Core
+                  creates one MonitoringBinding per destination; the resolved state is
+                  mirrored in status.monitoring.destinations[].
+                properties:
+                  destinations:
+                    description: |-
+                      Destinations lists the MonitoringDestinations this Instance sends to.
+                      Core creates one MonitoringBinding per entry.
+                    items:
+                      description: |-
+                        InstanceMonitoringDestination sends the Instance's monitoring data to one
+                        MonitoringDestination.
+                      properties:
+                        destinationRef:
+                          description: |-
+                            DestinationRef references the MonitoringDestination in the Instance's
+                            namespace.
+                          properties:
+                            kind:
+                              default: MonitoringDestination
+                              description: Kind of the referenced object.
+                              enum:
+                              - MonitoringDestination
+                              type: string
+                            name:
+                              description: Name of the referenced object.
+                              maxLength: 253
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
+                          required:
+                          - name
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        executionMode:
+                          description: |-
+                            ExecutionMode pins who renders the binding. When unset the mode is
+                            resolved once when the binding is created and never changes on its own;
+                            changing the pin recreates the binding.
+                          enum:
+                          - ProviderManaged
+                          - ExtensionManaged
+                          type: string
+                        name:
+                          description: |-
+                            Name identifies the entry within the Instance; it is the key of
+                            status.monitoring.destinations[] and part of the MonitoringBinding name.
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                        parameters:
+                          description: Parameters are validated against the class's
+                            instanceParametersSchema.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                      required:
+                      - destinationRef
+                      - name
+                      type: object
+                    maxItems: 8
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                    x-kubernetes-validations:
+                    - message: each MonitoringDestination may be listed at most once
+                      rule: self.all(a, self.exists_one(b, b.destinationRef.name ==
+                        a.destinationRef.name))
+                type: object
               parameters:
                 description: |-
                   Parameters contains structured parameters that apply to the Instance

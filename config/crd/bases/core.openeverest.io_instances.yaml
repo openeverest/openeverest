@@ -1747,6 +1747,78 @@ spec:
                     - Downtime
                     type: string
                 type: object
+              monitoring:
+                description: |-
+                  Monitoring configures where this Instance sends monitoring data. Core
+                  creates one MonitoringBinding per destination; the resolved state is
+                  mirrored in status.monitoring.destinations[].
+                properties:
+                  destinations:
+                    description: |-
+                      Destinations lists the MonitoringDestinations this Instance sends to.
+                      Core creates one MonitoringBinding per entry.
+                    items:
+                      description: |-
+                        InstanceMonitoringDestination sends the Instance's monitoring data to one
+                        MonitoringDestination.
+                      properties:
+                        destinationRef:
+                          description: |-
+                            DestinationRef references the MonitoringDestination in the Instance's
+                            namespace.
+                          properties:
+                            kind:
+                              default: MonitoringDestination
+                              description: Kind of the referenced object.
+                              enum:
+                              - MonitoringDestination
+                              type: string
+                            name:
+                              description: Name of the referenced object.
+                              maxLength: 253
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
+                          required:
+                          - name
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        executionMode:
+                          description: |-
+                            ExecutionMode pins who renders the binding. When unset the mode is
+                            resolved once when the binding is created and never changes on its own;
+                            changing the pin recreates the binding.
+                          enum:
+                          - ProviderManaged
+                          - ExtensionManaged
+                          type: string
+                        name:
+                          description: |-
+                            Name identifies the entry within the Instance; it is the key of
+                            status.monitoring.destinations[] and part of the MonitoringBinding name.
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                        parameters:
+                          description: Parameters are validated against the class's
+                            instanceParametersSchema.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                      required:
+                      - destinationRef
+                      - name
+                      type: object
+                    maxItems: 8
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                    x-kubernetes-validations:
+                    - message: each MonitoringDestination may be listed at most once
+                      rule: self.all(a, self.exists_one(b, b.destinationRef.name ==
+                        a.destinationRef.name))
+                type: object
               parameters:
                 description: |-
                   Parameters contains structured parameters that apply to the Instance
@@ -2020,6 +2092,204 @@ spec:
                 description: Message is a custom user-facing message describing the
                   current state of the instance.
                 type: string
+              monitoring:
+                description: |-
+                  Monitoring mirrors spec.monitoring: one read-only summary per
+                  destination, built from the MonitoringBindings and written only by
+                  provider-runtime.
+                properties:
+                  destinations:
+                    description: Destinations has one entry per spec.monitoring.destinations[]
+                      entry.
+                    items:
+                      description: |-
+                        InstanceMonitoringDestinationStatus is the read-only summary of one entry,
+                        mirrored from its MonitoringBinding.
+                      properties:
+                        configured:
+                          description: |-
+                            Configured mirrors the binding's Configured condition; False when the
+                            binding is not Accepted, Unknown while it is missing or pending.
+                          type: string
+                        message:
+                          description: Message is the human-readable detail for Configured.
+                          type: string
+                        mode:
+                          description: Mode is the resolved execution mode.
+                          enum:
+                          - ProviderManaged
+                          - ExtensionManaged
+                          type: string
+                        name:
+                          description: Name matches spec.monitoring.destinations[].name.
+                          type: string
+                        reason:
+                          description: Reason is the machine-readable reason for Configured.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  sources:
+                    description: |-
+                      Sources is the per-Instance publication of the provider's monitoring
+                      contract, consumed by ExtensionManaged class controllers.
+                    properties:
+                      credentials:
+                        description: |-
+                          Credentials lists the Instance-owned monitoring credential Secrets by
+                          profile.
+                        items:
+                          description: |-
+                            MonitoringCredential references one Instance-owned monitoring credential
+                            Secret (keys: username, password).
+                          properties:
+                            profile:
+                              description: Profile names the credential profile (e.g.
+                                "metrics").
+                              type: string
+                            secretRef:
+                              description: SecretRef references the Secret in the
+                                Instance's namespace.
+                              properties:
+                                name:
+                                  description: Name of the referenced Secret.
+                                  maxLength: 253
+                                  minLength: 1
+                                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                              x-kubernetes-map-type: atomic
+                          required:
+                          - profile
+                          - secretRef
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - profile
+                        x-kubernetes-list-type: map
+                      identity:
+                        description: |-
+                          Identity carries the labels every monitoring class must attach so
+                          destinations can tell Instances and clusters apart. Stamped by the
+                          runtime.
+                        properties:
+                          clusterID:
+                            description: ClusterID is the UID of the kube-system namespace.
+                            type: string
+                          labels:
+                            additionalProperties:
+                              type: string
+                            description: |-
+                              Labels are the identity labels (openeverest_instance,
+                              openeverest_namespace, openeverest_provider, k8s_cluster_id).
+                            type: object
+                        type: object
+                      metrics:
+                        description: Metrics lists the OpenMetrics endpoints that
+                          are currently serving.
+                        items:
+                          description: MetricsEndpoint describes one OpenMetrics scrape
+                            target.
+                          properties:
+                            auth:
+                              description: Auth names the credential profile the scraper
+                                must authenticate with.
+                              properties:
+                                credentialProfile:
+                                  description: CredentialProfile matches MonitoringSources.credentials[].profile.
+                                  type: string
+                              required:
+                              - credentialProfile
+                              type: object
+                            component:
+                              description: Component is the Instance component name
+                                (e.g. "engine", "proxy").
+                              type: string
+                            kind:
+                              description: Kind is the component's engine kind.
+                              type: string
+                            params:
+                              additionalProperties:
+                                type: string
+                              description: Params are extra scrape query parameters
+                                (e.g. /probe?target=).
+                              type: object
+                            path:
+                              default: /metrics
+                              description: Path is the HTTP path (default "/metrics").
+                              type: string
+                            podSelector:
+                              additionalProperties:
+                                type: string
+                              description: PodSelector selects the pods serving the
+                                endpoint.
+                              type: object
+                            port:
+                              description: Port is the container port, by name or
+                                number.
+                              properties:
+                                name:
+                                  description: Name is the named container port.
+                                  type: string
+                                number:
+                                  description: Number is the numeric container port.
+                                  format: int32
+                                  maximum: 65535
+                                  minimum: 1
+                                  type: integer
+                              type: object
+                              x-kubernetes-validations:
+                              - message: exactly one of name or number must be set
+                                rule: has(self.name) != has(self.number)
+                            scheme:
+                              default: http
+                              description: Scheme is "http" or "https".
+                              enum:
+                              - http
+                              - https
+                              type: string
+                            tls:
+                              description: TLS describes how to verify an https endpoint.
+                              properties:
+                                caSecretRef:
+                                  description: CASecretRef references the Secret and
+                                    key holding the CA bundle.
+                                  properties:
+                                    key:
+                                      description: Key within the Secret.
+                                      type: string
+                                    name:
+                                      description: Name of the Secret.
+                                      type: string
+                                  required:
+                                  - key
+                                  - name
+                                  type: object
+                                insecureSkipVerify:
+                                  description: InsecureSkipVerify disables verification.
+                                  type: boolean
+                                serverName:
+                                  description: ServerName overrides the expected server
+                                    name.
+                                  type: string
+                              type: object
+                          required:
+                          - component
+                          - kind
+                          - podSelector
+                          - port
+                          type: object
+                        maxItems: 32
+                        type: array
+                        x-kubernetes-list-type: atomic
+                    type: object
+                type: object
               pendingMaintenance:
                 description: |-
                   PendingMaintenance lists the disruptive actions currently held awaiting

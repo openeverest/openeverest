@@ -122,6 +122,12 @@ type InstanceSpec struct {
 	// would have no effect.
 	// +optional
 	UserSecretRef *common.SecretRef `json:"userSecretRef,omitempty"`
+
+	// Monitoring configures where this Instance sends monitoring data. Core
+	// creates one MonitoringBinding per destination; the resolved state is
+	// mirrored in status.monitoring.destinations[].
+	// +optional
+	Monitoring *InstanceMonitoringSpec `json:"monitoring,omitempty"`
 }
 
 // InstanceDeletionPolicy controls what happens to Backup and Restore CRs
@@ -560,6 +566,11 @@ type InstanceStatus struct {
 	// never go stale: an action the provider stops requesting disappears.
 	// +optional
 	PendingMaintenance []PendingMaintenanceAction `json:"pendingMaintenance,omitempty"`
+	// Monitoring mirrors spec.monitoring: one read-only summary per
+	// destination, built from the MonitoringBindings and written only by
+	// provider-runtime.
+	// +optional
+	Monitoring *InstanceMonitoringStatus `json:"monitoring,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +optional

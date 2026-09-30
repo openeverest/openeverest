@@ -223,6 +223,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := (&monitoringcontroller.MonitoringDestinationReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "MonitoringDestination")
+		os.Exit(1)
+	}
+
+	if err := (&monitoringcontroller.MonitoringBindingReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "MonitoringBinding")
+		os.Exit(1)
+	}
+
 	if err := (&plugincontroller.PluginReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),

@@ -372,6 +372,39 @@ func (e InstanceSpecMaintenanceAutoApproveUpTo) Valid() bool {
 	}
 }
 
+// Defines values for InstanceSpecMonitoringDestinationsDestinationRefKind.
+const (
+	InstanceSpecMonitoringDestinationsDestinationRefKindMonitoringDestination InstanceSpecMonitoringDestinationsDestinationRefKind = "MonitoringDestination"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSpecMonitoringDestinationsDestinationRefKind enum.
+func (e InstanceSpecMonitoringDestinationsDestinationRefKind) Valid() bool {
+	switch e {
+	case InstanceSpecMonitoringDestinationsDestinationRefKindMonitoringDestination:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceSpecMonitoringDestinationsExecutionMode.
+const (
+	InstanceSpecMonitoringDestinationsExecutionModeExtensionManaged InstanceSpecMonitoringDestinationsExecutionMode = "ExtensionManaged"
+	InstanceSpecMonitoringDestinationsExecutionModeProviderManaged  InstanceSpecMonitoringDestinationsExecutionMode = "ProviderManaged"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSpecMonitoringDestinationsExecutionMode enum.
+func (e InstanceSpecMonitoringDestinationsExecutionMode) Valid() bool {
+	switch e {
+	case InstanceSpecMonitoringDestinationsExecutionModeExtensionManaged:
+		return true
+	case InstanceSpecMonitoringDestinationsExecutionModeProviderManaged:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceStatusBackupStoragesPitrState.
 const (
 	InstanceStatusBackupStoragesPitrStateAvailable   InstanceStatusBackupStoragesPitrState = "Available"
@@ -405,6 +438,42 @@ func (e InstanceStatusConditionsStatus) Valid() bool {
 	case InstanceStatusConditionsStatusTrue:
 		return true
 	case InstanceStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceStatusMonitoringDestinationsMode.
+const (
+	InstanceStatusMonitoringDestinationsModeExtensionManaged InstanceStatusMonitoringDestinationsMode = "ExtensionManaged"
+	InstanceStatusMonitoringDestinationsModeProviderManaged  InstanceStatusMonitoringDestinationsMode = "ProviderManaged"
+)
+
+// Valid indicates whether the value is a known member of the InstanceStatusMonitoringDestinationsMode enum.
+func (e InstanceStatusMonitoringDestinationsMode) Valid() bool {
+	switch e {
+	case InstanceStatusMonitoringDestinationsModeExtensionManaged:
+		return true
+	case InstanceStatusMonitoringDestinationsModeProviderManaged:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceStatusMonitoringSourcesMetricsScheme.
+const (
+	InstanceStatusMonitoringSourcesMetricsSchemeHttp  InstanceStatusMonitoringSourcesMetricsScheme = "http"
+	InstanceStatusMonitoringSourcesMetricsSchemeHttps InstanceStatusMonitoringSourcesMetricsScheme = "https"
+)
+
+// Valid indicates whether the value is a known member of the InstanceStatusMonitoringSourcesMetricsScheme enum.
+func (e InstanceStatusMonitoringSourcesMetricsScheme) Valid() bool {
+	switch e {
+	case InstanceStatusMonitoringSourcesMetricsSchemeHttp:
+		return true
+	case InstanceStatusMonitoringSourcesMetricsSchemeHttps:
 		return true
 	default:
 		return false
@@ -570,6 +639,39 @@ func (e InstancePresetSpecMaintenanceAutoApproveUpTo) Valid() bool {
 	}
 }
 
+// Defines values for InstancePresetSpecMonitoringDestinationsDestinationRefKind.
+const (
+	InstancePresetSpecMonitoringDestinationsDestinationRefKindMonitoringDestination InstancePresetSpecMonitoringDestinationsDestinationRefKind = "MonitoringDestination"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetSpecMonitoringDestinationsDestinationRefKind enum.
+func (e InstancePresetSpecMonitoringDestinationsDestinationRefKind) Valid() bool {
+	switch e {
+	case InstancePresetSpecMonitoringDestinationsDestinationRefKindMonitoringDestination:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstancePresetSpecMonitoringDestinationsExecutionMode.
+const (
+	InstancePresetSpecMonitoringDestinationsExecutionModeExtensionManaged InstancePresetSpecMonitoringDestinationsExecutionMode = "ExtensionManaged"
+	InstancePresetSpecMonitoringDestinationsExecutionModeProviderManaged  InstancePresetSpecMonitoringDestinationsExecutionMode = "ProviderManaged"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetSpecMonitoringDestinationsExecutionMode enum.
+func (e InstancePresetSpecMonitoringDestinationsExecutionMode) Valid() bool {
+	switch e {
+	case InstancePresetSpecMonitoringDestinationsExecutionModeExtensionManaged:
+		return true
+	case InstancePresetSpecMonitoringDestinationsExecutionModeProviderManaged:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstancePresetStatusConditionsStatus.
 const (
 	InstancePresetStatusConditionsStatusFalse   InstancePresetStatusConditionsStatus = "False"
@@ -591,6 +693,81 @@ func (e InstancePresetStatusConditionsStatus) Valid() bool {
 	}
 }
 
+// Defines values for MonitoringBindingSpecDestinationRefKind.
+const (
+	MonitoringBindingSpecDestinationRefKindMonitoringDestination MonitoringBindingSpecDestinationRefKind = "MonitoringDestination"
+)
+
+// Valid indicates whether the value is a known member of the MonitoringBindingSpecDestinationRefKind enum.
+func (e MonitoringBindingSpecDestinationRefKind) Valid() bool {
+	switch e {
+	case MonitoringBindingSpecDestinationRefKindMonitoringDestination:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MonitoringBindingSpecExecutionMode.
+const (
+	MonitoringBindingSpecExecutionModeExtensionManaged MonitoringBindingSpecExecutionMode = "ExtensionManaged"
+	MonitoringBindingSpecExecutionModeProviderManaged  MonitoringBindingSpecExecutionMode = "ProviderManaged"
+)
+
+// Valid indicates whether the value is a known member of the MonitoringBindingSpecExecutionMode enum.
+func (e MonitoringBindingSpecExecutionMode) Valid() bool {
+	switch e {
+	case MonitoringBindingSpecExecutionModeExtensionManaged:
+		return true
+	case MonitoringBindingSpecExecutionModeProviderManaged:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MonitoringBindingStatusConditionsStatus.
+const (
+	MonitoringBindingStatusConditionsStatusFalse   MonitoringBindingStatusConditionsStatus = "False"
+	MonitoringBindingStatusConditionsStatusTrue    MonitoringBindingStatusConditionsStatus = "True"
+	MonitoringBindingStatusConditionsStatusUnknown MonitoringBindingStatusConditionsStatus = "Unknown"
+)
+
+// Valid indicates whether the value is a known member of the MonitoringBindingStatusConditionsStatus enum.
+func (e MonitoringBindingStatusConditionsStatus) Valid() bool {
+	switch e {
+	case MonitoringBindingStatusConditionsStatusFalse:
+		return true
+	case MonitoringBindingStatusConditionsStatusTrue:
+		return true
+	case MonitoringBindingStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MonitoringClassStatusConditionsStatus.
+const (
+	MonitoringClassStatusConditionsStatusFalse   MonitoringClassStatusConditionsStatus = "False"
+	MonitoringClassStatusConditionsStatusTrue    MonitoringClassStatusConditionsStatus = "True"
+	MonitoringClassStatusConditionsStatusUnknown MonitoringClassStatusConditionsStatus = "Unknown"
+)
+
+// Valid indicates whether the value is a known member of the MonitoringClassStatusConditionsStatus enum.
+func (e MonitoringClassStatusConditionsStatus) Valid() bool {
+	switch e {
+	case MonitoringClassStatusConditionsStatusFalse:
+		return true
+	case MonitoringClassStatusConditionsStatusTrue:
+		return true
+	case MonitoringClassStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MonitoringConfigSpecType.
 const (
 	MonitoringConfigSpecTypePmm MonitoringConfigSpecType = "pmm"
@@ -600,6 +777,27 @@ const (
 func (e MonitoringConfigSpecType) Valid() bool {
 	switch e {
 	case MonitoringConfigSpecTypePmm:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MonitoringDestinationStatusConditionsStatus.
+const (
+	MonitoringDestinationStatusConditionsStatusFalse   MonitoringDestinationStatusConditionsStatus = "False"
+	MonitoringDestinationStatusConditionsStatusTrue    MonitoringDestinationStatusConditionsStatus = "True"
+	MonitoringDestinationStatusConditionsStatusUnknown MonitoringDestinationStatusConditionsStatus = "Unknown"
+)
+
+// Valid indicates whether the value is a known member of the MonitoringDestinationStatusConditionsStatus enum.
+func (e MonitoringDestinationStatusConditionsStatus) Valid() bool {
+	switch e {
+	case MonitoringDestinationStatusConditionsStatusFalse:
+		return true
+	case MonitoringDestinationStatusConditionsStatusTrue:
+		return true
+	case MonitoringDestinationStatusConditionsStatusUnknown:
 		return true
 	default:
 		return false
@@ -621,6 +819,27 @@ func (e PluginStatusConditionsStatus) Valid() bool {
 	case PluginStatusConditionsStatusTrue:
 		return true
 	case PluginStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProviderSpecMonitoringComponentTypesMetrics.
+const (
+	ProviderSpecMonitoringComponentTypesMetricsExporter ProviderSpecMonitoringComponentTypesMetrics = "Exporter"
+	ProviderSpecMonitoringComponentTypesMetricsNative   ProviderSpecMonitoringComponentTypesMetrics = "Native"
+	ProviderSpecMonitoringComponentTypesMetricsNone     ProviderSpecMonitoringComponentTypesMetrics = "None"
+)
+
+// Valid indicates whether the value is a known member of the ProviderSpecMonitoringComponentTypesMetrics enum.
+func (e ProviderSpecMonitoringComponentTypesMetrics) Valid() bool {
+	switch e {
+	case ProviderSpecMonitoringComponentTypesMetricsExporter:
+		return true
+	case ProviderSpecMonitoringComponentTypesMetricsNative:
+		return true
+	case ProviderSpecMonitoringComponentTypesMetricsNone:
 		return true
 	default:
 		return false
@@ -2612,6 +2831,37 @@ type Instance struct {
 			AutoApproveUpTo *InstanceSpecMaintenanceAutoApproveUpTo `json:"autoApproveUpTo,omitempty"`
 		} `json:"maintenance,omitempty"`
 
+		// Monitoring Monitoring configures where this Instance sends monitoring data. Core
+		// creates one MonitoringBinding per destination; the resolved state is
+		// mirrored in status.monitoring.destinations[].
+		Monitoring *struct {
+			// Destinations Destinations lists the MonitoringDestinations this Instance sends to.
+			// Core creates one MonitoringBinding per entry.
+			Destinations *[]struct {
+				// DestinationRef DestinationRef references the MonitoringDestination in the Instance's
+				// namespace.
+				DestinationRef struct {
+					// Kind Kind of the referenced object.
+					Kind *InstanceSpecMonitoringDestinationsDestinationRefKind `json:"kind,omitempty"`
+
+					// Name Name of the referenced object.
+					Name string `json:"name"`
+				} `json:"destinationRef"`
+
+				// ExecutionMode ExecutionMode pins who renders the binding. When unset the mode is
+				// resolved once when the binding is created and never changes on its own;
+				// changing the pin recreates the binding.
+				ExecutionMode *InstanceSpecMonitoringDestinationsExecutionMode `json:"executionMode,omitempty"`
+
+				// Name Name identifies the entry within the Instance; it is the key of
+				// status.monitoring.destinations[] and part of the MonitoringBinding name.
+				Name string `json:"name"`
+
+				// Parameters Parameters are validated against the class's instanceParametersSchema.
+				Parameters *map[string]interface{} `json:"parameters,omitempty"`
+			} `json:"destinations,omitempty"`
+		} `json:"monitoring,omitempty"`
+
 		// Parameters Parameters contains structured parameters that apply to the Instance
 		// as a whole, complementing the topology- and component-scoped
 		// parameters. The payload is validated against the referenced Provider's
@@ -2754,6 +3004,113 @@ type Instance struct {
 		// Message Message is a custom user-facing message describing the current state of the instance.
 		Message *string `json:"message,omitempty"`
 
+		// Monitoring Monitoring mirrors spec.monitoring: one read-only summary per
+		// destination, built from the MonitoringBindings and written only by
+		// provider-runtime.
+		Monitoring *struct {
+			// Destinations Destinations has one entry per spec.monitoring.destinations[] entry.
+			Destinations *[]struct {
+				// Configured Configured mirrors the binding's Configured condition; False when the
+				// binding is not Accepted, Unknown while it is missing or pending.
+				Configured *string `json:"configured,omitempty"`
+
+				// Message Message is the human-readable detail for Configured.
+				Message *string `json:"message,omitempty"`
+
+				// Mode Mode is the resolved execution mode.
+				Mode *InstanceStatusMonitoringDestinationsMode `json:"mode,omitempty"`
+
+				// Name Name matches spec.monitoring.destinations[].name.
+				Name string `json:"name"`
+
+				// Reason Reason is the machine-readable reason for Configured.
+				Reason *string `json:"reason,omitempty"`
+			} `json:"destinations,omitempty"`
+
+			// Sources Sources is the per-Instance publication of the provider's monitoring
+			// contract, consumed by ExtensionManaged class controllers.
+			Sources *struct {
+				// Credentials Credentials lists the Instance-owned monitoring credential Secrets by
+				// profile.
+				Credentials *[]struct {
+					// Profile Profile names the credential profile (e.g. "metrics").
+					Profile string `json:"profile"`
+
+					// SecretRef SecretRef references the Secret in the Instance's namespace.
+					SecretRef struct {
+						// Name Name of the referenced Secret.
+						Name string `json:"name"`
+					} `json:"secretRef"`
+				} `json:"credentials,omitempty"`
+
+				// Identity Identity carries the labels every monitoring class must attach so
+				// destinations can tell Instances and clusters apart. Stamped by the
+				// runtime.
+				Identity *struct {
+					// ClusterID ClusterID is the UID of the kube-system namespace.
+					ClusterID *string `json:"clusterID,omitempty"`
+
+					// Labels Labels are the identity labels (openeverest_instance,
+					// openeverest_namespace, openeverest_provider, k8s_cluster_id).
+					Labels *map[string]string `json:"labels,omitempty"`
+				} `json:"identity,omitempty"`
+
+				// Metrics Metrics lists the OpenMetrics endpoints that are currently serving.
+				Metrics *[]struct {
+					// Auth Auth names the credential profile the scraper must authenticate with.
+					Auth *struct {
+						// CredentialProfile CredentialProfile matches MonitoringSources.credentials[].profile.
+						CredentialProfile string `json:"credentialProfile"`
+					} `json:"auth,omitempty"`
+
+					// Component Component is the Instance component name (e.g. "engine", "proxy").
+					Component string `json:"component"`
+
+					// Kind Kind is the component's engine kind.
+					Kind string `json:"kind"`
+
+					// Params Params are extra scrape query parameters (e.g. /probe?target=).
+					Params *map[string]string `json:"params,omitempty"`
+
+					// Path Path is the HTTP path (default "/metrics").
+					Path *string `json:"path,omitempty"`
+
+					// PodSelector PodSelector selects the pods serving the endpoint.
+					PodSelector map[string]string `json:"podSelector"`
+
+					// Port Port is the container port, by name or number.
+					Port struct {
+						// Name Name is the named container port.
+						Name *string `json:"name,omitempty"`
+
+						// Number Number is the numeric container port.
+						Number *int32 `json:"number,omitempty"`
+					} `json:"port"`
+
+					// Scheme Scheme is "http" or "https".
+					Scheme *InstanceStatusMonitoringSourcesMetricsScheme `json:"scheme,omitempty"`
+
+					// Tls TLS describes how to verify an https endpoint.
+					Tls *struct {
+						// CaSecretRef CASecretRef references the Secret and key holding the CA bundle.
+						CaSecretRef *struct {
+							// Key Key within the Secret.
+							Key string `json:"key"`
+
+							// Name Name of the Secret.
+							Name string `json:"name"`
+						} `json:"caSecretRef,omitempty"`
+
+						// InsecureSkipVerify InsecureSkipVerify disables verification.
+						InsecureSkipVerify *bool `json:"insecureSkipVerify,omitempty"`
+
+						// ServerName ServerName overrides the expected server name.
+						ServerName *string `json:"serverName,omitempty"`
+					} `json:"tls,omitempty"`
+				} `json:"metrics,omitempty"`
+			} `json:"sources,omitempty"`
+		} `json:"monitoring,omitempty"`
+
 		// PendingMaintenance PendingMaintenance lists the disruptive actions currently held awaiting
 		// approval. It is recomputed on every reconcile from the actions the
 		// provider currently requests above the Instance's tolerance, so it can
@@ -2860,11 +3217,25 @@ type InstanceSpecDeletionPolicy string
 // whether the action was raised by a provider upgrade or anything else.
 type InstanceSpecMaintenanceAutoApproveUpTo string
 
+// InstanceSpecMonitoringDestinationsDestinationRefKind Kind of the referenced object.
+type InstanceSpecMonitoringDestinationsDestinationRefKind string
+
+// InstanceSpecMonitoringDestinationsExecutionMode ExecutionMode pins who renders the binding. When unset the mode is
+// resolved once when the binding is created and never changes on its own;
+// changing the pin recreates the binding.
+type InstanceSpecMonitoringDestinationsExecutionMode string
+
 // InstanceStatusBackupStoragesPitrState State summarises whether a trustworthy window exists.
 type InstanceStatusBackupStoragesPitrState string
 
 // InstanceStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstanceStatusConditionsStatus string
+
+// InstanceStatusMonitoringDestinationsMode Mode is the resolved execution mode.
+type InstanceStatusMonitoringDestinationsMode string
+
+// InstanceStatusMonitoringSourcesMetricsScheme Scheme is "http" or "https".
+type InstanceStatusMonitoringSourcesMetricsScheme string
 
 // InstanceStatusPendingMaintenanceSeverity Severity is the action's observable database impact.
 type InstanceStatusPendingMaintenanceSeverity string
@@ -3897,6 +4268,37 @@ type InstancePreset struct {
 			AutoApproveUpTo *InstancePresetSpecMaintenanceAutoApproveUpTo `json:"autoApproveUpTo,omitempty"`
 		} `json:"maintenance,omitempty"`
 
+		// Monitoring Monitoring configures where this Instance sends monitoring data. Core
+		// creates one MonitoringBinding per destination; the resolved state is
+		// mirrored in status.monitoring.destinations[].
+		Monitoring *struct {
+			// Destinations Destinations lists the MonitoringDestinations this Instance sends to.
+			// Core creates one MonitoringBinding per entry.
+			Destinations *[]struct {
+				// DestinationRef DestinationRef references the MonitoringDestination in the Instance's
+				// namespace.
+				DestinationRef struct {
+					// Kind Kind of the referenced object.
+					Kind *InstancePresetSpecMonitoringDestinationsDestinationRefKind `json:"kind,omitempty"`
+
+					// Name Name of the referenced object.
+					Name string `json:"name"`
+				} `json:"destinationRef"`
+
+				// ExecutionMode ExecutionMode pins who renders the binding. When unset the mode is
+				// resolved once when the binding is created and never changes on its own;
+				// changing the pin recreates the binding.
+				ExecutionMode *InstancePresetSpecMonitoringDestinationsExecutionMode `json:"executionMode,omitempty"`
+
+				// Name Name identifies the entry within the Instance; it is the key of
+				// status.monitoring.destinations[] and part of the MonitoringBinding name.
+				Name string `json:"name"`
+
+				// Parameters Parameters are validated against the class's instanceParametersSchema.
+				Parameters *map[string]interface{} `json:"parameters,omitempty"`
+			} `json:"destinations,omitempty"`
+		} `json:"monitoring,omitempty"`
+
 		// Parameters Parameters contains structured parameters that apply to the Instance
 		// as a whole, complementing the topology- and component-scoped
 		// parameters. The payload is validated against the referenced Provider's
@@ -4048,6 +4450,14 @@ type InstancePresetSpecDeletionPolicy string
 // whether the action was raised by a provider upgrade or anything else.
 type InstancePresetSpecMaintenanceAutoApproveUpTo string
 
+// InstancePresetSpecMonitoringDestinationsDestinationRefKind Kind of the referenced object.
+type InstancePresetSpecMonitoringDestinationsDestinationRefKind string
+
+// InstancePresetSpecMonitoringDestinationsExecutionMode ExecutionMode pins who renders the binding. When unset the mode is
+// resolved once when the binding is created and never changes on its own;
+// changing the pin recreates the binding.
+type InstancePresetSpecMonitoringDestinationsExecutionMode string
+
 // InstancePresetStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstancePresetStatusConditionsStatus string
 
@@ -4056,6 +4466,277 @@ type InstancePresetList struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
 	ApiVersion *string           `json:"apiVersion,omitempty"`
 	Items      *[]InstancePreset `json:"items,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string `json:"kind,omitempty"`
+	Metadata *struct {
+		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
+		Name *string `json:"name,omitempty"`
+	} `json:"metadata,omitempty"`
+}
+
+// MonitoringBinding MonitoringBinding records that OpenEverest has configured one Instance to
+// send monitoring data to one MonitoringDestination. Created from
+// Instance.spec.monitoring.destinations[]; edit the Instance, not this object.
+type MonitoringBinding struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
+
+	// Spec MonitoringBindingSpec is written only by the core materialiser. It is
+	// immutable except for parameters; classRef and executionMode are set once,
+	// when the destination and class first resolve.
+	Spec struct {
+		// ClassRef ClassRef is copied from the MonitoringDestination once it resolves.
+		ClassRef *struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"classRef,omitempty"`
+
+		// DestinationRef DestinationRef is copied from the Instance.spec.monitoring.destinations[] entry.
+		DestinationRef struct {
+			// Kind Kind of the referenced object.
+			Kind *MonitoringBindingSpecDestinationRefKind `json:"kind,omitempty"`
+
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"destinationRef"`
+
+		// ExecutionMode ExecutionMode selects the executor that owns the Configured condition.
+		// Set once, at first successful resolution.
+		ExecutionMode *MonitoringBindingSpecExecutionMode `json:"executionMode,omitempty"`
+
+		// InstanceRef InstanceRef references the Instance in the same namespace.
+		InstanceRef struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"instanceRef"`
+
+		// Parameters Parameters are copied from the Instance.spec.monitoring.destinations[] entry.
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+	} `json:"spec"`
+
+	// Status MonitoringBindingStatus is written per condition type by its owner.
+	Status *struct {
+		// AppliedRevision AppliedRevision is the hash of the rendered content last applied by a
+		// ProviderManaged executor. Reporting only.
+		AppliedRevision *string `json:"appliedRevision,omitempty"`
+		Conditions      *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status MonitoringBindingStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+	} `json:"status,omitempty"`
+}
+
+// MonitoringBindingSpecDestinationRefKind Kind of the referenced object.
+type MonitoringBindingSpecDestinationRefKind string
+
+// MonitoringBindingSpecExecutionMode ExecutionMode selects the executor that owns the Configured condition.
+// Set once, at first successful resolution.
+type MonitoringBindingSpecExecutionMode string
+
+// MonitoringBindingStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type MonitoringBindingStatusConditionsStatus string
+
+// MonitoringBindingList MonitoringBindingList is an object that contains the list of the existing monitoringbindings.
+type MonitoringBindingList struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string              `json:"apiVersion,omitempty"`
+	Items      *[]MonitoringBinding `json:"items,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string `json:"kind,omitempty"`
+	Metadata *struct {
+		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
+		Name *string `json:"name,omitempty"`
+
+		// Namespace Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
+		Namespace *string `json:"namespace,omitempty"`
+	} `json:"metadata,omitempty"`
+}
+
+// MonitoringClass MonitoringClass is the Schema for the monitoringclasses API. One per
+// monitoring technology, claimed by an out-of-tree controller.
+type MonitoringClass struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
+
+	// Spec MonitoringClassSpec defines the desired state of MonitoringClass.
+	Spec struct {
+		// ControllerName ControllerName is the domain-prefixed name of the controller that
+		// fulfils this class (e.g. "openeverest.io/monitoring-pmm"). Only that
+		// controller sets the Accepted condition.
+		ControllerName string `json:"controllerName"`
+
+		// CredentialsSchema CredentialsSchema lists the keys the MonitoringDestination credentials
+		// Secret must carry.
+		CredentialsSchema *struct {
+			// Required Required is the list of required Secret keys.
+			Required *[]string `json:"required,omitempty"`
+		} `json:"credentialsSchema,omitempty"`
+
+		// Description Description describes the monitoring technology.
+		Description *string `json:"description,omitempty"`
+
+		// DestinationParametersSchema DestinationParametersSchema validates MonitoringDestination.spec.parameters.
+		DestinationParametersSchema *struct {
+			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+			// parameters payload.
+			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+		} `json:"destinationParametersSchema,omitempty"`
+
+		// DisplayName DisplayName is a human-readable name for the monitoring technology.
+		DisplayName *string `json:"displayName,omitempty"`
+
+		// ExtensionManaged ExtensionManaged declares that the class controller wires the backend
+		// from the provider's monitoring contract alone (Instance.status.monitoring.sources).
+		ExtensionManaged *struct {
+			// Degrades Degrades lists the capabilities lost compared to a ProviderManaged
+			// fulfilment of the same class (e.g. "slowLogQAN").
+			Degrades *[]string `json:"degrades,omitempty"`
+
+			// Requires Requires lists the source capabilities a component must satisfy to
+			// be eligible for this class.
+			Requires *struct {
+				// CredentialProfiles CredentialProfiles requires the component to offer these credential
+				// profiles (all-of).
+				CredentialProfiles *[]string `json:"credentialProfiles,omitempty"`
+
+				// Features Features requires the component to offer these engine features
+				// (all-of).
+				Features *[]string `json:"features,omitempty"`
+
+				// Kinds Kinds restricts eligibility to components of these kinds (any-of).
+				Kinds *[]string `json:"kinds,omitempty"`
+
+				// Metrics Metrics requires the component to expose OpenMetrics
+				// (metrics: Native or Exporter).
+				Metrics *bool `json:"metrics,omitempty"`
+			} `json:"requires,omitempty"`
+		} `json:"extensionManaged,omitempty"`
+
+		// InstanceParametersSchema InstanceParametersSchema validates
+		// Instance.spec.monitoring.destinations[].parameters.
+		InstanceParametersSchema *struct {
+			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+			// parameters payload.
+			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+		} `json:"instanceParametersSchema,omitempty"`
+
+		// ProviderManaged ProviderManaged declares that providers whose engine operator natively
+		// integrates this technology render it themselves inside Sync. Matched
+		// against Provider.spec.monitoring.integrations.
+		ProviderManaged *struct {
+			// AgentImage AgentImage is the agent image the provider renders into the engine
+			// pods. It is admin-controlled: only class writers can change what runs
+			// next to the data volumes.
+			AgentImage *string `json:"agentImage,omitempty"`
+
+			// AgentVersion AgentVersion is the semantic version of AgentImage, matched against
+			// Provider.spec.monitoring.integrations.<integration>.agentVersions.
+			AgentVersion *string `json:"agentVersion,omitempty"`
+
+			// Features Features lists what the integration delivers beyond metrics
+			// (e.g. "queryAnalytics"), used for user-facing disclosure.
+			Features *[]string `json:"features,omitempty"`
+
+			// Integration Integration is the integration name providers declare in
+			// Provider.spec.monitoring.integrations (e.g. "pmm").
+			Integration string `json:"integration"`
+		} `json:"providerManaged,omitempty"`
+
+		// UiSchema UISchema holds free-form rendering hints consumed only by the UI.
+		UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
+	} `json:"spec"`
+
+	// Status MonitoringClassStatus defines the observed state of MonitoringClass.
+	Status *struct {
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status MonitoringClassStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+	} `json:"status,omitempty"`
+}
+
+// MonitoringClassStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type MonitoringClassStatusConditionsStatus string
+
+// MonitoringClassList MonitoringClassList is an object that contains the list of the existing monitoringclasss.
+type MonitoringClassList struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string            `json:"apiVersion,omitempty"`
+	Items      *[]MonitoringClass `json:"items,omitempty"`
 
 	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
 	Kind     *string `json:"kind,omitempty"`
@@ -4132,6 +4813,105 @@ type MonitoringConfigList struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
 	ApiVersion *string             `json:"apiVersion,omitempty"`
 	Items      *[]MonitoringConfig `json:"items,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string `json:"kind,omitempty"`
+	Metadata *struct {
+		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
+		Name *string `json:"name,omitempty"`
+
+		// Namespace Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
+		Namespace *string `json:"namespace,omitempty"`
+	} `json:"metadata,omitempty"`
+}
+
+// MonitoringDestination MonitoringDestination is one place a namespace sends monitoring data to,
+// typed by a MonitoringClass. Instances send to it through
+// spec.monitoring.destinations[].
+type MonitoringDestination struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
+
+	// Spec MonitoringDestinationSpec defines the desired state of MonitoringDestination.
+	Spec struct {
+		// ClassRef ClassRef references the cluster-scoped MonitoringClass this destination
+		// belongs to. Immutable.
+		ClassRef struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"classRef"`
+
+		// CredentialsSecretRef CredentialsSecretRef references the Secret in the same namespace that
+		// holds the destination credentials; its keys are described by the
+		// class's credentialsSchema.
+		CredentialsSecretRef *struct {
+			// Name Name of the referenced Secret.
+			Name string `json:"name"`
+		} `json:"credentialsSecretRef,omitempty"`
+
+		// Parameters Parameters are validated against
+		// MonitoringClass.spec.destinationParametersSchema.
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+	} `json:"spec"`
+
+	// Status MonitoringDestinationStatus defines the observed state of
+	// MonitoringDestination.
+	Status *struct {
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status MonitoringDestinationStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+
+		// ServerVersion ServerVersion is the backend server version probed by the class
+		// controller.
+		ServerVersion *string `json:"serverVersion,omitempty"`
+	} `json:"status,omitempty"`
+}
+
+// MonitoringDestinationStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type MonitoringDestinationStatusConditionsStatus string
+
+// MonitoringDestinationList MonitoringDestinationList is an object that contains the list of the existing monitoringdestinations.
+type MonitoringDestinationList struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string                  `json:"apiVersion,omitempty"`
+	Items      *[]MonitoringDestination `json:"items,omitempty"`
 
 	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
 	Kind     *string `json:"kind,omitempty"`
@@ -4409,6 +5189,37 @@ type Provider struct {
 		// omits Spec.Version.
 		DefaultVersion *string `json:"defaultVersion,omitempty"`
 
+		// Monitoring Monitoring is the provider's monitoring contract: the operator-native
+		// integrations it renders itself and what each component type exposes.
+		Monitoring *struct {
+			// ComponentTypes ComponentTypes declares what each component type exposes, keyed by
+			// component type (the software), not by component name.
+			ComponentTypes *map[string]struct {
+				// CredentialProfiles CredentialProfiles are the least-privilege users the provider can
+				// create on demand (e.g. "metrics", "queryAnalytics").
+				CredentialProfiles *[]string `json:"credentialProfiles,omitempty"`
+
+				// Features Features are engine switches the provider can enable on demand
+				// (e.g. "queryAnalytics").
+				Features *[]string `json:"features,omitempty"`
+
+				// Kind Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
+				// follow OpenTelemetry db.system.name; unknown kinds are allowed.
+				Kind string `json:"kind"`
+
+				// Metrics Metrics states how the component exposes OpenMetrics.
+				Metrics *ProviderSpecMonitoringComponentTypesMetrics `json:"metrics,omitempty"`
+			} `json:"componentTypes,omitempty"`
+
+			// Integrations Integrations lists the operator-native monitoring integrations the
+			// provider renders itself, keyed by integration name (e.g. "pmm").
+			Integrations *map[string]struct {
+				// AgentVersions AgentVersions is the semver range of agent versions the provider can
+				// render (e.g. ">=3.0.0 <4.0.0").
+				AgentVersions *string `json:"agentVersions,omitempty"`
+			} `json:"integrations,omitempty"`
+		} `json:"monitoring,omitempty"`
+
 		// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for the instance-wide
 		// parameters payload (Instance.spec.parameters).
 		ParametersSchema *struct {
@@ -4526,6 +5337,9 @@ type Provider struct {
 		} `json:"conditions,omitempty"`
 	} `json:"status,omitempty"`
 }
+
+// ProviderSpecMonitoringComponentTypesMetrics Metrics states how the component exposes OpenMetrics.
+type ProviderSpecMonitoringComponentTypesMetrics string
 
 // ProviderStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type ProviderStatusConditionsStatus string
