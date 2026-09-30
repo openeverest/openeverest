@@ -876,12 +876,21 @@ func TestRBAC_Instance(t *testing.T) {
 				),
 			},
 			{
-				desc:    "has read permission",
+				desc:    "has read-connection permission",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, instances, read-connection, prod/ns1/db1",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:    "read permission alone is not enough",
 				cluster: "prod",
 				policy: newPolicy(
 					"p, role:test, instances, read, prod/ns1/db1",
 					"g, bob, role:test",
 				),
+				wantErr: ErrInsufficientPermissions,
 			},
 			{
 				desc:    "no permissions",
