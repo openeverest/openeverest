@@ -318,6 +318,25 @@ func (r *RestoreReconciler) resolveBackupClass(
 		}
 		backupClassName = instance.Spec.Backup.ClassRef.Name
 
+	case backupv1alpha1.DataSourceTypeImport:
+		instance := &corev1alpha1.Instance{}
+		if err := r.Client.Get(ctx, client.ObjectKey{
+			Name:      restore.Spec.InstanceRef.Name,
+			Namespace: restore.GetNamespace(),
+		}, instance); err != nil {
+			return nil, fmt.Errorf(
+				"failed to get instance %q: %w",
+				restore.Spec.InstanceRef.Name, err,
+			)
+		}
+
+		backupClassName = controller.ImportBackupClassName(ds.Import, instance)
+		if backupClassName == "" {
+			return nil, fmt.Errorf(
+				"instance %q does not have backup configuration", instance.Name,
+			)
+		}
+
 	default:
 		return nil, fmt.Errorf("unsupported dataSource type %q", ds.Type)
 	}
