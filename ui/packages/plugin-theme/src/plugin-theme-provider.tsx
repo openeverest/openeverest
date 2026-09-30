@@ -201,7 +201,7 @@ function hostShape(): ThemeOptions['shape'] {
   return Number.isFinite(radius) ? { borderRadius: radius } : undefined;
 }
 
-// Emotion never removes a cache's <style> tags, so a per-mount cache leaks them.
+// One cache per key for the page lifetime: flushing on unmount breaks StrictMode remounts.
 const caches = new Map<string, EmotionCache>();
 
 function getCache(key: string, nonce?: string): EmotionCache {
