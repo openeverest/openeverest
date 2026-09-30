@@ -1,6 +1,20 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { MRT_ColumnDef } from 'material-react-table';
-import { Button } from '@mui/material';
+import { Box, Button, Chip } from '@mui/material';
 import { Table } from '@percona/ui-lib';
 import { beautifyDbTypeName, dbEngineToDbType } from '@percona/utils';
 import semverCoerce from 'semver/functions/coerce';
@@ -11,6 +25,7 @@ import {
 import { DbCluster, DbClusterStatus, Spec } from 'shared-types/dbCluster.types';
 import { ClusterStatusTableProps } from './types';
 import { useDbClusters } from 'hooks/api/db-clusters/useDbClusters';
+import { useBatchResolvePendingActions } from 'hooks/api/db-engines/useBatchResolvePendingActions';
 import { DB_CLUSTER_STATUS_TO_BASE_STATUS } from 'pages/databases/DbClusterView.constants';
 import { beautifyDbClusterStatus } from 'pages/databases/DbClusterView.utils';
 import StatusField from 'components/status-field';
@@ -25,6 +40,7 @@ const ClusterStatusTable = ({
   namespace,
   pendingActions,
   dbEngines,
+  upgradePhase,
 }: ClusterStatusTableProps) => {
   const dbNames = pendingActions.map((db) => db.name);
   const { data: dbClusters = [] } = useDbClusters(namespace, {
@@ -34,6 +50,10 @@ const ClusterStatusTable = ({
       ),
     enabled: !!namespace && !!pendingActions.length,
   });
+  const actionable =
+    upgradePhase.phase === 'actions-required' ? upgradePhase.actionable : [];
+  const { mutate: resolveAll, isPending: resolvingAll } =
+    useBatchResolvePendingActions(namespace, dbClusters, actionable);
   const [openUpdateCrDialog, setOpenUpdateCrDialog] = useState(false);
   const [openUpdateEngineDialog, setOpenUpdateEngineDialog] = useState(false);
   const selectedDbCluster = useRef<DbCluster>();
@@ -171,6 +191,17 @@ const ClusterStatusTable = ({
           const task = row.original.pendingTask;
           const message = cell.getValue<string>();
 
+          if (task === 'notReady') {
+            return (
+              <Chip
+                label={message || 'Not ready'}
+                color="error"
+                size="small"
+                variant="outlined"
+              />
+            );
+          }
+
           if (task === 'restart' || task === 'upgradeEngine') {
             return (
               <Button
@@ -200,6 +231,22 @@ const ClusterStatusTable = ({
         noDataMessage="No pending actions"
         columns={columns}
         data={enhancedDbList}
+        renderTopToolbarCustomActions={() =>
+          actionable.length > 0 ? (
+            <Box display="flex" alignItems="center">
+              <Button
+                variant="contained"
+                size="small"
+                onClick={() => resolveAll()}
+                disabled={resolvingAll || dbClusters.length === 0}
+              >
+                {resolvingAll
+                  ? 'Resolving...'
+                  : `Resolve All (${actionable.length})`}
+              </Button>
+            </Box>
+          ) : undefined
+        }
       />
       {selectedDbCluster.current && openUpdateCrDialog && (
         <UpdateCrDialog
