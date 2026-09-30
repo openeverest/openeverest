@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export const Messages = {
-  showLess: 'Show less',
-  dialogTitle: 'Full text',
+// Text-like link (no button padding) shared by every "Show more" toggle.
+export const SHOW_MORE_LINK_SX = {
+  cursor: 'pointer',
+  typography: 'inherit',
+  alignSelf: 'flex-start',
+  lineHeight: 1.2,
+  px: 0,
+  py: 0,
+  minHeight: 'auto',
 };

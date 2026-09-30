@@ -13,6 +13,6 @@
 // limitations under the License.
 
 export const Messages = {
-  showLess: 'Show less',
-  dialogTitle: 'Full text',
+  showMore: 'Show more',
+  close: 'Close',
 };

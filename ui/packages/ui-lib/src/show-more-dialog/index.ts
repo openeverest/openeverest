@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export const Messages = {
-  showLess: 'Show less',
-  dialogTitle: 'Full text',
-};
+export { default } from './show-more-dialog';
+export { ShowMoreDialog } from './show-more-dialog';
+export type { ShowMoreDialogProps } from './show-more-dialog.types';
