@@ -70,6 +70,10 @@ export enum WidgetType {
   Affinity = 'affinity',
 }
 
+// Host-rendered component; `widgetType` picks the renderer, like `groupType`
+// picks a group's layout.
+export const WIDGET_UI_TYPE = 'widget' as const;
+
 export enum GroupType {
   Accordion = 'accordion',
   Bordered = 'bordered',
@@ -226,9 +230,11 @@ export interface WidgetTarget {
 }
 
 export type WidgetComponent = ComponentCommonFields & {
-  uiType: WidgetType;
+  uiType: typeof WIDGET_UI_TYPE;
+  widgetType: WidgetType;
   validation?: CommonValidation;
-  fieldParams: CommonFieldParams;
+  // Widgets own their label and params; the schema only places them.
+  fieldParams?: never;
   // API paths a marker widget writes, resolved by preprocess from the provider.
   _widgetTargets?: WidgetTarget[];
   // A pure marker widget (e.g. podSchedulingPolicy) binds no value.
@@ -236,10 +242,8 @@ export type WidgetComponent = ComponentCommonFields & {
 
 export type Component = FieldComponent | WidgetComponent;
 
-const WIDGET_TYPES = Object.values(WidgetType);
-
 export const isWidgetComponent = (item: Component): item is WidgetComponent =>
-  WIDGET_TYPES.some((widgetType) => widgetType === item.uiType);
+  item.uiType === WIDGET_UI_TYPE;
 
 export type WidgetRendererProps = {
   // Engine-resolved RHF field key. A widget is a first-class component: it flows

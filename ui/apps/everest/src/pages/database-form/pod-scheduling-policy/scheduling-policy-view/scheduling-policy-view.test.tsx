@@ -17,14 +17,15 @@ import { describe, expect, it } from 'vitest';
 import { AffinityOperator } from 'shared-types/affinity.types';
 import {
   WidgetComponent,
+  WIDGET_UI_TYPE,
   WidgetType,
 } from 'components/ui-generator/ui-generator.types';
 import { SchedulingPolicyView } from './scheduling-policy-view';
 
 const item: WidgetComponent = {
-  uiType: WidgetType.PodSchedulingPolicy,
+  uiType: WIDGET_UI_TYPE,
+  widgetType: WidgetType.PodSchedulingPolicy,
   id: 'podSchedulingPolicy',
-  fieldParams: {},
 };
 
 const proxyAffinity = {

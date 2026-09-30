@@ -176,7 +176,7 @@ export const preprocessSchema = (
       }
 
       const withTargets = withWidgetTargets(topology.sections, (widget) =>
-        widgetTargetResolvers[widget.uiType]?.({
+        widgetTargetResolvers[widget.widgetType]?.({
           providerObject,
           topology: topologyKey,
         })

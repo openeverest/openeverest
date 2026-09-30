@@ -30,6 +30,8 @@ export interface WidgetSummaryRow {
 }
 
 export interface WidgetSummary {
+  // Widget-owned name; providers can't rename a widget.
+  label: string;
   // Full read-only view (overview card, preview dialog).
   View: ComponentType<WidgetSummaryProps>;
   // Short lines for narrow surfaces (wizard preview); empty = not configured.

@@ -21,6 +21,7 @@ import {
   WidgetComponent,
   WidgetRegistry,
   WidgetRendererProps,
+  WIDGET_UI_TYPE,
   WidgetType,
 } from '../ui-generator.types';
 import { buildZodSchema } from '../utils/schema-builder';
@@ -32,9 +33,9 @@ vi.mock('../utils/schema-builder/cel-validation', () => ({
 }));
 
 const affinity: WidgetComponent = {
-  uiType: WidgetType.Affinity,
+  uiType: WIDGET_UI_TYPE,
+  widgetType: WidgetType.Affinity,
   path: 'spec.affinity',
-  fieldParams: { label: 'Affinity' },
 };
 
 const schema: TopologyUISchemas = {
@@ -62,7 +63,7 @@ const FormWrapper = ({ children }: { children: React.ReactNode }) => {
 };
 
 describe('UI generator field-widget override', () => {
-  it('renders a consumer-registered widget for its uiType, passing the field name and item', () => {
+  it('renders a consumer-registered widget for its widgetType, passing the field name and item', () => {
     const receivedProps: WidgetRendererProps[] = [];
     function RuleWidget({ name, item }: WidgetRendererProps) {
       receivedProps.push({ name, item });
@@ -87,10 +88,10 @@ describe('UI generator field-widget override', () => {
     );
     expect(receivedProps).toHaveLength(1);
     expect(receivedProps[0].name).toBe('spec.affinity');
-    expect(receivedProps[0].item.uiType).toBe(WidgetType.Affinity);
+    expect(receivedProps[0].item.widgetType).toBe(WidgetType.Affinity);
   });
 
-  it('renders nothing for the field when no widget is registered for its uiType', () => {
+  it('renders nothing for the field when no widget is registered for its widgetType', () => {
     render(
       <FormWrapper>
         <UIGenerator
@@ -111,8 +112,8 @@ describe('UI generator field-widget override', () => {
             label: 'Pod scheduling policy',
             components: {
               podSchedulingPolicy: {
-                uiType: WidgetType.PodSchedulingPolicy,
-                fieldParams: { label: 'Pod scheduling policy' },
+                uiType: WIDGET_UI_TYPE,
+                widgetType: WidgetType.PodSchedulingPolicy,
               },
             },
           },

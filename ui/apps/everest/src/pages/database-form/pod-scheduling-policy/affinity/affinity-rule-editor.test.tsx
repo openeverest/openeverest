@@ -17,14 +17,15 @@ import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { Affinity, AffinityOperator } from 'shared-types/affinity.types';
 import {
   WidgetComponent,
+  WIDGET_UI_TYPE,
   WidgetType,
 } from 'components/ui-generator/ui-generator.types';
 import { AffinityRuleEditor } from './affinity-rule-editor';
 
 const item: WidgetComponent = {
-  uiType: WidgetType.Affinity,
+  uiType: WIDGET_UI_TYPE,
+  widgetType: WidgetType.Affinity,
   path: 'spec.affinity',
-  fieldParams: {},
 };
 
 const nodeAffinity: Affinity = {

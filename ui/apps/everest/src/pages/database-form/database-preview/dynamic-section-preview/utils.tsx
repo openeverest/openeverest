@@ -85,13 +85,13 @@ export const renderComponent = (
   const leafComponent = component as Component;
 
   if (isWidgetComponent(leafComponent)) {
-    const summary = widgetSummaryRegistry[leafComponent.uiType];
+    const summary = widgetSummaryRegistry[leafComponent.widgetType];
     const targets = getWidgetTargets(leafComponent);
     if (summary && targets.length > 0) {
       return (
         <WidgetPreview
           key={`${parentPrefix}:${componentKey}`}
-          label={leafComponent.fieldParams?.label || componentKey}
+          label={summary.label}
           item={leafComponent}
           value={readWidgetTargetValues(targets, formValues)}
           summary={summary}

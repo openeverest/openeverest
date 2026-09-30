@@ -15,6 +15,7 @@
 import {
   Section,
   WidgetTarget,
+  WIDGET_UI_TYPE,
   WidgetType,
 } from 'components/ui-generator/ui-generator.types';
 
@@ -28,7 +29,11 @@ export const buildAffinitySections = (
       key,
       {
         components: {
-          affinity: { uiType: WidgetType.Affinity, path, fieldParams: {} },
+          affinity: {
+            uiType: WIDGET_UI_TYPE,
+            widgetType: WidgetType.Affinity,
+            path,
+          },
         },
       },
     ])

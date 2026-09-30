@@ -20,6 +20,7 @@ import {
   ComponentGroup,
   FieldType,
   GroupType,
+  WIDGET_UI_TYPE,
   WidgetType,
 } from 'components/ui-generator/ui-generator.types';
 import { TOGGLEABLE_SWITCHES_KEY } from 'components/ui-generator/utils/toggleable/toggleable';
@@ -214,9 +215,9 @@ describe('renderComponent - toggleable group', () => {
 describe('renderComponent - widget markers', () => {
   const enginePath = 'spec.components.engine.schedulingPolicy.affinity';
   const marker: Component = {
-    uiType: WidgetType.PodSchedulingPolicy,
+    uiType: WIDGET_UI_TYPE,
+    widgetType: WidgetType.PodSchedulingPolicy,
     id: 'podSchedulingPolicy',
-    fieldParams: { label: 'Pod scheduling policy' },
     _widgetTargets: [
       { key: 'engine', path: enginePath },
       { key: 'proxy', path: 'spec.components.proxy.schedulingPolicy.affinity' },

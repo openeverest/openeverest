@@ -112,11 +112,11 @@ export const collectSectionFields = (
     if (isWidgetComponent(component)) {
       const targets = getWidgetTargets(component);
       const path = getComponentSourcePath(component) ?? targets[0]?.path;
-      const summary = summaryRegistry?.[component.uiType];
+      const summary = summaryRegistry?.[component.widgetType];
       if (!path || !summary) continue;
 
       fields.push({
-        label: component.fieldParams?.label ?? key,
+        label: summary.label,
         path,
         value: '',
         summary: {

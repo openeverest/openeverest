@@ -20,6 +20,7 @@ import { WidgetSummaryRegistry } from 'components/ui-generator/widget-summary-re
 import { PodSchedulingPolicySection } from './pod-scheduling-policy';
 import { SchedulingPolicyView } from './pod-scheduling-policy/scheduling-policy-view';
 import { digestSchedulingPolicy } from './pod-scheduling-policy/pod-scheduling-policy.utils';
+import { Messages as SchedulingMessages } from './pod-scheduling-policy/pod-scheduling-policy-section.messages';
 
 // Binds the wizard's schema-driven widget markers to their renderers. One place
 // to register future wizard widgets (tolerations, node selector, …).
@@ -31,6 +32,7 @@ export const wizardWidgetRegistry: WidgetRegistry = {
 // cluster overview so both show identical content.
 export const widgetSummaryRegistry: WidgetSummaryRegistry = {
   [WidgetType.PodSchedulingPolicy]: {
+    label: SchedulingMessages.label,
     View: SchedulingPolicyView,
     digest: digestSchedulingPolicy,
   },

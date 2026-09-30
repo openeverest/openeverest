@@ -51,7 +51,7 @@ const UIComponent: React.FC<ComponentProps> = ({ item, name }) => {
   // A consumer-registered widget fully owns rendering for a WidgetComponent; the
   // engine stays domain-free and skips its standard input pipeline.
   if (isWidgetComponent(item)) {
-    const Widget = widgetRegistry?.[item.uiType];
+    const Widget = widgetRegistry?.[item.widgetType];
     return Widget ? <Widget name={name} item={item} /> : null;
   }
 

@@ -18,6 +18,7 @@ import {
   ComponentGroup,
   GroupType,
   TopologyUISchemas,
+  WIDGET_UI_TYPE,
   WidgetType,
 } from '../../ui-generator.types';
 import { preprocessSchema } from '../preprocess/preprocess-schema';
@@ -64,9 +65,9 @@ const rawSchema: TopologyUISchemas = {
             label: 'Pod scheduling policy',
             components: {
               policy: {
-                uiType: WidgetType.PodSchedulingPolicy,
+                uiType: WIDGET_UI_TYPE,
+                widgetType: WidgetType.PodSchedulingPolicy,
                 id: 'podSchedulingPolicy',
-                fieldParams: { label: 'Pod scheduling policy' },
               },
             },
           },

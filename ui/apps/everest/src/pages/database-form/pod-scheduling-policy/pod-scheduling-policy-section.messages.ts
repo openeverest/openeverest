@@ -13,6 +13,7 @@
 // limitations under the License.
 
 export const Messages = {
+  label: 'Pod scheduling policy',
   notAvailable:
     'Pod scheduling policies aren’t available for this provider and topology.',
   notConfigured: 'No pod scheduling rules configured.',
