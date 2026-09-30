@@ -1,5 +1,5 @@
-# PoC Instance: one PXC node + HAProxy, attached to PMM (ProviderManaged) and
-# Prometheus (Generic) through spec.monitoring[].
+# PoC Instance: one PXC node + HAProxy, sending to PMM (ProviderManaged) and
+# Prometheus (ExtensionManaged) through spec.monitoring.destinations[].
 apiVersion: core.openeverest.io/v1alpha1
 kind: Instance
 metadata:
@@ -21,11 +21,12 @@ spec:
       type: haproxy
       replicas: 1
   monitoring:
-    - name: pmm
-      configRef: {name: pmm-poc}
-      parameters:
-        resources:
-          requests: {cpu: 50m, memory: 128Mi}
-          limits: {memory: 512Mi}
-    - name: prometheus
-      configRef: {name: prometheus-poc}
+    destinations:
+      - name: pmm
+        destinationRef: {name: pmm-poc}
+        parameters:
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {memory: 512Mi}
+      - name: prometheus
+        destinationRef: {name: prometheus-poc}

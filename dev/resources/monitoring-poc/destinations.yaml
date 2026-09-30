@@ -1,6 +1,6 @@
 # PoC objects for spec 014 in the monitoring-poc namespace.
 apiVersion: monitoring.openeverest.io/v1alpha1
-kind: MonitoringConfig
+kind: MonitoringDestination
 metadata:
   name: pmm-poc
   namespace: monitoring-poc
@@ -12,7 +12,7 @@ spec:
     verifyTLS: false
 ---
 apiVersion: monitoring.openeverest.io/v1alpha1
-kind: MonitoringConfig
+kind: MonitoringDestination
 metadata:
   name: prometheus-poc
   namespace: monitoring-poc
