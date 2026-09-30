@@ -27,7 +27,7 @@ import type {
 import type { Provider } from 'shared-types/api.types';
 import { collectSectionFields } from '../utils/cluster-overview.helpers';
 import type { SectionField } from '../utils/cluster-overview.helpers';
-import { overviewWidgetSummaryRegistry } from '../sections/section-edit-modal/overview-widget-registry';
+import { widgetSummaryRegistry } from 'pages/database-form/widget-registry';
 import {
   flattenObject,
   formatDisplayValue,
@@ -121,7 +121,7 @@ export const useClusterOverviewData = () => {
             section.components,
             instanceAsRecord,
             section.componentsOrder,
-            overviewWidgetSummaryRegistry
+            widgetSummaryRegistry
           ),
         };
       })

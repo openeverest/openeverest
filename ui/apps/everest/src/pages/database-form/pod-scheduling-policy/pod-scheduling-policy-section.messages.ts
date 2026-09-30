@@ -13,11 +13,11 @@
 // limitations under the License.
 
 export const Messages = {
-  title: 'Pod scheduling policy',
-  description:
-    'Control how database pods are scheduled onto nodes using affinity rules.',
-  notAvailable: (topology?: string) =>
-    `Pod scheduling policies aren’t available for this provider${
-      topology ? ` on the “${topology}” topology` : ''
-    }.`,
+  notAvailable:
+    'Pod scheduling policies aren’t available for this provider and topology.',
+  notConfigured: 'No pod scheduling rules configured.',
+  tabLabel: (component: string, count: number) =>
+    count > 0 ? `${component} (${count})` : component,
+  required: (count: number) => `${count} required`,
+  preferred: (count: number) => `${count} preferred`,
 };

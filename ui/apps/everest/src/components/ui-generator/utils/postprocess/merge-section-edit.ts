@@ -25,6 +25,7 @@ import {
 import { getInactiveToggleablePaths } from '../toggleable/toggleable';
 import { walkLeafComponents } from '../schema-walker';
 import { getComponentSourcePath } from '../preprocess/normalized-component';
+import { getWidgetTargetPaths } from '../widget-targets';
 
 const collectWidgetPaths = (section: Section | undefined): string[] => {
   const paths: string[] = [];
@@ -34,6 +35,7 @@ const collectWidgetPaths = (section: Section | undefined): string[] => {
       ? getComponentSourcePath(component)
       : undefined;
     if (path) paths.push(path);
+    paths.push(...getWidgetTargetPaths(component));
   });
   return paths;
 };

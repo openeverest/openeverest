@@ -46,53 +46,46 @@ export const GroupSummary = ({ group }: { group: AffinityGroup }) => {
           {meta}
         </Typography>
       </Stack>
-      <Stack
-        direction="row"
-        sx={{ gap: 0.5, alignItems: 'baseline', flexWrap: 'wrap' }}
-      >
-        {group.conditions.map((condition, index) => (
-          <Box
-            key={index}
-            component="span"
-            sx={{ display: 'inline-flex', gap: 0.5, alignItems: 'baseline' }}
-          >
-            {index > 0 && (
-              <Typography
-                component="span"
-                variant="body2"
-                sx={{ fontWeight: 700, color: 'primary.main' }}
-              >
-                {Messages.and}
-              </Typography>
-            )}
-            <Typography
+      {/* One condition per line, flowing as text so long values wrap to the
+          line start instead of hanging under their own column. */}
+      {group.conditions.map((condition, index) => (
+        <Typography
+          key={index}
+          variant="body2"
+          sx={{ overflowWrap: 'anywhere' }}
+        >
+          {index > 0 && (
+            <Box
               component="span"
-              variant="body2"
-              sx={{ fontFamily: 'monospace' }}
+              sx={{ fontWeight: 700, color: 'primary.main' }}
             >
-              {condition.key || '—'}
-            </Typography>
-            {condition.operator && (
-              <Typography
+              {Messages.and}{' '}
+            </Box>
+          )}
+          <Box component="span" sx={{ fontFamily: 'monospace' }}>
+            {condition.key || '—'}
+          </Box>
+          {condition.operator && (
+            <>
+              {' '}
+              <Box
                 component="span"
-                variant="body2"
                 sx={{ fontWeight: 700, color: 'primary.main' }}
               >
                 {AffinityOperatorValue[condition.operator]}
-              </Typography>
-            )}
-            {condition.values?.length ? (
-              <Typography
-                component="span"
-                variant="body2"
-                sx={{ fontFamily: 'monospace' }}
-              >
+              </Box>
+            </>
+          )}
+          {condition.values?.length ? (
+            <>
+              {' '}
+              <Box component="span" sx={{ fontFamily: 'monospace' }}>
                 {`[${condition.values.join(', ')}]`}
-              </Typography>
-            ) : null}
-          </Box>
-        ))}
-      </Stack>
+              </Box>
+            </>
+          ) : null}
+        </Typography>
+      ))}
     </Stack>
   );
 };

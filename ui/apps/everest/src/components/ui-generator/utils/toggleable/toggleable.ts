@@ -27,6 +27,7 @@ import {
 } from '../object-path/object-path';
 import { walkLeafComponents } from '../schema-walker/schema-walker';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
+import { getWidgetTargetPaths } from '../widget-targets';
 
 // Reserved root form key holding every toggleable group's form-only switch.
 // Postprocess strips it so the switches never reach the API payload.
@@ -58,7 +59,10 @@ const SWITCH_KEY_PATTERN = /^[A-Za-z0-9_-]+$/;
 const getGroupPaths = (group: ComponentGroup): string[] => {
   const paths: string[] = [];
   walkLeafComponents(group.components, ({ component }) => {
-    paths.push(...getComponentTargetPaths(component));
+    paths.push(
+      ...getComponentTargetPaths(component),
+      ...getWidgetTargetPaths(component)
+    );
   });
   return paths;
 };
@@ -82,7 +86,10 @@ export const createToggleableScope = (
   Object.values(sections).forEach((section) => {
     if (!section?.components) return;
     walkLeafComponents(section.components, ({ component }) => {
-      paths.push(...getComponentTargetPaths(component));
+      paths.push(
+        ...getComponentTargetPaths(component),
+        ...getWidgetTargetPaths(component)
+      );
     });
   });
   return { insideToggleable: false, pathUsage: countPaths(paths) };

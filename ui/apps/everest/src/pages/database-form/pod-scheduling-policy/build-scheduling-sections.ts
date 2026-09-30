@@ -14,40 +14,22 @@
 
 import {
   Section,
+  WidgetTarget,
   WidgetType,
 } from 'components/ui-generator/ui-generator.types';
-import {
-  SchedulingPolicyType,
-  SchedulingSupportByComponent,
-} from 'shared-types/podSchedulingPolicy.types';
 
-const AFFINITY_POLICY: SchedulingPolicyType = 'affinity';
-
-export const schedulingPolicyPath = (
-  component: string,
-  policy: SchedulingPolicyType
-): string => `spec.components.${component}.schedulingPolicy.${policy}`;
-
-// One section per component that supports affinity; each holds a single affinity
-// widget bound to that component's schedulingPolicy.affinity path, so the widget
-// reads and writes the payload directly through the engine's name resolution.
+// One section per resolved target, each holding a single affinity widget bound
+// to that component's schedulingPolicy.affinity path.
 export const buildAffinitySections = (
-  support: SchedulingSupportByComponent
-): { [component: string]: Section } => {
-  const sections: { [component: string]: Section } = {};
-  for (const [component, policies] of Object.entries(support)) {
-    if (!policies.includes(AFFINITY_POLICY)) {
-      continue;
-    }
-    sections[component] = {
-      components: {
-        [AFFINITY_POLICY]: {
-          uiType: WidgetType.Affinity,
-          path: schedulingPolicyPath(component, AFFINITY_POLICY),
-          fieldParams: {},
+  targets: WidgetTarget[]
+): Record<string, Section> =>
+  Object.fromEntries(
+    targets.map(({ key, path }) => [
+      key,
+      {
+        components: {
+          affinity: { uiType: WidgetType.Affinity, path, fieldParams: {} },
         },
       },
-    };
-  }
-  return sections;
-};
+    ])
+  );

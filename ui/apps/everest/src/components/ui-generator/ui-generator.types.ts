@@ -219,10 +219,18 @@ type FieldComponent = {
   } & PathOrId;
 }[keyof FieldParamsMap];
 
+export interface WidgetTarget {
+  // Display key, e.g. the Instance component the value belongs to.
+  key: string;
+  path: string;
+}
+
 export type WidgetComponent = ComponentCommonFields & {
   uiType: WidgetType;
   validation?: CommonValidation;
   fieldParams: CommonFieldParams;
+  // API paths a marker widget writes, resolved by preprocess from the provider.
+  _widgetTargets?: WidgetTarget[];
   // A pure marker widget (e.g. podSchedulingPolicy) binds no value.
 } & (PathOrId | { path?: never; id?: never });
 

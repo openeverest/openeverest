@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { Provider } from 'shared-types/api.types';
+import type { WidgetTarget } from 'components/ui-generator/ui-generator.types';
 import {
   SchedulingPolicyType,
   SchedulingSupportByComponent,
@@ -73,3 +74,21 @@ export const deriveSchedulingSupport = (
   }
   return support;
 };
+
+export const schedulingPolicyPath = (
+  component: string,
+  policy: SchedulingPolicyType
+): string => `spec.components.${component}.schedulingPolicy.${policy}`;
+
+// Where a podSchedulingPolicy marker writes affinity: one path per component
+// that accepts it in the given topology.
+export const resolveAffinityTargets = (
+  provider: Provider | undefined,
+  topology: string
+): WidgetTarget[] =>
+  Object.entries(deriveSchedulingSupport(provider, topology))
+    .filter(([, policies]) => policies.includes('affinity'))
+    .map(([component]) => ({
+      key: component,
+      path: schedulingPolicyPath(component, 'affinity'),
+    }));

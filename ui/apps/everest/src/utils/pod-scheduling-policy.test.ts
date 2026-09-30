@@ -14,7 +14,10 @@
 
 import { describe, it, expect } from 'vitest';
 import { Provider } from 'shared-types/api.types';
-import { deriveSchedulingSupport } from './pod-scheduling-policy';
+import {
+  deriveSchedulingSupport,
+  resolveAffinityTargets,
+} from './pod-scheduling-policy';
 
 // Builds a component `supportedFields` that declares the given schedulingPolicy
 // sub-fields. No fields → schedulingPolicy declared as a whole.
@@ -142,5 +145,25 @@ describe('deriveSchedulingSupport', () => {
       proxy: ['affinity', 'tolerations'],
       configServer: ['affinity'],
     });
+  });
+});
+
+describe('resolveAffinityTargets', () => {
+  it('returns one affinity path per component that accepts affinity', () => {
+    const p = provider({
+      engine: { supportedFields: declaresScheduling(['affinity']) },
+      proxy: { supportedFields: declaresScheduling(['tolerations']) },
+    });
+
+    expect(resolveAffinityTargets(p, 'main')).toEqual([
+      {
+        key: 'engine',
+        path: 'spec.components.engine.schedulingPolicy.affinity',
+      },
+    ]);
+  });
+
+  it('returns no targets without a provider', () => {
+    expect(resolveAffinityTargets(undefined, 'main')).toEqual([]);
   });
 });

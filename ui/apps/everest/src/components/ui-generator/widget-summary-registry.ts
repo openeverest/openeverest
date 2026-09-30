@@ -16,13 +16,24 @@ import type { ComponentType } from 'react';
 import type { WidgetComponent, WidgetType } from './ui-generator.types';
 
 // Read-only counterpart of WidgetRegistry: a widget-typed component renders its
-// own summary in display surfaces (e.g. the cluster overview) instead of being
-// flattened to a scalar row. Value is the raw field value read from the instance.
+// own summary in display surfaces (cluster overview, wizard preview) instead of
+// being flattened to a scalar row. For a marker widget the value maps each
+// target key to the value at its path.
 export interface WidgetSummaryProps {
   item: WidgetComponent;
   value: unknown;
 }
 
-export type WidgetSummary = ComponentType<WidgetSummaryProps>;
+export interface WidgetSummaryRow {
+  label: string;
+  text: string;
+}
+
+export interface WidgetSummary {
+  // Full read-only view (overview card, preview dialog).
+  View: ComponentType<WidgetSummaryProps>;
+  // Short lines for narrow surfaces (wizard preview); empty = not configured.
+  digest: (value: unknown) => WidgetSummaryRow[];
+}
 
 export type WidgetSummaryRegistry = Partial<Record<WidgetType, WidgetSummary>>;

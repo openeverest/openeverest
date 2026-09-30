@@ -13,28 +13,13 @@
 // limitations under the License.
 
 import { useMemo, useState } from 'react';
-import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
-  alpha,
-  Box,
-  Button,
-  Stack,
-  Tooltip,
-  Typography,
-} from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useController, useFormContext } from 'react-hook-form';
 import { Affinity } from 'shared-types/affinity.types';
-import EditableItem from 'components/editable-item';
 import { WidgetRendererProps } from 'components/ui-generator/ui-generator.types';
 import { AffinityGroup } from './affinity-group.types';
 import { affinityToGroups, groupsToAffinity } from './affinity-group-converter';
-import { GroupSummary } from './group-summary';
+import { AffinityGroupList } from './affinity-group-list';
 import { GroupEditorDialog } from './group-editor-dialog/group-editor-dialog';
-import { Messages } from './affinity-rule-editor.messages';
 
 // The field path is spec.components.<component>.schedulingPolicy.affinity.
 const componentFromName = (name: string): string | undefined =>
@@ -81,68 +66,10 @@ export const AffinityRuleEditor = ({ name }: WidgetRendererProps) => {
 
   return (
     <>
-      {/* Single policy in the section is pinned open; multiple policies (future
-          tolerations / node selector) would be collapsible accordions. */}
-      <Accordion
-        expanded
-        disableGutters
-        variant="outlined"
-        sx={{ '&::before': { display: 'none' } }}
-      >
-        <AccordionSummary
-          sx={{
-            cursor: 'default',
-            '& .MuiAccordionSummary-content': {
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              mr: 1,
-            },
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Typography variant="sectionHeading">{Messages.label}</Typography>
-            <Tooltip title={Messages.groupsInfo} placement="right" arrow>
-              <InfoOutlinedIcon
-                sx={{ fontSize: 18, color: 'text.secondary' }}
-              />
-            </Tooltip>
-          </Box>
-          <Button size="small" startIcon={<AddIcon />} onClick={openAdd}>
-            {Messages.addGroup}
-          </Button>
-        </AccordionSummary>
-        <AccordionDetails>
-          <Stack spacing={1}>
-            {groups.length === 0 ? (
-              <EditableItem
-                dataTestId="empty"
-                children={
-                  <Typography variant="body1">{Messages.empty}</Typography>
-                }
-              />
-            ) : (
-              groups.map((group, index) => (
-                <EditableItem
-                  key={index}
-                  dataTestId={`affinity-group-${index}`}
-                  children={<GroupSummary group={group} />}
-                  editButtonProps={{ onClick: () => openEdit(index) }}
-                  deleteButtonProps={{ onClick: () => remove(index) }}
-                  // Info-alert look: a light-blue outline + tint per group,
-                  // instead of piling up neutral nested borders.
-                  paperProps={{
-                    sx: {
-                      bgcolor: (theme) => alpha(theme.palette.info.main, 0.04),
-                      borderColor: (theme) =>
-                        alpha(theme.palette.info.main, 0.2),
-                    },
-                  }}
-                />
-              ))
-            )}
-          </Stack>
-        </AccordionDetails>
-      </Accordion>
+      <AffinityGroupList
+        groups={groups}
+        actions={{ onAdd: openAdd, onEdit: openEdit, onRemove: remove }}
+      />
 
       {dialogOpen && (
         <GroupEditorDialog

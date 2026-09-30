@@ -16,16 +16,9 @@ import {
   WidgetRegistry,
   WidgetType,
 } from 'components/ui-generator/ui-generator.types';
-import { WidgetSummaryRegistry } from 'components/ui-generator/widget-summary-registry';
-import { AffinityRuleEditor } from 'pages/database-form/pod-scheduling-policy/affinity';
-import { AffinitySummary } from '../affinity-summary';
+import { PodSchedulingPolicySection } from 'pages/database-form/pod-scheduling-policy';
 
-// Widgets the overview can edit (in SectionEditModal) and display read-only
-// (in schema-driven cards). Mirrors the wizard's per-section registries.
+// Widgets the overview can edit (in SectionEditModal).
 export const overviewWidgetRegistry: WidgetRegistry = {
-  [WidgetType.Affinity]: AffinityRuleEditor,
-};
-
-export const overviewWidgetSummaryRegistry: WidgetSummaryRegistry = {
-  [WidgetType.Affinity]: AffinitySummary,
+  [WidgetType.PodSchedulingPolicy]: PodSchedulingPolicySection,
 };

@@ -35,6 +35,10 @@ import {
   getToggleableMeta,
   isToggleableOnInInstance,
 } from 'components/ui-generator/utils/toggleable/toggleable';
+import {
+  getWidgetTargets,
+  readWidgetTargetValues,
+} from 'components/ui-generator/utils/widget-targets';
 import { Messages } from '../cluster-overview.messages';
 
 export type SectionField = {
@@ -44,7 +48,7 @@ export type SectionField = {
   // When set, the field renders its own read-only widget summary full-width
   // instead of the scalar `value` row.
   summary?: {
-    Component: WidgetSummary;
+    Component: WidgetSummary['View'];
     value: unknown;
     item: WidgetComponent;
   };
@@ -106,17 +110,21 @@ export const collectSectionFields = (
     // Widget components (e.g. affinity) hold structured values that don't
     // flatten to a scalar row; delegate to their registered read-only summary.
     if (isWidgetComponent(component)) {
-      const path = getComponentSourcePath(component);
-      const Summary = summaryRegistry?.[component.uiType];
-      if (!path || !Summary) continue;
+      const targets = getWidgetTargets(component);
+      const path = getComponentSourcePath(component) ?? targets[0]?.path;
+      const summary = summaryRegistry?.[component.uiType];
+      if (!path || !summary) continue;
 
       fields.push({
         label: component.fieldParams?.label ?? key,
         path,
         value: '',
         summary: {
-          Component: Summary,
-          value: getByPath(instance, path),
+          Component: summary.View,
+          value:
+            targets.length > 0
+              ? readWidgetTargetValues(targets, instance)
+              : getByPath(instance, path),
           item: component,
         },
       });

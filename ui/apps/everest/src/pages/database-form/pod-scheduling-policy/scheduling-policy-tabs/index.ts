@@ -12,13 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export const Messages = {
-  label: 'Affinity',
-  groupsInfo:
-    'All conditions in a rule group are combined with AND. Required rules will always be enforced when scheduling a pod; Preferred rules are ranked by weight.',
-  addGroup: 'Add rule group',
-  empty: 'No affinity rules yet. Add a rule group to get started.',
-  emptyReadOnly: 'No affinity rules for this component.',
-  or: 'OR',
-  and: 'and',
-};
+export { SchedulingPolicyTabs } from './scheduling-policy-tabs';

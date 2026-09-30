@@ -12,6 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export const Messages = {
-  empty: 'No affinity rules configured',
-};
+export { WidgetPreview } from './widget-preview';

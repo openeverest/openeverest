@@ -29,6 +29,7 @@ import {
   getToggleableMeta,
   isToggleableOnInInstance,
 } from '../toggleable/toggleable';
+import { getWidgetTargets } from '../widget-targets';
 
 /*
  Walks schema components across all sections and extracts current values
@@ -74,6 +75,11 @@ const extractFlat = (
     const component = item as Component;
     const fieldId = generateFieldId(component, generatedName);
     const sourcePath = getComponentSourcePath(component);
+
+    getWidgetTargets(component).forEach(({ path }) => {
+      const value = getByPath(instance, path);
+      if (value !== undefined) result[path] = value;
+    });
 
     // Try reading from instance first
     if (sourcePath) {

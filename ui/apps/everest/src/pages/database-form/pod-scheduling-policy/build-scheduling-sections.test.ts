@@ -14,25 +14,17 @@
 
 import { describe, it, expect } from 'vitest';
 import { WidgetType } from 'components/ui-generator/ui-generator.types';
-import {
-  buildAffinitySections,
-  schedulingPolicyPath,
-} from './build-scheduling-sections';
-
-describe('schedulingPolicyPath', () => {
-  it('builds the per-component schedulingPolicy path', () => {
-    expect(schedulingPolicyPath('engine', 'affinity')).toBe(
-      'spec.components.engine.schedulingPolicy.affinity'
-    );
-  });
-});
+import { buildAffinitySections } from './build-scheduling-sections';
 
 describe('buildAffinitySections', () => {
-  it('creates one section per component that supports affinity', () => {
-    const sections = buildAffinitySections({
-      engine: ['affinity', 'tolerations'],
-      proxy: ['affinity'],
-    });
+  it('creates one affinity section per target, bound to its path', () => {
+    const sections = buildAffinitySections([
+      {
+        key: 'engine',
+        path: 'spec.components.engine.schedulingPolicy.affinity',
+      },
+      { key: 'proxy', path: 'spec.components.proxy.schedulingPolicy.affinity' },
+    ]);
 
     expect(Object.keys(sections)).toEqual(['engine', 'proxy']);
     expect(sections.engine.components.affinity).toEqual({
@@ -40,21 +32,5 @@ describe('buildAffinitySections', () => {
       path: 'spec.components.engine.schedulingPolicy.affinity',
       fieldParams: {},
     });
-    expect(sections.proxy.components.affinity).toMatchObject({
-      path: 'spec.components.proxy.schedulingPolicy.affinity',
-    });
-  });
-
-  it('skips components that do not support affinity', () => {
-    const sections = buildAffinitySections({
-      engine: ['tolerations', 'nodeSelector'],
-      proxy: ['affinity'],
-    });
-
-    expect(Object.keys(sections)).toEqual(['proxy']);
-  });
-
-  it('returns an empty map when no component supports affinity', () => {
-    expect(buildAffinitySections({})).toEqual({});
   });
 });
