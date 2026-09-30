@@ -16,22 +16,21 @@ import { Box, Stack, Typography } from '@mui/material';
 import {
   AffinityOperatorValue,
   AffinityPriority,
-  AffinityPriorityValue,
 } from 'shared-types/affinity.types';
 import { getAffinityRuleTypeLabel } from 'utils/db';
 import { AffinityGroup } from './affinity-group.types';
 import { Messages } from './affinity-rule-editor.messages';
 
 export const GroupSummary = ({ group }: { group: AffinityGroup }) => {
-  const priorityLabel =
-    group.priority === AffinityPriority.Preferred
-      ? `${AffinityPriorityValue[AffinityPriority.Preferred]}${
-          group.weight != null ? ` · ${group.weight}` : ''
-        }`
-      : AffinityPriorityValue[AffinityPriority.Required];
-  const meta = group.topologyKey
-    ? `${priorityLabel} · ${group.topologyKey}`
-    : priorityLabel;
+  // Priority is carried by the surrounding Required / Preferred heading.
+  const meta = [
+    group.priority === AffinityPriority.Preferred && group.weight != null
+      ? Messages.weight(group.weight)
+      : '',
+    group.topologyKey ?? '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <Stack sx={{ width: '100%', gap: 0.25 }}>
@@ -42,9 +41,11 @@ export const GroupSummary = ({ group }: { group: AffinityGroup }) => {
         <Typography variant="body2" sx={{ fontWeight: 600 }}>
           {getAffinityRuleTypeLabel(group.type)}
         </Typography>
-        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-          {meta}
-        </Typography>
+        {meta && (
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            {meta}
+          </Typography>
+        )}
       </Stack>
       {/* One condition per line, flowing as text so long values wrap to the
           line start instead of hanging under their own column. */}

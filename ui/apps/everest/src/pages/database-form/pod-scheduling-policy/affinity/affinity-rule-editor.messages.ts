@@ -12,10 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { AffinityPriority } from 'shared-types/affinity.types';
+
 export const Messages = {
   label: 'Affinity',
   groupsInfo:
-    'All conditions in a rule group are combined with AND. Required rules will always be enforced when scheduling a pod; Preferred rules are ranked by weight.',
+    "Conditions in a rule group are combined with AND. Required Node affinity groups are alternatives: a node must match at least one of them (OR). All other Required groups must hold together. Preferred groups never block scheduling: each one a node satisfies adds its weight to that node's score.",
+  priorityHeading: {
+    [AffinityPriority.Required]:
+      'Required — pods are scheduled only where these hold',
+    [AffinityPriority.Preferred]:
+      'Preferred — nodes that satisfy these score higher; never blocks scheduling',
+  } satisfies Record<AffinityPriority, string>,
+  weight: (weight: number) => `+${weight}`,
   addGroup: 'Add rule group',
   empty: 'No affinity rules yet. Add a rule group to get started.',
   emptyReadOnly: 'No affinity rules for this component.',

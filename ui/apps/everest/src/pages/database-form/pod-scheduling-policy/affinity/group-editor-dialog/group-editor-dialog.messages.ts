@@ -27,7 +27,7 @@ export const Messages = {
   typeHelper: 'How pods are scheduled',
   conditions: 'Conditions',
   conditionsInfo:
-    'Conditions inside a group are combined with AND; groups are combined with OR.',
+    'Conditions inside a group are combined with AND: a match needs all of them.',
   valuesHelper: 'Separate multiple values with commas',
   valuesPlaceholder: 'e.g. ssd, nvme',
   addCondition: 'Add condition',
