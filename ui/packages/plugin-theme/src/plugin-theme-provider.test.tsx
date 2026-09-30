@@ -14,7 +14,7 @@
 
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useTheme } from '@mui/material';
+import { Box, useTheme } from '@mui/material';
 import { PluginThemeProvider } from './plugin-theme-provider';
 
 // Exercises the host<->plugin theming bridge: a plugin subtree rendered under a
@@ -127,5 +127,27 @@ describe('PluginThemeProvider host token bridge', () => {
         'rgb(98, 174, 255)'
       );
     });
+  });
+});
+
+describe('PluginThemeProvider style cache', () => {
+  const countStyleTags = () =>
+    document.querySelectorAll('style[data-emotion^="remount-test"]').length;
+
+  it('does not re-insert styles when the plugin subtree remounts', () => {
+    const ui = (
+      <PluginThemeProvider cacheKey="remount-test">
+        <Box sx={{ color: 'primary.main', p: 1 }} />
+      </PluginThemeProvider>
+    );
+
+    const { unmount } = render(ui);
+    const afterFirstMount = countStyleTags();
+    expect(afterFirstMount).toBeGreaterThan(0);
+
+    unmount();
+    render(ui);
+
+    expect(countStyleTags()).toBe(afterFirstMount);
   });
 });

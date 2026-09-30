@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import createCache from '@emotion/cache';
+import createCache, { type EmotionCache } from '@emotion/cache';
 import { CacheProvider } from '@emotion/react';
 import {
   createTheme,
@@ -201,6 +201,19 @@ function hostShape(): ThemeOptions['shape'] {
   return Number.isFinite(radius) ? { borderRadius: radius } : undefined;
 }
 
+// One cache per key for the page lifetime: flushing on unmount breaks StrictMode remounts.
+const caches = new Map<string, EmotionCache>();
+
+function getCache(key: string, nonce?: string): EmotionCache {
+  const id = `${key}:${nonce ?? ''}`;
+  let cache = caches.get(id);
+  if (!cache) {
+    cache = createCache({ key, nonce, prepend: true });
+    caches.set(id, cache);
+  }
+  return cache;
+}
+
 function readHostColorScheme(): PaletteMode {
   if (typeof document === 'undefined') {
     return 'light';
@@ -246,10 +259,7 @@ export const PluginThemeProvider = ({
   nonce,
 }: PluginThemeProviderProps) => {
   const mode = useHostColorMode();
-  const cache = useMemo(
-    () => createCache({ key: cacheKey, nonce, prepend: true }),
-    [cacheKey, nonce]
-  );
+  const cache = getCache(cacheKey, nonce);
   // Rebuilt whenever the host colour scheme flips, since every token is read
   // from the computed CSS variables at that moment.
   const theme = useMemo(() => {
