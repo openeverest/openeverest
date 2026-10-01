@@ -1,8 +1,0 @@
-// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
-
-exports[`FormDialog > description slot spacing > applies the tightened spacing to the description 1`] = `
-{
-  "marginBottom": "24px",
-  "marginTop": "-16px",
-}
-`;

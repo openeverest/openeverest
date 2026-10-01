@@ -1,18 +1,4 @@
-// Copyright (C) 2026 The OpenEverest Contributors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-import { Button, Typography } from '@mui/material';
+import { Button } from '@mui/material';
 import { TextInput } from '@percona/ui-lib';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
@@ -135,43 +121,5 @@ describe('FormDialog', () => {
     fireEvent.click(backdrop!);
 
     expect(closeModal).not.toHaveBeenCalled();
-  });
-
-  // TEMPORARY: verifies the description slot spacing edit is actually applied.
-  describe('description slot spacing', () => {
-    const renderWithDescription = () =>
-      render(
-        <FormDialog
-          isOpen
-          closeModal={vi.fn()}
-          headerMessage="Add rule group"
-          description="Create a rule group to control how pods are scheduled onto nodes."
-          onSubmit={vi.fn()}
-          schema={schema}
-          defaultValues={defaultValues}
-          submitMessage="Add"
-        >
-          <Typography variant="sectionHeading">Rule type</Typography>
-        </FormDialog>
-      );
-
-    it('renders the description and keeps the heading in place', () => {
-      renderWithDescription();
-      expect(
-        screen.getByText(
-          'Create a rule group to control how pods are scheduled onto nodes.'
-        )
-      ).toBeInTheDocument();
-      expect(screen.getByText('Rule type')).toBeInTheDocument();
-    });
-
-    it('applies the tightened spacing to the description', () => {
-      renderWithDescription();
-      const description = screen.getByText(
-        'Create a rule group to control how pods are scheduled onto nodes.'
-      );
-      const { marginTop, marginBottom } = getComputedStyle(description);
-      expect({ marginTop, marginBottom }).toMatchSnapshot();
-    });
   });
 });
