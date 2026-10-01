@@ -99,6 +99,7 @@ var (
 	ErrNoUpdateAvailable                      = errors.New("no update available")
 	ErrDowngradeNotAllowed                    = errors.New("downgrade not allowed")
 	ErrCannotUpgradeByMoreThanOneMinorVersion = errors.New("cannot upgrade by more than one minor version")
+	ErrMajorVersionChangeNotAllowed           = errors.New("major version changes are not supported")
 )
 
 // NewUpgrade returns a new Upgrade struct.
@@ -278,20 +279,38 @@ func (u *Upgrade) canUpgrade(ctx context.Context, everestVersion *goversion.Vers
 func validateVersionToUpgrade(
 	currentEverestVersion, targetEverestVersion *goversion.Version,
 ) error {
-	// Downgrade is not allowed.
+	// Reject downgrade: target must not be less than current
 	if targetEverestVersion.LessThan(currentEverestVersion) {
 		return ErrDowngradeNotAllowed
 	}
-	// No upgrade is needed.
+
+	// Reject same version: no upgrade needed
 	if targetEverestVersion.Equal(currentEverestVersion) {
 		return ErrNoUpdateAvailable
 	}
-	// Cannot upgrade by more than one minor version.
-	currentMinor := currentEverestVersion.Segments()[1]
-	targetMinor := targetEverestVersion.Segments()[1]
+
+	// Extract major and minor segments; guard against malformed versions
+	currentSegs := currentEverestVersion.Segments()
+	targetSegs := targetEverestVersion.Segments()
+
+	// Ensure both versions have at least major.minor
+	if len(currentSegs) < 2 || len(targetSegs) < 2 {
+		return errors.New("invalid version format: must have major.minor")
+	}
+
+	currentMajor, currentMinor := currentSegs[0], currentSegs[1]
+	targetMajor, targetMinor := targetSegs[0], targetSegs[1]
+
+	// Reject major version changes: major version must remain constant
+	if targetMajor != currentMajor {
+		return ErrMajorVersionChangeNotAllowed
+	}
+
+	// Reject multi-minor-version jumps: only allow upgrade by at most one minor version
 	if targetMinor-currentMinor > 1 {
 		return ErrCannotUpgradeByMoreThanOneMinorVersion
 	}
+
 	return nil
 }
 
