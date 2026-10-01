@@ -19,6 +19,7 @@ import {
   can,
   canAll,
   RBACAction,
+  RBACStandardAction,
   AuthorizerObservable,
   RBACResource,
 } from 'utils/rbac';
@@ -27,11 +28,14 @@ export const useRBACPermissions = (
   resource: RBACResource,
   specificResources: string | string[] = '*'
 ) => {
-  const [permissions, setPermissions] = useState<Record<RBACAction, boolean>>({
+  const [permissions, setPermissions] = useState<
+    Record<RBACStandardAction, boolean> & { readConnection: boolean }
+  >({
     read: false,
     update: false,
     create: false,
     delete: false,
+    readConnection: false,
   });
 
   const checkPermissions = useCallback(async () => {
@@ -48,12 +52,16 @@ export const useRBACPermissions = (
     const canCreate = await (multipleSpecificResources
       ? canAll('create', resource, specificResources)
       : can('create', resource, specificResources));
+    const canReadConnection = await (multipleSpecificResources
+      ? canAll('read-connection', resource, specificResources)
+      : can('read-connection', resource, specificResources));
 
     setPermissions({
       read: canRead,
       update: canUpdate,
       delete: canDelete,
       create: canCreate,
+      readConnection: canReadConnection,
     });
   }, [resource, specificResources]);
 
@@ -66,6 +74,7 @@ export const useRBACPermissions = (
 
   return {
     canRead: permissions.read,
+    canReadConnection: permissions.readConnection,
     canUpdate: permissions.update,
     canDelete: permissions.delete,
     canCreate: permissions.create,
@@ -76,7 +85,9 @@ export const useNamespacePermissionsForResource = (
   resource: RBACResource,
   specificResource = '*'
 ) => {
-  const [permissions, setPermissions] = useState<Record<RBACAction, string[]>>({
+  const [permissions, setPermissions] = useState<
+    Record<RBACStandardAction, string[]>
+  >({
     read: [],
     update: [],
     create: [],
@@ -92,7 +103,7 @@ export const useNamespacePermissionsForResource = (
   const { data: namespaces } = queryResult;
 
   const checkPermissions = useCallback(async () => {
-    const newPermissions: Record<RBACAction, string[]> = {
+    const newPermissions: Record<RBACStandardAction, string[]> = {
       read: [],
       update: [],
       create: [],
@@ -101,20 +112,24 @@ export const useNamespacePermissionsForResource = (
     const permissionsPromisesArr: Promise<void>[] = [];
 
     if (namespaces) {
+      const actions: RBACStandardAction[] = [
+        'read',
+        'update',
+        'delete',
+        'create',
+      ];
       for (const namespace of namespaces) {
-        ['read', 'update', 'delete', 'create'].forEach((action) => {
+        for (const action of actions) {
           permissionsPromisesArr.push(
-            can(
-              action as RBACAction,
-              resource,
-              `${namespace}/${specificResource}`
-            ).then((canDo) => {
-              if (canDo) {
-                newPermissions[action as RBACAction].push(namespace);
+            can(action, resource, `${namespace}/${specificResource}`).then(
+              (canDo) => {
+                if (canDo) {
+                  newPermissions[action].push(namespace);
+                }
               }
-            })
+            )
           );
-        });
+        }
       }
     }
     await Promise.all(permissionsPromisesArr);
