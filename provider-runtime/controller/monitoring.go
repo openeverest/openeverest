@@ -139,6 +139,54 @@ func (c *Context) MonitoringBindings() ([]ResolvedBinding, error) {
 	return out, nil
 }
 
+// MonitoringDemand says which monitoring sources a bound class needs, so a
+// provider runs exporters only while something will scrape them.
+type MonitoringDemand struct {
+	// Metrics is true when an ExtensionManaged binding's class requires
+	// metrics. Acceptance is deliberately not required: it governs the
+	// binding's Configured condition, not whether the user asked for metrics,
+	// and must not flap the exporter.
+	Metrics bool
+	// Settled is true when every spec.monitoring.destinations[] entry has a
+	// binding with its mode and class resolved. While false (core still
+	// materialising, class being reinstalled) a provider keeps what is live
+	// instead of tearing an exporter down.
+	Settled bool
+}
+
+// MonitoringDemand derives the demand from the Instance's entries and their
+// bindings.
+func (c *Context) MonitoringDemand() (MonitoringDemand, error) {
+	bindings, err := c.MonitoringBindings()
+	if err != nil {
+		return MonitoringDemand{}, err
+	}
+	d := MonitoringDemand{Settled: true}
+	resolved := map[string]bool{}
+	for _, rb := range bindings {
+		entry := rb.Binding.Labels[monitoringv1alpha1.BindingEntryLabel]
+		switch {
+		case rb.Mode() == "":
+		case rb.Mode() == v1alpha1.MonitoringExecutionModeExtensionManaged && rb.Class == nil:
+		default:
+			resolved[entry] = true
+		}
+		if rb.Mode() == v1alpha1.MonitoringExecutionModeExtensionManaged && rb.Class != nil {
+			if em := rb.Class.Spec.ExtensionManaged; em != nil && em.Requires.Metrics {
+				d.Metrics = true
+			}
+		}
+	}
+	if c.in.Spec.Monitoring != nil {
+		for _, e := range c.in.Spec.Monitoring.Destinations {
+			if !resolved[e.Name] {
+				d.Settled = false
+			}
+		}
+	}
+	return d, nil
+}
+
 // SetMonitoringBindingResult stages the outcome of one ProviderManaged
 // binding (keyed by binding name). The runtime reports it on the binding's
 // Configured condition after Sync, with the status the reason implies; it
