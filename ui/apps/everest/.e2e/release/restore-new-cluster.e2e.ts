@@ -372,7 +372,8 @@ function getNextScheduleMinute(incrementMinutes: number): string {
             .first();
           await scheduleForDeleteBtn.click();
           await page.getByTestId('confirm-dialog-delete').click();
-          expect(page.getByText('1 active schedule')).toBeTruthy();
+          // Wait for the update to land, otherwise the reload below aborts the in-flight PUT.
+          await expect(page.getByText('1 active schedule')).toBeVisible();
         });
 
         await test.step('Delete second schedule', async () => {
