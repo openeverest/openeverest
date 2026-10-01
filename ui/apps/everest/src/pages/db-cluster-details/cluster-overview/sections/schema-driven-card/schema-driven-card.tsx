@@ -62,6 +62,9 @@ const SchemaDrivenCard = ({
                     ? undefined
                     : segment.field.label
                 }
+                // Widget summaries are long; keep the card scannable until opened.
+                collapsible={segment.field.label !== card.title}
+                defaultExpanded={false}
                 loading={loading}
               >
                 <segment.field.summary.Component

@@ -39,6 +39,8 @@ export const Messages = {
   },
   actions: {
     edit: 'Edit',
+    expand: 'Expand',
+    collapse: 'Collapse',
     upgrade: 'Upgrade',
     details: 'Details',
     seeOtherBackups: (count: number) =>
