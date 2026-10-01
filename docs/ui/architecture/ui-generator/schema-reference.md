@@ -197,7 +197,7 @@ classDiagram
 | **FormMode**                   | `new · edit · restore · import` controls `modes` at three levels: component `uiType`, `fieldParams`, and `validation`                                                                                                            | implemented |
 | **multi-path**                 | `path: [a, b]` writes the same value to all targets                                                                                                                                                                              | implemented |
 | **dataSource / API providers** | `dataSource: { provider }` names an API-backed option source; preprocess dev-validates the provider key, and at runtime `DataSourceField` loads the options through the registry (`DataSourcePrefetcher` sets defaults on mount) | implemented |
-| **CEL validation**             | Cross-field validation rules declared via `celExpressions` (with an `original` namespace available in edit mode)                                                                                                                 | implemented |
+| **CEL validation**             | Cross-field validation rules declared via `celExpressions` (`self` is the declaring field's value; an `original` namespace is available in edit mode)                                                                                                                 | implemented |
 | **CEL conditional rendering**  | Show / hide fields based on another field value through a generic mechanism                                                                                                                                                      | 🛠️          |
 | **group kernel**               | `groupType: bordered/collapsible/toggleable` + `gate` + `direction`                                                                                                                                                              | 🛠️          |
 
@@ -211,4 +211,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-17
+- Last updated: 2026-09-28

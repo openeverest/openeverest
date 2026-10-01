@@ -15,6 +15,7 @@
 import { z } from 'zod';
 import { CelExpression } from 'components/ui-generator/ui-generator.types';
 import { validateCelExpression } from './cel-validation';
+import { getByPath } from '../object-path';
 
 export const applyCelValidation = (
   schema: z.ZodTypeAny,
@@ -27,12 +28,15 @@ export const applyCelValidation = (
 
   return schema.superRefine((data, ctx) => {
     celExpValidations.forEach(({ path, celExpressions }) => {
+      const self = getByPath(data, path.join('.'));
+
       // Evaluate each CEL expression for this field
       celExpressions.forEach((celExpr) => {
         const validationResult = validateCelExpression(
           celExpr,
           data,
-          originalData
+          originalData,
+          self
         );
 
         if (!validationResult.isValid) {

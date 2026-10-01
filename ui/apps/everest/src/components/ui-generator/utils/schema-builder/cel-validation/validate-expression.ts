@@ -14,6 +14,10 @@
 
 import { evaluate } from '@marcbachmann/cel-js';
 import { CelExpression } from 'components/ui-generator/ui-generator.types';
+import { isEmptyFieldValue } from '../../postprocess/postprocess-schema';
+import { CEL_SELF_VARIABLE } from './cel-validation.constants';
+
+const SELF_REFERENCE = new RegExp(`(?<![\\w.])${CEL_SELF_VARIABLE}\\b`);
 
 export type CelValidationResult = {
   isValid: boolean;
@@ -23,12 +27,20 @@ export type CelValidationResult = {
 export const validateCelExpression = (
   celExpression: CelExpression,
   formData: Record<string, unknown>,
-  originalData?: Record<string, unknown>
+  originalData?: Record<string, unknown>,
+  self?: unknown
 ): CelValidationResult => {
+  // As with k8s field-scoped rules, a rule on the field's own value skips an empty field.
+  if (isEmptyFieldValue(self) && SELF_REFERENCE.test(celExpression.celExpr)) {
+    return { isValid: true };
+  }
+
   try {
-    const context = originalData
-      ? { ...formData, original: originalData }
-      : formData;
+    const context = {
+      ...formData,
+      ...(originalData && { original: originalData }),
+      ...(!isEmptyFieldValue(self) && { [CEL_SELF_VARIABLE]: self }),
+    };
     const result = evaluate(celExpression.celExpr, context);
 
     // CEL expression should return true for valid, false for invalid
