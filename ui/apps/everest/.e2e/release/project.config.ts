@@ -25,7 +25,11 @@ export const releaseProject: PlaywrightTestProject[] = [
     // Release lane runs the PITR golden plus restore-to-new-cluster for now.
     // Restore the rest incrementally: 'pr', 'release:session:rate-limiting',
     // ...sessionProject.
-    dependencies: ['release:pitr', 'release:restore-new-cluster'],
+    dependencies: [
+      'release:pitr',
+      'release:restore-new-cluster',
+      'release:deletion-policy',
+    ],
   },
   {
     // Live PITR / restore-from-PITR golden (PXC). Auth is provided by the shared
@@ -50,6 +54,20 @@ export const releaseProject: PlaywrightTestProject[] = [
     name: 'release:restore-new-cluster',
     testDir: './release',
     testMatch: /restore-new-cluster\.e2e\.ts/,
+    dependencies: [
+      'global:auth:ci:setup',
+      'global:backup-storage:setup',
+      'global:monitoring-config:setup',
+    ],
+    use: {
+      storageState: CI_USER_STORAGE_STATE_FILE,
+    },
+  },
+  {
+    // Deletion policy (backup Delete/Retain, instance Cascade/Orphan) golden (PXC).
+    name: 'release:deletion-policy',
+    testDir: './release',
+    testMatch: /deletion-policy\.e2e\.ts/,
     dependencies: [
       'global:auth:ci:setup',
       'global:backup-storage:setup',
