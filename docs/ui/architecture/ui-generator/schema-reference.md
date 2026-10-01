@@ -76,16 +76,16 @@ flowchart TD
   W --> WTG["_widgetTargets<br/>(set by preprocess)"]
 ```
 
-- **No `fieldParams`** — the widget's name (`WidgetSummary.label`) and settings are owned by
-  the host, so providers can place a widget but not rename or reconfigure it.
-
+- **Supported props:** `uiType: widget` and `widgetType`.
 - **`widgetType`** selects the renderer from the consumer's `WidgetRegistry` (edit) and
-  `WidgetSummaryRegistry` (`View` + `digest` for the overview and wizard preview). Unknown
-  types render nothing.
-- **`path` / `id` are optional.** A widget bound to one value takes a `path` (e.g. the
-  internal `affinity`). A marker widget (`podSchedulingPolicy`) takes neither: preprocess
-  resolves its written paths per provider and topology (`widgetTargetResolvers`) into
-  `_widgetTargets`, which toggleable groups, payload merging and the overview read.
+  `WidgetSummaryRegistry` (`label` + `View` + `digest` for the overview and wizard preview).
+  Unknown types render nothing.
+- **Location is defined per widget type** — a widget is unique, so there is no shared rule
+  for where its data lives:
+  - `affinity` (internal) binds one `path`, like a field.
+  - `podSchedulingPolicy` is placed without `path` / `id`: preprocess resolves the paths it
+    writes per provider and topology (`widgetTargetResolvers`) into `_widgetTargets`, which
+    toggleable groups, payload merging and the overview read.
 
 ## Level 3 — fieldParams (by field type)
 

@@ -233,7 +233,7 @@ export type WidgetComponent = ComponentCommonFields & {
   uiType: typeof WIDGET_UI_TYPE;
   widgetType: WidgetType;
   validation?: CommonValidation;
-  // Widgets own their label and params; the schema only places them.
+  // No widget type reads schema params yet; add per-widget params here when one does.
   fieldParams?: never;
   // API paths a marker widget writes, resolved by preprocess from the provider.
   _widgetTargets?: WidgetTarget[];
