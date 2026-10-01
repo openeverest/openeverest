@@ -27,10 +27,13 @@ type SplitPane = {
   startDragging: () => void;
 };
 
+// Wide enough for the schema toolbar to lay out without truncating.
+export const DEFAULT_LEFT_WIDTH = 34;
+
 // Horizontal drag-to-resize for a two-pane layout. Widths are percentages of
 // the container, clamped so neither pane can be dragged away entirely.
 export const useSplitPane = ({
-  initialLeftWidth = 25,
+  initialLeftWidth = DEFAULT_LEFT_WIDTH,
   minLeftWidth = 20,
   maxLeftWidth = 80,
 }: SplitPaneOptions = {}): SplitPane => {

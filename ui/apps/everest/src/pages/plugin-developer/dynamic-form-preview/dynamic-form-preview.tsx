@@ -25,6 +25,7 @@ import { useCelValidation } from 'components/ui-generator/hooks/use-cel-validati
 import { useUiGenerator } from 'components/ui-generator/hooks/ui-generator';
 import { useTopology } from 'components/ui-generator/hooks/use-topology';
 import { useDefaultValues } from 'components/ui-generator/hooks/use-default-values';
+import { postprocessSchemaData } from 'components/ui-generator/utils/postprocess/postprocess-schema';
 
 export type DynamicFormProps = {
   schema: TopologyUISchemas;
@@ -32,9 +33,15 @@ export type DynamicFormProps = {
   // monitoring configs). Without it, provider-backed fields stay disabled and
   // render no options. See the namespace selector in UIGeneratorBuilder.
   namespace?: string;
+  // Fires on Submit with the post-processed API payload.
+  onGenerateOutput?: (payload: Record<string, unknown>) => void;
 };
 
-export const DynamicForm = ({ schema, namespace }: DynamicFormProps) => {
+export const DynamicForm = ({
+  schema,
+  namespace,
+  onGenerateOutput,
+}: DynamicFormProps) => {
   const [activeStep, setActiveStep] = useState(0);
   const {
     selectedTopology,
@@ -74,6 +81,20 @@ export const DynamicForm = ({ schema, namespace }: DynamicFormProps) => {
   useEffect(() => {
     void methods.trigger();
   }, [activeStep, methods]);
+
+  // Loading a schema with fewer sections would otherwise leave the index past
+  // the end of the new step list, rendering a blank form.
+  useEffect(() => {
+    setActiveStep((step) => Math.min(step, Math.max(stepLabels.length - 1, 0)));
+  }, [stepLabels.length]);
+
+  const handleGenerateOutput = () => {
+    const payload = postprocessSchemaData(methods.getValues(), {
+      schema,
+      selectedTopology,
+    });
+    onGenerateOutput?.(payload);
+  };
 
   return (
     <FormProvider {...methods} key={selectedTopology}>
@@ -126,7 +147,7 @@ export const DynamicForm = ({ schema, namespace }: DynamicFormProps) => {
         showSubmit={activeStep === stepLabels.length - 1}
         onPreviousClick={() => setActiveStep((prev) => prev - 1)}
         onNextClick={() => setActiveStep((prev) => prev + 1)}
-        onSubmit={() => {}}
+        onSubmit={handleGenerateOutput}
         onCancel={() => {}}
       />
     </FormProvider>
