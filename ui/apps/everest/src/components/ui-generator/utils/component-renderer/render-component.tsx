@@ -40,6 +40,11 @@ export const renderComponent = ({
   name,
 }: RenderComponentProps): ReactNode => {
   const fieldName = generateFieldId(item, name);
+
+  if (item?.uiType === 'group' && (item as ComponentGroup)._hidden) {
+    return null;
+  }
+
   const isGroup = item?.uiType === 'group' && 'components' in item;
 
   const children = isGroup ? (
@@ -74,6 +79,7 @@ export const renderComponent = ({
       <ComponentErrorBoundary key={fieldName} componentName={name}>
         <UIGroup
           key={fieldName}
+          fieldName={fieldName}
           item={item}
           groupType={(item as ComponentGroup).groupType}
           groupParams={(item as ComponentGroup).groupParams}
