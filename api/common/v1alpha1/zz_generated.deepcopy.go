@@ -95,9 +95,13 @@ func (in *SchedulingPolicy) DeepCopyInto(out *SchedulingPolicy) {
 	}
 	if in.TopologySpreadConstraints != nil {
 		in, out := &in.TopologySpreadConstraints, &out.TopologySpreadConstraints
-		*out = make([]v1.TopologySpreadConstraint, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
+		*out = new([]v1.TopologySpreadConstraint)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make([]v1.TopologySpreadConstraint, len(*in))
+			for i := range *in {
+				(*in)[i].DeepCopyInto(&(*out)[i])
+			}
 		}
 	}
 }

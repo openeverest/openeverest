@@ -2354,7 +2354,10 @@ export interface components {
                             }[];
                             /**
                              * @description TopologySpreadConstraints describe how the pods spread across topology
-                             *     domains. All constraints are ANDed.
+                             *     domains. All constraints are ANDed. A constraint without labelSelector
+                             *     and matchLabelKeys counts this component's own pods.
+                             *     When omitted, the provider applies its default spreading; an empty list
+                             *     asks for none, which a provider may reject if its engine always spreads.
                              */
                             topologySpreadConstraints?: {
                                 /**
@@ -3869,7 +3872,10 @@ export interface components {
                             }[];
                             /**
                              * @description TopologySpreadConstraints describe how the pods spread across topology
-                             *     domains. All constraints are ANDed.
+                             *     domains. All constraints are ANDed. A constraint without labelSelector
+                             *     and matchLabelKeys counts this component's own pods.
+                             *     When omitted, the provider applies its default spreading; an empty list
+                             *     asks for none, which a provider may reject if its engine always spreads.
                              */
                             topologySpreadConstraints?: {
                                 /**

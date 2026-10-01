@@ -2347,7 +2347,10 @@ type Instance struct {
 				} `json:"tolerations,omitempty"`
 
 				// TopologySpreadConstraints TopologySpreadConstraints describe how the pods spread across topology
-				// domains. All constraints are ANDed.
+				// domains. All constraints are ANDed. A constraint without labelSelector
+				// and matchLabelKeys counts this component's own pods.
+				// When omitted, the provider applies its default spreading; an empty list
+				// asks for none, which a provider may reject if its engine always spreads.
 				TopologySpreadConstraints *[]struct {
 					// LabelSelector LabelSelector is used to find matching pods.
 					// Pods that match this label selector are counted to determine the number of pods
@@ -3632,7 +3635,10 @@ type InstancePreset struct {
 				} `json:"tolerations,omitempty"`
 
 				// TopologySpreadConstraints TopologySpreadConstraints describe how the pods spread across topology
-				// domains. All constraints are ANDed.
+				// domains. All constraints are ANDed. A constraint without labelSelector
+				// and matchLabelKeys counts this component's own pods.
+				// When omitted, the provider applies its default spreading; an empty list
+				// asks for none, which a provider may reject if its engine always spreads.
 				TopologySpreadConstraints *[]struct {
 					// LabelSelector LabelSelector is used to find matching pods.
 					// Pods that match this label selector are counted to determine the number of pods
