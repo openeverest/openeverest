@@ -123,7 +123,8 @@ export const buildShapeFromComponents = (
         celDependencyGroups.push(celData.celDependencyGroup);
       }
     } else {
-      fieldSchema = baseSchema;
+      // No validation means not required, same as a validated non-required field.
+      fieldSchema = baseSchema.optional();
     }
 
     if (activeSwitch) {
