@@ -41,6 +41,7 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 	"github.com/openeverest/openeverest/v2/provider-runtime/internal/instanceprep"
 	"github.com/openeverest/openeverest/v2/provider-runtime/server"
@@ -159,6 +160,12 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 	// provider to register them explicitly.
 	if err := backupv1alpha1.AddToScheme(scheme); err != nil {
 		return nil, fmt.Errorf("failed to add backup v1alpha1 scheme: %w", err)
+	}
+
+	// Register monitoring types so the runtime can read MonitoringBindings,
+	// MonitoringConfigs and MonitoringClasses for opted-in providers.
+	if err := monitoringv1alpha1.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("failed to add monitoring v1alpha1 scheme: %w", err)
 	}
 
 	// Register provider-specific types
@@ -347,6 +354,10 @@ func (r *ProviderReconciler) setup() error {
 		}
 	}
 
+	if monitoringEnabled(r.provider) {
+		r.watchMonitoringBindings(b)
+	}
+
 	return b.Complete(r)
 }
 
@@ -368,8 +379,12 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return r.handleDeletion(ctx, inCtx, in, logger)
 	}
 
-	// Ensure provider label and finalizer are present
+	// Ensure provider label and finalizer are present. Metadata is written with
+	// a merge patch, never a full Update: a provider compiled against an older
+	// core would otherwise PUT back the Instance without the spec fields it
+	// does not know and erase them.
 	var needsUpdate bool
+	base := in.DeepCopy()
 	if in.Labels == nil {
 		in.Labels = make(map[string]string)
 	}
@@ -382,7 +397,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		needsUpdate = true
 	}
 	if needsUpdate {
-		if err := r.Client.Update(ctx, in); err != nil {
+		if err := r.Client.Patch(ctx, in, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})); err != nil {
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{Requeue: true}, nil
@@ -542,6 +557,9 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		in.Status.Version = effectiveBundleName
 	}
 
+	// Publish the monitoring sources and the per-entry monitoring summary.
+	r.reconcileMonitoring(ctx, syncCtx, in)
+
 	// Write connection details Secret and set the ConnectionDetailsReady condition.
 	if err := r.reconcileConnectionSecret(ctx, in, status); err != nil {
 		logger.Error(err, "Failed to reconcile connection secret")
@@ -671,8 +689,9 @@ func (r *ProviderReconciler) handleDeletion(
 	}
 
 	// Remove finalizer
+	base := in.DeepCopy()
 	controllerutil.RemoveFinalizer(in, finalizerName)
-	if err := r.Client.Update(ctx, in); err != nil {
+	if err := r.Client.Patch(ctx, in, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})); err != nil {
 		return reconcile.Result{}, err
 	}
 	// Drop breaker state so a recreated Instance with the same name does not

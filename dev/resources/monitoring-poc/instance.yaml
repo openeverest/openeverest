@@ -1,0 +1,32 @@
+# PoC Instance: one PXC node + HAProxy, sending to PMM (ProviderManaged) and
+# Prometheus (ExtensionManaged) through spec.monitoring.destinations[].
+apiVersion: core.openeverest.io/v1alpha1
+kind: Instance
+metadata:
+  name: poc-pxc
+  namespace: monitoring-poc
+spec:
+  providerRef:
+    name: percona-xtradb-cluster
+  components:
+    engine:
+      type: pxc
+      replicas: 1
+      resources:
+        requests: {cpu: 250m, memory: 1Gi}
+        limits: {memory: 2Gi}
+      storage:
+        size: 3Gi
+    proxy:
+      type: haproxy
+      replicas: 1
+  monitoring:
+    destinations:
+      - name: pmm
+        destinationRef: {name: pmm-poc}
+        parameters:
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {memory: 512Mi}
+      - name: prometheus
+        destinationRef: {name: prometheus-poc}

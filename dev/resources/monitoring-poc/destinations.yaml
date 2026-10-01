@@ -1,0 +1,23 @@
+# PoC objects for spec 014 in the monitoring-poc namespace.
+apiVersion: monitoring.openeverest.io/v1alpha1
+kind: MonitoringDestination
+metadata:
+  name: pmm-poc
+  namespace: monitoring-poc
+spec:
+  classRef: {name: pmm}
+  credentialsSecretRef: {name: pmm-poc-token}
+  parameters:
+    url: https://monitoring-service.pmm.svc.cluster.local
+    verifyTLS: false
+---
+apiVersion: monitoring.openeverest.io/v1alpha1
+kind: MonitoringDestination
+metadata:
+  name: prometheus-poc
+  namespace: monitoring-poc
+spec:
+  classRef: {name: prometheus}
+  parameters:
+    podMonitorLabels: {release: kps}
+    interval: 15s

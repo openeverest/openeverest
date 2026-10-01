@@ -82,6 +82,11 @@ type Context struct {
 	// RequestMaintenance at least once this pass, so the staged pending set
 	// is authoritative even when Sync later fails.
 	maintenanceRequested bool
+
+	// monitoringResults collects per-binding failures staged with
+	// SetMonitoringBindingResult; the reconciler reports them on the
+	// bindings' Configured condition after Sync.
+	monitoringResults map[string]bindingResult
 }
 
 // NewContext creates a new Context handle (used internally by the reconciler).

@@ -2664,6 +2664,47 @@ export interface components {
                     autoApproveUpTo: "NonDisruptive" | "RollingRestart" | "Downtime";
                 };
                 /**
+                 * @description Monitoring configures where this Instance sends monitoring data. Core
+                 *     creates one MonitoringBinding per destination; the resolved state is
+                 *     mirrored in status.monitoring.destinations[].
+                 */
+                monitoring?: {
+                    /**
+                     * @description Destinations lists the MonitoringDestinations this Instance sends to.
+                     *     Core creates one MonitoringBinding per entry.
+                     */
+                    destinations?: {
+                        /**
+                         * @description DestinationRef references the MonitoringDestination in the Instance's
+                         *     namespace.
+                         */
+                        destinationRef: {
+                            /**
+                             * @description Kind of the referenced object.
+                             * @default MonitoringDestination
+                             * @enum {string}
+                             */
+                            kind: "MonitoringDestination";
+                            /** @description Name of the referenced object. */
+                            name: string;
+                        };
+                        /**
+                         * @description ExecutionMode pins who renders the binding. When unset the mode is
+                         *     resolved once when the binding is created and never changes on its own;
+                         *     changing the pin recreates the binding.
+                         * @enum {string}
+                         */
+                        executionMode?: "ProviderManaged" | "ExtensionManaged";
+                        /**
+                         * @description Name identifies the entry within the Instance; it is the key of
+                         *     status.monitoring.destinations[] and part of the MonitoringBinding name.
+                         */
+                        name: string;
+                        /** @description Parameters are validated against the class's instanceParametersSchema. */
+                        parameters?: Record<string, never>;
+                    }[];
+                };
+                /**
                  * @description Parameters contains structured parameters that apply to the Instance
                  *     as a whole, complementing the topology- and component-scoped
                  *     parameters. The payload is validated against the referenced Provider's
@@ -2848,6 +2889,54 @@ export interface components {
                  *     omits Spec.Version.
                  */
                 defaultVersion?: string;
+                /**
+                 * @description Monitoring is the provider's monitoring contract: the operator-native
+                 *     integrations it renders itself and what each component type exposes.
+                 */
+                monitoring?: {
+                    /**
+                     * @description ComponentTypes declares what each component type exposes, keyed by
+                     *     component type (the software), not by component name.
+                     */
+                    componentTypes?: {
+                        [key: string]: {
+                            /**
+                             * @description CredentialProfiles are the least-privilege users the provider can
+                             *     create on demand (e.g. "metrics", "queryAnalytics").
+                             */
+                            credentialProfiles?: string[];
+                            /**
+                             * @description Features are engine switches the provider can enable on demand
+                             *     (e.g. "queryAnalytics").
+                             */
+                            features?: string[];
+                            /**
+                             * @description Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
+                             *     follow OpenTelemetry db.system.name; unknown kinds are allowed.
+                             */
+                            kind: string;
+                            /**
+                             * @description Metrics states how the component exposes OpenMetrics.
+                             * @default None
+                             * @enum {string}
+                             */
+                            metrics: "Native" | "Exporter" | "None";
+                        };
+                    };
+                    /**
+                     * @description Integrations lists the operator-native monitoring integrations the
+                     *     provider renders itself, keyed by integration name (e.g. "pmm").
+                     */
+                    integrations?: {
+                        [key: string]: {
+                            /**
+                             * @description AgentVersions is the semver range of agent versions the provider can
+                             *     render (e.g. ">=3.0.0 <4.0.0").
+                             */
+                            agentVersions?: string;
+                        };
+                    };
+                };
                 /**
                  * @description ParametersSchema declares the OpenAPI v3 schema for the instance-wide
                  *     parameters payload (Instance.spec.parameters).
@@ -4179,6 +4268,47 @@ export interface components {
                     autoApproveUpTo: "NonDisruptive" | "RollingRestart" | "Downtime";
                 };
                 /**
+                 * @description Monitoring configures where this Instance sends monitoring data. Core
+                 *     creates one MonitoringBinding per destination; the resolved state is
+                 *     mirrored in status.monitoring.destinations[].
+                 */
+                monitoring?: {
+                    /**
+                     * @description Destinations lists the MonitoringDestinations this Instance sends to.
+                     *     Core creates one MonitoringBinding per entry.
+                     */
+                    destinations?: {
+                        /**
+                         * @description DestinationRef references the MonitoringDestination in the Instance's
+                         *     namespace.
+                         */
+                        destinationRef: {
+                            /**
+                             * @description Kind of the referenced object.
+                             * @default MonitoringDestination
+                             * @enum {string}
+                             */
+                            kind: "MonitoringDestination";
+                            /** @description Name of the referenced object. */
+                            name: string;
+                        };
+                        /**
+                         * @description ExecutionMode pins who renders the binding. When unset the mode is
+                         *     resolved once when the binding is created and never changes on its own;
+                         *     changing the pin recreates the binding.
+                         * @enum {string}
+                         */
+                        executionMode?: "ProviderManaged" | "ExtensionManaged";
+                        /**
+                         * @description Name identifies the entry within the Instance; it is the key of
+                         *     status.monitoring.destinations[] and part of the MonitoringBinding name.
+                         */
+                        name: string;
+                        /** @description Parameters are validated against the class's instanceParametersSchema. */
+                        parameters?: Record<string, never>;
+                    }[];
+                };
+                /**
                  * @description Parameters contains structured parameters that apply to the Instance
                  *     as a whole, complementing the topology- and component-scoped
                  *     parameters. The payload is validated against the referenced Provider's
@@ -4346,6 +4476,122 @@ export interface components {
                 };
                 /** @description Message is a custom user-facing message describing the current state of the instance. */
                 message?: string;
+                /**
+                 * @description Monitoring mirrors spec.monitoring: one read-only summary per
+                 *     destination, built from the MonitoringBindings and written only by
+                 *     provider-runtime.
+                 */
+                monitoring?: {
+                    /** @description Destinations has one entry per spec.monitoring.destinations[] entry. */
+                    destinations?: {
+                        /**
+                         * @description Configured mirrors the binding's Configured condition; False when the
+                         *     binding is not Accepted, Unknown while it is missing or pending.
+                         */
+                        configured?: string;
+                        /** @description Message is the human-readable detail for Configured. */
+                        message?: string;
+                        /**
+                         * @description Mode is the resolved execution mode.
+                         * @enum {string}
+                         */
+                        mode?: "ProviderManaged" | "ExtensionManaged";
+                        /** @description Name matches spec.monitoring.destinations[].name. */
+                        name: string;
+                        /** @description Reason is the machine-readable reason for Configured. */
+                        reason?: string;
+                    }[];
+                    /**
+                     * @description Sources is the per-Instance publication of the provider's monitoring
+                     *     contract, consumed by ExtensionManaged class controllers.
+                     */
+                    sources?: {
+                        /**
+                         * @description Credentials lists the Instance-owned monitoring credential Secrets by
+                         *     profile.
+                         */
+                        credentials?: {
+                            /** @description Profile names the credential profile (e.g. "metrics"). */
+                            profile: string;
+                            /** @description SecretRef references the Secret in the Instance's namespace. */
+                            secretRef: {
+                                /** @description Name of the referenced Secret. */
+                                name: string;
+                            };
+                        }[];
+                        /**
+                         * @description Identity carries the labels every monitoring class must attach so
+                         *     destinations can tell Instances and clusters apart. Stamped by the
+                         *     runtime.
+                         */
+                        identity?: {
+                            /** @description ClusterID is the UID of the kube-system namespace. */
+                            clusterID?: string;
+                            /**
+                             * @description Labels are the identity labels (openeverest_instance,
+                             *     openeverest_namespace, openeverest_provider, k8s_cluster_id).
+                             */
+                            labels?: {
+                                [key: string]: string;
+                            };
+                        };
+                        /** @description Metrics lists the OpenMetrics endpoints that are currently serving. */
+                        metrics?: {
+                            /** @description Auth names the credential profile the scraper must authenticate with. */
+                            auth?: {
+                                /** @description CredentialProfile matches MonitoringSources.credentials[].profile. */
+                                credentialProfile: string;
+                            };
+                            /** @description Component is the Instance component name (e.g. "engine", "proxy"). */
+                            component: string;
+                            /** @description Kind is the component's engine kind. */
+                            kind: string;
+                            /** @description Params are extra scrape query parameters (e.g. /probe?target=). */
+                            params?: {
+                                [key: string]: string;
+                            };
+                            /**
+                             * @description Path is the HTTP path (default "/metrics").
+                             * @default /metrics
+                             */
+                            path: string;
+                            /** @description PodSelector selects the pods serving the endpoint. */
+                            podSelector: {
+                                [key: string]: string;
+                            };
+                            /** @description Port is the container port, by name or number. */
+                            port: {
+                                /** @description Name is the named container port. */
+                                name?: string;
+                                /**
+                                 * Format: int32
+                                 * @description Number is the numeric container port.
+                                 */
+                                number?: number;
+                            };
+                            /**
+                             * @description Scheme is "http" or "https".
+                             * @default http
+                             * @enum {string}
+                             */
+                            scheme: "http" | "https";
+                            /** @description TLS describes how to verify an https endpoint. */
+                            tls?: {
+                                /** @description CASecretRef references the Secret and key holding the CA bundle. */
+                                caSecretRef?: {
+                                    /** @description Key within the Secret. */
+                                    key: string;
+                                    /** @description Name of the Secret. */
+                                    name: string;
+                                };
+                                /** @description InsecureSkipVerify disables verification. */
+                                insecureSkipVerify?: boolean;
+                                /** @description ServerName overrides the expected server name. */
+                                serverName?: string;
+                            };
+                        }[];
+                    };
+                };
                 /**
                  * @description PendingMaintenance lists the disruptive actions currently held awaiting
                  *     approval. It is recomputed on every reconcile from the actions the
