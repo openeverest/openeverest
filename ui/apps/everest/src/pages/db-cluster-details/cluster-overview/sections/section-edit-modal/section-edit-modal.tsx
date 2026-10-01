@@ -29,9 +29,9 @@ import {
 import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/useUpdateDbInstance';
 import { useKubernetesClusterInfo } from 'hooks/api/kubernetesClusters/useKubernetesClusterInfo';
 import type { Instance } from 'shared-types/api.types';
+import { widgetRegistry } from 'pages/database-form/widget-registry';
 import type { SectionEditModalProps } from './section-edit-modal.types';
 import { applyRuntimeOverrides } from './section-edit-modal.utils';
-import { overviewWidgetRegistry } from './overview-widget-registry';
 import { Messages } from './section-edit-modal.messages';
 
 const SectionEditModal = ({
@@ -130,7 +130,7 @@ const SectionEditModal = ({
         providerObject={provider}
         formMode={FormMode.Edit}
         namespace={namespace}
-        widgetRegistry={overviewWidgetRegistry}
+        widgetRegistry={widgetRegistry}
       />
     </FormDialog>
   );

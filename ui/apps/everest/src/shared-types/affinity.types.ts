@@ -41,7 +41,23 @@ export enum AffinityOperator {
   NotIn = 'NotIn',
   Exists = 'Exists',
   DoesNotExist = 'DoesNotExist',
+  Gt = 'Gt',
+  Lt = 'Lt',
 }
+
+// Label selectors (pod affinity) accept only these; node affinity adds Gt / Lt.
+export const LABEL_SELECTOR_OPERATORS: AffinityOperator[] = [
+  AffinityOperator.In,
+  AffinityOperator.NotIn,
+  AffinityOperator.Exists,
+  AffinityOperator.DoesNotExist,
+];
+
+// Compare the node label value as an integer; take exactly one value.
+export const NUMERIC_AFFINITY_OPERATORS: AffinityOperator[] = [
+  AffinityOperator.Gt,
+  AffinityOperator.Lt,
+];
 
 export const AffinityTypeValue: Record<AffinityType, string> = {
   [AffinityType.NodeAffinity]: 'Node affinity',
@@ -54,6 +70,8 @@ export const AffinityOperatorValue: Record<AffinityOperator, string> = {
   [AffinityOperator.DoesNotExist]: 'does not exist',
   [AffinityOperator.In]: 'in',
   [AffinityOperator.NotIn]: 'not in',
+  [AffinityOperator.Gt]: 'greater than',
+  [AffinityOperator.Lt]: 'less than',
 };
 
 export const AffinityPriorityValue: Record<AffinityPriority, string> = {

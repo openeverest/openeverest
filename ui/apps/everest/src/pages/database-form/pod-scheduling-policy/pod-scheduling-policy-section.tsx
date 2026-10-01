@@ -26,6 +26,7 @@ import { AffinityRuleEditor } from './affinity';
 import { buildAffinitySections } from './build-scheduling-sections';
 import { toAffinityGroups } from './pod-scheduling-policy.utils';
 import { SchedulingPolicyTabs } from './scheduling-policy-tabs';
+import { SchedulingComponentContext } from './scheduling-component-context';
 import { Messages } from './pod-scheduling-policy-section.messages';
 
 const widgetRegistry: WidgetRegistry = {
@@ -60,12 +61,14 @@ export const PodSchedulingPolicySection: WidgetRenderer = ({ item }) => {
   return (
     <SchedulingPolicyTabs tabs={tabs}>
       {(activeKey) => (
-        <UIGenerator
-          sectionKey={activeKey}
-          sections={sections}
-          providerObject={providerObject}
-          widgetRegistry={widgetRegistry}
-        />
+        <SchedulingComponentContext.Provider value={{ component: activeKey }}>
+          <UIGenerator
+            sectionKey={activeKey}
+            sections={sections}
+            providerObject={providerObject}
+            widgetRegistry={widgetRegistry}
+          />
+        </SchedulingComponentContext.Provider>
       )}
     </SchedulingPolicyTabs>
   );

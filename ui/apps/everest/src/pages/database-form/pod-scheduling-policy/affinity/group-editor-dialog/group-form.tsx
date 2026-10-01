@@ -107,7 +107,16 @@ export const GroupForm = () => {
             {Messages.conditions}
           </Typography>
           <Tooltip title={Messages.conditionsInfo} placement="right" arrow>
-            <InfoOutlinedIcon sx={{ width: 18, color: 'action.active' }} />
+            <InfoOutlinedIcon
+              // Focusable so the tooltip opens from the keyboard; the tooltip itself marks focus.
+              tabIndex={0}
+              aria-label={Messages.conditions}
+              sx={{
+                width: 18,
+                color: 'action.active',
+                '&:focus, &:focus-visible': { outline: 'none' },
+              }}
+            />
           </Tooltip>
         </Box>
         {fields.map((field, index) => (

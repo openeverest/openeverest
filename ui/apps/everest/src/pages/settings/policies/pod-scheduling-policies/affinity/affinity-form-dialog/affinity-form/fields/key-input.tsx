@@ -13,27 +13,24 @@
 // limitations under the License.
 
 import { TextInput } from '@percona/ui-lib';
-import { SxProps, Theme, Tooltip } from '@mui/material';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { SxProps, Theme } from '@mui/material';
 import { AffinityFormFields } from '../affinity-form.types';
 import { AffinityType } from 'shared-types/affinity.types';
 import { Messages } from '../../affinity-form-dialog.messages';
+
+interface KeyInputProps {
+  affinityType: AffinityType;
+  namePrefix?: string;
+  sx?: SxProps<Theme>;
+  placeholder?: string;
+}
 
 const KeyInput = ({
   affinityType,
   namePrefix = '',
   sx,
-  helperInAdornment = false,
   placeholder,
-}: {
-  affinityType: AffinityType;
-  namePrefix?: string;
-  sx?: SxProps<Theme>;
-  helperInAdornment?: boolean;
-  placeholder?: string;
-}) => {
-  const helperText = Messages.affinityTypeHelperText(affinityType);
-
+}: KeyInputProps) => {
   return (
     <TextInput
       name={`${namePrefix}${AffinityFormFields.key}`}
@@ -52,19 +49,7 @@ const KeyInput = ({
         sx: sx ?? {
           flex: '0 0 35%',
         },
-        ...(helperInAdornment
-          ? {
-              InputProps: {
-                endAdornment: (
-                  <Tooltip title={helperText} placement="top" arrow>
-                    <InfoOutlinedIcon
-                      sx={{ width: 18, color: 'action.active' }}
-                    />
-                  </Tooltip>
-                ),
-              },
-            }
-          : { helperText }),
+        helperText: Messages.affinityTypeHelperText(affinityType),
       }}
     />
   );

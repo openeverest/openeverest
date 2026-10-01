@@ -17,18 +17,20 @@ import {
   AffinityOperator,
   AffinityPriority,
   AffinityType,
+  NUMERIC_AFFINITY_OPERATORS,
 } from 'shared-types/affinity.types';
 import { doesAffinityOperatorRequireValues } from 'utils/db';
 import { PerconaZodCustomIssue } from 'utils/common-validation';
 import { AffinityFormFields } from 'pages/settings/policies/pod-scheduling-policies/affinity/affinity-form-dialog/affinity-form/affinity-form.types';
+import { Messages } from './group-editor-dialog/group-editor-dialog.messages';
 
 const CONDITIONS = 'conditions';
+const PASSTHROUGH = 'passthrough';
 
 // k8s label value: up to 63 chars, alphanumerics plus - _ ., must start and end
 // with an alphanumeric.
 const LABEL_VALUE_PATTERN = /^[A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?$/;
-const INVALID_VALUE_MESSAGE =
-  "Values may use letters, numbers, '-', '_', '.' (max 63 chars each)";
+const INTEGER_PATTERN = /^-?\d+$/;
 
 const conditionSchema = z.object({
   [AffinityFormFields.key]: z.string().optional(),
@@ -44,6 +46,7 @@ const groupBaseSchema = z.object({
     .optional(),
   [AffinityFormFields.topologyKey]: z.string().optional(),
   [CONDITIONS]: z.array(conditionSchema),
+  [PASSTHROUGH]: z.record(z.unknown()).optional(),
 });
 
 const conditionRequiredIssue = (field: string, index: number) => ({
@@ -52,7 +55,8 @@ const conditionRequiredIssue = (field: string, index: number) => ({
 });
 
 export const affinityGroupSchema = groupBaseSchema.superRefine((group, ctx) => {
-  const { type, priority, weight, topologyKey, conditions } = group;
+  const { type, priority, weight, topologyKey, conditions, passthrough } =
+    group;
 
   if (
     priority === AffinityPriority.Preferred &&
@@ -67,15 +71,17 @@ export const affinityGroupSchema = groupBaseSchema.superRefine((group, ctx) => {
     ctx.addIssue(
       PerconaZodCustomIssue.required(
         AffinityFormFields.topologyKey,
-        'Topology Key'
+        Messages.topologyKeyLabel
       )
     );
   }
 
-  if (conditions.length === 0) {
+  // A term kept from outside the UI (e.g. matchFields only) may have no
+  // conditions the editor models.
+  if (conditions.length === 0 && !passthrough) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'At least one condition is required',
+      message: Messages.conditionsRequired,
       path: [CONDITIONS],
     });
   }
@@ -85,16 +91,14 @@ export const affinityGroupSchema = groupBaseSchema.superRefine((group, ctx) => {
     const operator = condition[AffinityFormFields.operator];
     const values = condition[AffinityFormFields.values];
 
-    // Node affinity requires key and operator on every condition; pod
-    // (anti)affinity keys are optional, but once a key is set its operator is
-    // required. Values are required only for operators that consume them.
-    const keyIsRequired = type === AffinityType.NodeAffinity;
-
-    if (keyIsRequired && !key) {
+    // Every condition needs a key and an operator: a key-less pod condition
+    // would leave the term without a label selector, which matches no pods.
+    // Values are required only for operators that consume them.
+    if (!key) {
       ctx.addIssue(conditionRequiredIssue(AffinityFormFields.key, index));
     }
 
-    if ((keyIsRequired || key) && !operator) {
+    if (!operator) {
       ctx.addIssue(conditionRequiredIssue(AffinityFormFields.operator, index));
     }
 
@@ -104,6 +108,23 @@ export const affinityGroupSchema = groupBaseSchema.superRefine((group, ctx) => {
       (!values || values.length === 0)
     ) {
       ctx.addIssue(conditionRequiredIssue(AffinityFormFields.values, index));
+      return;
+    }
+
+    if (operator && NUMERIC_AFFINITY_OPERATORS.includes(operator)) {
+      if (type !== AffinityType.NodeAffinity) {
+        ctx.addIssue({
+          ...conditionRequiredIssue(AffinityFormFields.operator, index),
+          message: Messages.numericOperatorNodeOnly,
+        });
+      }
+      if (values?.length !== 1 || !INTEGER_PATTERN.test(values[0])) {
+        ctx.addIssue({
+          ...conditionRequiredIssue(AffinityFormFields.values, index),
+          message: Messages.numericValueInvalid,
+        });
+      }
+      return;
     }
 
     // Values map to k8s label values: <=63 chars, alphanumerics plus - _ .,
@@ -112,7 +133,7 @@ export const affinityGroupSchema = groupBaseSchema.superRefine((group, ctx) => {
     if (values && values.some((value) => !LABEL_VALUE_PATTERN.test(value))) {
       ctx.addIssue({
         ...conditionRequiredIssue(AffinityFormFields.values, index),
-        message: INVALID_VALUE_MESSAGE,
+        message: Messages.invalidLabelValues,
       });
     }
   });

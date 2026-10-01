@@ -24,7 +24,7 @@ import { Messages as SchedulingMessages } from './pod-scheduling-policy/pod-sche
 
 // Binds the wizard's schema-driven widget markers to their renderers. One place
 // to register future wizard widgets (tolerations, node selector, …).
-export const wizardWidgetRegistry: WidgetRegistry = {
+export const widgetRegistry: WidgetRegistry = {
   [WidgetType.PodSchedulingPolicy]: PodSchedulingPolicySection,
 };
 

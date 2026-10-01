@@ -29,7 +29,17 @@ export const Messages = {
   conditionsInfo:
     'Conditions inside a group are combined with AND: a match needs all of them.',
   valuesHelper: 'Separate multiple values with commas',
+  keyPlaceholder: 'Key',
+  valuesLabel: 'Values',
   valuesPlaceholder: 'e.g. ssd, nvme',
+  invalidLabelValues:
+    "Values may use letters, numbers, '-', '_', '.' (max 63 chars each)",
+  conditionsRequired: 'At least one condition is required',
+  topologyKeyLabel: 'Topology Key',
+  numericValuePlaceholder: 'e.g. 4',
+  numericValueInvalid: 'Enter a single whole number',
+  numericOperatorNodeOnly:
+    'Greater than / less than work only with node affinity',
   addCondition: 'Add condition',
   removeCondition: 'Remove condition',
 };

@@ -12,13 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {
-  WidgetRegistry,
-  WidgetType,
-} from 'components/ui-generator/ui-generator.types';
-import { PodSchedulingPolicySection } from 'pages/database-form/pod-scheduling-policy';
-
-// Widgets the overview can edit (in SectionEditModal).
-export const overviewWidgetRegistry: WidgetRegistry = {
-  [WidgetType.PodSchedulingPolicy]: PodSchedulingPolicySection,
-};
+export * from './scheduling-component.context';
+export * from './scheduling-component-context.types';

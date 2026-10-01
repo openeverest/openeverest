@@ -111,6 +111,34 @@ describe('GroupEditorDialog', () => {
     ).not.toBeInTheDocument();
   });
 
+  // Gt / Lt compare node label values as integers; label selectors can't use them.
+  it.each([
+    [AffinityType.NodeAffinity, true],
+    [AffinityType.PodAntiAffinity, false],
+  ])('offers Gt / Lt for %s: %s', (type, offered) => {
+    render(
+      <GroupEditorDialog
+        isOpen
+        group={{
+          type,
+          priority: AffinityPriority.Required,
+          topologyKey: 'kubernetes.io/hostname',
+          conditions: [{ key: 'zone', operator: AffinityOperator.Exists }],
+        }}
+        onClose={() => {}}
+        onSubmit={() => {}}
+      />
+    );
+
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Operator' }));
+    const options = screen
+      .getAllByRole('option')
+      .map((option) => option.textContent);
+
+    expect(options.includes('greater than')).toBe(offered);
+    expect(options.includes('less than')).toBe(offered);
+  });
+
   it('parses comma-separated input into values and clears the required error', () => {
     render(
       <GroupEditorDialog

@@ -15,6 +15,7 @@
 import {
   AffinityOperator,
   AffinityOperatorValue,
+  LABEL_SELECTOR_OPERATORS,
 } from 'shared-types/affinity.types';
 import { AffinityFormFields } from '../affinity-form.types';
 import { SelectInput } from '@percona/ui-lib';
@@ -24,9 +25,15 @@ type Props = {
   disabled: boolean;
   namePrefix?: string;
   sx?: SxProps<Theme>;
+  operators?: AffinityOperator[];
 };
 
-const OperatorInput = ({ disabled, namePrefix = '', sx }: Props) => (
+const OperatorInput = ({
+  disabled,
+  namePrefix = '',
+  sx,
+  operators = LABEL_SELECTOR_OPERATORS,
+}: Props) => (
   <SelectInput
     name={`${namePrefix}${AffinityFormFields.operator}`}
     label="Operator"
@@ -37,7 +44,7 @@ const OperatorInput = ({ disabled, namePrefix = '', sx }: Props) => (
     }}
     data-testid="operator-select"
   >
-    {Object.values(AffinityOperator).map((value) => (
+    {operators.map((value) => (
       <MenuItem key={value} value={value} data-testid={value}>
         {AffinityOperatorValue[value]}
       </MenuItem>

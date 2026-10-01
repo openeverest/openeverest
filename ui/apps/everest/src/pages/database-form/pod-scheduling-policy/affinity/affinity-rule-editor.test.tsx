@@ -20,6 +20,7 @@ import {
   WIDGET_UI_TYPE,
   WidgetType,
 } from 'components/ui-generator/ui-generator.types';
+import { SchedulingComponentContext } from '../scheduling-component-context';
 import { AffinityRuleEditor } from './affinity-rule-editor';
 
 const item: WidgetComponent = {
@@ -78,5 +79,17 @@ describe('AffinityRuleEditor', () => {
   it('shows the empty state when there are no rules', () => {
     render(<Wrapper initial={{}} />);
     expect(screen.getByText(/No affinity rules yet/i)).toBeInTheDocument();
+  });
+
+  it('names the component of the active scheduling tab in the dialog', () => {
+    render(
+      <SchedulingComponentContext.Provider value={{ component: 'proxy' }}>
+        <Wrapper initial={{}} />
+      </SchedulingComponentContext.Provider>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Add rule group' }));
+    expect(
+      screen.getByText('Add rule group to the proxy component')
+    ).toBeInTheDocument();
   });
 });

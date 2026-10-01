@@ -21,6 +21,7 @@ import { Messages } from './group-editor-dialog.messages';
 interface ConditionValuesInputProps {
   namePrefix?: string;
   disabled?: boolean;
+  placeholder?: string;
   sx?: SxProps<Theme>;
 }
 
@@ -38,6 +39,7 @@ const toValues = (text: string): string[] =>
 export const ConditionValuesInput = ({
   namePrefix = '',
   disabled,
+  placeholder = Messages.valuesPlaceholder,
   sx,
 }: ConditionValuesInputProps) => {
   const { control } = useFormContext();
@@ -51,11 +53,11 @@ export const ConditionValuesInput = ({
 
   return (
     <TextField
-      label="Values"
+      label={Messages.valuesLabel}
       size="small"
       disabled={disabled}
       fullWidth
-      placeholder={Messages.valuesPlaceholder}
+      placeholder={placeholder}
       // SegmentedField hides the label (sr-only); force shrink so the
       // placeholder shows without focus, matching the sibling inputs.
       slotProps={{ inputLabel: { shrink: true } }}

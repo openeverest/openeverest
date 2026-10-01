@@ -16,8 +16,14 @@ import { Box, IconButton } from '@mui/material';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useFormContext, useFormState, useWatch } from 'react-hook-form';
 import { SegmentedField } from '@percona/ui-lib';
-import { AffinityType } from 'shared-types/affinity.types';
-import { doesAffinityOperatorRequireValues } from 'utils/db';
+import {
+  AffinityType,
+  NUMERIC_AFFINITY_OPERATORS,
+} from 'shared-types/affinity.types';
+import {
+  doesAffinityOperatorRequireValues,
+  getAffinityOperators,
+} from 'utils/db';
 import {
   KeyInput,
   OperatorInput,
@@ -54,6 +60,7 @@ export const ConditionRow = ({
   const { control, getFieldState } = useFormContext();
   const operator = useWatch({ control, name: operatorPath });
   const requiresValues = doesAffinityOperatorRequireValues(operator);
+  const isNumeric = NUMERIC_AFFINITY_OPERATORS.includes(operator);
 
   const formState = useFormState({
     control,
@@ -87,8 +94,7 @@ export const ConditionRow = ({
         <KeyInput
           affinityType={affinityType}
           namePrefix={namePrefix}
-          helperInAdornment
-          placeholder="Key"
+          placeholder={Messages.keyPlaceholder}
           sx={{
             flex: 3,
             minWidth: 0,
@@ -98,6 +104,7 @@ export const ConditionRow = ({
         <OperatorInput
           disabled={false}
           namePrefix={namePrefix}
+          operators={getAffinityOperators(affinityType)}
           sx={{
             width: 130,
             flexShrink: 0,
@@ -107,6 +114,11 @@ export const ConditionRow = ({
         {requiresValues && (
           <ConditionValuesInput
             namePrefix={namePrefix}
+            placeholder={
+              isNumeric
+                ? Messages.numericValuePlaceholder
+                : Messages.valuesPlaceholder
+            }
             sx={{
               flex: 3,
               minWidth: 0,

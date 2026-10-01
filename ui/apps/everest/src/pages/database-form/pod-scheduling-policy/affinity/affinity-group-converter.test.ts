@@ -18,8 +18,14 @@ import {
   AffinityPriority,
   AffinityType,
 } from 'shared-types/affinity.types';
-import { affinityToGroups, groupsToAffinity } from './affinity-group-converter';
+import {
+  affinityToGroups,
+  applyGroupEdit,
+  groupsToAffinity,
+  matchesNoPods,
+} from './affinity-group-converter';
 import { AffinityGroup } from './affinity-group.types';
+import { toAffinityGroups } from '../pod-scheduling-policy.utils';
 
 describe('groupsToAffinity', () => {
   it('keeps every condition of a node group as AND-ed matchExpressions (#1985)', () => {
@@ -157,5 +163,154 @@ describe('affinityToGroups round-trip', () => {
 
     expect(restored).toHaveLength(3);
     expect(restored).toEqual(expect.arrayContaining(groups));
+  });
+});
+
+describe('fields the editor does not model', () => {
+  // Set via kubectl / GitOps: matchFields, namespaces and matchLabels have no
+  // editor controls but must survive a save.
+  const affinity = {
+    nodeAffinity: {
+      requiredDuringSchedulingIgnoredDuringExecution: {
+        nodeSelectorTerms: [
+          {
+            matchExpressions: [
+              {
+                key: 'disktype',
+                operator: AffinityOperator.In,
+                values: ['ssd'],
+              },
+            ],
+            matchFields: [
+              { key: 'metadata.name', operator: 'In', values: ['node-1'] },
+            ],
+          },
+        ],
+      },
+    },
+    podAntiAffinity: {
+      preferredDuringSchedulingIgnoredDuringExecution: [
+        {
+          weight: 10,
+          podAffinityTerm: {
+            topologyKey: 'kubernetes.io/hostname',
+            namespaces: ['db'],
+            labelSelector: {
+              matchLabels: { app: 'mysql' },
+              matchExpressions: [
+                { key: 'tier', operator: AffinityOperator.Exists },
+              ],
+            },
+          },
+        },
+      ],
+    },
+  };
+
+  it('writes them back unchanged after a round-trip', () => {
+    expect(groupsToAffinity(affinityToGroups(affinity))).toEqual(affinity);
+  });
+
+  it('keeps them on every group when another group of the component is edited', () => {
+    const groups = affinityToGroups(affinity);
+    const nodeIndex = groups.findIndex(
+      ({ type }) => type === AffinityType.NodeAffinity
+    );
+    const edited = groups.map((group, index) =>
+      index === nodeIndex
+        ? applyGroupEdit(group, {
+            ...group,
+            conditions: [
+              {
+                key: 'disktype',
+                operator: AffinityOperator.In,
+                values: ['nvme'],
+              },
+            ],
+          })
+        : group
+    );
+
+    const result = groupsToAffinity(edited);
+
+    expect(
+      result.nodeAffinity?.requiredDuringSchedulingIgnoredDuringExecution
+        ?.nodeSelectorTerms[0]
+    ).toEqual({
+      matchExpressions: [
+        { key: 'disktype', operator: AffinityOperator.In, values: ['nvme'] },
+      ],
+      matchFields: [
+        { key: 'metadata.name', operator: 'In', values: ['node-1'] },
+      ],
+    });
+    expect(result.podAntiAffinity).toEqual(affinity.podAntiAffinity);
+  });
+
+  it('drops them when an edit switches a group between pod and node affinity', () => {
+    const [podGroup] = affinityToGroups({
+      podAntiAffinity: affinity.podAntiAffinity,
+    });
+
+    const switched = applyGroupEdit(podGroup, {
+      ...podGroup,
+      type: AffinityType.NodeAffinity,
+      topologyKey: undefined,
+    });
+
+    expect(
+      groupsToAffinity([switched]).nodeAffinity
+        ?.preferredDuringSchedulingIgnoredDuringExecution?.[0].preference
+    ).toEqual({
+      matchExpressions: [{ key: 'tier', operator: AffinityOperator.Exists }],
+    });
+  });
+
+  it('keeps the value of node Gt / Lt expressions the editor cannot select', () => {
+    const numeric = {
+      nodeAffinity: {
+        requiredDuringSchedulingIgnoredDuringExecution: {
+          nodeSelectorTerms: [
+            {
+              matchExpressions: [
+                { key: 'cpu-count', operator: 'Gt', values: ['4'] },
+              ],
+            },
+          ],
+        },
+      },
+    };
+
+    expect(groupsToAffinity(toAffinityGroups(numeric))).toEqual(numeric);
+  });
+});
+
+describe('matchesNoPods', () => {
+  it('flags a pod term without any label selector (the v1 default rule)', () => {
+    const [group] = affinityToGroups({
+      podAntiAffinity: {
+        preferredDuringSchedulingIgnoredDuringExecution: [
+          {
+            weight: 1,
+            podAffinityTerm: { topologyKey: 'kubernetes.io/hostname' },
+          },
+        ],
+      },
+    });
+    expect(matchesNoPods(group)).toBe(true);
+  });
+
+  it('does not flag a pod term that selects by matchLabels only', () => {
+    const [group] = toAffinityGroups({
+      podAntiAffinity: {
+        requiredDuringSchedulingIgnoredDuringExecution: [
+          {
+            topologyKey: 'kubernetes.io/hostname',
+            labelSelector: { matchLabels: { app: 'mysql' } },
+          },
+        ],
+      },
+    });
+    expect(matchesNoPods(group)).toBe(false);
   });
 });

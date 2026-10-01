@@ -16,20 +16,22 @@ import { useMemo, useState } from 'react';
 import { useController, useFormContext } from 'react-hook-form';
 import { Affinity } from 'shared-types/affinity.types';
 import { WidgetRendererProps } from 'components/ui-generator/ui-generator.types';
+import { useSchedulingComponentContext } from '../scheduling-component-context';
 import { AffinityGroup } from './affinity-group.types';
-import { affinityToGroups, groupsToAffinity } from './affinity-group-converter';
+import {
+  affinityToGroups,
+  applyGroupEdit,
+  groupsToAffinity,
+} from './affinity-group-converter';
 import { AffinityGroupList } from './affinity-group-list';
 import { GroupEditorDialog } from './group-editor-dialog/group-editor-dialog';
-
-// The field path is spec.components.<component>.schedulingPolicy.affinity.
-const componentFromName = (name: string): string | undefined =>
-  name.match(/components\.([^.]+)\./)?.[1];
 
 // The form field holds the Kubernetes Affinity itself (what is submitted). The
 // editor derives the grouped UI model for display/editing and converts back on
 // every change, so the field always carries a valid payload.
 export const AffinityRuleEditor = ({ name }: WidgetRendererProps) => {
   const { control } = useFormContext();
+  const { component } = useSchedulingComponentContext();
   const { field } = useController({ name, control });
   const affinity: Affinity = field.value ?? {};
   const groups = useMemo(() => affinityToGroups(affinity), [field.value]);
@@ -59,7 +61,9 @@ export const AffinityRuleEditor = ({ name }: WidgetRendererProps) => {
     commit(
       editingIndex === undefined
         ? [...groups, group]
-        : groups.map((existing, i) => (i === editingIndex ? group : existing))
+        : groups.map((existing, i) =>
+            i === editingIndex ? applyGroupEdit(existing, group) : existing
+          )
     );
     setDialogOpen(false);
   };
@@ -75,7 +79,7 @@ export const AffinityRuleEditor = ({ name }: WidgetRendererProps) => {
         <GroupEditorDialog
           isOpen
           group={editingIndex !== undefined ? groups[editingIndex] : undefined}
-          component={componentFromName(name)}
+          component={component}
           onClose={() => setDialogOpen(false)}
           onSubmit={save}
         />

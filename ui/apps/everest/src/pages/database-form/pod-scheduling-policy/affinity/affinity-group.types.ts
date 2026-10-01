@@ -35,4 +35,7 @@ export interface AffinityGroup {
   weight?: number; // preferred terms only
   topologyKey?: string; // pod (anti)affinity only
   conditions: AffinityCondition[];
+  // Term fields the editor doesn't model (matchFields, matchLabels, namespaces,
+  // namespaceSelector, …), written back verbatim so saving doesn't drop them.
+  passthrough?: Record<string, unknown>;
 }

@@ -112,14 +112,30 @@ describe('affinityGroupSchema', () => {
     expect(paths).toContain('topologyKey');
   });
 
-  it('allows a pod condition without a key (key optional for pods)', () => {
-    const result = affinityGroupSchema.safeParse({
+  it('requires a key on pod conditions too (no selector matches no pods)', () => {
+    const paths = issuePaths({
       type: AffinityType.PodAffinity,
       priority: AffinityPriority.Required,
       topologyKey: 'kubernetes.io/hostname',
       conditions: [{}],
     });
+    expect(paths).toContain('conditions.0.key');
+    expect(paths).toContain('conditions.0.operator');
+  });
+
+  it('accepts a group without conditions when it keeps fields set outside the UI', () => {
+    const result = affinityGroupSchema.safeParse({
+      type: AffinityType.NodeAffinity,
+      priority: AffinityPriority.Required,
+      conditions: [],
+      passthrough: {
+        matchFields: [
+          { key: 'metadata.name', operator: 'In', values: ['node-1'] },
+        ],
+      },
+    });
     expect(result.success).toBe(true);
+    expect(result.success && result.data.passthrough).toBeTruthy();
   });
 
   it('requires a weight between 1 and 100 for preferred groups', () => {
@@ -153,5 +169,40 @@ describe('affinityGroupSchema', () => {
         conditions: [],
       })
     ).toContain('conditions');
+  });
+
+  describe('Gt / Lt', () => {
+    const nodeGroup = (values: string[]) => ({
+      type: AffinityType.NodeAffinity,
+      priority: AffinityPriority.Required,
+      conditions: [{ key: 'cpu-count', operator: AffinityOperator.Gt, values }],
+    });
+
+    it('accepts a single whole number, including a negative one', () => {
+      expect(affinityGroupSchema.safeParse(nodeGroup(['4'])).success).toBe(
+        true
+      );
+      expect(affinityGroupSchema.safeParse(nodeGroup(['-3'])).success).toBe(
+        true
+      );
+    });
+
+    it('rejects several values or a non-integer value', () => {
+      expect(issuePaths(nodeGroup(['4', '8']))).toContain(
+        'conditions.0.values'
+      );
+      expect(issuePaths(nodeGroup(['4.5']))).toContain('conditions.0.values');
+      expect(issuePaths(nodeGroup(['ssd']))).toContain('conditions.0.values');
+    });
+
+    it('is allowed only for node affinity', () => {
+      expect(
+        issuePaths({
+          ...nodeGroup(['4']),
+          type: AffinityType.PodAffinity,
+          topologyKey: 'kubernetes.io/hostname',
+        })
+      ).toContain('conditions.0.operator');
+    });
   });
 });

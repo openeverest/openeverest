@@ -15,6 +15,7 @@
 import {
   Affinity,
   AffinityMatchExpression,
+  AffinityOperator,
   AffinityPriority,
   AffinityType,
   NodeAffinity,
@@ -25,8 +26,19 @@ import {
   RequiredNodeSchedulingTerm,
   RequiredPodSchedulingTerm,
 } from 'shared-types/affinity.types';
-import { doesAffinityOperatorRequireValues } from 'utils/db';
+import { isPlainObject } from 'components/ui-generator/utils/object-path';
 import { AffinityCondition, AffinityGroup } from './affinity-group.types';
+
+type NodeSelectorTerm = RequiredNodeSchedulingTerm['nodeSelectorTerms'][number];
+
+const LABEL_SELECTOR = 'labelSelector';
+
+// Blocklist rather than allowlist: operators set outside the UI (node Gt / Lt)
+// must keep their values too.
+const VALUELESS_OPERATORS: string[] = [
+  AffinityOperator.Exists,
+  AffinityOperator.DoesNotExist,
+];
 
 // Conditions inside a group are AND-ed within a single term, so a group maps to
 // one term carrying ALL of its conditions (v1 kept only the first — that loss is
@@ -43,7 +55,7 @@ const conditionsToMatchExpressions = (
     expressions.push({
       key,
       operator,
-      ...(doesAffinityOperatorRequireValues(operator) &&
+      ...(!VALUELESS_OPERATORS.includes(operator) &&
         valuesList.length > 0 && { values: valuesList }),
     });
   }
@@ -59,6 +71,78 @@ const matchExpressionsToConditions = (
     values,
   }));
 
+const withPassthrough = (fields: Record<string, unknown>) =>
+  Object.keys(fields).length > 0 ? { passthrough: fields } : {};
+
+const nodeTermToGroupFields = ({
+  matchExpressions,
+  ...rest
+}: NodeSelectorTerm) => ({
+  conditions: matchExpressionsToConditions(matchExpressions),
+  ...withPassthrough(rest),
+});
+
+const podTermToGroupFields = ({
+  topologyKey,
+  labelSelector,
+  ...termRest
+}: PodAffinityTerm) => {
+  const { matchExpressions, ...selectorRest } = labelSelector ?? {
+    matchExpressions: [],
+  };
+  return {
+    topologyKey,
+    conditions: matchExpressionsToConditions(matchExpressions),
+    ...withPassthrough({
+      ...termRest,
+      ...(Object.keys(selectorRest).length > 0 && {
+        [LABEL_SELECTOR]: selectorRest,
+      }),
+    }),
+  };
+};
+
+const groupToPodTerm = (
+  group: AffinityGroup,
+  matchExpressions: AffinityMatchExpression[]
+): PodAffinityTerm => {
+  const kept: Record<string, unknown> = group.passthrough ?? {};
+  const { [LABEL_SELECTOR]: keptSelector, ...keptTerm } = kept;
+  const selector = isPlainObject(keptSelector) ? keptSelector : undefined;
+  return {
+    ...keptTerm,
+    topologyKey: group.topologyKey ?? '',
+    ...((matchExpressions.length > 0 || selector) && {
+      labelSelector: { ...selector, matchExpressions },
+    }),
+  };
+};
+
+const isNodeType = (type: AffinityType) => type === AffinityType.NodeAffinity;
+
+// Kept fields belong to the original term's shape, so they are dropped when an
+// edit switches the group between node and pod affinity.
+export const applyGroupEdit = (
+  original: AffinityGroup,
+  edited: AffinityGroup
+): AffinityGroup =>
+  isNodeType(original.type) === isNodeType(edited.type)
+    ? edited
+    : { ...edited, passthrough: undefined };
+
+// Kubernetes treats a pod term without a label selector as matching no pods.
+export const matchesNoPods = (group: AffinityGroup): boolean =>
+  !isNodeType(group.type) &&
+  group.conditions.length === 0 &&
+  !isPlainObject(group.passthrough?.[LABEL_SELECTOR]);
+
+export const getPassthroughFieldNames = (
+  passthrough: Record<string, unknown> = {}
+): string[] =>
+  Object.entries(passthrough).flatMap(([key, value]) =>
+    key === LABEL_SELECTOR && isPlainObject(value) ? Object.keys(value) : [key]
+  );
+
 export const groupsToAffinity = (groups: AffinityGroup[]): Affinity => {
   const nodePreferred: PreferredNodeSchedulingTerm[] = [];
   const nodeRequired: RequiredNodeSchedulingTerm = { nodeSelectorTerms: [] };
@@ -72,23 +156,19 @@ export const groupsToAffinity = (groups: AffinityGroup[]): Affinity => {
     const isRequired = group.priority === AffinityPriority.Required;
 
     if (group.type === AffinityType.NodeAffinity) {
+      const term = { ...group.passthrough, matchExpressions };
       if (isRequired) {
-        nodeRequired.nodeSelectorTerms.push({ matchExpressions });
+        nodeRequired.nodeSelectorTerms.push(term);
       } else {
         nodePreferred.push({
           weight: group.weight ?? 0,
-          preference: { matchExpressions },
+          preference: term,
         });
       }
       continue;
     }
 
-    const term: PodAffinityTerm = {
-      topologyKey: group.topologyKey ?? '',
-      ...(matchExpressions.length > 0 && {
-        labelSelector: { matchExpressions },
-      }),
-    };
+    const term = groupToPodTerm(group, matchExpressions);
     const preferred =
       group.type === AffinityType.PodAffinity ? podPreferred : antiPreferred;
     const required =
@@ -145,17 +225,17 @@ export const affinityToGroups = (affinity: Affinity): AffinityGroup[] => {
         type: AffinityType.NodeAffinity,
         priority: AffinityPriority.Preferred,
         weight,
-        conditions: matchExpressionsToConditions(preference?.matchExpressions),
+        ...nodeTermToGroupFields(preference ?? { matchExpressions: [] }),
       });
     });
     (
       nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution
         ?.nodeSelectorTerms ?? []
-    ).forEach(({ matchExpressions }) => {
+    ).forEach((term) => {
       groups.push({
         type: AffinityType.NodeAffinity,
         priority: AffinityPriority.Required,
-        conditions: matchExpressionsToConditions(matchExpressions),
+        ...nodeTermToGroupFields(term),
       });
     });
   }
@@ -175,10 +255,7 @@ export const affinityToGroups = (affinity: Affinity): AffinityGroup[] => {
         type,
         priority: AffinityPriority.Preferred,
         weight,
-        topologyKey: podAffinityTerm.topologyKey,
-        conditions: matchExpressionsToConditions(
-          podAffinityTerm.labelSelector?.matchExpressions
-        ),
+        ...podTermToGroupFields(podAffinityTerm),
       });
     });
     (
@@ -187,10 +264,7 @@ export const affinityToGroups = (affinity: Affinity): AffinityGroup[] => {
       groups.push({
         type,
         priority: AffinityPriority.Required,
-        topologyKey: term.topologyKey,
-        conditions: matchExpressionsToConditions(
-          term.labelSelector?.matchExpressions
-        ),
+        ...podTermToGroupFields(term),
       });
     });
   }
