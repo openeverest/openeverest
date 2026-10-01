@@ -47,20 +47,21 @@ describe('select-component-handler utils', () => {
         optionsPathConfig: {
           labelPath: 'version',
           valuePath: 'version',
+          defaultPath: 'default',
         },
       },
       {
         spec: {
           availableVersions: {
-            engine: [{ version: '8.0' }, { version: '8.1' }],
+            engine: [{ version: '8.0' }, { version: '8.1', default: true }],
           },
         },
       } as never
     );
 
     expect(options).toEqual([
-      { label: '8.0', value: '8.0' },
-      { label: '8.1', value: '8.1' },
+      { label: '8.0', value: '8.0', isDefault: false,},
+      { label: '8.1', value: '8.1', isDefault: true, },
     ]);
   });
 
