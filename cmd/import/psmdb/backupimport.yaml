@@ -1,0 +1,10 @@
+apiVersion: backup.openeverest.io/v1alpha1
+kind: BackupImport
+metadata:
+  name: import-from-s3
+  namespace: my-special-place
+spec:
+  classRef:
+    name: psmdb-import
+  storageRef:
+    name: bs-msp-1

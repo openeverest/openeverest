@@ -272,8 +272,85 @@ export interface components {
                  *     "ProviderManaged".
                  */
                 job?: {
-                    /** @description Backup describes the job spawned per Backup CR. */
-                    backup: {
+                    /**
+                     * @description Backup describes the job spawned per Backup CR. When unset, this class
+                     *     cannot produce backups (e.g. an import-only class that seeds from
+                     *     backups produced outside OpenEverest).
+                     */
+                    backup?: {
+                        /**
+                         * @description CleanupJobSpec is the optional specification of a cleanup job that runs
+                         *     when the parent Backup or Restore CR is deleted.
+                         */
+                        cleanupJobSpec?: {
+                            /** @description Command is the command to run the backup class. */
+                            command?: string[];
+                            /** @description Image is the image of the backup class. */
+                            image?: string;
+                        };
+                        /**
+                         * @description ClusterPermissions are cluster-scoped PolicyRules granted via a
+                         *     generated ClusterRole and ClusterRoleBinding.
+                         */
+                        clusterPermissions?: {
+                            /**
+                             * @description apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+                             *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+                             */
+                            apiGroups?: string[];
+                            /**
+                             * @description nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+                             *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+                             *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+                             */
+                            nonResourceURLs?: string[];
+                            /** @description resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
+                            resourceNames?: string[];
+                            /** @description resources is a list of resources this rule applies to. '*' represents all resources. */
+                            resources?: string[];
+                            /** @description verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
+                            verbs: string[];
+                        }[];
+                        /** @description JobSpec is the specification of the backup or restore job. */
+                        jobSpec: {
+                            /** @description Command is the command to run the backup class. */
+                            command?: string[];
+                            /** @description Image is the image of the backup class. */
+                            image?: string;
+                        };
+                        /**
+                         * @description Permissions are namespace-scoped PolicyRules granted to the job pod via
+                         *     a generated Role and RoleBinding.
+                         */
+                        permissions?: {
+                            /**
+                             * @description apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+                             *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+                             */
+                            apiGroups?: string[];
+                            /**
+                             * @description nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+                             *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+                             *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+                             */
+                            nonResourceURLs?: string[];
+                            /** @description resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
+                            resourceNames?: string[];
+                            /** @description resources is a list of resources this rule applies to. '*' represents all resources. */
+                            resources?: string[];
+                            /** @description verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
+                            verbs: string[];
+                        }[];
+                    };
+                    /**
+                     * @description Import describes the job spawned per BackupImport CR. The job lists and
+                     *     parses the referenced BackupStorage and creates external Backup CRs
+                     *     (origin.type=External) for the backups it discovers. To create those Backup
+                     *     CRs the job pod needs create permission on backups.backup.openeverest.io,
+                     *     granted through this execution's Permissions. When unset, import is not
+                     *     supported by this class.
+                     */
+                    import?: {
                         /**
                          * @description CleanupJobSpec is the optional specification of a cleanup job that runs
                          *     when the parent Backup or Restore CR is deleted.

@@ -1000,8 +1000,10 @@ type BackupClass struct {
 		// when ExecutionMode is "Job"; must be unset when ExecutionMode is
 		// "ProviderManaged".
 		Job *struct {
-			// Backup Backup describes the job spawned per Backup CR.
-			Backup struct {
+			// Backup Backup describes the job spawned per Backup CR. When unset, this class
+			// cannot produce backups (e.g. an import-only class that seeds from
+			// backups produced outside OpenEverest).
+			Backup *struct {
 				// CleanupJobSpec CleanupJobSpec is the optional specification of a cleanup job that runs
 				// when the parent Backup or Restore CR is deleted.
 				CleanupJobSpec *struct {
@@ -1064,7 +1066,78 @@ type BackupClass struct {
 					// Verbs verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
 					Verbs []string `json:"verbs"`
 				} `json:"permissions,omitempty"`
-			} `json:"backup"`
+			} `json:"backup,omitempty"`
+
+			// Import Import describes the job spawned per BackupImport CR. The job lists and
+			// parses the referenced BackupStorage and creates external Backup CRs
+			// (origin.type=External) for the backups it discovers. To create those Backup
+			// CRs the job pod needs create permission on backups.backup.openeverest.io,
+			// granted through this execution's Permissions. When unset, import is not
+			// supported by this class.
+			Import *struct {
+				// CleanupJobSpec CleanupJobSpec is the optional specification of a cleanup job that runs
+				// when the parent Backup or Restore CR is deleted.
+				CleanupJobSpec *struct {
+					// Command Command is the command to run the backup class.
+					Command *[]string `json:"command,omitempty"`
+
+					// Image Image is the image of the backup class.
+					Image *string `json:"image,omitempty"`
+				} `json:"cleanupJobSpec,omitempty"`
+
+				// ClusterPermissions ClusterPermissions are cluster-scoped PolicyRules granted via a
+				// generated ClusterRole and ClusterRoleBinding.
+				ClusterPermissions *[]struct {
+					// ApiGroups apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+					// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+					ApiGroups *[]string `json:"apiGroups,omitempty"`
+
+					// NonResourceURLs nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+					// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+					// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+					NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
+
+					// ResourceNames resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
+					ResourceNames *[]string `json:"resourceNames,omitempty"`
+
+					// Resources resources is a list of resources this rule applies to. '*' represents all resources.
+					Resources *[]string `json:"resources,omitempty"`
+
+					// Verbs verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
+					Verbs []string `json:"verbs"`
+				} `json:"clusterPermissions,omitempty"`
+
+				// JobSpec JobSpec is the specification of the backup or restore job.
+				JobSpec struct {
+					// Command Command is the command to run the backup class.
+					Command *[]string `json:"command,omitempty"`
+
+					// Image Image is the image of the backup class.
+					Image *string `json:"image,omitempty"`
+				} `json:"jobSpec"`
+
+				// Permissions Permissions are namespace-scoped PolicyRules granted to the job pod via
+				// a generated Role and RoleBinding.
+				Permissions *[]struct {
+					// ApiGroups apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
+					// the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
+					ApiGroups *[]string `json:"apiGroups,omitempty"`
+
+					// NonResourceURLs nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
+					// Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
+					// Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
+					NonResourceURLs *[]string `json:"nonResourceURLs,omitempty"`
+
+					// ResourceNames resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed.
+					ResourceNames *[]string `json:"resourceNames,omitempty"`
+
+					// Resources resources is a list of resources this rule applies to. '*' represents all resources.
+					Resources *[]string `json:"resources,omitempty"`
+
+					// Verbs verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs.
+					Verbs []string `json:"verbs"`
+				} `json:"permissions,omitempty"`
+			} `json:"import,omitempty"`
 
 			// Restore Restore describes the job spawned per Restore CR. When unset, restores
 			// are not supported by this class.

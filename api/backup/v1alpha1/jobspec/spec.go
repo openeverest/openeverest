@@ -101,3 +101,31 @@ type PITRDetails struct {
 	// Required when Type is "date".
 	Date string `json:"date,omitempty"`
 }
+
+// ImportSpec defines the JSON payload passed to a discovery/import job
+// container (ExecutionMode="Job", spec.job.import). The controller creates a
+// Kubernetes Secret containing the JSON-serialized ImportSpec, mounts it into
+// the job container, and passes the mount path as the first command-line
+// argument, exactly like the backup/restore payload.
+//
+// The job lists and parses the Storage, then creates one external Backup CR
+// (origin.type=External) per discovered backup in Namespace. Each created
+// Backup must reference ClassRef and StorageRef and use a deterministic name
+// derived from (StorageRef, path) so re-running discovery is idempotent and
+// deduplication is enforced by the API server's name uniqueness.
+type ImportSpec struct {
+	// Namespace is the namespace the discovered Backup CRs must be created in.
+	Namespace string `json:"namespace"`
+	// ImportName is the BackupImport name. The job must stamp it on each
+	// created Backup via the backup-import label so the controller can count
+	// what this import produced.
+	ImportName string `json:"importName"`
+	// ClassRef is the BackupClass name the created Backup CRs must reference.
+	ClassRef string `json:"classRef"`
+	// StorageRef is the BackupStorage name the created Backup CRs must
+	// reference. It is also one half of the (StorageRef, path) dedup identity.
+	StorageRef string `json:"storageRef"`
+	// Storage contains the S3 storage details the job lists and parses to
+	// discover backups.
+	Storage *StorageDetails `json:"storage,omitempty"`
+}

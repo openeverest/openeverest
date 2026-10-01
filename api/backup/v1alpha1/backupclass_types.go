@@ -100,20 +100,35 @@ type BackupClassSpec struct {
 	Job *JobModeSpec `json:"job,omitempty"`
 }
 
-// JobModeSpec bundles everything the in-tree controller needs to run backup
-// and restore operations as Kubernetes Jobs in ExecutionMode="Job".
+// JobModeSpec bundles everything the in-tree controller needs to run backup,
+// restore, and import operations as Kubernetes Jobs in ExecutionMode="Job".
+// A class advertises only the operations it defines: each capability is an
+// independent, optional job, and at least one must be set.
+//
+// +kubebuilder:validation:XValidation:rule="has(self.backup) || has(self.restore) || has(self.import)",message="spec.job must define at least one of backup, restore, or import"
 type JobModeSpec struct {
-	// Backup describes the job spawned per Backup CR.
-	// +kubebuilder:validation:Required
-	Backup JobExecution `json:"backup"`
+	// Backup describes the job spawned per Backup CR. When unset, this class
+	// cannot produce backups (e.g. an import-only class that seeds from
+	// backups produced outside OpenEverest).
+	// +optional
+	Backup *JobExecution `json:"backup,omitempty"`
 	// Restore describes the job spawned per Restore CR. When unset, restores
 	// are not supported by this class.
 	// +optional
 	Restore *JobExecution `json:"restore,omitempty"`
+	// Import describes the job spawned per BackupImport CR. The job lists and
+	// parses the referenced BackupStorage and creates external Backup CRs
+	// (origin.type=External) for the backups it discovers. To create those Backup
+	// CRs the job pod needs create permission on backups.backup.openeverest.io,
+	// granted through this execution's Permissions. When unset, import is not
+	// supported by this class.
+	// +optional
+	Import *JobExecution `json:"import,omitempty"`
 }
 
 // JobExecution bundles the Kubernetes resources the controller needs to spawn
-// to perform a single backup or restore operation in ExecutionMode="Job".
+// to perform a single backup, restore, or import operation in
+// ExecutionMode="Job".
 type JobExecution struct {
 	// JobSpec is the specification of the backup or restore job.
 	// +kubebuilder:validation:Required

@@ -29,6 +29,7 @@ resources:
 - api:
     crdVersion: v1
     namespaced: true
+  controller: true
   domain: openeverest.io
   group: backup
   kind: BackupClass
@@ -75,7 +76,6 @@ resources:
   version: v1alpha1
 - api:
     crdVersion: v1
-    namespaced: false
   controller: true
   domain: openeverest.io
   group: extensions
@@ -84,7 +84,6 @@ resources:
   version: v1alpha1
 - api:
     crdVersion: v1
-    namespaced: false
   controller: true
   domain: openeverest.io
   group: extensions
@@ -102,6 +101,7 @@ resources:
 - api:
     crdVersion: v1
     namespaced: true
+  controller: true
   domain: openeverest.io
   group: backup
   kind: BackupImport

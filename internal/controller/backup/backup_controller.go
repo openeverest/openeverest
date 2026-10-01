@@ -216,7 +216,7 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 		return ctrl.Result{}, nil
 	}
 
-	if bc.Spec.Job == nil || bc.Spec.Job.Backup.JobSpec == nil {
+	if bc.Spec.Job == nil || bc.Spec.Job.Backup == nil || bc.Spec.Job.Backup.JobSpec == nil {
 		backup.Status.State = backupv1alpha1.BackupStateFailed
 		backup.Status.Message = "BackupClass uses Job execution mode but does not define spec.job.backup.jobSpec"
 		return ctrl.Result{}, nil
@@ -400,7 +400,7 @@ func (r *BackupReconciler) ensurePayloadSecret(
 		return fmt.Errorf("failed to get BackupStorage %q: %w", backup.Spec.StorageRef.Name, err)
 	}
 	if s3 := storage.Spec.S3; s3 != nil {
-		details, err := r.buildS3StorageDetails(ctx, backup.GetNamespace(), s3)
+		details, err := buildS3StorageDetails(ctx, r.Client, backup.GetNamespace(), s3)
 		if err != nil {
 			return err
 		}
@@ -433,8 +433,9 @@ func (r *BackupReconciler) ensurePayloadSecret(
 
 // buildS3StorageDetails converts an S3 BackupStorage spec into job-payload
 // storage details, reading the referenced credentials Secret when one is set.
-func (r *BackupReconciler) buildS3StorageDetails(
+func buildS3StorageDetails(
 	ctx context.Context,
+	c client.Client,
 	namespace string,
 	s3Dest *backupv1alpha1.BackupStorageS3Spec,
 ) (*jobspec.StorageDetails, error) {
@@ -449,7 +450,7 @@ func (r *BackupReconciler) buildS3StorageDetails(
 	// Read S3 credentials from the referenced Secret.
 	if s3Dest.CredentialsSecretRef.Name != "" {
 		credSecret := &corev1.Secret{}
-		if err := r.Client.Get(ctx, client.ObjectKey{
+		if err := c.Get(ctx, client.ObjectKey{
 			Name:      s3Dest.CredentialsSecretRef.Name,
 			Namespace: namespace,
 		}, credSecret); err != nil {

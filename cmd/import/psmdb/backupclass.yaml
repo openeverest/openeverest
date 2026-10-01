@@ -1,0 +1,18 @@
+apiVersion: backup.openeverest.io/v1alpha1
+kind: BackupClass
+metadata:
+  name: psmdb-import
+spec:
+  displayName: Percona Backup for MongoDB (import)
+  description: Discovers PBM backups from storage and creates external Backup CRs.
+  executionMode: Job
+  job:
+    import:
+      jobSpec:
+        image: openeverest-import-psmdb:dev
+      # The discovery job creates external Backup CRs, so it needs create on
+      # backups in the BackupImport's namespace.
+      permissions:
+        - apiGroups: ["backup.openeverest.io"]
+          resources: ["backups"]
+          verbs: ["create"]
