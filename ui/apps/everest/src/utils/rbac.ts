@@ -42,7 +42,8 @@ export const AuthorizerObservable = Object.freeze({
   },
 });
 
-export type RBACAction = 'read' | 'update' | 'delete' | 'create';
+export type RBACStandardAction = 'read' | 'update' | 'delete' | 'create';
+export type RBACAction = RBACStandardAction | 'read-connection';
 export type RBACResource =
   | 'namespaces'
   | 'database-engines'
