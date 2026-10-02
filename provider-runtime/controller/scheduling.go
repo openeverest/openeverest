@@ -25,15 +25,20 @@ import (
 
 // TopologySpreadConstraints returns the spread constraints for one
 // component's pods. When the policy leaves the field unset, the pods spread
-// softly across nodes and zones (maxSkew 1, ScheduleAnyway); otherwise the
-// user's list is used as is. Constraints that select no pods of their own get
-// podLabels, the labels of the component's pods.
+// softly across nodes (maxSkew 1, ScheduleAnyway); otherwise the user's list
+// is used as is. Constraints that select no pods of their own get podLabels,
+// the labels of the component's pods.
+//
+// The default has no zone constraint: on nodes without zone labels it would
+// switch off node spreading too.
 func TopologySpreadConstraints(policy *apicommon.SchedulingPolicy, podLabels map[string]string) []corev1.TopologySpreadConstraint {
 	if policy == nil || policy.TopologySpreadConstraints == nil {
-		return []corev1.TopologySpreadConstraint{
-			softSpread(corev1.LabelHostname, podLabels),
-			softSpread(corev1.LabelTopologyZone, podLabels),
-		}
+		return []corev1.TopologySpreadConstraint{{
+			MaxSkew:           1,
+			TopologyKey:       corev1.LabelHostname,
+			WhenUnsatisfiable: corev1.ScheduleAnyway,
+			LabelSelector:     &metav1.LabelSelector{MatchLabels: maps.Clone(podLabels)},
+		}}
 	}
 
 	constraints := make([]corev1.TopologySpreadConstraint, 0, len(*policy.TopologySpreadConstraints))
@@ -45,13 +50,4 @@ func TopologySpreadConstraints(policy *apicommon.SchedulingPolicy, podLabels map
 		constraints = append(constraints, c)
 	}
 	return constraints
-}
-
-func softSpread(topologyKey string, podLabels map[string]string) corev1.TopologySpreadConstraint {
-	return corev1.TopologySpreadConstraint{
-		MaxSkew:           1,
-		TopologyKey:       topologyKey,
-		WhenUnsatisfiable: corev1.ScheduleAnyway,
-		LabelSelector:     &metav1.LabelSelector{MatchLabels: maps.Clone(podLabels)},
-	}
 }
