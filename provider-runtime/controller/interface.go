@@ -20,6 +20,7 @@ package controller
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -314,6 +315,15 @@ type InstanceBackupStatusReporter interface {
 	// BackupStorageStatuses returns the per-storage backup status entries to
 	// publish on instance.status.backup.storages.
 	BackupStorageStatuses(c *Context) ([]corev1alpha1.InstanceBackupStorageStatus, error)
+}
+
+// PodSelectorProvider is an optional interface that tells the runtime which
+// pods belong to each component, so it can report pods the scheduler cannot
+// place on the Instance's PodsScheduled condition. The runtime lists pods in
+// the Instance's namespace, so the provider needs list permission on pods.
+type PodSelectorProvider interface {
+	// PodSelectors maps component names to the label selector of their pods.
+	PodSelectors(c *Context) map[string]labels.Selector
 }
 
 // BackupMirror is an optional interface that providers implement to mirror

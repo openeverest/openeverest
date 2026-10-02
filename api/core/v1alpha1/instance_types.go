@@ -756,6 +756,14 @@ const (
 	// and False once nothing is held. The database keeps running while the
 	// condition is True — a held action never affects availability.
 	ConditionMaintenancePending = "MaintenancePending"
+
+	// ConditionPodsScheduled is True while the scheduler has placed every pod
+	// of the Instance, and False once a pod has waited more than a minute
+	// because no node satisfies its scheduling rules (for example a required
+	// anti-affinity with fewer nodes than replicas). The message names the
+	// affected components and quotes the scheduler's explanation. It is only
+	// set for providers that implement controller.PodSelectorProvider.
+	ConditionPodsScheduled = "PodsScheduled"
 )
 
 // Reasons for the MaintenancePending condition.
@@ -777,6 +785,16 @@ const (
 	// action's token (for actions auto-approved by autoApproveUpTo), or
 	// clear and re-set it.
 	ReasonRetriesExhausted = "RetriesExhausted"
+)
+
+// Reasons for the PodsScheduled condition.
+const (
+	// ReasonScheduled indicates every existing pod of the Instance has a node.
+	ReasonScheduled = "Scheduled"
+
+	// ReasonUnschedulable indicates at least one pod fits no node, mirroring
+	// the reason the scheduler sets on the pod's PodScheduled condition.
+	ReasonUnschedulable = "Unschedulable"
 )
 
 // Reasons for the DataSourceReady condition.

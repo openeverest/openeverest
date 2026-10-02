@@ -38,6 +38,7 @@ import {
 } from 'shared-types/instance.types';
 import { usePlugins } from 'contexts/plugins';
 import type { ClusterDetailTabExtension } from '@openeverest/plugin-sdk';
+import { UnschedulablePodsAlert } from './unschedulable-pods-alert';
 
 const WithPermissionDetails = ({
   instanceName,
@@ -166,6 +167,7 @@ const WithPermissionDetails = ({
             {Messages.restoringDb}
           </Alert>
         )} */}
+        <UnschedulablePodsAlert instance={instance} />
         <Outlet />
       </Box>
     </>
