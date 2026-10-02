@@ -30,7 +30,9 @@ import {
   AffinityPriority,
   AffinityRule,
   AffinityType,
+  LABEL_SELECTOR_OPERATORS,
   NodeAffinity,
+  NUMERIC_AFFINITY_OPERATORS,
   PodAffinity,
   PodAffinityTerm,
   PodAntiAffinity,
@@ -285,7 +287,17 @@ export const dbPayloadToAffinityRules = (
 
 export const doesAffinityOperatorRequireValues = (
   operator: AffinityOperator
-): boolean => [AffinityOperator.In, AffinityOperator.NotIn].includes(operator);
+): boolean =>
+  [
+    AffinityOperator.In,
+    AffinityOperator.NotIn,
+    ...NUMERIC_AFFINITY_OPERATORS,
+  ].includes(operator);
+
+export const getAffinityOperators = (type: AffinityType): AffinityOperator[] =>
+  type === AffinityType.NodeAffinity
+    ? [...LABEL_SELECTOR_OPERATORS, ...NUMERIC_AFFINITY_OPERATORS]
+    : LABEL_SELECTOR_OPERATORS;
 
 export const affinityRulesToDbPayload = (
   affinityRules: AffinityRule[]

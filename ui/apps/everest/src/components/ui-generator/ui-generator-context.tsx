@@ -14,13 +14,14 @@
 
 import { createContext, useContext, ReactNode } from 'react';
 import { Provider } from 'shared-types/api.types';
-import type { FormMode } from './ui-generator.types';
+import type { WidgetRegistry, FormMode } from './ui-generator.types';
 
 type UiGeneratorContextValue = {
   providerObject?: Provider;
   loadingDefaultsForEdition?: boolean;
   formMode?: FormMode;
   namespace?: string;
+  widgetRegistry?: WidgetRegistry;
 };
 
 const UiGeneratorContext = createContext<UiGeneratorContextValue | null>(null);
@@ -30,6 +31,7 @@ type UiGeneratorProviderProps = {
   loadingDefaultsForEdition?: boolean;
   formMode?: FormMode;
   namespace?: string;
+  widgetRegistry?: WidgetRegistry;
   children: ReactNode;
 };
 
@@ -38,6 +40,7 @@ export const UiGeneratorProvider = ({
   loadingDefaultsForEdition,
   formMode,
   namespace,
+  widgetRegistry,
   children,
 }: UiGeneratorProviderProps) => {
   return (
@@ -47,6 +50,7 @@ export const UiGeneratorProvider = ({
         loadingDefaultsForEdition,
         formMode,
         namespace,
+        widgetRegistry,
       }}
     >
       {children}
@@ -63,6 +67,7 @@ export const useUiGeneratorContext = () => {
       loadingDefaultsForEdition: false,
       formMode: undefined,
       namespace: undefined,
+      widgetRegistry: undefined,
     }
   );
 };

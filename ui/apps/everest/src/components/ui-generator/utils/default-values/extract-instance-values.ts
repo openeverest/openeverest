@@ -17,6 +17,7 @@ import {
   ComponentGroup,
   FormMode,
   Section,
+  isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { UI_TYPE_DEFAULT_VALUE } from 'components/ui-generator/constants';
 import { stripBadgeFromValue } from '../badge-to-api/badge-to-api';
@@ -28,6 +29,7 @@ import {
   getToggleableMeta,
   isToggleableOnInInstance,
 } from '../toggleable/toggleable';
+import { getWidgetTargets } from '../widget-targets';
 
 /*
  Walks schema components across all sections and extracts current values
@@ -74,6 +76,11 @@ const extractFlat = (
     const fieldId = generateFieldId(component, generatedName);
     const sourcePath = getComponentSourcePath(component);
 
+    getWidgetTargets(component).forEach(({ path }) => {
+      const value = getByPath(instance, path);
+      if (value !== undefined) result[path] = value;
+    });
+
     // Try reading from instance first
     if (sourcePath) {
       const instanceValue = getByPath(instance, sourcePath);
@@ -96,6 +103,8 @@ const extractFlat = (
     // Fallback to schema default, then type default
     if (component.fieldParams?.defaultValue !== undefined) {
       result[fieldId] = component.fieldParams.defaultValue;
+    } else if (isWidgetComponent(component)) {
+      // Widget components manage their own default value.
     } else {
       result[fieldId] = UI_TYPE_DEFAULT_VALUE[component.uiType];
     }

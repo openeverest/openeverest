@@ -11,6 +11,7 @@
   - [Component vs ComponentGroup](#component-vs-componentgroup)
     - [Component (Single Field)](#component-single-field)
     - [ComponentGroup (Nested Fields)](#componentgroup-nested-fields)
+    - [Widget (Host-Rendered Component)](#widget-host-rendered-component)
 - [Mode-Aware Overrides](#mode-aware-overrides)
   - [Component-level modes](#component-level-modes)
   - [FieldParams-level modes](#fieldparams-level-modes)
@@ -132,8 +133,8 @@ basicInfo:
 
 A **Component** represents a single form field with the following properties:
 
-- **`uiType`**: Type of UI control (`'number'`, `'select'`, `'hidden'`)
-- **`path`** OR **`id`**: The data path in the resulting form values (e.g., `"spec.replica.nodes"`)
+- **`uiType`**: Type of UI control (`'number'`, `'select'`, `'hidden'`), or `'widget'` for a host-rendered component (see [Widget](#widget-host-rendered-component))
+- **`path`** OR **`id`**: The data path in the resulting form values (e.g., `"spec.replica.nodes"`). For widgets, defined by each widget type.
 - **`fieldParams`**: Configuration for the field (label, placeholder, defaultValue, etc.). Supports `modes` for documented per-mode overrides of shared field params
 - **`modes`** (optional): Per-mode component-level overrides (e.g. `uiType: hidden`)
 - **`validation`** (optional): Validation rules (min, max, etc.). Supports `modes` for per-mode overrides
@@ -196,6 +197,48 @@ resources:
     - memory
 ```
 
+#### Widget (Host-Rendered Component)
+
+A **Widget** is a component the application renders itself, for UI that plain fields can't
+describe (for example, a per-component pod scheduling editor). It is the extension point for
+components, the way `groupType` is for groups.
+
+Supported props:
+
+- **`uiType`**: `'widget'`
+- **`widgetType`**: Which widget to render. Supported: [`podSchedulingPolicy`](#podschedulingpolicy).
+
+Every widget is unique: each widget type defines where its data lives and which paths it writes.
+See the widget's own description below. Section copy goes on the surrounding group's
+`label` / `description`.
+
+A widget inside a [toggleable group](groups.md#toggleable-group) is switched on and off together
+with the paths it writes, like any field. An unknown `widgetType` renders nothing.
+
+##### `podSchedulingPolicy`
+
+A per-component pod scheduling (affinity) editor, shown as tabs, one per component.
+
+- **Where its data lives**: resolved from the provider. It writes
+  `spec.components.<component>.schedulingPolicy.affinity` for every component that supports
+  affinity in the selected topology, so it is placed without a `path` / `id`.
+- **Label**: provided by the application (`Pod scheduling policy`).
+- If the provider supports affinity for no component, the widget shows a notice and a toggleable
+  parent group falls back to `bordered`.
+
+Example:
+
+```yaml
+podSchedulingPolicy:
+  uiType: group
+  groupType: toggleable
+  label: Pod scheduling policy
+  components:
+    policy:
+      uiType: widget
+      widgetType: podSchedulingPolicy
+```
+
 ## Mode-Aware Overrides
 
 ### FieldParams-level modes
@@ -233,7 +276,8 @@ Validation-specific mode-aware behavior is documented in [validation.md](validat
 
 ### Path vs ID
 
-Each component must have either a `path` or an `id` property (but not both):
+Each field component must have either a `path` or an `id` property (but not both).
+For [widgets](#widget-host-rendered-component), where the data lives is defined by each widget type.
 
 - **`path`**: Dot-notation string representing where the value should be stored in the form data
   - Example: `"spec.replica.nodes"` → `{ spec: { replica: { nodes: value } } }`
