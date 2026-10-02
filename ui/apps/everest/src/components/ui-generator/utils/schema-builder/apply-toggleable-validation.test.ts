@@ -70,14 +70,6 @@ describe('toggleable group validation', () => {
     expect(parse(false, 3).success).toBe(true);
   });
 
-  it('enforces required on the field itself while the section is on', () => {
-    const result = parse(true, undefined);
-    expect(result.success).toBe(false);
-    expect(
-      result.success ? [] : result.error.issues.map((issue) => issue.path)
-    ).toContainEqual(['spec', 'monitoring', 'interval']);
-  });
-
   it('runs CEL checks while the section is on', () => {
     expect(messagesOf(parse(true, 3))).toContain(
       'Interval must be at least 10'

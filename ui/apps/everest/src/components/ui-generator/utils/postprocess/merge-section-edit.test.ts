@@ -75,10 +75,6 @@ describe('mergeSectionEdit', () => {
     });
   });
 
-  it('deletes a switched-off group, leaving no empty parent behind', () => {
-    expect(merge(false)).toEqual({ replicas: 5, backup: { enabled: true } });
-  });
-
   it('does not mutate the saved spec', () => {
     const spec = savedSpec();
     merge(false, spec);

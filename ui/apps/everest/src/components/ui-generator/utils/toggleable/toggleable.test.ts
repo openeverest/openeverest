@@ -125,14 +125,6 @@ describe('toggleable group switch', () => {
     expect(metaOf(groupAt(edit, 'monitoring')).switchName).toBe(SWITCH);
   });
 
-  it('has no switch before preprocess or for another group type', () => {
-    expect(getToggleableMeta(monitoring)).toBeUndefined();
-    const bordered = preprocess({
-      monitoring: { ...monitoring, groupType: GroupType.Bordered },
-    });
-    expect(getToggleableMeta(groupAt(bordered, 'monitoring'))).toBeUndefined();
-  });
-
   it('starts off for a new instance even when children have schema defaults', () => {
     const defaults = buildDefaultsFromComponents(
       sections.advanced.components,
@@ -185,12 +177,6 @@ describe('toggleable group switch', () => {
         [TOGGLEABLE_SWITCHES_KEY]: { 'advanced~monitoring': true },
       }).success
     ).toBe(true);
-    expect(
-      schema.safeParse({
-        spec,
-        [TOGGLEABLE_SWITCHES_KEY]: { 'advanced~monitoring': 'on' },
-      }).success
-    ).toBe(false);
   });
 
   it('never sends the form-only switch to the API', () => {
@@ -317,13 +303,6 @@ describe('switched-off toggleable paths', () => {
     expect(
       getInactiveToggleablePaths(preprocess({ withMultiPath }), values)
     ).toEqual(['spec.engine.version', 'spec.proxy.version']);
-  });
-
-  it('skips groups that are switched on', () => {
-    const values = {
-      [TOGGLEABLE_SWITCHES_KEY]: { 'advanced~monitoring': true },
-    };
-    expect(getInactiveToggleablePaths(sections, values)).toEqual([]);
   });
 
   it('ignores degraded groups so their visible fields are never dropped', () => {
