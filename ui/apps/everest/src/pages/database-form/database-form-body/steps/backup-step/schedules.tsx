@@ -54,7 +54,8 @@ export const Schedules = ({ backupStorages }: Props) => {
   const { watch, setValue } = useFormContext();
   const dbWizardMode = useDatabasePageMode();
   const clusterName = useClusterName();
-  const { data: backupClasses = [] } = useBackupClassesList(clusterName);
+  const { data: backupClasses = [], isSuccess } =
+    useBackupClassesList(clusterName);
 
   const [openScheduleModal, setOpenScheduleModal] = useState(false);
   const [mode, setMode] = useState<ScheduleWizardMode>(WizardMode.New);
@@ -66,32 +67,34 @@ export const Schedules = ({ backupStorages }: Props) => {
   const formSchedules: FlattenedSchedule[] =
     watch(BACKUP_SCHEDULES_FIELD) ?? [];
 
-  // A cluster can expose backup classes for several providers; pick the one
-  // whose supportedProviders matches this database's provider — not just the
-  // first in the list, which may belong to a different engine.
   const selectedClassName: string | undefined = watch(BACKUP_CLASS_REF_FIELD);
-  const providerBackupClass = useMemo(
+  const availableBackupClasses = useMemo(
     () =>
-      backupClasses.find((bc) =>
-        bc.spec?.supportedProviders?.includes(provider)
+      backupClasses.filter(
+        (bc) =>
+          bc.spec?.executionMode === 'ProviderManaged' &&
+          bc.spec?.supportedProviders?.includes(provider)
       ),
     [backupClasses, provider]
   );
   const backupClass = useMemo(
     () =>
-      backupClasses.find((bc) => bc.metadata?.name === selectedClassName) ??
-      providerBackupClass,
-    [backupClasses, selectedClassName, providerBackupClass]
+      availableBackupClasses.find(
+        (bc) => bc.metadata?.name === selectedClassName
+      ) ?? availableBackupClasses[0],
+    [availableBackupClasses, selectedClassName]
   );
 
-  // Auto-select the provider's backup class if none is chosen yet.
   useEffect(() => {
-    if (!selectedClassName && providerBackupClass?.metadata?.name) {
-      setValue(BACKUP_CLASS_REF_FIELD, providerBackupClass.metadata.name);
+    if (isSuccess && selectedClassName !== (backupClass?.metadata?.name ?? '')) {
+      setValue(BACKUP_CLASS_REF_FIELD, backupClass?.metadata?.name ?? '');
     }
-  }, [providerBackupClass, selectedClassName, setValue]);
+  }, [backupClass, isSuccess, selectedClassName, setValue]);
 
-  const createButtonDisabled = openScheduleModal || backupStorages.length === 0;
+  const createButtonDisabled =
+    openScheduleModal ||
+    backupStorages.length === 0 ||
+    availableBackupClasses.length === 0;
 
   const handleDelete = (name: string) => {
     setValue(
@@ -181,7 +184,7 @@ export const Schedules = ({ backupStorages }: Props) => {
               schedules: formSchedules,
               defaultSchedules: formSchedules,
               backupClass,
-              availableBackupClasses: backupClasses,
+              availableBackupClasses,
               disableClassSelection: formSchedules.length > 0,
               instanceStorageNames: [],
             },
