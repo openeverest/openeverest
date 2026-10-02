@@ -18,10 +18,9 @@ import { validateCelExpression } from './cel-validation';
 import {
   deepClone,
   deleteByPathAndEmptyParents,
-  getByPath,
   isPlainObject,
 } from '../object-path/object-path';
-import { getSwitchedOffPaths } from '../toggleable/toggleable';
+import { getSwitchedOffPaths, isToggleableOn } from '../toggleable/toggleable';
 import type { CelExpValidation } from './schema-builder.types';
 
 // A switched-off group's fields are not sent, so CEL sees them as absent (as
@@ -58,7 +57,7 @@ export const applyCelValidation = (
     const celData = withoutSwitchedOffFields(data, toggleables);
 
     celExpValidations.forEach(({ path, celExpressions, activeWhen }) => {
-      if (activeWhen && getByPath(data, activeWhen) !== true) return;
+      if (activeWhen && !isToggleableOn(data, activeWhen)) return;
 
       // Evaluate each CEL expression for this field
       celExpressions.forEach((celExpr) => {

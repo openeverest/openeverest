@@ -157,7 +157,7 @@ describe('toggleable group switch', () => {
     expect(isToggleableOnInInstance(meta, instance)).toBe(true);
 
     const values = extractInstanceValues(sections, instance, FormMode.Edit);
-    expect(isToggleableOn(meta, values)).toBe(true);
+    expect(isToggleableOn(values, meta.switchName)).toBe(true);
   });
 
   it('is off when the saved instance has none of the section fields', () => {
@@ -167,7 +167,7 @@ describe('toggleable group switch', () => {
       FormMode.Edit
     );
     expect(
-      isToggleableOn(metaOf(groupAt(sections, 'monitoring')), values)
+      isToggleableOn(values, metaOf(groupAt(sections, 'monitoring')).switchName)
     ).toBe(false);
   });
 

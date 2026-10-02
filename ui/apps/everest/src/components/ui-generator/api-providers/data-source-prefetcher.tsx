@@ -22,8 +22,8 @@ import { getComponentSourcePath } from '../utils/preprocess/normalized-component
 import {
   TOGGLEABLE_SWITCHES_KEY,
   getToggleableMeta,
+  isToggleableOn,
 } from '../utils/toggleable/toggleable';
-import { getByPath } from '../utils/object-path/object-path';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { getReconciledDataSourceValue } from './data-source-field/data-source-field.utils';
 
@@ -127,8 +127,7 @@ export const DataSourcePrefetcher = ({
     const values = { [TOGGLEABLE_SWITCHES_KEY]: switches };
     return dataSources.flatMap(({ provider, fields }) => {
       const reachableFields = fields.filter(
-        ({ switchName }) =>
-          !switchName || getByPath(values, switchName) === true
+        ({ switchName }) => !switchName || isToggleableOn(values, switchName)
       );
       if (reachableFields.length === 0) return [];
       const fieldPaths = reachableFields.flatMap(({ path }) =>
