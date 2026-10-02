@@ -24,21 +24,13 @@ import (
 )
 
 // TopologySpreadConstraints returns the spread constraints for one
-// component's pods. When the policy leaves the field unset, the pods spread
-// softly across nodes (maxSkew 1, ScheduleAnyway); otherwise the user's list
-// is used as is. Constraints that select no pods of their own get podLabels,
-// the labels of the component's pods.
-//
-// The default has no zone constraint: on nodes without zone labels it would
-// switch off node spreading too.
+// component's pods: none when the policy leaves the field unset, so the
+// scheduler's built-in spreading applies, otherwise the user's list as is.
+// Constraints that select no pods of their own get podLabels, the labels of
+// the component's pods.
 func TopologySpreadConstraints(policy *apicommon.SchedulingPolicy, podLabels map[string]string) []corev1.TopologySpreadConstraint {
 	if policy == nil || policy.TopologySpreadConstraints == nil {
-		return []corev1.TopologySpreadConstraint{{
-			MaxSkew:           1,
-			TopologyKey:       corev1.LabelHostname,
-			WhenUnsatisfiable: corev1.ScheduleAnyway,
-			LabelSelector:     &metav1.LabelSelector{MatchLabels: maps.Clone(podLabels)},
-		}}
+		return nil
 	}
 
 	constraints := make([]corev1.TopologySpreadConstraint, 0, len(*policy.TopologySpreadConstraints))

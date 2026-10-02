@@ -30,9 +30,6 @@ func TestTopologySpreadConstraints(t *testing.T) {
 	podLabels := map[string]string{"app.kubernetes.io/instance": "db", "app.kubernetes.io/component": "pxc"}
 	ownPods := &metav1.LabelSelector{MatchLabels: podLabels}
 	userSelector := &metav1.LabelSelector{MatchLabels: map[string]string{"app": "other"}}
-	softDefault := []corev1.TopologySpreadConstraint{
-		{MaxSkew: 1, TopologyKey: corev1.LabelHostname, WhenUnsatisfiable: corev1.ScheduleAnyway, LabelSelector: ownPods},
-	}
 
 	tests := []struct {
 		name   string
@@ -40,13 +37,11 @@ func TestTopologySpreadConstraints(t *testing.T) {
 		want   []corev1.TopologySpreadConstraint
 	}{
 		{
-			name: "no policy spreads softly across nodes only",
-			want: softDefault,
+			name: "no policy sets no constraints",
 		},
 		{
-			name:   "policy without spread constraints still gets the default",
+			name:   "policy without spread constraints sets none",
 			policy: &apicommon.SchedulingPolicy{Affinity: &corev1.Affinity{}},
-			want:   softDefault,
 		},
 		{
 			name:   "empty list turns spreading off",

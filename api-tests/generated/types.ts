@@ -2356,8 +2356,11 @@ export interface components {
                              * @description TopologySpreadConstraints describe how the pods spread across topology
                              *     domains. All constraints are ANDed. A constraint without labelSelector
                              *     and matchLabelKeys counts this component's own pods.
-                             *     When omitted, the provider applies its default spreading; an empty list
-                             *     asks for none, which a provider may reject if its engine always spreads.
+                             *     Any constraint turns off the scheduler's built-in spreading, and soft
+                             *     constraints ignore every node missing one of their topology keys: a zone
+                             *     constraint on nodes without zone labels disables node spreading too.
+                             *     When omitted, the provider applies its default; an empty list sets no
+                             *     constraints, which a provider may reject if its engine always adds some.
                              */
                             topologySpreadConstraints?: {
                                 /**
@@ -3874,8 +3877,11 @@ export interface components {
                              * @description TopologySpreadConstraints describe how the pods spread across topology
                              *     domains. All constraints are ANDed. A constraint without labelSelector
                              *     and matchLabelKeys counts this component's own pods.
-                             *     When omitted, the provider applies its default spreading; an empty list
-                             *     asks for none, which a provider may reject if its engine always spreads.
+                             *     Any constraint turns off the scheduler's built-in spreading, and soft
+                             *     constraints ignore every node missing one of their topology keys: a zone
+                             *     constraint on nodes without zone labels disables node spreading too.
+                             *     When omitted, the provider applies its default; an empty list sets no
+                             *     constraints, which a provider may reject if its engine always adds some.
                              */
                             topologySpreadConstraints?: {
                                 /**
