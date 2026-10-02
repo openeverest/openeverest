@@ -57,6 +57,11 @@ func validatePolicy(enforcer *casbin.Enforcer) error {
 	if err := checkResourceNames(policy); err != nil {
 		return errors.Join(errPolicySyntax, err)
 	}
+
+	// ensure that non-existent actions are not used.
+	if err := checkActionNames(policy); err != nil {
+		return errors.Join(errPolicySyntax, err)
+	}
 	return nil
 }
 
@@ -85,6 +90,15 @@ func checkResourceNames(policies [][]string) error {
 		}
 		if _, ok := knownResources[resourceName]; !ok {
 			return fmt.Errorf("unknown resource name '%s'", resourceName)
+		}
+	}
+	return nil
+}
+
+func checkActionNames(policies [][]string) error {
+	for _, policy := range policies {
+		if !ValidateAction(policy[2]) {
+			return fmt.Errorf("unknown action '%s'", policy[2])
 		}
 	}
 	return nil

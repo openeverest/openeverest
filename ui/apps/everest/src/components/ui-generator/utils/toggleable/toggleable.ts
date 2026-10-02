@@ -180,9 +180,9 @@ export const isToggleableOnInInstance = (
   meta.childPaths.some((path) => !isEmptyFieldValue(getByPath(instance, path)));
 
 export const isToggleableOn = (
-  meta: ToggleableMeta,
-  formValues: Record<string, unknown>
-): boolean => getByPath(formValues, meta.switchName) === true;
+  formValues: Record<string, unknown>,
+  switchName: string
+): boolean => getByPath(formValues, switchName) === true;
 
 // API paths owned by switched-off groups: they must be removed from the payload
 // (and explicitly deleted on edit, where a deep merge would otherwise keep them).
@@ -191,7 +191,7 @@ export const getSwitchedOffPaths = (
   formValues: Record<string, unknown>
 ): string[] =>
   metas
-    .filter((meta) => !isToggleableOn(meta, formValues))
+    .filter((meta) => !isToggleableOn(formValues, meta.switchName))
     .flatMap((meta) => meta.childPaths);
 
 // CEL sees a switched-off group's paths as absent, so a rule reading them must

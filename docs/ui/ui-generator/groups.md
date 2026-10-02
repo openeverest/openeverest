@@ -52,7 +52,7 @@ advancedSettings:
 
 ## Bordered Group
 
-A static bordered card around related fields. Visual only: fields keep their own `path`.
+A static bordered card around related fields. Visual only: it doesn't change where the fields are saved.
 
 - `label` and `description` are optional. Omit both for a plain box without a heading.
 - Can contain other groups, e.g. a `line` group.
@@ -77,7 +77,7 @@ storage:
 
 ## Toggleable Group
 
-A bordered card with an **Enable** switch. The switch exists only in the form and is not sent to the API.
+A bordered card with an **Enable** switch, for optional settings the user turns on or off as a whole. The switch exists only in the form and is not sent to the API.
 
 ```yaml
 customConfig:
@@ -98,30 +98,32 @@ customConfig:
     - configuration
 ```
 
-**Behavior**
-
-- **Off:** fields are hidden, not validated, and removed from the request. On an existing instance, turning it off deletes the saved values.
-- **Initial state:** off for a new instance; on if the instance or the selected preset already has a value in any of the group's fields.
-- **Topology switch:** a group with the same section and group keys in both topologies keeps its state; any other group starts off.
-
-**Rules** — if one is broken, the group renders as a plain bordered group:
-
-- The group has at least one field with a `path`.
-- No field outside the group writes the same `path`.
-- No toggleable inside another toggleable.
-- Section and group keys use only letters, digits, `_` and `-` (temporary, see below).
-
-**Keep in mind**
-
-- A CEL rule outside the group sees the group's fields as absent while it is off, the same way the API does: a parent left empty (e.g. `spec.monitoring`) is absent too. Guard them with `has()` on the field or on the section: `!has(spec.monitoring.endpoint) || ...` or `!has(spec.monitoring) || ...`.
-- Don't put fields that are read-only in edit mode inside the group: turning it off deletes them too.
-
-**Current limitations**
-
-- The switch can't be disabled: form `modes` apply to fields, not to groups, so the group is always switchable. Group-level `modes` (`hidden` / `disabled` per form mode) are planned in [#3080](https://github.com/openeverest/openeverest/issues/3080).
-- The key rule is temporary: the switch name is built from the keys, and keys with `.`, `~` or brackets need the shared path encoding planned in [#3221](https://github.com/openeverest/openeverest/issues/3221).
-- Backup-class schemas (backups, schedules, PITR) don't support toggleable groups yet: see [#3268](https://github.com/openeverest/openeverest/issues/3268).
-
 ![Toggleable group, off](images/toggleable-group-off.png)
 
 ![Toggleable group, on](images/toggleable-group-on.png)
+
+**Behavior**
+
+- **Off:** the fields are hidden, not validated and not sent to the API. On an existing instance, turning the group off removes its saved values.
+- **Initial state:** off for a new instance. On if the instance, preset or restored backup already has a value in any of the group's fields (`false` and `0` count). Default values from the schema don't turn it on.
+- **Options:** selects with a `dataSource` inside the group load their options only while the group is on.
+- **Topology switch:** if the new topology has the same group (same section and group key), the switch keeps its state; otherwise it starts off.
+
+**Rules** — if one is broken, the group is shown as a bordered group without a switch:
+
+- At least one field in the group has a `path`.
+- No field outside the group uses the same `path`.
+- A toggleable group is not nested in another toggleable group.
+- Section and group keys contain only letters, digits, `_` and `-`.
+
+**Keep in mind**
+
+- While the group is off, its fields are unset — CEL rules see them that way too. If a rule on a field **outside** the group reads one of them, check it with `has()` first:
+  `!has(spec.monitoring.interval) || spec.backup.retention >= spec.monitoring.interval`
+- Don't put fields that can't be changed after creation (read-only in edit mode) inside the group: turning it off would delete them.
+
+**Current limitations**
+
+- The switch is always active: it can't be hidden or disabled per form mode yet — [#3080](https://github.com/openeverest/openeverest/issues/3080).
+- Section and group keys are limited to letters, digits, `_` and `-` until [#3221](https://github.com/openeverest/openeverest/issues/3221).
+- Backup, schedule and PITR forms don't support toggleable groups yet; there the group is shown as a bordered group — [#3268](https://github.com/openeverest/openeverest/issues/3268).

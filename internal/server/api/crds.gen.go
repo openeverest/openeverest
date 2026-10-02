@@ -279,6 +279,24 @@ func (e InstalledExtensionStatusPhase) Valid() bool {
 	}
 }
 
+// Defines values for InstanceSpecBackupStoragesSchedulesRetentionType.
+const (
+	InstanceSpecBackupStoragesSchedulesRetentionTypeCount InstanceSpecBackupStoragesSchedulesRetentionType = "count"
+	InstanceSpecBackupStoragesSchedulesRetentionTypeTime  InstanceSpecBackupStoragesSchedulesRetentionType = "time"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSpecBackupStoragesSchedulesRetentionType enum.
+func (e InstanceSpecBackupStoragesSchedulesRetentionType) Valid() bool {
+	switch e {
+	case InstanceSpecBackupStoragesSchedulesRetentionTypeCount:
+		return true
+	case InstanceSpecBackupStoragesSchedulesRetentionTypeTime:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceSpecDataSourcePointInTimeRecoveryTarget.
 const (
 	InstanceSpecDataSourcePointInTimeRecoveryTargetDate   InstanceSpecDataSourcePointInTimeRecoveryTarget = "date"
@@ -453,6 +471,24 @@ func (e InstanceStatusPhase) Valid() bool {
 	case InstanceStatusPhaseTerminating:
 		return true
 	case InstanceStatusPhaseUpdating:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstancePresetSpecBackupStoragesSchedulesRetentionType.
+const (
+	InstancePresetSpecBackupStoragesSchedulesRetentionTypeCount InstancePresetSpecBackupStoragesSchedulesRetentionType = "count"
+	InstancePresetSpecBackupStoragesSchedulesRetentionTypeTime  InstancePresetSpecBackupStoragesSchedulesRetentionType = "time"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetSpecBackupStoragesSchedulesRetentionType enum.
+func (e InstancePresetSpecBackupStoragesSchedulesRetentionType) Valid() bool {
+	switch e {
+	case InstancePresetSpecBackupStoragesSchedulesRetentionTypeCount:
+		return true
+	case InstancePresetSpecBackupStoragesSchedulesRetentionTypeTime:
 		return true
 	default:
 		return false
@@ -1681,10 +1717,22 @@ type Instance struct {
 					// per-backup-run.
 					Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
-					// RetentionCopies RetentionCopies is the number of recent backups to keep for this
-					// schedule. Zero (or unset) means "keep all". Negative values are
-					// rejected.
-					RetentionCopies *int32 `json:"retentionCopies,omitempty"`
+					// Retention Retention configures count-based or time-based backup retention for
+					// this schedule. Unset keeps all backups.
+					Retention *struct {
+						// Count Count is the number of recent backups to keep when Type is count.
+						// Required when Type is count (minimum 1). Forbidden when Type is time.
+						// Omit Retention on the schedule to keep all backups.
+						Count *int32 `json:"count,omitempty"`
+
+						// Duration Duration is the recovery window when Type is time, in the form
+						// <positive-integer><unit> where unit is d (days), w (weeks), or m
+						// (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+						Duration *string `json:"duration,omitempty"`
+
+						// Type Type selects count-based or time-based retention.
+						Type InstanceSpecBackupStoragesSchedulesRetentionType `json:"type"`
+					} `json:"retention,omitempty"`
 				} `json:"schedules,omitempty"`
 
 				// StorageRef StorageRef references a BackupStorage in the same namespace. The
@@ -2299,7 +2347,10 @@ type Instance struct {
 				} `json:"tolerations,omitempty"`
 
 				// TopologySpreadConstraints TopologySpreadConstraints describe how the pods spread across topology
-				// domains. All constraints are ANDed.
+				// domains. All constraints are ANDed. A constraint without labelSelector
+				// and matchLabelKeys counts this component's own pods.
+				// When omitted, the provider applies its default spreading; an empty list
+				// asks for none, which a provider may reject if its engine always spreads.
 				TopologySpreadConstraints *[]struct {
 					// LabelSelector LabelSelector is used to find matching pods.
 					// Pods that match this label selector are counted to determine the number of pods
@@ -2740,6 +2791,9 @@ type Instance struct {
 	} `json:"status,omitempty"`
 }
 
+// InstanceSpecBackupStoragesSchedulesRetentionType Type selects count-based or time-based retention.
+type InstanceSpecBackupStoragesSchedulesRetentionType string
+
 // InstanceSpecComponentsResourcesLimits0 defines model for .
 type InstanceSpecComponentsResourcesLimits0 = int
 
@@ -2951,10 +3005,22 @@ type InstancePreset struct {
 					// per-backup-run.
 					Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
-					// RetentionCopies RetentionCopies is the number of recent backups to keep for this
-					// schedule. Zero (or unset) means "keep all". Negative values are
-					// rejected.
-					RetentionCopies *int32 `json:"retentionCopies,omitempty"`
+					// Retention Retention configures count-based or time-based backup retention for
+					// this schedule. Unset keeps all backups.
+					Retention *struct {
+						// Count Count is the number of recent backups to keep when Type is count.
+						// Required when Type is count (minimum 1). Forbidden when Type is time.
+						// Omit Retention on the schedule to keep all backups.
+						Count *int32 `json:"count,omitempty"`
+
+						// Duration Duration is the recovery window when Type is time, in the form
+						// <positive-integer><unit> where unit is d (days), w (weeks), or m
+						// (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+						Duration *string `json:"duration,omitempty"`
+
+						// Type Type selects count-based or time-based retention.
+						Type InstancePresetSpecBackupStoragesSchedulesRetentionType `json:"type"`
+					} `json:"retention,omitempty"`
 				} `json:"schedules,omitempty"`
 
 				// StorageRef StorageRef references a BackupStorage in the same namespace. The
@@ -3569,7 +3635,10 @@ type InstancePreset struct {
 				} `json:"tolerations,omitempty"`
 
 				// TopologySpreadConstraints TopologySpreadConstraints describe how the pods spread across topology
-				// domains. All constraints are ANDed.
+				// domains. All constraints are ANDed. A constraint without labelSelector
+				// and matchLabelKeys counts this component's own pods.
+				// When omitted, the provider applies its default spreading; an empty list
+				// asks for none, which a provider may reject if its engine always spreads.
 				TopologySpreadConstraints *[]struct {
 					// LabelSelector LabelSelector is used to find matching pods.
 					// Pods that match this label selector are counted to determine the number of pods
@@ -3912,6 +3981,9 @@ type InstancePreset struct {
 		} `json:"conditions,omitempty"`
 	} `json:"status,omitempty"`
 }
+
+// InstancePresetSpecBackupStoragesSchedulesRetentionType Type selects count-based or time-based retention.
+type InstancePresetSpecBackupStoragesSchedulesRetentionType string
 
 // InstancePresetSpecComponentsResourcesLimits0 defines model for .
 type InstancePresetSpecComponentsResourcesLimits0 = int

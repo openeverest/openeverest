@@ -2,9 +2,22 @@
   "name": "@openeverest/plugin-theme",
   "version": "0.1.0",
   "description": "Themes an OpenEverest plugin's own MUI from the host design tokens (--everest-* CSS variables), so plugins look native and stay independent of the host's MUI version.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openeverest/openeverest.git",
+    "directory": "ui/packages/plugin-theme"
+  },
   "main": "dist/esm/index.js",
   "module": "dist/esm/index.js",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/esm/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "types": "dist/index.d.ts",
   "files": [
     "dist"

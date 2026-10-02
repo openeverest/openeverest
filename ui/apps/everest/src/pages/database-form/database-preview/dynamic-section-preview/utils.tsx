@@ -62,7 +62,7 @@ export const renderComponent = (
   if (component.uiType === 'group' && 'components' in component) {
     // Sections are preprocessed, so degraded toggleables are already bordered.
     const toggleable = getToggleableMeta(component);
-    if (toggleable && !isToggleableOn(toggleable, formValues)) {
+    if (toggleable && !isToggleableOn(formValues, toggleable.switchName)) {
       return (
         <PreviewContentText
           key={`${parentPrefix}:${toggleable.switchName}`}

@@ -14,6 +14,7 @@
 
 import { z } from 'zod';
 import { getByPath } from '../object-path/object-path';
+import { isToggleableOn } from '../toggleable/toggleable';
 import type { ToggleableFieldRule } from './schema-builder.types';
 
 // Validation of a toggleable group's fields is paused while its switch is off;
@@ -28,7 +29,7 @@ export const applyToggleableValidation = (
 
   return schema.superRefine((data, ctx) => {
     rules.forEach(({ switchName, fieldId, schema: fieldSchema }) => {
-      if (getByPath(data, switchName) !== true) return;
+      if (!isToggleableOn(data, switchName)) return;
 
       const result = fieldSchema.safeParse(getByPath(data, fieldId));
       if (result.success) return;

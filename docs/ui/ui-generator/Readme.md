@@ -162,11 +162,11 @@ A **ComponentGroup** allows you to group multiple components together with custo
 
 //TODO If the uiType is hidden, the component will not be displayed on the UI and, as a result, will not participate in generating data for the api.
 
-- **`groupType`** (optional). For a detailed description of the type of groups and their use, see the [Groups](#groups) section.
+- **`groupType`** (optional). For a detailed description of the type of groups and their use, see [Groups](groups.md).
 - **`label`** (optional): Display label for the group.
 - **`description`** (optional): Description text for the group
 
-The label and description display format may look different for different groups. A detailed description can be found in the [Groups](#groups) section.
+The label and description display format may look different for different groups. A detailed description can be found in [Groups](groups.md).
 
 - **`components`**: Nested components (can include other groups)
 - **`componentsOrder`** (optional): Order of nested components

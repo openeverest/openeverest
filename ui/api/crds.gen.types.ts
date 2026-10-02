@@ -1039,12 +1039,30 @@ export interface components {
                              */
                             parameters?: Record<string, never>;
                             /**
-                             * Format: int32
-                             * @description RetentionCopies is the number of recent backups to keep for this
-                             *     schedule. Zero (or unset) means "keep all". Negative values are
-                             *     rejected.
+                             * @description Retention configures count-based or time-based backup retention for
+                             *     this schedule. Unset keeps all backups.
                              */
-                            retentionCopies?: number;
+                            retention?: {
+                                /**
+                                 * Format: int32
+                                 * @description Count is the number of recent backups to keep when Type is count.
+                                 *     Required when Type is count (minimum 1). Forbidden when Type is time.
+                                 *     Omit Retention on the schedule to keep all backups.
+                                 */
+                                count?: number;
+                                /**
+                                 * @description Duration is the recovery window when Type is time, in the form
+                                 *     <positive-integer><unit> where unit is d (days), w (weeks), or m
+                                 *     (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+                                 */
+                                duration?: string;
+                                /**
+                                 * @description Type selects count-based or time-based retention.
+                                 * @default count
+                                 * @enum {string}
+                                 */
+                                type: "count" | "time";
+                            };
                         }[];
                         /**
                          * @description StorageRef references a BackupStorage in the same namespace. The
@@ -1778,7 +1796,10 @@ export interface components {
                             }[];
                             /**
                              * @description TopologySpreadConstraints describe how the pods spread across topology
-                             *     domains. All constraints are ANDed.
+                             *     domains. All constraints are ANDed. A constraint without labelSelector
+                             *     and matchLabelKeys counts this component's own pods.
+                             *     When omitted, the provider applies its default spreading; an empty list
+                             *     asks for none, which a provider may reject if its engine always spreads.
                              */
                             topologySpreadConstraints?: {
                                 /**
@@ -2434,12 +2455,30 @@ export interface components {
                              */
                             parameters?: Record<string, never>;
                             /**
-                             * Format: int32
-                             * @description RetentionCopies is the number of recent backups to keep for this
-                             *     schedule. Zero (or unset) means "keep all". Negative values are
-                             *     rejected.
+                             * @description Retention configures count-based or time-based backup retention for
+                             *     this schedule. Unset keeps all backups.
                              */
-                            retentionCopies?: number;
+                            retention?: {
+                                /**
+                                 * Format: int32
+                                 * @description Count is the number of recent backups to keep when Type is count.
+                                 *     Required when Type is count (minimum 1). Forbidden when Type is time.
+                                 *     Omit Retention on the schedule to keep all backups.
+                                 */
+                                count?: number;
+                                /**
+                                 * @description Duration is the recovery window when Type is time, in the form
+                                 *     <positive-integer><unit> where unit is d (days), w (weeks), or m
+                                 *     (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+                                 */
+                                duration?: string;
+                                /**
+                                 * @description Type selects count-based or time-based retention.
+                                 * @default count
+                                 * @enum {string}
+                                 */
+                                type: "count" | "time";
+                            };
                         }[];
                         /**
                          * @description StorageRef references a BackupStorage in the same namespace. The
@@ -3173,7 +3212,10 @@ export interface components {
                             }[];
                             /**
                              * @description TopologySpreadConstraints describe how the pods spread across topology
-                             *     domains. All constraints are ANDed.
+                             *     domains. All constraints are ANDed. A constraint without labelSelector
+                             *     and matchLabelKeys counts this component's own pods.
+                             *     When omitted, the provider applies its default spreading; an empty list
+                             *     asks for none, which a provider may reject if its engine always spreads.
                              */
                             topologySpreadConstraints?: {
                                 /**

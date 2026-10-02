@@ -138,6 +138,17 @@ export const buildShapeFromComponents = (
       return;
     }
 
+    if (activeSwitch) {
+      toggleableFieldRules.push({
+        switchName: activeSwitch,
+        fieldId,
+        schema: fieldSchema,
+      });
+      // Still transforms valid values, but never fails on its own.
+      schemaShape[fieldId] = fieldSchema.or(z.any());
+      return;
+    }
+
     schemaShape[fieldId] = fieldSchema;
   });
 
