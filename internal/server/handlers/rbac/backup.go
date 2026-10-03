@@ -55,9 +55,20 @@ func (h *rbacHandler) GetBackup(ctx context.Context, cluster, namespace, name st
 }
 
 // CreateBackup creates a backup, gated by RBAC on the instance it belongs to.
+// The caller must also be able to read the storage it writes to and the class
+// it runs, since the class's job permissions become a ServiceAccount the
+// backup job runs as.
 func (h *rbacHandler) CreateBackup(ctx context.Context, cluster string, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error) {
 	object := rbac.ClusterNamespacedObjectName(cluster, backup.GetNamespace(), backupInstanceName(backup))
 	if err := h.enforce(ctx, rbac.ResourceBackups, rbac.ActionCreate, object); err != nil {
+		return nil, err
+	}
+	storageObject := rbac.ClusterNamespacedObjectName(cluster, backup.GetNamespace(), backup.Spec.StorageRef.Name)
+	if err := h.enforce(ctx, rbac.ResourceBackupStorages, rbac.ActionRead, storageObject); err != nil {
+		return nil, err
+	}
+	classObject := rbac.ClusterObjectName(cluster, backup.Spec.ClassRef.Name)
+	if err := h.enforce(ctx, rbac.ResourceBackupClasses, rbac.ActionRead, classObject); err != nil {
 		return nil, err
 	}
 	return h.next.CreateBackup(ctx, cluster, backup)

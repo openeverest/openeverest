@@ -44,6 +44,8 @@ func TestRBAC_Backup(t *testing.T) {
 					Type:        backupv1alpha1.BackupOriginTypeInstance,
 					InstanceRef: &objectref.ObjectRef{Name: "instance-1"},
 				},
+				ClassRef:   objectref.ObjectRef{Name: "pbm"},
+				StorageRef: objectref.ObjectRef{Name: "s3"},
 			},
 		}
 	}
@@ -159,6 +161,8 @@ func TestRBAC_Backup(t *testing.T) {
 				cluster: "prod",
 				policy: newPolicy(
 					"p, role:test, backups, create, prod/ns1/instance-1",
+					"p, role:test, backup-storages, read, prod/ns1/s3",
+					"p, role:test, backup-classes, read, prod/pbm",
 					"g, bob, role:test",
 				),
 			},
@@ -167,8 +171,30 @@ func TestRBAC_Backup(t *testing.T) {
 				cluster: "prod",
 				policy: newPolicy(
 					"p, role:test, backups, create, prod/ns1/*",
+					"p, role:test, backup-storages, read, prod/ns1/*",
+					"p, role:test, backup-classes, read, prod/*",
 					"g, bob, role:test",
 				),
+			},
+			{
+				desc:    "cannot read the target storage",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backups, create, prod/ns1/instance-1",
+					"p, role:test, backup-classes, read, prod/pbm",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "cannot read the backup class",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backups, create, prod/ns1/instance-1",
+					"p, role:test, backup-storages, read, prod/ns1/s3",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
 			},
 			{
 				desc:    "has read but not create",
