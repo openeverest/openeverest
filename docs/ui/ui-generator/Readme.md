@@ -26,6 +26,8 @@
   - [Accordion Group](groups.md#accordion-group)
   - [Bordered Group](groups.md#bordered-group)
   - [Toggleable Group](groups.md#toggleable-group)
+- [Widgets](widgets.md)
+  - [Pod Scheduling Policy](widgets.md#pod-scheduling-policy)
 - [Validation](validation.md)
   - [Default Validation](validation.md#default-validation)
   - [Schema Custom Validation](validation.md#schema-custom-validation)
@@ -199,45 +201,8 @@ resources:
 
 #### Widget (Host-Rendered Component)
 
-A **Widget** is a component the application renders itself, for UI that plain fields can't
-describe (for example, a per-component pod scheduling editor). It is the extension point for
-components, the way `groupType` is for groups.
-
-Supported props:
-
-- **`uiType`**: `'widget'`
-- **`widgetType`**: Which widget to render. Supported: [`podSchedulingPolicy`](#podschedulingpolicy).
-
-Every widget is unique: each widget type defines where its data lives and which paths it writes.
-See the widget's own description below. Section copy goes on the surrounding group's
-`label` / `description`.
-
-A widget inside a [toggleable group](groups.md#toggleable-group) is switched on and off together
-with the paths it writes, like any field. An unknown `widgetType` renders nothing.
-
-##### `podSchedulingPolicy`
-
-A per-component pod scheduling (affinity) editor, shown as tabs, one per component.
-
-- **Where its data lives**: resolved from the provider. It writes
-  `spec.components.<component>.schedulingPolicy.affinity` for every component that supports
-  affinity in the selected topology, so it is placed without a `path` / `id`.
-- **Label**: provided by the application (`Pod scheduling policy`).
-- If the provider supports affinity for no component, the widget shows a notice and a toggleable
-  parent group falls back to `bordered`.
-
-Example:
-
-```yaml
-podSchedulingPolicy:
-  uiType: group
-  groupType: toggleable
-  label: Pod scheduling policy
-  components:
-    policy:
-      uiType: widget
-      widgetType: podSchedulingPolicy
-```
+A **Widget** is a component the application renders itself (`uiType: widget` + `widgetType`),
+for UI that plain fields can't describe. See [Widgets](widgets.md) for the supported widget types.
 
 ## Mode-Aware Overrides
 
@@ -277,7 +242,7 @@ Validation-specific mode-aware behavior is documented in [validation.md](validat
 ### Path vs ID
 
 Each field component must have either a `path` or an `id` property (but not both).
-For [widgets](#widget-host-rendered-component), where the data lives is defined by each widget type.
+For [widgets](widgets.md), where the data lives is defined by each widget type.
 
 - **`path`**: Dot-notation string representing where the value should be stored in the form data
   - Example: `"spec.replica.nodes"` → `{ spec: { replica: { nodes: value } } }`
