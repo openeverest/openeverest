@@ -19,19 +19,21 @@ import (
 	"encoding/json"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
-	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 )
 
 const (
 	// defaultStorageClassAnnotation is the standard Kubernetes annotation for marking a StorageClass as default
 	defaultStorageClassAnnotation = "storageclass.kubernetes.io/is-default-class"
+
+	// namespaceDefaultsName is the singleton name of the NamespaceDefaults
+	// object in each namespace.
+	namespaceDefaultsName = "defaults"
 )
 
 // ListInstancePresets returns list of instance presets, optionally filtered by provider.
@@ -69,25 +71,33 @@ func (h *k8sHandler) ResolveInstancePreset(ctx context.Context, cluster, name, n
 	// Create a copy to avoid modifying the original
 	resolved := preset.DeepCopy()
 
-	return h.resolveNamespaceDefaults(ctx, resolved, namespace)
+	return h.resolveDefaultReferences(ctx, resolved, namespace)
 }
 
-// resolveNamespaceDefaults scans components and resolves
-// empty namespace reference fields and empty StorageClass and populates them.
-// The fields that could have namespace references are in parameters.
-// It skips other fields like resources, image, etc. since they are not
-// namespace-specific, and also skips fields with unknown type.
-// Supported types are Secret and MonitoringConfig.
-// The resolution is based on the most recently created resource with the
-// annotation "openeverest.io/is-default-components-<componentName>" set
-// to "true" in the specified namespace.
-func (h *k8sHandler) resolveNamespaceDefaults(ctx context.Context, preset *corev1alpha1.InstancePreset, namespace string) (*corev1alpha1.InstancePreset, error) {
-	for componentName, component := range preset.Spec.Components {
-		var err error
+// resolveDefaultReferences fills empty, namespace-scoped reference fields of
+// the preset from the namespace's NamespaceDefaults object, and empty
+// StorageClass fields from the cluster's default StorageClass.
+//
+// A NamespaceDefaults entry is matched to a reference by its path within the
+// Instance spec: component-scoped references under "components.<name>.<...>"
+// and top-level references by their field name (e.g. "userSecretRef"). Only
+// empty references are filled; StorageClass is cluster-scoped and keeps the
+// standard Kubernetes "is-default-class" annotation.
+//
+// Missing defaults are not an error: an empty field is simply left empty.
+func (h *k8sHandler) resolveDefaultReferences(ctx context.Context, preset *corev1alpha1.InstancePreset, namespace string) (*corev1alpha1.InstancePreset, error) {
+	defaults, err := h.kubeConnector.GetNamespaceDefaults(ctx, types.NamespacedName{Namespace: namespace, Name: namespaceDefaultsName})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get namespace defaults: %w", err)
+	}
 
+	defaultsByPath := defaultsByPath(defaults, preset.Spec.ProviderRef.Name)
+
+	for componentName, component := range preset.Spec.Components {
 		// Resolve parameters fields
 		if component.Parameters != nil && len(component.Parameters.Raw) > 0 {
-			component, err = h.resolveParametersFields(ctx, component, componentName, namespace)
+			basePath := fmt.Sprintf("components.%s", componentName)
+			component, err = resolveParametersFields(component, basePath, defaultsByPath)
 			if err != nil {
 				return nil, fmt.Errorf("failed to resolve component %s: %w", componentName, err)
 			}
@@ -127,19 +137,44 @@ func (h *k8sHandler) resolveStorageFields(ctx context.Context, component corev1a
 	return component, nil
 }
 
-// resolveParametersFields handles unstructured parameters fields recursively.
-func (h *k8sHandler) resolveParametersFields(ctx context.Context, component corev1alpha1.ComponentSpec, componentName, namespace string) (corev1alpha1.ComponentSpec, error) {
+// defaultsByPath resolves the namespace defaults into a path-keyed lookup for
+// the given provider, applying provider precedence once.
+func defaultsByPath(defaults *corev1alpha1.NamespaceDefaults, provider string) map[string]string {
+	if defaults == nil {
+		return map[string]string{}
+	}
+
+	byPath := make(map[string]string, len(defaults.Spec.Defaults))
+	for _, d := range defaults.Spec.Defaults {
+		switch {
+		case d.ProviderRef != nil && d.ProviderRef.Name == provider:
+			// Provider match always wins, overwriting any agnostic entry.
+			byPath[d.Path] = d.Name
+		case d.ProviderRef == nil:
+			// Provider-agnostic default fills only where a provider-scoped
+			// entry has not already filled.
+			if _, ok := byPath[d.Path]; !ok {
+				byPath[d.Path] = d.Name
+			}
+		}
+	}
+
+	return byPath
+}
+
+// resolveParametersFields handles unstructured parameters fields recursively,
+// building the spec path of each field so defaults can be matched by path.
+func resolveParametersFields(
+	component corev1alpha1.ComponentSpec,
+	basePath string,
+	defaultsByPath map[string]string,
+) (corev1alpha1.ComponentSpec, error) {
 	var data map[string]any
 	if err := json.Unmarshal(component.Parameters.Raw, &data); err != nil {
 		return component, err
 	}
 
-	modified, err := h.resolveMapFieldsRecursive(ctx, data, componentName, namespace)
-	if err != nil {
-		return component, err
-	}
-
-	if modified {
+	if modified := resolveMapFieldsRecursive(data, basePath, defaultsByPath); modified {
 		resolvedRaw, err := json.Marshal(data)
 		if err != nil {
 			return component, err
@@ -150,50 +185,41 @@ func (h *k8sHandler) resolveParametersFields(ctx context.Context, component core
 	return component, nil
 }
 
-// resolveMapFieldsRecursive walks parameters and resolves empty fields matching patterns.
-func (h *k8sHandler) resolveMapFieldsRecursive(ctx context.Context, data map[string]any, componentName, namespace string) (bool, error) {
+// resolveMapFieldsRecursive walks parameters and fills empty reference fields.
+// A reference object is filled if the object is {"name": ""} or an empty {}.
+// A bare string ref is addressed directly. It returns whether anything changed.
+func resolveMapFieldsRecursive(
+	data map[string]any,
+	basePath string,
+	defaultsByPath map[string]string,
+) bool {
 	var modified bool
 
 	for fieldName, value := range data {
-		resourceType := inferSupportedResourceType(fieldName)
-		if resourceType == "" {
-			if nested, ok := value.(map[string]any); ok {
-				m, err := h.resolveMapFieldsRecursive(ctx, nested, componentName, namespace)
-				if err != nil {
-					return modified, err
+		fieldPath := basePath + "." + fieldName
+
+		if mapValue, ok := value.(map[string]any); ok {
+			// A default at "<path>.name" fills the ref's name, creating the key
+			// when the ref serialized empty ({}); otherwise recurse deeper.
+			if defaultName := defaultsByPath[fieldPath+".name"]; defaultName != "" {
+				if cur, exists := mapValue["name"]; !exists || isEmptyValue(cur) {
+					mapValue["name"] = defaultName
+					modified = true
 				}
-
-				modified = modified || m
+				continue
 			}
+
+			modified = resolveMapFieldsRecursive(mapValue, fieldPath, defaultsByPath) || modified
 			continue
 		}
 
-		// Try to resolve if value is empty
-		if !isEmptyValue(value) {
-			continue
-		}
-
-		defaultName, err := h.findDefaultResource(ctx, namespace, resourceType, componentName)
-		if err != nil {
-			return modified, err
-		}
-
-		if defaultName == "" {
-			continue
-		}
-
-		// Handle ref-like objects (e.g., {} or {"name": ""})
-		if refMap, ok := value.(map[string]any); ok {
-			refMap["name"] = defaultName
-		} else {
-			// Handle string values
+		if defaultName := defaultsByPath[fieldPath]; defaultName != "" && isEmptyValue(value) {
 			data[fieldName] = defaultName
+			modified = true
 		}
-
-		modified = true
 	}
 
-	return modified, nil
+	return modified
 }
 
 // isEmptyValue checks if value is empty/null
@@ -203,8 +229,6 @@ func isEmptyValue(value any) bool {
 		return v == ""
 	case *string:
 		return v == nil || *v == ""
-	case common.ObjectRef:
-		return v.Name == ""
 	case map[string]any:
 		// Empty object like {} or {"name": ""}
 		if len(v) == 0 {
@@ -220,112 +244,6 @@ func isEmptyValue(value any) bool {
 	}
 
 	return false
-}
-
-// findDefaultResource finds the default resource for a component field
-func (h *k8sHandler) findDefaultResource(ctx context.Context, namespace, resourceType, componentName string) (string, error) {
-	if resourceType == "" {
-		return "", nil
-	}
-
-	// Build annotation key for this component
-	annotationKey := fmt.Sprintf("openeverest.io/is-default-components-%s", componentName)
-
-	// Query the appropriate resource type
-	var mostRecent ctrlclient.Object
-	var err error
-
-	switch resourceType {
-	case "Secret":
-		mostRecent, err = h.findDefaultSecret(ctx, namespace, annotationKey)
-	case "MonitoringConfig":
-		mostRecent, err = h.findDefaultMonitoringConfig(ctx, namespace, annotationKey)
-	default:
-		return "", nil
-	}
-
-	if err != nil || mostRecent == nil {
-		return "", err
-	}
-
-	return mostRecent.GetName(), nil
-}
-
-// inferSupportedResourceType derives resource type from field name.
-// Returns empty string if field is not supported resource type.
-// secretRef -> Secret
-// monitoringConfigName -> MonitoringConfig
-func inferSupportedResourceType(fieldName string) string {
-	resolvableFields := map[string]string{
-		"secret":               "Secret",
-		"secretName":           "Secret",
-		"secretRef":            "Secret",
-		"monitoringConfig":     "MonitoringConfig",
-		"monitoringConfigName": "MonitoringConfig",
-		"monitoringConfigRef":  "MonitoringConfig",
-	}
-
-	if resourceType, ok := resolvableFields[fieldName]; ok {
-		return resourceType
-	}
-
-	return ""
-}
-
-// findDefaultSecret finds the most recent Secret with the annotation
-func (h *k8sHandler) findDefaultSecret(ctx context.Context, namespace, annotationKey string) (ctrlclient.Object, error) {
-	secrets, err := h.kubeConnector.ListSecrets(ctx,
-		ctrlclient.InNamespace(namespace),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// Filter by annotation. Note: Kubernetes API doesn't support annotation selectors,
-	// so we must list all Secrets and filter client-side (same limitation as StorageClass).
-	// If performance becomes an issue with many Secrets, consider adding labels instead.
-	filtered := make([]corev1.Secret, 0)
-	for _, secret := range secrets.Items {
-		if annotations := secret.GetAnnotations(); annotations != nil {
-			if annotations[annotationKey] == "true" {
-				filtered = append(filtered, secret)
-			}
-		}
-	}
-
-	if len(filtered) == 0 {
-		return nil, nil
-	}
-
-	return getMostRecentlyCreated(convertSecretsToObjects(filtered)), nil
-}
-
-// findDefaultMonitoringConfig finds the most recent MonitoringConfig with the annotation
-func (h *k8sHandler) findDefaultMonitoringConfig(ctx context.Context, namespace, annotationKey string) (ctrlclient.Object, error) {
-	configs, err := h.kubeConnector.ListMonitoringConfigsV2(ctx,
-		ctrlclient.InNamespace(namespace),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// Filter by annotation. Note: Kubernetes API doesn't support annotation selectors,
-	// so we must list all MonitoringConfigs and filter client-side (same limitation as StorageClass).
-	// If performance becomes an issue with many configs, consider adding labels instead.
-	filtered := make([]monitoringv1alpha1.MonitoringConfig, 0)
-	for _, config := range configs.Items {
-		if annotations := config.GetAnnotations(); annotations != nil {
-			if annotations[annotationKey] == "true" {
-				filtered = append(filtered, config)
-			}
-		}
-	}
-
-	if len(filtered) == 0 {
-		return nil, nil
-	}
-
-	return getMostRecentlyCreated(convertMonitoringConfigsToObjects(filtered)), nil
 }
 
 // findDefaultStorageClass finds the most recent StorageClass using the same annotation
@@ -351,45 +269,12 @@ func (h *k8sHandler) findDefaultStorageClass(ctx context.Context) (ctrlclient.Ob
 		return nil, nil
 	}
 
-	return getMostRecentlyCreated(convertStorageClassesToObjects(filtered)), nil
-}
-
-// getMostRecentlyCreated returns the most recently created resource
-func getMostRecentlyCreated(items []ctrlclient.Object) ctrlclient.Object {
-	if len(items) == 0 {
-		return nil
-	}
-
-	mostRecent := items[0]
-	for i := 1; i < len(items); i++ {
-		if items[i].GetCreationTimestamp().After(mostRecent.GetCreationTimestamp().Time) {
-			mostRecent = items[i]
+	mostRecent := filtered[0]
+	for i := 1; i < len(filtered); i++ {
+		if filtered[i].GetCreationTimestamp().After(mostRecent.GetCreationTimestamp().Time) {
+			mostRecent = filtered[i]
 		}
 	}
 
-	return mostRecent
-}
-
-func convertSecretsToObjects(items []corev1.Secret) []ctrlclient.Object {
-	result := make([]ctrlclient.Object, len(items))
-	for i := range items {
-		result[i] = &items[i]
-	}
-	return result
-}
-
-func convertMonitoringConfigsToObjects(items []monitoringv1alpha1.MonitoringConfig) []ctrlclient.Object {
-	result := make([]ctrlclient.Object, len(items))
-	for i := range items {
-		result[i] = &items[i]
-	}
-	return result
-}
-
-func convertStorageClassesToObjects(items []storagev1.StorageClass) []ctrlclient.Object {
-	result := make([]ctrlclient.Object, len(items))
-	for i := range items {
-		result[i] = &items[i]
-	}
-	return result
+	return &mostRecent, nil
 }

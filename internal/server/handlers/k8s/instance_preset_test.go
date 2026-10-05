@@ -52,22 +52,21 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, storagev1.AddToScheme(scheme))
 	require.NoError(t, monitoringv1alpha1.AddToScheme(scheme))
+	require.NoError(t, corev1alpha1.AddToScheme(scheme))
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(
 			&corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "default-secret",
-					Namespace:   namespace,
-					Annotations: map[string]string{"openeverest.io/is-default-components-pmm": "true"},
+					Name:      "default-secret",
+					Namespace: namespace,
 				},
 			},
 			&monitoringv1alpha1.MonitoringConfig{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "default-monitoring",
-					Namespace:   namespace,
-					Annotations: map[string]string{"openeverest.io/is-default-components-pmm": "true"},
+					Name:      "default-monitoring",
+					Namespace: namespace,
 				},
 				Spec: monitoringv1alpha1.MonitoringConfigSpec{Type: "pmm"},
 			},
@@ -81,6 +80,17 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "non-default-storage",
 					Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "false"},
+				},
+			},
+			&corev1alpha1.NamespaceDefaults{
+				ObjectMeta: metav1.ObjectMeta{Name: namespaceDefaultsName, Namespace: namespace},
+				Spec: corev1alpha1.NamespaceDefaultsSpec{
+					Defaults: []corev1alpha1.NamespaceDefault{
+						{Path: "components.pmm.monitoringConfigName", Name: "default-monitoring"},
+						{Path: "components.pmm.monitoringConfig", Name: "default-monitoring"},
+						{Path: "components.pmm.monitoringConfigRef.name", Name: "default-monitoring"},
+						{Path: "components.pmm.nested.monitoringConfigName", Name: "default-monitoring"},
+					},
 				},
 			},
 		).
@@ -268,7 +278,7 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual, err := handler.resolveNamespaceDefaults(ctx, tt.input, namespace)
+			actual, err := handler.resolveDefaultReferences(ctx, tt.input, namespace)
 			require.NoError(t, err)
 			require.EqualValues(t, tt.expected.Spec, actual.Spec)
 		})
