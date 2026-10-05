@@ -25,6 +25,8 @@ import {
   WeightInput,
 } from 'pages/settings/policies/pod-scheduling-policies/affinity/affinity-form-dialog/affinity-form/fields';
 import { AffinityFormFields } from 'pages/settings/policies/pod-scheduling-policies/affinity/affinity-form-dialog/affinity-form/affinity-form.types';
+import { AffinityGroup } from '../affinity-group.types';
+import { GroupNotes } from '../group-notes';
 import { ConditionRow } from './condition-row';
 import { emptyCondition } from './group-editor-dialog.utils';
 import { Messages } from './group-editor-dialog.messages';
@@ -44,9 +46,22 @@ const collectTouchedPaths = (node: unknown, prefix = ''): string[] => {
 
 export const GroupForm = () => {
   const { control, trigger, formState } = useFormContext();
-  const [type, priority] = useWatch({
-    name: [AffinityFormFields.type, AffinityFormFields.priority],
+  const [type, priority, topologyKey, conditions, source] = useWatch({
+    name: [
+      AffinityFormFields.type,
+      AffinityFormFields.priority,
+      AffinityFormFields.topologyKey,
+      'conditions',
+      'source',
+    ],
   });
+  const group: AffinityGroup = {
+    type,
+    priority,
+    topologyKey,
+    conditions,
+    source,
+  };
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'conditions',
@@ -118,6 +133,9 @@ export const GroupForm = () => {
               }}
             />
           </Tooltip>
+        </Box>
+        <Box sx={{ '&:not(:empty)': { mb: 1 } }}>
+          <GroupNotes group={group} />
         </Box>
         {fields.map((field, index) => (
           <ConditionRow

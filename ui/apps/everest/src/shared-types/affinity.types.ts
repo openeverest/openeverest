@@ -99,16 +99,17 @@ export type AffinityMatchExpression = {
   values?: string[];
 };
 
-type NodeAffinityPreference = {
-  matchExpressions: AffinityMatchExpression[];
+// Optional in k8s: a term may select by matchFields / matchLabels only.
+export type MatchExpressionsSelector = {
+  matchExpressions?: AffinityMatchExpression[];
 };
 
-type NodeSelectorTerm = NodeAffinityPreference;
+type NodeAffinityPreference = MatchExpressionsSelector;
+
+export type NodeSelectorTerm = NodeAffinityPreference;
 
 export type PodAffinityTerm = {
-  labelSelector?: {
-    matchExpressions: AffinityMatchExpression[];
-  };
+  labelSelector?: MatchExpressionsSelector;
   topologyKey: string;
 };
 

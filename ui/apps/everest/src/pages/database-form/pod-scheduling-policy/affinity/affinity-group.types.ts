@@ -16,6 +16,8 @@ import {
   AffinityOperator,
   AffinityPriority,
   AffinityType,
+  NodeSelectorTerm,
+  PodAffinityTerm,
 } from 'shared-types/affinity.types';
 
 // One expression. Conditions inside a group are AND-ed (one nodeSelectorTerm /
@@ -35,7 +37,7 @@ export interface AffinityGroup {
   weight?: number; // preferred terms only
   topologyKey?: string; // pod (anti)affinity only
   conditions: AffinityCondition[];
-  // Term fields the editor doesn't model (matchFields, matchLabels, namespaces,
-  // namespaceSelector, …), written back verbatim so saving doesn't drop them.
-  passthrough?: Record<string, unknown>;
+  // The term as read. A save writes only the fields above into it, so what the
+  // editor doesn't model (matchFields, matchLabels, namespaces, …) survives.
+  source?: NodeSelectorTerm | PodAffinityTerm;
 }

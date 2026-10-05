@@ -18,7 +18,9 @@ import {
   AffinityOperator,
   AffinityPriority,
   AffinityType,
+  MatchExpressionsSelector,
   NodeAffinity,
+  NodeSelectorTerm,
   PodAffinity,
   PodAffinityTerm,
   PreferredNodeSchedulingTerm,
@@ -29,9 +31,8 @@ import {
 import { isPlainObject } from 'components/ui-generator/utils/object-path';
 import { AffinityCondition, AffinityGroup } from './affinity-group.types';
 
-type NodeSelectorTerm = RequiredNodeSchedulingTerm['nodeSelectorTerms'][number];
-
-const LABEL_SELECTOR = 'labelSelector';
+const MATCH_EXPRESSIONS = 'matchExpressions';
+const TOPOLOGY_KEY = 'topologyKey';
 
 // Blocklist rather than allowlist: operators set outside the UI (node Gt / Lt)
 // must keep their values too.
@@ -71,77 +72,106 @@ const matchExpressionsToConditions = (
     values,
   }));
 
-const withPassthrough = (fields: Record<string, unknown>) =>
-  Object.keys(fields).length > 0 ? { passthrough: fields } : {};
-
-const nodeTermToGroupFields = ({
-  matchExpressions,
-  ...rest
-}: NodeSelectorTerm) => ({
-  conditions: matchExpressionsToConditions(matchExpressions),
-  ...withPassthrough(rest),
+const nodeTermToGroupFields = (term: NodeSelectorTerm) => ({
+  conditions: matchExpressionsToConditions(term.matchExpressions),
+  source: term,
 });
 
-const podTermToGroupFields = ({
-  topologyKey,
-  labelSelector,
-  ...termRest
-}: PodAffinityTerm) => {
-  const { matchExpressions, ...selectorRest } = labelSelector ?? {
-    matchExpressions: [],
-  };
-  return {
-    topologyKey,
-    conditions: matchExpressionsToConditions(matchExpressions),
-    ...withPassthrough({
-      ...termRest,
-      ...(Object.keys(selectorRest).length > 0 && {
-        [LABEL_SELECTOR]: selectorRest,
-      }),
-    }),
-  };
-};
-
-const groupToPodTerm = (
-  group: AffinityGroup,
-  matchExpressions: AffinityMatchExpression[]
-): PodAffinityTerm => {
-  const kept: Record<string, unknown> = group.passthrough ?? {};
-  const { [LABEL_SELECTOR]: keptSelector, ...keptTerm } = kept;
-  const selector = isPlainObject(keptSelector) ? keptSelector : undefined;
-  return {
-    ...keptTerm,
-    topologyKey: group.topologyKey ?? '',
-    ...((matchExpressions.length > 0 || selector) && {
-      labelSelector: { ...selector, matchExpressions },
-    }),
-  };
-};
+const podTermToGroupFields = (term: PodAffinityTerm) => ({
+  topologyKey: term.topologyKey,
+  conditions: matchExpressionsToConditions(
+    term.labelSelector?.matchExpressions
+  ),
+  source: term,
+});
 
 const isNodeType = (type: AffinityType) => type === AffinityType.NodeAffinity;
 
-// Kept fields belong to the original term's shape, so they are dropped when an
-// edit switches the group between node and pod affinity.
-export const applyGroupEdit = (
-  original: AffinityGroup,
-  edited: AffinityGroup
-): AffinityGroup =>
-  isNodeType(original.type) === isNodeType(edited.type)
-    ? edited
-    : { ...edited, passthrough: undefined };
+const isEmptyValue = (value: unknown): boolean =>
+  Array.isArray(value)
+    ? value.length === 0
+    : isPlainObject(value) && Object.keys(value).length === 0;
+
+const isPodTerm = (
+  term: NodeSelectorTerm | PodAffinityTerm
+): term is PodAffinityTerm => TOPOLOGY_KEY in term;
+
+// A source of the other kind is ignored: an edit may switch node <-> pod.
+const nodeSourceOf = ({
+  type,
+  source,
+}: AffinityGroup): NodeSelectorTerm | undefined =>
+  isNodeType(type) && source && !isPodTerm(source) ? source : undefined;
+
+const podSourceOf = ({
+  type,
+  source,
+}: AffinityGroup): PodAffinityTerm | undefined =>
+  !isNodeType(type) && source && isPodTerm(source) ? source : undefined;
+
+// Writes the editor's expressions into the selector as read, keeping the rest.
+// Absent and empty selectors differ in k8s (no pods vs. all pods), so with no
+// expressions to write the selector stays exactly as read.
+const withMatchExpressions = (
+  selector: MatchExpressionsSelector | undefined,
+  matchExpressions: AffinityMatchExpression[]
+): MatchExpressionsSelector | undefined => {
+  const {
+    matchExpressions: readExpressions,
+    ...rest
+  }: MatchExpressionsSelector = selector ?? {};
+  if (matchExpressions.length > 0) {
+    return { ...rest, matchExpressions };
+  }
+  if (!readExpressions?.length) {
+    return selector;
+  }
+  // Every condition was removed: only the selector's other fields remain.
+  return Object.keys(rest).length > 0 ? rest : undefined;
+};
+
+const groupToNodeTerm = (group: AffinityGroup): NodeSelectorTerm =>
+  withMatchExpressions(
+    nodeSourceOf(group),
+    conditionsToMatchExpressions(group.conditions)
+  ) ?? {};
+
+const groupToPodTerm = (group: AffinityGroup): PodAffinityTerm => {
+  const { labelSelector: readSelector, ...readTerm }: Partial<PodAffinityTerm> =
+    podSourceOf(group) ?? {};
+  const labelSelector = withMatchExpressions(
+    readSelector,
+    conditionsToMatchExpressions(group.conditions)
+  );
+  return {
+    ...readTerm,
+    topologyKey: group.topologyKey ?? '',
+    ...(labelSelector && { labelSelector }),
+  };
+};
 
 // Kubernetes treats a pod term without a label selector as matching no pods.
 export const matchesNoPods = (group: AffinityGroup): boolean =>
-  !isNodeType(group.type) &&
-  group.conditions.length === 0 &&
-  !isPlainObject(group.passthrough?.[LABEL_SELECTOR]);
+  !isNodeType(group.type) && !groupToPodTerm(group).labelSelector;
 
-export const getPassthroughFieldNames = (
-  passthrough: Record<string, unknown> = {}
-): string[] =>
-  Object.entries(passthrough).flatMap(([key, value]) =>
-    key === LABEL_SELECTOR && isPlainObject(value) ? Object.keys(value) : [key]
-  );
+// ...and a selector with no requirements as matching every pod.
+export const matchesAllPods = (group: AffinityGroup): boolean => {
+  const selector = isNodeType(group.type)
+    ? undefined
+    : groupToPodTerm(group).labelSelector;
+  return !!selector && Object.values(selector).every(isEmptyValue);
+};
+
+// Without conditions a group is kept only if its term carries something the
+// editor doesn't model (matchFields, matchLabels, namespaces, an empty selector).
+export const canSaveWithoutConditions = (group: AffinityGroup): boolean => {
+  const withoutConditions = { ...group, conditions: [] };
+  const ownedKey = isNodeType(group.type) ? MATCH_EXPRESSIONS : TOPOLOGY_KEY;
+  const term = isNodeType(group.type)
+    ? groupToNodeTerm(withoutConditions)
+    : groupToPodTerm(withoutConditions);
+  return Object.keys(term).some((key) => key !== ownedKey);
+};
 
 export const groupsToAffinity = (groups: AffinityGroup[]): Affinity => {
   const nodePreferred: PreferredNodeSchedulingTerm[] = [];
@@ -152,11 +182,10 @@ export const groupsToAffinity = (groups: AffinityGroup[]): Affinity => {
   const antiRequired: RequiredPodSchedulingTerm = [];
 
   for (const group of groups) {
-    const matchExpressions = conditionsToMatchExpressions(group.conditions);
     const isRequired = group.priority === AffinityPriority.Required;
 
     if (group.type === AffinityType.NodeAffinity) {
-      const term = { ...group.passthrough, matchExpressions };
+      const term = groupToNodeTerm(group);
       if (isRequired) {
         nodeRequired.nodeSelectorTerms.push(term);
       } else {
@@ -168,7 +197,7 @@ export const groupsToAffinity = (groups: AffinityGroup[]): Affinity => {
       continue;
     }
 
-    const term = groupToPodTerm(group, matchExpressions);
+    const term = groupToPodTerm(group);
     const preferred =
       group.type === AffinityType.PodAffinity ? podPreferred : antiPreferred;
     const required =
@@ -225,7 +254,7 @@ export const affinityToGroups = (affinity: Affinity): AffinityGroup[] => {
         type: AffinityType.NodeAffinity,
         priority: AffinityPriority.Preferred,
         weight,
-        ...nodeTermToGroupFields(preference ?? { matchExpressions: [] }),
+        ...nodeTermToGroupFields(preference ?? {}),
       });
     });
     (

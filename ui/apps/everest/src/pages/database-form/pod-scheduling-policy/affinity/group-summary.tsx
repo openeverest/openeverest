@@ -19,14 +19,10 @@ import {
 } from 'shared-types/affinity.types';
 import { getAffinityRuleTypeLabel } from 'utils/db';
 import { AffinityGroup } from './affinity-group.types';
-import {
-  getPassthroughFieldNames,
-  matchesNoPods,
-} from './affinity-group-converter';
 import { Messages } from './affinity-rule-editor.messages';
+import { GroupNotes } from './group-notes';
 
 export const GroupSummary = ({ group }: { group: AffinityGroup }) => {
-  const keptFields = getPassthroughFieldNames(group.passthrough);
   // Priority is carried by the surrounding Required / Preferred heading.
   const meta = [
     group.priority === AffinityPriority.Preferred && group.weight != null
@@ -93,16 +89,7 @@ export const GroupSummary = ({ group }: { group: AffinityGroup }) => {
           ) : null}
         </Typography>
       ))}
-      {keptFields.length > 0 && (
-        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-          {Messages.keptFields(keptFields)}
-        </Typography>
-      )}
-      {matchesNoPods(group) && (
-        <Typography variant="caption" sx={{ color: 'warning.main' }}>
-          {Messages.noLabelSelector}
-        </Typography>
-      )}
+      <GroupNotes group={group} />
     </Stack>
   );
 };

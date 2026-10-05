@@ -19,6 +19,7 @@ import {
   AffinityType,
 } from 'shared-types/affinity.types';
 import { GroupEditorDialog } from './group-editor-dialog';
+import { toAffinityGroups } from '../../pod-scheduling-policy.utils';
 
 vi.mock('components/ui-generator/hooks/use-cel-validation', () => ({
   useCelValidation: () => {},
@@ -213,5 +214,48 @@ describe('GroupEditorDialog', () => {
     expect(
       await screen.findByText(/Values may use letters/i)
     ).toBeInTheDocument();
+  });
+
+  describe('notes on what the term selects beyond the conditions', () => {
+    const openWith = (term: Record<string, unknown>) => {
+      const [group] = toAffinityGroups({
+        podAntiAffinity: {
+          requiredDuringSchedulingIgnoredDuringExecution: [term],
+        },
+      });
+      render(
+        <GroupEditorDialog
+          isOpen
+          group={group}
+          onClose={() => {}}
+          onSubmit={() => {}}
+        />
+      );
+    };
+
+    it('explains why a group with an empty selector has no conditions', () => {
+      openWith({ topologyKey: 'kubernetes.io/hostname', labelSelector: {} });
+      expect(screen.getByText(/matches all pods/i)).toBeInTheDocument();
+    });
+
+    it('updates as conditions are added', () => {
+      openWith({ topologyKey: 'kubernetes.io/hostname', labelSelector: {} });
+
+      fireEvent.click(screen.getByRole('button', { name: /add condition/i }));
+      fireEvent.change(screen.getByRole('textbox', { name: 'Key' }), {
+        target: { value: 'app' },
+      });
+
+      expect(screen.queryByText(/matches all pods/i)).not.toBeInTheDocument();
+    });
+
+    it('shows nothing for a group created in the editor', () => {
+      render(
+        <GroupEditorDialog isOpen onClose={() => {}} onSubmit={() => {}} />
+      );
+      expect(
+        screen.queryByText(/matches (all|no) pods/i)
+      ).not.toBeInTheDocument();
+    });
   });
 });

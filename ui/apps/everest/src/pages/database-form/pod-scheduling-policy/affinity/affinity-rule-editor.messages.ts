@@ -30,7 +30,6 @@ export const Messages = {
   emptyReadOnly: 'No affinity rules for this component.',
   or: 'OR',
   and: 'and',
-  keptFields: (names: string[]) =>
-    `Also set outside the UI: ${names.join(', ')}`,
   noLabelSelector: 'No label selector — matches no pods, has no effect',
+  emptyLabelSelector: 'Empty label selector — matches all pods',
 };

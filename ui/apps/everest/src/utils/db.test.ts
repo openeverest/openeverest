@@ -262,17 +262,17 @@ describe('insertAffinityRuleToExistingPolicy', () => {
     expect(
       policy.spec.affinityConfig.psmdb?.engine?.nodeAffinity
         ?.preferredDuringSchedulingIgnoredDuringExecution![0]?.preference
-        ?.matchExpressions[0]?.key
+        ?.matchExpressions?.[0]?.key
     ).toEqual('my-key');
     expect(
       policy.spec.affinityConfig.psmdb?.engine?.nodeAffinity
         ?.preferredDuringSchedulingIgnoredDuringExecution![0]?.preference
-        ?.matchExpressions[0]?.operator
+        ?.matchExpressions?.[0]?.operator
     ).toEqual(AffinityOperator.In);
     expect(
       policy.spec.affinityConfig.psmdb?.engine?.nodeAffinity
         ?.preferredDuringSchedulingIgnoredDuringExecution![0]?.preference
-        ?.matchExpressions[0]?.values
+        ?.matchExpressions?.[0]?.values
     ).toEqual(['value1', 'value2']);
   });
 
@@ -346,32 +346,32 @@ describe('insertAffinityRuleToExistingPolicy', () => {
     expect(
       policy.spec.affinityConfig.psmdb?.engine?.nodeAffinity
         ?.preferredDuringSchedulingIgnoredDuringExecution![0]?.preference
-        ?.matchExpressions[0]?.key
+        ?.matchExpressions?.[0]?.key
     ).toEqual('my-key');
     expect(
       policy.spec.affinityConfig.psmdb?.engine?.nodeAffinity
         ?.preferredDuringSchedulingIgnoredDuringExecution![0]?.preference
-        ?.matchExpressions[0]?.operator
+        ?.matchExpressions?.[0]?.operator
     ).toEqual(AffinityOperator.NotIn);
     expect(
       policy.spec.affinityConfig.psmdb?.engine?.nodeAffinity
         ?.preferredDuringSchedulingIgnoredDuringExecution![0]?.preference
-        ?.matchExpressions[0]?.values
+        ?.matchExpressions?.[0]?.values
     ).toEqual(['value1', 'value2']);
     expect(
       policy.spec.affinityConfig.psmdb?.engine?.nodeAffinity
         ?.requiredDuringSchedulingIgnoredDuringExecution?.nodeSelectorTerms[0]
-        .matchExpressions[0].key
+        .matchExpressions?.[0].key
     ).toEqual('my-key');
     expect(
       policy.spec.affinityConfig.psmdb?.engine?.nodeAffinity
         ?.requiredDuringSchedulingIgnoredDuringExecution?.nodeSelectorTerms[0]
-        .matchExpressions[0].operator
+        .matchExpressions?.[0].operator
     ).toEqual(AffinityOperator.Exists);
     expect(
       policy.spec.affinityConfig.psmdb?.engine?.nodeAffinity
         ?.requiredDuringSchedulingIgnoredDuringExecution?.nodeSelectorTerms[0]
-        .matchExpressions[0].values
+        .matchExpressions?.[0].values
     ).toEqual(undefined);
   });
 
@@ -445,22 +445,22 @@ describe('insertAffinityRuleToExistingPolicy', () => {
     expect(
       policy.spec.affinityConfig.psmdb?.engine?.nodeAffinity
         ?.preferredDuringSchedulingIgnoredDuringExecution![0]?.preference
-        ?.matchExpressions[0]?.key
+        ?.matchExpressions?.[0]?.key
     ).toEqual('my-key');
     expect(
       policy.spec.affinityConfig.psmdb?.engine?.nodeAffinity
         ?.preferredDuringSchedulingIgnoredDuringExecution![1]?.preference
-        ?.matchExpressions[0]?.key
+        ?.matchExpressions?.[0]?.key
     ).toEqual('my-other-key');
     expect(
       policy.spec.affinityConfig.psmdb?.engine?.nodeAffinity
         ?.preferredDuringSchedulingIgnoredDuringExecution![0]?.preference
-        ?.matchExpressions[0]?.operator
+        ?.matchExpressions?.[0]?.operator
     ).toEqual(AffinityOperator.Exists);
     expect(
       policy.spec.affinityConfig.psmdb?.engine?.nodeAffinity
         ?.preferredDuringSchedulingIgnoredDuringExecution![1]?.preference
-        ?.matchExpressions[0]?.operator
+        ?.matchExpressions?.[0]?.operator
     ).toEqual(AffinityOperator.In);
   });
 });
@@ -546,7 +546,7 @@ describe('removeRuleInExistingPolicy', () => {
     expect(
       policy.spec.affinityConfig.psmdb?.engine?.nodeAffinity
         ?.preferredDuringSchedulingIgnoredDuringExecution![0].preference
-        .matchExpressions[0].key
+        .matchExpressions?.[0].key
     ).toEqual('my-key');
   });
 

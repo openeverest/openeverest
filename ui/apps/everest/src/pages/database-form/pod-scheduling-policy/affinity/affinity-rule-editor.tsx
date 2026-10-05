@@ -18,11 +18,7 @@ import { Affinity } from 'shared-types/affinity.types';
 import { WidgetRendererProps } from 'components/ui-generator/ui-generator.types';
 import { useSchedulingComponentContext } from '../scheduling-component-context';
 import { AffinityGroup } from './affinity-group.types';
-import {
-  affinityToGroups,
-  applyGroupEdit,
-  groupsToAffinity,
-} from './affinity-group-converter';
+import { affinityToGroups, groupsToAffinity } from './affinity-group-converter';
 import { AffinityGroupList } from './affinity-group-list';
 import { GroupEditorDialog } from './group-editor-dialog/group-editor-dialog';
 
@@ -61,9 +57,7 @@ export const AffinityRuleEditor = ({ name }: WidgetRendererProps) => {
     commit(
       editingIndex === undefined
         ? [...groups, group]
-        : groups.map((existing, i) =>
-            i === editingIndex ? applyGroupEdit(existing, group) : existing
-          )
+        : groups.map((existing, i) => (i === editingIndex ? group : existing))
     );
     setDialogOpen(false);
   };

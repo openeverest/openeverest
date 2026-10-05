@@ -123,19 +123,48 @@ describe('affinityGroupSchema', () => {
     expect(paths).toContain('conditions.0.operator');
   });
 
-  it('accepts a group without conditions when it keeps fields set outside the UI', () => {
+  it('accepts a group without conditions when its term keeps fields set outside the UI', () => {
+    const source = {
+      matchFields: [
+        { key: 'metadata.name', operator: 'In', values: ['node-1'] },
+      ],
+    };
     const result = affinityGroupSchema.safeParse({
       type: AffinityType.NodeAffinity,
       priority: AffinityPriority.Required,
       conditions: [],
-      passthrough: {
-        matchFields: [
-          { key: 'metadata.name', operator: 'In', values: ['node-1'] },
-        ],
-      },
+      source,
     });
     expect(result.success).toBe(true);
-    expect(result.success && result.data.passthrough).toBeTruthy();
+    // The dialog submits the parsed value, so the term must come back intact.
+    expect(result.success && result.data.source).toStrictEqual(source);
+  });
+
+  it('accepts a pod group without conditions whose empty selector matches all pods', () => {
+    const result = affinityGroupSchema.safeParse({
+      type: AffinityType.PodAntiAffinity,
+      priority: AffinityPriority.Required,
+      topologyKey: 'kubernetes.io/hostname',
+      conditions: [],
+      source: { topologyKey: 'kubernetes.io/hostname', labelSelector: {} },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('requires conditions when the term selected by them alone', () => {
+    const paths = issuePaths({
+      type: AffinityType.PodAntiAffinity,
+      priority: AffinityPriority.Required,
+      topologyKey: 'kubernetes.io/hostname',
+      conditions: [],
+      source: {
+        topologyKey: 'kubernetes.io/hostname',
+        labelSelector: {
+          matchExpressions: [{ key: 'app', operator: AffinityOperator.Exists }],
+        },
+      },
+    });
+    expect(paths).toContain('conditions');
   });
 
   it('requires a weight between 1 and 100 for preferred groups', () => {

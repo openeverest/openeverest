@@ -21,11 +21,14 @@ import {
 } from 'shared-types/affinity.types';
 import { doesAffinityOperatorRequireValues } from 'utils/db';
 import { PerconaZodCustomIssue } from 'utils/common-validation';
+import { isPlainObject } from 'components/ui-generator/utils/object-path';
 import { AffinityFormFields } from 'pages/settings/policies/pod-scheduling-policies/affinity/affinity-form-dialog/affinity-form/affinity-form.types';
+import { AffinityGroup } from './affinity-group.types';
+import { canSaveWithoutConditions } from './affinity-group-converter';
 import { Messages } from './group-editor-dialog/group-editor-dialog.messages';
 
 const CONDITIONS = 'conditions';
-const PASSTHROUGH = 'passthrough';
+const SOURCE = 'source';
 
 // k8s label value: up to 63 chars, alphanumerics plus - _ ., must start and end
 // with an alphanumeric.
@@ -46,7 +49,9 @@ const groupBaseSchema = z.object({
     .optional(),
   [AffinityFormFields.topologyKey]: z.string().optional(),
   [CONDITIONS]: z.array(conditionSchema),
-  [PASSTHROUGH]: z.record(z.unknown()).optional(),
+  [SOURCE]: z
+    .custom<NonNullable<AffinityGroup['source']>>(isPlainObject)
+    .optional(),
 });
 
 const conditionRequiredIssue = (field: string, index: number) => ({
@@ -55,8 +60,7 @@ const conditionRequiredIssue = (field: string, index: number) => ({
 });
 
 export const affinityGroupSchema = groupBaseSchema.superRefine((group, ctx) => {
-  const { type, priority, weight, topologyKey, conditions, passthrough } =
-    group;
+  const { type, priority, weight, topologyKey, conditions } = group;
 
   if (
     priority === AffinityPriority.Preferred &&
@@ -76,9 +80,7 @@ export const affinityGroupSchema = groupBaseSchema.superRefine((group, ctx) => {
     );
   }
 
-  // A term kept from outside the UI (e.g. matchFields only) may have no
-  // conditions the editor models.
-  if (conditions.length === 0 && !passthrough) {
+  if (conditions.length === 0 && !canSaveWithoutConditions(group)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: Messages.conditionsRequired,

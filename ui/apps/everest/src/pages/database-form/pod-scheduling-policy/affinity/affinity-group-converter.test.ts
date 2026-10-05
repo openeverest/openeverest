@@ -20,12 +20,41 @@ import {
 } from 'shared-types/affinity.types';
 import {
   affinityToGroups,
-  applyGroupEdit,
+  canSaveWithoutConditions,
   groupsToAffinity,
+  matchesAllPods,
   matchesNoPods,
 } from './affinity-group-converter';
 import { AffinityGroup } from './affinity-group.types';
 import { toAffinityGroups } from '../pod-scheduling-policy.utils';
+
+const HOSTNAME = 'kubernetes.io/hostname';
+const ZONE = 'topology.kubernetes.io/zone';
+const EXISTS_APP = { key: 'app', operator: AffinityOperator.Exists };
+const NODE_1 = { key: 'metadata.name', operator: 'In', values: ['node-1'] };
+
+const EMPTY_SELECTORS: [string, Record<string, unknown>][] = [
+  ['{}', {}],
+  ['{ matchExpressions: [] }', { matchExpressions: [] }],
+];
+
+const requiredAnti = (term: Record<string, unknown>) => ({
+  podAntiAffinity: { requiredDuringSchedulingIgnoredDuringExecution: [term] },
+});
+
+const nodeRequired = (term: Record<string, unknown>) => ({
+  nodeAffinity: {
+    requiredDuringSchedulingIgnoredDuringExecution: {
+      nodeSelectorTerms: [term],
+    },
+  },
+});
+
+// Mirrors the dialog: the first group comes back with the edited fields.
+const editFirst = (payload: unknown, patch: Partial<AffinityGroup>) => {
+  const [first, ...rest] = toAffinityGroups(payload);
+  return groupsToAffinity([{ ...first, ...patch }, ...rest]);
+};
 
 describe('groupsToAffinity', () => {
   it('keeps every condition of a node group as AND-ed matchExpressions (#1985)', () => {
@@ -120,7 +149,7 @@ describe('groupsToAffinity', () => {
 
     const expression =
       affinity.nodeAffinity?.requiredDuringSchedulingIgnoredDuringExecution
-        ?.nodeSelectorTerms[0].matchExpressions[0];
+        ?.nodeSelectorTerms[0].matchExpressions?.[0];
     expect(expression?.operator).toBe(AffinityOperator.Exists);
     expect(expression?.values).toBeUndefined();
   });
@@ -162,7 +191,11 @@ describe('affinityToGroups round-trip', () => {
     const restored = affinityToGroups(groupsToAffinity(groups));
 
     expect(restored).toHaveLength(3);
-    expect(restored).toEqual(expect.arrayContaining(groups));
+    expect(restored).toEqual(
+      expect.arrayContaining(
+        groups.map((group) => expect.objectContaining(group))
+      )
+    );
   });
 });
 
@@ -218,7 +251,7 @@ describe('fields the editor does not model', () => {
     );
     const edited = groups.map((group, index) =>
       index === nodeIndex
-        ? applyGroupEdit(group, {
+        ? {
             ...group,
             conditions: [
               {
@@ -227,7 +260,7 @@ describe('fields the editor does not model', () => {
                 values: ['nvme'],
               },
             ],
-          })
+          }
         : group
     );
 
@@ -252,11 +285,11 @@ describe('fields the editor does not model', () => {
       podAntiAffinity: affinity.podAntiAffinity,
     });
 
-    const switched = applyGroupEdit(podGroup, {
+    const switched: AffinityGroup = {
       ...podGroup,
       type: AffinityType.NodeAffinity,
       topologyKey: undefined,
-    });
+    };
 
     expect(
       groupsToAffinity([switched]).nodeAffinity
@@ -312,5 +345,321 @@ describe('matchesNoPods', () => {
       },
     });
     expect(matchesNoPods(group)).toBe(false);
+  });
+
+  it.each(EMPTY_SELECTORS)(
+    'does not flag labelSelector %s, which matches every pod',
+    (_, labelSelector) => {
+      const [group] = toAffinityGroups(
+        requiredAnti({ topologyKey: HOSTNAME, labelSelector })
+      );
+      expect(matchesNoPods(group)).toBe(false);
+    }
+  );
+
+  it('never flags node groups', () => {
+    const [group] = toAffinityGroups(nodeRequired({ matchFields: [NODE_1] }));
+    expect(matchesNoPods(group)).toBe(false);
+  });
+});
+
+// k8s: an empty label selector matches every pod, an absent one matches none,
+// so a save must never turn one into the other.
+describe('matchesAllPods', () => {
+  it.each([...EMPTY_SELECTORS, ['{ matchLabels: {} }', { matchLabels: {} }]])(
+    'flags labelSelector %s',
+    (_, labelSelector) => {
+      const [group] = toAffinityGroups(
+        requiredAnti({ topologyKey: HOSTNAME, labelSelector })
+      );
+      expect(matchesAllPods(group)).toBe(true);
+    }
+  );
+
+  it.each([
+    ['a selector with matchLabels', { matchLabels: { app: 'mysql' } }],
+    ['a selector with conditions', { matchExpressions: [EXISTS_APP] }],
+    ['no selector', undefined],
+  ])('does not flag %s', (_, labelSelector) => {
+    const [group] = toAffinityGroups(
+      requiredAnti({ topologyKey: HOSTNAME, labelSelector })
+    );
+    expect(matchesAllPods(group)).toBe(false);
+  });
+
+  it('stops flagging an empty selector once a condition is added', () => {
+    const [group] = toAffinityGroups(
+      requiredAnti({ topologyKey: HOSTNAME, labelSelector: {} })
+    );
+    expect(
+      matchesAllPods({
+        ...group,
+        conditions: [{ key: 'app', operator: AffinityOperator.Exists }],
+      })
+    ).toBe(false);
+  });
+
+  it('never flags node groups', () => {
+    const [group] = toAffinityGroups(nodeRequired({ matchFields: [NODE_1] }));
+    expect(matchesAllPods(group)).toBe(false);
+  });
+});
+
+describe('empty vs absent label selector', () => {
+  it.each(EMPTY_SELECTORS)(
+    'keeps labelSelector %s verbatim on a round-trip',
+    (_, labelSelector) => {
+      const payload = requiredAnti({ topologyKey: HOSTNAME, labelSelector });
+      expect(groupsToAffinity(toAffinityGroups(payload))).toStrictEqual(
+        payload
+      );
+    }
+  );
+
+  it.each(EMPTY_SELECTORS)(
+    'keeps labelSelector %s when another group of the component is saved',
+    (_, labelSelector) => {
+      const payload = {
+        ...nodeRequired({ matchExpressions: [EXISTS_APP] }),
+        ...requiredAnti({ topologyKey: HOSTNAME, labelSelector }),
+      };
+
+      const result = editFirst(payload, {
+        conditions: [{ key: 'gpu', operator: AffinityOperator.Exists }],
+      });
+
+      expect(result.podAntiAffinity).toStrictEqual(payload.podAntiAffinity);
+    }
+  );
+
+  it.each(EMPTY_SELECTORS)(
+    'keeps labelSelector %s when its own topologyKey is edited',
+    (_, labelSelector) => {
+      const result = editFirst(
+        requiredAnti({ topologyKey: HOSTNAME, labelSelector }),
+        { topologyKey: ZONE }
+      );
+      expect(result).toStrictEqual(
+        requiredAnti({ topologyKey: ZONE, labelSelector })
+      );
+    }
+  );
+
+  it('writes added conditions into an empty selector', () => {
+    const result = editFirst(
+      requiredAnti({ topologyKey: HOSTNAME, labelSelector: {} }),
+      { conditions: [{ key: 'app', operator: AffinityOperator.Exists }] }
+    );
+    expect(result).toStrictEqual(
+      requiredAnti({
+        topologyKey: HOSTNAME,
+        labelSelector: { matchExpressions: [EXISTS_APP] },
+      })
+    );
+  });
+
+  it('drops the selector rather than widening it to all pods when every condition is removed', () => {
+    const payload = requiredAnti({
+      topologyKey: HOSTNAME,
+      labelSelector: { matchExpressions: [EXISTS_APP] },
+    });
+    const [group] = toAffinityGroups(payload);
+    const emptied = { ...group, conditions: [] };
+
+    expect(groupsToAffinity([emptied])).toStrictEqual(
+      requiredAnti({ topologyKey: HOSTNAME })
+    );
+    expect(matchesNoPods(emptied)).toBe(true);
+  });
+
+  it('keeps the other selector fields when every condition is removed', () => {
+    const result = editFirst(
+      requiredAnti({
+        topologyKey: HOSTNAME,
+        labelSelector: {
+          matchLabels: { app: 'mysql' },
+          matchExpressions: [EXISTS_APP],
+        },
+      }),
+      { conditions: [] }
+    );
+    expect(result).toStrictEqual(
+      requiredAnti({
+        topologyKey: HOSTNAME,
+        labelSelector: { matchLabels: { app: 'mysql' } },
+      })
+    );
+  });
+});
+
+describe('editing a group keeps what the editor does not model', () => {
+  const podTerm = {
+    topologyKey: HOSTNAME,
+    namespaces: ['db'],
+    namespaceSelector: {},
+    matchLabelKeys: ['pod-template-hash'],
+    labelSelector: {
+      matchLabels: { app: 'mysql' },
+      matchExpressions: [EXISTS_APP],
+    },
+  };
+
+  it('keeps them when the group’s own conditions and topologyKey change', () => {
+    const result = editFirst(requiredAnti(podTerm), {
+      topologyKey: ZONE,
+      conditions: [
+        { key: 'tier', operator: AffinityOperator.In, values: ['db'] },
+      ],
+    });
+
+    expect(result).toStrictEqual(
+      requiredAnti({
+        ...podTerm,
+        topologyKey: ZONE,
+        labelSelector: {
+          matchLabels: { app: 'mysql' },
+          matchExpressions: [
+            { key: 'tier', operator: AffinityOperator.In, values: ['db'] },
+          ],
+        },
+      })
+    );
+  });
+
+  it('keeps them on a preferred term', () => {
+    const payload = {
+      podAntiAffinity: {
+        preferredDuringSchedulingIgnoredDuringExecution: [
+          { weight: 10, podAffinityTerm: podTerm },
+        ],
+      },
+    };
+    expect(groupsToAffinity(toAffinityGroups(payload))).toStrictEqual(payload);
+  });
+
+  it('keeps them when switching between pod affinity and anti-affinity', () => {
+    const result = editFirst(requiredAnti(podTerm), {
+      type: AffinityType.PodAffinity,
+    });
+    expect(result).toStrictEqual({
+      podAffinity: {
+        requiredDuringSchedulingIgnoredDuringExecution: [podTerm],
+      },
+    });
+  });
+
+  it('drops node-only fields when a node group is switched to pod affinity', () => {
+    const result = editFirst(
+      nodeRequired({ matchFields: [NODE_1], matchExpressions: [EXISTS_APP] }),
+      { type: AffinityType.PodAntiAffinity, topologyKey: HOSTNAME }
+    );
+    expect(result).toStrictEqual(
+      requiredAnti({
+        topologyKey: HOSTNAME,
+        labelSelector: { matchExpressions: [EXISTS_APP] },
+      })
+    );
+  });
+
+  it.each([
+    ['required', nodeRequired({ matchFields: [NODE_1] })],
+    [
+      'preferred',
+      {
+        nodeAffinity: {
+          preferredDuringSchedulingIgnoredDuringExecution: [
+            { weight: 5, preference: { matchFields: [NODE_1] } },
+          ],
+        },
+      },
+    ],
+  ])(
+    'does not add matchExpressions to a %s node term that uses matchFields only',
+    (_, payload) => {
+      expect(groupsToAffinity(toAffinityGroups(payload))).toStrictEqual(
+        payload
+      );
+    }
+  );
+});
+
+describe('canSaveWithoutConditions', () => {
+  const withoutConditions = (
+    payload: unknown,
+    patch: Partial<AffinityGroup> = {}
+  ): AffinityGroup => {
+    const [group] = toAffinityGroups(payload);
+    return { ...group, ...patch, conditions: [] };
+  };
+
+  it.each([
+    [
+      'a node term with matchFields',
+      nodeRequired({ matchFields: [NODE_1], matchExpressions: [EXISTS_APP] }),
+      true,
+    ],
+    [
+      'a node term with matchExpressions only',
+      nodeRequired({ matchExpressions: [EXISTS_APP] }),
+      false,
+    ],
+    [
+      'a pod term with an empty selector',
+      requiredAnti({ topologyKey: HOSTNAME, labelSelector: {} }),
+      true,
+    ],
+    [
+      'a pod term with matchLabels',
+      requiredAnti({
+        topologyKey: HOSTNAME,
+        labelSelector: {
+          matchLabels: { app: 'mysql' },
+          matchExpressions: [EXISTS_APP],
+        },
+      }),
+      true,
+    ],
+    [
+      'a pod term with namespaces',
+      requiredAnti({
+        topologyKey: HOSTNAME,
+        namespaces: ['db'],
+        labelSelector: { matchExpressions: [EXISTS_APP] },
+      }),
+      true,
+    ],
+    [
+      'a pod term with matchExpressions only',
+      requiredAnti({
+        topologyKey: HOSTNAME,
+        labelSelector: { matchExpressions: [EXISTS_APP] },
+      }),
+      false,
+    ],
+    [
+      'a pod term without a selector (the v1 default rule)',
+      requiredAnti({ topologyKey: HOSTNAME }),
+      false,
+    ],
+  ])('%s: %s', (_, payload, expected) => {
+    expect(canSaveWithoutConditions(withoutConditions(payload))).toBe(expected);
+  });
+
+  it('is false for a group created in the editor', () => {
+    expect(
+      canSaveWithoutConditions({
+        type: AffinityType.NodeAffinity,
+        priority: AffinityPriority.Required,
+        conditions: [],
+      })
+    ).toBe(false);
+  });
+
+  it('ignores a source of the other kind after a node/pod switch', () => {
+    const switched = withoutConditions(
+      nodeRequired({ matchFields: [NODE_1] }),
+      { type: AffinityType.PodAntiAffinity, topologyKey: HOSTNAME }
+    );
+    expect(canSaveWithoutConditions(switched)).toBe(false);
   });
 });
