@@ -15,7 +15,7 @@
 import { Breakpoint, useMediaQuery, useTheme } from '@mui/material';
 import { MasonryColumnCount } from './masonry-columns.types';
 
-const BREAKPOINTS_LARGEST_FIRST: Breakpoint[] = ['xl', 'lg', 'md', 'sm', 'xs'];
+const toColumnCount = (value = 1) => Math.max(1, Math.floor(value));
 
 export const useColumnCount = (columns: MasonryColumnCount): number => {
   const theme = useTheme();
@@ -28,10 +28,10 @@ export const useColumnCount = (columns: MasonryColumnCount): number => {
   };
 
   if (typeof columns === 'number') {
-    return columns;
+    return toColumnCount(columns);
   }
-  const breakpoint = BREAKPOINTS_LARGEST_FIRST.find(
-    (key) => active[key] && columns[key] !== undefined
-  );
-  return (breakpoint && columns[breakpoint]) || 1;
+  const breakpoint = [...theme.breakpoints.keys]
+    .reverse()
+    .find((key) => active[key] && columns[key] !== undefined);
+  return toColumnCount(breakpoint && columns[breakpoint]);
 };

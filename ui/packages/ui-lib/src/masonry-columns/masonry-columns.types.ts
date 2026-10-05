@@ -25,3 +25,14 @@ export interface MasonryColumnsProps {
   spacing?: number;
   dataTestId?: string;
 }
+
+export interface MasonryLayoutOptions {
+  columns: number;
+  gap: number;
+}
+
+export interface MasonryItem {
+  height: number;
+  // Column it was placed in before, if any.
+  column?: number;
+}

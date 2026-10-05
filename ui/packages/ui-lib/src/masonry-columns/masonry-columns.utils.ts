@@ -12,10 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// By index, not by height: an item keeps its column when another one grows.
-export const distributeIntoColumns = <T>(items: T[], count: number): T[][] => {
-  const columns = Math.max(1, count);
-  return Array.from({ length: columns }, (_, column) =>
-    items.filter((_, index) => index % columns === column)
+import { MasonryItem } from './masonry-columns.types';
+
+// Placed items keep their column, so an item never moves when a sibling grows.
+// New ones go to the shortest column; columns within `tolerance` of it count as
+// equally short (like CSS Grid Lanes' flow-tolerance), and among those the one
+// with fewer items wins, so nearly level columns fill left to right.
+export const assignColumns = (
+  items: MasonryItem[],
+  count: number,
+  tolerance: number
+): number[] => {
+  const heights = Array<number>(count).fill(0);
+  const sizes = Array<number>(count).fill(0);
+  const place = (column: number, height: number) => {
+    heights[column] += height;
+    sizes[column] += 1;
+    return column;
+  };
+  const pickColumn = () => {
+    const lowest = Math.min(...heights);
+    const candidates = heights.flatMap((height, column) =>
+      height - lowest <= tolerance ? [column] : []
+    );
+    return candidates.reduce((best, column) =>
+      sizes[column] < sizes[best] ? column : best
+    );
+  };
+
+  items.forEach(({ column, height }) => {
+    if (column !== undefined) place(column, height);
+  });
+
+  return items.map(
+    ({ column, height }) => column ?? place(pickColumn(), height)
   );
 };

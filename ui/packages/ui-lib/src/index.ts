@@ -98,7 +98,6 @@ export * from './expandable-clamped-text';
 export { default as ExpandableClampedText } from './expandable-clamped-text';
 
 export * from './masonry-columns';
-export { default as MasonryColumns } from './masonry-columns';
 
 export * from './form/inputs/file';
 export { default as FileInput } from './form/inputs/file';

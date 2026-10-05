@@ -15,7 +15,7 @@
 // limitations under the License.
 
 import { useMemo, useState, useCallback } from 'react';
-import { Box, Stack } from '@mui/material';
+import { Stack } from '@mui/material';
 import { DatabaseIcon, MasonryColumns, OverviewCard } from '@percona/ui-lib';
 import { Messages } from './cluster-overview.messages';
 import { useClusterOverviewData } from './hooks/use-cluster-overview-data';
@@ -78,32 +78,27 @@ export const ClusterOverview = () => {
         columns={{ xs: 1, lg: 2, xl: 3 }}
         dataTestId="cluster-overview"
       >
-        <Box>
-          <OverviewCard
-            dataTestId="database-details"
-            sx={{ width: '100%' }}
-            cardHeaderProps={{
-              title: Messages.titles.dbDetails,
-              avatar: <DatabaseIcon />,
+        <OverviewCard
+          dataTestId="database-details"
+          sx={{ width: '100%' }}
+          cardHeaderProps={{
+            title: Messages.titles.dbDetails,
+            avatar: <DatabaseIcon />,
+          }}
+        >
+          <Stack
+            sx={{
+              gap: 3,
             }}
           >
-            <Stack
-              sx={{
-                gap: 3,
-              }}
-            >
-              <BasicInfoSection
-                instance={instance}
-                namespace={namespace}
-                loading={isLoading}
-              />
-              <ConnectionSection
-                credentials={credentials}
-                loading={isLoading}
-              />
-            </Stack>
-          </OverviewCard>
-        </Box>
+            <BasicInfoSection
+              instance={instance}
+              namespace={namespace}
+              loading={isLoading}
+            />
+            <ConnectionSection credentials={credentials} loading={isLoading} />
+          </Stack>
+        </OverviewCard>
         {schemaSectionCards.map((card) => {
           const section = sections[card.key];
           const editable =
@@ -122,35 +117,32 @@ export const ClusterOverview = () => {
         })}
         {/* Uncovered instance fields */}
         {/* TODO: temporarily hidden until properly formatted
-      {otherFields.length > 0 && (
-        <OtherFieldsCard fields={otherFields} loading={isLoading} />
-      )}
-      */}
+        {otherFields.length > 0 && (
+          <OtherFieldsCard fields={otherFields} loading={isLoading} />
+        )}
+        */}
         {/* Plugin-contributed cards */}
         {pluginCards.map((pc) => {
           const CardComponent = pc.ext.component;
           return (
-            <Box key={`plugin-card-${pc.pluginName}-${pc.ext.label}`}>
-              <OverviewCard
-                dataTestId={`plugin-card-${pc.pluginName}`}
-                sx={{ width: '100%' }}
-                cardHeaderProps={{ title: pc.ext.label }}
-              >
-                <PluginErrorBoundary pluginName={pc.pluginName}>
-                  <CardComponent cluster={instance} namespace={namespace} />
-                </PluginErrorBoundary>
-              </OverviewCard>
-            </Box>
+            <OverviewCard
+              key={`plugin-card-${pc.pluginName}-${pc.ext.label}`}
+              dataTestId={`plugin-card-${pc.pluginName}`}
+              sx={{ width: '100%' }}
+              cardHeaderProps={{ title: pc.ext.label }}
+            >
+              <PluginErrorBoundary pluginName={pc.pluginName}>
+                <CardComponent cluster={instance} namespace={namespace} />
+              </PluginErrorBoundary>
+            </OverviewCard>
           );
         })}
         {backupsSupported && (
-          <Box>
-            <BackupsDetails
-              instance={instance}
-              namespace={namespace}
-              loading={isLoading}
-            />
-          </Box>
+          <BackupsDetails
+            instance={instance}
+            namespace={namespace}
+            loading={isLoading}
+          />
         )}
       </MasonryColumns>
       {editingSectionKey && provider && (

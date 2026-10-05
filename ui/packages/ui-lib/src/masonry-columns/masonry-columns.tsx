@@ -12,39 +12,47 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Children } from 'react';
-import { Box, Stack } from '@mui/material';
+import { Children, isValidElement, useLayoutEffect, useRef } from 'react';
+import { Box, useTheme } from '@mui/material';
 import { MasonryColumnsProps } from './masonry-columns.types';
-import { distributeIntoColumns } from './masonry-columns.utils';
+import { startMasonryLayout } from './masonry-layout';
 import { useColumnCount } from './useColumnCount';
 
 // Masonry of cards with stable placement. Unlike CSS `columns`, which
 // rebalances, expanding one item never moves the others to another column.
+// All items share one parent, so a column change never remounts them.
 export const MasonryColumns = ({
   children,
   columns,
   spacing = 2,
   dataTestId,
 }: MasonryColumnsProps) => {
+  const theme = useTheme();
+  const containerRef = useRef<HTMLDivElement>(null);
   const count = useColumnCount(columns);
-  const items = Children.toArray(children);
+  const gap = parseFloat(theme.spacing(spacing));
+
+  useLayoutEffect(() => {
+    if (!containerRef.current) return;
+    return startMasonryLayout(containerRef.current, { columns: count, gap });
+  }, [count, gap]);
 
   return (
+    // Items are positioned by startMasonryLayout: no CSS flow keeps columns
+    // independent and stable at the same time.
     <Box
+      ref={containerRef}
       data-testid={dataTestId}
-      sx={{ display: 'flex', alignItems: 'flex-start', gap: spacing }}
+      sx={{ position: 'relative' }}
     >
-      {distributeIntoColumns(items, count).map((columnItems, index) => (
-        <Stack
-          key={index}
-          data-testid="masonry-column"
-          sx={{ flex: 1, minWidth: 0, gap: spacing }}
+      {Children.toArray(children).map((child, index) => (
+        <Box
+          key={isValidElement(child) && child.key !== null ? child.key : index}
+          sx={{ position: 'absolute' }}
         >
-          {columnItems}
-        </Stack>
+          {child}
+        </Box>
       ))}
     </Box>
   );
 };
-
-export default MasonryColumns;

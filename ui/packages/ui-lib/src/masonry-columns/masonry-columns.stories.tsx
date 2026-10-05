@@ -15,7 +15,7 @@
 import { useState } from 'react';
 import { type Meta, type StoryObj } from '@storybook/react';
 import { Button, Card, CardContent, Typography } from '@mui/material';
-import MasonryColumns from './masonry-columns';
+import { MasonryColumns } from './masonry-columns';
 
 const ExpandableCard = ({ title, lines }: { title: string; lines: number }) => {
   const [expanded, setExpanded] = useState(false);
