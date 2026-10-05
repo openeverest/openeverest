@@ -33,5 +33,5 @@ export const useColumnCount = (columns: MasonryColumnCount): number => {
   const breakpoint = [...theme.breakpoints.keys]
     .reverse()
     .find((key) => active[key] && columns[key] !== undefined);
-  return toColumnCount(breakpoint && columns[breakpoint]);
+  return breakpoint ? toColumnCount(columns[breakpoint]) : 1;
 };

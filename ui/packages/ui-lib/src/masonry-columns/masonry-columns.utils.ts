@@ -20,11 +20,11 @@ import { MasonryItem } from './masonry-columns.types';
 // with fewer items wins, so nearly level columns fill left to right.
 export const assignColumns = (
   items: MasonryItem[],
-  count: number,
+  columnCount: number,
   tolerance: number
 ): number[] => {
-  const heights = Array<number>(count).fill(0);
-  const sizes = Array<number>(count).fill(0);
+  const heights = Array<number>(columnCount).fill(0);
+  const sizes = Array<number>(columnCount).fill(0);
   const place = (column: number, height: number) => {
     heights[column] += height;
     sizes[column] += 1;

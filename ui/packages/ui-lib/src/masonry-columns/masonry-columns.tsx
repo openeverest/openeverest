@@ -20,6 +20,7 @@ import { useColumnCount } from './useColumnCount';
 
 // Masonry of cards with stable placement. Unlike CSS `columns`, which
 // rebalances, expanding one item never moves the others to another column.
+// Cards may re-balance only until the first click or key press inside.
 // All items share one parent, so a column change never remounts them.
 export const MasonryColumns = ({
   children,
@@ -29,13 +30,14 @@ export const MasonryColumns = ({
 }: MasonryColumnsProps) => {
   const theme = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
-  const count = useColumnCount(columns);
+  const columnCount = useColumnCount(columns);
+  // Assumes theme spacing resolves to px, as with the default theme.
   const gap = parseFloat(theme.spacing(spacing));
 
   useLayoutEffect(() => {
     if (!containerRef.current) return;
-    return startMasonryLayout(containerRef.current, { columns: count, gap });
-  }, [count, gap]);
+    return startMasonryLayout(containerRef.current, { columnCount, gap });
+  }, [columnCount, gap]);
 
   return (
     // Items are positioned by startMasonryLayout: no CSS flow keeps columns

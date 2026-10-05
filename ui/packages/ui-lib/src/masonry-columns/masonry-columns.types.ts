@@ -27,7 +27,7 @@ export interface MasonryColumnsProps {
 }
 
 export interface MasonryLayoutOptions {
-  columns: number;
+  columnCount: number;
   gap: number;
 }
 

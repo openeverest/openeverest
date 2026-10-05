@@ -13,4 +13,7 @@
 // limitations under the License.
 
 export { MasonryColumns } from './masonry-columns';
-export * from './masonry-columns.types';
+export type {
+  MasonryColumnCount,
+  MasonryColumnsProps,
+} from './masonry-columns.types';

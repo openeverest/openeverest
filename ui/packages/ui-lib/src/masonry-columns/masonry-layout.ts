@@ -24,9 +24,11 @@ const childElements = (container: HTMLElement) =>
 // whenever one resizes or children are added/removed. Returns a stop function.
 export const startMasonryLayout = (
   container: HTMLElement,
-  { columns, gap }: MasonryLayoutOptions
+  { columnCount, gap }: MasonryLayoutOptions
 ): (() => void) => {
-  const width = `calc((100% - ${(columns - 1) * gap}px) / ${columns})`;
+  const width = `calc((100% - ${(columnCount - 1) * gap}px) / ${columnCount})`;
+  // Columns within one gap of each other look level.
+  const tolerance = gap;
   let placement = new Map<HTMLElement, number>();
   // Before the user touches anything, sizes change only because content is
   // still loading, so re-balance freely; after that nothing changes column.
@@ -47,15 +49,15 @@ export const startMasonryLayout = (
         height: heights[index] + gap,
         column: frozen ? placement.get(item) : undefined,
       })),
-      columns,
-      gap
+      columnCount,
+      tolerance
     );
     placement = new Map(items.map((item, index) => [item, assigned[index]]));
 
-    const tops = Array<number>(columns).fill(0);
+    const tops = Array<number>(columnCount).fill(0);
     items.forEach((item, index) => {
       const column = assigned[index];
-      item.style.left = `calc(${column} * (100% + ${gap}px) / ${columns})`;
+      item.style.insetInlineStart = `calc(${column} * (100% + ${gap}px) / ${columnCount})`;
       item.style.top = `${tops[column]}px`;
       tops[column] += heights[index] + gap;
     });
