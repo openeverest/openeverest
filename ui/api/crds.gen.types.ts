@@ -3736,28 +3736,28 @@ export interface components {
             /** @description spec defines the desired state of NamespaceDefaults */
             spec: {
                 /**
-                 * @description Defaults lists the default resource for each referenced kind. At most
-                 *     one entry may exist per matching key: kind alone for managed CRs such as
-                 *     MonitoringConfig, or (kind, definition) for Secret and ConfigMap, whose
-                 *     generic kind is disambiguated by the openeverest.io/definition the
-                 *     OpenEverest API stamps on resources it creates.
+                 * @description Defaults lists the default resource for each referenced path, optionally
+                 *     scoped to a provider.
                  */
                 defaults?: {
-                    /**
-                     * @description Definition disambiguates generic kinds (Secret, ConfigMap) by the
-                     *     provider definition the resource was created from, matching the
-                     *     openeverest.io/definition label the OpenEverest API stamps on those
-                     *     resources. It is required for Secret and ConfigMap and omitted for
-                     *     CRs.
-                     */
-                    definition?: string;
-                    /**
-                     * @description Kind is the referenced resource kind, e.g. "MonitoringConfig",
-                     *     "Secret", or "ConfigMap".
-                     */
-                    kind: string;
-                    /** @description Name is the name of the default resource in this namespace. */
+                    /** @description Name of the default resource in this namespace. */
                     name: string;
+                    /**
+                     * @description Path is the reference field's dot-separated location under Instance.spec.
+                     *     The component references are "components.<name>.<field>" (e.g.
+                     *     "components.monitoring.monitoringConfigRef.name"), and top-level references
+                     *     are the bare field name (e.g. "userSecretRef").
+                     */
+                    path: string;
+                    /**
+                     * @description ProviderRef scopes this entry to one provider. Omit for any provider;
+                     *     a provider-scoped entry takes precedence over an agnostic one for the
+                     *     same path.
+                     */
+                    providerRef?: {
+                        /** @description Name of the referenced object. */
+                        name: string;
+                    };
                 }[];
             };
             /** @description status defines the observed state of NamespaceDefaults */

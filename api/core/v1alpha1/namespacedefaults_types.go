@@ -14,44 +14,45 @@
 
 package v1alpha1
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
+)
 
 // NamespaceDefaultsSpec declares the per-namespace default resource for each
-// kind of namespace-scoped resource an Instance can reference.
-//
-// During preset resolution the server fills each empty, namespace-scoped
-// reference in the resolved InstancePreset from the matching entry here.
+// namespace-scoped reference an Instance can carry.
 type NamespaceDefaultsSpec struct {
-	// Defaults lists the default resource for each referenced kind. At most
-	// one entry may exist per matching key: kind alone for managed CRs such as
-	// MonitoringConfig, or (kind, definition) for Secret and ConfigMap, whose
-	// generic kind is disambiguated by the openeverest.io/definition the
-	// OpenEverest API stamps on resources it creates.
+	// Defaults lists the default resource for each referenced path, optionally
+	// scoped to a provider.
 	// +optional
 	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=32
+	// +kubebuilder:validation:XValidation:rule="self.all(x, self.exists_one(y, (has(x.providerRef) ? x.providerRef.name : '') == (has(y.providerRef) ? y.providerRef.name : '') && x.path == y.path))",message="each (providerRef, path) pair must be unique"
 	Defaults []NamespaceDefault `json:"defaults,omitempty"`
 }
 
-// NamespaceDefault declares the default resource of a single referenced kind
-// within the namespace.
+// NamespaceDefault declares the default resource for a single reference,
+// identified by its path within the Instance spec.
 type NamespaceDefault struct {
-	// Name is the name of the default resource in this namespace.
+	// ProviderRef scopes this entry to one provider. Omit for any provider;
+	// a provider-scoped entry takes precedence over an agnostic one for the
+	// same path.
+	// +optional
+	ProviderRef *common.ObjectRef `json:"providerRef,omitempty"`
+
+	// Path is the reference field's dot-separated location under Instance.spec.
+	// The component references are "components.<name>.<field>" (e.g.
+	// "components.monitoring.monitoringConfigRef.name"), and top-level references
+	// are the bare field name (e.g. "userSecretRef").
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Path string `json:"path"`
+
+	// Name of the default resource in this namespace.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
-
-	// Kind is the referenced resource kind, e.g. "MonitoringConfig",
-	// "Secret", or "ConfigMap".
-	// +kubebuilder:validation:Required
-	Kind string `json:"kind"`
-
-	// Definition disambiguates generic kinds (Secret, ConfigMap) by the
-	// provider definition the resource was created from, matching the
-	// openeverest.io/definition label the OpenEverest API stamps on those
-	// resources. It is required for Secret and ConfigMap and omitted for
-	// CRs.
-	// +optional
-	Definition string `json:"definition,omitempty"`
 }
 
 // NamespaceDefaultsStatus defines the observed state of NamespaceDefaults.
@@ -66,6 +67,7 @@ type NamespaceDefaultsStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=nsdef;nsdefaults
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:validation:XValidation:rule="self.metadata.name == 'defaults'",message="only one NamespaceDefaults per namespace and it must be named 'defaults'"
 
 // NamespaceDefaults is the Schema for the namespacedefaults API.
 type NamespaceDefaults struct {
