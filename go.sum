@@ -854,12 +854,12 @@ github.com/otiai10/mint v1.3.1/go.mod h1:/yxELlJQ0ufhjUwhshSj+wFjZ78CnZ48/1wtmBH
 github.com/pborman/getopt v0.0.0-20170112200414-7148bc3a4c30/go.mod h1:85jBQOZwpVEaDAr341tbn15RS4fCAsIst0qp7i8ex1o=
 github.com/pelletier/go-toml/v2 v2.4.3 h1:GTRvJQutkOSftxIFD5xw9aepkYNuPWmVJpffdDPYVpY=
 github.com/pelletier/go-toml/v2 v2.4.3/go.mod h1:2gIqNv+qfxSVS7cM2xJQKtLSTLUE9V8t9Stt+h56mCY=
-github.com/percona/everest-operator v0.6.0-dev1.0.20261006072745-4e937ceccd58 h1:4DjjTKJtJaZIf4mIzuWx02Qkg+AYXDwEGsgP35F5muU=
-github.com/percona/everest-operator v0.6.0-dev1.0.20261006072745-4e937ceccd58/go.mod h1:E4fw2QR6GwzpB1PK3hYranp3dukXcHGVFRMXggDudWY=
+github.com/percona/everest-operator v0.6.0-dev1.0.20261006074020-c4b6b0f877f1 h1:CEjMoGfpLyblhs5z6mLvekKCtsszbtuHeyTfgkD9ysI=
+github.com/percona/everest-operator v0.6.0-dev1.0.20261006074020-c4b6b0f877f1/go.mod h1:WN/hvqLUxs6Y3NhM+WSiWYNWfzp01VWgUbxMtVD0JYI=
 github.com/percona/percona-backup-mongodb v1.8.1-0.20260617122520-9641a911c853 h1:AwFySXnKeWMb+YclMF/e1De+YM7xlnIHqHTvW4WcxA4=
 github.com/percona/percona-backup-mongodb v1.8.1-0.20260617122520-9641a911c853/go.mod h1:v1c1GhzIffv8RmBR1WSgRtyotkdeUKxBrPqPdb2lgxM=
-github.com/percona/percona-postgresql-operator/v2 v2.9.1-0.20260522133121-1f77e9d3c184 h1:5UsPFYemyDyw772RfvRMbpW8DKlcE0Gbz6vg3heUWcY=
-github.com/percona/percona-postgresql-operator/v2 v2.9.1-0.20260522133121-1f77e9d3c184/go.mod h1:W7NbppqFqkbyha3ducejFNQ+TlSXaX7FB9T0Xej1cvs=
+github.com/percona/percona-postgresql-operator/v3 v3.1.0 h1:5mf2inyzccxjKuTQlwlE9/q6Cm5ZCyC2N/YEHjUEX0I=
+github.com/percona/percona-postgresql-operator/v3 v3.1.0/go.mod h1:fH/N9W2hTPzMurRKhRDWgHgJ8AmktPU2vzvhEDbFSBg=
 github.com/percona/percona-server-mongodb-operator v1.23.1 h1:lJE5zYRI8/un+U5/PunIUIGQqk2WlBcmJsBCKkJym6s=
 github.com/percona/percona-server-mongodb-operator v1.23.1/go.mod h1:uyYx+RbBCCx7bzixwGe6SyV8VbEOwfGiZvgeCbp36mo=
 github.com/percona/percona-xtradb-cluster-operator v1.20.0 h1:tpKuiSoxKE53VpK2ZzXbSwxluxQbqoifCmPWFYFgmlw=

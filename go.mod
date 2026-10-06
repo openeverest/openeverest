@@ -31,7 +31,7 @@ require (
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/openeverest/helm-charts/charts/everest v0.0.0-20260819095412-3a42084dd10a
 	github.com/operator-framework/api v0.45.0
-	github.com/percona/everest-operator v0.6.0-dev1.0.20261006072745-4e937ceccd58
+	github.com/percona/everest-operator v0.6.0-dev1.0.20261006074020-c4b6b0f877f1
 	github.com/rodaine/table v1.4.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1
@@ -326,7 +326,7 @@ require (
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
 	github.com/percona/percona-backup-mongodb v1.8.1-0.20260617122520-9641a911c853 // indirect
-	github.com/percona/percona-postgresql-operator/v2 v2.9.1-0.20260522133121-1f77e9d3c184 // indirect
+	github.com/percona/percona-postgresql-operator/v3 v3.1.0 // indirect
 	github.com/percona/percona-server-mongodb-operator v1.23.1 // indirect
 	github.com/percona/percona-xtradb-cluster-operator v1.20.0 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
@@ -416,12 +416,9 @@ require (
 	go.augendre.info/fatcontext v0.10.1 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.8.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0 // indirect
 	go.opentelemetry.io/otel v1.46.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.46.0 // indirect
-	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.46.0 // indirect
 	go.opentelemetry.io/otel/metric v1.46.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.46.0 // indirect
+	go.opentelemetry.io/otel/sdk/metric v1.46.0 // indirect
 	go.opentelemetry.io/otel/trace v1.46.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
