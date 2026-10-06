@@ -1673,6 +1673,38 @@ spec:
                   rule: 'self.type == ''Backup'' ? has(self.backup) : !has(self.backup)'
                 - message: pointInTime must be set if and only if type is PointInTime
                   rule: 'self.type == ''PointInTime'' ? has(self.pointInTime) : !has(self.pointInTime)'
+              defaultRefs:
+                description: |-
+                  DefaultRefs lists the namespace references this preset requires. Each
+                  listed path must be resolved from the target namespace's NamespaceDefaults
+                  at resolve time; the preset itself carries no value for it. References
+                  not listed here keep their literal value — an empty value stays empty.
+
+                  This field is preset-only: it is stripped during resolve and is never
+                  copied onto an Instance.
+                items:
+                  description: |-
+                    PresetDefaultRef marks a single reference that must be resolved from the
+                    target namespace's default, identified by its path within the Instance spec.
+                  properties:
+                    path:
+                      description: |-
+                        Path is the reference field's dot-separated location under Instance.spec.
+                        Component references are "components.<name>.parameters.<field>" (e.g.
+                        "components.monitoring.parameters.monitoringConfigRef.name"),
+                        and top-level references are the field name (e.g. "userSecretRef.name").
+                      maxLength: 1024
+                      minLength: 1
+                      type: string
+                  required:
+                  - path
+                  type: object
+                maxItems: 32
+                type: array
+                x-kubernetes-list-type: atomic
+                x-kubernetes-validations:
+                - message: each path must be unique
+                  rule: self.all(x, self.exists_one(y, x.path == y.path))
               deletionPolicy:
                 default: Cascade
                 description: |-
