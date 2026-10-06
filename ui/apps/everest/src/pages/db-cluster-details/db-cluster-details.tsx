@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import PendingIcon from '@mui/icons-material/Pending';
 import { Box, Skeleton, Tab, Tabs } from '@mui/material';
 import {
   Link,
@@ -29,14 +28,8 @@ import { DbInstanceContext } from './dbCluster.context';
 import { useContext, useMemo } from 'react';
 import DbActions from 'components/db-actions/db-actions';
 import { Messages } from './db-cluster-details.messages';
-import StatusField from 'components/status-field';
-import { DB_INSTANCE_STATUS_TO_BASE_STATUS } from 'pages/databases/DbClusterView.constants';
-import { beautifyDbInstanceStatus } from 'pages/databases/DbClusterView.utils';
-import {
-  DB_INSTANCE_UNKNOWN_PHASE,
-  DbInstancePhase,
-  getPodsAlertConditions,
-} from 'shared-types/instance.types';
+import { InstanceStatus } from 'components/instance-status';
+import { getPodsAlertConditions } from 'shared-types/instance.types';
 import { usePlugins } from 'contexts/plugins';
 import type { ClusterDetailTabExtension } from '@openeverest/plugin-sdk';
 import { PodsAlert } from './pods-alert';
@@ -50,9 +43,6 @@ const WithPermissionDetails = ({
 }) => {
   const { instance /*clusterDeleted */ } = useContext(DbInstanceContext);
   const navigate = useNavigate();
-  const status =
-    (instance?.status?.phase as DbInstancePhase | undefined) ??
-    DB_INSTANCE_UNKNOWN_PHASE;
   const podsAlerts = getPodsAlertConditions(instance);
 
   // TODO RBAC
@@ -117,14 +107,7 @@ const WithPermissionDetails = ({
               alignItems: 'center',
             }}
           >
-            <StatusField
-              dataTestId={instanceName}
-              status={status}
-              statusMap={DB_INSTANCE_STATUS_TO_BASE_STATUS}
-              defaultIcon={PendingIcon}
-            >
-              {beautifyDbInstanceStatus(status)}
-            </StatusField>
+            <InstanceStatus instance={instance} dataTestId={instanceName} />
             <DbActions showStatusActions dbInstance={instance!} />
           </Box>
         </Box>

@@ -6,6 +6,7 @@ export type BaseStatus =
   | 'paused'
   | 'pending'
   | 'success'
+  | 'warning'
   | 'deleting'
   | 'unknown'
   | 'creating'

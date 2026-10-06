@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Alert, AlertTitle, Box } from '@mui/material';
+import KeyboardArrowDownOutlined from '@mui/icons-material/KeyboardArrowDownOutlined';
+import KeyboardArrowUpOutlined from '@mui/icons-material/KeyboardArrowUpOutlined';
+import { Alert, AlertTitle, Box, Collapse, Link } from '@mui/material';
+import { CodeCopyBlock } from '@percona/ui-lib';
+import { useState } from 'react';
 import type {
   InstanceCondition,
   PodsAlertReason,
@@ -24,15 +28,38 @@ interface PodsAlertProps {
 }
 
 export const PodsAlert = ({ condition }: PodsAlertProps) => {
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const { title, hint } = Messages.alerts[condition.reason as PodsAlertReason];
 
   return (
     <Alert severity="warning" sx={{ my: 1 }} data-testid="pods-alert">
       <AlertTitle>{title}</AlertTitle>
       {hint}
-      <Box sx={{ mt: 1, wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
-        <strong>{Messages.reasonLabel}</strong> <span>{condition.message}</span>
+      <Box>
+        <Link
+          component="button"
+          color="inherit"
+          underline="hover"
+          aria-expanded={detailsOpen}
+          onClick={() => setDetailsOpen((open) => !open)}
+          sx={{
+            mt: 1,
+            display: 'inline-flex',
+            alignItems: 'center',
+            fontWeight: 600,
+          }}
+        >
+          {detailsOpen ? Messages.hideDetails : Messages.showDetails}
+          {detailsOpen ? (
+            <KeyboardArrowUpOutlined fontSize="small" />
+          ) : (
+            <KeyboardArrowDownOutlined fontSize="small" />
+          )}
+        </Link>
       </Box>
+      <Collapse in={detailsOpen} unmountOnExit>
+        <CodeCopyBlock message={condition.message} severity="warning" />
+      </Collapse>
     </Alert>
   );
 };

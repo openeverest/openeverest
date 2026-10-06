@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { DbClusterDetails } from './db-cluster-details';
 import { DbInstanceContext } from './dbCluster.context';
@@ -112,7 +112,10 @@ describe('DbClusterDetails', () => {
     expect(
       screen.getByText('Some pods cannot be scheduled')
     ).toBeInTheDocument();
-    expect(screen.getByText('Reason:')).toBeInTheDocument();
+    expect(screen.queryByText(message)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show details' }));
+
     expect(screen.getByText(message)).toBeInTheDocument();
   });
 
@@ -160,6 +163,7 @@ describe('DbClusterDetails', () => {
     });
 
     expect(screen.getByText('Some pods keep crashing')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show details' }));
     expect(screen.getByText(message)).toBeInTheDocument();
   });
 

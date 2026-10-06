@@ -15,10 +15,12 @@
 import type { PodsAlertReason } from 'shared-types/instance.types';
 
 export const Messages: {
-  reasonLabel: string;
+  showDetails: string;
+  hideDetails: string;
   alerts: Record<PodsAlertReason, { title: string; hint: string }>;
 } = {
-  reasonLabel: 'Reason:',
+  showDetails: 'Show details',
+  hideDetails: 'Hide details',
   alerts: {
     Unschedulable: {
       title: 'Some pods cannot be scheduled',

@@ -17,10 +17,14 @@ import { Alert } from '@mui/material';
 import { CodeCopyBlockProps } from './code-copy-block.types';
 import CopyToClipboardButton from '../buttons/copy-to-clipboard-button';
 
-const CodeCopyBlock = ({ message, showCopyButtonText }: CodeCopyBlockProps) => {
+const CodeCopyBlock = ({
+  message,
+  showCopyButtonText,
+  severity = 'info',
+}: CodeCopyBlockProps) => {
   return (
     <Alert
-      severity="info"
+      severity={severity}
       icon={false}
       sx={{
         mt: 0.5,
@@ -30,11 +34,15 @@ const CodeCopyBlock = ({ message, showCopyButtonText }: CodeCopyBlockProps) => {
           pt: 0,
         },
         fontFamily: '"Roboto Mono", "Helvetica", "Arial", "sans-serif"',
+        whiteSpace: 'pre-line',
       }}
       action={
         <CopyToClipboardButton
           showCopyButtonText={showCopyButtonText}
-          buttonProps={{ size: 'small', color: 'primary' }}
+          buttonProps={{
+            size: 'small',
+            color: severity === 'info' ? 'primary' : 'inherit',
+          }}
           textToCopy={message}
         />
       }

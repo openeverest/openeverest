@@ -27,3 +27,10 @@ export const WithoutCopyButtonCommand: Story = {
     showCopyButtonText: false,
   },
 };
+export const Warning: Story = {
+  args: {
+    message:
+      "configServer: 2 of 3 pods cannot be scheduled: 0/4 nodes are available: 3 node(s) didn't match pod anti-affinity rules.\nengine: 1 of 3 pods cannot be scheduled: 0/4 nodes are available: 3 node(s) didn't match pod anti-affinity rules.",
+    severity: 'warning',
+  },
+};

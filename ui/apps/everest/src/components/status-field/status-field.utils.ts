@@ -5,6 +5,7 @@ import {
   PendingIcon,
   SuccessIcon,
   UnknownIcon,
+  WarningIcon,
 } from '@percona/ui-lib';
 import { BaseStatus } from './status-field.types';
 
@@ -13,6 +14,7 @@ export const STATUS_TO_ICON: Record<
   (props: SvgIconProps) => React.JSX.Element
 > = {
   success: SuccessIcon,
+  warning: WarningIcon,
   error: ErrorIcon,
   pending: PendingIcon,
   paused: PausedIcon,
