@@ -12,54 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import KeyboardArrowDownOutlined from '@mui/icons-material/KeyboardArrowDownOutlined';
-import KeyboardArrowUpOutlined from '@mui/icons-material/KeyboardArrowUpOutlined';
-import { Alert, AlertTitle, Box, Collapse, Link } from '@mui/material';
+import { Alert, AlertTitle, Box } from '@mui/material';
 import { CodeCopyBlock } from '@percona/ui-lib';
-import { useState } from 'react';
-import type {
-  InstanceCondition,
-  PodsAlertReason,
-} from 'shared-types/instance.types';
+import type { PodsAlertCondition } from 'shared-types/instance.types';
 import { Messages } from './pods-alert.messages';
 
 interface PodsAlertProps {
-  condition: InstanceCondition;
+  condition: PodsAlertCondition;
 }
 
 export const PodsAlert = ({ condition }: PodsAlertProps) => {
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const { title, hint } = Messages.alerts[condition.reason as PodsAlertReason];
+  const { title, hint } = Messages.alerts[condition.reason];
 
   return (
-    <Alert severity="warning" sx={{ my: 1 }} data-testid="pods-alert">
+    <Alert
+      severity="warning"
+      sx={{ mt: 1, mb: 2, '& > .MuiAlert-message': { width: '100%' } }}
+      data-testid="pods-alert"
+    >
       <AlertTitle>{title}</AlertTitle>
       {hint}
-      <Box>
-        <Link
-          component="button"
-          color="inherit"
-          underline="hover"
-          aria-expanded={detailsOpen}
-          onClick={() => setDetailsOpen((open) => !open)}
-          sx={{
-            mt: 1,
-            display: 'inline-flex',
-            alignItems: 'center',
-            fontWeight: 600,
-          }}
-        >
-          {detailsOpen ? Messages.hideDetails : Messages.showDetails}
-          {detailsOpen ? (
-            <KeyboardArrowUpOutlined fontSize="small" />
-          ) : (
-            <KeyboardArrowDownOutlined fontSize="small" />
-          )}
-        </Link>
-      </Box>
-      <Collapse in={detailsOpen} unmountOnExit>
-        <CodeCopyBlock message={condition.message} severity="warning" />
-      </Collapse>
+      <Box sx={{ mt: 1, fontWeight: 600 }}>{Messages.reasonLabel}</Box>
+      <CodeCopyBlock message={condition.message} severity="warning" />
     </Alert>
   );
 };

@@ -59,17 +59,17 @@ export const PODS_ALERT_REASONS = [
   'CreateContainerConfigError',
 ] as const;
 export type PodsAlertReason = (typeof PODS_ALERT_REASONS)[number];
+export type PodsAlertCondition = InstanceCondition & {
+  reason: PodsAlertReason;
+};
 
-const isPodsAlertReason = (reason: string): reason is PodsAlertReason =>
-  (PODS_ALERT_REASONS as readonly string[]).includes(reason);
+const isPodsAlertCondition = (c: InstanceCondition): c is PodsAlertCondition =>
+  (c.type === INSTANCE_CONDITION_PODS_SCHEDULED ||
+    c.type === INSTANCE_CONDITION_PODS_READY) &&
+  c.status === 'False' &&
+  PODS_ALERT_REASONS.some((reason) => reason === c.reason);
 
 export const getPodsAlertConditions = (
   instance?: Instance
-): InstanceCondition[] =>
-  (instance?.status?.conditions ?? []).filter(
-    (c) =>
-      (c.type === INSTANCE_CONDITION_PODS_SCHEDULED ||
-        c.type === INSTANCE_CONDITION_PODS_READY) &&
-      c.status === 'False' &&
-      isPodsAlertReason(c.reason)
-  );
+): PodsAlertCondition[] =>
+  (instance?.status?.conditions ?? []).filter(isPodsAlertCondition);

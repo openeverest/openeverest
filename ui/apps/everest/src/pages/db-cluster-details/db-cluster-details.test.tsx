@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { DbClusterDetails } from './db-cluster-details';
 import { DbInstanceContext } from './dbCluster.context';
 import type { DbInstanceContextProps } from './dbCluster.context.types';
+import { Messages as PodsAlertMessages } from './pods-alert/pods-alert.messages';
 import type { Instance } from 'shared-types/api.types';
 
 vi.mock('components/db-actions/db-actions', () => ({
@@ -110,12 +111,8 @@ describe('DbClusterDetails', () => {
     });
 
     expect(
-      screen.getByText('Some pods cannot be scheduled')
+      screen.getByText(PodsAlertMessages.alerts.Unschedulable.title)
     ).toBeInTheDocument();
-    expect(screen.queryByText(message)).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Show details' }));
-
     expect(screen.getByText(message)).toBeInTheDocument();
   });
 
@@ -162,9 +159,39 @@ describe('DbClusterDetails', () => {
       },
     });
 
-    expect(screen.getByText('Some pods keep crashing')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Show details' }));
+    expect(
+      screen.getByText(PodsAlertMessages.alerts.CrashLoopBackOff.title)
+    ).toBeInTheDocument();
     expect(screen.getByText(message)).toBeInTheDocument();
+  });
+
+  it('shows one banner per pods problem', () => {
+    renderDetails({
+      instance: {
+        ...mockInstance,
+        status: {
+          phase: 'Initializing',
+          conditions: [
+            {
+              type: 'PodsScheduled',
+              status: 'False',
+              reason: 'Unschedulable',
+              message: 'engine: 1 of 3 pods cannot be scheduled',
+              lastTransitionTime: '2026-10-02T12:00:00Z',
+            },
+            {
+              type: 'PodsReady',
+              status: 'False',
+              reason: 'CrashLoopBackOff',
+              message: 'engine: 1 of 3 pods keep crashing',
+              lastTransitionTime: '2026-10-02T12:00:00Z',
+            },
+          ],
+        },
+      },
+    });
+
+    expect(screen.getAllByTestId('pods-alert')).toHaveLength(2);
   });
 
   it('does not warn about pods that are only starting', () => {
