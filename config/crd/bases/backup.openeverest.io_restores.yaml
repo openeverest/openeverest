@@ -76,6 +76,50 @@ spec:
                     required:
                     - backupRef
                     type: object
+                  import:
+                    description: |-
+                      Import imports from external storage.
+                      Required when type=Import.
+                    properties:
+                      classRef:
+                        description: |-
+                          ClassRef references a BackupClass. Required for Job mode.
+                          ProviderManaged mode uses the Instance's backup class (spec.backup.classRef)
+                          and backup must be enabled.
+                        properties:
+                          name:
+                            description: Name of the referenced object.
+                            maxLength: 253
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      parameters:
+                        description: |-
+                          Parameters contains all import configuration.
+                          Validated against BackupClass.spec.importParameterSchema.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      storageRef:
+                        description: StorageRef references a BackupStorage.
+                        properties:
+                          name:
+                            description: Name of the referenced object.
+                            maxLength: 253
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                            type: string
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    required:
+                    - parameters
+                    - storageRef
+                    type: object
                   pointInTime:
                     description: |-
                       PointInTime identifies the stream and the point to recover to.
@@ -151,6 +195,7 @@ spec:
                     enum:
                     - Backup
                     - PointInTime
+                    - Import
                     type: string
                 required:
                 - type
@@ -160,6 +205,8 @@ spec:
                   rule: 'self.type == ''Backup'' ? has(self.backup) : !has(self.backup)'
                 - message: pointInTime must be set if and only if type is PointInTime
                   rule: 'self.type == ''PointInTime'' ? has(self.pointInTime) : !has(self.pointInTime)'
+                - message: import must be set if and only if type is Import
+                  rule: 'self.type == ''Import'' ? has(self.import) : !has(self.import)'
               instanceRef:
                 description: |-
                   InstanceRef references the Instance to restore into. The Instance
