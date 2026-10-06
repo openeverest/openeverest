@@ -3,7 +3,8 @@ linters:
   default: all
   disable:
     - err113
-    - exhaustruct
+    - exhaustruct # deprecated, replaced by exhaustruct_v5
+    - exhaustruct_v5
     - godoclint # too strict doc-comment rules
     - godox
     - gomoddirectives
@@ -52,6 +53,10 @@ linters:
         - github.com/percona/everest/pkg/session.Blocklist
         - github.com/percona/everest/pkg/session.TokenStore
         - k8s.io/client-go/rest.Interface
+    modernize:
+      disable:
+        # Go 1.27 promoted-field literals; keep the Kubernetes `ObjectMeta: metav1.ObjectMeta{...}` idiom.
+        - embedlit
     unparam:
       check-exported: true
   exclusions:

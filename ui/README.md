@@ -107,12 +107,12 @@ More about PNPM filtering: https://pnpm.io/filtering
   EVEREST_BUCKETS_NAMESPACES_MAP='[["bucket-1","everest-ui"],["bucket-2","psmdb-only"],["bucket-3","pxc-only"],["bucket-4","pg-only"],["bucket-5","everest-ui"]]'
   ```
 
-- To set a MinIO storage on your k8s cluster: `kubectl apply -f <repo-root>/.github/minio.conf.yaml` and set:
+- To set a SeaweedFS storage on your k8s cluster: `kubectl apply -f <repo-root>/dev/resources/seaweedfs.yaml` and set:
 
-  - `EVEREST_LOCATION_ACCESS_KEY=minioadmin`
-  - `EVEREST_LOCATION_SECRET_KEY=minioadmin`
+  - `EVEREST_LOCATION_ACCESS_KEY=seaweedfsadmin`
+  - `EVEREST_LOCATION_SECRET_KEY=seaweedfsadmin`
   - `EVEREST_LOCATION_REGION=us-east-1`
-  - `EVEREST_LOCATION_URL=https://minio.minio.svc.cluster.local`
+  - `EVEREST_LOCATION_URL=https://seaweedfs.seaweedfs.svc.cluster.local`
 
 - To setup a monitoring instance (PMM) on your k8s cluster:
 

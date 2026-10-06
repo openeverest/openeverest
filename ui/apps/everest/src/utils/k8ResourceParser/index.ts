@@ -15,6 +15,7 @@
 import { Resources } from 'shared-types/dbCluster.types';
 
 type kubernetesUnit =
+  | 'm'
   | 'k'
   | 'M'
   | 'G'
@@ -29,6 +30,9 @@ type kubernetesUnit =
   | 'Ei';
 
 const memoryMultipliers: Record<kubernetesUnit, number> = {
+  // Kubernetes' milli suffix: quantity is 1/1000th of a byte, used when a
+  // conversion to the largest whole unit isn't exact (see #2423).
+  m: 10 ** -3,
   k: 10 ** 3,
   M: 10 ** 6,
   G: 10 ** 9,

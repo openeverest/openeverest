@@ -1,10 +1,12 @@
 ---
 name: 'Install Kubernetes Tools'
+description: 'Installs Kubernetes-related CLI tools (kubectl, kind, k3d, chainsaw)'
 inputs:
   tools-path:
     description: 'Tools path to install binaries'
     required: false
-    default: '/opt/tools/bin'
+    # $HOME expands in the shell steps below; user-writable on any runner.
+    default: '$HOME/.local/bin'
   install-kubectl:
     description: 'Install Kubectl'
     required: false
@@ -21,6 +23,22 @@ inputs:
     description: 'K3D version to install'
     required: false
     default: '5.8.3'
+  install-kind:
+    description: 'Install kind'
+    required: false
+    default: false
+  kind-version:
+    description: 'kind version to install'
+    required: false
+    default: '0.32.0'
+  install-chainsaw:
+    description: 'Install Chainsaw'
+    required: false
+    default: 'false'
+  chainsaw-version:
+    description: 'Chainsaw version (without the leading v)'
+    required: false
+    default: '0.2.14'
 runs:
   using: "composite"
   steps:
@@ -45,3 +63,20 @@ runs:
         chmod +x ${{ inputs.tools-path }}/k3d
         k3d version
       shell: bash
+
+    - name: Install kind
+      if: ${{ inputs.install-kind == 'true' }}
+      run: |
+        curl -fsSL -o ${{ inputs.tools-path }}/kind https://kind.sigs.k8s.io/dl/v${{ inputs.kind-version }}/kind-linux-amd64
+        curl -fsSL -o /tmp/kind.sha256sum https://kind.sigs.k8s.io/dl/v${{ inputs.kind-version }}/kind-linux-amd64.sha256sum
+        echo "$(awk '{print $1}' /tmp/kind.sha256sum)  ${{ inputs.tools-path }}/kind" | sha256sum --check --status
+        rm /tmp/kind.sha256sum
+        chmod +x ${{ inputs.tools-path }}/kind
+        kind version
+      shell: bash
+
+    - name: Install Chainsaw
+      if: ${{ inputs.install-chainsaw == 'true' }}
+      uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
+      with:
+        release: v${{ inputs.chainsaw-version }}
