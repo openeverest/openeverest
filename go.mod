@@ -31,7 +31,7 @@ require (
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/openeverest/helm-charts/charts/everest v0.0.0-20260819095412-3a42084dd10a
 	github.com/operator-framework/api v0.45.0
-	github.com/percona/everest-operator v0.6.0-dev1.0.20260923085659-f52aba3ef767
+	github.com/percona/everest-operator v0.6.0-dev1.0.20261006074020-c4b6b0f877f1
 	github.com/rodaine/table v1.4.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1
@@ -309,7 +309,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
-	github.com/montanaflynn/stats v0.9.0 // indirect
 	github.com/moricho/tparallel v0.3.2 // indirect
 	github.com/muesli/ansi v0.0.0-20230316100256-276c6243b2f6 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
@@ -326,9 +325,9 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
-	github.com/percona/percona-backup-mongodb v1.8.1-0.20251104101930-05ab6d7e1004 // indirect
+	github.com/percona/percona-backup-mongodb v1.8.1-0.20260617122520-9641a911c853 // indirect
 	github.com/percona/percona-postgresql-operator/v3 v3.1.0 // indirect
-	github.com/percona/percona-server-mongodb-operator v1.22.0 // indirect
+	github.com/percona/percona-server-mongodb-operator v1.23.1 // indirect
 	github.com/percona/percona-xtradb-cluster-operator v1.20.0 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
@@ -415,7 +414,7 @@ require (
 	go-simpler.org/sloglint v0.12.0 // indirect
 	go.augendre.info/arangolint v0.4.0 // indirect
 	go.augendre.info/fatcontext v0.10.1 // indirect
-	go.mongodb.org/mongo-driver v1.17.9 // indirect
+	go.mongodb.org/mongo-driver/v2 v2.8.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.46.0 // indirect
 	go.opentelemetry.io/otel/metric v1.46.0 // indirect
@@ -437,7 +436,7 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260819154853-08b0e4226688 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260819154853-08b0e4226688 // indirect
-	google.golang.org/grpc v1.83.2 // indirect
+	google.golang.org/grpc v1.84.0 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	honnef.co/go/tools v0.8.1 // indirect
@@ -453,7 +452,7 @@ require (
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/kustomize/api v0.21.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.21.1 // indirect
-	sigs.k8s.io/mcs-api v0.5.0 // indirect
+	sigs.k8s.io/mcs-api v0.5.2 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.2 // indirect
 )
@@ -473,6 +472,7 @@ tool (
 
 replace github.com/denis-tingaikin/go-header => github.com/denis-tingaikin/go-header v0.5.0
 
-// cert-manager v1.21 removed the meta/v1 ObjectReference alias, which the PSMDB
-// and PXC operator API types still reference.
+// PSMDB v1.23.1 pulls in cert-manager v1.21.0, which removed the deprecated
+// cmmeta.ObjectReference type still used by PXC v1.20.0 (built against cert-manager v1.20.2).
+// Pin cert-manager to v1.20.2 until PXC is updated to a version compatible with newer cert-manager.
 replace github.com/cert-manager/cert-manager => github.com/cert-manager/cert-manager v1.20.3
