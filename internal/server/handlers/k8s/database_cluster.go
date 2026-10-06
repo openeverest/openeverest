@@ -124,6 +124,7 @@ func (h *k8sHandler) GetDatabaseClusterCredentials(ctx context.Context, namespac
 	case everestv1alpha1.DatabaseEnginePXC:
 		response.Username = new("root")
 		response.Password = new(string(secret.Data["root"]))
+		response.ConnectionUrl = h.connectionURL(ctx, databaseCluster, *response.Username, *response.Password)
 	case everestv1alpha1.DatabaseEnginePSMDB:
 		response.Username = new(string(secret.Data["MONGODB_DATABASE_ADMIN_USER"]))
 		response.Password = new(string(secret.Data["MONGODB_DATABASE_ADMIN_PASSWORD"]))
