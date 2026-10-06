@@ -1,9 +1,8 @@
 ---
 # Release e2e test lane.
 #
-# These tests stand up a full kind cluster (core Everest + the PXC provider +
-# MinIO + PMM) and drive the UI against real databases, so they are slow and
-# heavy — hence they run on a schedule and on demand, NOT on every push.
+# The core smoke tests use a small in-repo provider and real S3 objects.
+# One PXC PITR golden still drives the UI against a real database.
 #
 # Triggers:
 #   * schedule            — nightly regression run.
@@ -132,10 +131,24 @@ jobs:
       - name: Build and deploy core Everest
         run: make deploy-all
 
+      - name: Build and deploy core e2e provider
+        run: |
+          docker build -f test/e2e-provider/Dockerfile -t core-e2e-test-provider:dev .
+          kind load docker-image --name everest-server-test core-e2e-test-provider:dev
+          kubectl apply -f test/e2e-provider/manifests/provider.yaml
+          kubectl -n core-e2e-provider rollout status deployment/core-e2e-test-provider --timeout=120s
+
+      - name: Deploy S3 test storage
+        run: kubectl apply -f dev/resources/seaweedfs.yaml
+
+      - name: Run core lifecycle smoke tests
+        id: core-e2e
+        run: bash test/e2e-provider/smoke.sh
+
       - name: Deploy the PXC provider
         run: make deploy-pxc-provider
 
-      - name: Prepare test environment (MinIO, PMM, DB namespace)
+      - name: Prepare UI test environment (SeaweedFS, PMM, DB namespace)
         working-directory: ui/apps/everest/.e2e
         run: make ci-init
 
@@ -145,7 +158,7 @@ jobs:
         run: make test PROJECT=${{ env.PROJECT }} FLAGS=--workers=2
 
       - name: Dump cluster diagnostics on failure
-        if: ${{ always() && steps.e2e.outcome != 'success' }}
+        if: ${{ always() && (steps.e2e.outcome != 'success' || steps.core-e2e.outcome != 'success') }}
         run: |
           kubectl get instances,pods -A || true
           kubectl get restores.backup.openeverest.io -A || true
@@ -158,6 +171,7 @@ jobs:
           kubectl -n everest get events --sort-by=.lastTimestamp | tail -50 || true
           kubectl -n provider-system logs deploy/provider-percona-xtradb-cluster --tail=200 || true
           kubectl -n provider-system logs deploy/provider-percona-xtradb-cluster-operator --tail=200 || true
+          kubectl -n core-e2e-provider logs deploy/core-e2e-test-provider --tail=200 || true
 
       - name: Upload Playwright report
         if: ${{ always() && steps.e2e.outcome != 'skipped' }}
