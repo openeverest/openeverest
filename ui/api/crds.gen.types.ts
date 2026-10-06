@@ -3741,7 +3741,10 @@ export interface components {
                  */
                 defaults?: {
                     /** @description Name of the default resource in this namespace. */
-                    name: string;
+                    defaultRef: {
+                        /** @description Name of the referenced object. */
+                        name: string;
+                    };
                     /**
                      * @description Path is the reference field's dot-separated location under Instance.spec.
                      *     The component references are "components.<name>.<field>" (e.g.

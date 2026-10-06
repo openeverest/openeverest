@@ -13,8 +13,9 @@
 // limitations under the License.
 
 import { TopologyUISchemas } from '../../ui-generator.types';
-import { deepClone, deleteByPath } from '../object-path';
+import { deepClone, deleteByPath, isSameOrNestedPath } from '../object-path';
 import { collectAllSchemaPaths } from '../schema-walker';
+import { collectToggleableMetas } from '../toggleable/toggleable';
 
 const collectTopologyPaths = (
   schema: TopologyUISchemas,
@@ -22,8 +23,13 @@ const collectTopologyPaths = (
 ): string[] =>
   Array.from(collectAllSchemaPaths(schema[topology]?.sections ?? {}));
 
-const isSameOrNested = (a: string, b: string): boolean =>
-  a === b || a.startsWith(`${b}.`) || b.startsWith(`${a}.`);
+const collectTopologySwitches = (
+  schema: TopologyUISchemas,
+  topology: string
+): string[] =>
+  collectToggleableMetas(schema[topology]?.sections ?? {}).map(
+    (meta) => meta.switchName
+  );
 
 // Values bound only by other topologies are leftovers from a topology switch.
 export const dropOtherTopologyValues = (
@@ -39,9 +45,17 @@ export const dropOtherTopologyValues = (
     .flatMap((topology) => collectTopologyPaths(schema, topology))
     .filter(
       (path) =>
-        !selectedPaths.some((selected) => isSameOrNested(path, selected))
+        !selectedPaths.some((selected) => isSameOrNestedPath(path, selected))
     )
     .forEach((path) => deleteByPath(result, path));
+
+  // A switch shared by name keeps the user's choice; the rest start off again.
+  const selectedSwitches = collectTopologySwitches(schema, selectedTopology);
+  Object.keys(schema)
+    .filter((topology) => topology !== selectedTopology)
+    .flatMap((topology) => collectTopologySwitches(schema, topology))
+    .filter((switchName) => !selectedSwitches.includes(switchName))
+    .forEach((switchName) => deleteByPath(result, switchName));
 
   return result;
 };

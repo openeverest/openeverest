@@ -141,7 +141,7 @@ func (h *k8sHandler) resolveStorageFields(ctx context.Context, component corev1a
 // the given provider, applying provider precedence once.
 func defaultsByPath(defaults *corev1alpha1.NamespaceDefaults, provider string) map[string]string {
 	if defaults == nil {
-		return map[string]string{}
+		return make(map[string]string)
 	}
 
 	byPath := make(map[string]string, len(defaults.Spec.Defaults))
@@ -149,12 +149,12 @@ func defaultsByPath(defaults *corev1alpha1.NamespaceDefaults, provider string) m
 		switch {
 		case d.ProviderRef != nil && d.ProviderRef.Name == provider:
 			// Provider match always wins, overwriting any agnostic entry.
-			byPath[d.Path] = d.Name
+			byPath[d.Path] = d.DefaultRef.Name
 		case d.ProviderRef == nil:
 			// Provider-agnostic default fills only where a provider-scoped
 			// entry has not already filled.
 			if _, ok := byPath[d.Path]; !ok {
-				byPath[d.Path] = d.Name
+				byPath[d.Path] = d.DefaultRef.Name
 			}
 		}
 	}

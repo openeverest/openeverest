@@ -47,12 +47,12 @@ type NamespaceDefault struct {
 	// are the bare field name (e.g. "userSecretRef").
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=1024
 	Path string `json:"path"`
 
 	// Name of the default resource in this namespace.
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
+	DefaultRef common.ObjectRef `json:"defaultRef"`
 }
 
 // NamespaceDefaultsStatus defines the observed state of NamespaceDefaults.

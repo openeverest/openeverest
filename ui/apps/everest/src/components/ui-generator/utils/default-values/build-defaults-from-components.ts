@@ -18,6 +18,7 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import { generateFieldId } from '../component-renderer/generate-field-id';
 import { UI_TYPE_DEFAULT_VALUE } from 'components/ui-generator/constants';
+import { getToggleableMeta } from '../toggleable/toggleable';
 
 export const buildDefaultsFromComponents = (
   components: { [key: string]: Component | ComponentGroup },
@@ -39,6 +40,11 @@ export const buildDefaultsFromComponents = (
     const fieldId = generateFieldId(item, generatedName);
 
     if (item.uiType === 'group' && 'components' in item) {
+      const toggleable = getToggleableMeta(item);
+      // Schema defaults are not user intent: a new toggleable section starts off.
+      if (toggleable && !buildOnlySchemaDefaults) {
+        result[toggleable.switchName] = false;
+      }
       // Recursively process nested components
       const nestedDefaults = buildDefaultsFromComponents(
         (item as ComponentGroup).components,

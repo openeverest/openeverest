@@ -55,16 +55,26 @@ spec:
                     NamespaceDefault declares the default resource for a single reference,
                     identified by its path within the Instance spec.
                   properties:
-                    name:
+                    defaultRef:
                       description: Name of the default resource in this namespace.
-                      minLength: 1
-                      type: string
+                      properties:
+                        name:
+                          description: Name of the referenced object.
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
                     path:
                       description: |-
                         Path is the reference field's dot-separated location under Instance.spec.
                         The component references are "components.<name>.<field>" (e.g.
                         "components.monitoring.monitoringConfigRef.name"), and top-level references
                         are the bare field name (e.g. "userSecretRef").
+                      maxLength: 1024
                       minLength: 1
                       type: string
                     providerRef:
@@ -84,7 +94,7 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                   required:
-                  - name
+                  - defaultRef
                   - path
                   type: object
                 maxItems: 32

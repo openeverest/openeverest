@@ -28,6 +28,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
@@ -86,10 +87,10 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: namespaceDefaultsName, Namespace: namespace},
 				Spec: corev1alpha1.NamespaceDefaultsSpec{
 					Defaults: []corev1alpha1.NamespaceDefault{
-						{Path: "components.pmm.monitoringConfigName", Name: "default-monitoring"},
-						{Path: "components.pmm.monitoringConfig", Name: "default-monitoring"},
-						{Path: "components.pmm.monitoringConfigRef.name", Name: "default-monitoring"},
-						{Path: "components.pmm.nested.monitoringConfigName", Name: "default-monitoring"},
+						{Path: "components.pmm.monitoringConfigName", DefaultRef: commonv1alpha1.ObjectRef{Name: "default-monitoring"}},
+						{Path: "components.pmm.monitoringConfig", DefaultRef: commonv1alpha1.ObjectRef{Name: "default-monitoring"}},
+						{Path: "components.pmm.monitoringConfigRef.name", DefaultRef: commonv1alpha1.ObjectRef{Name: "default-monitoring"}},
+						{Path: "components.pmm.nested.monitoringConfigName", DefaultRef: commonv1alpha1.ObjectRef{Name: "default-monitoring"}},
 					},
 				},
 			},

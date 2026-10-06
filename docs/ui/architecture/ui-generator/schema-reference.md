@@ -33,7 +33,7 @@ flowchart TD
 flowchart TD
   G["ComponentGroup"] --> U["uiType<br/>(group, hidden)"]
   G --> LD["label? / description?"]
-  G --> GT["groupType?<br/>(accordion, line, bordered🛠️, collapsible🛠️, toggleable🛠️)"]
+  G --> GT["groupType?<br/>(accordion, line, bordered, toggleable, collapsible🛠️)"]
   G --> GP["groupParams?<br/>(Record&lt;string, unknown&gt;, GroupParams🛠️)"]
   G --> CH["components / componentsOrder?"]
   CH --> GATE["child toggle: gate? 🛠️"]
@@ -199,10 +199,11 @@ classDiagram
 | **dataSource / API providers** | `dataSource: { provider }` names an API-backed option source; preprocess dev-validates the provider key, and at runtime `DataSourceField` loads the options through the registry (`DataSourcePrefetcher` sets defaults on mount) | implemented |
 | **CEL validation**             | Cross-field validation rules declared via `celExpressions` (with an `original` namespace available in edit mode)                                                                                                                 | implemented |
 | **CEL conditional rendering**  | Show / hide fields based on another field value through a generic mechanism                                                                                                                                                      | 🛠️          |
-| **group kernel**               | `groupType: bordered/collapsible/toggleable` + `gate` + `direction`                                                                                                                                                              | 🛠️          |
+| **group kernel**               | `bordered`, `toggleable` (form-only switch); planned: `collapsible`, persisted `gate` ([#3290](https://github.com/openeverest/openeverest/issues/3290)), `direction`                                                             | partial     |
 
 ## To Consider
 
+- **Disabling a group (including a toggleable switch)** — covered by group-level `modes` (`hidden` / `disabled` per form mode) in [#3080](https://github.com/openeverest/openeverest/issues/3080). Conditional disabling via CEL depends on [#1837](https://github.com/openeverest/openeverest/issues/1837).
 - **`fieldParams.badge` / `badgeToApi`** — currently inherited by all field types through `CommonFieldParams`; visual badge rendering is supported for `number` and `select`, while `text` / `toggle` / `hidden` have asymmetric behavior.
 
   When `badgeToApi` is set, the badge also acts as the value's **unit**: applied on write and converted back on read by `stripBadgeFromValue` (`badge-to-api`), which the overview cards reuse for display. The unit semantics, conversion rules and supported-unit list are documented for users in [number-field](../../ui-generator/components/number-field.md#unit-badge).
@@ -211,4 +212,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-17
+- Last updated: 2026-09-29

@@ -4194,8 +4194,11 @@ type NamespaceDefaults struct {
 		// Defaults Defaults lists the default resource for each referenced path, optionally
 		// scoped to a provider.
 		Defaults *[]struct {
-			// Name Name of the default resource in this namespace.
-			Name string `json:"name"`
+			// DefaultRef Name of the default resource in this namespace.
+			DefaultRef struct {
+				// Name Name of the referenced object.
+				Name string `json:"name"`
+			} `json:"defaultRef"`
 
 			// Path Path is the reference field's dot-separated location under Instance.spec.
 			// The component references are "components.<name>.<field>" (e.g.
