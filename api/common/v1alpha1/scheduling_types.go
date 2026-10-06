@@ -58,13 +58,9 @@ type SchedulingPolicy struct {
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 
 	// TopologySpreadConstraints describe how the pods spread across topology
-	// domains. All constraints are ANDed. A constraint without labelSelector
-	// and matchLabelKeys counts this component's own pods.
-	// Any constraint turns off the scheduler's built-in spreading, and soft
-	// constraints ignore every node missing one of their topology keys: a zone
-	// constraint on nodes without zone labels disables node spreading too.
-	// When omitted, the provider applies its default; an empty list sets no
-	// constraints, which a provider may reject if its engine always adds some.
+	// domains. A constraint with neither labelSelector nor matchLabelKeys counts
+	// this component's pods. When omitted, the provider applies its default; an
+	// empty list sets no constraints.
 	// +optional
 	// +kubebuilder:validation:MaxItems=16
 	TopologySpreadConstraints *[]corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
