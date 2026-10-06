@@ -19,8 +19,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 
+	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,6 +61,7 @@ type ProviderReconciler struct {
 	serverConfig *server.ServerConfig
 	server       *server.Server
 	breaker      maintenanceBreaker
+	pods         atomic.Value // client.Reader, set once the pod watch runs
 	client.Client
 }
 
@@ -147,6 +150,9 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 	// Register core Kubernetes types
 	if err := corev1.AddToScheme(scheme); err != nil {
 		return nil, fmt.Errorf("failed to add corev1 scheme: %w", err)
+	}
+	if err := authorizationv1.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("failed to add authorizationv1 scheme: %w", err)
 	}
 
 	// Register core types
@@ -347,7 +353,14 @@ func (r *ProviderReconciler) setup() error {
 		}
 	}
 
-	return b.Complete(r)
+	c, err := b.Build(r)
+	if err != nil {
+		return err
+	}
+
+	return r.manager.Add(manager.RunnableFunc(func(ctx context.Context) error {
+		return r.watchPods(ctx, c)
+	}))
 }
 
 // Reconcile implements the reconciliation loop.
@@ -515,7 +528,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	instanceStatus := status.ToV2Alpha1()
 	in.Status.Phase = instanceStatus.Phase
 	in.Status.Message = instanceStatus.Message
-	in.Status.Components = instanceStatus.Components
+	r.setComponentStatuses(ctx, in, syncCtx.LabelledComponents())
 
 	// Collect per-storage backup observability data (e.g. the latest
 	// restorable time for PITR) when the provider opts into reporting it.

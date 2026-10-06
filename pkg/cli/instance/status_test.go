@@ -41,8 +41,7 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 	version := "1.22.0"
 	msg := "All replicas are ready"
 	ready := int32(3)
-	total := int32(3)
-	state := "Running"
+	replicas := int32(3)
 	condStatus := client.InstanceStatusConditionsStatusTrue
 
 	inst := &client.Instance{
@@ -61,13 +60,10 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
-				Name    string `json:"name"`
-				PodRefs *[]struct {
-					Name string `json:"name"`
-				} `json:"podRefs,omitempty"`
-				Ready *int32  `json:"ready,omitempty"`
-				State *string `json:"state,omitempty"`
-				Total *int32  `json:"total,omitempty"`
+				Name          string  `json:"name"`
+				ReadyReplicas *int32  `json:"readyReplicas,omitempty"`
+				Replicas      *int32  `json:"replicas,omitempty"`
+				Selector      *string `json:"selector,omitempty"`
 			} `json:"components,omitempty"`
 			Conditions *[]struct {
 				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
@@ -93,15 +89,12 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 			Version: &version,
 			Message: &msg,
 			Components: &[]struct {
-				Name    string `json:"name"`
-				PodRefs *[]struct {
-					Name string `json:"name"`
-				} `json:"podRefs,omitempty"`
-				Ready *int32  `json:"ready,omitempty"`
-				State *string `json:"state,omitempty"`
-				Total *int32  `json:"total,omitempty"`
+				Name          string  `json:"name"`
+				ReadyReplicas *int32  `json:"readyReplicas,omitempty"`
+				Replicas      *int32  `json:"replicas,omitempty"`
+				Selector      *string `json:"selector,omitempty"`
 			}{
-				{Name: "engine", Ready: &ready, Total: &total, State: &state},
+				{Name: "engine", ReadyReplicas: &ready, Replicas: &replicas},
 			},
 			Conditions: &[]struct {
 				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
@@ -220,13 +213,10 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
-				Name    string `json:"name"`
-				PodRefs *[]struct {
-					Name string `json:"name"`
-				} `json:"podRefs,omitempty"`
-				Ready *int32  `json:"ready,omitempty"`
-				State *string `json:"state,omitempty"`
-				Total *int32  `json:"total,omitempty"`
+				Name          string  `json:"name"`
+				ReadyReplicas *int32  `json:"readyReplicas,omitempty"`
+				Replicas      *int32  `json:"replicas,omitempty"`
+				Selector      *string `json:"selector,omitempty"`
 			} `json:"components,omitempty"`
 			Conditions *[]struct {
 				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
@@ -291,13 +281,10 @@ func minimalInst() *client.Instance {
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
-				Name    string `json:"name"`
-				PodRefs *[]struct {
-					Name string `json:"name"`
-				} `json:"podRefs,omitempty"`
-				Ready *int32  `json:"ready,omitempty"`
-				State *string `json:"state,omitempty"`
-				Total *int32  `json:"total,omitempty"`
+				Name          string  `json:"name"`
+				ReadyReplicas *int32  `json:"readyReplicas,omitempty"`
+				Replicas      *int32  `json:"replicas,omitempty"`
+				Selector      *string `json:"selector,omitempty"`
 			} `json:"components,omitempty"`
 			Conditions *[]struct {
 				LastTransitionTime time.Time                             `json:"lastTransitionTime"`

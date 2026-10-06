@@ -181,20 +181,16 @@ func printComponentTable(w io.Writer, inst *client.Instance) {
 	}
 	fmt.Fprintln(w, "\nComponents:")
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "  NAME\tSTATE\tREADY\tTOTAL")
+	fmt.Fprintln(tw, "  NAME\tREADY")
 	for _, comp := range *inst.Status.Components {
-		state := "-"
-		if comp.State != nil {
-			state = *comp.State
+		var ready, replicas int32
+		if comp.ReadyReplicas != nil {
+			ready = *comp.ReadyReplicas
 		}
-		var ready, total int32
-		if comp.Ready != nil {
-			ready = *comp.Ready
+		if comp.Replicas != nil {
+			replicas = *comp.Replicas
 		}
-		if comp.Total != nil {
-			total = *comp.Total
-		}
-		fmt.Fprintf(tw, "  %s\t%s\t%d\t%d\n", comp.Name, state, ready, total)
+		fmt.Fprintf(tw, "  %s\t%d/%d\n", comp.Name, ready, replicas)
 	}
 	tw.Flush() //nolint:errcheck,gosec
 }

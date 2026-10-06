@@ -543,8 +543,9 @@ type InstanceStatus struct {
 	//
 	// +optional
 	ConnectionSecretRef *common.SecretRef `json:"connectionSecretRef,omitempty"`
-	// Components is the status of the components in the database cluster.
+	// Components reports how many pods each component has and how many are Ready.
 	//
+	// +optional
 	// +listType=map
 	// +listMapKey=name
 	Components []ComponentStatus `json:"components,omitempty"`
@@ -895,15 +896,20 @@ const (
 	ReasonUpgradeFailed = "UpgradeFailed"
 )
 
+// ComponentStatus counts the pods of one component.
 type ComponentStatus struct {
 	// Name is a key of spec.components.
 	Name string `json:"name"`
-	// PodRefs references the Pods backing this component.
+	// Selector selects the component's pods in the Instance's namespace, in
+	// the form kubectl get pods -l accepts.
 	// +optional
-	PodRefs []common.ObjectRef `json:"podRefs,omitempty"`
-	Total   *int32             `json:"total,omitempty"`
-	Ready   *int32             `json:"ready,omitempty"`
-	State   string             `json:"state,omitempty"`
+	Selector string `json:"selector,omitempty"`
+	// Replicas is the number of the component's pods that are not terminating.
+	// +optional
+	Replicas *int32 `json:"replicas,omitempty"`
+	// ReadyReplicas is the number of those pods that are Ready.
+	// +optional
+	ReadyReplicas *int32 `json:"readyReplicas,omitempty"`
 }
 
 // +kubebuilder:object:root=true

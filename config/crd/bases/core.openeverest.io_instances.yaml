@@ -1903,40 +1903,29 @@ spec:
                     x-kubernetes-list-type: map
                 type: object
               components:
-                description: Components is the status of the components in the database
-                  cluster.
+                description: Components reports how many pods each component has and
+                  how many are Ready.
                 items:
+                  description: ComponentStatus counts the pods of one component.
                   properties:
                     name:
                       description: Name is a key of spec.components.
                       type: string
-                    podRefs:
-                      description: PodRefs references the Pods backing this component.
-                      items:
-                        description: |-
-                          ObjectRef references an object by name. The target is either in the same
-                          namespace as the referrer or cluster-scoped; which one applies is fixed by
-                          the field using this type and documented there.
-                        properties:
-                          name:
-                            description: Name of the referenced object.
-                            maxLength: 253
-                            minLength: 1
-                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                            type: string
-                        required:
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      type: array
-                    ready:
+                    readyReplicas:
+                      description: ReadyReplicas is the number of those pods that
+                        are Ready.
                       format: int32
                       type: integer
-                    state:
+                    replicas:
+                      description: Replicas is the number of the component's pods
+                        that are not terminating.
+                      format: int32
+                      type: integer
+                    selector:
+                      description: |-
+                        Selector selects the component's pods in the Instance's namespace, in
+                        the form kubectl get pods -l accepts.
                       type: string
-                    total:
-                      format: int32
-                      type: integer
                   required:
                   - name
                   type: object

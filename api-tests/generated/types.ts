@@ -4286,20 +4286,25 @@ export interface components {
                         };
                     }[];
                 };
-                /** @description Components is the status of the components in the database cluster. */
+                /** @description Components reports how many pods each component has and how many are Ready. */
                 components?: {
                     /** @description Name is a key of spec.components. */
                     name: string;
-                    /** @description PodRefs references the Pods backing this component. */
-                    podRefs?: {
-                        /** @description Name of the referenced object. */
-                        name: string;
-                    }[];
-                    /** Format: int32 */
-                    ready?: number;
-                    state?: string;
-                    /** Format: int32 */
-                    total?: number;
+                    /**
+                     * Format: int32
+                     * @description ReadyReplicas is the number of those pods that are Ready.
+                     */
+                    readyReplicas?: number;
+                    /**
+                     * Format: int32
+                     * @description Replicas is the number of the component's pods that are not terminating.
+                     */
+                    replicas?: number;
+                    /**
+                     * @description Selector selects the component's pods in the Instance's namespace, in
+                     *     the form kubectl get pods -l accepts.
+                     */
+                    selector?: string;
                 }[];
                 conditions?: {
                     /**

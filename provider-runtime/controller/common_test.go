@@ -38,53 +38,24 @@ func TestStatus_ToV2Alpha1(t *testing.T) {
 	assert.Equal(t, "waiting for cluster...", status.Message)
 }
 
-func TestStatus_ToV2Alpha1_Components(t *testing.T) {
+func TestContext_PodLabels(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name       string
-		components []ComponentStatus
-		expected   []v1alpha1.ComponentStatus
-	}{
-		{
-			name:       "no components",
-			components: nil,
-			expected:   nil,
-		},
-		{
-			name:       "empty components are cleared",
-			components: []ComponentStatus{},
-			expected:   nil,
-		},
-		{
-			name: "components keep their name, counts and state",
-			components: []ComponentStatus{
-				{Name: "engine", Ready: 2, Total: 3, State: "InProgress"},
-				{Name: "proxy", Ready: 1, Total: 1, State: "Ready"},
-			},
-			expected: []v1alpha1.ComponentStatus{
-				{Name: "engine", Ready: new(int32(2)), Total: new(int32(3)), State: "InProgress"},
-				{Name: "proxy", Ready: new(int32(1)), Total: new(int32(1)), State: "Ready"},
-			},
-		},
-		{
-			name:       "zero counts are reported rather than omitted",
-			components: []ComponentStatus{{Name: "engine", State: "Error"}},
-			expected: []v1alpha1.ComponentStatus{
-				{Name: "engine", Ready: new(int32(0)), Total: new(int32(0)), State: "Error"},
-			},
-		},
+	in := &v1alpha1.Instance{ObjectMeta: metav1.ObjectMeta{Name: "db", Namespace: "ns"}}
+	c := NewContext(t.Context(), nil, in, "psmdb")
+
+	assert.Empty(t, c.LabelledComponents())
+
+	want := map[string]string{
+		ProviderLabel:  "psmdb",
+		InstanceLabel:  "db",
+		ComponentLabel: "proxy",
 	}
+	assert.Equal(t, want, c.PodLabels("proxy"))
+	c.PodLabels("engine")
+	c.PodLabels("proxy")
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			status := Status{Phase: v1alpha1.InstancePhaseProvisioning, Components: tt.components}
-
-			assert.Equal(t, tt.expected, status.ToV2Alpha1().Components)
-		})
-	}
+	assert.Equal(t, []string{"engine", "proxy"}, c.LabelledComponents())
 }
 
 func TestReconcileExternalBackupStatus(t *testing.T) {
