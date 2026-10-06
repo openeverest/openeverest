@@ -131,7 +131,7 @@ func NewUpgrade(cfg *Config, l *zap.SugaredLogger) (*Upgrade, error) {
 	}
 
 	cli.kubeConnector = kubeClient
-	cli.versionService = versionservice.New(cfg.VersionMetadataURL)
+	cli.versionService = versionservice.New(cfg.VersionMetadataURL, nil)
 	return cli, nil
 }
 

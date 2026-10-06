@@ -152,7 +152,7 @@ func NewInstall(c Config, l *zap.SugaredLogger) (*Installer, error) {
 		return nil, err
 	}
 
-	cli.versionService = versionservice.New(c.VersionMetadataURL)
+	cli.versionService = versionservice.New(c.VersionMetadataURL, nil)
 	return cli, nil
 }
 
