@@ -3475,6 +3475,24 @@ export interface components {
                     type: "Backup" | "PointInTime";
                 };
                 /**
+                 * @description DefaultRefs lists the namespace references this preset requires. Each
+                 *     listed path must be resolved from the target namespace's NamespaceDefaults
+                 *     at resolve time; the preset itself carries no value for it. References
+                 *     not listed here keep their literal value — an empty value stays empty.
+                 *
+                 *     This field is preset-only: it is stripped during resolve and is never
+                 *     copied onto an Instance.
+                 */
+                defaultRefs?: {
+                    /**
+                     * @description Path is the reference field's dot-separated location under Instance.spec.
+                     *     Component references are "components.<name>.parameters.<field>" (e.g.
+                     *     "components.monitoring.parameters.monitoringConfigRef.name"),
+                     *     and top-level references are the field name (e.g. "userSecretRef.name").
+                     */
+                    path: string;
+                }[];
+                /**
                  * @description DeletionPolicy controls what happens to Backup and Restore CRs that
                  *     reference this Instance when the Instance is deleted.
                  *     Cascade (default) instructs the runtime to delete every Backup and

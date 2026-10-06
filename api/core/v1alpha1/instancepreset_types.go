@@ -21,6 +21,32 @@ import (
 // InstancePresetSpec defines the desired state of InstancePreset
 type InstancePresetSpec struct {
 	InstanceSpec `json:",inline"`
+
+	// DefaultRefs lists the namespace references this preset requires. Each
+	// listed path must be resolved from the target namespace's NamespaceDefaults
+	// at resolve time; the preset itself carries no value for it. References
+	// not listed here keep their literal value — an empty value stays empty.
+	//
+	// This field is preset-only: it is stripped during resolve and is never
+	// copied onto an Instance.
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=32
+	// +kubebuilder:validation:XValidation:rule="self.all(x, self.exists_one(y, x.path == y.path))",message="each path must be unique"
+	DefaultRefs []PresetDefaultRef `json:"defaultRefs,omitempty"`
+}
+
+// PresetDefaultRef marks a single reference that must be resolved from the
+// target namespace's default, identified by its path within the Instance spec.
+type PresetDefaultRef struct {
+	// Path is the reference field's dot-separated location under Instance.spec.
+	// Component references are "components.<name>.parameters.<field>" (e.g.
+	// "components.monitoring.parameters.monitoringConfigRef.name"),
+	// and top-level references are the field name (e.g. "userSecretRef.name").
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=1024
+	Path string `json:"path"`
 }
 
 // InstancePresetStatus defines the observed state of InstancePreset.
