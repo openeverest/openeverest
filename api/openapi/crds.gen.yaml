@@ -5640,40 +5640,63 @@ components:
           properties:
             defaults:
               description: |-
-                Defaults lists the default resource for each referenced kind. At most
-                one entry may exist per matching key: kind alone for managed CRs such as
-                MonitoringConfig, or (kind, definition) for Secret and ConfigMap, whose
-                generic kind is disambiguated by the openeverest.io/definition the
-                OpenEverest API stamps on resources it creates.
+                Defaults lists the default resource for each referenced path, optionally
+                scoped to a provider.
               items:
                 description: |-
-                  NamespaceDefault declares the default resource of a single referenced kind
-                  within the namespace.
+                  NamespaceDefault declares the default resource for a single reference,
+                  identified by its path within the Instance spec.
                 properties:
-                  definition:
+                  defaultRef:
+                    description: Name of the default resource in this namespace.
+                    properties:
+                      name:
+                        description: Name of the referenced object.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  path:
                     description: |-
-                      Definition disambiguates generic kinds (Secret, ConfigMap) by the
-                      provider definition the resource was created from, matching the
-                      openeverest.io/definition label the OpenEverest API stamps on those
-                      resources. It is required for Secret and ConfigMap and omitted for
-                      CRs.
-                    type: string
-                  kind:
-                    description: |-
-                      Kind is the referenced resource kind, e.g. "MonitoringConfig",
-                      "Secret", or "ConfigMap".
-                    type: string
-                  name:
-                    description: Name is the name of the default resource in this
-                      namespace.
+                      Path is the reference field's dot-separated location under Instance.spec.
+                      The component references are "components.<name>.<field>" (e.g.
+                      "components.monitoring.monitoringConfigRef.name"), and top-level references
+                      are the bare field name (e.g. "userSecretRef").
+                    maxLength: 1024
                     minLength: 1
                     type: string
+                  providerRef:
+                    description: |-
+                      ProviderRef scopes this entry to one provider. Omit for any provider;
+                      a provider-scoped entry takes precedence over an agnostic one for the
+                      same path.
+                    properties:
+                      name:
+                        description: Name of the referenced object.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
                 required:
-                - kind
-                - name
+                - defaultRef
+                - path
                 type: object
+              maxItems: 32
               type: array
               x-kubernetes-list-type: atomic
+              x-kubernetes-validations:
+              - message: each (providerRef, path) pair must be unique
+                rule: 'self.all(x, self.exists_one(y, (has(x.providerRef) ? x.providerRef.name
+                  : '''') == (has(y.providerRef) ? y.providerRef.name : '''') && x.path
+                  == y.path))'
           type: object
         status:
           description: status defines the observed state of NamespaceDefaults
@@ -5741,6 +5764,9 @@ components:
       required:
       - spec
       type: object
+      x-kubernetes-validations:
+      - message: only one NamespaceDefaults per namespace and it must be named 'defaults'
+        rule: self.metadata.name == 'defaults'
     NamespaceDefaultsList:
       description: NamespaceDefaultsList is an object that contains the list of the
         existing namespacedefaultss.
