@@ -21,6 +21,8 @@ import (
 
 	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -40,10 +42,10 @@ import (
 const podPermissionRetry = 10 * time.Second
 
 // watchPods caches the pods labelled for this provider and reconciles their
-// Instance when the component counts may change. It runs once the manager has
-// started, and keeps the pod cache apart from the manager's so the provider's
-// own pod reads stay unfiltered. Without list and watch permission on pods,
-// status.components stays empty.
+// Instance when what the runtime reports about them may change. It runs once
+// the manager has started, and keeps the pod cache apart from the manager's so
+// the provider's own pod reads stay unfiltered. Without list and watch
+// permission on pods, the runtime reports nothing about them.
 func (r *ProviderReconciler) watchPods(ctx context.Context, c ctrlcontroller.Controller) error {
 	logger := log.FromContext(ctx)
 
@@ -58,7 +60,7 @@ func (r *ProviderReconciler) watchPods(ctx context.Context, c ctrlcontroller.Con
 		allowed, err = canListAndWatchPods(ctx, r.Client)
 	}
 	if !allowed {
-		logger.Info("Not reporting status.components: the provider may not list and watch pods")
+		logger.Info("Not reporting on pods: the provider may not list and watch them")
 		return nil
 	}
 
@@ -78,7 +80,7 @@ func (r *ProviderReconciler) watchPods(ctx context.Context, c ctrlcontroller.Con
 	}()
 	src := source.Kind(pods, &corev1.Pod{},
 		handler.TypedEnqueueRequestsFromMapFunc(instanceOfPod),
-		predicate.TypedFuncs[*corev1.Pod]{UpdateFunc: podCountChanged},
+		predicate.TypedFuncs[*corev1.Pod]{UpdateFunc: podChanged},
 	)
 	if err := c.Watch(src); err != nil {
 		return fmt.Errorf("failed to watch pods: %w", err)
@@ -115,25 +117,28 @@ func instanceOfPod(_ context.Context, pod *corev1.Pod) []reconcile.Request {
 	return []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: pod.Namespace, Name: name}}}
 }
 
-func podCountChanged(e event.TypedUpdateEvent[*corev1.Pod]) bool {
-	return podCounted(e.ObjectOld) != podCounted(e.ObjectNew) || podReady(e.ObjectOld) != podReady(e.ObjectNew)
+func podChanged(e event.TypedUpdateEvent[*corev1.Pod]) bool {
+	return observePod(e.ObjectOld) != observePod(e.ObjectNew)
 }
 
-// setComponentStatuses counts the pods of each labelled component into
-// in.Status.Components. Until the pod watch runs it leaves them untouched.
-func (r *ProviderReconciler) setComponentStatuses(ctx context.Context, in *v1alpha1.Instance, components []string) {
-	pods, ok := r.pods.Load().(client.Reader)
+// setPodStatus reports the pods of each labelled component on the Instance:
+// their counts and the PodsScheduled and PodsReady conditions. It returns how
+// soon to look again while a pod waits for a node within the grace period.
+// Until the pod watch runs it leaves the status untouched.
+func (r *ProviderReconciler) setPodStatus(ctx context.Context, in *v1alpha1.Instance, components []string, now time.Time) time.Duration {
+	reader, ok := r.pods.Load().(client.Reader)
 	if !ok {
-		return
+		return 0
 	}
 
+	pods := make(map[string][]corev1.Pod, len(components))
 	statuses := make([]v1alpha1.ComponentStatus, 0, len(components))
 	for _, name := range components {
 		selector := labels.SelectorFromSet(labels.Set{controller.InstanceLabel: in.Name, controller.ComponentLabel: name})
 		list := &corev1.PodList{}
-		if err := pods.List(ctx, list, client.InNamespace(in.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
+		if err := reader.List(ctx, list, client.InNamespace(in.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
 			log.FromContext(ctx).Error(err, "Failed to list the component's pods", "component", name)
-			return
+			return 0
 		}
 
 		var replicas, ready int32
@@ -141,6 +146,7 @@ func (r *ProviderReconciler) setComponentStatuses(ctx context.Context, in *v1alp
 			if !podCounted(&list.Items[i]) {
 				continue
 			}
+			pods[name] = append(pods[name], list.Items[i])
 			replicas++
 			if podReady(&list.Items[i]) {
 				ready++
@@ -154,6 +160,18 @@ func (r *ProviderReconciler) setComponentStatuses(ctx context.Context, in *v1alp
 		})
 	}
 	in.Status.Components = statuses
+
+	if len(components) == 0 {
+		meta.RemoveStatusCondition(&in.Status.Conditions, v1alpha1.ConditionPodsScheduled)
+		meta.RemoveStatusCondition(&in.Status.Conditions, v1alpha1.ConditionPodsReady)
+		return 0
+	}
+	scheduled, recheck := podsScheduled(components, pods, now)
+	setCondition(in, v1alpha1.ConditionPodsScheduled, scheduled.Status, scheduled.Reason, scheduled.Message, metav1.NewTime(now))
+	readiness := podsReady(components, pods)
+	setCondition(in, v1alpha1.ConditionPodsReady, readiness.Status, readiness.Reason, readiness.Message, metav1.NewTime(now))
+
+	return recheck
 }
 
 // podCounted reports whether the pod is neither terminating nor terminated.

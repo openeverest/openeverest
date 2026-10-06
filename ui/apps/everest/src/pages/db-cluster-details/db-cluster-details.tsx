@@ -35,11 +35,11 @@ import { beautifyDbInstanceStatus } from 'pages/databases/DbClusterView.utils';
 import {
   DB_INSTANCE_UNKNOWN_PHASE,
   DbInstancePhase,
-  getUnschedulablePodsCondition,
+  getPodsAlertConditions,
 } from 'shared-types/instance.types';
 import { usePlugins } from 'contexts/plugins';
 import type { ClusterDetailTabExtension } from '@openeverest/plugin-sdk';
-import { UnschedulablePodsAlert } from './unschedulable-pods-alert';
+import { PodsAlert } from './pods-alert';
 
 const WithPermissionDetails = ({
   instanceName,
@@ -53,7 +53,7 @@ const WithPermissionDetails = ({
   const status =
     (instance?.status?.phase as DbInstancePhase | undefined) ??
     DB_INSTANCE_UNKNOWN_PHASE;
-  const unschedulablePods = getUnschedulablePodsCondition(instance);
+  const podsAlerts = getPodsAlertConditions(instance);
 
   // TODO RBAC
   // useRBACPermissionRoute([
@@ -169,9 +169,9 @@ const WithPermissionDetails = ({
             {Messages.restoringDb}
           </Alert>
         )} */}
-        {unschedulablePods && (
-          <UnschedulablePodsAlert condition={unschedulablePods} />
-        )}
+        {podsAlerts.map((condition) => (
+          <PodsAlert key={condition.type} condition={condition} />
+        ))}
         <Outlet />
       </Box>
     </>

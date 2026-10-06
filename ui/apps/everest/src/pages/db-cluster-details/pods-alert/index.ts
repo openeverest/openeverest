@@ -12,4 +12,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export { UnschedulablePodsAlert } from './unschedulable-pods-alert';
+export { PodsAlert } from './pods-alert';

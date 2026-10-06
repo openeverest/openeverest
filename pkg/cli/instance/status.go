@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -207,7 +208,11 @@ func printConditionTable(w io.Writer, inst *client.Instance) {
 		if msg == "" {
 			msg = "-"
 		}
-		fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\n", cond.Type, string(cond.Status), cond.Reason, msg)
+		lines := strings.Split(msg, "\n")
+		fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\n", cond.Type, string(cond.Status), cond.Reason, lines[0])
+		for _, line := range lines[1:] {
+			fmt.Fprintf(tw, "  \t\t\t%s\n", line)
+		}
 	}
 	tw.Flush() //nolint:errcheck,gosec
 }

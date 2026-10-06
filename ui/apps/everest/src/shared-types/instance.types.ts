@@ -47,12 +47,29 @@ export type InstanceCondition = NonNullable<
   NonNullable<Instance['status']>['conditions']
 >[number];
 
-// Mirrors v1alpha1.ConditionPodsScheduled; condition types aren't in the generated contract.
+// Mirrors v1alpha1.ConditionPodsScheduled and ConditionPodsReady; condition types aren't in the generated contract.
 export const INSTANCE_CONDITION_PODS_SCHEDULED = 'PodsScheduled';
+export const INSTANCE_CONDITION_PODS_READY = 'PodsReady';
 
-export const getUnschedulablePodsCondition = (
+// NotReady is left out: pods are not ready while they start.
+export const PODS_ALERT_REASONS = [
+  'Unschedulable',
+  'CrashLoopBackOff',
+  'ImagePullBackOff',
+  'CreateContainerConfigError',
+] as const;
+export type PodsAlertReason = (typeof PODS_ALERT_REASONS)[number];
+
+const isPodsAlertReason = (reason: string): reason is PodsAlertReason =>
+  (PODS_ALERT_REASONS as readonly string[]).includes(reason);
+
+export const getPodsAlertConditions = (
   instance?: Instance
-): InstanceCondition | undefined =>
-  instance?.status?.conditions?.find(
-    (c) => c.type === INSTANCE_CONDITION_PODS_SCHEDULED && c.status === 'False'
+): InstanceCondition[] =>
+  (instance?.status?.conditions ?? []).filter(
+    (c) =>
+      (c.type === INSTANCE_CONDITION_PODS_SCHEDULED ||
+        c.type === INSTANCE_CONDITION_PODS_READY) &&
+      c.status === 'False' &&
+      isPodsAlertReason(c.reason)
   );

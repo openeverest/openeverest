@@ -528,7 +528,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	instanceStatus := status.ToV2Alpha1()
 	in.Status.Phase = instanceStatus.Phase
 	in.Status.Message = instanceStatus.Message
-	r.setComponentStatuses(ctx, in, syncCtx.LabelledComponents())
+	recheck := r.setPodStatus(ctx, in, syncCtx.LabelledComponents(), time.Now())
 
 	// Collect per-storage backup observability data (e.g. the latest
 	// restorable time for PITR) when the provider opts into reporting it.
@@ -562,19 +562,13 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
-	// Observability only: a failed pod list never fails the reconcile.
-	podsRecheck, err := r.setPodsScheduledCondition(ctx, syncCtx, in)
-	if err != nil {
-		logger.Error(err, "Failed to check pod scheduling")
-	}
-
 	if err := r.Client.Status().Update(ctx, in); err != nil {
 		logger.Error(err, "Failed to update status")
 		return reconcile.Result{}, err
 	}
 
 	logger.Info("Reconciliation complete", "phase", in.Status.Phase)
-	return reconcile.Result{RequeueAfter: podsRecheck}, nil
+	return reconcile.Result{RequeueAfter: recheck}, nil
 }
 
 // leaderElectionFree marks a Runnable as one that must run on every replica,

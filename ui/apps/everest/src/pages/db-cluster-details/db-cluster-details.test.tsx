@@ -135,8 +135,53 @@ describe('DbClusterDetails', () => {
       },
     });
 
-    expect(
-      screen.queryByTestId('unschedulable-pods-alert')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('pods-alert')).not.toBeInTheDocument();
+  });
+
+  it('warns about crashing pods, quoting the reason', () => {
+    const message =
+      'engine: 1 of 3 pods keep crashing: container mongod last exited with OOMKilled (exit code 137)';
+    renderDetails({
+      instance: {
+        ...mockInstance,
+        status: {
+          phase: 'Initializing',
+          conditions: [
+            {
+              type: 'PodsReady',
+              status: 'False',
+              reason: 'CrashLoopBackOff',
+              message,
+              lastTransitionTime: '2026-10-02T12:00:00Z',
+            },
+          ],
+        },
+      },
+    });
+
+    expect(screen.getByText('Some pods keep crashing')).toBeInTheDocument();
+    expect(screen.getByText(message)).toBeInTheDocument();
+  });
+
+  it('does not warn about pods that are only starting', () => {
+    renderDetails({
+      instance: {
+        ...mockInstance,
+        status: {
+          phase: 'Initializing',
+          conditions: [
+            {
+              type: 'PodsReady',
+              status: 'False',
+              reason: 'NotReady',
+              message: 'engine: 1 of 3 pods are not ready',
+              lastTransitionTime: '2026-10-02T12:00:00Z',
+            },
+          ],
+        },
+      },
+    });
+
+    expect(screen.queryByTestId('pods-alert')).not.toBeInTheDocument();
   });
 });

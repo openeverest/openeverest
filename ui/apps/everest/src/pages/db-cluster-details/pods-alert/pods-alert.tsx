@@ -13,25 +13,26 @@
 // limitations under the License.
 
 import { Alert, AlertTitle, Box } from '@mui/material';
-import type { InstanceCondition } from 'shared-types/instance.types';
-import { Messages } from './unschedulable-pods-alert.messages';
+import type {
+  InstanceCondition,
+  PodsAlertReason,
+} from 'shared-types/instance.types';
+import { Messages } from './pods-alert.messages';
 
-interface UnschedulablePodsAlertProps {
+interface PodsAlertProps {
   condition: InstanceCondition;
 }
 
-export const UnschedulablePodsAlert = ({
-  condition,
-}: UnschedulablePodsAlertProps) => (
-  <Alert
-    severity="warning"
-    sx={{ my: 1 }}
-    data-testid="unschedulable-pods-alert"
-  >
-    <AlertTitle>{Messages.title}</AlertTitle>
-    {Messages.hint}
-    <Box sx={{ mt: 1, wordBreak: 'break-word' }}>
-      <strong>{Messages.reasonLabel}</strong> <span>{condition.message}</span>
-    </Box>
-  </Alert>
-);
+export const PodsAlert = ({ condition }: PodsAlertProps) => {
+  const { title, hint } = Messages.alerts[condition.reason as PodsAlertReason];
+
+  return (
+    <Alert severity="warning" sx={{ my: 1 }} data-testid="pods-alert">
+      <AlertTitle>{title}</AlertTitle>
+      {hint}
+      <Box sx={{ mt: 1, wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
+        <strong>{Messages.reasonLabel}</strong> <span>{condition.message}</span>
+      </Box>
+    </Alert>
+  );
+};

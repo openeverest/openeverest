@@ -16,10 +16,12 @@ package reconciler
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,17 +58,27 @@ func componentPod(name, instance, component string, ready bool, mutate ...func(*
 	return pod
 }
 
-func TestSetComponentStatuses(t *testing.T) {
+func TestSetPodStatus(t *testing.T) {
 	t.Parallel()
 
+	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	pods := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
 		componentPod("db-rs0-0", "db", "engine", true),
-		componentPod("db-rs0-1", "db", "engine", false),
+		componentPod("db-rs0-1", "db", "engine", false, func(p *corev1.Pod) {
+			p.Status.Phase = corev1.PodPending
+			p.Status.Conditions = append(p.Status.Conditions, corev1.PodCondition{
+				Type:               corev1.PodScheduled,
+				Status:             corev1.ConditionFalse,
+				Reason:             corev1.PodReasonUnschedulable,
+				Message:            "0/3 nodes are available: 3 Insufficient memory.",
+				LastTransitionTime: metav1.NewTime(now.Add(-40 * time.Second)),
+			})
+		}),
 		componentPod("db-rs0-2", "db", "engine", true, func(p *corev1.Pod) {
-			now := metav1.Now()
-			p.DeletionTimestamp = &now
+			deleted := metav1.Now()
+			p.DeletionTimestamp = &deleted
 			p.Finalizers = []string{"test"}
 		}),
 		componentPod("db-backup", "db", "engine", false, func(p *corev1.Pod) { p.Status.Phase = corev1.PodSucceeded }),
@@ -77,7 +89,7 @@ func TestSetComponentStatuses(t *testing.T) {
 	r.pods.Store(client.Reader(pods))
 	in := &corev1alpha1.Instance{ObjectMeta: metav1.ObjectMeta{Name: "db", Namespace: "ns"}}
 
-	r.setComponentStatuses(t.Context(), in, []string{"configServer", "engine", "proxy"})
+	recheck := r.setPodStatus(t.Context(), in, []string{"configServer", "engine", "proxy"}, now)
 
 	want := []corev1alpha1.ComponentStatus{
 		{
@@ -100,13 +112,23 @@ func TestSetComponentStatuses(t *testing.T) {
 		},
 	}
 	assert.Equal(t, want, in.Status.Components)
+	assert.Equal(t, 20*time.Second, recheck)
+	scheduled := meta.FindStatusCondition(in.Status.Conditions, corev1alpha1.ConditionPodsScheduled)
+	require.NotNil(t, scheduled)
+	assert.Equal(t, metav1.ConditionTrue, scheduled.Status)
+	readiness := meta.FindStatusCondition(in.Status.Conditions, corev1alpha1.ConditionPodsReady)
+	require.NotNil(t, readiness)
+	assert.Equal(t, metav1.ConditionFalse, readiness.Status)
+	assert.Equal(t, "engine: 1 of 2 pods are not ready", readiness.Message)
 
-	r.setComponentStatuses(t.Context(), in, nil)
+	recheck = r.setPodStatus(t.Context(), in, nil, now)
 
 	assert.Empty(t, in.Status.Components)
+	assert.Empty(t, in.Status.Conditions)
+	assert.Zero(t, recheck)
 }
 
-func TestSetComponentStatuses_BeforePodWatch(t *testing.T) {
+func TestSetPodStatus_BeforePodWatch(t *testing.T) {
 	t.Parallel()
 
 	r := &ProviderReconciler{}
@@ -114,12 +136,14 @@ func TestSetComponentStatuses_BeforePodWatch(t *testing.T) {
 		Components: []corev1alpha1.ComponentStatus{{Name: "engine"}},
 	}}
 
-	r.setComponentStatuses(t.Context(), in, []string{"engine"})
+	recheck := r.setPodStatus(t.Context(), in, []string{"engine"}, time.Now())
 
 	assert.Equal(t, []corev1alpha1.ComponentStatus{{Name: "engine"}}, in.Status.Components)
+	assert.Empty(t, in.Status.Conditions)
+	assert.Zero(t, recheck)
 }
 
-func TestPodCountChanged(t *testing.T) {
+func TestPodChanged(t *testing.T) {
 	t.Parallel()
 
 	ready := componentPod("p", "db", "engine", true)
@@ -133,6 +157,12 @@ func TestPodCountChanged(t *testing.T) {
 			now := metav1.Now()
 			p.DeletionTimestamp = &now
 		}), want: true},
+		{name: "starts crash looping", updated: componentPod("p", "db", "engine", false, func(p *corev1.Pod) {
+			p.Status.ContainerStatuses = []corev1.ContainerStatus{{
+				Name:  "mongod",
+				State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "CrashLoopBackOff"}},
+			}}
+		}), want: true},
 		{name: "unrelated change", updated: componentPod("p", "db", "engine", true, func(p *corev1.Pod) {
 			p.Annotations = map[string]string{"a": "b"}
 		}), want: false},
@@ -143,7 +173,7 @@ func TestPodCountChanged(t *testing.T) {
 
 			e := event.TypedUpdateEvent[*corev1.Pod]{ObjectOld: ready, ObjectNew: tt.updated}
 
-			assert.Equal(t, tt.want, podCountChanged(e))
+			assert.Equal(t, tt.want, podChanged(e))
 		})
 	}
 }

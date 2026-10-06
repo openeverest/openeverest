@@ -761,13 +761,47 @@ const (
 	// condition is True — a held action never affects availability.
 	ConditionMaintenancePending = "MaintenancePending"
 
-	// ConditionPodsScheduled is True while the scheduler has placed every pod
-	// of the Instance, and False once a pod has waited more than a minute
-	// because no node satisfies its scheduling rules (for example a required
-	// anti-affinity with fewer nodes than replicas). The message names the
-	// affected components and quotes the scheduler's explanation. It is only
-	// set for providers that implement controller.PodSelectorProvider.
+	// ConditionPodsScheduled is False once a pod has waited more than a minute
+	// for a node, for example because a required anti-affinity needs more
+	// nodes than the cluster has. The message has one line per affected
+	// component and quotes the scheduler. Only set when the provider labels
+	// its pods.
 	ConditionPodsScheduled = "PodsScheduled"
+
+	// ConditionPodsReady is False while a pod is not Ready. The reason names
+	// the worst problem found: CrashLoopBackOff, ImagePullBackOff,
+	// CreateContainerConfigError, then NotReady. The message has one line per
+	// affected component. Only set when the provider labels its pods.
+	ConditionPodsReady = "PodsReady"
+)
+
+// Reasons for the PodsScheduled condition.
+const (
+	// ReasonScheduled indicates no pod has waited more than a minute for a node.
+	ReasonScheduled = "Scheduled"
+
+	// ReasonUnschedulable indicates a pod fits no node.
+	ReasonUnschedulable = "Unschedulable"
+)
+
+// Reasons for the PodsReady condition.
+const (
+	// ReasonReady indicates every pod is Ready.
+	ReasonReady = "Ready"
+
+	// ReasonCrashLoopBackOff indicates a container keeps exiting after it starts.
+	ReasonCrashLoopBackOff = "CrashLoopBackOff"
+
+	// ReasonImagePullBackOff indicates a container image cannot be pulled.
+	ReasonImagePullBackOff = "ImagePullBackOff"
+
+	// ReasonCreateContainerConfigError indicates a container cannot be created,
+	// typically because a Secret or ConfigMap it uses is missing.
+	ReasonCreateContainerConfigError = "CreateContainerConfigError"
+
+	// ReasonNotReady indicates a pod is not Ready for no reason listed above,
+	// for example while it starts.
+	ReasonNotReady = "NotReady"
 )
 
 // Reasons for the MaintenancePending condition.
@@ -789,16 +823,6 @@ const (
 	// action's token (for actions auto-approved by autoApproveUpTo), or
 	// clear and re-set it.
 	ReasonRetriesExhausted = "RetriesExhausted"
-)
-
-// Reasons for the PodsScheduled condition.
-const (
-	// ReasonScheduled indicates every existing pod of the Instance has a node.
-	ReasonScheduled = "Scheduled"
-
-	// ReasonUnschedulable indicates at least one pod fits no node, mirroring
-	// the reason the scheduler sets on the pod's PodScheduled condition.
-	ReasonUnschedulable = "Unschedulable"
 )
 
 // Reasons for the DataSourceReady condition.
