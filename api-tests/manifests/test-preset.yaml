@@ -23,5 +23,7 @@ spec:
       parameters:
         configuration: |
           key = value
+        secretRef:
+          name: "" 
       storage:
         size: 10Gi

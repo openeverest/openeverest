@@ -386,6 +386,8 @@ type KubernetesConnector interface {
 	ListInstancePresets(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.InstancePresetList, error)
 	// GetInstancePreset returns instance preset that matches the criteria.
 	GetInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.InstancePreset, error)
+	// GetNamespaceDefaults returns the NamespaceDefaults that matches the criteria.
+	GetNamespaceDefaults(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.NamespaceDefaults, error)
 	// WatchBackups returns a watch.Interface that streams
 	// Backup events across all namespaces.
 	WatchBackups(ctx context.Context) (watch.Interface, error)

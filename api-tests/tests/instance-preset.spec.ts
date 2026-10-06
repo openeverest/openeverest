@@ -65,6 +65,7 @@ test.describe('Instance Preset tests', () => {
     expect(preset.spec.components.engine.parameters.configuration).toBe(
       'key = value\n'
     );
+    expect(preset.spec.components.engine.parameters.secretRef.name).toBe('');
   });
   
   test('create instance using preset', async ({request}) => {
@@ -82,6 +83,7 @@ test.describe('Instance Preset tests', () => {
       expect(preset.spec.components.engine.parameters.configuration).toBe(
         'key = value\n'
       );
+      expect(preset.spec.components.engine.parameters.secretRef.name).toBe('test-secret');
       const infoResponse = await request.get('/v1/cluster-info');
       await checkError(infoResponse);
       const clusterInfo = await infoResponse.json();
