@@ -83,8 +83,11 @@ func podsScheduled(components []string, pods map[string][]corev1.Pod, now time.T
 			}
 			stuck++
 			if explanation == "" {
-				// The preemption analysis only repeats the node counts.
-				explanation, _, _ = strings.Cut(cond.Message, " preemption:")
+				// Plugin notes, such as the preemption analysis, follow the scheduler's first sentence.
+				explanation = cond.Message
+				if first, _, found := strings.Cut(cond.Message, ". "); found {
+					explanation = first + "."
+				}
 			}
 		}
 		if stuck > 0 {

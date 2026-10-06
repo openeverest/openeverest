@@ -32,6 +32,7 @@ func TestPodsScheduled(t *testing.T) {
 	antiAffinity := "0/4 nodes are available: 1 node(s) had untolerated taint {node-role.kubernetes.io/control-plane: }, " +
 		"3 node(s) didn't match pod anti-affinity rules. preemption: 0/4 nodes are available: " +
 		"1 Preemption is not helpful for scheduling, 3 No preemption victims found for incoming pod."
+	withDRANote := "0/1 nodes are available: 1 Insufficient memory. no new claims to deallocate, preemption: 0/1 nodes are available: 1 No preemption victims found for incoming pod."
 	running := corev1.Pod{Status: corev1.PodStatus{
 		Phase:      corev1.PodRunning,
 		Conditions: []corev1.PodCondition{{Type: corev1.PodScheduled, Status: corev1.ConditionTrue}},
@@ -78,6 +79,15 @@ func TestPodsScheduled(t *testing.T) {
 				Status:  metav1.ConditionFalse,
 				Reason:  v1alpha1.ReasonUnschedulable,
 				Message: "engine: 1 of 3 pods cannot be scheduled: 0/4 nodes are available: 1 node(s) had untolerated taint {node-role.kubernetes.io/control-plane: }, 3 node(s) didn't match pod anti-affinity rules.",
+			},
+		},
+		{
+			name: "other plugin notes before the preemption analysis are dropped too",
+			pods: map[string][]corev1.Pod{"engine": {pendingFor(2*time.Minute, withDRANote)}},
+			want: metav1.Condition{
+				Status:  metav1.ConditionFalse,
+				Reason:  v1alpha1.ReasonUnschedulable,
+				Message: "engine: 1 of 1 pods cannot be scheduled: 0/1 nodes are available: 1 Insufficient memory.",
 			},
 		},
 		{
