@@ -22,7 +22,6 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
@@ -71,21 +70,22 @@ func (h *k8sHandler) ResolveInstancePreset(ctx context.Context, cluster, name, n
 	// Create a copy to avoid modifying the original
 	resolved := preset.DeepCopy()
 
-	return h.resolveDefaultReferences(ctx, resolved, namespace)
+	return h.resolveDefaults(ctx, resolved, namespace)
 }
 
-// resolveDefaultReferences fills empty, namespace-scoped reference fields of
+// resolveDefaults fills empty, namespace-scoped reference fields of
 // the preset from the namespace's NamespaceDefaults object, and empty
 // StorageClass fields from the cluster's default StorageClass.
 //
 // A NamespaceDefaults entry is matched to a reference by its path within the
-// Instance spec: component-scoped references under "components.<name>.<...>"
-// and top-level references by their field name (e.g. "userSecretRef"). Only
-// empty references are filled; StorageClass is cluster-scoped and keeps the
-// standard Kubernetes "is-default-class" annotation.
+// Instance spec: component parameter references under
+// "components.<name>.parameters.<...>" and top-level references by their field
+// name (e.g. "userSecretRef"). Only empty references are filled; StorageClass
+// is cluster-scoped and keeps the standard Kubernetes "is-default-class"
+// annotation.
 //
 // Missing defaults are not an error: an empty field is simply left empty.
-func (h *k8sHandler) resolveDefaultReferences(ctx context.Context, preset *corev1alpha1.InstancePreset, namespace string) (*corev1alpha1.InstancePreset, error) {
+func (h *k8sHandler) resolveDefaults(ctx context.Context, preset *corev1alpha1.InstancePreset, namespace string) (*corev1alpha1.InstancePreset, error) {
 	defaults, err := h.kubeConnector.GetNamespaceDefaults(ctx, types.NamespacedName{Namespace: namespace, Name: namespaceDefaultsName})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, fmt.Errorf("failed to get namespace defaults: %w", err)
@@ -94,18 +94,22 @@ func (h *k8sHandler) resolveDefaultReferences(ctx context.Context, preset *corev
 	defaultsByPath := defaultsByPath(defaults, preset.Spec.ProviderRef.Name)
 
 	for componentName, component := range preset.Spec.Components {
-		// Resolve parameters fields
-		if component.Parameters != nil && len(component.Parameters.Raw) > 0 {
-			basePath := fmt.Sprintf("components.%s", componentName)
-			component, err = resolveParametersFields(component, basePath, defaultsByPath)
+		// Resolve Storage fields
+		if component.Storage != nil {
+			component, err = h.resolveStorageFields(ctx, component)
 			if err != nil {
 				return nil, fmt.Errorf("failed to resolve component %s: %w", componentName, err)
 			}
 		}
 
-		// Resolve Storage fields
-		if component.Storage != nil {
-			component, err = h.resolveStorageFields(ctx, component)
+		if len(defaultsByPath) == 0 {
+			continue
+		}
+
+		// Resolve parameters fields
+		if component.Parameters != nil && len(component.Parameters.Raw) > 0 {
+			basePath := fmt.Sprintf("components.%s.parameters", componentName)
+			component, err = resolveParametersFields(component, basePath, defaultsByPath)
 			if err != nil {
 				return nil, fmt.Errorf("failed to resolve component %s: %w", componentName, err)
 			}
@@ -141,7 +145,7 @@ func (h *k8sHandler) resolveStorageFields(ctx context.Context, component corev1a
 // the given provider, applying provider precedence once.
 func defaultsByPath(defaults *corev1alpha1.NamespaceDefaults, provider string) map[string]string {
 	if defaults == nil {
-		return make(map[string]string)
+		return nil
 	}
 
 	byPath := make(map[string]string, len(defaults.Spec.Defaults))
@@ -248,7 +252,7 @@ func isEmptyValue(value any) bool {
 
 // findDefaultStorageClass finds the most recent StorageClass using the same annotation
 // as PVC finds the default StorageClass.
-func (h *k8sHandler) findDefaultStorageClass(ctx context.Context) (ctrlclient.Object, error) {
+func (h *k8sHandler) findDefaultStorageClass(ctx context.Context) (*storagev1.StorageClass, error) {
 	storageClasses, err := h.kubeConnector.ListStorageClasses(ctx)
 	if err != nil {
 		return nil, err

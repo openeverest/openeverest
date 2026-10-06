@@ -30,7 +30,6 @@ import (
 
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
@@ -52,25 +51,11 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, storagev1.AddToScheme(scheme))
-	require.NoError(t, monitoringv1alpha1.AddToScheme(scheme))
 	require.NoError(t, corev1alpha1.AddToScheme(scheme))
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithObjects(
-			&corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default-secret",
-					Namespace: namespace,
-				},
-			},
-			&monitoringv1alpha1.MonitoringConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default-monitoring",
-					Namespace: namespace,
-				},
-				Spec: monitoringv1alpha1.MonitoringConfigSpec{Type: "pmm"},
-			},
 			&storagev1.StorageClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default-storage",
@@ -87,10 +72,10 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: namespaceDefaultsName, Namespace: namespace},
 				Spec: corev1alpha1.NamespaceDefaultsSpec{
 					Defaults: []corev1alpha1.NamespaceDefault{
-						{Path: "components.pmm.monitoringConfigName", DefaultRef: commonv1alpha1.ObjectRef{Name: "default-monitoring"}},
-						{Path: "components.pmm.monitoringConfig", DefaultRef: commonv1alpha1.ObjectRef{Name: "default-monitoring"}},
-						{Path: "components.pmm.monitoringConfigRef.name", DefaultRef: commonv1alpha1.ObjectRef{Name: "default-monitoring"}},
-						{Path: "components.pmm.nested.monitoringConfigName", DefaultRef: commonv1alpha1.ObjectRef{Name: "default-monitoring"}},
+						{Path: "components.pmm.parameters.monitoringConfigName", DefaultRef: commonv1alpha1.ObjectRef{Name: "monitoring1"}},
+						{Path: "components.pmm.parameters.monitoringConfig", DefaultRef: commonv1alpha1.ObjectRef{Name: "monitoring2"}},
+						{Path: "components.pmm.parameters.monitoringConfigRef.name", DefaultRef: commonv1alpha1.ObjectRef{Name: "monitoring3"}},
+						{Path: "components.pmm.parameters.nested.monitoringConfigName", DefaultRef: commonv1alpha1.ObjectRef{Name: "monitoring4"}},
 					},
 				},
 			},
@@ -146,7 +131,7 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					Parameters: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": "default-monitoring"}),
+						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": "monitoring1"}),
 					},
 				},
 			}),
@@ -163,13 +148,13 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					Parameters: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfig": "default-monitoring"}),
+						Raw: mustMarshal(t, map[string]any{"monitoringConfig": "monitoring2"}),
 					},
 				},
 			}),
 		},
 		{
-			name: "resolve monitoringConfigRef",
+			name: "resolve monitoringConfigRef empty name",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					Parameters: &runtime.RawExtension{
@@ -180,7 +165,58 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					Parameters: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfigRef": corev1.LocalObjectReference{Name: "default-monitoring"}}),
+						Raw: mustMarshal(t, map[string]any{"monitoringConfigRef": corev1.LocalObjectReference{Name: "monitoring3"}}),
+					},
+				},
+			}),
+		},
+		{
+			name: "resolve monitoringConfigRef empty struct",
+			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"pmm": {
+					Parameters: &runtime.RawExtension{
+						Raw: mustMarshal(t, map[string]any{"monitoringConfigRef": corev1.LocalObjectReference{}}),
+					},
+				},
+			}),
+			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"pmm": {
+					Parameters: &runtime.RawExtension{
+						Raw: mustMarshal(t, map[string]any{"monitoringConfigRef": corev1.LocalObjectReference{Name: "monitoring3"}}),
+					},
+				},
+			}),
+		},
+		{
+			name: "does not override monitoringConfigRef with existing name",
+			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"pmm": {
+					Parameters: &runtime.RawExtension{
+						Raw: mustMarshal(t, map[string]any{"monitoringConfigRef": corev1.LocalObjectReference{Name: "user-set"}}),
+					},
+				},
+			}),
+			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"pmm": {
+					Parameters: &runtime.RawExtension{
+						Raw: mustMarshal(t, map[string]any{"monitoringConfigRef": corev1.LocalObjectReference{Name: "user-set"}}),
+					},
+				},
+			}),
+		},
+		{
+			name: "does not override monitoringConfigName with existing value",
+			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"pmm": {
+					Parameters: &runtime.RawExtension{
+						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": "user-set"}),
+					},
+				},
+			}),
+			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"pmm": {
+					Parameters: &runtime.RawExtension{
+						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": "user-set"}),
 					},
 				},
 			}),
@@ -214,7 +250,7 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					Parameters: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"nested": map[string]any{"monitoringConfigName": "default-monitoring"}}),
+						Raw: mustMarshal(t, map[string]any{"nested": map[string]any{"monitoringConfigName": "monitoring4"}}),
 					},
 				},
 			}),
@@ -279,7 +315,7 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual, err := handler.resolveDefaultReferences(ctx, tt.input, namespace)
+			actual, err := handler.resolveDefaults(ctx, tt.input, namespace)
 			require.NoError(t, err)
 			require.EqualValues(t, tt.expected.Spec, actual.Spec)
 		})
@@ -291,4 +327,210 @@ func mustMarshal(t *testing.T, v any) []byte {
 	data, err := json.Marshal(v)
 	require.NoError(t, err)
 	return data
+}
+
+func TestResolveDefaults_ProviderPrecedence(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	namespace := "test-namespace"
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, storagev1.AddToScheme(scheme))
+	require.NoError(t, corev1alpha1.AddToScheme(scheme))
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(&corev1alpha1.NamespaceDefaults{
+			ObjectMeta: metav1.ObjectMeta{Name: namespaceDefaultsName, Namespace: namespace},
+			Spec: corev1alpha1.NamespaceDefaultsSpec{
+				Defaults: []corev1alpha1.NamespaceDefault{
+					{
+						Path:       "components.engine.parameters.certSecretRef.name",
+						DefaultRef: commonv1alpha1.ObjectRef{Name: "tls-certificate"},
+					},
+					{
+						ProviderRef: &commonv1alpha1.ObjectRef{Name: "psmdb"},
+						Path:        "components.engine.parameters.certSecretRef.name",
+						DefaultRef:  commonv1alpha1.ObjectRef{Name: "psmdb-tls-certificate"},
+					},
+				},
+			},
+		}).
+		Build()
+
+	handler := &k8sHandler{
+		kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).WithKubernetesClient(fakeClient),
+		log:           zap.NewNop().Sugar(),
+	}
+
+	tests := []struct {
+		name     string
+		input    *corev1alpha1.InstancePreset
+		expected *corev1alpha1.InstancePreset
+	}{
+		{
+			name: "provider match wins",
+			input: &corev1alpha1.InstancePreset{
+				ObjectMeta: metav1.ObjectMeta{Name: "test"},
+				Spec: corev1alpha1.InstancePresetSpec{
+					InstanceSpec: corev1alpha1.InstanceSpec{
+						ProviderRef: commonv1alpha1.ObjectRef{Name: "psmdb"},
+						Components: map[string]corev1alpha1.ComponentSpec{
+							"engine": {
+								Parameters: &runtime.RawExtension{
+									Raw: mustMarshal(t, map[string]any{
+										"certSecretRef": make(map[string]any),
+									}),
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &corev1alpha1.InstancePreset{
+				ObjectMeta: metav1.ObjectMeta{Name: "test"},
+				Spec: corev1alpha1.InstancePresetSpec{
+					InstanceSpec: corev1alpha1.InstanceSpec{
+						ProviderRef: commonv1alpha1.ObjectRef{Name: "psmdb"},
+						Components: map[string]corev1alpha1.ComponentSpec{
+							"engine": {
+								Parameters: &runtime.RawExtension{
+									Raw: mustMarshal(t, map[string]any{
+										"certSecretRef": map[string]any{"name": "psmdb-tls-certificate"},
+									}),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "fall back to provider agnostic default",
+			input: &corev1alpha1.InstancePreset{
+				ObjectMeta: metav1.ObjectMeta{Name: "test"},
+				Spec: corev1alpha1.InstancePresetSpec{
+					InstanceSpec: corev1alpha1.InstanceSpec{
+						ProviderRef: commonv1alpha1.ObjectRef{Name: "other-provider"},
+						Components: map[string]corev1alpha1.ComponentSpec{
+							"engine": {
+								Parameters: &runtime.RawExtension{
+									Raw: mustMarshal(t, map[string]any{
+										"certSecretRef": make(map[string]any),
+									}),
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &corev1alpha1.InstancePreset{
+				ObjectMeta: metav1.ObjectMeta{Name: "test"},
+				Spec: corev1alpha1.InstancePresetSpec{
+					InstanceSpec: corev1alpha1.InstanceSpec{
+						ProviderRef: commonv1alpha1.ObjectRef{Name: "other-provider"},
+						Components: map[string]corev1alpha1.ComponentSpec{
+							"engine": {
+								Parameters: &runtime.RawExtension{
+									Raw: mustMarshal(t, map[string]any{
+										"certSecretRef": map[string]any{"name": "tls-certificate"},
+									}),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			actual, err := handler.resolveDefaults(ctx, tt.input, namespace)
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, actual)
+		})
+	}
+}
+
+func TestNoNamespaceDefault(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	namespace := "test-namespace"
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, storagev1.AddToScheme(scheme))
+	require.NoError(t, corev1alpha1.AddToScheme(scheme))
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		Build()
+
+	handler := &k8sHandler{
+		kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).WithKubernetesClient(fakeClient),
+		log:           zap.NewNop().Sugar(),
+	}
+
+	tests := []struct {
+		name     string
+		input    *corev1alpha1.InstancePreset
+		expected *corev1alpha1.InstancePreset
+	}{
+		{
+			name:     "nil components",
+			input:    newTestPreset(nil),
+			expected: newTestPreset(nil),
+		},
+		{
+			name:     "empty components",
+			input:    newTestPreset(make(map[string]corev1alpha1.ComponentSpec)),
+			expected: newTestPreset(make(map[string]corev1alpha1.ComponentSpec)),
+		},
+		{
+			name: "resolve monitoringConfigName",
+			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"pmm": {
+					Parameters: &runtime.RawExtension{
+						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": ""}),
+					},
+				},
+			}),
+			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"pmm": {
+					Parameters: &runtime.RawExtension{
+						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": ""}),
+					},
+				},
+			}),
+		},
+		{
+			name: "resolve storageClass",
+			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"engine": {
+					Storage: &corev1alpha1.Storage{StorageClass: nil},
+				},
+			}),
+			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
+				"engine": {
+					Storage: &corev1alpha1.Storage{StorageClass: nil},
+				},
+			}),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			actual, err := handler.resolveDefaults(ctx, tt.input, namespace)
+			require.NoError(t, err)
+			require.Equal(t, tt.expected.Spec, actual.Spec)
+		})
+	}
 }
