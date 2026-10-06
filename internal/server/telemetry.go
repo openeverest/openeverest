@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -62,14 +63,19 @@ func (e *EverestServer) report(ctx context.Context, baseURL string, data Telemet
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		e.l.Error(errors.Join(err, errors.New("failed to send telemetry request")))
 		return err
 	}
 	defer resp.Body.Close() //nolint:errcheck
 	if resp.StatusCode != http.StatusOK {
-		e.l.Info("Telemetry service responded with http status ", resp.StatusCode)
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		e.l.Infof("Telemetry service responded with http status %d, body: %s", resp.StatusCode, string(bodyBytes))
 	}
 	return nil
 }
