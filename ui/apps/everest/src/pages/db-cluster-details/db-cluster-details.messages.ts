@@ -41,10 +41,6 @@ export const Messages = {
   dbActions: 'Actions',
   restoringDb:
     'We are recovering your database. Do not perform any actions on the database until recovery is complete.',
-  unschedulablePods: {
-    title: 'Some database pods cannot be scheduled',
-    hint: 'No node satisfies their scheduling rules. Add nodes or free up resources, or relax the scheduling policy, for example by allowing replicas to share a node.',
-  },
   // pitrError: `PITR can experience issues resulting from gaps, which may occur due to reasons such as disabling and then enabling PITR or technical issues like data loss.
   //   To ensure proper functioning of PITR, you need to take an additional full backup.
   //   `,

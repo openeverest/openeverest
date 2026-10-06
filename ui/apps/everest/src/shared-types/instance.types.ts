@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { PhaseType } from 'shared-types/api.types';
+import { Instance, PhaseType } from 'shared-types/api.types';
 
 export const DB_INSTANCE_UNKNOWN_PHASE = 'Unknown' as const;
 export type DbInstancePhase =
@@ -42,3 +42,17 @@ export const DbInstancePhaseValues: readonly DbInstancePhase[] = [
   ...Object.values(DbInstancePhaseStatus),
   DB_INSTANCE_UNKNOWN_PHASE,
 ];
+
+export type InstanceCondition = NonNullable<
+  NonNullable<Instance['status']>['conditions']
+>[number];
+
+// Mirrors v1alpha1.ConditionPodsScheduled; condition types aren't in the generated contract.
+export const INSTANCE_CONDITION_PODS_SCHEDULED = 'PodsScheduled';
+
+export const getUnschedulablePodsCondition = (
+  instance?: Instance
+): InstanceCondition | undefined =>
+  instance?.status?.conditions?.find(
+    (c) => c.type === INSTANCE_CONDITION_PODS_SCHEDULED && c.status === 'False'
+  );
