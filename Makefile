@@ -90,6 +90,16 @@ check:                  ## Run checks/linters for the whole project.
 	go tool go-consistent -pedantic ./...
 	LOG_LEVEL=error go tool golangci-lint run
 
+.PHONY: check-pr
+check-pr: ## Run checks/linters for against main branch.
+# We need to ensure that /public/dist/index.html exists before linting because
+# it's embedded into the binary and a missing file breaks typechecking.
+	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
+	go tool go-consistent -pedantic ./... \
+	| { grep -v '/zz_generated\.' || true; } \
+	| go tool reviewdog -efm="%f:%l:%c: %m" -diff="git diff main" -reporter=local -filter-mode=added
+	LOG_LEVEL=error go tool golangci-lint run --new-from-rev=main
+
 .PHONY: copyright-check
 copyright-check: COPYRIGHT_FLAGS=--check
 copyright-check: ## Check changed .go/.ts/.tsx files for missing copyright headers.
