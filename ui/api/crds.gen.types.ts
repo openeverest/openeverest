@@ -1088,8 +1088,6 @@ export interface components {
                          *     based on the Version specified.
                          */
                         image?: string;
-                        /** @description Name of the component. */
-                        name?: string;
                         /**
                          * @description Parameters contains component-specific structured parameters, validated
                          *     against the provider's components[].parametersSchema. Engine
@@ -2512,8 +2510,6 @@ export interface components {
                          *     based on the Version specified.
                          */
                         image?: string;
-                        /** @description Name of the component. */
-                        name?: string;
                         /**
                          * @description Parameters contains component-specific structured parameters, validated
                          *     against the provider's components[].parametersSchema. Engine

@@ -1710,9 +1710,6 @@ components:
                       When unspecified, it is autmatically set from the ComponentVersions
                       based on the Version specified.
                     type: string
-                  name:
-                    description: Name of the component.
-                    type: string
                   parameters:
                     description: |-
                       Parameters contains component-specific structured parameters, validated
@@ -3822,9 +3819,6 @@ components:
                       Image specifies an override for the image to use.
                       When unspecified, it is autmatically set from the ComponentVersions
                       based on the Version specified.
-                    type: string
-                  name:
-                    description: Name of the component.
                     type: string
                   parameters:
                     description: |-

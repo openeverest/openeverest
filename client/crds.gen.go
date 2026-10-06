@@ -1754,9 +1754,6 @@ type Instance struct {
 			// based on the Version specified.
 			Image *string `json:"image,omitempty"`
 
-			// Name Name of the component.
-			Name *string `json:"name,omitempty"`
-
 			// Parameters Parameters contains component-specific structured parameters, validated
 			// against the provider's components[].parametersSchema. Engine
 			// configuration file content is carried here as well, under the
@@ -3046,9 +3043,6 @@ type InstancePreset struct {
 			// When unspecified, it is autmatically set from the ComponentVersions
 			// based on the Version specified.
 			Image *string `json:"image,omitempty"`
-
-			// Name Name of the component.
-			Name *string `json:"name,omitempty"`
 
 			// Parameters Parameters contains component-specific structured parameters, validated
 			// against the provider's components[].parametersSchema. Engine

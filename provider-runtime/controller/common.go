@@ -129,8 +129,8 @@ func (c *Context) Annotations() map[string]string {
 	return c.in.Annotations
 }
 
-// ComponentsOfType returns all components of a given type.
-func (c *Context) ComponentsOfType(componentType string) []v1alpha1.ComponentSpec {
+// ComponentsOfType returns the components of a given type, keyed by name.
+func (c *Context) ComponentsOfType(componentType string) map[string]v1alpha1.ComponentSpec {
 	return c.in.GetComponentsOfType(componentType)
 }
 

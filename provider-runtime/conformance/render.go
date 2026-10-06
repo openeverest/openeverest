@@ -240,7 +240,6 @@ func buildInstance(
 			continue
 		}
 		components[name] = map[string]any{
-			"name": name,
 			"type": spec.Components[name].Type,
 		}
 	}

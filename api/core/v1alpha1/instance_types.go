@@ -382,8 +382,6 @@ type TopologySpec struct {
 }
 
 type ComponentSpec struct {
-	// Name of the component.
-	Name string `json:"name,omitempty"`
 	// Type of the component from the Provider.
 	Type string `json:"type,omitempty"`
 	// Version of the component from ComponentVersions.
@@ -451,12 +449,12 @@ type Storage struct {
 	StorageClass *string           `json:"storageClass,omitempty"`
 }
 
-// GetComponentsOfType returns all components that match the given type.
-func (in *Instance) GetComponentsOfType(t string) []ComponentSpec {
-	var result []ComponentSpec
-	for _, c := range in.Spec.Components {
+// GetComponentsOfType returns the components of the given type, keyed by name.
+func (in *Instance) GetComponentsOfType(t string) map[string]ComponentSpec {
+	result := make(map[string]ComponentSpec)
+	for name, c := range in.Spec.Components {
 		if c.Type == t {
-			result = append(result, c)
+			result[name] = c
 		}
 	}
 	return result

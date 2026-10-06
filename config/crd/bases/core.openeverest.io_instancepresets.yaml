@@ -250,9 +250,6 @@ spec:
                         When unspecified, it is autmatically set from the ComponentVersions
                         based on the Version specified.
                       type: string
-                    name:
-                      description: Name of the component.
-                      type: string
                     parameters:
                       description: |-
                         Parameters contains component-specific structured parameters, validated
