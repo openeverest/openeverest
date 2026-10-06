@@ -110,8 +110,9 @@ describe('DbClusterDetails', () => {
     });
 
     expect(
-      screen.getByText('Some database pods cannot be scheduled')
+      screen.getByText('Some pods cannot be scheduled')
     ).toBeInTheDocument();
+    expect(screen.getByText('Reason:')).toBeInTheDocument();
     expect(screen.getByText(message)).toBeInTheDocument();
   });
 

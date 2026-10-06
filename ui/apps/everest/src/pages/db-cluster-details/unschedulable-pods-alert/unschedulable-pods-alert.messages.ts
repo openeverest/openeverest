@@ -13,6 +13,7 @@
 // limitations under the License.
 
 export const Messages = {
-  title: 'Some database pods cannot be scheduled',
-  hint: 'No node satisfies their scheduling rules. Add nodes or free up resources, or relax the scheduling policy, for example by allowing replicas to share a node.',
+  title: 'Some pods cannot be scheduled',
+  hint: 'No node meets these pods\u2019 requirements. Add nodes, free up CPU or memory, or change the scheduling policy.',
+  reasonLabel: 'Reason:',
 };

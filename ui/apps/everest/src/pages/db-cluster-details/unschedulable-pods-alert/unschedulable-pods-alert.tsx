@@ -30,6 +30,8 @@ export const UnschedulablePodsAlert = ({
   >
     <AlertTitle>{Messages.title}</AlertTitle>
     {Messages.hint}
-    <Box sx={{ mt: 1, wordBreak: 'break-word' }}>{condition.message}</Box>
+    <Box sx={{ mt: 1, wordBreak: 'break-word' }}>
+      <strong>{Messages.reasonLabel}</strong> <span>{condition.message}</span>
+    </Box>
   </Alert>
 );
