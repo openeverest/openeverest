@@ -86,6 +86,131 @@ test.describe('DB Cluster Restore to the new cluster', () => {
   test.afterAll(async ({ request }) => {
     await deleteDbClusterFn(request, dbClusterName);
   });
+  test('TC-01: Create New DB action visibility for eligible backups', async ({
+    page,
+  }) => {
+    await page.route(
+      '/v1/namespaces/**/database-clusters/**/backups',
+      async (route) => {
+        await route.fulfill({
+          json: {
+            items: [
+              {
+                metadata: {
+                  name: 'succeeded-backup',
+                },
+                spec: {
+                  dbClusterName,
+                  backupStorageName: getBucketNamespacesMap()[0][0],
+                },
+                status: {
+                  state: 'Succeeded',
+                  created: '2024-12-20T11:57:41Z',
+                  completed: '2024-12-20T11:58:07Z',
+                },
+              },
+              {
+                metadata: {
+                  name: 'failed-backup',
+                },
+                spec: {
+                  dbClusterName,
+                  backupStorageName: getBucketNamespacesMap()[0][0],
+                },
+                status: {
+                  state: 'Failed',
+                  created: '2024-12-20T12:00:00Z',
+                },
+              },
+            ],
+          },
+        });
+      }
+    );
+
+    await page.goto(`/databases/${namespace}/${dbClusterName}/backups`);
+
+    // Succeeded backup: Create new DB action is visible and enabled
+    const succeededRow = page.locator('tr', { hasText: 'succeeded-backup' });
+    await succeededRow.getByTestId('MoreHorizIcon').click();
+    const createNewDbOption = page.getByRole('menuitem', {
+      name: 'Create new DB',
+    });
+    await expect(createNewDbOption).toBeVisible();
+    await expect(createNewDbOption).not.toHaveAttribute('aria-disabled', 'true');
+
+    // Close menu
+    await page.keyboard.press('Escape');
+
+    // Failed backup: Create new DB action is disabled
+    const failedRow = page.locator('tr', { hasText: 'failed-backup' });
+    await failedRow.getByTestId('MoreHorizIcon').click();
+    const createNewDbDisabledOption = page.getByRole('menuitem', {
+      name: 'Create new DB',
+    });
+    await expect(createNewDbDisabledOption).toBeVisible();
+    await expect(createNewDbDisabledOption).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+  });
+
+  test('TC-02 & TC-03: Open restore-to-new flow from backup row and verify wizard context preservation', async ({
+    page,
+  }) => {
+    await page.route(
+      '/v1/namespaces/**/database-clusters/**/backups',
+      async (route) => {
+        await route.fulfill({
+          json: {
+            items: [
+              {
+                metadata: {
+                  name: 'succeeded-backup-1',
+                },
+                spec: {
+                  dbClusterName,
+                  backupStorageName: getBucketNamespacesMap()[0][0],
+                },
+                status: {
+                  state: 'Succeeded',
+                  created: '2024-12-20T11:57:41Z',
+                  completed: '2024-12-20T11:58:07Z',
+                },
+              },
+            ],
+          },
+        });
+      }
+    );
+
+    await page.goto(`/databases/${namespace}/${dbClusterName}/backups`);
+
+    // TC-02: Open restore-to-new flow from backup row
+    const backupRow = page.locator('tr', { hasText: 'succeeded-backup-1' });
+    await backupRow.getByTestId('MoreHorizIcon').click();
+    await page.getByRole('menuitem', { name: 'Create new DB' }).click();
+
+    // Verify restore modal opens in new-cluster mode
+    await expect(
+      page.getByText('Create database from backup', { exact: true })
+    ).toBeVisible();
+
+    // Verify selected backup context is prefilled
+    await expect(
+      page.getByTestId('select-backup-name-button')
+    ).toContainText('succeeded-backup-1');
+
+    // TC-03: Navigation to new DB wizard preserves restore context
+    await page.getByText('Create', { exact: true }).click();
+    await page.waitForURL('**/databases/new');
+
+    await expect(
+      page.getByText('Basic information', { exact: true })
+    ).toBeVisible();
+    await expect(page.getByTestId('select-input-db-version')).toBeDisabled();
+  });
+
   test('DB cluster list restore action', async ({ page }) => {
     await findDbAndClickActions(page, dbClusterName, 'Create DB from a backup');
 
