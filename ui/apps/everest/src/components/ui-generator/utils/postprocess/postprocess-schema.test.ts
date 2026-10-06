@@ -15,6 +15,7 @@
 import { describe, expect, it } from 'vitest';
 import { postprocessSchemaData } from './postprocess-schema';
 import { FieldType, TopologyUISchemas } from '../../ui-generator.types';
+import { twoTopologySchema } from '../topology-scope/__mocks__/topology-schemas';
 
 describe('postprocessSchemaData', () => {
   it('removes empty values recursively and preserves meaningful falsy values', () => {
@@ -251,6 +252,35 @@ describe('postprocessSchemaData', () => {
       spec: {
         engine: { resources: { memory: '2Gi' } },
         proxy: { resources: { memory: '2Gi' } },
+      },
+    });
+  });
+
+  it('drops values left over from a previously selected topology', () => {
+    const input = {
+      dbName: 'my-db',
+      spec: {
+        components: {
+          standalone: { replicas: 1 },
+          mixCoord: { replicas: 1 },
+          proxy: { replicas: 2 },
+          monitoring: { enabled: true },
+        },
+      },
+    } as Record<string, unknown>;
+
+    const result = postprocessSchemaData(input, {
+      schema: twoTopologySchema,
+      selectedTopology: 'standalone',
+    });
+
+    expect(result).toEqual({
+      dbName: 'my-db',
+      spec: {
+        components: {
+          standalone: { replicas: 1 },
+          monitoring: { enabled: true },
+        },
       },
     });
   });

@@ -19,15 +19,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
+	"slices"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/structured-merge-diff/v6/value"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
@@ -141,27 +149,152 @@ func (c *Context) ProviderSpec() (*v1alpha1.ProviderSpec, error) {
 // RESOURCE OPERATIONS
 // =============================================================================
 
-// Apply creates or updates a resource, setting ownership automatically.
-// This is the primary way to manage resources - just describe what you want.
+// Apply server-side applies obj and sets the owner reference.
+//
+// Rules:
+//   - Build the whole desired object every time. Fields you stop setting are
+//     removed; fields you never set are left to the engine operator.
+//   - Zero scalars (false, 0, "") and non-nil pointers to empty structs
+//     (emptyDir: {}) count as set. Nil fields and empty non-pointer
+//     omitempty structs do not, so CRD defaults nested directly under such
+//     a struct are not applied either.
+//   - Pass a freshly built object, never one from Get.
+//
+// Emptying a pointer struct you previously filled (&EmptyDirVolumeSource{}
+// after one with SizeLimit) still fails: SSA stores it as null, and that {}
+// cannot be told apart from a deliberate one.
+//
+// obj is not updated with the server response; use Get to read it back.
 func (c *Context) Apply(obj client.Object) error {
-	// Set the owner reference automatically
+	// A Get result carries every field the operator wrote; force-applying it
+	// would claim them all and fight the operator on each reconcile.
+	if len(obj.GetManagedFields()) > 0 || obj.GetResourceVersion() != "" {
+		return errors.New("Apply expects a freshly built object; read state with Get, build desired state separately")
+	}
+
 	if err := controllerutil.SetControllerReference(c.in, obj, c.client.Scheme()); err != nil {
 		return fmt.Errorf("failed to set owner: %w", err)
 	}
 
-	// Use create-or-update semantics
-	existing := obj.DeepCopyObject().(client.Object)
-	err := c.client.Get(c.ctx, client.ObjectKeyFromObject(obj), existing)
+	gvk, err := apiutil.GVKForObject(obj, c.client.Scheme())
 	if err != nil {
-		if client.IgnoreNotFound(err) != nil {
-			return err
-		}
-		// Doesn't exist, create it
-		return c.client.Create(c.ctx, obj)
+		return fmt.Errorf("failed to resolve GVK for apply: %w", err)
 	}
-	// Exists, update it
-	obj.SetResourceVersion(existing.GetResourceVersion())
-	return c.client.Update(c.ctx, obj)
+	obj.GetObjectKind().SetGroupVersionKind(gvk)
+
+	// omitempty does not cover untagged fields, so nulls are pruned.
+	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return fmt.Errorf("failed to build apply configuration: %w", err)
+	}
+	delete(raw, "status")
+	pruneNulls(raw)
+	pruneEmptyStructs(reflect.ValueOf(obj), raw)
+	return c.client.Apply(c.ctx,
+		client.ApplyConfigurationFromUnstructured(&unstructured.Unstructured{Object: raw}),
+		client.FieldOwner("provider-"+c.providerName),
+		client.ForceOwnership,
+	)
+}
+
+// pruneNulls drops null values, recursing into objects and lists.
+func pruneNulls(v any) {
+	switch val := v.(type) {
+	case map[string]any:
+		for k, child := range val {
+			if child == nil {
+				delete(val, k)
+				continue
+			}
+			pruneNulls(child)
+		}
+	case []any:
+		for _, child := range val {
+			pruneNulls(child)
+		}
+	}
+}
+
+// pruneEmptyStructs drops the {} ToUnstructured emits for empty non-pointer
+// omitempty structs: Go cannot leave them unset, and once SSA prunes the
+// children they replaced, the API server stores null, which CRDs reject.
+// A non-nil pointer keeps its {} (emptyDir: {} selects a volume type).
+//
+// The null is kubernetes-sigs/structured-merge-diff#305; once a server-side
+// fix ships, this walk becomes redundant and can go.
+func pruneEmptyStructs(v reflect.Value, raw any) {
+	for v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface {
+		if v.IsNil() {
+			return
+		}
+		v = v.Elem()
+	}
+	// Custom marshalers (Quantity, Time, RawExtension) decide their own shape.
+	if !v.IsValid() || value.TypeReflectEntryOf(v.Type()).CanConvertToUnstructured() {
+		return
+	}
+
+	switch r := raw.(type) {
+	case map[string]any:
+		if v.Kind() == reflect.Struct {
+			pruneStructFields(v, r)
+			return
+		}
+		pruneMapValues(v, r)
+	case []any:
+		if (v.Kind() == reflect.Slice || v.Kind() == reflect.Array) && v.Len() == len(r) {
+			for i := range r {
+				pruneEmptyStructs(v.Index(i), r[i])
+			}
+		}
+	}
+}
+
+func pruneStructFields(v reflect.Value, m map[string]any) {
+	for i := range v.NumField() {
+		field := v.Type().Field(i)
+		name, omitempty := jsonField(field)
+		if name == "-" {
+			continue
+		}
+		if name == "" {
+			pruneEmptyStructs(v.Field(i), m)
+			continue
+		}
+		child, ok := m[name]
+		if !ok {
+			continue
+		}
+		pruneEmptyStructs(v.Field(i), child)
+		if childMap, isMap := child.(map[string]any); isMap && len(childMap) == 0 && omitempty && isPlainStruct(field.Type) {
+			delete(m, name)
+		}
+	}
+}
+
+func pruneMapValues(v reflect.Value, m map[string]any) {
+	if v.Kind() != reflect.Map || v.Type().Key().Kind() != reflect.String {
+		return
+	}
+	for it := v.MapRange(); it.Next(); {
+		if child, ok := m[it.Key().String()]; ok {
+			pruneEmptyStructs(it.Value(), child)
+		}
+	}
+}
+
+func isPlainStruct(t reflect.Type) bool {
+	return t.Kind() == reflect.Struct && !value.TypeReflectEntryOf(t).CanConvertToUnstructured()
+}
+
+// jsonField returns a field's key as runtime.DefaultUnstructuredConverter
+// names it ("" when inlined) and whether it is tagged omitempty.
+func jsonField(f reflect.StructField) (string, bool) {
+	name, opts, _ := strings.Cut(f.Tag.Get("json"), ",")
+	if name == "" && !f.Anonymous {
+		name = f.Name
+	}
+	return name, slices.Contains(strings.Split(opts, ","), "omitempty")
 }
 
 // Get retrieves a resource by name (in the instance's namespace).
@@ -786,6 +919,25 @@ func IsNotFound(err error) bool {
 }
 
 // =============================================================================
+// BACKUP IMPORT EXECUTION STATUS
+// =============================================================================
+
+// BackupImportExecutionStatus is returned by BackupImporter.ImportBackups. The
+// runtime creates the discovered Backups and reflects State/Message onto the
+// BackupImport CR.
+type BackupImportExecutionStatus struct {
+	// Backups are the discovered restorable backups the runtime should create
+	// as Backup CRs.
+	Backups []*backupv1alpha1.Backup
+	// State is the current state of the import. The state must be set;
+	// an empty state is retried as an error. Failed and Succeeded are
+	// terminal states; the runtime will not re-attempt the import.
+	State backupv1alpha1.BackupImportState
+	// Message is a human-readable description of the current state.
+	Message string
+}
+
+// =============================================================================
 // DATASOURCE HELPER — initial seeding from .spec.dataSource
 // =============================================================================
 
@@ -844,7 +996,14 @@ type DataSourceStatus struct {
 // reconciler reads it after Sync completes and reflects the result onto the
 // ConditionDataSourceReady condition. Providers do not normally call this
 // directly — ReconcileDataSource does it for them.
+//
+// Seeding is one-shot (.spec.dataSource is immutable), so once the Instance
+// records a successful seeding the staged status stays Succeeded whatever the
+// provider reports: an engine that later leaves Ready is not being seeded.
 func (c *Context) SetDataSourceStatus(s DataSourceStatus) {
+	if seeded := c.seededDataSourceStatus(); seeded != nil {
+		s = *seeded
+	}
 	c.dataSourceStatus = &s
 }
 
@@ -875,12 +1034,22 @@ func (c *Context) GetDataSourceStatus() *DataSourceStatus {
 // phase — either no DataSource is configured, or the restore reached a
 // terminal state (Succeeded or Failed). Providers should report
 // InstancePhaseRestoring while Done is false.
+//
+// Once seeding has Succeeded the helper returns that result without touching
+// the source or the Restore: the source Backup may since have been deleted
+// (e.g. cascaded with its Instance) and the seeding Restore pruned, and neither
+// un-seeds the Instance or warrants restoring it again.
 func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 	ds := c.in.Spec.DataSource
 	if ds == nil {
 		s := DataSourceStatus{Done: true, State: DataSourceStateNone}
 		c.SetDataSourceStatus(s)
 		return s, nil
+	}
+
+	if seeded := c.seededDataSourceStatus(); seeded != nil {
+		c.SetDataSourceStatus(*seeded)
+		return *seeded, nil
 	}
 
 	// 1. Resolve the source and the read BackupClass that describes it.
@@ -1003,6 +1172,21 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 	}
 	c.SetDataSourceStatus(s)
 	return s, nil
+}
+
+// seededDataSourceStatus returns the Succeeded status recorded on the Instance
+// by an earlier reconcile, or nil when seeding has not succeeded yet.
+func (c *Context) seededDataSourceStatus() *DataSourceStatus {
+	cond := meta.FindStatusCondition(c.in.Status.Conditions, v1alpha1.ConditionDataSourceReady)
+	if cond == nil || cond.Status != metav1.ConditionTrue {
+		return nil
+	}
+	return &DataSourceStatus{
+		Done:    true,
+		State:   DataSourceStateSucceeded,
+		Reason:  cond.Reason,
+		Message: cond.Message,
+	}
 }
 
 // dataSourceOrigin describes where a DataSource reads from: the BackupClass

@@ -11,6 +11,8 @@ permissions:
 
 jobs:
   dispatch:
+    # Release-triggered: stays on GitHub-hosted runners so a CNCF pool outage
+    # can never block the release pipeline.
     runs-on: ubuntu-latest
     if: >
       github.event.release.prerelease == false &&

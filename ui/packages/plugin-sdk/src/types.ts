@@ -238,8 +238,9 @@ export interface InstanceEditFormSectionProps {
 /** The API object provided to a plugin's register() function by the host. */
 export interface PluginApi {
   /**
-   * The host's React instance. Plugins MUST use this instead of importing
-   * their own React to avoid duplicate-React issues with hooks.
+   * The host's React instance, the same one the host import map serves for
+   * `import 'react'`. Useful for plugins built without a bundler; never bundle
+   * your own React copy.
    */
   React: typeof import("react");
 
@@ -247,11 +248,39 @@ export interface PluginApi {
   registerExtension(extension: Extension): void;
 
   /**
-   * Make an authenticated API call through the host's proxy.
-   * Equivalent to fetch(`/v1/plugins/${pluginName}${path}`, init).
-   * The host automatically attaches the auth token.
+   * Make an authenticated API call through the host's proxy to the plugin's
+   * own backend. `path` is relative to the plugin; the host prefixes the
+   * current cluster and plugin (`/v1/clusters/{cluster}/plugins/{pluginName}`)
+   * and attaches the auth token, so plugins stay cluster-agnostic.
    */
   fetch(path: string, init?: RequestInit): Promise<Response>;
+
+  /**
+   * The proxy base the plugin is served under
+   * (`/v1/clusters/{cluster}/plugins/{pluginName}`). Use it to build asset
+   * URLs for `<img>`/`<link>` that must be plain strings and so can't go
+   * through `fetch`. Plugins should never reconstruct this path themselves.
+   */
+  basePath: string;
+
+  /**
+   * CSP nonce for <style> tags the plugin injects (e.g. its Emotion cache).
+   * Pass this to PluginThemeProvider from @openeverest/plugin-theme.
+   */
+  cssNonce: string;
+
+  /**
+   * Host application version (semver), or "dev" when unknown. This is the
+   * API-compatibility axis, gated by `spec.compatibleHostVersions`.
+   */
+  hostVersion: string;
+
+  /**
+   * The host's shared React major — the UI contract a bundled-MUI plugin builds
+   * against. The host enforces `spec.compatibleUiContractVersions` against this
+   * at load time and rejects a plugin that declares an incompatible range.
+   */
+  uiContractVersion: string;
 }
 
 // ---------------------------------------------------------------------------

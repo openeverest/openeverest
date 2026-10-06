@@ -17,33 +17,63 @@ package rbac
 
 import (
 	"context"
+	"fmt"
+
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
-// GetBackup returns a backup, gated by RBAC.
+// backupInstanceName returns the name of the Instance a Backup belongs to, or
+// "" if it doesn't reference one. Backups are keyed by this rather than their
+// own (usually generateName-produced) name, which nobody can write a grant for.
+func backupInstanceName(backup *backupv1alpha1.Backup) string {
+	if backup.Spec.Origin.InstanceRef == nil {
+		return ""
+	}
+	return backup.Spec.Origin.InstanceRef.Name
+}
+
+// GetBackup returns a backup, gated by RBAC on the instance it belongs to. A
+// backup not found and one the caller isn't authorized for both come back as
+// ErrInsufficientPermissions, so a name cannot be probed for existence.
 func (h *rbacHandler) GetBackup(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Backup, error) {
-	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
+	backup, err := h.next.GetBackup(ctx, cluster, namespace, name)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil, ErrInsufficientPermissions
+		}
+		return nil, fmt.Errorf("GetBackup failed: %w", err)
+	}
+	object := rbac.ClusterNamespacedObjectName(cluster, namespace, backupInstanceName(backup))
 	if err := h.enforce(ctx, rbac.ResourceBackups, rbac.ActionRead, object); err != nil {
 		return nil, err
 	}
-	return h.next.GetBackup(ctx, cluster, namespace, name)
+	return backup, nil
 }
 
-// CreateBackup creates a backup, gated by RBAC.
+// CreateBackup creates a backup, gated by RBAC on the instance it belongs to.
 func (h *rbacHandler) CreateBackup(ctx context.Context, cluster string, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error) {
-	object := rbac.ClusterNamespacedObjectName(cluster, backup.GetNamespace(), backup.GetName())
+	object := rbac.ClusterNamespacedObjectName(cluster, backup.GetNamespace(), backupInstanceName(backup))
 	if err := h.enforce(ctx, rbac.ResourceBackups, rbac.ActionCreate, object); err != nil {
 		return nil, err
 	}
 	return h.next.CreateBackup(ctx, cluster, backup)
 }
 
-// DeleteBackup deletes a backup, gated by RBAC.
+// DeleteBackup deletes a backup, gated by RBAC on the instance it belongs to.
+// Same not-found/denied collapsing as GetBackup.
 func (h *rbacHandler) DeleteBackup(ctx context.Context, cluster, namespace, name string, params *api.DeleteBackupParams) error {
-	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
+	backup, err := h.next.GetBackup(ctx, cluster, namespace, name)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return ErrInsufficientPermissions
+		}
+		return fmt.Errorf("GetBackup failed: %w", err)
+	}
+	object := rbac.ClusterNamespacedObjectName(cluster, namespace, backupInstanceName(backup))
 	if err := h.enforce(ctx, rbac.ResourceBackups, rbac.ActionDelete, object); err != nil {
 		return err
 	}

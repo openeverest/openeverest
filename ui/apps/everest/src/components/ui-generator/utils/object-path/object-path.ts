@@ -22,6 +22,15 @@ export const isPlainObject = (
 ): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+// Empty value contract (applies to all field types by default):
+// - Removed: undefined, null, ''
+// - Preserved: false, 0, [], non-empty objects
+export const isEmptyFieldValue = (value: unknown): boolean =>
+  value === undefined || value === null || value === '';
+
+export const isSameOrNestedPath = (a: string, b: string): boolean =>
+  a === b || a.startsWith(`${b}.`) || b.startsWith(`${a}.`);
+
 export const deepClone = <T>(value: T): T => {
   if (typeof structuredClone === 'function') {
     return structuredClone(value);
@@ -107,6 +116,21 @@ export const deleteByPath = (
 };
 
 export type FlatEntry = { key: string; value: unknown };
+
+// Also removes ancestors left empty, so a cleared section doesn't linger as `{}`.
+export const deleteByPathAndEmptyParents = (
+  obj: Record<string, unknown>,
+  path: string
+): void => {
+  deleteByPath(obj, path);
+  const parts = path.split('.');
+  for (let depth = parts.length - 1; depth > 0; depth--) {
+    const parentPath = parts.slice(0, depth).join('.');
+    const parent = getByPath(obj, parentPath);
+    if (!isPlainObject(parent) || Object.keys(parent).length > 0) return;
+    deleteByPath(obj, parentPath);
+  }
+};
 
 export const flattenObject = (obj: unknown, prefix = ''): FlatEntry[] => {
   const result: FlatEntry[] = [];

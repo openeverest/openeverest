@@ -29,7 +29,7 @@ const makeSchedule = (
   enabled: true,
   cron: '0 0 * * *',
   storageName: 'storage-a',
-  retentionCopies: 3,
+  retention: { type: 'count', count: 3 },
   ...overrides,
 });
 

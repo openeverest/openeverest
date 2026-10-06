@@ -33,6 +33,12 @@ Read the whole file; apply Frontend rules only when touching files under `ui/`.
 - Per-concern files: `.types.ts`, `.constants.ts`, `.messages.ts`, `.utils.ts`, `-schema.ts`, `.context.ts`, `.test.tsx`.
 - `index.ts` = barrel for the folder's own public API only.
 
+### Reuse & design system
+
+- **Look before you build.** Before writing any UI, search `packages/ui-lib` and `apps/everest/src/components` for something to reuse, adapt or extend. Building new is the last resort — the moment you feel you're re-creating an existing card/button/surface, stop and reuse it.
+- **Promote generic primitives to `ui-lib` immediately.** Reusable, domain-free UI (buttons, cards, surfaces, pickers) belongs in `@percona/ui-lib` from the start — don't park it in `apps/everest` with a "we'll extract it later" note (that's how the app becomes a dump). Extract only when the API is generic and no domain type leaks; keep domain-specific wrappers in the app.
+- **New shared component ⇒ add a Storybook story** next to it and a test covering real behavior.
+
 ### Components
 
 - **One component per file** Extract sub-components into their own `sub-component/` folder.
@@ -49,7 +55,8 @@ Read the whole file; apply Frontend rules only when touching files under `ui/`.
 ### UI conventions
 
 - User-facing strings live in `.messages.ts` (a `Messages` object) — never hardcoded in JSX.
-- Styling via MUI `sx` + theme values (`theme.spacing`, `theme.palette`); breakpoints via `useActiveBreakpoint()`.
+- **Theme-first styling.** Design tokens and any recurring look (card/heading/surface border, background, radius, selection ring) live in the MUI theme as component `variants` (see `MuiCard` `grey`/`selectable`), inherited everywhere — not re-written inline per call site. `sx` is only for one-off layout/composition (`display`, `gap`, padding, grid), and reads theme values (`theme.spacing`, `theme.palette`). Breakpoints via `useActiveBreakpoint()`.
+- **Don't duplicate styles, don't re-declare defaults.** If the same style block appears in more than one component, hoist it (theme variant, ui-lib primitive, or a shared `.constants.ts`) — no copy-paste. Never re-state a value the theme already provides (e.g. `borderRadius: theme.shape.borderRadius` — `Card`/`Paper` already apply it).
 - Forms: `react-hook-form` + `useFormContext()` + zod `-schema.ts`; inputs from `@percona/ui-lib`.
 - Local constants → `.constants.ts`; app-wide → `consts.ts` (`UPPER_SNAKE_CASE`, `PascalCase` enums).
 

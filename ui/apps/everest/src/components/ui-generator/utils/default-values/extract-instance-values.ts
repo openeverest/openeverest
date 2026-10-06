@@ -24,6 +24,10 @@ import { generateFieldId } from '../component-renderer/generate-field-id';
 import { getComponentSourcePath } from '../preprocess/normalized-component';
 import { getByPath } from '../object-path/object-path';
 import { convertToNestedObject } from './convert-to-nested-object';
+import {
+  getToggleableMeta,
+  isToggleableOnInInstance,
+} from '../toggleable/toggleable';
 
 /*
  Walks schema components across all sections and extracts current values
@@ -47,6 +51,13 @@ const extractFlat = (
       (item.uiType === 'group' || item.uiType === 'hidden') &&
       'components' in item
     ) {
+      const toggleable = getToggleableMeta(item);
+      if (toggleable) {
+        result[toggleable.switchName] = isToggleableOnInInstance(
+          toggleable,
+          instance
+        );
+      }
       Object.assign(
         result,
         extractFlat(

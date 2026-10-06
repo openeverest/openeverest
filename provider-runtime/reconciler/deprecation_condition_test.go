@@ -34,13 +34,14 @@ func deprecationTestProvider() *corev1alpha1.Provider {
 				"engine": {Type: "mongod"},
 			},
 			ComponentTypes: map[string]corev1alpha1.ComponentType{
-				"mongod": {Versions: []corev1alpha1.ComponentVersion{
+				"mongod": {DefaultVersion: "8.0.12-4", Versions: []corev1alpha1.ComponentVersion{
 					{Version: "6.0.19-16", Deprecated: true, RemovedInVersion: "0.3"},
-					{Version: "8.0.12-4", Default: true},
+					{Version: "8.0.12-4"},
 				}},
 			},
+			DefaultVersion: "8.0.12",
 			Versions: []corev1alpha1.VersionBundle{
-				{Name: "8.0.12", Default: true, Components: map[string]string{"engine": "8.0.12-4"}},
+				{Name: "8.0.12", Components: map[string]string{"engine": "8.0.12-4"}},
 			},
 		},
 	}
@@ -140,6 +141,7 @@ func TestSetDeprecationCondition(t *testing.T) {
 		// supported" — it is strictly worse than a deprecation.
 		provider := deprecationTestProvider()
 		provider.Spec.ComponentTypes["mongod"] = corev1alpha1.ComponentType{
+			DefaultVersion: provider.Spec.ComponentTypes["mongod"].DefaultVersion,
 			Versions: append(provider.Spec.ComponentTypes["mongod"].Versions,
 				corev1alpha1.ComponentVersion{Version: "5.0.0-1", Deprecated: true, RemovedInVersion: "0.2"}),
 		}

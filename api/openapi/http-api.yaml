@@ -18,12 +18,16 @@ tags:
     description: Everything related to authentication and authorization
   - name: Provider
     description: Everything related to providers
+  - name: Plugin
+    description: Everything related to generic plugins
   - name: Instance
     description: Everything related to instances
   - name: Preset
     description: Everything related to presets
   - name: Backup
     description: Everything related to backups
+  - name: Backup Import
+    description: Everything related to backup imports
   - name: Restore
     description: Everything related to restores
   - name: Backup Storage
@@ -133,74 +137,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/AuthRevokeRequest'
-
-  '/session':
-    post:
-      tags:
-        - Authentication & Authorization
-      security: []
-      summary: Everest API Login
-      description: |
-        This API issues a new JWT token for logging in from the Everest API.
-        The provided user must have the `login` capability.
-      operationId: createSession
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  token:
-                    type: string
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '429':
-          description: Too many attempts
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-      requestBody:
-        description: The user credentials
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UserCredentials'
-    delete:
-      tags:
-        - Authentication & Authorization
-      summary: Everest API Logout
-      description: |
-        This API invalidates Everest API JWT token.
-      operationId: deleteSession
-      responses:
-        '204':
-          description: Successful operation
-        '429':
-          description: Too many attempts
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
 
   '/permissions':
     get:
@@ -737,6 +673,68 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/plugins':
+    x-everest-resource-name: plugins
+    get:
+      tags:
+        - Plugin
+      summary: List plugins
+      description: |
+        This API lists the enabled generic plugins available in the specified cluster
+        that the caller is permitted to see. The response drives the frontend plugin
+        loader and the CLI plugin discovery.
+      operationId: listPlugins
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of plugins
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginDescriptorList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/plugin-context':
+    x-everest-resource-name: plugins
+    get:
+      tags:
+        - Plugin
+      summary: Get plugin context
+      description: |
+        This API returns the calling user's identity and the namespaces they can
+        access in the specified cluster. Plugins use it to scope their queries per
+        tenant.
+      operationId: getPluginContext
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Plugin context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginContext'
         default:
           description: Error
           content:
@@ -1456,6 +1454,171 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/backup-imports':
+    x-everest-resource-name: backup-imports
+    get:
+      tags:
+        - Backup Import
+      summary: List backup imports
+      description: |
+        This API lists all backup imports in the specified namespace and cluster.
+      operationId: listBackupImports
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the backup imports are located
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of backup imports
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupImportList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Backup Import
+      summary: Create backup import
+      description: |
+        This API creates a new backup import in the specified namespace and cluster.
+        A backup import discovers restorable backups in the referenced backup storage
+        and materializes them as Backup CRs.
+      operationId: createBackupImport
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the backup import will be created
+          schema:
+            type: string
+      requestBody:
+        description: The backup import object to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.gen.yaml#/components/schemas/BackupImport'
+      responses:
+        '201':
+          description: Backup import created successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupImport'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/backup-imports/{name}':
+    x-everest-resource-name: backup-imports
+    get:
+      tags:
+        - Backup Import
+      summary: Get backup import
+      description: |
+        This API gets the backup import specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: getBackupImport
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the backup import is located
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the backup import
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Backup import details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupImport'
+        '404':
+          description: Backup import not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Backup Import
+      summary: Delete backup import
+      description: |
+        This API deletes the backup import specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: deleteBackupImport
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the backup import is located
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the backup import
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Backup import deleted successfully
         default:
           description: Error
           content:
@@ -2646,13 +2809,6 @@ components:
             The refresh token to revoke. May be omitted when the refresh token is
             carried by the refresh token cookie.
           type: string
-    UserCredentials:
-      type: object
-      properties:
-        username:
-          type: string
-        password:
-          type: string
     CreateBackupStorageParams:
       type: object
       description: Backup storage parameters
@@ -3477,4 +3633,93 @@ components:
             $ref: '#/components/schemas/Cluster'
       required:
         - items
+    PluginExtensionPoint:
+      type: object
+      description: A single UI/CLI extension point contributed by a plugin.
+      properties:
+        type:
+          type: string
+        label:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        path:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        icon:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        providers:
+          type: array
+          items:
+            type: string
+          x-go-type-skip-optional-pointer: true
+      required:
+        - type
+    PluginDescriptor:
+      type: object
+      description: A single enabled plugin as advertised to the frontend loader.
+      properties:
+        name:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        version:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        vendor:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        icon:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        compatibleHostVersions:
+          type: string
+          description: |
+            API-compatibility gate: the host application semver range this
+            plugin supports. Enforced against the host version at load time.
+          x-go-type-skip-optional-pointer: true
+        compatibleUiContractVersions:
+          type: string
+          description: |
+            UI-contract gate: the React-major semver range this plugin's
+            frontend supports. Enforced against the host React major at load
+            time (the only runtime a bundled-MUI plugin shares with the host).
+          x-go-type-skip-optional-pointer: true
+        bundleUrl:
+          type: string
+        extensionPoints:
+          type: array
+          items:
+            $ref: '#/components/schemas/PluginExtensionPoint'
+          x-go-type-skip-optional-pointer: true
+      required:
+        - name
+        - displayName
+        - bundleUrl
+    PluginDescriptorList:
+      type: array
+      description: A list of enabled plugins the caller is permitted to see.
+      items:
+        $ref: '#/components/schemas/PluginDescriptor'
+    PluginContext:
+      type: object
+      description: The calling user's identity and accessible namespaces in a cluster.
+      properties:
+        user:
+          type: string
+        groups:
+          type: array
+          items:
+            type: string
+          x-go-type-skip-optional-pointer: true
+        namespaces:
+          type: array
+          items:
+            type: string
+      required:
+        - user
+        - namespaces
 

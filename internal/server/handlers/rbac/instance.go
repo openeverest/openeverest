@@ -140,10 +140,10 @@ func (h *rbacHandler) DeleteInstance(ctx context.Context, cluster, namespace, na
 	return h.next.DeleteInstance(ctx, cluster, namespace, name, params)
 }
 
-// GetInstanceConnection returns connection details, gated by RBAC.
+// GetInstanceConnection returns connection details, gated by the read-connection action.
 func (h *rbacHandler) GetInstanceConnection(ctx context.Context, cluster, namespace, name string) (*api.InstanceConnectionDetails, error) {
 	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
-	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionRead, object); err != nil {
+	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionReadConnection, object); err != nil {
 		return nil, err
 	}
 	return h.next.GetInstanceConnection(ctx, cluster, namespace, name)

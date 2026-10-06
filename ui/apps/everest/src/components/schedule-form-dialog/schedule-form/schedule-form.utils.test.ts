@@ -32,7 +32,7 @@ const makeSchedule = (
   name: 'schedule-1',
   cron: '0 0 * * *',
   storageName: 'storage-a',
-  retentionCopies: 3,
+  retention: { type: 'count', count: 3 },
   ...overrides,
 });
 
@@ -75,7 +75,7 @@ describe('getSchedulesPayload', () => {
       expect(result).toHaveLength(1);
       expect(result[0].name).toBe('new-schedule');
       expect(result[0].storageName).toBe('storage-b');
-      expect(result[0].retentionCopies).toBe(5);
+      expect(result[0].retention).toEqual({ type: 'count', count: 5 });
       expect(result[0].enabled).toBe(true);
     });
 
@@ -140,6 +140,15 @@ describe('getSchedulesPayload', () => {
       });
       expect(result[0]).not.toHaveProperty('parameters');
     });
+
+    it('omits retention for keep-all (0 copies)', () => {
+      const result = getSchedulesPayload({
+        formData: makeFormData({ retentionCopies: '0' }),
+        mode: WizardMode.New,
+        schedules: [],
+      });
+      expect(result[0].retention).toBeUndefined();
+    });
   });
 
   describe('Edit mode', () => {
@@ -179,6 +188,24 @@ describe('getSchedulesPayload', () => {
         schedules: existing,
       });
       expect(result).toHaveLength(1);
+    });
+
+    it('preserves existing time retention when form copies is 0', () => {
+      const existing = [
+        makeSchedule({
+          name: 'target',
+          retention: { type: 'time', duration: '30d' },
+        }),
+      ];
+      const result = getSchedulesPayload({
+        formData: makeFormData({
+          scheduleName: 'target',
+          retentionCopies: '0',
+        }),
+        mode: WizardMode.Edit,
+        schedules: existing,
+      });
+      expect(result[0].retention).toEqual({ type: 'time', duration: '30d' });
     });
   });
 

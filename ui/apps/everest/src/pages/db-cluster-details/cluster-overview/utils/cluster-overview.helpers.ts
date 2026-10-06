@@ -21,11 +21,31 @@ import {
   formatDisplayValue,
 } from 'components/ui-generator/utils/object-path';
 import { getComponentTargetPaths } from 'components/ui-generator/utils/preprocess/normalized-component';
+import { stripBadgeFromValue } from 'components/ui-generator/utils/badge-to-api/badge-to-api';
+import {
+  getToggleableMeta,
+  isToggleableOnInInstance,
+} from 'components/ui-generator/utils/toggleable/toggleable';
+import { Messages } from '../cluster-overview.messages';
 
 export type SectionField = {
   label: string;
   path: string;
   value: string;
+};
+
+// Kubernetes may store a quantity in a different unit than the field's badge —
+// e.g. it normalises "0.6Gi" to the milli-byte value "644245094400m" (#2423).
+// Render badged fields in their badge unit (0.6Gi, 25Gi) instead of the raw
+// stored quantity; leave unconvertible/non-standard values as-is.
+const formatBadgedValue = (rawValue: unknown, badge?: string): string => {
+  if (badge && typeof rawValue === 'string' && rawValue.trim() !== '') {
+    const stripped = stripBadgeFromValue(rawValue, badge);
+    if (typeof stripped === 'string' && Number.isFinite(Number(stripped))) {
+      return `${stripped}${badge}`;
+    }
+  }
+  return formatDisplayValue(rawValue);
 };
 
 export const collectSectionFields = (
@@ -42,6 +62,15 @@ export const collectSectionFields = (
 
     if (comp.uiType === 'group' || comp.uiType === 'hidden') {
       const group = comp as ComponentGroup;
+      const toggleable = getToggleableMeta(group);
+      if (toggleable && !isToggleableOnInInstance(toggleable, instance)) {
+        fields.push({
+          label: group.label || key,
+          path: toggleable.switchName,
+          value: Messages.fields.disabled,
+        });
+        continue;
+      }
       if (group.components) {
         fields.push(
           ...collectSectionFields(
@@ -62,7 +91,10 @@ export const collectSectionFields = (
     fields.push({
       label: component.fieldParams?.label ?? key,
       path,
-      value: formatDisplayValue(getByPath(instance, path)),
+      value: formatBadgedValue(
+        getByPath(instance, path),
+        component.fieldParams?.badge
+      ),
     });
   }
 

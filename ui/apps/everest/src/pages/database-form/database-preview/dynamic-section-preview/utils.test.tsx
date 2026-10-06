@@ -16,8 +16,12 @@ import { render, screen } from '@testing-library/react';
 import { renderComponent } from './utils';
 import {
   Component,
+  ComponentGroup,
   FieldType,
+  GroupType,
 } from 'components/ui-generator/ui-generator.types';
+import { TOGGLEABLE_SWITCHES_KEY } from 'components/ui-generator/utils/toggleable/toggleable';
+import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 import { TestWrapper } from 'utils/test';
 
 const makeSelectComponent = (path: string, label: string): Component => ({
@@ -158,5 +162,49 @@ describe('renderComponent - string values are shown correctly in preview', () =>
     );
 
     expect(screen.getByText('Version: 8.0.41')).toBeInTheDocument();
+  });
+});
+
+describe('renderComponent - toggleable group', () => {
+  const rawMonitoring: ComponentGroup = {
+    uiType: 'group',
+    groupType: GroupType.Toggleable,
+    label: 'Monitoring',
+    components: {
+      endpoint: makeTextComponent('spec.monitoring.endpoint', 'Endpoint'),
+    },
+  };
+  const monitoring = preprocessSchema({
+    replicaSet: {
+      sections: { advanced: { components: { monitoring: rawMonitoring } } },
+    },
+  }).replicaSet.sections.advanced.components.monitoring;
+
+  const renderWithSwitch = (switchOn: boolean) =>
+    render(
+      <TestWrapper>
+        <>
+          {renderComponent('monitoring', monitoring, {
+            [TOGGLEABLE_SWITCHES_KEY]: {
+              'advanced~monitoring': switchOn,
+            },
+            spec: { monitoring: { endpoint: 'pmm:443' } },
+          })}
+        </>
+      </TestWrapper>
+    );
+
+  it('summarises a switched-off section as disabled, without its fields', () => {
+    renderWithSwitch(false);
+
+    expect(screen.getByText('Monitoring: Disabled')).toBeInTheDocument();
+    expect(screen.queryByText(/Endpoint/)).not.toBeInTheDocument();
+  });
+
+  it('lists the fields of a switched-on section', () => {
+    renderWithSwitch(true);
+
+    expect(screen.getByText('Endpoint: pmm:443')).toBeInTheDocument();
+    expect(screen.queryByText('Monitoring: Disabled')).not.toBeInTheDocument();
   });
 });

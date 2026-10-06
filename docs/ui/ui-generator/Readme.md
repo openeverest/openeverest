@@ -23,6 +23,8 @@
 - [Groups](groups.md)
   - [Line Group](groups.md#line-group)
   - [Accordion Group](groups.md#accordion-group)
+  - [Bordered Group](groups.md#bordered-group)
+  - [Toggleable Group](groups.md#toggleable-group)
 - [Validation](validation.md)
   - [Default Validation](validation.md#default-validation)
   - [Schema Custom Validation](validation.md#schema-custom-validation)
@@ -74,6 +76,11 @@ A **topology** is a top-level key representing a specific form configuration. Ea
 
 - **`sections`**: An object where each key is a section containing form components
 - **`sectionsOrder`** (optional): An array defining the order in which sections should be displayed
+
+Only the selected topology's fields are submitted. When the user switches topology, values bound only
+by the previous topology's paths (for example `spec.components.configServer` after switching from
+`sharded` to `replica`) are dropped, so each topology must declare every path it needs — including
+ones it shares with another topology.
 
 example for psmdb operator:
 
@@ -154,15 +161,15 @@ A **ComponentGroup** allows you to group multiple components together with custo
 
 //TODO If the uiType is hidden, the component will not be displayed on the UI and, as a result, will not participate in generating data for the api.
 
-- **`groupType`** (optional). For a detailed description of the type of groups and their use, see the [Groups](#groups) section.
+- **`groupType`** (optional). For a detailed description of the type of groups and their use, see [Groups](groups.md).
 - **`label`** (optional): Display label for the group.
 - **`description`** (optional): Description text for the group
 
-The label and description display format may look different for different groups. A detailed description can be found in the [Groups](#groups) section.
+The label and description display format may look different for different groups. A detailed description can be found in [Groups](groups.md).
 
 - **`components`**: Nested components (can include other groups)
 - **`componentsOrder`** (optional): Order of nested components
-- **`groupParams`** (optional): Additional configuration for the group
+- **`groupParams`** (optional): Reserved for group-specific settings; no group type reads it yet, so it currently has no effect.
 
 Example:
 

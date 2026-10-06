@@ -24,14 +24,14 @@ spec:
               spec:
                 componentTypes:
                   engine:
+                    defaultVersion: 1.0.0
                     versions:
-                      - default: true
-                        image: fake/fake:1.0.0
+                      - image: fake/fake:1.0.0
                         version: 1.0.0
                   backupAgent:
+                    defaultVersion: 1.0.0
                     versions:
-                      - default: true
-                        image: fake/fake:1.0.0
+                      - image: fake/fake:1.0.0
                         version: 1.0.0
                 components:
                   engine:
