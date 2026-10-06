@@ -1,0 +1,10 @@
+apiVersion: core.openeverest.io/v1alpha1
+kind: NamespaceDefaults
+metadata:
+  name: defaults
+  namespace: everest
+spec:
+  defaults:
+    - path: components.engine.parameters.secretRef.name
+      defaultRef:
+        name: test-secret
