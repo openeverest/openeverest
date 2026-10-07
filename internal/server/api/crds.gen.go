@@ -606,6 +606,27 @@ func (e MonitoringConfigSpecType) Valid() bool {
 	}
 }
 
+// Defines values for NamespaceDefaultsStatusConditionsStatus.
+const (
+	NamespaceDefaultsStatusConditionsStatusFalse   NamespaceDefaultsStatusConditionsStatus = "False"
+	NamespaceDefaultsStatusConditionsStatusTrue    NamespaceDefaultsStatusConditionsStatus = "True"
+	NamespaceDefaultsStatusConditionsStatusUnknown NamespaceDefaultsStatusConditionsStatus = "Unknown"
+)
+
+// Valid indicates whether the value is a known member of the NamespaceDefaultsStatusConditionsStatus enum.
+func (e NamespaceDefaultsStatusConditionsStatus) Valid() bool {
+	switch e {
+	case NamespaceDefaultsStatusConditionsStatusFalse:
+		return true
+	case NamespaceDefaultsStatusConditionsStatusTrue:
+		return true
+	case NamespaceDefaultsStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PluginStatusConditionsStatus.
 const (
 	PluginStatusConditionsStatusFalse   PluginStatusConditionsStatus = "False"
@@ -4138,6 +4159,103 @@ type MonitoringConfigList struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
 	ApiVersion *string             `json:"apiVersion,omitempty"`
 	Items      *[]MonitoringConfig `json:"items,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string `json:"kind,omitempty"`
+	Metadata *struct {
+		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
+		Name *string `json:"name,omitempty"`
+
+		// Namespace Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
+		Namespace *string `json:"namespace,omitempty"`
+	} `json:"metadata,omitempty"`
+}
+
+// NamespaceDefaults NamespaceDefaults is the Schema for the namespacedefaults API.
+type NamespaceDefaults struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
+
+	// Spec spec defines the desired state of NamespaceDefaults
+	Spec struct {
+		// Defaults Defaults lists the default resource for each referenced path, optionally
+		// scoped to a provider.
+		Defaults *[]struct {
+			// DefaultRef Name of the default resource in this namespace.
+			DefaultRef struct {
+				// Name Name of the referenced object.
+				Name string `json:"name"`
+			} `json:"defaultRef"`
+
+			// Path Path is the reference field's dot-separated location under Instance.spec.
+			// The component references are "components.<name>.<field>" (e.g.
+			// "components.monitoring.monitoringConfigRef.name"), and top-level references
+			// are the bare field name (e.g. "userSecretRef").
+			Path string `json:"path"`
+
+			// ProviderRef ProviderRef scopes this entry to one provider. Omit for any provider;
+			// a provider-scoped entry takes precedence over an agnostic one for the
+			// same path.
+			ProviderRef *struct {
+				// Name Name of the referenced object.
+				Name string `json:"name"`
+			} `json:"providerRef,omitempty"`
+		} `json:"defaults,omitempty"`
+	} `json:"spec"`
+
+	// Status status defines the observed state of NamespaceDefaults
+	Status *struct {
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status NamespaceDefaultsStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+	} `json:"status,omitempty"`
+}
+
+// NamespaceDefaultsStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type NamespaceDefaultsStatusConditionsStatus string
+
+// NamespaceDefaultsList NamespaceDefaultsList is an object that contains the list of the existing namespacedefaultss.
+type NamespaceDefaultsList struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string              `json:"apiVersion,omitempty"`
+	Items      *[]NamespaceDefaults `json:"items,omitempty"`
 
 	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
 	Kind     *string `json:"kind,omitempty"`

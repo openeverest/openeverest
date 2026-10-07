@@ -3720,6 +3720,107 @@ export interface components {
                 namespace?: string;
             };
         };
+        /** @description NamespaceDefaults is the Schema for the namespacedefaults API. */
+        NamespaceDefaults: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: components["schemas"]["ObjectMeta"];
+            /** @description spec defines the desired state of NamespaceDefaults */
+            spec: {
+                /**
+                 * @description Defaults lists the default resource for each referenced path, optionally
+                 *     scoped to a provider.
+                 */
+                defaults?: {
+                    /** @description Name of the default resource in this namespace. */
+                    defaultRef: {
+                        /** @description Name of the referenced object. */
+                        name: string;
+                    };
+                    /**
+                     * @description Path is the reference field's dot-separated location under Instance.spec.
+                     *     The component references are "components.<name>.<field>" (e.g.
+                     *     "components.monitoring.monitoringConfigRef.name"), and top-level references
+                     *     are the bare field name (e.g. "userSecretRef").
+                     */
+                    path: string;
+                    /**
+                     * @description ProviderRef scopes this entry to one provider. Omit for any provider;
+                     *     a provider-scoped entry takes precedence over an agnostic one for the
+                     *     same path.
+                     */
+                    providerRef?: {
+                        /** @description Name of the referenced object. */
+                        name: string;
+                    };
+                }[];
+            };
+            /** @description status defines the observed state of NamespaceDefaults */
+            status?: {
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+            };
+        };
+        /** @description NamespaceDefaultsList is an object that contains the list of the existing namespacedefaultss. */
+        NamespaceDefaultsList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["NamespaceDefaults"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+                namespace?: string;
+            };
+        };
         /** @description ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server. */
         ObjectMeta: {
             /** @description Annotations is an unstructured key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations */
