@@ -297,11 +297,11 @@ type presetResult struct {
 }
 
 func (ic *InstanceCreator) resolvePreset(ctx context.Context, c *client.ClientWithResponses, preset, cluster, namespace string) (*presetResult, error) {
-	resp, err := c.ResolveInstancePresetWithResponse(
+	resp, err := c.ResolveClusterInstancePresetWithResponse(
 		ctx,
 		cluster,
 		preset,
-		&client.ResolveInstancePresetParams{Namespace: namespace},
+		&client.ResolveClusterInstancePresetParams{Namespace: namespace},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve preset %q: %w", preset, err)

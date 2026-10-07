@@ -21,17 +21,17 @@ import (
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
-// ListInstancePresets proxies the request to the next handler.
-func (h *validateHandler) ListInstancePresets(ctx context.Context, cluster string, provider string) (*corev1alpha1.InstancePresetList, error) {
-	return h.next.ListInstancePresets(ctx, cluster, provider)
+// ListClusterInstancePresets proxies the request to the next handler.
+func (h *validateHandler) ListClusterInstancePresets(ctx context.Context, cluster string, provider string) (*corev1alpha1.ClusterInstancePresetList, error) {
+	return h.next.ListClusterInstancePresets(ctx, cluster, provider)
 }
 
-// GetInstancePreset proxies the request to the next handler.
-func (h *validateHandler) GetInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.InstancePreset, error) {
-	return h.next.GetInstancePreset(ctx, cluster, name)
+// GetClusterInstancePreset proxies the request to the next handler.
+func (h *validateHandler) GetClusterInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.ClusterInstancePreset, error) {
+	return h.next.GetClusterInstancePreset(ctx, cluster, name)
 }
 
-// ResolveInstancePreset proxies the request to the next handler.
-func (h *validateHandler) ResolveInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.InstancePreset, error) {
-	return h.next.ResolveInstancePreset(ctx, cluster, name, namespace)
+// ResolveClusterInstancePreset proxies the request to the next handler.
+func (h *validateHandler) ResolveClusterInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.ClusterInstancePreset, error) {
+	return h.next.ResolveClusterInstancePreset(ctx, cluster, name, namespace)
 }

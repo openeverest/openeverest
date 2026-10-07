@@ -25,18 +25,18 @@ import (
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
-// ListInstancePresets returns list of instance presets that match the criteria.
-func (k *Kubernetes) ListInstancePresets(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.InstancePresetList, error) {
-	result := &v1alpha1.InstancePresetList{}
+// ListClusterInstancePresets returns list of instance presets that match the criteria.
+func (k *Kubernetes) ListClusterInstancePresets(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.ClusterInstancePresetList, error) {
+	result := &v1alpha1.ClusterInstancePresetList{}
 	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
-// GetInstancePreset returns instance preset that matches the criteria.
-func (k *Kubernetes) GetInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.InstancePreset, error) {
-	result := &v1alpha1.InstancePreset{}
+// GetClusterInstancePreset returns instance preset that matches the criteria.
+func (k *Kubernetes) GetClusterInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.ClusterInstancePreset, error) {
+	result := &v1alpha1.ClusterInstancePreset{}
 	if err := k.k8sClient.Get(ctx, key, result); err != nil {
 		return nil, err
 	}

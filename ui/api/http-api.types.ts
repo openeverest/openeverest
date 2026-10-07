@@ -268,7 +268,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/clusters/{cluster}/instance-presets": {
+    "/clusters/{cluster}/cluster-instance-presets": {
         parameters: {
             query?: never;
             header?: never;
@@ -280,7 +280,7 @@ export interface paths {
          * @description This API lists all instance presets in the specified cluster.
          *     Optionally filter by provider.
          */
-        get: operations["listInstancePresets"];
+        get: operations["listClusterInstancePresets"];
         put?: never;
         post?: never;
         delete?: never;
@@ -289,7 +289,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/clusters/{cluster}/instance-presets/{name}": {
+    "/clusters/{cluster}/cluster-instance-presets/{name}": {
         parameters: {
             query?: never;
             header?: never;
@@ -300,7 +300,7 @@ export interface paths {
          * Get instance preset
          * @description This API gets the instance preset specified by the `name` in the specified `cluster`.
          */
-        get: operations["getInstancePreset"];
+        get: operations["getClusterInstancePreset"];
         put?: never;
         post?: never;
         delete?: never;
@@ -309,7 +309,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/clusters/{cluster}/instance-presets/{name}/resolve": {
+    "/clusters/{cluster}/cluster-instance-presets/{name}/resolve": {
         parameters: {
             query?: never;
             header?: never;
@@ -317,13 +317,13 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Resolve instance preset with namespace defaults and default StorageClass of the cluster
+         * Resolve instance preset with default StorageClass of the cluster
          * @description This API resolves the instance preset specified by the `name` in the specified `cluster`.
          *     This endpoint is useful when creating instances from presets, as it provides a
-         *     fully-populated preset with all namespace defaults, and default StorageClass of the cluster
+         *     fully-populated preset with default StorageClass of the cluster
          *     if it has empty StorageClass.
          */
-        get: operations["resolveInstancePreset"];
+        get: operations["resolveClusterInstancePreset"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1495,20 +1495,17 @@ export interface components {
             uid?: string;
         };
         /**
-         * @description InstancePreset is a namespace-scoped, template for creating Instances
-         *     within a single namespace.
+         * @description ClusterInstancePreset is a cluster-scoped, template of portable provider
+         *     defaults for creating Instances.
          *
-         *     Because a InstancePreset lives in the same namespace as the Instances
-         *     it produces, it may reference namespace-scoped objects (Secrets, etc.)
-         *     directly by name. It is used for capturing a known-good configuration,
-         *     including concrete local references, and reuse it to create Instances
-         *     in that namespace.
+         *     Because it is cluster-scoped it is available in every namespace, therefore
+         *     must not embed any namespace-scoped reference.
          *
-         *     It is similar to a ClusterInstancePreset, however it is scoped to a single
-         *     namespace and can therefore only be used to create Instances within that
-         *     same namespace.
+         *     It is similar to an InstancePreset, however it is cluster-scoped and
+         *     therefore can be used to create Instances in any namespace, not just the
+         *     namespace of the referent.
          */
-        InstancePreset: {
+        ClusterInstancePreset: {
             /**
              * @description APIVersion defines the versioned schema of this representation of an object.
              *     Servers should convert recognized schemas to the latest internal value, and
@@ -1525,7 +1522,7 @@ export interface components {
              */
             kind?: string;
             metadata?: components["schemas"]["ObjectMeta"];
-            /** @description spec defines the desired state of InstancePreset */
+            /** @description spec defines the desired state of ClusterInstancePreset */
             spec: {
                 /**
                  * @description Backup configures the backup feature for this Instance. When enabled,
@@ -2731,7 +2728,7 @@ export interface components {
                  */
                 version?: string;
             };
-            /** @description status defines the observed state of InstancePreset */
+            /** @description status defines the observed state of ClusterInstancePreset */
             status?: {
                 conditions?: {
                     /**
@@ -2770,18 +2767,16 @@ export interface components {
                 }[];
             };
         };
-        /** @description InstancePresetList is an object that contains the list of the existing instancepresets. */
-        InstancePresetList: {
+        /** @description ClusterInstancePresetList is an object that contains the list of the existing clusterinstancepresets. */
+        ClusterInstancePresetList: {
             /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
             apiVersion?: string;
-            items?: components["schemas"]["InstancePreset"][];
+            items?: components["schemas"]["ClusterInstancePreset"][];
             /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
             kind?: string;
             metadata?: {
                 /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
                 name?: string;
-                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
-                namespace?: string;
             };
         };
         /** @description Provider is the Schema for the providers API */
@@ -5897,7 +5892,7 @@ export interface operations {
             };
         };
     };
-    listInstancePresets: {
+    listClusterInstancePresets: {
         parameters: {
             query?: {
                 /** @description Filter presets by provider name */
@@ -5918,7 +5913,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InstancePresetList"];
+                    "application/json": components["schemas"]["ClusterInstancePresetList"];
                 };
             };
             /** @description Error */
@@ -5932,7 +5927,7 @@ export interface operations {
             };
         };
     };
-    getInstancePreset: {
+    getClusterInstancePreset: {
         parameters: {
             query?: never;
             header?: never;
@@ -5952,7 +5947,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InstancePreset"];
+                    "application/json": components["schemas"]["ClusterInstancePreset"];
                 };
             };
             /** @description Instance preset not found */
@@ -5975,7 +5970,7 @@ export interface operations {
             };
         };
     };
-    resolveInstancePreset: {
+    resolveClusterInstancePreset: {
         parameters: {
             query: {
                 /** @description The namespace for which to resolve default values */
@@ -5998,7 +5993,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InstancePreset"];
+                    "application/json": components["schemas"]["ClusterInstancePreset"];
                 };
             };
             /** @description Instance preset not found */
