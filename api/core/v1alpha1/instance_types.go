@@ -543,7 +543,11 @@ type InstanceStatus struct {
 	//
 	// +optional
 	ConnectionSecretRef *common.SecretRef `json:"connectionSecretRef,omitempty"`
-	// Components is the status of the components in the database cluster.
+	// Components reports how many pods each component has and how many are Ready.
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Components []ComponentStatus `json:"components,omitempty"`
 
 	// Message is a custom user-facing message describing the current state of the instance.
@@ -756,6 +760,48 @@ const (
 	// and False once nothing is held. The database keeps running while the
 	// condition is True — a held action never affects availability.
 	ConditionMaintenancePending = "MaintenancePending"
+
+	// ConditionPodsScheduled is False once a pod has waited more than a minute
+	// for a node, for example because a required anti-affinity needs more
+	// nodes than the cluster has. The message has one line per affected
+	// component and quotes the scheduler. Only set when the provider labels
+	// its pods.
+	ConditionPodsScheduled = "PodsScheduled"
+
+	// ConditionPodsReady is False while a pod is not Ready. The reason names
+	// the worst problem found: CrashLoopBackOff, ImagePullBackOff,
+	// CreateContainerConfigError, then NotReady. The message has one line per
+	// affected component. Only set when the provider labels its pods.
+	ConditionPodsReady = "PodsReady"
+)
+
+// Reasons for the PodsScheduled condition.
+const (
+	// ReasonScheduled indicates no pod has waited more than a minute for a node.
+	ReasonScheduled = "Scheduled"
+
+	// ReasonUnschedulable indicates a pod fits no node.
+	ReasonUnschedulable = "Unschedulable"
+)
+
+// Reasons for the PodsReady condition.
+const (
+	// ReasonReady indicates every pod is Ready.
+	ReasonReady = "Ready"
+
+	// ReasonCrashLoopBackOff indicates a container keeps exiting after it starts.
+	ReasonCrashLoopBackOff = "CrashLoopBackOff"
+
+	// ReasonImagePullBackOff indicates a container image cannot be pulled.
+	ReasonImagePullBackOff = "ImagePullBackOff"
+
+	// ReasonCreateContainerConfigError indicates a container cannot be created,
+	// typically because a Secret or ConfigMap it uses is missing.
+	ReasonCreateContainerConfigError = "CreateContainerConfigError"
+
+	// ReasonNotReady indicates a pod is not Ready for no reason listed above,
+	// for example while it starts.
+	ReasonNotReady = "NotReady"
 )
 
 // Reasons for the MaintenancePending condition.
@@ -892,13 +938,20 @@ const (
 	ReasonUpgradeFailed = "UpgradeFailed"
 )
 
+// ComponentStatus counts the pods of one component.
 type ComponentStatus struct {
-	// PodRefs references the Pods backing this component.
+	// Name is a key of spec.components.
+	Name string `json:"name"`
+	// Selector selects the component's pods in the Instance's namespace, in
+	// the form kubectl get pods -l accepts.
 	// +optional
-	PodRefs []common.ObjectRef `json:"podRefs,omitempty"`
-	Total   *int32             `json:"total,omitempty"`
-	Ready   *int32             `json:"ready,omitempty"`
-	State   string             `json:"state,omitempty"`
+	Selector string `json:"selector,omitempty"`
+	// Replicas is the number of the component's pods that are not terminating.
+	// +optional
+	Replicas *int32 `json:"replicas,omitempty"`
+	// ReadyReplicas is the number of those pods that are Ready.
+	// +optional
+	ReadyReplicas *int32 `json:"readyReplicas,omitempty"`
 }
 
 // +kubebuilder:object:root=true

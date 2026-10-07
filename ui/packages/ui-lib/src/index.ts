@@ -72,6 +72,9 @@ export { default as DateTimePickerInput } from './form/inputs/date-time-picker';
 export * from './form/inputs/checkbox';
 export { default as CheckboxInput } from './form/inputs/checkbox';
 
+export * from './form/segmented-field';
+export { default as SegmentedField } from './form/segmented-field';
+
 export * from './loadable-children';
 export { default as LoadableChildren } from './loadable-children';
 
@@ -98,6 +101,9 @@ export * from './expandable-clamped-text';
 export { default as ExpandableClampedText } from './expandable-clamped-text';
 
 export * from './masonry-columns';
+
+export * from './show-more-dialog';
+export { default as ShowMoreDialog } from './show-more-dialog';
 
 export * from './form/inputs/file';
 export { default as FileInput } from './form/inputs/file';

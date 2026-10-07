@@ -54,8 +54,11 @@ flowchart TD
   - **`resolveValidationForMode(validation, formMode)`** — merges base rules and `modes[formMode]`
     (scalars replace, `celExpressions` append, `inheritShared: false` ignores the base).
   - **`buildShapeFromComponents`** — `ZOD_SCHEMA_MAP[uiType]` (base zod type) +
-    `applyValidationFromSchema` (min/max/regex/required/…) + CEL expression collection.
-  - **`convertToNestedSchema`** — flat fields → nested `z.object`.
+    `applyValidationFromSchema` (min/max/regex/required/…) + CEL expression collection. A field
+    without `validation` is optional, like a validated field without `required: true`.
+  - **`convertToNestedSchema`** — flat fields → nested `z.object`. A parent object is optional when
+    all of its fields are, so edit mode accepts an instance that lacks it (e.g. no
+    `spec.components.engine.parameters` when Engine configuration is unset).
   - **`applyCelValidation(schema, celExprs, originalData?, toggleables?)`** — attaches CEL (in edit
     mode the `original` namespace — persisted instance data — is available).
   - **Toggleable children** — `schema.or(z.any())`; the real rules run in
@@ -242,4 +245,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-29
+- Last updated: 2026-09-30

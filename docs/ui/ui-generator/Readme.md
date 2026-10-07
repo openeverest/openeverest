@@ -11,6 +11,7 @@
   - [Component vs ComponentGroup](#component-vs-componentgroup)
     - [Component (Single Field)](#component-single-field)
     - [ComponentGroup (Nested Fields)](#componentgroup-nested-fields)
+    - [Widget (Host-Rendered Component)](#widget-host-rendered-component)
 - [Mode-Aware Overrides](#mode-aware-overrides)
   - [Component-level modes](#component-level-modes)
   - [FieldParams-level modes](#fieldparams-level-modes)
@@ -25,6 +26,8 @@
   - [Accordion Group](groups.md#accordion-group)
   - [Bordered Group](groups.md#bordered-group)
   - [Toggleable Group](groups.md#toggleable-group)
+- [Widgets](widgets.md)
+  - [Pod Scheduling Policy](widgets.md#pod-scheduling-policy)
 - [Validation](validation.md)
   - [Default Validation](validation.md#default-validation)
   - [Schema Custom Validation](validation.md#schema-custom-validation)
@@ -132,8 +135,8 @@ basicInfo:
 
 A **Component** represents a single form field with the following properties:
 
-- **`uiType`**: Type of UI control (`'number'`, `'select'`, `'hidden'`)
-- **`path`** OR **`id`**: The data path in the resulting form values (e.g., `"spec.replica.nodes"`)
+- **`uiType`**: Type of UI control (`'number'`, `'select'`, `'hidden'`), or `'widget'` for a host-rendered component (see [Widget](#widget-host-rendered-component))
+- **`path`** OR **`id`**: The data path in the resulting form values (e.g., `"spec.replica.nodes"`). For widgets, defined by each widget type.
 - **`fieldParams`**: Configuration for the field (label, placeholder, defaultValue, etc.). Supports `modes` for documented per-mode overrides of shared field params
 - **`modes`** (optional): Per-mode component-level overrides (e.g. `uiType: hidden`)
 - **`validation`** (optional): Validation rules (min, max, etc.). Supports `modes` for per-mode overrides
@@ -196,6 +199,11 @@ resources:
     - memory
 ```
 
+#### Widget (Host-Rendered Component)
+
+A **Widget** is a component the application renders itself (`uiType: widget` + `widgetType`),
+for UI that plain fields can't describe. See [Widgets](widgets.md) for the supported widget types.
+
 ## Mode-Aware Overrides
 
 ### FieldParams-level modes
@@ -233,7 +241,8 @@ Validation-specific mode-aware behavior is documented in [validation.md](validat
 
 ### Path vs ID
 
-Each component must have either a `path` or an `id` property (but not both):
+Each field component must have either a `path` or an `id` property (but not both).
+For [widgets](widgets.md), where the data lives is defined by each widget type.
 
 - **`path`**: Dot-notation string representing where the value should be stored in the form data
   - Example: `"spec.replica.nodes"` → `{ spec: { replica: { nodes: value } } }`
