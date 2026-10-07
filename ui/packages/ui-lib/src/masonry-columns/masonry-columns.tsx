@@ -16,7 +16,6 @@ import { Children, isValidElement, useLayoutEffect, useRef } from 'react';
 import { Box, useTheme } from '@mui/material';
 import { MasonryColumnsProps } from './masonry-columns.types';
 import { startMasonryLayout } from './masonry-layout';
-import { useColumnCount } from './useColumnCount';
 
 // Masonry of cards with stable placement. Unlike CSS `columns`, which
 // rebalances, expanding one item never moves the others to another column.
@@ -24,20 +23,24 @@ import { useColumnCount } from './useColumnCount';
 // All items share one parent, so a column change never remounts them.
 export const MasonryColumns = ({
   children,
-  columns,
+  minColumnWidth,
+  maxColumns = Infinity,
   spacing = 2,
   dataTestId,
 }: MasonryColumnsProps) => {
   const theme = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
-  const columnCount = useColumnCount(columns);
   // Assumes theme spacing resolves to px, as with the default theme.
   const gap = parseFloat(theme.spacing(spacing));
 
   useLayoutEffect(() => {
     if (!containerRef.current) return;
-    return startMasonryLayout(containerRef.current, { columnCount, gap });
-  }, [columnCount, gap]);
+    return startMasonryLayout(containerRef.current, {
+      minColumnWidth,
+      maxColumns,
+      gap,
+    });
+  }, [minColumnWidth, maxColumns, gap]);
 
   return (
     // Items are positioned by startMasonryLayout: no CSS flow keeps columns

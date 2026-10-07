@@ -13,21 +13,20 @@
 // limitations under the License.
 
 import { ReactNode } from 'react';
-import { Breakpoint } from '@mui/material';
-
-export type MasonryColumnCount = number | Partial<Record<Breakpoint, number>>;
 
 export interface MasonryColumnsProps {
   children: ReactNode;
-  // Fixed, or per breakpoint mobile-first like sx: { xs: 1, lg: 2, xl: 3 }.
-  columns: MasonryColumnCount;
+  // As many columns of at least this width (px) as the container fits.
+  minColumnWidth: number;
+  maxColumns?: number;
   // Gap between columns and between items, in theme spacing units.
   spacing?: number;
   dataTestId?: string;
 }
 
 export interface MasonryLayoutOptions {
-  columnCount: number;
+  minColumnWidth: number;
+  maxColumns: number;
   gap: number;
 }
 

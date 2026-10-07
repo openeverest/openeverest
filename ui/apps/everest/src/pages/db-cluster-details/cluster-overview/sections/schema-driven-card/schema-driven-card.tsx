@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Box, IconButton, Stack } from '@mui/material';
+import { IconButton, Stack } from '@mui/material';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { DatabaseIcon, OverviewCard } from '@percona/ui-lib';
 import type { SchemaDrivenCardProps } from './schema-driven-card.types';
@@ -25,45 +25,42 @@ const SchemaDrivenCard = ({
   editable,
   onEdit,
 }: SchemaDrivenCardProps) => (
-  <Box>
-    <OverviewCard
-      dataTestId={`${card.key}-details`}
-      sx={{ width: '100%' }}
-      cardHeaderProps={{
-        title: card.title,
-        avatar: <DatabaseIcon />,
-        action: editable ? (
-          <IconButton
-            data-testid={`${card.key}-edit-button`}
-            size="small"
-            onClick={onEdit}
-            aria-label={`Edit ${card.title}`}
-          >
-            <EditOutlinedIcon fontSize="small" />
-          </IconButton>
-        ) : undefined,
+  <OverviewCard
+    dataTestId={`${card.key}-details`}
+    cardHeaderProps={{
+      title: card.title,
+      avatar: <DatabaseIcon />,
+      action: editable ? (
+        <IconButton
+          data-testid={`${card.key}-edit-button`}
+          size="small"
+          onClick={onEdit}
+          aria-label={`Edit ${card.title}`}
+        >
+          <EditOutlinedIcon fontSize="small" />
+        </IconButton>
+      ) : undefined,
+    }}
+  >
+    <Stack
+      sx={{
+        gap: 3,
       }}
     >
-      <Stack
-        sx={{
-          gap: 3,
-        }}
-      >
-        <OverviewSection dataTestId={card.key} loading={loading}>
-          {card.fields.length > 0 ? (
-            card.fields.map(({ label, path, value }) => (
-              <OverviewSectionRow
-                key={`${card.key}:${path}`}
-                label={label}
-                content={value}
-              />
-            ))
-          ) : (
-            <OverviewSectionRow label="Info" content="No data available" />
-          )}
-        </OverviewSection>
-      </Stack>
-    </OverviewCard>
-  </Box>
+      <OverviewSection dataTestId={card.key} loading={loading}>
+        {card.fields.length > 0 ? (
+          card.fields.map(({ label, path, value }) => (
+            <OverviewSectionRow
+              key={`${card.key}:${path}`}
+              label={label}
+              content={value}
+            />
+          ))
+        ) : (
+          <OverviewSectionRow label="Info" content="No data available" />
+        )}
+      </OverviewSection>
+    </Stack>
+  </OverviewCard>
 );
 export default SchemaDrivenCard;

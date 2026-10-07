@@ -49,7 +49,8 @@ const meta = {
   title: 'MasonryColumns',
   component: MasonryColumns,
   args: {
-    columns: { xs: 1, md: 2, lg: 3 },
+    minColumnWidth: 280,
+    maxColumns: 3,
     children: cards.map(([title, lines]) => (
       <ExpandableCard key={title} title={title} lines={lines} />
     )),
@@ -63,4 +64,12 @@ type Story = StoryObj<typeof meta>;
 // Expand any card: the others stay in their columns.
 export const Basic: Story = {};
 
-export const FixedColumns: Story = { args: { columns: 2 } };
+export const NarrowContainer: Story = {
+  decorators: [
+    (Story) => (
+      <div style={{ width: 600 }}>
+        <Story />
+      </div>
+    ),
+  ],
+};

@@ -12,16 +12,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useState } from 'react';
-import { createTheme } from '@mui/material';
+import { ReactNode, useState } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MasonryColumns } from './masonry-columns';
+
+// With a 16px gap, 400px columns fit 1 / 2 / 3 times in 400 / 832 / 1248px.
+const masonry = (children: ReactNode, maxColumns?: number) => (
+  <MasonryColumns
+    minColumnWidth={400}
+    maxColumns={maxColumns}
+    dataTestId="masonry"
+  >
+    {children}
+  </MasonryColumns>
+);
+
+const itemsOf = () =>
+  Array.from(screen.getByTestId('masonry').children).filter(
+    (child): child is HTMLElement => child instanceof HTMLElement
+  );
 
 // jsdom has no layout: an item's column is identified by its inline offset.
 const columnTexts = () => {
   const columns = new Map<string, string[]>();
-  screen.getAllByRole('article').forEach((item) => {
-    const offset = item.parentElement?.style.insetInlineStart ?? '';
+  itemsOf().forEach((item) => {
+    const offset = item.style.insetInlineStart;
     columns.set(offset, [
       ...(columns.get(offset) ?? []),
       item.textContent ?? '',
@@ -35,9 +50,7 @@ const columnTexts = () => {
 const topOf = (name: string) => screen.getByText(name).parentElement?.style.top;
 
 const items = ['a', 'b', 'c', 'd', 'e'].map((name) => (
-  <div key={name} role="article">
-    {name}
-  </div>
+  <div key={name}>{name}</div>
 ));
 
 const mockHeights = (heights: Record<string, number>) =>
@@ -47,11 +60,13 @@ const mockHeights = (heights: Record<string, number>) =>
       return heights[this.textContent ?? ''] ?? 0;
     });
 
-let notifyResize = () => {};
+let containerWidth = 832;
+let resizeCallbacks: (() => void)[] = [];
+const notifyResize = () => resizeCallbacks.forEach((callback) => callback());
 
 class ResizeObserverMock {
   constructor(callback: () => void) {
-    notifyResize = callback;
+    resizeCallbacks.push(callback);
   }
   observe() {}
   unobserve() {}
@@ -67,21 +82,14 @@ const Counter = ({ name }: { name: string }) => {
   );
 };
 
-const mockViewport = (matches: (query: string) => boolean) =>
-  vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: matches(query),
-    media: query,
-    onchange: null,
-    addListener: () => {},
-    removeListener: () => {},
-    addEventListener: () => {},
-    removeEventListener: () => {},
-    dispatchEvent: () => false,
-  }));
-
 describe('MasonryColumns', () => {
   beforeEach(() => {
+    containerWidth = 832;
+    resizeCallbacks = [];
     vi.stubGlobal('ResizeObserver', ResizeObserverMock);
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockImplementation(
+      () => containerWidth
+    );
   });
 
   afterEach(() => {
@@ -92,7 +100,7 @@ describe('MasonryColumns', () => {
   it('puts each item into the shortest column', () => {
     mockHeights({ a: 400, b: 100, c: 150, d: 80, e: 120 });
 
-    render(<MasonryColumns columns={2}>{items}</MasonryColumns>);
+    render(masonry(items));
 
     expect(columnTexts()).toEqual([['a'], ['b', 'c', 'd', 'e']]);
   });
@@ -100,7 +108,7 @@ describe('MasonryColumns', () => {
   it('treats nearly level columns as equal and fills them left to right', () => {
     mockHeights({ a: 110, b: 100, c: 50 });
 
-    render(<MasonryColumns columns={2}>{items.slice(0, 3)}</MasonryColumns>);
+    render(masonry(items.slice(0, 3)));
 
     expect(columnTexts()).toEqual([['a', 'c'], ['b']]);
   });
@@ -113,7 +121,7 @@ describe('MasonryColumns', () => {
     (_, interact) => {
       const heights = { a: 100, b: 100, c: 100, d: 100, e: 100 };
       mockHeights(heights);
-      render(<MasonryColumns columns={2}>{items}</MasonryColumns>);
+      render(masonry(items));
 
       interact(screen.getByText('a'));
       heights.a = 1000;
@@ -127,35 +135,10 @@ describe('MasonryColumns', () => {
     }
   );
 
-  it('closes the gap when an item is removed', async () => {
-    mockHeights({ a: 100, b: 100, c: 100, d: 100 });
-    const { rerender } = render(
-      <MasonryColumns columns={2}>{items.slice(0, 4)}</MasonryColumns>
-    );
-    fireEvent.pointerDown(screen.getByText('a'));
-
-    rerender(<MasonryColumns columns={2}>{items.slice(1, 4)}</MasonryColumns>);
-
-    await waitFor(() => expect(topOf('c')).toBe('0px'));
-    expect(columnTexts()).toEqual([['c'], ['b', 'd']]);
-  });
-
-  it('stops observing on unmount', () => {
-    const disconnect = vi.spyOn(ResizeObserverMock.prototype, 'disconnect');
-    const { unmount } = render(
-      <MasonryColumns columns={2}>{items}</MasonryColumns>
-    );
-    disconnect.mockClear();
-
-    unmount();
-
-    expect(disconnect).toHaveBeenCalled();
-  });
-
   it('re-balances while content is still loading', () => {
     const heights = { a: 100, b: 100, c: 100, d: 100, e: 100 };
     mockHeights(heights);
-    render(<MasonryColumns columns={2}>{items}</MasonryColumns>);
+    render(masonry(items));
 
     heights.a = 1000;
     notifyResize();
@@ -165,76 +148,79 @@ describe('MasonryColumns', () => {
 
   it('adds a new item to the shortest column without moving the others', async () => {
     mockHeights({ a: 100, b: 400, c: 100, x: 50 });
-    const { rerender } = render(
-      <MasonryColumns columns={2}>{items.slice(0, 3)}</MasonryColumns>
-    );
+    const { rerender } = render(masonry(items.slice(0, 3)));
     fireEvent.pointerDown(screen.getByText('a'));
 
-    rerender(
-      <MasonryColumns columns={2}>
-        {[
-          <div key="x" role="article">
-            x
-          </div>,
-          ...items.slice(0, 3),
-        ]}
-      </MasonryColumns>
-    );
+    rerender(masonry([<div key="x">x</div>, ...items.slice(0, 3)]));
 
     await waitFor(() =>
       expect(columnTexts()).toEqual([['x', 'a', 'c'], ['b']])
     );
   });
 
-  it('keeps item state when the column count changes', () => {
-    const counters = ['a', 'b', 'c', 'd', 'e'].map((name) => (
-      <Counter key={name} name={name} />
-    ));
-    const { rerender } = render(
-      <MasonryColumns columns={3}>{counters}</MasonryColumns>
+  it('closes the gap when an item is removed', async () => {
+    mockHeights({ a: 100, b: 100, c: 100, d: 100 });
+    const { rerender } = render(masonry(items.slice(0, 4)));
+    fireEvent.pointerDown(screen.getByText('a'));
+
+    rerender(masonry(items.slice(1, 4)));
+
+    await waitFor(() => expect(topOf('c')).toBe('0px'));
+    expect(columnTexts()).toEqual([['c'], ['b', 'd']]);
+  });
+
+  it.each([
+    [400, 1],
+    [832, 2],
+    [1248, 3],
+  ])('fits a %ipx container with %i columns', (width, columns) => {
+    containerWidth = width;
+
+    render(masonry(items));
+
+    expect(columnTexts()).toHaveLength(columns);
+  });
+
+  it('never exceeds maxColumns, and keeps at least one column', () => {
+    containerWidth = 1248;
+
+    const { rerender } = render(masonry(items, 2));
+    expect(columnTexts()).toHaveLength(2);
+
+    rerender(masonry(items, 0));
+    expect(columnTexts()).toHaveLength(1);
+  });
+
+  it('re-flows on container resize without remounting items', async () => {
+    containerWidth = 1248;
+    render(
+      masonry(
+        ['a', 'b', 'c', 'd', 'e'].map((name) => (
+          <Counter key={name} name={name} />
+        ))
+      )
     );
-
     fireEvent.click(screen.getByRole('button', { name: 'd' }));
-    rerender(<MasonryColumns columns={2}>{counters}</MasonryColumns>);
 
+    containerWidth = 832;
+    notifyResize();
+
+    await waitFor(() => expect(columnTexts()).toHaveLength(2));
     expect(screen.getByRole('button', { name: 'd' })).toHaveTextContent('1');
   });
 
-  it('uses the largest breakpoint that matches the viewport', () => {
-    const { xl } = createTheme().breakpoints.values;
-    // Wide enough for lg but not xl.
-    mockViewport((query) => !query.includes(`${xl}`));
+  it('stops observing on unmount', () => {
+    const disconnect = vi.spyOn(ResizeObserverMock.prototype, 'disconnect');
+    const { unmount } = render(masonry(items));
+    disconnect.mockClear();
 
-    render(
-      <MasonryColumns columns={{ xs: 1, lg: 2, xl: 3 }}>{items}</MasonryColumns>
-    );
+    unmount();
 
-    expect(columnTexts()).toHaveLength(2);
-  });
-
-  it('falls back to a single column on narrow viewports', () => {
-    mockViewport(() => false);
-
-    render(<MasonryColumns columns={{ xs: 1, lg: 3 }}>{items}</MasonryColumns>);
-
-    expect(columnTexts()).toHaveLength(1);
-  });
-
-  it('renders at least one column for a zero column count', () => {
-    render(<MasonryColumns columns={0}>{items}</MasonryColumns>);
-
-    expect(columnTexts()).toHaveLength(1);
+    expect(disconnect).toHaveBeenCalled();
   });
 
   it('skips empty children', () => {
-    render(
-      <MasonryColumns columns={2}>
-        {items[0]}
-        {null}
-        {false}
-        {items[1]}
-      </MasonryColumns>
-    );
+    render(masonry([items[0], null, false, items[1]]));
 
     expect(columnTexts()).toEqual([['a'], ['b']]);
   });

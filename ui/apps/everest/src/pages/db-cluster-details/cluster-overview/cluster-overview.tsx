@@ -75,12 +75,12 @@ export const ClusterOverview = () => {
   return (
     <>
       <MasonryColumns
-        columns={{ xs: 1, lg: 2, xl: 3 }}
+        minColumnWidth={440}
+        maxColumns={3}
         dataTestId="cluster-overview"
       >
         <OverviewCard
           dataTestId="database-details"
-          sx={{ width: '100%' }}
           cardHeaderProps={{
             title: Messages.titles.dbDetails,
             avatar: <DatabaseIcon />,
@@ -128,7 +128,6 @@ export const ClusterOverview = () => {
             <OverviewCard
               key={`plugin-card-${pc.pluginName}-${pc.ext.label}`}
               dataTestId={`plugin-card-${pc.pluginName}`}
-              sx={{ width: '100%' }}
               cardHeaderProps={{ title: pc.ext.label }}
             >
               <PluginErrorBoundary pluginName={pc.pluginName}>

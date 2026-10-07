@@ -22,11 +22,20 @@ const childElements = (container: HTMLElement) =>
 
 // Absolutely positions the container's children into columns and re-stacks them
 // whenever one resizes or children are added/removed. Returns a stop function.
+// Revisit once CSS `display: grid-lanes` is Baseline (it re-places on resize).
 export const startMasonryLayout = (
   container: HTMLElement,
-  { columnCount, gap }: MasonryLayoutOptions
+  { minColumnWidth, maxColumns, gap }: MasonryLayoutOptions
 ): (() => void) => {
-  const width = `calc((100% - ${(columnCount - 1) * gap}px) / ${columnCount})`;
+  const fittingColumnCount = () =>
+    Math.max(
+      1,
+      Math.min(
+        maxColumns,
+        Math.floor((container.clientWidth + gap) / (minColumnWidth + gap))
+      )
+    );
+  let columnCount = fittingColumnCount();
   // Columns within one gap of each other look level.
   const tolerance = gap;
   let placement = new Map<HTMLElement, number>();
@@ -39,6 +48,7 @@ export const startMasonryLayout = (
 
   const layout = () => {
     const items = childElements(container);
+    const width = `calc((100% - ${(columnCount - 1) * gap}px) / ${columnCount})`;
     // Width first: an item's height depends on it.
     items.forEach((item) => {
       item.style.width = width;
@@ -64,7 +74,19 @@ export const startMasonryLayout = (
     container.style.height = `${Math.max(0, ...tops.map((top) => top - gap))}px`;
   };
 
-  const resizeObserver = new ResizeObserver(layout);
+  const resizeObserver = new ResizeObserver(() => {
+    const fitting = fittingColumnCount();
+    if (fitting === columnCount) {
+      layout();
+      return;
+    }
+    columnCount = fitting;
+    placement.clear();
+    // Resizing items inside a ResizeObserver callback would loop; wait a frame.
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(layout);
+  });
+  let frame = 0;
   const observeItems = () => {
     resizeObserver.disconnect();
     childElements(container).forEach((item) => resizeObserver.observe(item));
@@ -81,6 +103,7 @@ export const startMasonryLayout = (
   container.addEventListener('keydown', freeze, { capture: true });
 
   return () => {
+    cancelAnimationFrame(frame);
     resizeObserver.disconnect();
     mutationObserver.disconnect();
     container.removeEventListener('pointerdown', freeze, { capture: true });
