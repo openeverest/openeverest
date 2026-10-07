@@ -11,6 +11,7 @@
   - [Component vs ComponentGroup](#component-vs-componentgroup)
     - [Component (Single Field)](#component-single-field)
     - [ComponentGroup (Nested Fields)](#componentgroup-nested-fields)
+    - [Widget (Host-Rendered Component)](#widget-host-rendered-component)
 - [Mode-Aware Overrides](#mode-aware-overrides)
   - [Component-level modes](#component-level-modes)
   - [FieldParams-level modes](#fieldparams-level-modes)
@@ -23,6 +24,10 @@
 - [Groups](groups.md)
   - [Line Group](groups.md#line-group)
   - [Accordion Group](groups.md#accordion-group)
+  - [Bordered Group](groups.md#bordered-group)
+  - [Toggleable Group](groups.md#toggleable-group)
+- [Widgets](widgets.md)
+  - [Pod Scheduling Policy](widgets.md#pod-scheduling-policy)
 - [Validation](validation.md)
   - [Default Validation](validation.md#default-validation)
   - [Schema Custom Validation](validation.md#schema-custom-validation)
@@ -75,6 +80,11 @@ A **topology** is a top-level key representing a specific form configuration. Ea
 - **`sections`**: An object where each key is a section containing form components
 - **`sectionsOrder`** (optional): An array defining the order in which sections should be displayed
 
+Only the selected topology's fields are submitted. When the user switches topology, values bound only
+by the previous topology's paths (for example `spec.components.configServer` after switching from
+`sharded` to `replica`) are dropped, so each topology must declare every path it needs — including
+ones it shares with another topology.
+
 example for psmdb operator:
 
 ```yaml
@@ -125,8 +135,8 @@ basicInfo:
 
 A **Component** represents a single form field with the following properties:
 
-- **`uiType`**: Type of UI control (`'number'`, `'select'`, `'hidden'`)
-- **`path`** OR **`id`**: The data path in the resulting form values (e.g., `"spec.replica.nodes"`)
+- **`uiType`**: Type of UI control (`'number'`, `'select'`, `'hidden'`), or `'widget'` for a host-rendered component (see [Widget](#widget-host-rendered-component))
+- **`path`** OR **`id`**: The data path in the resulting form values (e.g., `"spec.replica.nodes"`). For widgets, defined by each widget type.
 - **`fieldParams`**: Configuration for the field (label, placeholder, defaultValue, etc.). Supports `modes` for documented per-mode overrides of shared field params
 - **`modes`** (optional): Per-mode component-level overrides (e.g. `uiType: hidden`)
 - **`validation`** (optional): Validation rules (min, max, etc.). Supports `modes` for per-mode overrides
@@ -154,15 +164,15 @@ A **ComponentGroup** allows you to group multiple components together with custo
 
 //TODO If the uiType is hidden, the component will not be displayed on the UI and, as a result, will not participate in generating data for the api.
 
-- **`groupType`** (optional). For a detailed description of the type of groups and their use, see the [Groups](#groups) section.
+- **`groupType`** (optional). For a detailed description of the type of groups and their use, see [Groups](groups.md).
 - **`label`** (optional): Display label for the group.
 - **`description`** (optional): Description text for the group
 
-The label and description display format may look different for different groups. A detailed description can be found in the [Groups](#groups) section.
+The label and description display format may look different for different groups. A detailed description can be found in [Groups](groups.md).
 
 - **`components`**: Nested components (can include other groups)
 - **`componentsOrder`** (optional): Order of nested components
-- **`groupParams`** (optional): Additional configuration for the group
+- **`groupParams`** (optional): Reserved for group-specific settings; no group type reads it yet, so it currently has no effect.
 
 Example:
 
@@ -188,6 +198,11 @@ resources:
     - cpu
     - memory
 ```
+
+#### Widget (Host-Rendered Component)
+
+A **Widget** is a component the application renders itself (`uiType: widget` + `widgetType`),
+for UI that plain fields can't describe. See [Widgets](widgets.md) for the supported widget types.
 
 ## Mode-Aware Overrides
 
@@ -226,7 +241,8 @@ Validation-specific mode-aware behavior is documented in [validation.md](validat
 
 ### Path vs ID
 
-Each component must have either a `path` or an `id` property (but not both):
+Each field component must have either a `path` or an `id` property (but not both).
+For [widgets](widgets.md), where the data lives is defined by each widget type.
 
 - **`path`**: Dot-notation string representing where the value should be stored in the form data
   - Example: `"spec.replica.nodes"` → `{ spec: { replica: { nodes: value } } }`

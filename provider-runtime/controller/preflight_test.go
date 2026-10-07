@@ -38,20 +38,21 @@ func targetSpec() *v1alpha1.ProviderSpec {
 			"proxy":  {Type: "mongos"},
 		},
 		ComponentTypes: map[string]v1alpha1.ComponentType{
-			"mongod": {Versions: []v1alpha1.ComponentVersion{
+			"mongod": {DefaultVersion: "8.0.12-4", Versions: []v1alpha1.ComponentVersion{
 				{Version: "6.0.19-16", Deprecated: true, RemovedInVersion: "0.3"},
 				{Version: "7.0.18-11", Deprecated: true, RemovedInVersion: "0.5"},
 				{Version: "7.5.0-1", RemovedInVersion: "0.5"},
-				{Version: "8.0.12-4", Default: true},
+				{Version: "8.0.12-4"},
 			}},
-			"mongos": {Versions: []v1alpha1.ComponentVersion{
-				{Version: "8.0.12-4", Default: true},
+			"mongos": {DefaultVersion: "8.0.12-4", Versions: []v1alpha1.ComponentVersion{
+				{Version: "8.0.12-4"},
 			}},
 		},
+		DefaultVersion: "8.0.12",
 		Versions: []v1alpha1.VersionBundle{
 			{Name: "6.0.19", Components: map[string]string{"engine": "6.0.19-16"}},
 			{Name: "7.0.18", Components: map[string]string{"engine": "7.0.18-11"}},
-			{Name: "8.0.12", Default: true, Components: map[string]string{"engine": "8.0.12-4", "proxy": "8.0.12-4"}},
+			{Name: "8.0.12", Components: map[string]string{"engine": "8.0.12-4", "proxy": "8.0.12-4"}},
 		},
 	}
 }

@@ -1,0 +1,9 @@
+apiVersion: backup.openeverest.io/v1alpha1
+kind: BackupClass
+metadata:
+  name: test-backup-class
+spec:
+  displayName: Test Backup Class
+  executionMode: ProviderManaged
+  supportedProviders:
+    - test-provider

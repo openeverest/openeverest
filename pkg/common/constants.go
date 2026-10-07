@@ -17,8 +17,6 @@
 // Package common holds common constants used across Everest.
 package common
 
-import everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-
 const (
 	// Everest ...
 	Everest = "everest"
@@ -99,7 +97,8 @@ const (
 	// InstanceNameLabel is the label used to identify resources by instance name.
 	InstanceNameLabel = "instanceName"
 	// BackupImportNameLabel is the label used to identify Backups by BackupImport name.
-	BackupImportNameLabel = "backupImportName"
+	// The label value must be 63 characters or less.
+	BackupImportNameLabel = "backup.openeverest.io/backup-import"
 	// ForegroundDeletionFinalizer is the finalizer used to delete resources in foreground.
 	ForegroundDeletionFinalizer = "foregroundDeletion"
 	// UserCtxKey is the key used to store the user in the context.
@@ -116,15 +115,6 @@ const (
 	// OpenEverestDefinitionLabel identifies the Secret or ConfigMap definition for filtering.
 	OpenEverestDefinitionLabel = "openeverest.io/definition"
 )
-
-// OperatorTypeToName maps the engine type to the operator name.
-//
-//nolint:gochecknoglobals
-var OperatorTypeToName = map[everestv1alpha1.EngineType]string{
-	everestv1alpha1.DatabaseEnginePXC:        MySQLOperatorName,
-	everestv1alpha1.DatabaseEnginePSMDB:      MongoDBOperatorName,
-	everestv1alpha1.DatabaseEnginePostgresql: PostgreSQLOperatorName,
-}
 
 // InitialPasswordWarningMessage is the message that is shown to the user after the installation/upgrade,
 // regarding insecure admin password.

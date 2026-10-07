@@ -106,18 +106,14 @@ func componentSummary(inst *client.Instance) string {
 	}
 	parts := make([]string, 0, len(*inst.Status.Components))
 	for _, comp := range *inst.Status.Components {
-		state := "-"
-		if comp.State != nil {
-			state = *comp.State
+		var ready, replicas int32
+		if comp.ReadyReplicas != nil {
+			ready = *comp.ReadyReplicas
 		}
-		var ready, total int32
-		if comp.Ready != nil {
-			ready = *comp.Ready
+		if comp.Replicas != nil {
+			replicas = *comp.Replicas
 		}
-		if comp.Total != nil {
-			total = *comp.Total
-		}
-		parts = append(parts, fmt.Sprintf("%s %d/%d ready", state, ready, total))
+		parts = append(parts, fmt.Sprintf("%s %d/%d ready", comp.Name, ready, replicas))
 	}
 	return strings.Join(parts, ", ")
 }

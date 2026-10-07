@@ -15,8 +15,8 @@
 // limitations under the License.
 
 import { Box, Card, CardContent, CardHeader, Stack } from '@mui/material';
-import { PendingIcon, Table } from '@percona/ui-lib';
-import StatusField from 'components/status-field';
+import { Table } from '@percona/ui-lib';
+import { InstanceStatus } from 'components/instance-status';
 import { type MRT_ColumnDef } from 'material-react-table';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -25,12 +25,8 @@ import { InstanceTableElement } from './dbClusterView.types';
 import { CreateDbButton } from 'components/create-db-button';
 import EmptyStateDatabases from 'components/empty-state-databases/empty-state-databases';
 import EmptyStateNamespaces from 'components/empty-state-namespaces/empty-state-namespaces';
-import { DB_INSTANCE_STATUS_TO_BASE_STATUS } from './DbClusterView.constants';
 import { DbActions } from 'components/db-actions/db-actions';
-import {
-  DbInstancePhaseValues,
-  DbInstancePhase,
-} from 'shared-types/instance.types';
+import { DbInstancePhaseValues } from 'shared-types/instance.types';
 import { usePlugins } from 'contexts/plugins';
 import type { GlobalDashboardWidgetExtension } from '@openeverest/plugin-sdk';
 import PluginErrorBoundary from 'components/plugin-host/PluginErrorBoundary';
@@ -58,24 +54,12 @@ export const DbClusterView = () => {
           value: status,
         })),
         maxSize: 120,
-        Cell: ({ cell }) => {
-          const status = cell.getValue<DbInstancePhase>();
-
-          return (
-            <StatusField
-              dataTestId={cell.row.original?.instanceName}
-              status={status}
-              statusMap={DB_INSTANCE_STATUS_TO_BASE_STATUS}
-              defaultIcon={PendingIcon}
-            >
-              {beautifyDbInstanceStatus(
-                status /*
-              cell.row.original?.raw.status?.conditions || []
-                 */
-              )}
-            </StatusField>
-          );
-        },
+        Cell: ({ row }) => (
+          <InstanceStatus
+            instance={row.original.raw}
+            dataTestId={row.original.instanceName}
+          />
+        ),
       },
       {
         accessorKey: 'instanceName',

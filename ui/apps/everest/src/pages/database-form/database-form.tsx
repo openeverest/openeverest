@@ -56,6 +56,7 @@ import {
   useErrorRouting,
   StepDefinition,
 } from 'components/ui-generator/form-engine';
+import { widgetRegistry } from './widget-registry';
 import { DataSourcePrefetcher } from 'components/ui-generator/api-providers';
 import { BaseInfoStep } from './database-form-body/steps/base-step/base-step';
 import { ImportStep } from './database-form-body/steps-old/import/import-step';
@@ -99,7 +100,7 @@ const isFlattenedSchedule = (value: unknown): value is FlattenedSchedule => {
   const cron = Reflect.get(value, 'cron');
   const enabled = Reflect.get(value, 'enabled');
   const storageName = Reflect.get(value, 'storageName');
-  const retentionCopies = Reflect.get(value, 'retentionCopies');
+  const retention = Reflect.get(value, 'retention');
   const parameters = Reflect.get(value, 'parameters');
 
   const hasCoreFields =
@@ -109,7 +110,7 @@ const isFlattenedSchedule = (value: unknown): value is FlattenedSchedule => {
     typeof storageName === 'string';
 
   const hasOptionalFields =
-    (retentionCopies === undefined || typeof retentionCopies === 'number') &&
+    (retention === undefined || isRecord(retention)) &&
     (parameters === undefined || isRecord(parameters));
 
   return hasCoreFields && hasOptionalFields;
@@ -353,6 +354,7 @@ export const DatabasePage = () => {
     providerObject,
     namespace: selectedNamespace || namespaces[0],
     formMode: mode,
+    widgetRegistry,
   });
 
   // Navigation

@@ -16,18 +16,12 @@ import { useMemo, useState } from 'react';
 import { enqueueSnackbar } from 'notistack';
 import { FormDialog } from 'components/form-dialog/form-dialog';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
-import {
-  FormMode,
-  TopologyUISchemas,
-} from 'components/ui-generator/ui-generator.types';
+import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { buildSectionZodSchema } from 'components/ui-generator/utils/schema-builder';
 import { extractInstanceValues } from 'components/ui-generator/utils/default-values/extract-instance-values';
 import { applyModeOverrides } from 'components/ui-generator/utils/preprocess/apply-mode-overrides';
-import { postprocessSchemaData } from 'components/ui-generator/utils/postprocess/postprocess-schema';
-import {
-  deepClone,
-  deepMerge,
-} from 'components/ui-generator/utils/object-path/object-path';
+import { mergeSectionEdit } from 'components/ui-generator/utils/postprocess/merge-section-edit';
+import { deepClone } from 'components/ui-generator/utils/object-path/object-path';
 import {
   extractBadgeMappingsFromSections,
   stripBadgesFromData,
@@ -35,6 +29,7 @@ import {
 import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/useUpdateDbInstance';
 import { useKubernetesClusterInfo } from 'hooks/api/kubernetesClusters/useKubernetesClusterInfo';
 import type { Instance } from 'shared-types/api.types';
+import { widgetRegistry } from 'pages/database-form/widget-registry';
 import type { SectionEditModalProps } from './section-edit-modal.types';
 import { applyRuntimeOverrides } from './section-edit-modal.utils';
 import { Messages } from './section-edit-modal.messages';
@@ -104,23 +99,14 @@ const SectionEditModal = ({
   const handleSubmit = (formData: Record<string, unknown>) => {
     setSubmitting(true);
 
-    const topologyType = instance?.spec?.topology?.type;
-    const uiSchema = provider?.spec?.uiSchema as TopologyUISchemas | undefined;
-
-    const processed = postprocessSchemaData(formData, {
-      schema: uiSchema,
-      selectedTopology: topologyType,
-    });
-
     const updatedInstance = deepClone(instance) as Instance;
-    const specUpdates = (processed as Record<string, unknown>).spec;
-
-    if (specUpdates && typeof specUpdates === 'object') {
-      updatedInstance.spec = deepMerge(
-        updatedInstance.spec as unknown as Record<string, unknown>,
-        specUpdates as Record<string, unknown>
-      ) as Instance['spec'];
-    }
+    updatedInstance.spec = mergeSectionEdit({
+      spec: updatedInstance.spec as unknown as Record<string, unknown>,
+      formData,
+      sections,
+      sectionKey,
+      topology: instance?.spec?.topology?.type,
+    }) as Instance['spec'];
 
     mutate(updatedInstance);
   };
@@ -144,6 +130,7 @@ const SectionEditModal = ({
         providerObject={provider}
         formMode={FormMode.Edit}
         namespace={namespace}
+        widgetRegistry={widgetRegistry}
       />
     </FormDialog>
   );

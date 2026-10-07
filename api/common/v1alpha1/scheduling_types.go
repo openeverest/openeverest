@@ -46,6 +46,8 @@ type SchedulingPolicy struct {
 	// Affinity constrains node selection, pod co-location and pod
 	// anti-affinity (spreading pods across nodes, zones or other topology
 	// domains for high availability).
+	// When omitted, the provider applies its default, which may require each
+	// replica on its own node; an empty affinity ({}) sets no constraints.
 	// +optional
 	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 
@@ -56,8 +58,10 @@ type SchedulingPolicy struct {
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 
 	// TopologySpreadConstraints describe how the pods spread across topology
-	// domains. All constraints are ANDed.
+	// domains. A constraint with neither labelSelector nor matchLabelKeys counts
+	// this component's pods. When omitted, the provider applies its default; an
+	// empty list sets no constraints.
 	// +optional
 	// +kubebuilder:validation:MaxItems=16
-	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+	TopologySpreadConstraints *[]corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 }

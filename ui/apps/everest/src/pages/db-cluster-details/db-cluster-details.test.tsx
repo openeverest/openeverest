@@ -17,6 +17,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { DbClusterDetails } from './db-cluster-details';
 import { DbInstanceContext } from './dbCluster.context';
 import type { DbInstanceContextProps } from './dbCluster.context.types';
+import { Messages as PodsAlertMessages } from './pods-alert/pods-alert.messages';
 import type { Instance } from 'shared-types/api.types';
 
 vi.mock('components/db-actions/db-actions', () => ({
@@ -86,5 +87,132 @@ describe('DbClusterDetails', () => {
     });
 
     expect(screen.getByText('Unknown')).toBeInTheDocument();
+  });
+
+  it('warns about pods the scheduler cannot place, quoting the reason', () => {
+    const message =
+      "engine: 1 of 3 pods cannot be scheduled: 0/2 nodes are available: 2 node(s) didn't match pod anti-affinity rules.";
+    renderDetails({
+      instance: {
+        ...mockInstance,
+        status: {
+          phase: 'Initializing',
+          conditions: [
+            {
+              type: 'PodsScheduled',
+              status: 'False',
+              reason: 'Unschedulable',
+              message,
+              lastTransitionTime: '2026-10-02T12:00:00Z',
+            },
+          ],
+        },
+      },
+    });
+
+    expect(
+      screen.getByText(PodsAlertMessages.alerts.Unschedulable.title)
+    ).toBeInTheDocument();
+    expect(screen.getByText(message)).toBeInTheDocument();
+  });
+
+  it('shows no scheduling warning once every pod has a node', () => {
+    renderDetails({
+      instance: {
+        ...mockInstance,
+        status: {
+          phase: 'Ready',
+          conditions: [
+            {
+              type: 'PodsScheduled',
+              status: 'True',
+              reason: 'Scheduled',
+              message: '',
+              lastTransitionTime: '2026-10-02T12:00:00Z',
+            },
+          ],
+        },
+      },
+    });
+
+    expect(screen.queryByTestId('pods-alert')).not.toBeInTheDocument();
+  });
+
+  it('warns about crashing pods, quoting the reason', () => {
+    const message =
+      'engine: 1 of 3 pods keep crashing: container mongod last exited with OOMKilled (exit code 137)';
+    renderDetails({
+      instance: {
+        ...mockInstance,
+        status: {
+          phase: 'Initializing',
+          conditions: [
+            {
+              type: 'PodsReady',
+              status: 'False',
+              reason: 'CrashLoopBackOff',
+              message,
+              lastTransitionTime: '2026-10-02T12:00:00Z',
+            },
+          ],
+        },
+      },
+    });
+
+    expect(
+      screen.getByText(PodsAlertMessages.alerts.CrashLoopBackOff.title)
+    ).toBeInTheDocument();
+    expect(screen.getByText(message)).toBeInTheDocument();
+  });
+
+  it('shows one banner per pods problem', () => {
+    renderDetails({
+      instance: {
+        ...mockInstance,
+        status: {
+          phase: 'Initializing',
+          conditions: [
+            {
+              type: 'PodsScheduled',
+              status: 'False',
+              reason: 'Unschedulable',
+              message: 'engine: 1 of 3 pods cannot be scheduled',
+              lastTransitionTime: '2026-10-02T12:00:00Z',
+            },
+            {
+              type: 'PodsReady',
+              status: 'False',
+              reason: 'CrashLoopBackOff',
+              message: 'engine: 1 of 3 pods keep crashing',
+              lastTransitionTime: '2026-10-02T12:00:00Z',
+            },
+          ],
+        },
+      },
+    });
+
+    expect(screen.getAllByTestId('pods-alert')).toHaveLength(2);
+  });
+
+  it('does not warn about pods that are only starting', () => {
+    renderDetails({
+      instance: {
+        ...mockInstance,
+        status: {
+          phase: 'Initializing',
+          conditions: [
+            {
+              type: 'PodsReady',
+              status: 'False',
+              reason: 'NotReady',
+              message: 'engine: 1 of 3 pods are not ready',
+              lastTransitionTime: '2026-10-02T12:00:00Z',
+            },
+          ],
+        },
+      },
+    });
+
+    expect(screen.queryByTestId('pods-alert')).not.toBeInTheDocument();
   });
 });

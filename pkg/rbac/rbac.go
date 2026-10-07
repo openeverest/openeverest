@@ -72,6 +72,7 @@ const (
 	ResourceInstancePresets   = "instance-presets"
 	ResourceBackupClasses     = "backup-classes"
 	ResourceBackups           = "backups"
+	ResourceBackupImports     = "backup-imports"
 	ResourceRestores          = "restores"
 	ResourceMonitoringConfigs = "monitoring-configs"
 	ResourceConfigMaps        = "config-maps"
@@ -101,6 +102,7 @@ var ClusterScopedResources = []string{
 var ClusterNamespacedResources = []string{
 	ResourceInstances,
 	ResourceBackups,
+	ResourceBackupImports,
 	ResourceRestores,
 	ResourceBackupStorages,
 	ResourceMonitoringConfigs,
@@ -150,7 +152,10 @@ const (
 	// from preset specifications. Users without this permission can only create
 	// instances that exactly match their referenced presets.
 	ActionDeploy = "deploy"
-	ActionAll    = "*"
+	// ActionReadConnection gates reading an instance's connection credentials.
+	// ActionRead does not imply it; only an explicit grant or ActionAll does.
+	ActionReadConnection = "read-connection"
+	ActionAll            = "*"
 )
 
 const (
@@ -160,7 +165,7 @@ const (
 // SupportedActions is the list of all RBAC actions supported by Everest.
 //
 //nolint:gochecknoglobals // immutable lookup table
-var SupportedActions = []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionUse, ActionDeploy, ActionAll}
+var SupportedActions = []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionUse, ActionDeploy, ActionReadConnection, ActionAll}
 
 // User represents an authenticated subject and its groups for RBAC checks.
 type User struct {

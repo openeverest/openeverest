@@ -19,8 +19,17 @@ import {
   TopologyUISchemas,
 } from 'components/ui-generator/ui-generator.types';
 import { buildShapeFromComponents } from './build-shape-from-components';
+import type {
+  CelExpValidation,
+  ToggleableFieldRule,
+} from './schema-builder.types';
 import { convertToNestedSchema } from './convert-to-nested-schema';
 import { applyCelValidation } from './apply-cel-validation';
+import { applyToggleableValidation } from './apply-toggleable-validation';
+import {
+  collectToggleableMetas,
+  withToggleableSwitchDependencies,
+} from '../toggleable/toggleable';
 
 export type BuildSchemaOptions = {
   formMode?: FormMode;
@@ -42,10 +51,9 @@ export const buildZodSchema = (
   }
 
   const flatFields: Record<string, z.ZodTypeAny> = {};
-  const allCelExpValidations: ReturnType<
-    typeof buildShapeFromComponents
-  >['celExpValidations'] = [];
+  const allCelExpValidations: CelExpValidation[] = [];
   const allCelDependencyGroups: string[][] = [];
+  const allToggleableFieldRules: ToggleableFieldRule[] = [];
 
   // Build schema from all sections
   Object.entries(topology.sections).forEach(([sectionKey, section]) => {
@@ -59,22 +67,30 @@ export const buildZodSchema = (
       Object.assign(flatFields, result.schemaShape);
       allCelExpValidations.push(...result.celExpValidations);
       allCelDependencyGroups.push(...result.celDependencyGroups);
+      allToggleableFieldRules.push(...result.toggleableFieldRules);
     }
   });
 
   // Convert flat schema to nested structure
   const nestedFields = convertToNestedSchema(flatFields);
+  const toggleables = collectToggleableMetas(topology.sections);
   let zodSchema: z.ZodTypeAny = z.object(nestedFields).passthrough();
+
+  zodSchema = applyToggleableValidation(zodSchema, allToggleableFieldRules);
 
   // Apply CEL validation if needed
   zodSchema = applyCelValidation(
     zodSchema,
     allCelExpValidations,
-    options?.originalData
+    options?.originalData,
+    toggleables
   );
 
   return {
     schema: zodSchema,
-    celDependencyGroups: allCelDependencyGroups,
+    celDependencyGroups: withToggleableSwitchDependencies(
+      allCelDependencyGroups,
+      toggleables
+    ),
   };
 };

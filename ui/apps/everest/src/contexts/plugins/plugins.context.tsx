@@ -26,6 +26,7 @@ import type {
 } from '@openeverest/plugin-sdk';
 import AuthContext from 'contexts/auth/auth.context';
 import { getAuthToken } from 'api/session-token';
+import { satisfiesHostVersion, satisfiesUiContract } from './plugin-version';
 import { useClusterName } from 'hooks/api/useClusterName';
 
 export interface PluginRegistration {
@@ -45,6 +46,10 @@ interface PluginDescriptor {
   name: string;
   displayName: string;
   bundleUrl: string;
+  // API-compatibility gate: the host application semver range the plugin supports.
+  compatibleHostVersions?: string;
+  // UI-contract gate: the React-major semver range the plugin's frontend supports.
+  compatibleUiContractVersions?: string;
   extensionPoints?: ExtensionPointDescriptor[];
 }
 
@@ -59,6 +64,26 @@ const PluginContext = createContext<PluginContextValue>({
 });
 
 export const usePlugins = () => useContext(PluginContext);
+
+// The UI contract a plugin shares with the host is the React major (issue
+// #2661): plugins bundle their own MUI, so React is the only shared runtime.
+// Exposed to plugins as `uiContractVersion` and enforced as the UI gate below.
+const UI_CONTRACT_VERSION = React.version.split('.')[0];
+
+function getHostVersion(): string {
+  return (
+    document
+      .querySelector("meta[name='everest-version']")
+      ?.getAttribute('content') || 'dev'
+  );
+}
+
+function getCSPNonce(): string {
+  return (
+    document.querySelector("meta[name='csp-nonce']")?.getAttribute('content') ||
+    ''
+  );
+}
 
 // Build the PluginApi object that the host passes to each plugin's register().
 // When allowedTypes is provided, only extensions whose type is in the set will be registered.
@@ -92,6 +117,9 @@ function createPluginApi(
     },
 
     basePath: `/v1/clusters/${clusterName}/plugins/${pluginName}`,
+    cssNonce: getCSPNonce(),
+    hostVersion: getHostVersion(),
+    uiContractVersion: UI_CONTRACT_VERSION,
   };
 }
 
@@ -136,6 +164,35 @@ export const PluginProvider = ({ children }: { children: ReactNode }) => {
 
       for (const descriptor of descriptors) {
         try {
+          // Two independent gates, each guarding its own axis (see issue #2661).
+          // UI gate: the React major is the only runtime a bundled-MUI plugin
+          // shares with the host, so a mismatch is what actually breaks it.
+          if (
+            !satisfiesUiContract(
+              React.version,
+              descriptor.compatibleUiContractVersions
+            )
+          ) {
+            // eslint-disable-next-line no-console
+            console.error(
+              `[plugins] Skipping "${descriptor.name}": needs UI contract (React) ${descriptor.compatibleUiContractVersions}, host is React ${UI_CONTRACT_VERSION}.`
+            );
+            continue;
+          }
+          // API gate: the host application version is a separate, coarser axis
+          // (it bumps for backend reasons unrelated to the UI runtime).
+          if (
+            !satisfiesHostVersion(
+              getHostVersion(),
+              descriptor.compatibleHostVersions
+            )
+          ) {
+            // eslint-disable-next-line no-console
+            console.error(
+              `[plugins] Skipping "${descriptor.name}": requires host ${descriptor.compatibleHostVersions}, host is ${getHostVersion()}.`
+            );
+            continue;
+          }
           const mod = await import(/* @vite-ignore */ descriptor.bundleUrl);
           const registerFn: PluginRegisterFn = mod.default || mod.register;
           if (typeof registerFn === 'function') {

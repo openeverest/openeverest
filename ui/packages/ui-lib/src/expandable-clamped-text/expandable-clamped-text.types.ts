@@ -13,9 +13,7 @@
 // limitations under the License.
 
 import type { DialogProps as UiDialogProps } from '../dialog/dialog.types';
-import type { TypographyProps } from '@mui/material/Typography';
-
-type TextStyleProps = Pick<TypographyProps, 'variant' | 'color' | 'sx'>;
+import type { TextStyleProps } from '../show-more-dialog/show-more-dialog.types';
 
 export type ExpandableClampedTextExpandStrategy =
   | {

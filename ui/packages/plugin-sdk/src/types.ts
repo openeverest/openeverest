@@ -238,8 +238,9 @@ export interface InstanceEditFormSectionProps {
 /** The API object provided to a plugin's register() function by the host. */
 export interface PluginApi {
   /**
-   * The host's React instance. Plugins MUST use this instead of importing
-   * their own React to avoid duplicate-React issues with hooks.
+   * The host's React instance, the same one the host import map serves for
+   * `import 'react'`. Useful for plugins built without a bundler; never bundle
+   * your own React copy.
    */
   React: typeof import("react");
 
@@ -261,6 +262,25 @@ export interface PluginApi {
    * through `fetch`. Plugins should never reconstruct this path themselves.
    */
   basePath: string;
+
+  /**
+   * CSP nonce for <style> tags the plugin injects (e.g. its Emotion cache).
+   * Pass this to PluginThemeProvider from @openeverest/plugin-theme.
+   */
+  cssNonce: string;
+
+  /**
+   * Host application version (semver), or "dev" when unknown. This is the
+   * API-compatibility axis, gated by `spec.compatibleHostVersions`.
+   */
+  hostVersion: string;
+
+  /**
+   * The host's shared React major — the UI contract a bundled-MUI plugin builds
+   * against. The host enforces `spec.compatibleUiContractVersions` against this
+   * at load time and rejects a plugin that declares an incompatible range.
+   */
+  uiContractVersion: string;
 }
 
 // ---------------------------------------------------------------------------

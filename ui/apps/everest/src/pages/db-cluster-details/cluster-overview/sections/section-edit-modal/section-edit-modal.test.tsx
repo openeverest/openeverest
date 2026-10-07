@@ -21,16 +21,20 @@ import type {
 import {
   FieldType,
   FormMode,
+  GroupType,
 } from 'components/ui-generator/ui-generator.types';
 import type { Instance, Provider } from 'shared-types/api.types';
+import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 import SectionEditModal from './section-edit-modal';
+
+const { mutate } = vi.hoisted(() => ({ mutate: vi.fn() }));
 
 vi.mock('hooks/api/kubernetesClusters/useKubernetesClusterInfo', () => ({
   useKubernetesClusterInfo: () => ({ data: undefined }),
 }));
 
 vi.mock('hooks/api/db-instances/useUpdateDbInstance', () => ({
-  useUpdateDbInstanceWithConflictRetry: () => ({ mutate: vi.fn() }),
+  useUpdateDbInstanceWithConflictRetry: () => ({ mutate }),
 }));
 
 const makeNumber = (
@@ -152,5 +156,62 @@ describe('SectionEditModal CEL validation', () => {
       ).toBeInTheDocument();
     });
     expect(saveButton).toBeDisabled();
+  });
+});
+
+describe('SectionEditModal toggleable group', () => {
+  it('deletes the saved values of a section switched off on edit', async () => {
+    mutate.mockClear();
+    const { sections } = preprocessSchema({
+      replicaSet: {
+        sections: {
+          advanced: {
+            label: 'Advanced',
+            components: {
+              monitoring: {
+                uiType: 'group',
+                groupType: GroupType.Toggleable,
+                label: 'Monitoring',
+                components: {
+                  interval: makeNumber('spec.monitoring.interval', 'Interval'),
+                },
+              },
+            },
+          },
+        },
+      },
+    }).replicaSet;
+
+    const instance = {
+      metadata: { name: 'test-db', namespace: 'ns' },
+      spec: { monitoring: { interval: 30 }, other: 'kept' },
+    } as unknown as Instance;
+
+    render(
+      <TestWrapper>
+        <SectionEditModal
+          sectionKey="advanced"
+          sections={sections}
+          instance={instance}
+          provider={{ spec: {} } as Provider}
+          namespace="ns"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+        />
+      </TestWrapper>
+    );
+
+    // A saved value means the section loads on.
+    const toggle = screen.getByRole('switch', { name: 'Enable Monitoring' });
+    expect(toggle).toBeChecked();
+
+    fireEvent.click(toggle);
+    const saveButton = screen.getByTestId('form-dialog-save');
+    await waitFor(() => expect(saveButton).toBeEnabled());
+    fireEvent.click(saveButton);
+
+    await waitFor(() => expect(mutate).toHaveBeenCalled());
+    // No `monitoring: {}` left behind either.
+    expect(mutate.mock.calls[0][0].spec).toEqual({ other: 'kept' });
   });
 });

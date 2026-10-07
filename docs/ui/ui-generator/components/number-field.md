@@ -37,8 +37,8 @@ A numeric input field for integer and decimal values.
   - `int`: Must be an integer (boolean: `true`)
   - `multipleOf`: Value must be a multiple of specified number
   - `safe`: Must be a safe integer within JavaScript's safe integer range (boolean: `true`)
-  - `regex`: Regular expression validation (see [Regex Validation](./Readme.md#regex-validation))
-  - `celExpressions`: Array of CEL validation expressions for cross-field validation (see [CEL Expression Validation](./Readme.md#cel-expression-validation))
+  - `regex`: Regular expression validation (see [Regex Validation](../validation.md#regex))
+  - `celExpressions`: Array of CEL validation expressions for cross-field validation (see [CEL Expression Validation](../validation.md#cel-expression-validation))
 
 ## Native Validation:
 

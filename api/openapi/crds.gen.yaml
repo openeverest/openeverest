@@ -1611,14 +1611,54 @@ components:
                                 per-backup-run.
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
-                            retentionCopies:
+                            retention:
                               description: |-
-                                RetentionCopies is the number of recent backups to keep for this
-                                schedule. Zero (or unset) means "keep all". Negative values are
-                                rejected.
-                              format: int32
-                              minimum: 0
-                              type: integer
+                                Retention configures count-based or time-based backup retention for
+                                this schedule. Unset keeps all backups.
+                              properties:
+                                count:
+                                  description: |-
+                                    Count is the number of recent backups to keep when Type is count.
+                                    Required when Type is count (minimum 1). Forbidden when Type is time.
+                                    Omit Retention on the schedule to keep all backups.
+                                  format: int32
+                                  minimum: 1
+                                  type: integer
+                                duration:
+                                  description: |-
+                                    Duration is the recovery window when Type is time, in the form
+                                    <positive-integer><unit> where unit is d (days), w (weeks), or m
+                                    (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+                                  pattern: ^[1-9][0-9]*[dwm]$
+                                  type: string
+                                type:
+                                  default: count
+                                  description: Type selects count-based or time-based
+                                    retention.
+                                  enum:
+                                  - count
+                                  - time
+                                  type: string
+                              required:
+                              - type
+                              type: object
+                              x-kubernetes-validations:
+                              - message: count is required when retention type is
+                                  count
+                                rule: 'self.type == ''count'' ? has(self.count) :
+                                  true'
+                              - message: duration is only allowed when retention type
+                                  is time
+                                rule: 'self.type == ''count'' ? !has(self.duration)
+                                  : true'
+                              - message: count is only allowed when retention type
+                                  is count
+                                rule: 'self.type == ''time'' ? !has(self.count) :
+                                  true'
+                              - message: duration is required when retention type
+                                  is time
+                                rule: 'self.type == ''time'' ? has(self.duration)
+                                  : true'
                           required:
                           - cron
                           - enabled
@@ -1669,9 +1709,6 @@ components:
                       Image specifies an override for the image to use.
                       When unspecified, it is autmatically set from the ComponentVersions
                       based on the Version specified.
-                    type: string
-                  name:
-                    description: Name of the component.
                     type: string
                   parameters:
                     description: |-
@@ -1756,6 +1793,8 @@ components:
                           Affinity constrains node selection, pod co-location and pod
                           anti-affinity (spreading pods across nodes, zones or other topology
                           domains for high availability).
+                          When omitted, the provider applies its default, which may require each
+                          replica on its own node; an empty affinity ({}) sets no constraints.
                         properties:
                           nodeAffinity:
                             description: Describes node affinity scheduling rules
@@ -2740,7 +2779,9 @@ components:
                       topologySpreadConstraints:
                         description: |-
                           TopologySpreadConstraints describe how the pods spread across topology
-                          domains. All constraints are ANDed.
+                          domains. A constraint with neither labelSelector nor matchLabelKeys counts
+                          this component's pods. When omitted, the provider applies its default; an
+                          empty list sets no constraints.
                         items:
                           description: TopologySpreadConstraint specifies how to spread
                             matching pods among the given topology.
@@ -3297,39 +3338,36 @@ components:
                   x-kubernetes-list-type: map
               type: object
             components:
-              description: Components is the status of the components in the database
-                cluster.
+              description: Components reports how many pods each component has and
+                how many are Ready.
               items:
+                description: ComponentStatus counts the pods of one component.
                 properties:
-                  podRefs:
-                    description: PodRefs references the Pods backing this component.
-                    items:
-                      description: |-
-                        ObjectRef references an object by name. The target is either in the same
-                        namespace as the referrer or cluster-scoped; which one applies is fixed by
-                        the field using this type and documented there.
-                      properties:
-                        name:
-                          description: Name of the referenced object.
-                          maxLength: 253
-                          minLength: 1
-                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                          type: string
-                      required:
-                      - name
-                      type: object
-                      x-kubernetes-map-type: atomic
-                    type: array
-                  ready:
-                    format: int32
-                    type: integer
-                  state:
+                  name:
+                    description: Name is a key of spec.components.
                     type: string
-                  total:
+                  readyReplicas:
+                    description: ReadyReplicas is the number of those pods that are
+                      Ready.
                     format: int32
                     type: integer
+                  replicas:
+                    description: Replicas is the number of the component's pods that
+                      are not terminating.
+                    format: int32
+                    type: integer
+                  selector:
+                    description: |-
+                      Selector selects the component's pods in the Instance's namespace, in
+                      the form kubectl get pods -l accepts.
+                    type: string
+                required:
+                - name
                 type: object
               type: array
+              x-kubernetes-list-map-keys:
+              - name
+              x-kubernetes-list-type: map
             conditions:
               items:
                 description: Condition contains details for one aspect of the current
@@ -3683,14 +3721,54 @@ components:
                                 per-backup-run.
                               type: object
                               x-kubernetes-preserve-unknown-fields: true
-                            retentionCopies:
+                            retention:
                               description: |-
-                                RetentionCopies is the number of recent backups to keep for this
-                                schedule. Zero (or unset) means "keep all". Negative values are
-                                rejected.
-                              format: int32
-                              minimum: 0
-                              type: integer
+                                Retention configures count-based or time-based backup retention for
+                                this schedule. Unset keeps all backups.
+                              properties:
+                                count:
+                                  description: |-
+                                    Count is the number of recent backups to keep when Type is count.
+                                    Required when Type is count (minimum 1). Forbidden when Type is time.
+                                    Omit Retention on the schedule to keep all backups.
+                                  format: int32
+                                  minimum: 1
+                                  type: integer
+                                duration:
+                                  description: |-
+                                    Duration is the recovery window when Type is time, in the form
+                                    <positive-integer><unit> where unit is d (days), w (weeks), or m
+                                    (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+                                  pattern: ^[1-9][0-9]*[dwm]$
+                                  type: string
+                                type:
+                                  default: count
+                                  description: Type selects count-based or time-based
+                                    retention.
+                                  enum:
+                                  - count
+                                  - time
+                                  type: string
+                              required:
+                              - type
+                              type: object
+                              x-kubernetes-validations:
+                              - message: count is required when retention type is
+                                  count
+                                rule: 'self.type == ''count'' ? has(self.count) :
+                                  true'
+                              - message: duration is only allowed when retention type
+                                  is time
+                                rule: 'self.type == ''count'' ? !has(self.duration)
+                                  : true'
+                              - message: count is only allowed when retention type
+                                  is count
+                                rule: 'self.type == ''time'' ? !has(self.count) :
+                                  true'
+                              - message: duration is required when retention type
+                                  is time
+                                rule: 'self.type == ''time'' ? has(self.duration)
+                                  : true'
                           required:
                           - cron
                           - enabled
@@ -3741,9 +3819,6 @@ components:
                       Image specifies an override for the image to use.
                       When unspecified, it is autmatically set from the ComponentVersions
                       based on the Version specified.
-                    type: string
-                  name:
-                    description: Name of the component.
                     type: string
                   parameters:
                     description: |-
@@ -3828,6 +3903,8 @@ components:
                           Affinity constrains node selection, pod co-location and pod
                           anti-affinity (spreading pods across nodes, zones or other topology
                           domains for high availability).
+                          When omitted, the provider applies its default, which may require each
+                          replica on its own node; an empty affinity ({}) sets no constraints.
                         properties:
                           nodeAffinity:
                             description: Describes node affinity scheduling rules
@@ -4812,7 +4889,9 @@ components:
                       topologySpreadConstraints:
                         description: |-
                           TopologySpreadConstraints describe how the pods spread across topology
-                          domains. All constraints are ANDed.
+                          domains. A constraint with neither labelSelector nor matchLabelKeys counts
+                          this component's pods. When omitted, the provider applies its default; an
+                          empty list sets no constraints.
                         items:
                           description: TopologySpreadConstraint specifies how to spread
                             matching pods among the given topology.
@@ -5685,6 +5764,16 @@ components:
               description: |-
                 CompatibleHostVersions is a SemVer range expression specifying which
                 OpenEverest host versions this plugin supports (e.g. ">=2.0.0 <3.0.0").
+                This is the API-compatibility gate: it guards the host application version,
+                which bumps for backend reasons unrelated to the UI runtime.
+              type: string
+            compatibleUiContractVersions:
+              description: |-
+                CompatibleUIContractVersions is a SemVer range expression specifying which
+                UI-contract versions this plugin's frontend supports (e.g. "^18.0.0"). The
+                UI contract is the shared React major — the only runtime a bundled-MUI
+                plugin shares with the host (see issue #2661) — so this is checked
+                separately from CompatibleHostVersions at load time.
               type: string
             description:
               description: Description is a short human-readable description of what
@@ -5910,11 +5999,14 @@ components:
             componentTypes:
               additionalProperties:
                 properties:
+                  defaultVersion:
+                    description: |-
+                      DefaultVersion names the entry in Versions used when neither the
+                      Instance nor a version bundle selects one.
+                    type: string
                   versions:
                     items:
                       properties:
-                        default:
-                          type: boolean
                         deprecated:
                           description: |-
                             Deprecated marks a version as still supported but scheduled for
@@ -5976,6 +6068,11 @@ components:
                 type: object
               description: ConfigMaps defines ConfigMap types this provider supports.
               type: object
+            defaultVersion:
+              description: |-
+                DefaultVersion names the bundle in Versions used when an Instance
+                omits Spec.Version.
+              type: string
             parametersSchema:
               description: |-
                 ParametersSchema declares the OpenAPI v3 schema for the instance-wide
@@ -6083,7 +6180,7 @@ components:
                 Versions defines curated version bundles — named sets of component
                 versions that are known to be mutually compatible. Users reference
                 a bundle via Instance.Spec.Version. If the user does not set a version,
-                the bundle whose Default field is true is used automatically.
+                the bundle named by DefaultVersion is used automatically.
               items:
                 description: |-
                   VersionBundle is a curated set of component versions known to be mutually
@@ -6096,11 +6193,6 @@ components:
                       Components maps component names to their version strings for this bundle.
                       Keys must match component names defined in ProviderSpec.Components.
                     type: object
-                  default:
-                    description: |-
-                      Default marks this bundle as the implicit choice when an Instance omits
-                      Spec.Version entirely. Exactly one bundle should have Default: true.
-                    type: boolean
                   name:
                     description: |-
                       Name is the unique identifier for this bundle (e.g. "8.0.12").

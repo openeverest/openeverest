@@ -10,7 +10,7 @@
 
 **in `everest/ui/apps/everest/.e2e`**
 
-- `make ci-init` - it will install tests dependencies and install an additional stuff into everest deployment (additional DB namespaces, MinIO, PMM helm chart, ...)
+- `make ci-init` - it will install tests dependencies and install an additional stuff into everest deployment (additional DB namespaces, SeaweedFS, PMM helm chart, ...)
 
 - `make test` - run UI e2e tests
 

@@ -16,6 +16,7 @@
 package instance
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -41,8 +42,7 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 	version := "1.22.0"
 	msg := "All replicas are ready"
 	ready := int32(3)
-	total := int32(3)
-	state := "Running"
+	replicas := int32(3)
 	condStatus := client.InstanceStatusConditionsStatusTrue
 
 	inst := &client.Instance{
@@ -61,12 +61,10 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
-				PodRefs *[]struct {
-					Name string `json:"name"`
-				} `json:"podRefs,omitempty"`
-				Ready *int32  `json:"ready,omitempty"`
-				State *string `json:"state,omitempty"`
-				Total *int32  `json:"total,omitempty"`
+				Name          string  `json:"name"`
+				ReadyReplicas *int32  `json:"readyReplicas,omitempty"`
+				Replicas      *int32  `json:"replicas,omitempty"`
+				Selector      *string `json:"selector,omitempty"`
 			} `json:"components,omitempty"`
 			Conditions *[]struct {
 				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
@@ -92,14 +90,12 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 			Version: &version,
 			Message: &msg,
 			Components: &[]struct {
-				PodRefs *[]struct {
-					Name string `json:"name"`
-				} `json:"podRefs,omitempty"`
-				Ready *int32  `json:"ready,omitempty"`
-				State *string `json:"state,omitempty"`
-				Total *int32  `json:"total,omitempty"`
+				Name          string  `json:"name"`
+				ReadyReplicas *int32  `json:"readyReplicas,omitempty"`
+				Replicas      *int32  `json:"replicas,omitempty"`
+				Selector      *string `json:"selector,omitempty"`
 			}{
-				{Ready: &ready, Total: &total, State: &state},
+				{Name: "engine", ReadyReplicas: &ready, Replicas: &replicas},
 			},
 			Conditions: &[]struct {
 				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
@@ -132,6 +128,28 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 		Cluster:   "main",
 	}, cfgPath)
 	require.NoError(t, err)
+}
+
+func TestPrintConditionTable_MultiLineMessage(t *testing.T) {
+	t.Parallel()
+
+	status := `{"status":{"conditions":[
+		{"type":"Ready","status":"True","reason":"Ready","message":"","lastTransitionTime":"2026-10-02T12:00:00Z"},
+		{"type":"PodsScheduled","status":"False","reason":"Unschedulable","lastTransitionTime":"2026-10-02T12:00:00Z",
+		 "message":"configServer: 2 of 3 pods cannot be scheduled\nengine: 1 of 5 pods cannot be scheduled"}
+	]}}`
+	var inst client.Instance
+	require.NoError(t, json.Unmarshal([]byte(status), &inst))
+	var out bytes.Buffer
+
+	printConditionTable(&out, &inst)
+
+	want := "\nConditions:\n" +
+		"  TYPE           STATUS  REASON         MESSAGE\n" +
+		"  Ready          True    Ready          -\n" +
+		"  PodsScheduled  False   Unschedulable  configServer: 2 of 3 pods cannot be scheduled\n" +
+		"                                        engine: 1 of 5 pods cannot be scheduled\n"
+	assert.Equal(t, want, out.String())
 }
 
 func TestInstanceStatus_NotFound(t *testing.T) {
@@ -218,12 +236,10 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
-				PodRefs *[]struct {
-					Name string `json:"name"`
-				} `json:"podRefs,omitempty"`
-				Ready *int32  `json:"ready,omitempty"`
-				State *string `json:"state,omitempty"`
-				Total *int32  `json:"total,omitempty"`
+				Name          string  `json:"name"`
+				ReadyReplicas *int32  `json:"readyReplicas,omitempty"`
+				Replicas      *int32  `json:"replicas,omitempty"`
+				Selector      *string `json:"selector,omitempty"`
 			} `json:"components,omitempty"`
 			Conditions *[]struct {
 				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
@@ -288,12 +304,10 @@ func minimalInst() *client.Instance {
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
-				PodRefs *[]struct {
-					Name string `json:"name"`
-				} `json:"podRefs,omitempty"`
-				Ready *int32  `json:"ready,omitempty"`
-				State *string `json:"state,omitempty"`
-				Total *int32  `json:"total,omitempty"`
+				Name          string  `json:"name"`
+				ReadyReplicas *int32  `json:"readyReplicas,omitempty"`
+				Replicas      *int32  `json:"replicas,omitempty"`
+				Selector      *string `json:"selector,omitempty"`
 			} `json:"components,omitempty"`
 			Conditions *[]struct {
 				LastTransitionTime time.Time                             `json:"lastTransitionTime"`

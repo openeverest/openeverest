@@ -2,7 +2,7 @@ name: Issue assignment
 
 on:
   issue_comment:
-    types: [created]
+    types: [created, edited]
 
 permissions:
   issues: write
@@ -20,7 +20,7 @@ jobs:
       (contains(github.event.comment.body, '/assign') ||
        contains(github.event.comment.body, '/unassign') ||
        contains(github.event.comment.body, '/take'))
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-8-32-x86
     steps:
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
@@ -30,11 +30,21 @@ jobs:
             const commenter = context.payload.comment.user.login;
 
             // Commands must start a line, matching the Prow convention.
-            const line = context.payload.comment.body
+            const commandIn = (body) => (body || '')
               .split(/\r?\n/)
               .map((l) => l.trim())
               .find((l) => /^\/(assign|unassign|take)\b/.test(l));
+
+            const line = commandIn(context.payload.comment.body);
             if (!line) return;
+
+            // A command typed wrong and then corrected is why edits are
+            // watched at all; editing prose around one that already ran
+            // must not replay it.
+            if (context.payload.action === 'edited') {
+              const before = context.payload.changes?.body?.from;
+              if (before === undefined || commandIn(before) === line) return;
+            }
 
             const parsed = line.match(/^\/(assign|unassign|take)(?:\s+@([A-Za-z0-9-]+))?/);
             const verb = parsed[1] === 'take' ? 'assign' : parsed[1];

@@ -17,6 +17,7 @@ flowchart TD
   SEC --> CO["componentsOrder?"]
   SEC --> C["components"]
   C --> CMP["Component<br/>(leaf field)"]
+  C --> WGT["Widget<br/>(uiType: widget)"]
   C --> GRP["ComponentGroup<br/>(container)"]
   GRP --> C
 
@@ -33,7 +34,7 @@ flowchart TD
 flowchart TD
   G["ComponentGroup"] --> U["uiType<br/>(group, hidden)"]
   G --> LD["label? / description?"]
-  G --> GT["groupType?<br/>(accordion, line, bordered🛠️, collapsible🛠️, toggleable🛠️)"]
+  G --> GT["groupType?<br/>(accordion, line, bordered, toggleable, collapsible🛠️)"]
   G --> GP["groupParams?<br/>(Record&lt;string, unknown&gt;, GroupParams🛠️)"]
   G --> CH["components / componentsOrder?"]
   CH --> GATE["child toggle: gate? 🛠️"]
@@ -65,6 +66,26 @@ flowchart TD
 - **`path` | `id`** — `path` (`string` | `string[]`) writes to the API; an array is a multi-path (`[0]` is the source, all entries are targets). `id` has no API binding and is used only for validation / CEL.
 - **`dataSource.provider`** — a key in the open runtime registry (`register()`), not a closed enum.
 - **`modes?`** — `{ [FormMode]: { uiType? } }`; `import` is declared in the enum but is not used by the code.
+
+## Level 2 — Widget (host-rendered leaf)
+
+```mermaid
+flowchart TD
+  W["Widget"] --> WU["uiType: widget"]
+  W --> WT["widgetType<br/>(podSchedulingPolicy; affinity is internal)"]
+  W --> WTG["_widgetTargets<br/>(set by preprocess)"]
+```
+
+- **Supported props:** `uiType: widget` and `widgetType`.
+- **`widgetType`** selects the renderer from the consumer's `WidgetRegistry` (edit) and
+  `WidgetSummaryRegistry` (`label` + `View` + `digest` for the overview and wizard preview).
+  Unknown types render nothing.
+- **Location is defined per widget type** — a widget is unique, so there is no shared rule
+  for where its data lives:
+  - `affinity` (internal) binds one `path`, like a field.
+  - `podSchedulingPolicy` is placed without `path` / `id`: preprocess resolves the paths it
+    writes per provider and topology (`widgetTargetResolvers`) into `_widgetTargets`, which
+    toggleable groups, payload merging and the overview read.
 
 ## Level 3 — fieldParams (by field type)
 
@@ -199,10 +220,11 @@ classDiagram
 | **dataSource / API providers** | `dataSource: { provider }` names an API-backed option source; preprocess dev-validates the provider key, and at runtime `DataSourceField` loads the options through the registry (`DataSourcePrefetcher` sets defaults on mount) | implemented |
 | **CEL validation**             | Cross-field validation rules declared via `celExpressions` (with an `original` namespace available in edit mode)                                                                                                                 | implemented |
 | **CEL conditional rendering**  | Show / hide fields based on another field value through a generic mechanism                                                                                                                                                      | 🛠️          |
-| **group kernel**               | `groupType: bordered/collapsible/toggleable` + `gate` + `direction`                                                                                                                                                              | 🛠️          |
+| **group kernel**               | `bordered`, `toggleable` (form-only switch); planned: `collapsible`, persisted `gate` ([#3290](https://github.com/openeverest/openeverest/issues/3290)), `direction`                                                             | partial     |
 
 ## To Consider
 
+- **Disabling a group (including a toggleable switch)** — covered by group-level `modes` (`hidden` / `disabled` per form mode) in [#3080](https://github.com/openeverest/openeverest/issues/3080). Conditional disabling via CEL depends on [#1837](https://github.com/openeverest/openeverest/issues/1837).
 - **`fieldParams.badge` / `badgeToApi`** — currently inherited by all field types through `CommonFieldParams`; visual badge rendering is supported for `number` and `select`, while `text` / `toggle` / `hidden` have asymmetric behavior.
 
   When `badgeToApi` is set, the badge also acts as the value's **unit**: applied on write and converted back on read by `stripBadgeFromValue` (`badge-to-api`), which the overview cards reuse for display. The unit semantics, conversion rules and supported-unit list are documented for users in [number-field](../../ui-generator/components/number-field.md#unit-badge).
@@ -211,4 +233,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-17
+- Last updated: 2026-09-30

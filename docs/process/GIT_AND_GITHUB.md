@@ -6,19 +6,17 @@ Commit and push to the feature branches daily. Use pull requests (in the draft s
 
 ## Preparation
 
-Make sure your `git user.name` is set, and `user.email` is set to your corporate (if you are Perconian) or personal email, i.e. john.doe@percona.com.
+Make sure your `git user.name` is set, and `user.email` is set to your work or personal email, i.e. john.doe@example.com.
 
 Use topic branches in the same repository instead of GitHub forks if you have such permissions.
 
-Name topic branches like this: `EVEREST-1234-short-description`. Always start with `EVEREST-XXXX`. Never omit a short description. Separate words with dashes, not underscore. Use only lowercase letters.
-
-If you are community contributor and no ticket exists, either create one or just use `short-description` style for your forked repo branch.
+Name topic branches with a short description, e.g. `fix-flaky-backup-test`. If the branch addresses a specific GitHub issue, prefixing the number is helpful but not required, e.g. `3197-short-description`. Separate words with dashes, not underscore. Use only lowercase letters.
 
 ## Commit rules
 
 Every commit message should use this commit template:
 ```
-EVEREST-XXXX Short summary up to 50 characters.
+Short summary up to 50 characters.
 
 Optional 72-character wrapped longer description.
 ```

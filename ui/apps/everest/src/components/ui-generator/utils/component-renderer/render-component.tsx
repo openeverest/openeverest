@@ -76,7 +76,6 @@ export const renderComponent = ({
           key={fieldName}
           item={item}
           groupType={(item as ComponentGroup).groupType}
-          groupParams={(item as ComponentGroup).groupParams}
         >
           {children}
         </UIGroup>
