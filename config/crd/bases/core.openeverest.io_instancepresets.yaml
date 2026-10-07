@@ -15,12 +15,24 @@ spec:
     - pre
     - preset
     singular: instancepreset
-  scope: Cluster
+  scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: InstancePreset is the Schema for the instancepresets API
+        description: |-
+          InstancePreset is a namespace-scoped, template for creating Instances
+          within a single namespace.
+
+          Because a InstancePreset lives in the same namespace as the Instances
+          it produces, it may reference namespace-scoped objects (Secrets, etc.)
+          directly by name. It is used for capturing a known-good configuration,
+          including concrete local references, and reuse it to create Instances
+          in that namespace.
+
+          It is similar to a ClusterInstancePreset, however it is scoped to a single
+          namespace and can therefore only be used to create Instances within that
+          same namespace.
         properties:
           apiVersion:
             description: |-

@@ -1494,7 +1494,20 @@ export interface components {
             /** @description UID is the unique in time and space value for this object. Populated by the system. Read-only. */
             uid?: string;
         };
-        /** @description InstancePreset is the Schema for the instancepresets API */
+        /**
+         * @description InstancePreset is a namespace-scoped, template for creating Instances
+         *     within a single namespace.
+         *
+         *     Because a InstancePreset lives in the same namespace as the Instances
+         *     it produces, it may reference namespace-scoped objects (Secrets, etc.)
+         *     directly by name. It is used for capturing a known-good configuration,
+         *     including concrete local references, and reuse it to create Instances
+         *     in that namespace.
+         *
+         *     It is similar to a ClusterInstancePreset, however it is scoped to a single
+         *     namespace and can therefore only be used to create Instances within that
+         *     same namespace.
+         */
         InstancePreset: {
             /**
              * @description APIVersion defines the versioned schema of this representation of an object.
@@ -2767,6 +2780,8 @@ export interface components {
             metadata?: {
                 /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
                 name?: string;
+                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+                namespace?: string;
             };
         };
         /** @description Provider is the Schema for the providers API */
