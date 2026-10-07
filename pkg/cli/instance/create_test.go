@@ -745,13 +745,13 @@ func TestRun_UnknownContext(t *testing.T) {
 // ---- preset Run tests -------------------------------------------------------
 
 // newRunServerWithPreset extends newRunServer to also serve the preset resolve
-// endpoint at /v1/clusters/main/instance-presets/{name}/resolve.
+// endpoint at /v1/clusters/main/cluster-instance-presets/{name}/resolve.
 func newRunServerWithPreset(t *testing.T, providerHandler, createHandler, presetHandler http.HandlerFunc) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/clusters/main/providers/psmdb", providerHandler)
 	mux.HandleFunc("/v1/clusters/main/namespaces/", createHandler)
-	mux.HandleFunc("/v1/clusters/main/instance-presets/", presetHandler)
+	mux.HandleFunc("/v1/clusters/main/cluster-instance-presets/", presetHandler)
 	return httptest.NewServer(mux)
 }
 
@@ -1050,5 +1050,5 @@ func TestRun_WithPreset_ResolvePassesNamespace(t *testing.T) {
 		Preset:    "my-preset",
 	}, cfgPath))
 
-	assert.Contains(t, capturedURL, "/v1/clusters/main/instance-presets/my-preset/resolve?namespace=prod")
+	assert.Contains(t, capturedURL, "/v1/clusters/main/cluster-instance-presets/my-preset/resolve?namespace=prod")
 }

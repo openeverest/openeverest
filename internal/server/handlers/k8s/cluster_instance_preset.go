@@ -34,15 +34,15 @@ const (
 	defaultStorageClassAnnotation = "storageclass.kubernetes.io/is-default-class"
 )
 
-// ListInstancePresets returns list of instance presets, optionally filtered by provider.
-func (h *k8sHandler) ListInstancePresets(ctx context.Context, cluster string, provider string) (*corev1alpha1.InstancePresetList, error) {
-	list, err := h.kubeConnector.ListInstancePresets(ctx)
+// ListClusterInstancePresets returns list of cluster instance presets, optionally filtered by provider.
+func (h *k8sHandler) ListClusterInstancePresets(ctx context.Context, _, provider string) (*corev1alpha1.ClusterInstancePresetList, error) {
+	list, err := h.kubeConnector.ListClusterInstancePresets(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list instance presets: %w", err)
+		return nil, fmt.Errorf("failed to list cluster instance presets: %w", err)
 	}
 
 	if provider != "" {
-		filtered := make([]corev1alpha1.InstancePreset, 0)
+		filtered := make([]corev1alpha1.ClusterInstancePreset, 0)
 		for _, preset := range list.Items {
 			if preset.Spec.ProviderRef.Name == provider {
 				filtered = append(filtered, preset)
@@ -54,16 +54,16 @@ func (h *k8sHandler) ListInstancePresets(ctx context.Context, cluster string, pr
 	return list, nil
 }
 
-// GetInstancePreset returns an instance preset that matches the criteria.
-func (h *k8sHandler) GetInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.InstancePreset, error) {
-	return h.kubeConnector.GetInstancePreset(ctx, types.NamespacedName{Name: name})
+// GetClusterInstancePreset returns a cluster instance preset that matches the criteria.
+func (h *k8sHandler) GetClusterInstancePreset(ctx context.Context, _, name string) (*corev1alpha1.ClusterInstancePreset, error) {
+	return h.kubeConnector.GetClusterInstancePreset(ctx, types.NamespacedName{Name: name})
 }
 
-// ResolveInstancePreset returns an instance preset with namespace-specific default values populated.
-func (h *k8sHandler) ResolveInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.InstancePreset, error) {
-	preset, err := h.kubeConnector.GetInstancePreset(ctx, types.NamespacedName{Name: name})
+// ResolveClusterInstancePreset returns a cluster instance preset with namespace-specific default values populated.
+func (h *k8sHandler) ResolveClusterInstancePreset(ctx context.Context, _, name, namespace string) (*corev1alpha1.ClusterInstancePreset, error) {
+	preset, err := h.kubeConnector.GetClusterInstancePreset(ctx, types.NamespacedName{Name: name})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get instance preset: %w", err)
+		return nil, fmt.Errorf("failed to get cluster instance preset: %w", err)
 	}
 
 	// Create a copy to avoid modifying the original
@@ -81,7 +81,7 @@ func (h *k8sHandler) ResolveInstancePreset(ctx context.Context, cluster, name, n
 // The resolution is based on the most recently created resource with the
 // annotation "openeverest.io/is-default-components-<componentName>" set
 // to "true" in the specified namespace.
-func (h *k8sHandler) resolveNamespaceDefaults(ctx context.Context, preset *corev1alpha1.InstancePreset, namespace string) (*corev1alpha1.InstancePreset, error) {
+func (h *k8sHandler) resolveNamespaceDefaults(ctx context.Context, preset *corev1alpha1.ClusterInstancePreset, namespace string) (*corev1alpha1.ClusterInstancePreset, error) {
 	for componentName, component := range preset.Spec.Components {
 		var err error
 

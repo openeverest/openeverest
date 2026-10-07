@@ -30,39 +30,39 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
-func TestRBAC_InstancePreset(t *testing.T) {
+func TestRBAC_ClusterInstancePreset(t *testing.T) {
 	t.Parallel()
 
-	mockInstancePresets := func() *handlers.MockHandler {
+	mockClusterInstancePresets := func() *handlers.MockHandler {
 		h := &handlers.MockHandler{}
-		h.On("ListInstancePresets", mock.Anything, mock.Anything, mock.Anything).Return(
-			&corev1alpha1.InstancePresetList{
-				Items: []corev1alpha1.InstancePreset{
+		h.On("ListClusterInstancePresets", mock.Anything, mock.Anything, mock.Anything).Return(
+			&corev1alpha1.ClusterInstancePresetList{
+				Items: []corev1alpha1.ClusterInstancePreset{
 					{ObjectMeta: metav1.ObjectMeta{Name: "small"}},
 					{ObjectMeta: metav1.ObjectMeta{Name: "medium"}},
 					{ObjectMeta: metav1.ObjectMeta{Name: "large"}},
 				},
 			}, nil,
 		)
-		h.On("GetInstancePreset", mock.Anything, mock.Anything, mock.Anything).Return(
-			&corev1alpha1.InstancePreset{ObjectMeta: metav1.ObjectMeta{Name: "small"}},
+		h.On("GetClusterInstancePreset", mock.Anything, mock.Anything, mock.Anything).Return(
+			&corev1alpha1.ClusterInstancePreset{ObjectMeta: metav1.ObjectMeta{Name: "small"}},
 			nil,
 		)
-		h.On("ResolveInstancePreset", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
-			&corev1alpha1.InstancePreset{ObjectMeta: metav1.ObjectMeta{Name: "small"}},
+		h.On("ResolveClusterInstancePreset", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+			&corev1alpha1.ClusterInstancePreset{ObjectMeta: metav1.ObjectMeta{Name: "small"}},
 			nil,
 		)
 		return h
 	}
 
-	t.Run("ListInstancePresets", func(t *testing.T) {
+	t.Run("ListClusterInstancePresets", func(t *testing.T) {
 		t.Parallel()
 
 		testCases := []struct {
 			desc    string
 			cluster string
 			policy  string
-			assert  func(list *corev1alpha1.InstancePresetList) bool
+			assert  func(list *corev1alpha1.ClusterInstancePresetList) bool
 		}{
 			{
 				desc:    "admin",
@@ -70,18 +70,18 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				policy: newPolicy(
 					"g, bob, role:admin",
 				),
-				assert: func(list *corev1alpha1.InstancePresetList) bool {
+				assert: func(list *corev1alpha1.ClusterInstancePresetList) bool {
 					return len(list.Items) == 3
 				},
 			},
 			{
-				desc:    "all instance-presets on cluster with wildcard",
+				desc:    "all cluster-instance-presets on cluster with wildcard",
 				cluster: "prod",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, prod/*",
+					"p, role:test, cluster-instance-presets, read, prod/*",
 					"g, bob, role:test",
 				),
-				assert: func(list *corev1alpha1.InstancePresetList) bool {
+				assert: func(list *corev1alpha1.ClusterInstancePresetList) bool {
 					return len(list.Items) == 3
 				},
 			},
@@ -89,10 +89,10 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				desc:    "specific instance-preset on cluster",
 				cluster: "prod",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, prod/small",
+					"p, role:test, cluster-instance-presets, read, prod/small",
 					"g, bob, role:test",
 				),
-				assert: func(list *corev1alpha1.InstancePresetList) bool {
+				assert: func(list *corev1alpha1.ClusterInstancePresetList) bool {
 					return len(list.Items) == 1 && list.Items[0].Name == "small"
 				},
 			},
@@ -100,10 +100,10 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				desc:    "wrong cluster",
 				cluster: "prod",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, staging/*",
+					"p, role:test, cluster-instance-presets, read, staging/*",
 					"g, bob, role:test",
 				),
-				assert: func(list *corev1alpha1.InstancePresetList) bool {
+				assert: func(list *corev1alpha1.ClusterInstancePresetList) bool {
 					return len(list.Items) == 0
 				},
 			},
@@ -113,18 +113,18 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				policy: newPolicy(
 					"g, bob, role:test",
 				),
-				assert: func(list *corev1alpha1.InstancePresetList) bool {
+				assert: func(list *corev1alpha1.ClusterInstancePresetList) bool {
 					return len(list.Items) == 0
 				},
 			},
 			{
-				desc:    "all clusters all instance-presets wildcard",
+				desc:    "all clusters all cluster-instance-presets wildcard",
 				cluster: "prod",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, */*",
+					"p, role:test, cluster-instance-presets, read, */*",
 					"g, bob, role:test",
 				),
-				assert: func(list *corev1alpha1.InstancePresetList) bool {
+				assert: func(list *corev1alpha1.ClusterInstancePresetList) bool {
 					return len(list.Items) == 3
 				},
 			},
@@ -137,7 +137,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				k8sMock := newConfigMapMock(tc.policy)
 				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
 				require.NoError(t, err)
-				next := mockInstancePresets()
+				next := mockClusterInstancePresets()
 
 				h := &rbacHandler{
 					next:       next,
@@ -146,7 +146,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				list, err := h.ListInstancePresets(ctx, tc.cluster, "")
+				list, err := h.ListClusterInstancePresets(ctx, tc.cluster, "")
 				require.NoError(t, err)
 				assert.Condition(t, func() bool {
 					return tc.assert(list)
@@ -155,7 +155,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 		}
 	})
 
-	t.Run("GetInstancePreset", func(t *testing.T) {
+	t.Run("GetClusterInstancePreset", func(t *testing.T) {
 		t.Parallel()
 
 		testCases := []struct {
@@ -178,7 +178,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				cluster: "prod",
 				name:    "small",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, prod/small",
+					"p, role:test, cluster-instance-presets, read, prod/small",
 					"g, bob, role:test",
 				),
 			},
@@ -187,7 +187,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				cluster: "prod",
 				name:    "small",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, prod/*",
+					"p, role:test, cluster-instance-presets, read, prod/*",
 					"g, bob, role:test",
 				),
 			},
@@ -196,7 +196,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				cluster: "prod",
 				name:    "small",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, staging/small",
+					"p, role:test, cluster-instance-presets, read, staging/small",
 					"g, bob, role:test",
 				),
 				wantErr: ErrInsufficientPermissions,
@@ -206,7 +206,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				cluster: "prod",
 				name:    "small",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, prod/medium",
+					"p, role:test, cluster-instance-presets, read, prod/medium",
 					"g, bob, role:test",
 				),
 				wantErr: ErrInsufficientPermissions,
@@ -229,7 +229,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				k8sMock := newConfigMapMock(tc.policy)
 				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
 				require.NoError(t, err)
-				next := mockInstancePresets()
+				next := mockClusterInstancePresets()
 
 				h := &rbacHandler{
 					next:       next,
@@ -238,7 +238,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				result, err := h.GetInstancePreset(ctx, tc.cluster, tc.name)
+				result, err := h.GetClusterInstancePreset(ctx, tc.cluster, tc.name)
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
 				} else {
@@ -249,7 +249,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 		}
 	})
 
-	t.Run("ResolveInstancePreset", func(t *testing.T) {
+	t.Run("ResolveClusterInstancePreset", func(t *testing.T) {
 		t.Parallel()
 
 		testCases := []struct {
@@ -275,7 +275,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				name:      "small",
 				namespace: "default",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, prod/small",
+					"p, role:test, cluster-instance-presets, read, prod/small",
 					"p, role:test, namespaces, read, prod/default",
 					"g, bob, role:test",
 				),
@@ -286,7 +286,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				name:      "small",
 				namespace: "default",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, prod/*",
+					"p, role:test, cluster-instance-presets, read, prod/*",
 					"p, role:test, namespaces, read, prod/*",
 					"g, bob, role:test",
 				),
@@ -308,7 +308,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				name:      "small",
 				namespace: "default",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, prod/small",
+					"p, role:test, cluster-instance-presets, read, prod/small",
 					"g, bob, role:test",
 				),
 				wantErr: ErrInsufficientPermissions,
@@ -319,7 +319,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				name:      "small",
 				namespace: "default",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, staging/small",
+					"p, role:test, cluster-instance-presets, read, staging/small",
 					"p, role:test, namespaces, read, prod/default",
 					"g, bob, role:test",
 				),
@@ -331,7 +331,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				name:      "small",
 				namespace: "default",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, prod/small",
+					"p, role:test, cluster-instance-presets, read, prod/small",
 					"p, role:test, namespaces, read, staging/default",
 					"g, bob, role:test",
 				),
@@ -346,7 +346,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 				k8sMock := newConfigMapMock(tc.policy)
 				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
 				require.NoError(t, err)
-				next := mockInstancePresets()
+				next := mockClusterInstancePresets()
 
 				h := &rbacHandler{
 					next:       next,
@@ -355,7 +355,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				result, err := h.ResolveInstancePreset(ctx, tc.cluster, tc.name, tc.namespace)
+				result, err := h.ResolveClusterInstancePreset(ctx, tc.cluster, tc.name, tc.namespace)
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
 				} else {
