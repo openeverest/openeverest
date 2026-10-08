@@ -404,10 +404,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	// Run validation
 	if err := validateVersionBundle(ctx, r.Client, in); err != nil {
 		logger.Error(err, "Version bundle validation failed")
-		in.Status.Phase = v1alpha1.InstancePhaseFailed
-		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
-			logger.Error(updateErr, "Failed to update status after validation error")
-		}
+		r.failValidation(ctx, in, err)
 		return reconcile.Result{}, err
 	}
 	if err := validateInstanceBackupConfig(ctx, r.Client, in); err != nil {
@@ -428,11 +425,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	}
 	if err := r.provider.Validate(inCtx); err != nil {
 		logger.Error(err, "Validation failed")
-		// Update status to failed
-		in.Status.Phase = v1alpha1.InstancePhaseFailed
-		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
-			logger.Error(updateErr, "Failed to update status after validation error")
-		}
+		r.failValidation(ctx, in, err)
 		return reconcile.Result{}, err
 	}
 
@@ -816,6 +809,16 @@ func setCondition(in *v1alpha1.Instance, condType string, status metav1.Conditio
 		Message:            message,
 		ObservedGeneration: in.Generation,
 	})
+}
+
+// failValidation marks the Instance Failed with the reason in status.message,
+// so users can see why the spec was rejected.
+func (r *ProviderReconciler) failValidation(ctx context.Context, in *v1alpha1.Instance, err error) {
+	in.Status.Phase = v1alpha1.InstancePhaseFailed
+	in.Status.Message = err.Error()
+	if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
+		log.FromContext(ctx).Error(updateErr, "Failed to update status after validation error")
+	}
 }
 
 // setDeprecationCondition maintains the read-only ComponentVersionDeprecated
