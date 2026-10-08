@@ -24,17 +24,8 @@ export type MonitoringConfigCreateParams =
   HttpApi.components['schemas']['MonitoringConfigCreateParams'];
 export type MonitoringConfigUpdateParams =
   HttpApi.components['schemas']['MonitoringConfigUpdateParams'];
-// http-api.yaml types Secret.metadata as a bare object, so take the CRD ObjectMeta shape.
-export type Secret = Omit<
-  HttpApi.components['schemas']['Secret'],
-  'metadata'
-> & {
-  metadata?: CrdsGen.components['schemas']['ObjectMeta'];
-};
-export type SecretList = Omit<
-  HttpApi.components['schemas']['SecretList'],
-  'items'
-> & { items: Secret[] };
+export type Secret = HttpApi.components['schemas']['Secret'];
+export type SecretList = HttpApi.components['schemas']['SecretList'];
 export type SecretListFilter = NonNullable<
   HttpApi.operations['listSecrets']['parameters']['query']
 >;
