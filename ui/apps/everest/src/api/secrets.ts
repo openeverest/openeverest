@@ -24,7 +24,7 @@ export const getSecretsFn = async (
     `clusters/${cluster}/namespaces/${namespace}/secrets`,
     { params: filter }
   );
-  return response.data?.items ?? [];
+  return response.data.items;
 };
 
 export const createSecretFn = async (

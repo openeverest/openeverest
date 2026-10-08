@@ -143,7 +143,7 @@ describe('FormDialog', () => {
       </form>
     );
 
-    fireEvent.submit(screen.getByRole('dialog').querySelector('form')!);
+    fireEvent.submit(screen.getByRole('textbox', { name: 'Name' }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(parentSubmit).not.toHaveBeenCalled();
