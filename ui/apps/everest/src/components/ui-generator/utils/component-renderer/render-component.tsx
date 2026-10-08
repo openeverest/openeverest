@@ -14,9 +14,10 @@
 
 import type { ReactNode } from 'react';
 import React from 'react';
-import type {
-  Component,
-  ComponentGroup,
+import {
+  FieldType,
+  type Component,
+  type ComponentGroup,
 } from 'components/ui-generator/ui-generator.types';
 import UIComponent from 'components/ui-generator/ui-component/ui-component';
 import UIGroup from 'components/ui-generator/ui-group/ui-group';
@@ -28,6 +29,7 @@ import {
   type ComponentWithDataSource,
 } from 'components/ui-generator/api-providers';
 import { ComponentErrorBoundary } from 'components/ui-generator/component-error-boundary';
+import { SecretField } from 'components/ui-generator/secret-field';
 
 export type RenderComponentProps = {
   item: Component | ComponentGroup;
@@ -57,6 +59,8 @@ export const renderComponent = ({
         </React.Fragment>
       );
     })
+  ) : item.uiType === FieldType.Secret ? (
+    <SecretField item={item} name={fieldName} />
   ) : hasDataSource(item as Component) ? (
     <ComponentErrorBoundary key={fieldName} componentName={name}>
       <DataSourceField item={item as ComponentWithDataSource} name={fieldName}>

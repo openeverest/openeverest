@@ -59,6 +59,7 @@ export enum FieldType {
   Text = 'text',
   Toggle = 'toggle',
   Hidden = 'hidden',
+  Secret = 'secret',
 }
 
 export enum WidgetType {
@@ -122,6 +123,12 @@ export type SelectFieldParams =
 
 export type ToggleFieldParams = CommonFieldParams;
 
+export interface SecretFieldParams extends CommonFieldParams {
+  // Key of the provider's spec.secrets entry the selectable secrets belong to.
+  definition: string;
+  readOnly?: boolean;
+}
+
 export interface TextFieldParams extends CommonFieldParams {
   placeholder?: string;
   multiline?: boolean;
@@ -152,6 +159,7 @@ export type FieldParamsMap = {
   [FieldType.Text]: TextFieldParams;
   [FieldType.Toggle]: ToggleFieldParams;
   [FieldType.Hidden]: CommonFieldParams;
+  [FieldType.Secret]: SecretFieldParams;
 };
 
 type PathOrId =
@@ -202,6 +210,7 @@ export type ValidationMap = {
   [FieldType.Select]: CommonValidation;
   [FieldType.Toggle]: ToggleValidation;
   [FieldType.Hidden]: CommonValidation;
+  [FieldType.Secret]: CommonValidation;
 };
 
 type ComponentCommonFields = {
