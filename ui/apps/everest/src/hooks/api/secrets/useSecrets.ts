@@ -29,13 +29,7 @@ export const useSecrets = (
   options?: { enabled?: boolean }
 ) =>
   useQuery({
-    queryKey: [
-      SECRETS_QUERY_KEY,
-      cluster,
-      namespace,
-      filter.provider,
-      filter.definition,
-    ],
+    queryKey: [SECRETS_QUERY_KEY, cluster, namespace, filter],
     queryFn: () => getSecretsFn(cluster, namespace, filter),
     select: dropTerminating,
     enabled: (options?.enabled ?? true) && !!cluster && !!namespace,
