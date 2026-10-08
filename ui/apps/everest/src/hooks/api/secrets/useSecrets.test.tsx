@@ -16,10 +16,15 @@ import React from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { api } from 'api/api';
-import { SECRETS_QUERY_KEY, useCreateSecret, useSecrets } from './useSecrets';
+import {
+  SECRETS_QUERY_KEY,
+  useCreateSecret,
+  useDeleteSecret,
+  useSecrets,
+} from './useSecrets';
 
 vi.mock('api/api', () => ({
-  api: { get: vi.fn(), post: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
 }));
 
 const renderWithClient = <T,>(hook: () => T) => {
@@ -63,20 +68,44 @@ describe('useSecrets', () => {
   });
 });
 
-describe('useCreateSecret', () => {
-  it('refreshes the namespace secret lists once the secret is created', async () => {
-    vi.mocked(api.post).mockResolvedValue({ data: {} });
-    const { result, queryClient } = renderWithClient(() =>
-      useCreateSecret('main', 'ns')
-    );
-    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+describe('secret mutations', () => {
+  it.each([
+    {
+      name: 'create',
+      run: () => {
+        vi.mocked(api.post).mockResolvedValue({ data: {} });
+        const hook = renderWithClient(() => useCreateSecret('main', 'ns'));
+        return {
+          hook,
+          mutate: () =>
+            hook.result.current.mutateAsync({ metadata: { name: 'creds-a' } }),
+        };
+      },
+    },
+    {
+      name: 'delete',
+      run: () => {
+        vi.mocked(api.delete).mockResolvedValue({ data: undefined });
+        const hook = renderWithClient(() => useDeleteSecret('main', 'ns'));
+        return {
+          hook,
+          mutate: () => hook.result.current.mutateAsync('creds-a'),
+        };
+      },
+    },
+  ])(
+    '$name refreshes the namespace secret lists on success',
+    async ({ run }) => {
+      const { hook, mutate } = run();
+      const invalidate = vi.spyOn(hook.queryClient, 'invalidateQueries');
 
-    await act(() =>
-      result.current.mutateAsync({ metadata: { name: 'creds-a' } })
-    );
+      await act(async () => {
+        await mutate();
+      });
 
-    expect(invalidate).toHaveBeenCalledWith({
-      queryKey: [SECRETS_QUERY_KEY, 'main', 'ns'],
-    });
-  });
+      expect(invalidate).toHaveBeenCalledWith({
+        queryKey: [SECRETS_QUERY_KEY, 'main', 'ns'],
+      });
+    }
+  );
 });

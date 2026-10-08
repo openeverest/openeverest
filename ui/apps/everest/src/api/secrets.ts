@@ -38,3 +38,13 @@ export const createSecretFn = async (
   );
   return response.data;
 };
+
+export const deleteSecretFn = async (
+  cluster: string,
+  namespace: string,
+  name: string
+): Promise<void> => {
+  await api.delete(
+    `clusters/${cluster}/namespaces/${namespace}/secrets/${name}`
+  );
+};
