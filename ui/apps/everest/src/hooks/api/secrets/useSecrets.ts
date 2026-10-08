@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createSecretFn, getSecretsFn } from 'api/secrets';
+import { createSecretFn, deleteSecretFn, getSecretsFn } from 'api/secrets';
 import { Secret, SecretListFilter } from 'shared-types/api.types';
 
 export const SECRETS_QUERY_KEY = 'secrets';
@@ -48,6 +48,18 @@ export const useCreateSecret = (cluster: string, namespace: string) => {
     mutationFn: (secret: Secret) => createSecretFn(cluster, namespace, secret),
     // Don't keep the submitted secret values in the mutation cache.
     gcTime: 0,
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: [SECRETS_QUERY_KEY, cluster, namespace],
+      }),
+  });
+};
+
+export const useDeleteSecret = (cluster: string, namespace: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (name: string) => deleteSecretFn(cluster, namespace, name),
     onSuccess: () =>
       queryClient.invalidateQueries({
         queryKey: [SECRETS_QUERY_KEY, cluster, namespace],
