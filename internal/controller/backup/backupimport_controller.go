@@ -96,11 +96,18 @@ func (r *BackupImportReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// ProviderManaged classes are reconciled by the provider-runtime.
-	// Let the provider's runtime can take over.
+	// Let the provider's runtime take over.
 	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeJob {
 		return ctrl.Result{}, nil
 	}
 
 	// TODO: implement Job-based import.
+	imp.Status.State = backupv1alpha1.BackupImportStateFailed
+	imp.Status.Message = "Job execution mode is not yet supported for BackupImport"
+	imp.Status.LastObservedGeneration = imp.GetGeneration()
+	if err := r.Client.Status().Update(ctx, imp); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	return ctrl.Result{}, nil
 }

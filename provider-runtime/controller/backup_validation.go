@@ -251,8 +251,8 @@ func ValidateClassSupportsProvider(bc *backupv1alpha1.BackupClass, provider stri
 	return nil
 }
 
-// ValidateBackupImportSupported returns ErrBackupImportUnsupported unless bc
-// advertises spec.supportsImport. Callers are responsible for
+// ValidateBackupImportSupported returns ErrBackupImportUnsupported if the BackupClass
+// does not advertises spec.supportsImport. Callers are responsible for
 // fetching the BackupClass themselves.
 func ValidateBackupImportSupported(bc *backupv1alpha1.BackupClass) error {
 	if !bc.Spec.SupportsImport {

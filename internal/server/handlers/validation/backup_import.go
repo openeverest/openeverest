@@ -65,7 +65,7 @@ func (h *validateHandler) validateBackupImportRefs(ctx context.Context, backupIm
 	}
 
 	if err := controller.ValidateBackupImportSupported(backupClass); err != nil {
-		return fmt.Errorf("backup import not supported: %w", err)
+		return err
 	}
 
 	if _, err := h.kubeConnector.GetBackupStorage(ctx, ctrlclient.ObjectKey{

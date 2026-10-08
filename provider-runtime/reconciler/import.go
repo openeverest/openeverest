@@ -248,7 +248,8 @@ func (r *backupImportReconciler) createBackups(
 }
 
 // resolveImportOwnership checks the referenced BackupClass uses executionMode
-// "ProviderManaged", supportImport and lists this provider in supportedProviders.
+// "ProviderManaged", has supportsImport enabled and lists this provide
+// in supportedProviders.
 func resolveImportOwnership(
 	ctx context.Context,
 	c client.Client,
@@ -263,11 +264,11 @@ func resolveImportOwnership(
 		return false, fmt.Errorf("failed to get BackupClass: %w", err)
 	}
 
-	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
+	if !bc.Spec.SupportsImport {
 		return false, nil
 	}
 
-	if !bc.Spec.SupportsImport {
+	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
 		return false, nil
 	}
 

@@ -64,6 +64,7 @@ func providerManagedBackupClass(name string) *backupv1alpha1.BackupClass {
 		Spec: backupv1alpha1.BackupClassSpec{
 			ExecutionMode:      backupv1alpha1.BackupExecutionModeProviderManaged,
 			SupportedProviders: backupv1alpha1.ProviderNameList{testImportProvider},
+			SupportsImport:     true,
 		},
 	}
 }
