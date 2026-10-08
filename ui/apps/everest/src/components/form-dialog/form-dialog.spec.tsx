@@ -122,4 +122,30 @@ describe('FormDialog', () => {
 
     expect(closeModal).not.toHaveBeenCalled();
   });
+
+  it('submits only its own form when opened inside another form', async () => {
+    const parentSubmit = vi.fn((e: React.FormEvent) => e.preventDefault());
+    const onSubmit = vi.fn();
+
+    render(
+      <form onSubmit={parentSubmit}>
+        <FormDialog
+          isOpen
+          closeModal={vi.fn()}
+          headerMessage="Nested"
+          onSubmit={onSubmit}
+          schema={schema}
+          defaultValues={defaultValues}
+          submitMessage="Add"
+        >
+          <TextInput name={DataFields.name} label="Name" isRequired />
+        </FormDialog>
+      </form>
+    );
+
+    fireEvent.submit(screen.getByRole('dialog').querySelector('form')!);
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(parentSubmit).not.toHaveBeenCalled();
+  });
 });
