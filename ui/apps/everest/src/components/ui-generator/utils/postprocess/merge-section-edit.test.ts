@@ -16,6 +16,8 @@ import { describe, expect, it } from 'vitest';
 import {
   FieldType,
   GroupType,
+  WIDGET_UI_TYPE,
+  WidgetType,
 } from 'components/ui-generator/ui-generator.types';
 import { TOGGLEABLE_SWITCHES_KEY } from '../toggleable/toggleable';
 import { preprocessSchema } from '../preprocess/preprocess-schema';
@@ -79,5 +81,41 @@ describe('mergeSectionEdit', () => {
     const spec = savedSpec();
     merge(false, spec);
     expect(spec).toEqual(savedSpec());
+  });
+
+  describe('widget values', () => {
+    const widgetSections = {
+      scheduling: {
+        components: {
+          affinity: {
+            uiType: WIDGET_UI_TYPE,
+            widgetType: WidgetType.Affinity,
+            path: 'spec.affinity',
+          },
+        },
+      },
+    };
+    const savedAffinity = {
+      replicas: 3,
+      affinity: { nodeAffinity: { a: 1 }, podAffinity: { b: 2 } },
+    };
+    const mergeWidget = (affinity: unknown) =>
+      mergeSectionEdit({
+        spec: savedAffinity,
+        sections: widgetSections,
+        sectionKey: 'scheduling',
+        formData: { spec: { affinity } },
+      });
+
+    it('replaces the saved value instead of merging into it', () => {
+      expect(mergeWidget({ podAffinity: { b: 3 } })).toEqual({
+        replicas: 3,
+        affinity: { podAffinity: { b: 3 } },
+      });
+    });
+
+    it('deletes the saved value when the widget is cleared', () => {
+      expect(mergeWidget({})).toEqual({ replicas: 3 });
+    });
   });
 });

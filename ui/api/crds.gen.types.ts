@@ -1088,8 +1088,6 @@ export interface components {
                          *     based on the Version specified.
                          */
                         image?: string;
-                        /** @description Name of the component. */
-                        name?: string;
                         /**
                          * @description Parameters contains component-specific structured parameters, validated
                          *     against the provider's components[].parametersSchema. Engine
@@ -1154,6 +1152,8 @@ export interface components {
                              * @description Affinity constrains node selection, pod co-location and pod
                              *     anti-affinity (spreading pods across nodes, zones or other topology
                              *     domains for high availability).
+                             *     When omitted, the provider applies its default, which may require each
+                             *     replica on its own node; an empty affinity ({}) sets no constraints.
                              */
                             affinity?: {
                                 /** @description Describes node affinity scheduling rules for the pod. */
@@ -1796,10 +1796,9 @@ export interface components {
                             }[];
                             /**
                              * @description TopologySpreadConstraints describe how the pods spread across topology
-                             *     domains. All constraints are ANDed. A constraint without labelSelector
-                             *     and matchLabelKeys counts this component's own pods.
-                             *     When omitted, the provider applies its default spreading; an empty list
-                             *     asks for none, which a provider may reject if its engine always spreads.
+                             *     domains. A constraint with neither labelSelector nor matchLabelKeys counts
+                             *     this component's pods. When omitted, the provider applies its default; an
+                             *     empty list sets no constraints.
                              */
                             topologySpreadConstraints?: {
                                 /**
@@ -2208,18 +2207,25 @@ export interface components {
                         };
                     }[];
                 };
-                /** @description Components is the status of the components in the database cluster. */
+                /** @description Components reports how many pods each component has and how many are Ready. */
                 components?: {
-                    /** @description PodRefs references the Pods backing this component. */
-                    podRefs?: {
-                        /** @description Name of the referenced object. */
-                        name: string;
-                    }[];
-                    /** Format: int32 */
-                    ready?: number;
-                    state?: string;
-                    /** Format: int32 */
-                    total?: number;
+                    /** @description Name is a key of spec.components. */
+                    name: string;
+                    /**
+                     * Format: int32
+                     * @description ReadyReplicas is the number of those pods that are Ready.
+                     */
+                    readyReplicas?: number;
+                    /**
+                     * Format: int32
+                     * @description Replicas is the number of the component's pods that are not terminating.
+                     */
+                    replicas?: number;
+                    /**
+                     * @description Selector selects the component's pods in the Instance's namespace, in
+                     *     the form kubectl get pods -l accepts.
+                     */
+                    selector?: string;
                 }[];
                 conditions?: {
                     /**
@@ -2504,8 +2510,6 @@ export interface components {
                          *     based on the Version specified.
                          */
                         image?: string;
-                        /** @description Name of the component. */
-                        name?: string;
                         /**
                          * @description Parameters contains component-specific structured parameters, validated
                          *     against the provider's components[].parametersSchema. Engine
@@ -2570,6 +2574,8 @@ export interface components {
                              * @description Affinity constrains node selection, pod co-location and pod
                              *     anti-affinity (spreading pods across nodes, zones or other topology
                              *     domains for high availability).
+                             *     When omitted, the provider applies its default, which may require each
+                             *     replica on its own node; an empty affinity ({}) sets no constraints.
                              */
                             affinity?: {
                                 /** @description Describes node affinity scheduling rules for the pod. */
@@ -3212,10 +3218,9 @@ export interface components {
                             }[];
                             /**
                              * @description TopologySpreadConstraints describe how the pods spread across topology
-                             *     domains. All constraints are ANDed. A constraint without labelSelector
-                             *     and matchLabelKeys counts this component's own pods.
-                             *     When omitted, the provider applies its default spreading; an empty list
-                             *     asks for none, which a provider may reject if its engine always spreads.
+                             *     domains. A constraint with neither labelSelector nor matchLabelKeys counts
+                             *     this component's pods. When omitted, the provider applies its default; an
+                             *     empty list sets no constraints.
                              */
                             topologySpreadConstraints?: {
                                 /**

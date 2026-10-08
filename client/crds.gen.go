@@ -1754,9 +1754,6 @@ type Instance struct {
 			// based on the Version specified.
 			Image *string `json:"image,omitempty"`
 
-			// Name Name of the component.
-			Name *string `json:"name,omitempty"`
-
 			// Parameters Parameters contains component-specific structured parameters, validated
 			// against the provider's components[].parametersSchema. Engine
 			// configuration file content is carried here as well, under the
@@ -1805,6 +1802,8 @@ type Instance struct {
 				// Affinity Affinity constrains node selection, pod co-location and pod
 				// anti-affinity (spreading pods across nodes, zones or other topology
 				// domains for high availability).
+				// When omitted, the provider applies its default, which may require each
+				// replica on its own node; an empty affinity ({}) sets no constraints.
 				Affinity *struct {
 					// NodeAffinity Describes node affinity scheduling rules for the pod.
 					NodeAffinity *struct {
@@ -2347,10 +2346,9 @@ type Instance struct {
 				} `json:"tolerations,omitempty"`
 
 				// TopologySpreadConstraints TopologySpreadConstraints describe how the pods spread across topology
-				// domains. All constraints are ANDed. A constraint without labelSelector
-				// and matchLabelKeys counts this component's own pods.
-				// When omitted, the provider applies its default spreading; an empty list
-				// asks for none, which a provider may reject if its engine always spreads.
+				// domains. A constraint with neither labelSelector nor matchLabelKeys counts
+				// this component's pods. When omitted, the provider applies its default; an
+				// empty list sets no constraints.
 				TopologySpreadConstraints *[]struct {
 					// LabelSelector LabelSelector is used to find matching pods.
 					// Pods that match this label selector are counted to determine the number of pods
@@ -2698,16 +2696,20 @@ type Instance struct {
 			} `json:"storages,omitempty"`
 		} `json:"backup,omitempty"`
 
-		// Components Components is the status of the components in the database cluster.
+		// Components Components reports how many pods each component has and how many are Ready.
 		Components *[]struct {
-			// PodRefs PodRefs references the Pods backing this component.
-			PodRefs *[]struct {
-				// Name Name of the referenced object.
-				Name string `json:"name"`
-			} `json:"podRefs,omitempty"`
-			Ready *int32  `json:"ready,omitempty"`
-			State *string `json:"state,omitempty"`
-			Total *int32  `json:"total,omitempty"`
+			// Name Name is a key of spec.components.
+			Name string `json:"name"`
+
+			// ReadyReplicas ReadyReplicas is the number of those pods that are Ready.
+			ReadyReplicas *int32 `json:"readyReplicas,omitempty"`
+
+			// Replicas Replicas is the number of the component's pods that are not terminating.
+			Replicas *int32 `json:"replicas,omitempty"`
+
+			// Selector Selector selects the component's pods in the Instance's namespace, in
+			// the form kubectl get pods -l accepts.
+			Selector *string `json:"selector,omitempty"`
 		} `json:"components,omitempty"`
 		Conditions *[]struct {
 			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
@@ -3042,9 +3044,6 @@ type InstancePreset struct {
 			// based on the Version specified.
 			Image *string `json:"image,omitempty"`
 
-			// Name Name of the component.
-			Name *string `json:"name,omitempty"`
-
 			// Parameters Parameters contains component-specific structured parameters, validated
 			// against the provider's components[].parametersSchema. Engine
 			// configuration file content is carried here as well, under the
@@ -3093,6 +3092,8 @@ type InstancePreset struct {
 				// Affinity Affinity constrains node selection, pod co-location and pod
 				// anti-affinity (spreading pods across nodes, zones or other topology
 				// domains for high availability).
+				// When omitted, the provider applies its default, which may require each
+				// replica on its own node; an empty affinity ({}) sets no constraints.
 				Affinity *struct {
 					// NodeAffinity Describes node affinity scheduling rules for the pod.
 					NodeAffinity *struct {
@@ -3635,10 +3636,9 @@ type InstancePreset struct {
 				} `json:"tolerations,omitempty"`
 
 				// TopologySpreadConstraints TopologySpreadConstraints describe how the pods spread across topology
-				// domains. All constraints are ANDed. A constraint without labelSelector
-				// and matchLabelKeys counts this component's own pods.
-				// When omitted, the provider applies its default spreading; an empty list
-				// asks for none, which a provider may reject if its engine always spreads.
+				// domains. A constraint with neither labelSelector nor matchLabelKeys counts
+				// this component's pods. When omitted, the provider applies its default; an
+				// empty list sets no constraints.
 				TopologySpreadConstraints *[]struct {
 					// LabelSelector LabelSelector is used to find matching pods.
 					// Pods that match this label selector are counted to determine the number of pods

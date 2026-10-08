@@ -26,6 +26,7 @@ export const UIGenerator = ({
   formMode,
   namespace,
   emptySectionMessage,
+  widgetRegistry,
 }: UIGeneratorProps) => {
   const section = sections[sectionKey];
 
@@ -60,6 +61,7 @@ export const UIGenerator = ({
       loadingDefaultsForEdition={loadingDefaultsForEdition}
       formMode={formMode}
       namespace={namespace}
+      widgetRegistry={widgetRegistry}
     >
       <FormGroup sx={{ mt: 3 }}>
         <Stack spacing={2}>

@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"strings"
@@ -82,6 +83,10 @@ type Context struct {
 	// RequestMaintenance at least once this pass, so the staged pending set
 	// is authoritative even when Sync later fails.
 	maintenanceRequested bool
+
+	// labelledComponents holds the components PodLabels was called for this
+	// pass; the reconciler counts their pods into status.components.
+	labelledComponents map[string]struct{}
 }
 
 // NewContext creates a new Context handle (used internally by the reconciler).
@@ -124,9 +129,33 @@ func (c *Context) Annotations() map[string]string {
 	return c.in.Annotations
 }
 
-// ComponentsOfType returns all components of a given type.
-func (c *Context) ComponentsOfType(componentType string) []v1alpha1.ComponentSpec {
+// ComponentsOfType returns the components of a given type, keyed by name.
+func (c *Context) ComponentsOfType(componentType string) map[string]v1alpha1.ComponentSpec {
 	return c.in.GetComponentsOfType(componentType)
+}
+
+// PodLabels returns the labels to set on the pods of the named component,
+// typically through the pod labels field of the operator's custom resource.
+// The runtime counts the pods carrying them into the Instance's
+// status.components, which requires list and watch permission on pods.
+// Call it during Sync for every component in spec.components.
+func (c *Context) PodLabels(component string) map[string]string {
+	if c.labelledComponents == nil {
+		c.labelledComponents = make(map[string]struct{})
+	}
+	c.labelledComponents[component] = struct{}{}
+
+	return map[string]string{
+		ProviderLabel:  c.providerName,
+		InstanceLabel:  c.Name(),
+		ComponentLabel: component,
+	}
+}
+
+// LabelledComponents returns, sorted, the components PodLabels was called for
+// (used internally by the reconciler).
+func (c *Context) LabelledComponents() []string {
+	return slices.Sorted(maps.Keys(c.labelledComponents))
 }
 
 // Instance returns the underlying Instance for direct access.
@@ -518,15 +547,6 @@ type Status struct {
 	Phase             v1alpha1.InstancePhase
 	Message           string
 	ConnectionDetails ConnectionDetails
-	Components        []ComponentStatus
-}
-
-// ComponentStatus represents the status of a single component.
-type ComponentStatus struct {
-	Name  string
-	Ready int32
-	Total int32
-	State string // "Ready", "InProgress", "Error"
 }
 
 // ToV2Alpha1 converts Status to the API type.
@@ -863,6 +883,13 @@ const IndexRestoreInstanceName = "spec.instanceRef.name"
 // ProviderLabel is the label key used to identify which provider
 // manages an Instance. Set automatically by the provider reconciler.
 const ProviderLabel = "core.openeverest.io/provider"
+
+// InstanceLabel and ComponentLabel identify the Instance and component a pod
+// belongs to. See Context.PodLabels.
+const (
+	InstanceLabel  = "core.openeverest.io/instance"
+	ComponentLabel = "core.openeverest.io/component"
+)
 
 // ShouldRetainBackupData returns true when the underlying backup data in the
 // configured BackupStorage (e.g., the S3 object) must be preserved on

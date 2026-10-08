@@ -94,4 +94,33 @@ describe('buildSectionZodSchema', () => {
     });
     expect(result.success).toBe(true);
   });
+
+  // Edit mode: an instance without spec.components.engine.parameters leaves the
+  // optional configuration field (and so its parent) undefined.
+  it('accepts an absent parent object when all of its fields are optional', () => {
+    const sections: Record<string, Section> = {
+      advanced: {
+        components: {
+          storageClass: makeTextComponent(
+            'spec.components.engine.storage.storageClass',
+            { validation: { required: true } }
+          ),
+          configuration: makeTextComponent(
+            'spec.components.engine.parameters.configuration'
+          ),
+        },
+      },
+    };
+
+    const { schema } = buildSectionZodSchema('advanced', sections);
+
+    expect(
+      schema.safeParse({
+        spec: { components: { engine: { storage: { storageClass: 'x' } } } },
+      }).success
+    ).toBe(true);
+    expect(
+      schema.safeParse({ spec: { components: { engine: {} } } }).success
+    ).toBe(false);
+  });
 });
