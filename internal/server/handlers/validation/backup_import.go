@@ -50,9 +50,10 @@ func (h *validateHandler) CreateBackupImport(ctx context.Context, cluster string
 // validateBackupImportRefs rejects backup imports whose classRef or storageRef
 // do not point to existing resources.
 func (h *validateHandler) validateBackupImportRefs(ctx context.Context, backupImport *backupv1alpha1.BackupImport) error {
-	if _, err := h.kubeConnector.GetBackupClass(ctx, ctrlclient.ObjectKey{
+	backupClass, err := h.kubeConnector.GetBackupClass(ctx, ctrlclient.ObjectKey{
 		Name: backupImport.Spec.ClassRef.Name,
-	}); err != nil {
+	})
+	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return fmt.Errorf(
 				"%w: '%s'",
@@ -61,6 +62,10 @@ func (h *validateHandler) validateBackupImportRefs(ctx context.Context, backupIm
 			)
 		}
 		return fmt.Errorf("failed to get backup class '%s': %w", backupImport.Spec.ClassRef.Name, err)
+	}
+
+	if err := controller.ValidateBackupImportSupported(backupClass); err != nil {
+		return fmt.Errorf("backup import not supported: %w", err)
 	}
 
 	if _, err := h.kubeConnector.GetBackupStorage(ctx, ctrlclient.ObjectKey{
