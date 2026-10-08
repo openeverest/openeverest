@@ -52,15 +52,6 @@ rules:
 - apiGroups:
   - backup.openeverest.io
   resources:
-  - backupimports/finalizers
-  - backups/finalizers
-  - backupstorages/finalizers
-  - restores/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - backup.openeverest.io
-  resources:
   - backupimports/status
   - backups/status
   - backupstorages/status
@@ -68,6 +59,14 @@ rules:
   verbs:
   - get
   - patch
+  - update
+- apiGroups:
+  - backup.openeverest.io
+  resources:
+  - backups/finalizers
+  - backupstorages/finalizers
+  - restores/finalizers
+  verbs:
   - update
 - apiGroups:
   - batch

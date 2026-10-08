@@ -43,7 +43,6 @@ func (r *BackupImportReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // +kubebuilder:rbac:groups=backup.openeverest.io,resources=backupimports,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=backup.openeverest.io,resources=backupimports/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=backup.openeverest.io,resources=backupimports/finalizers,verbs=update
 //+kubebuilder:rbac:groups=backup.openeverest.io,resources=backupclasses,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -86,7 +85,7 @@ func (r *BackupImportReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	// The class does not support import, record failure.
 	if err := controller.ValidateBackupImportSupported(bc); err != nil {
 		imp.Status.State = backupv1alpha1.BackupImportStateFailed
-		imp.Status.Message = fmt.Sprintf("BackupClass %q does not support import", bc.Name)
+		imp.Status.Message = err.Error()
 		imp.Status.LastObservedGeneration = imp.GetGeneration()
 		if err := r.Client.Status().Update(ctx, imp); err != nil {
 			return ctrl.Result{}, err
