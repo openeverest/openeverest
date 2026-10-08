@@ -1355,8 +1355,7 @@ export interface components {
             immutable?: boolean;
             /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
             kind?: string;
-            /** @description Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata */
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
         };
         /** @description A list of OpenEverest-managed ConfigMaps. */
         ConfigMapList: {
