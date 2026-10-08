@@ -7692,15 +7692,6 @@ export interface operations {
                     "application/json": components["schemas"]["ConfigMapList"];
                 };
             };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -7749,6 +7740,24 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -7783,6 +7792,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConfigMap"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description ConfigMap not found */
@@ -7827,6 +7845,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
             /** @description ConfigMap not found */
             404: {
@@ -7874,15 +7901,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SecretList"];
-                };
-            };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Internal server error */
@@ -7933,6 +7951,24 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -7967,6 +8003,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Secret"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Secret not found */
@@ -8011,6 +8056,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
             /** @description Secret not found */
             404: {

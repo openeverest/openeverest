@@ -2205,6 +2205,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
           content:
@@ -2251,12 +2263,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConfigMapList'
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
           content:
@@ -2298,6 +2304,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConfigMap'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: ConfigMap not found
           content:
@@ -2339,6 +2351,12 @@ paths:
       responses:
         '204':
           description: ConfigMap deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: ConfigMap not found
           content:
@@ -2394,6 +2412,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
           content:
@@ -2441,12 +2471,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SecretList'
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
           content:
@@ -2489,6 +2513,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Secret'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Secret not found
           content:
@@ -2530,6 +2560,12 @@ paths:
       responses:
         '204':
           description: Secret deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Secret not found
           content:
