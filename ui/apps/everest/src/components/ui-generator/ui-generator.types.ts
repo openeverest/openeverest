@@ -318,6 +318,8 @@ export type TopologyUISchemas = {
 export type UIGeneratorProps = {
   sectionKey: string;
   sections: { [key: string]: Section };
+  // Form path the host mounts the section's own object at; schema paths stay relative to it.
+  root?: string;
   providerObject?: Provider;
   loadingDefaultsForEdition?: boolean;
   formMode?: FormMode;

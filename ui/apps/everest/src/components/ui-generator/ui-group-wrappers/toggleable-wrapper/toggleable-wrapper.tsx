@@ -16,6 +16,8 @@ import { useEffect, useRef } from 'react';
 import { SwitchInput } from '@percona/ui-lib';
 import { useWatch } from 'react-hook-form';
 import { TOGGLEABLE_SWITCHES_KEY } from 'components/ui-generator/utils/toggleable/toggleable';
+import { joinPath } from 'components/ui-generator/utils/object-path';
+import { useUiGeneratorContext } from 'components/ui-generator/ui-generator-context';
 import { BorderedWrapper } from '../bordered-wrapper';
 import { ToggleableWrapperProps } from './toggleable-wrapper.types';
 import { Messages } from './toggleable-wrapper.messages';
@@ -28,7 +30,8 @@ export const ToggleableWrapper = ({
   toggleable,
   children,
 }: ToggleableWrapperProps) => {
-  const switchName = toggleable?.switchName;
+  const { root } = useUiGeneratorContext();
+  const switchName = toggleable && joinPath(root, toggleable.switchName);
   const bodyRef = useRef<HTMLDivElement>(null);
   const enabledByUser = useRef(false);
   // Watched unconditionally (hook rules); the fallback name is never read.

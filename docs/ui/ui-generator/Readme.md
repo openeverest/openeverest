@@ -252,12 +252,16 @@ For [widgets](widgets.md), where the data lives is defined by each widget type.
 
 ### Path scoping
 
-A component's `path` is its form-field name and write target verbatim. Declare it
-**relative to the section's root** — the object the consumer merges the section into
-(e.g. a single storage's `pitr`) — and spell the real sub-structure, so the schema alone
-says where the value lands. The consumer only supplies the root; it never injects keys.
+A component's `path` is its write target, **relative to the section's root** — the object the
+schema describes. Spell the real sub-structure below that root, so the schema alone says where the
+value lands. The host supplies the root (the form field is `<root>.<path>`) and never injects keys
+between the root and the path.
 
-- ✅ `path: parameters.timeBetweenUploads` → `<root>.parameters.timeBetweenUploads`
+| Schema              | Root                 | Example `path`                    |
+| ------------------- | -------------------- | --------------------------------- |
+| Topology            | the Instance         | `spec.components.engine.replicas` |
+| Backup class `pitr` | one storage's `pitr` | `parameters.timeBetweenUploads`   |
+
 - ❌ `path: spec.backup.storages[].pitr.parameters.timeBetweenUploads`
 
 No absolute paths and no array segments (`[]`): an empty `[]` has no index to bind to, and

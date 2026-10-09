@@ -30,18 +30,22 @@ import {
 } from 'components/ui-generator/api-providers';
 import { ComponentErrorBoundary } from 'components/ui-generator/component-error-boundary';
 import { SecretField } from 'components/ui-generator/secret-field';
+import { joinPath } from '../object-path';
 
 export type RenderComponentProps = {
   item: Component | ComponentGroup;
   name: string;
+  root?: string;
 };
 
 // Recursively renders UI components and groups.
 export const renderComponent = ({
   item,
   name,
+  root,
 }: RenderComponentProps): ReactNode => {
-  const fieldName = generateFieldId(item, name);
+  const fieldId = generateFieldId(item, name);
+  const fieldName = joinPath(root, fieldId);
   const isGroup = item?.uiType === 'group' && 'components' in item;
 
   const children = isGroup ? (
@@ -49,12 +53,13 @@ export const renderComponent = ({
       (item as ComponentGroup).components,
       (item as ComponentGroup).componentsOrder
     ).map(([childKey, childItem]) => {
-      const childFieldName = `${fieldName}.${childKey}`;
+      const childName = `${fieldId}.${childKey}`;
       return (
-        <React.Fragment key={childFieldName}>
+        <React.Fragment key={childName}>
           {renderComponent({
             item: childItem,
-            name: childFieldName,
+            name: childName,
+            root,
           })}
         </React.Fragment>
       );

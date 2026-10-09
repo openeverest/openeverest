@@ -22,6 +22,7 @@ type UiGeneratorContextValue = {
   formMode?: FormMode;
   namespace?: string;
   widgetRegistry?: WidgetRegistry;
+  root?: string;
 };
 
 const UiGeneratorContext = createContext<UiGeneratorContextValue | null>(null);
@@ -32,6 +33,7 @@ type UiGeneratorProviderProps = {
   formMode?: FormMode;
   namespace?: string;
   widgetRegistry?: WidgetRegistry;
+  root?: string;
   children: ReactNode;
 };
 
@@ -41,6 +43,7 @@ export const UiGeneratorProvider = ({
   formMode,
   namespace,
   widgetRegistry,
+  root,
   children,
 }: UiGeneratorProviderProps) => {
   return (
@@ -51,6 +54,7 @@ export const UiGeneratorProvider = ({
         formMode,
         namespace,
         widgetRegistry,
+        root,
       }}
     >
       {children}
@@ -68,6 +72,7 @@ export const useUiGeneratorContext = () => {
       formMode: undefined,
       namespace: undefined,
       widgetRegistry: undefined,
+      root: undefined,
     }
   );
 };
