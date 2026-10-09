@@ -14,7 +14,6 @@
 
 import { useMemo, useState } from 'react';
 import { FormDialog } from 'components/form-dialog';
-import { UIGenerator } from 'components/ui-generator/ui-generator';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import { postprocessSchemaData } from 'components/ui-generator/utils/postprocess/postprocess-schema';
@@ -43,6 +42,7 @@ export const SecretCreateModal = ({
   section,
   providerObject,
   namespace,
+  generator: Generator,
   onClose,
   onCreated,
 }: SecretCreateModalProps) => {
@@ -107,7 +107,7 @@ export const SecretCreateModal = ({
       size="XL"
     >
       <SecretNameInput takenNames={takenNames} />
-      <UIGenerator
+      <Generator
         sectionKey={SECRET_SECTION_KEY}
         sections={sections}
         root={SECRET_DATA_ROOT}

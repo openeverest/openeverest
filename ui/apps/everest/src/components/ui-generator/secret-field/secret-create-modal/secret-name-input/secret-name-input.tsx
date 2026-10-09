@@ -27,7 +27,5 @@ export const SecretNameInput = ({ takenNames }: SecretNameInputProps) => {
     if (takenNames.length > 0) trigger(SECRET_NAME_FIELD);
   }, [takenNames, trigger]);
 
-  return (
-    <TextInput name={SECRET_NAME_FIELD} label={Messages.nameLabel} isRequired />
-  );
+  return <TextInput name={SECRET_NAME_FIELD} label={Messages.nameLabel} />;
 };

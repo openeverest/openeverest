@@ -12,24 +12,48 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { Provider } from 'shared-types/api.types';
 import { TestWrapper } from 'utils/test';
 import { UIGenerator } from '../ui-generator';
-import { FieldType, TopologyUISchemas } from '../ui-generator.types';
+import {
+  FieldType,
+  FormMode,
+  SecretFieldParams,
+  TopologyUISchemas,
+} from '../ui-generator.types';
 import { buildZodSchema } from '../utils/schema-builder';
 import { getDefaultValues } from '../utils/default-values';
 import { Messages } from './secret-field.messages';
 
 const mockUseSecrets = vi.fn();
+const mockMutate = vi.fn();
+const mockPermissions = { canCreate: true };
 
-vi.mock('hooks/api/secrets', () => ({
-  useSecrets: (...args: unknown[]) => mockUseSecrets(...args),
-}));
+vi.mock('hooks/api/secrets', () => {
+  const createSecret = {
+    mutate: (...args: unknown[]) => mockMutate(...args),
+    isPending: false,
+  };
+  return {
+    useSecrets: (...args: unknown[]) => mockUseSecrets(...args),
+    useCreateSecret: () => createSecret,
+  };
+});
 
 vi.mock('hooks/api/useClusterName', () => ({
   useClusterName: () => 'main',
+}));
+
+vi.mock('hooks/rbac', () => ({
+  useRBACPermissions: () => mockPermissions,
 }));
 
 const LOADED = {
@@ -40,7 +64,31 @@ const LOADED = {
 
 const PROVIDER: Provider = { metadata: { name: 'psmdb' }, spec: {} };
 
-const schema: TopologyUISchemas = {
+// uiSchema is opaque (Record<string, never>) in the generated Provider type.
+const PROVIDER_WITH_FORM = {
+  metadata: { name: 'psmdb' },
+  spec: {
+    secrets: {
+      userSecret: {
+        uiSchema: {
+          label: 'Database user',
+          components: {
+            user: {
+              uiType: FieldType.Text,
+              path: 'USER',
+              fieldParams: { label: 'User' },
+              validation: { required: true },
+            },
+          },
+        },
+      },
+    },
+  },
+} as unknown as Provider;
+
+const buildSchema = (
+  fieldParams: Partial<SecretFieldParams> = {}
+): TopologyUISchemas => ({
   replicaSet: {
     sections: {
       basicInfo: {
@@ -48,24 +96,37 @@ const schema: TopologyUISchemas = {
           userSecret: {
             uiType: FieldType.Secret,
             path: 'spec.userSecretRef.name',
-            fieldParams: { label: 'Credentials', definition: 'userSecret' },
+            fieldParams: {
+              label: 'Credentials',
+              definition: 'userSecret',
+              ...fieldParams,
+            },
             validation: { required: true },
           },
         },
       },
     },
   },
-};
+});
 
-const renderField = (context: { providerObject?: Provider }) => {
+const schema = buildSchema();
+
+interface FieldContext {
+  providerObject?: Provider;
+  formMode?: FormMode;
+  fieldParams?: Partial<SecretFieldParams>;
+}
+
+const renderField = ({ fieldParams, ...context }: FieldContext) => {
+  const fieldSchema = buildSchema(fieldParams);
   const Harness = () => {
     const methods = useForm({
-      defaultValues: getDefaultValues(schema, 'replicaSet'),
+      defaultValues: getDefaultValues(fieldSchema, 'replicaSet'),
     });
     return (
       <FormProvider {...methods}>
         <UIGenerator
-          sections={schema.replicaSet!.sections}
+          sections={fieldSchema.replicaSet!.sections}
           sectionKey="basicInfo"
           namespace="ns"
           {...context}
@@ -85,11 +146,63 @@ const getCombobox = () =>
   within(
     screen.getByTestId('select-spec.user-secret-ref.name-button')
   ).getByRole('combobox');
+const queryAddButton = () => screen.queryByRole('button', { name: 'Add new' });
 
 describe('SecretField', () => {
   beforeEach(() => {
     mockUseSecrets.mockReset();
     mockUseSecrets.mockReturnValue(LOADED);
+    mockMutate.mockReset();
+    mockPermissions.canCreate = true;
+  });
+
+  it('creates a secret from its definition form and selects it', async () => {
+    mockMutate.mockImplementation((secret, { onSuccess }) => {
+      mockUseSecrets.mockReturnValue({
+        ...LOADED,
+        data: [...LOADED.data, { metadata: secret.metadata }],
+      });
+      onSuccess();
+    });
+    renderField({ providerObject: PROVIDER_WITH_FORM });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add new' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText(/User/), {
+      target: { value: 'admin' },
+    });
+    const create = within(dialog).getByRole('button', { name: 'Create' });
+    await waitFor(() => expect(create).toBeEnabled());
+    fireEvent.click(create);
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    );
+    const [secret] = mockMutate.mock.calls[0];
+    expect(secret.stringData).toEqual({ USER: 'admin' });
+    expect(getCombobox()).toHaveTextContent(secret.metadata.name);
+  });
+
+  it.each<[string, FieldContext & { canCreate?: boolean }]>([
+    [
+      'without create permission',
+      { canCreate: false, providerObject: PROVIDER_WITH_FORM },
+    ],
+    [
+      'in edit mode',
+      { providerObject: PROVIDER_WITH_FORM, formMode: FormMode.Edit },
+    ],
+    [
+      'for a read-only field',
+      { providerObject: PROVIDER_WITH_FORM, fieldParams: { readOnly: true } },
+    ],
+    ['when the definition has no create form', { providerObject: PROVIDER }],
+  ])('offers no Add new %s', (_, { canCreate = true, ...field }) => {
+    mockPermissions.canCreate = canCreate;
+    renderField(field);
+
+    expect(getCombobox()).toBeInTheDocument();
+    expect(queryAddButton()).not.toBeInTheDocument();
   });
 
   it("offers the provider's secrets of the field's definition", () => {

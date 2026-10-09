@@ -16,4 +16,6 @@ export const Messages = {
   loading: 'Loading secrets...',
   loadFailed: 'Failed to load secrets',
   noContext: 'Secrets can only be selected for a provider in a namespace',
+  empty: 'No secrets yet',
+  emptyAddOne: 'No secrets yet — add one',
 };
