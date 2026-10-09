@@ -156,8 +156,9 @@ flowchart TD
   OVERVIEW["Overview page"] --> EDITABLE["isSectionEditable(section, Edit)"]
   EDITABLE --> MODAL["SectionEditModal"]
   MODAL --> MODE["applyModeOverrides(sections, Edit)"]
-  MODE --> ZOD_EDIT["buildSectionZodSchema(sectionKey, editSections,<br/>{ formMode: Edit, originalData: instance })"]
   MODE --> VALUES["extractInstanceValues(editSections, instance)"]
+  VALUES --> ORIGINAL["originalData = deepMerge(instance, values)"]
+  ORIGINAL --> ZOD_EDIT["buildSectionZodSchema(sectionKey, editSections,<br/>{ formMode: Edit, originalData })"]
   ZOD_EDIT --> FORM["FormDialog + UIGenerator"]
   VALUES --> FORM
   FORM --> SUBMIT["submit"]
@@ -168,6 +169,10 @@ flowchart TD
 The edit modal reuses the same `UIGenerator` but validates only the target section via
 `buildSectionZodSchema`; other fields pass through `.passthrough()`, while CEL dependencies are
 collected from all sections.
+
+CEL's `original` is the instance with the form's own values laid over it, so a field reads the
+same on both sides of a comparison (`"10Gi"` → `10`, `"500m"` → `0.5`). Reading it separately
+left the form with numbers and `original` with strings, and cel-js throws on that mix.
 
 The update replaces the whole instance and `deepMerge` keeps keys missing from the form, so
 `mergeSectionEdit` deletes the paths of switched-off toggleable groups explicitly, with parents
@@ -245,4 +250,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-30
+- Last updated: 2026-10-09

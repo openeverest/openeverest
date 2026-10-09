@@ -21,11 +21,10 @@ import { buildSectionZodSchema } from 'components/ui-generator/utils/schema-buil
 import { extractInstanceValues } from 'components/ui-generator/utils/default-values/extract-instance-values';
 import { applyModeOverrides } from 'components/ui-generator/utils/preprocess/apply-mode-overrides';
 import { mergeSectionEdit } from 'components/ui-generator/utils/postprocess/merge-section-edit';
-import { deepClone } from 'components/ui-generator/utils/object-path/object-path';
 import {
-  extractBadgeMappingsFromSections,
-  stripBadgesFromData,
-} from 'components/ui-generator/utils/badge-to-api/badge-to-api';
+  deepClone,
+  deepMerge,
+} from 'components/ui-generator/utils/object-path/object-path';
 import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/useUpdateDbInstance';
 import { useKubernetesClusterInfo } from 'hooks/api/kubernetesClusters/useKubernetesClusterInfo';
 import type { Instance } from 'shared-types/api.types';
@@ -55,25 +54,6 @@ const SectionEditModal = ({
 
   const section = editSections[sectionKey];
 
-  // Strip badge suffixes (e.g. "25Gi" → 25) from the original instance so that
-  // CEL numeric comparisons like `size >= original.size` work correctly.
-  const originalDataForCel = useMemo(() => {
-    const badgeMappings = extractBadgeMappingsFromSections(editSections);
-    return stripBadgesFromData(
-      instance as unknown as Record<string, unknown>,
-      badgeMappings
-    );
-  }, [editSections, instance]);
-
-  const { schema: zodSchema, celDependencyGroups } = useMemo(
-    () =>
-      buildSectionZodSchema(sectionKey, editSections, {
-        formMode: FormMode.Edit,
-        originalData: originalDataForCel,
-      }),
-    [sectionKey, editSections, originalDataForCel]
-  );
-
   const defaultValues = useMemo(
     () =>
       extractInstanceValues(
@@ -82,6 +62,22 @@ const SectionEditModal = ({
         FormMode.Edit
       ),
     [editSections, instance]
+  );
+
+  // CEL compares form values with `original`, so both must be read the same way ("10Gi" → 10).
+  const originalDataForCel = useMemo(
+    () =>
+      deepMerge(instance as unknown as Record<string, unknown>, defaultValues),
+    [instance, defaultValues]
+  );
+
+  const { schema: zodSchema, celDependencyGroups } = useMemo(
+    () =>
+      buildSectionZodSchema(sectionKey, editSections, {
+        formMode: FormMode.Edit,
+        originalData: originalDataForCel,
+      }),
+    [sectionKey, editSections, originalDataForCel]
   );
 
   const { mutate } = useUpdateDbInstanceWithConflictRetry(instance, {

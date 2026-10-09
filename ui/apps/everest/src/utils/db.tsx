@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { MongoIcon, MySqlIcon, PostgreSqlIcon } from '@percona/ui-lib';
-import { DbEngineType, DbType, ProxyType } from '@percona/types';
+import { DbType, ProxyType } from '@percona/types';
 import {
   DbCluster,
   ManageableSchedules,
@@ -44,11 +44,9 @@ import {
 } from 'shared-types/affinity.types';
 import { generateShortUID } from './generateShortUID';
 import { capitalize } from '@mui/material';
-import { getProxySpec } from 'hooks/api/db-cluster/utils';
 import { Path, UseFormGetFieldState } from 'react-hook-form';
 import cronConverter from './cron-converter';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
-import { mapDeprecatedExposeType } from 'components/cluster-form/advanced-configuration/advanced-configuration.utils';
 import { PhaseType } from 'shared-types/api.types';
 
 export const dbTypeToIcon = (dbType: DbType) => {
@@ -831,71 +829,6 @@ export const changeDbClusterVersion = (
       ...dbCluster.spec.engine,
       version: dbVersion,
     },
-  },
-});
-
-export const changeDbClusterResources = (
-  dbCluster: DbCluster,
-  newResources: {
-    cpu: number;
-    memory: number;
-    disk: number;
-    diskUnit: string;
-    numberOfNodes: number;
-    proxyCpu: number;
-    proxyMemory: number;
-    numberOfProxies: number;
-  },
-  sharding = false,
-  shardNr = '',
-  shardConfigServers?: number
-) => ({
-  ...dbCluster,
-  spec: {
-    ...dbCluster.spec,
-    engine: {
-      ...dbCluster.spec.engine,
-      replicas: newResources.numberOfNodes,
-      resources: {
-        cpu: `${newResources.cpu}`,
-        memory: `${newResources.memory}G`,
-      },
-      storage: {
-        ...dbCluster.spec.engine.storage,
-        size: `${newResources.disk}${newResources.diskUnit}`,
-      },
-    },
-    proxy: (() => {
-      const exposeType = dbCluster.spec.proxy?.expose?.type;
-      const mappedExposeType = mapDeprecatedExposeType(exposeType);
-      const dbType = dbCluster.spec.engine.type as unknown as DbType;
-
-      return getProxySpec(
-        dbType,
-        newResources.numberOfProxies.toString(),
-        '',
-        mappedExposeType,
-        newResources.proxyCpu,
-        newResources.proxyMemory,
-        !!sharding,
-        ((dbCluster.spec.proxy as Proxy)?.expose?.ipSourceRanges || []).map(
-          (sourceRange) => ({ sourceRange })
-        ),
-        mappedExposeType === ProxyExposeType.LoadBalancer
-          ? dbCluster.spec.proxy?.expose?.loadBalancerConfigName
-          : undefined
-      );
-    })(),
-    ...(dbCluster.spec.engine.type === DbEngineType.PSMDB &&
-      sharding && {
-        sharding: {
-          enabled: sharding,
-          shards: +(shardNr ?? '1'),
-          configServer: {
-            replicas: shardConfigServers ?? 3,
-          },
-        },
-      }),
   },
 });
 

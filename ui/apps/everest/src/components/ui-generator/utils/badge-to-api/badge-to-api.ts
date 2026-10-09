@@ -12,11 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { Section, TopologyUISchemas } from '../../ui-generator.types';
-import { walkLeafComponents, walkTopologyComponents } from '../schema-walker';
+import type { TopologyUISchemas } from '../../ui-generator.types';
+import { walkTopologyComponents } from '../schema-walker';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
 import { getByPath, setByPath, deepClone } from '../object-path';
-import { memoryParser, isKubernetesMemoryUnit } from 'utils/k8ResourceParser';
+import {
+  memoryParser,
+  isKubernetesMemoryUnit,
+  parseQuantity,
+} from 'utils/k8ResourceParser';
 
 export type BadgeMapping = {
   path: string;
@@ -96,50 +100,23 @@ export const stripBadgeFromValue = (
   return value;
 };
 
-export const extractBadgeMappingsFromSections = (
-  sections: Record<string, Section>
-): BadgeMapping[] => {
-  const badgeMappings: BadgeMapping[] = [];
-
-  for (const section of Object.values(sections)) {
-    if (!section?.components) continue;
-    walkLeafComponents(section.components, ({ component }) => {
-      if (component.fieldParams?.badge && component.fieldParams?.badgeToApi) {
-        getComponentTargetPaths(component).forEach((path) => {
-          badgeMappings.push({ path, badge: component.fieldParams.badge! });
-        });
-      }
-    });
+// A number field may read back a Kubernetes quantity string for a value it sent
+// as a number (0.5 → "500m"); return the number, in the API unit when given.
+export const readNumberFieldValue = (
+  value: unknown,
+  apiUnit?: string
+): unknown => {
+  if (typeof value !== 'string') {
+    return value;
   }
-
-  return badgeMappings;
-};
-
-/*
-Strips badge suffixes from fields in a nested data object and coerces the
-resulting strings to numbers so CEL numeric comparisons work correctly.
-e.g. { spec: { engine: { storage: { size: "25Gi" } } } } → { …size: 25 }
-*/
-export const stripBadgesFromData = (
-  data: Record<string, unknown>,
-  badgeMappings: BadgeMapping[]
-): Record<string, unknown> => {
-  if (badgeMappings.length === 0) return data;
-
-  const result = deepClone(data);
-
-  badgeMappings.forEach(({ path, badge }) => {
-    const value = getByPath(result, path);
-    if (value === undefined) return;
-
-    const stripped = stripBadgeFromValue(value, badge);
-    if (typeof stripped === 'string' && stripped !== '') {
-      const asNumber = Number(stripped.trim());
-      setByPath(result, path, Number.isNaN(asNumber) ? stripped : asNumber);
-    } else {
-      setByPath(result, path, stripped);
-    }
-  });
-
-  return result;
+  if (!apiUnit) {
+    return parseQuantity(value) ?? value;
+  }
+  // In the API unit only: a suffix left after stripping is a unit we can't convert.
+  const stripped = stripBadgeFromValue(value, apiUnit);
+  const amount =
+    typeof stripped === 'string' && !/[A-Za-z]/.test(stripped)
+      ? parseQuantity(stripped)
+      : undefined;
+  return amount ?? value;
 };

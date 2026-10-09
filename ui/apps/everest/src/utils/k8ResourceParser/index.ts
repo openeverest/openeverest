@@ -50,15 +50,25 @@ const memoryMultipliers: Record<kubernetesUnit, number> = {
 export const isKubernetesMemoryUnit = (unit: string): unit is kubernetesUnit =>
   Object.prototype.hasOwnProperty.call(memoryMultipliers, unit);
 
-export const cpuParser = (input: string) => {
-  const milliMatch = input.match(/^([0-9]+)m$/);
+const QUANTITY_PATTERN = /^([+-]?(?:\d+\.?\d*|\.\d+))([A-Za-z]{0,2})$/;
 
-  if (milliMatch) {
-    // @ts-ignore
-    return milliMatch[1] / 1000;
+// Numeric value of a Kubernetes quantity in its base unit (cores, bytes):
+// "500m" → 0.5, "2k" → 2000, "1Ki" → 1024. Undefined if it isn't a quantity.
+export const parseQuantity = (input: string): number | undefined => {
+  const match = input.trim().match(QUANTITY_PATTERN);
+  if (!match) {
+    return undefined;
   }
-
-  return parseFloat(input);
+  const [, amount, unit] = match;
+  const value = Number(amount);
+  if (!unit) {
+    return value;
+  }
+  if (!isKubernetesMemoryUnit(unit)) {
+    return undefined;
+  }
+  // Divide for milli: multiplying by 10 ** -3 adds float noise (300m → 0.30000000000000004).
+  return unit === 'm' ? value / 1000 : value * memoryMultipliers[unit];
 };
 
 export const memoryParser = (
@@ -88,32 +98,4 @@ export const memoryParser = (
     value: parseFloat(input),
     originalUnit: '',
   };
-};
-
-export const getResourcesDetailedString = (value: number, unit: string) => {
-  return `${value} ${unit}`;
-};
-
-export const getTotalResourcesDetailedString = (
-  value: number,
-  numberOfNodes: number,
-  unit: string,
-  shardNr?: number,
-  sharding?: boolean
-) => {
-  if (numberOfNodes === 1 && !sharding) {
-    return `${value.toFixed(2)} ${unit}`;
-  }
-
-  const totalResources =
-    sharding && shardNr
-      ? value * numberOfNodes * shardNr
-      : value * numberOfNodes;
-
-  const formattedTotalResources =
-    totalResources === Math.trunc(totalResources)
-      ? totalResources.toString()
-      : parseFloat(totalResources.toFixed(2));
-
-  return `${formattedTotalResources} ${unit}`;
 };

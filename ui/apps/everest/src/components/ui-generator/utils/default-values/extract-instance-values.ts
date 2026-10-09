@@ -15,12 +15,16 @@
 import {
   Component,
   ComponentGroup,
+  FieldType,
   FormMode,
   Section,
   isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { UI_TYPE_DEFAULT_VALUE } from 'components/ui-generator/constants';
-import { stripBadgeFromValue } from '../badge-to-api/badge-to-api';
+import {
+  readNumberFieldValue,
+  stripBadgeFromValue,
+} from '../badge-to-api/badge-to-api';
 import { generateFieldId } from '../component-renderer/generate-field-id';
 import { getComponentSourcePath } from '../preprocess/normalized-component';
 import { getByPath } from '../object-path/object-path';
@@ -85,12 +89,13 @@ const extractFlat = (
     if (sourcePath) {
       const instanceValue = getByPath(instance, sourcePath);
       if (instanceValue !== undefined) {
-        result[fieldId] = stripBadgeFromValue(
-          instanceValue,
-          component.fieldParams?.badgeToApi
-            ? component.fieldParams.badge
-            : undefined
-        );
+        const apiUnit = component.fieldParams?.badgeToApi
+          ? component.fieldParams.badge
+          : undefined;
+        result[fieldId] =
+          component.uiType === FieldType.Number
+            ? readNumberFieldValue(instanceValue, apiUnit)
+            : stripBadgeFromValue(instanceValue, apiUnit);
         continue;
       }
     }

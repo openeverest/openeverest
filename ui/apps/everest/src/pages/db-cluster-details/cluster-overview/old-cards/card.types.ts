@@ -15,7 +15,7 @@
 // limitations under the License.
 
 import { DbType } from '@percona/types';
-import { DbCluster, ProxyExposeType } from 'shared-types/dbCluster.types';
+import { ProxyExposeType } from 'shared-types/dbCluster.types';
 import { Instance } from 'shared-types/api.types';
 
 export type OverviewCardProps = {
@@ -68,12 +68,6 @@ export type DatabaseDetailsOverviewCardProps =
     AdvancedConfigurationOverviewCardProps &
     MonitoringConfigurationOverviewCardProps &
     OverviewCardProps;
-
-export type ResourcesDetailsOverviewProps = {
-  dbCluster: DbCluster;
-  sharding: DbCluster['spec']['sharding'];
-  canUpdate: boolean;
-} & OverviewCardProps;
 
 export type BackupsDetailsOverviewCardProps = {
   instance: Instance;
