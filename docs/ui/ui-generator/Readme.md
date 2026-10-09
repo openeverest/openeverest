@@ -261,6 +261,7 @@ between the root and the path.
 | ------------------- | -------------------- | --------------------------------- |
 | Topology            | the Instance         | `spec.components.engine.replicas` |
 | Backup class `pitr` | one storage's `pitr` | `parameters.timeBetweenUploads`   |
+| Secret definition   | the secret's data    | `MONGODB_USER`                    |
 
 - ❌ `path: spec.backup.storages[].pitr.parameters.timeBetweenUploads`
 

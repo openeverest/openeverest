@@ -34,7 +34,9 @@ export const createSecretFn = async (
 ): Promise<Secret> => {
   const response = await api.post<Secret>(
     `clusters/${cluster}/namespaces/${namespace}/secrets`,
-    secret
+    secret,
+    // A taken name is shown on the form's name field.
+    { disableNotifications: (e) => e.status === 409 }
   );
   return response.data;
 };
