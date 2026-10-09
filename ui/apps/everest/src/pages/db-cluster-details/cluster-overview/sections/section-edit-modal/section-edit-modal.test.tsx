@@ -215,3 +215,71 @@ describe('SectionEditModal toggleable group', () => {
     expect(mutate.mock.calls[0][0].spec).toEqual({ other: 'kept' });
   });
 });
+
+describe('SectionEditModal badge fields', () => {
+  it('allows saving another section when a stored badge value has an edit-mode CEL rule', async () => {
+    const sections: Record<string, Section> = {
+      resources: {
+        label: 'Resources',
+        components: {
+          cpu: makeNumber('spec.components.engine.resources.limits.cpu', 'CPU'),
+        },
+      },
+      storage: {
+        label: 'Storage',
+        components: {
+          disk: {
+            uiType: FieldType.Number,
+            path: 'spec.components.engine.storage.size',
+            fieldParams: { label: 'Disk', badge: 'Gi', badgeToApi: true },
+            validation: {
+              modes: {
+                [FormMode.Edit]: {
+                  celExpressions: [
+                    {
+                      celExpr:
+                        'spec.components.engine.storage.size >= original.spec.components.engine.storage.size',
+                      message: 'Disk size cannot be decreased',
+                    },
+                  ],
+                },
+              },
+            },
+          } as Component,
+        },
+      },
+    };
+
+    const instance = {
+      metadata: { name: 'test-db', namespace: 'ns' },
+      spec: {
+        components: {
+          engine: {
+            resources: { limits: { cpu: 1 } },
+            storage: { size: '10Gi' },
+          },
+        },
+      },
+    } as unknown as Instance;
+
+    render(
+      <TestWrapper>
+        <SectionEditModal
+          sectionKey="resources"
+          sections={sections}
+          instance={instance}
+          provider={{ spec: {} } as Provider}
+          namespace="ns"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+        />
+      </TestWrapper>
+    );
+
+    fireEvent.change(screen.getByLabelText('CPU'), { target: { value: '2' } });
+
+    await waitFor(() =>
+      expect(screen.getByTestId('form-dialog-save')).toBeEnabled()
+    );
+  });
+});

@@ -12,7 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { cpuParser, memoryParser } from '.';
+import { cpuParser, memoryParser, parseQuantity } from '.';
+
+describe('parseQuantity', () => {
+  it.each([
+    ['500m', 0.5],
+    ['300m', 0.3],
+    ['1.5', 1.5],
+    ['2k', 2000],
+    ['1Ki', 1024],
+    ['1Gi', 1024 ** 3],
+  ])('reads %s as %s', (input, expected) => {
+    expect(parseQuantity(input)).toBe(expected);
+  });
+
+  it.each(['', 'abc', '16kg', '1.2.3'])('rejects %j', (input) => {
+    expect(parseQuantity(input)).toBeUndefined();
+  });
+});
 
 describe('cpu parser', () => {
   // pattern is [description, input, output]

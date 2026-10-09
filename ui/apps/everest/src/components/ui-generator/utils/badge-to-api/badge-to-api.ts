@@ -16,7 +16,11 @@ import type { Section, TopologyUISchemas } from '../../ui-generator.types';
 import { walkLeafComponents, walkTopologyComponents } from '../schema-walker';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
 import { getByPath, setByPath, deepClone } from '../object-path';
-import { memoryParser, isKubernetesMemoryUnit } from 'utils/k8ResourceParser';
+import {
+  memoryParser,
+  isKubernetesMemoryUnit,
+  parseQuantity,
+} from 'utils/k8ResourceParser';
 
 export type BadgeMapping = {
   path: string;
@@ -94,6 +98,27 @@ export const stripBadgeFromValue = (
   }
 
   return value;
+};
+
+// A number field may read back a Kubernetes quantity string for a value it sent
+// as a number (0.5 → "500m"); return the number, in the API unit when given.
+export const readNumberFieldValue = (
+  value: unknown,
+  apiUnit?: string
+): unknown => {
+  if (typeof value !== 'string') {
+    return value;
+  }
+  if (!apiUnit) {
+    return parseQuantity(value) ?? value;
+  }
+  // In the API unit only: a suffix left after stripping is a unit we can't convert.
+  const stripped = stripBadgeFromValue(value, apiUnit);
+  const amount =
+    typeof stripped === 'string' && !/[A-Za-z]/.test(stripped)
+      ? parseQuantity(stripped)
+      : undefined;
+  return amount ?? value;
 };
 
 export const extractBadgeMappingsFromSections = (

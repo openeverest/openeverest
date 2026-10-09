@@ -15,6 +15,10 @@
 import { describe, it, expect } from 'vitest';
 import { extractInstanceValues } from './extract-instance-values';
 import {
+  extractBadgeMappingsFromSections,
+  stripBadgesFromData,
+} from '../badge-to-api/badge-to-api';
+import {
   Section,
   Component,
   FieldType,
@@ -142,8 +146,55 @@ describe('extractInstanceValues', () => {
     );
 
     expect(result).toEqual({
-      spec: { resources: { disk: '25' } },
+      spec: { resources: { disk: 25 } },
     });
+  });
+
+  it('reads Kubernetes quantities into number fields and leaves text fields as stored', () => {
+    const numberField = (path: string, badge?: string) =>
+      makeComponent(path, {
+        uiType: FieldType.Number,
+        fieldParams: { label: path, badge },
+      });
+    const sections: Record<string, Section> = {
+      resources: {
+        components: {
+          cpu: numberField('spec.cpu'),
+          proxyCpu: numberField('spec.proxyCpu', 'cores'),
+          rawCpu: makeComponent('spec.rawCpu'),
+        },
+      },
+    };
+
+    const result = extractInstanceValues(sections, {
+      spec: { cpu: '500m', proxyCpu: '1500m', rawCpu: '500m' },
+    });
+
+    expect(result).toEqual({
+      spec: { cpu: 0.5, proxyCpu: 1.5, rawCpu: '500m' },
+    });
+  });
+
+  // CEL compares form values with `original`; a string/number mix makes cel-js throw.
+  it('reads a badge field with the same type as the CEL original', () => {
+    const sections: Record<string, Section> = {
+      resources: {
+        components: {
+          disk: makeComponent('spec.disk', {
+            uiType: FieldType.Number,
+            fieldParams: { label: 'Disk', badge: 'Gi', badgeToApi: true },
+          }),
+        },
+      },
+    };
+    const instance = { spec: { disk: '25Gi' } };
+
+    const original = stripBadgesFromData(
+      instance,
+      extractBadgeMappingsFromSections(sections)
+    );
+
+    expect(extractInstanceValues(sections, instance)).toEqual(original);
   });
 
   it('returns empty object for empty sections', () => {
