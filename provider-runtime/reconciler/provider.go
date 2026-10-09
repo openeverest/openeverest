@@ -405,6 +405,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	if err := validateVersionBundle(ctx, r.Client, in); err != nil {
 		logger.Error(err, "Version bundle validation failed")
 		in.Status.Phase = v1alpha1.InstancePhaseFailed
+		in.Status.Message = err.Error()
 		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
 			logger.Error(updateErr, "Failed to update status after validation error")
 		}
@@ -430,6 +431,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		logger.Error(err, "Validation failed")
 		// Update status to failed
 		in.Status.Phase = v1alpha1.InstancePhaseFailed
+		in.Status.Message = err.Error()
 		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
 			logger.Error(updateErr, "Failed to update status after validation error")
 		}
