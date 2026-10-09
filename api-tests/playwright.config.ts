@@ -2,7 +2,7 @@ import {defineConfig} from '@playwright/test';
 import path from 'path';
 import {dirname} from 'path';
 import {fileURLToPath} from 'url';
-import {API_CI_TOKEN, API_TEST_TOKEN} from '@root/constants';
+import {API_CI_TOKEN, API_TEST_TOKEN, API_SSO_TOKEN} from '@root/constants';
 import {TIMEOUTS} from "./constants";
 
 // Convert 'import.meta.url' to the equivalent __dirname
@@ -114,6 +114,22 @@ export default defineConfig({
         },
       },
     },
+    // global:keycloak (optional — only when KEYCLOAK_ENABLED=true)
+    ...(process.env.KEYCLOAK_ENABLED === 'true'
+      ? [
+          {
+            name: 'global:keycloak:setup',
+            testDir: 'tests/setup/keycloak',
+            testMatch: /keycloak\.setup\.ts/,
+            teardown: 'global:keycloak:teardown',
+          },
+          {
+            name: 'global:keycloak:teardown',
+            testDir: 'tests/teardown/keycloak',
+            testMatch: /keycloak\.teardown\.ts/,
+          },
+        ]
+      : []),
     // ---------------------- TESTS ----------------------
     // api-tests project
     {
@@ -232,6 +248,22 @@ export default defineConfig({
         }
       },
     },
+    // -------------------- SSO tests (optional) --------------------
+    ...(process.env.KEYCLOAK_ENABLED === 'true'
+      ? [
+          {
+            name: 'sso',
+            testDir: 'tests/sso',
+            testMatch: /keycloak\.spec\.ts/,
+            dependencies: ['global:keycloak:setup'],
+            use: {
+              extraHTTPHeaders: {
+                'Authorization': `Bearer ${process.env[API_SSO_TOKEN]}`,
+              },
+            },
+          },
+        ]
+      : []),
     // ------------------------ PG tests ----------------------------
     // pg:backup-storage:setup
     {

@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: keycloak
+  name: keycloak
+  namespace: everest-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak
+  template:
+    metadata:
+      labels:
+        app: keycloak
+    spec:
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:26.6.1
+          args:
+            - start-dev
+          env:
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              value: admin
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              value: admin
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+            - name: KC_HTTP_ENABLED # Explicitly enable HTTP
+              value: "true"
+            - name: KC_HTTP_PORT
+              value: "8080"
+            - name: KC_HOSTNAME
+              value: "http://keycloak.everest-system.svc.cluster.local:8080"
+            - name: KC_HOSTNAME_STRICT # Disable strict hostname for internal K8s probes
+              value: "false"
+            - name: KC_HOSTNAME_STRICT_HTTPS # Disable strict HTTPS for dev
+              value: "false"
+            - name: KC_HTTP_MANAGEMENT_PORT
+              value: "8080"
+          ports:
+            - containerPort: 8080
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            limits:
+              memory: 1Gi
+              cpu: "1"
+            requests:
+              memory: 512Mi
+              cpu: 250m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak
+  namespace: everest-system
+spec:
+  type: ClusterIP
+  selector:
+    app: keycloak
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080

@@ -15,8 +15,11 @@ export const EVEREST_CI_NAMESPACE = 'everest',
   ),
   API_CI_TOKEN = 'API_CI_TOKEN',
   API_TEST_TOKEN = 'API_TEST_TOKEN',
+  API_SSO_TOKEN = 'API_SSO_TOKEN',
   MONITORING_CONFIG_1 = 'pmm-conf-1',
   MONITORING_CONFIG_2 = 'pmm-conf-2';
+
+export const KEYCLOAK_URL = process.env.KEYCLOAK_URL || 'http://localhost:8180';
 
 const second = 1_000,
   minute = 60 * second;
