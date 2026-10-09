@@ -71,8 +71,16 @@ export const parseQuantity = (input: string): number | undefined => {
   return unit === 'm' ? value / 1000 : value * memoryMultipliers[unit];
 };
 
-export const cpuParser = (input: string) =>
-  parseQuantity(input) ?? parseFloat(input);
+export const cpuParser = (input: string) => {
+  const milliMatch = input.match(/^([0-9]+)m$/);
+
+  if (milliMatch) {
+    // @ts-ignore
+    return milliMatch[1] / 1000;
+  }
+
+  return parseFloat(input);
+};
 
 export const memoryParser = (
   input: string,

@@ -15,10 +15,6 @@
 import { describe, it, expect } from 'vitest';
 import { extractInstanceValues } from './extract-instance-values';
 import {
-  extractBadgeMappingsFromSections,
-  stripBadgesFromData,
-} from '../badge-to-api/badge-to-api';
-import {
   Section,
   Component,
   FieldType,
@@ -173,28 +169,6 @@ describe('extractInstanceValues', () => {
     expect(result).toEqual({
       spec: { cpu: 0.5, proxyCpu: 1.5, rawCpu: '500m' },
     });
-  });
-
-  // CEL compares form values with `original`; a string/number mix makes cel-js throw.
-  it('reads a badge field with the same type as the CEL original', () => {
-    const sections: Record<string, Section> = {
-      resources: {
-        components: {
-          disk: makeComponent('spec.disk', {
-            uiType: FieldType.Number,
-            fieldParams: { label: 'Disk', badge: 'Gi', badgeToApi: true },
-          }),
-        },
-      },
-    };
-    const instance = { spec: { disk: '25Gi' } };
-
-    const original = stripBadgesFromData(
-      instance,
-      extractBadgeMappingsFromSections(sections)
-    );
-
-    expect(extractInstanceValues(sections, instance)).toEqual(original);
   });
 
   it('returns empty object for empty sections', () => {

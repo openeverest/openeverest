@@ -229,7 +229,7 @@ classDiagram
 
   When `badgeToApi` is set, the badge also acts as the value's **unit**: applied on write and converted back on read by `stripBadgeFromValue` (`badge-to-api`), which the overview cards reuse for display. The unit semantics, conversion rules and supported-unit list are documented for users in [number-field](../../ui-generator/components/number-field.md#unit-badge).
 
-  `number` fields read stored values through `readNumberFieldValue` (`badge-to-api`) in both the edit form (`extractInstanceValues`) and the overview cards. A Kubernetes quantity string (`"500m"`) becomes a number: in the badge unit when `badgeToApi` is set, otherwise in its base unit (`0.5`). Form values then have the same type as the badge-stripped CEL `original`.
+  `number` fields read stored values through `readNumberFieldValue` (`badge-to-api`) in both the edit form (`extractInstanceValues`) and the overview cards. A Kubernetes quantity string (`"500m"`) becomes a number: in the badge unit when `badgeToApi` is set, otherwise in its base unit (`0.5`). The edit modal builds CEL's `original` from these same values (see [pipeline](pipeline.md#section-edit-modal-flow)).
 
 ## Metadata
 
