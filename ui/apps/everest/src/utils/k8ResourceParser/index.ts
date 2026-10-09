@@ -71,17 +71,6 @@ export const parseQuantity = (input: string): number | undefined => {
   return unit === 'm' ? value / 1000 : value * memoryMultipliers[unit];
 };
 
-export const cpuParser = (input: string) => {
-  const milliMatch = input.match(/^([0-9]+)m$/);
-
-  if (milliMatch) {
-    // @ts-ignore
-    return milliMatch[1] / 1000;
-  }
-
-  return parseFloat(input);
-};
-
 export const memoryParser = (
   input: string,
   targetUnit?: kubernetesUnit
@@ -109,32 +98,4 @@ export const memoryParser = (
     value: parseFloat(input),
     originalUnit: '',
   };
-};
-
-export const getResourcesDetailedString = (value: number, unit: string) => {
-  return `${value} ${unit}`;
-};
-
-export const getTotalResourcesDetailedString = (
-  value: number,
-  numberOfNodes: number,
-  unit: string,
-  shardNr?: number,
-  sharding?: boolean
-) => {
-  if (numberOfNodes === 1 && !sharding) {
-    return `${value.toFixed(2)} ${unit}`;
-  }
-
-  const totalResources =
-    sharding && shardNr
-      ? value * numberOfNodes * shardNr
-      : value * numberOfNodes;
-
-  const formattedTotalResources =
-    totalResources === Math.trunc(totalResources)
-      ? totalResources.toString()
-      : parseFloat(totalResources.toFixed(2));
-
-  return `${formattedTotalResources} ${unit}`;
 };
