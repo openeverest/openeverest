@@ -19,7 +19,10 @@ import { BackupClass } from 'shared-types/backups.types';
 enum ScheduleForm {
   scheduleName = 'scheduleName',
   storageLocation = 'storageLocation',
+  retentionType = 'retentionType',
   retentionCopies = 'retentionCopies',
+  retentionDurationValue = 'retentionDurationValue',
+  retentionDurationUnit = 'retentionDurationUnit',
   backupClassName = 'backupClassName',
 }
 

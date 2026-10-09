@@ -17,19 +17,24 @@
 import {
   AutoCompleteInput,
   LabeledContent,
+  RadioGroup,
   SelectInput,
   TextInput,
 } from '@percona/ui-lib';
 import { TimeSelection } from '../../time-selection/time-selection';
 import { BackupConfigFields } from 'components/backup-config-fields';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
-import { Messages } from './schedule-form.messages';
+import { Messages, retentionTypeOptions } from './schedule-form.messages';
 import { ScheduleFormFields, ScheduleFormProps } from './schedule-form.types';
-import { Alert, MenuItem } from '@mui/material';
+import { Alert, Box, MenuItem } from '@mui/material';
 import { useFormContext } from 'react-hook-form';
 import { useContext, useMemo } from 'react';
 import { ScheduleFormDialogContext } from '../schedule-form-dialog-context/schedule-form-dialog.context';
 import BackupStoragesInput from 'components/backup-storages-input';
+import {
+  RETENTION_DURATION_UNITS,
+  RetentionType,
+} from './schedule-form.constants';
 
 export const ScheduleForm = ({
   allowScheduleSelection,
@@ -47,12 +52,14 @@ export const ScheduleForm = ({
 }: ScheduleFormProps) => {
   const {
     formState: { errors },
+    watch,
   } = useFormContext();
   const schedulesNamesList =
     (schedules && schedules.map((item) => item?.name)) || [];
   const {
     dbInstanceInfo: { namespace },
   } = useContext(ScheduleFormDialogContext);
+  const retentionType = watch(ScheduleFormFields.retentionType);
 
   // Map flattened schedules to the shape BackupStoragesInput expects
   const storageSchedules = useMemo(
@@ -125,15 +132,54 @@ export const ScheduleForm = ({
           disabled: disableStorageSelection,
         }}
       />
-      <TextInput
-        name={ScheduleFormFields.retentionCopies}
-        textFieldProps={{
-          type: 'number',
-          label: Messages.retentionCopies.label,
-          helperText: Messages.retentionCopies.helperText,
-        }}
-        isRequired
+      <RadioGroup
+        name={ScheduleFormFields.retentionType}
+        label={Messages.retentionType.label}
+        options={retentionTypeOptions}
       />
+      {retentionType === RetentionType.count && (
+        <TextInput
+          name={ScheduleFormFields.retentionCopies}
+          textFieldProps={{
+            type: 'number',
+            label: Messages.retentionCopies.label,
+            helperText: Messages.retentionCopies.helperText,
+          }}
+          isRequired
+        />
+      )}
+      {retentionType === RetentionType.time && (
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 2,
+            alignItems: 'flex-start',
+          }}
+        >
+          <TextInput
+            name={ScheduleFormFields.retentionDurationValue}
+            textFieldProps={{
+              type: 'number',
+              label: Messages.retentionDuration.label,
+              helperText: Messages.retentionDuration.helperText,
+            }}
+            isRequired
+          />
+          <SelectInput
+            name={ScheduleFormFields.retentionDurationUnit}
+            label={Messages.retentionDuration.unitLabel}
+            selectFieldProps={{
+              label: Messages.retentionDuration.unitLabel,
+            }}
+          >
+            {RETENTION_DURATION_UNITS.map((unit) => (
+              <MenuItem key={unit} value={unit}>
+                {Messages.retentionDuration.unit[unit]}
+              </MenuItem>
+            ))}
+          </SelectInput>
+        </Box>
+      )}
       <LabeledContent label={Messages.repeats}>
         <TimeSelection showInfoAlert errorInfoAlert={errorInfoAlert} />
       </LabeledContent>

@@ -24,6 +24,10 @@ import { FlattenedSchedule } from '../schedule-form-dialog-context/schedule-form
 import { getCronExpressionFromFormValues } from '../../time-selection/time-selection.utils';
 import { sameScheduleFunc } from '../schedule-form-dialog.utils';
 import { WizardMode } from 'shared-types/wizard.types.ts';
+import {
+  RetentionDurationUnit,
+  RetentionType,
+} from './schedule-form.constants';
 
 export const storageLocationZodObject = z
   .string()
@@ -60,6 +64,11 @@ export const storageLocationScheduleFormSchema = (
   };
 };
 
+const isValidRetentionAmount = (value: string) => {
+  const parsed = parseInt(value, 10);
+  return !isNaN(parsed) && parsed >= 1 && parsed <= Math.pow(2, 31) - 1;
+};
+
 export const schema = (schedules: FlattenedSchedule[], mode: WizardMode) => {
   const schedulesNamesList = schedules.map((item) => item?.name);
   return z
@@ -80,22 +89,18 @@ export const schema = (schedules: FlattenedSchedule[], mode: WizardMode) => {
             });
           }
         }),
-      [ScheduleFormFields.retentionCopies]: z
-        .string()
-        .superRefine((nrCopies, ctx) => {
-          const nrCopiesInt = parseInt(nrCopies, 10);
-
-          if (
-            isNaN(nrCopiesInt) ||
-            nrCopiesInt < 0 ||
-            nrCopiesInt > Math.pow(2, 31) - 1
-          ) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              message: Messages.retentionCopies.invalidNumber,
-            });
-          }
-        }),
+      [ScheduleFormFields.retentionType]: z.enum([
+        RetentionType.count,
+        RetentionType.time,
+        RetentionType.keepAll,
+      ]),
+      [ScheduleFormFields.retentionCopies]: z.string(),
+      [ScheduleFormFields.retentionDurationValue]: z.string(),
+      [ScheduleFormFields.retentionDurationUnit]: z.enum([
+        RetentionDurationUnit.days,
+        RetentionDurationUnit.weeks,
+        RetentionDurationUnit.months,
+      ]),
       [ScheduleFormFields.backupClassName]: z
         .string()
         .min(1, Messages.backupClass.required),
@@ -103,34 +108,53 @@ export const schema = (schedules: FlattenedSchedule[], mode: WizardMode) => {
       ...storageLocationScheduleFormSchema('scheduledBackups'),
     })
     .passthrough()
-    .superRefine(
-      (
-        { selectedTime, hour, minute, onDay, weekDay, amPm, scheduleName },
-        ctx
-      ) => {
-        const currentSchedule = getCronExpressionFromFormValues({
-          selectedTime,
-          amPm,
-          hour,
-          minute,
-          onDay,
-          weekDay,
+    .superRefine((data, ctx) => {
+      if (
+        data.retentionType === RetentionType.count &&
+        !isValidRetentionAmount(data.retentionCopies)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: Messages.retentionCopies.invalidNumber,
+          path: [ScheduleFormFields.retentionCopies],
         });
-        const sameSchedule = sameScheduleFunc(
-          schedules,
-          mode,
-          currentSchedule,
-          scheduleName
-        );
-        if (sameSchedule) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: Messages.sameTimeSchedule,
-            path: ['root'],
-          });
-        }
       }
-    );
+
+      if (
+        data.retentionType === RetentionType.time &&
+        !isValidRetentionAmount(data.retentionDurationValue)
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: Messages.retentionDuration.invalidNumber,
+          path: [ScheduleFormFields.retentionDurationValue],
+        });
+      }
+
+      const { selectedTime, hour, minute, onDay, weekDay, amPm, scheduleName } =
+        data;
+      const currentSchedule = getCronExpressionFromFormValues({
+        selectedTime,
+        amPm,
+        hour,
+        minute,
+        onDay,
+        weekDay,
+      });
+      const sameSchedule = sameScheduleFunc(
+        schedules,
+        mode,
+        currentSchedule,
+        scheduleName
+      );
+      if (sameSchedule) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: Messages.sameTimeSchedule,
+          path: ['root'],
+        });
+      }
+    });
 };
 
 export type ScheduleFormData = z.infer<ReturnType<typeof schema>>;

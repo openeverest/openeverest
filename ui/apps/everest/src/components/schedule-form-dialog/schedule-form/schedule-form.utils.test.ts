@@ -14,7 +14,10 @@
 
 import {
   getSchedulesPayload,
+  parseRetentionDuration,
   removeScheduleFromArray,
+  retentionFieldsFromApi,
+  retentionToApi,
 } from './schedule-form.utils';
 import { FlattenedSchedule } from '../schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { WizardMode } from 'shared-types/wizard.types';
@@ -24,6 +27,11 @@ import {
   TimeValue,
   WeekDays,
 } from '../../time-selection/time-selection.types';
+import {
+  RetentionDurationUnit,
+  RetentionType,
+} from './schedule-form.constants';
+import { ScheduleFormFields } from './schedule-form.types';
 
 const makeSchedule = (
   overrides: Partial<FlattenedSchedule> = {}
@@ -42,7 +50,10 @@ const makeFormData = (
   scheduleName: 'new-schedule',
   backupClassName: 'percona-backup-mongodb',
   storageLocation: { metadata: { name: 'storage-b' } },
+  retentionType: RetentionType.count,
   retentionCopies: '5',
+  retentionDurationValue: '30',
+  retentionDurationUnit: RetentionDurationUnit.days,
   selectedTime: TimeValue.days,
   minute: 30,
   hour: 2,
@@ -50,6 +61,92 @@ const makeFormData = (
   weekDay: WeekDays.Mo,
   onDay: 1,
   ...overrides,
+});
+
+describe('parseRetentionDuration', () => {
+  it('parses days, weeks, and months', () => {
+    expect(parseRetentionDuration('30d')).toEqual({
+      value: '30',
+      unit: RetentionDurationUnit.days,
+    });
+    expect(parseRetentionDuration('4w')).toEqual({
+      value: '4',
+      unit: RetentionDurationUnit.weeks,
+    });
+    expect(parseRetentionDuration('2m')).toEqual({
+      value: '2',
+      unit: RetentionDurationUnit.months,
+    });
+  });
+
+  it('falls back for invalid duration', () => {
+    expect(parseRetentionDuration('invalid')).toEqual({
+      value: '30',
+      unit: RetentionDurationUnit.days,
+    });
+  });
+});
+
+describe('retentionFieldsFromApi', () => {
+  it('maps count retention', () => {
+    expect(retentionFieldsFromApi({ type: 'count', count: 7 })).toEqual({
+      [ScheduleFormFields.retentionType]: RetentionType.count,
+      [ScheduleFormFields.retentionCopies]: '7',
+      [ScheduleFormFields.retentionDurationValue]: '30',
+      [ScheduleFormFields.retentionDurationUnit]: RetentionDurationUnit.days,
+    });
+  });
+
+  it('maps time retention', () => {
+    expect(
+      retentionFieldsFromApi({ type: 'time', duration: '4w' })
+    ).toEqual({
+      [ScheduleFormFields.retentionType]: RetentionType.time,
+      [ScheduleFormFields.retentionCopies]: '1',
+      [ScheduleFormFields.retentionDurationValue]: '4',
+      [ScheduleFormFields.retentionDurationUnit]: RetentionDurationUnit.weeks,
+    });
+  });
+
+  it('maps unset retention to keep-all', () => {
+    expect(retentionFieldsFromApi(undefined)).toEqual({
+      [ScheduleFormFields.retentionType]: RetentionType.keepAll,
+      [ScheduleFormFields.retentionCopies]: '1',
+      [ScheduleFormFields.retentionDurationValue]: '30',
+      [ScheduleFormFields.retentionDurationUnit]: RetentionDurationUnit.days,
+    });
+  });
+});
+
+describe('retentionToApi', () => {
+  it('maps count retention', () => {
+    expect(
+      retentionToApi(
+        makeFormData({
+          retentionType: RetentionType.count,
+          retentionCopies: '5',
+        })
+      )
+    ).toEqual({ type: 'count', count: 5 });
+  });
+
+  it('maps time retention', () => {
+    expect(
+      retentionToApi(
+        makeFormData({
+          retentionType: RetentionType.time,
+          retentionDurationValue: '2',
+          retentionDurationUnit: RetentionDurationUnit.months,
+        })
+      )
+    ).toEqual({ type: 'time', duration: '2m' });
+  });
+
+  it('omits retention for keep-all', () => {
+    expect(
+      retentionToApi(makeFormData({ retentionType: RetentionType.keepAll }))
+    ).toBeUndefined();
+  });
 });
 
 describe('getSchedulesPayload', () => {
@@ -141,13 +238,26 @@ describe('getSchedulesPayload', () => {
       expect(result[0]).not.toHaveProperty('parameters');
     });
 
-    it('omits retention for keep-all (0 copies)', () => {
+    it('omits retention for keep-all', () => {
       const result = getSchedulesPayload({
-        formData: makeFormData({ retentionCopies: '0' }),
+        formData: makeFormData({ retentionType: RetentionType.keepAll }),
         mode: WizardMode.New,
         schedules: [],
       });
       expect(result[0].retention).toBeUndefined();
+    });
+
+    it('writes time retention from form fields', () => {
+      const result = getSchedulesPayload({
+        formData: makeFormData({
+          retentionType: RetentionType.time,
+          retentionDurationValue: '30',
+          retentionDurationUnit: RetentionDurationUnit.days,
+        }),
+        mode: WizardMode.New,
+        schedules: [],
+      });
+      expect(result[0].retention).toEqual({ type: 'time', duration: '30d' });
     });
   });
 
@@ -190,7 +300,7 @@ describe('getSchedulesPayload', () => {
       expect(result).toHaveLength(1);
     });
 
-    it('preserves existing time retention when form copies is 0', () => {
+    it('can switch time retention to keep-all', () => {
       const existing = [
         makeSchedule({
           name: 'target',
@@ -200,12 +310,12 @@ describe('getSchedulesPayload', () => {
       const result = getSchedulesPayload({
         formData: makeFormData({
           scheduleName: 'target',
-          retentionCopies: '0',
+          retentionType: RetentionType.keepAll,
         }),
         mode: WizardMode.Edit,
         schedules: existing,
       });
-      expect(result[0].retention).toEqual({ type: 'time', duration: '30d' });
+      expect(result[0].retention).toBeUndefined();
     });
   });
 

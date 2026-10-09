@@ -191,6 +191,9 @@ export const fillScheduleModalForm = async (
     await page.getByRole('option', { name: backupStorage }).click();
   }
 
+  const retentionTypeCount = page.getByTestId('radio-option-count');
+  await retentionTypeCount.click();
+
   const retentionCopiesField = page.getByTestId('text-input-retention-copies');
   await expect(retentionCopiesField).not.toBeEmpty();
 
