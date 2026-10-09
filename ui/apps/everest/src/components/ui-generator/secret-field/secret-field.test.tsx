@@ -60,7 +60,11 @@ const LOADED = {
   data: [{ metadata: { name: 'creds-a' } }, { metadata: { name: 'creds-b' } }],
   isLoading: false,
   isError: false,
+  isSuccess: true,
 };
+
+// What a disabled query returns.
+const IDLE = { isLoading: false, isError: false, isSuccess: false };
 
 const PROVIDER: Provider = { metadata: { name: 'psmdb' }, spec: {} };
 
@@ -115,13 +119,16 @@ interface FieldContext {
   providerObject?: Provider;
   formMode?: FormMode;
   fieldParams?: Partial<SecretFieldParams>;
+  value?: string;
 }
 
-const renderField = ({ fieldParams, ...context }: FieldContext) => {
+const renderField = ({ fieldParams, value, ...context }: FieldContext) => {
   const fieldSchema = buildSchema(fieldParams);
   const Harness = () => {
     const methods = useForm({
-      defaultValues: getDefaultValues(fieldSchema, 'replicaSet'),
+      defaultValues: value
+        ? { spec: { userSecretRef: { name: value } } }
+        : getDefaultValues(fieldSchema, 'replicaSet'),
     });
     return (
       <FormProvider {...methods}>
@@ -232,6 +239,30 @@ describe('SecretField', () => {
     );
     expect(getCombobox()).toHaveAttribute('aria-disabled', 'true');
     expect(screen.getByText(Messages.noContext)).toBeInTheDocument();
+  });
+
+  it('keeps a value that is not a managed secret, marked as such', () => {
+    renderField({ providerObject: PROVIDER, value: 'legacy-creds' });
+
+    expect(getCombobox()).toHaveTextContent(Messages.unmanaged('legacy-creds'));
+  });
+
+  it('shows the value of a read-only field without listing secrets', () => {
+    mockUseSecrets.mockReturnValue(IDLE);
+    renderField({
+      providerObject: PROVIDER,
+      fieldParams: { readOnly: true },
+      value: 'creds-a',
+    });
+
+    expect(mockUseSecrets).toHaveBeenCalledWith(
+      'main',
+      'ns',
+      { provider: 'psmdb', definition: 'userSecret' },
+      { enabled: false }
+    );
+    expect(getCombobox()).toHaveTextContent(/^creds-a$/);
+    expect(screen.queryByText(Messages.empty)).not.toBeInTheDocument();
   });
 
   it('requires a secret name when the field is required', () => {

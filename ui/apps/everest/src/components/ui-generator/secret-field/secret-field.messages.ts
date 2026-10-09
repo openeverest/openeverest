@@ -18,4 +18,5 @@ export const Messages = {
   noContext: 'Secrets can only be selected for a provider in a namespace',
   empty: 'No secrets yet',
   emptyAddOne: 'No secrets yet — add one',
+  unmanaged: (name: string) => `${name} (not managed by OpenEverest)`,
 };

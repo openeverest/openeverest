@@ -14,6 +14,7 @@
 
 import { Provider } from 'shared-types/api.types';
 import { isSection, Section } from '../ui-generator.types';
+import { Messages } from './secret-field.messages';
 
 // The create form of a provider's secret definition, if the provider ships one.
 export const getSecretDefinitionSection = (
@@ -22,4 +23,42 @@ export const getSecretDefinitionSection = (
 ): Section | undefined => {
   const uiSchema = provider?.spec?.secrets?.[definition]?.uiSchema;
   return isSection(uiSchema) ? uiSchema : undefined;
+};
+
+// A value that isn't a listed secret (e.g. set by a preset) stays selectable, marked once the list confirms it.
+export const getSecretOptions = (
+  names: string[],
+  value: string,
+  isListed: boolean
+) => [
+  ...names.map((name) => ({ label: name, value: name })),
+  ...(value && !names.includes(value)
+    ? [{ label: isListed ? Messages.unmanaged(value) : value, value }]
+    : []),
+];
+
+export const getSecretHelperText = ({
+  hasContext,
+  isEditable,
+  isLoading,
+  isError,
+  isEmpty,
+  canAdd,
+  helperText,
+}: {
+  hasContext: boolean;
+  isEditable: boolean;
+  isLoading: boolean;
+  isError: boolean;
+  isEmpty: boolean;
+  canAdd: boolean;
+  helperText?: string;
+}) => {
+  if (!hasContext) return Messages.noContext;
+  // A read-only field shows its value without listing secrets.
+  if (!isEditable) return helperText;
+  if (isLoading) return Messages.loading;
+  if (isError) return Messages.loadFailed;
+  if (isEmpty) return canAdd ? Messages.emptyAddOne : Messages.empty;
+  return helperText;
 };
