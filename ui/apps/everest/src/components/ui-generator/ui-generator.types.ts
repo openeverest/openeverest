@@ -254,6 +254,14 @@ export type Component = FieldComponent | WidgetComponent;
 export const isWidgetComponent = (item: Component): item is WidgetComponent =>
   item.uiType === WIDGET_UI_TYPE;
 
+// Narrows an opaque API payload (e.g. a CRD's uiSchema) to a section.
+export const isSection = (value: unknown): value is Section =>
+  typeof value === 'object' &&
+  value !== null &&
+  'components' in value &&
+  typeof value.components === 'object' &&
+  value.components !== null;
+
 export type WidgetRendererProps = {
   // Engine-resolved RHF field key. A widget is a first-class component: it flows
   // through the same preprocess / name-resolution / render pipeline as a field,
