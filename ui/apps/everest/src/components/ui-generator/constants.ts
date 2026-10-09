@@ -44,8 +44,8 @@ export const muiComponentMap: Record<FieldType, React.ElementType> = {
   [FieldType.Select]: SelectInput,
   [FieldType.Toggle]: SwitchInput,
   [FieldType.Hidden]: () => null,
-  // SecretField renders it as a select over the namespace's secrets.
-  [FieldType.Secret]: SelectInput,
+  // Rendered by SecretField, never through UIComponent.
+  [FieldType.Secret]: () => null,
 };
 
 export const zodRuleMapByType: Record<FieldType, Record<string, string>> = {

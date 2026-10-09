@@ -127,6 +127,7 @@ export interface SecretFieldParams extends CommonFieldParams {
   // Key of the provider's spec.secrets entry the selectable secrets belong to.
   definition: string;
   readOnly?: boolean;
+  createLabel?: string;
 }
 
 export interface TextFieldParams extends CommonFieldParams {

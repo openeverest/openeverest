@@ -15,6 +15,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'shared-types/api.types';
 import { TestWrapper } from 'utils/test';
+import { UIGenerator } from '../../ui-generator';
 import { FieldType, Section } from '../../ui-generator.types';
 import { SecretCreateModal } from './secret-create-modal';
 import { Messages } from './secret-create-modal.messages';
@@ -62,6 +63,7 @@ const renderModal = () => {
         section={SECTION}
         providerObject={PROVIDER}
         namespace="ns"
+        generator={UIGenerator}
         onClose={vi.fn()}
         onCreated={onCreated}
       />

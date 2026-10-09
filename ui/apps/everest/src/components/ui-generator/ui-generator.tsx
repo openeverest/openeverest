@@ -64,6 +64,7 @@ export const UIGenerator = ({
       namespace={namespace}
       widgetRegistry={widgetRegistry}
       root={root}
+      generator={UIGenerator}
     >
       <FormGroup sx={{ mt: 3 }}>
         <Stack spacing={2}>

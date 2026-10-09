@@ -12,8 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { ComponentType } from 'react';
 import { Provider } from 'shared-types/api.types';
-import { Section } from 'components/ui-generator/ui-generator.types';
+import {
+  Section,
+  UIGeneratorProps,
+} from 'components/ui-generator/ui-generator.types';
 import { SECRET_DATA_ROOT } from './secret-create-modal.constants';
 
 export interface SecretCreateModalProps {
@@ -22,6 +26,8 @@ export interface SecretCreateModalProps {
   section: Section;
   providerObject: Provider;
   namespace: string;
+  // The enclosing UIGenerator (UiGeneratorContext.generator).
+  generator: ComponentType<UIGeneratorProps>;
   onClose: () => void;
   onCreated: (name: string) => void;
 }
