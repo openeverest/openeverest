@@ -24,6 +24,11 @@ export type MonitoringConfigCreateParams =
   HttpApi.components['schemas']['MonitoringConfigCreateParams'];
 export type MonitoringConfigUpdateParams =
   HttpApi.components['schemas']['MonitoringConfigUpdateParams'];
+export type Secret = HttpApi.components['schemas']['Secret'];
+export type SecretList = HttpApi.components['schemas']['SecretList'];
+export type SecretListFilter = NonNullable<
+  HttpApi.operations['listSecrets']['parameters']['query']
+>;
 export type GetInstances = CrdsGen.components['schemas']['InstanceList'];
 export type Instance = CrdsGen.components['schemas']['Instance'];
 export type InstanceConnectionDetails =

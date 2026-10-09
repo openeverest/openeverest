@@ -21,6 +21,7 @@ import { UiGeneratorProvider } from './ui-generator-context';
 export const UIGenerator = ({
   sectionKey,
   sections,
+  root,
   providerObject,
   loadingDefaultsForEdition,
   formMode,
@@ -62,6 +63,8 @@ export const UIGenerator = ({
       formMode={formMode}
       namespace={namespace}
       widgetRegistry={widgetRegistry}
+      root={root}
+      generator={UIGenerator}
     >
       <FormGroup sx={{ mt: 3 }}>
         <Stack spacing={2}>
@@ -72,6 +75,7 @@ export const UIGenerator = ({
                 {renderComponent({
                   item,
                   name: fieldName,
+                  root,
                 })}
               </React.Fragment>
             );

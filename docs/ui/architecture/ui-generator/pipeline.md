@@ -88,13 +88,18 @@ flowchart TD
 
 **Files:** `ui-generator.tsx`, `utils/component-renderer/`, `ui-component/`, `api-providers/`
 
-- **`<UIGenerator sectionKey sections providerObject formMode namespace />`** — root.
-- **`UiGeneratorProvider`** (context) — provides `provider`, `formMode`, `namespace`, and loading
-  down the tree.
+- **`<UIGenerator sectionKey sections root providerObject formMode namespace />`** — entry component.
+  - **`root`** (optional) — the form path where the host mounts the section's own object, e.g. a
+    secret's data at `stringData`. Field names and toggleable switches become `<root>.<path>`. The
+    other stages stay relative, so the host nests the section's zod schema and defaults under
+    `root`, prefixes `celDependencyGroups` with it, and postprocesses `formData[root]`.
+- **`UiGeneratorProvider`** (context) — provides `provider`, `formMode`, `namespace`, `root`, and
+  loading down the tree, plus `generator` (the UIGenerator itself) so a field that embeds a form,
+  like the secret field's create modal, renders it without importing UIGenerator (an import cycle).
 - **`orderComponents(components, componentsOrder)`** — field order.
-- **`renderComponent({ item, name })`** — recursive traversal:
+- **`renderComponent({ item, name, root })`** — recursive traversal:
   - `group` / `hidden` → recurse into nested `components`;
-  - leaf → `generateFieldId(item, name)` (form field name) →
+  - leaf → `generateFieldId(item, name)` joined with `root` (form field name) →
     - has `dataSource` → `<ComponentErrorBoundary><DataSourceField><UIComponent/></DataSourceField></ComponentErrorBoundary>`
       (the wrapper loads options through `api-providers/registry` and sets a default via `useEffect`);
     - otherwise → `<ComponentErrorBoundary><UIComponent/></ComponentErrorBoundary>`.
@@ -245,4 +250,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-30
+- Last updated: 2026-10-09
