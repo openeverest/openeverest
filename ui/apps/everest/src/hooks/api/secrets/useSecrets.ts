@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AxiosError } from 'axios';
 import { createSecretFn, deleteSecretFn, getSecretsFn } from 'api/secrets';
 import { Secret, SecretListFilter } from 'shared-types/api.types';
 
@@ -38,8 +39,8 @@ export const useSecrets = (
 export const useCreateSecret = (cluster: string, namespace: string) => {
   const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: (secret: Secret) => createSecretFn(cluster, namespace, secret),
+  return useMutation<Secret, AxiosError, Secret>({
+    mutationFn: (secret) => createSecretFn(cluster, namespace, secret),
     // Don't keep the submitted secret values in the mutation cache.
     gcTime: 0,
     onSuccess: () =>
