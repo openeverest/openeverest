@@ -5,5 +5,6 @@ metadata:
 spec:
   displayName: Test Backup Class
   executionMode: ProviderManaged
+  supportsImport: true
   supportedProviders:
     - test-provider

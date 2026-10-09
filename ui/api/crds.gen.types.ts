@@ -497,6 +497,11 @@ export interface components {
                  */
                 supportedProviders?: string[];
                 /**
+                 * @description SupportsImport indicates whether the owner of this class can discover and
+                 *     import restorable backups already sitting in a BackupStorage.
+                 */
+                supportsImport?: boolean;
+                /**
                  * @description UISchema contains free-form rendering hints for the frontend forms that
                  *     configure backup, restore, and PITR for an Instance using this class.
                  *     The runtime treats this field as opaque; only the UI consumes it. The

@@ -1201,6 +1201,10 @@ type BackupClass struct {
 		// class to be usable on that Instance.
 		SupportedProviders *[]string `json:"supportedProviders,omitempty"`
 
+		// SupportsImport SupportsImport indicates whether the owner of this class can discover and
+		// import restorable backups already sitting in a BackupStorage.
+		SupportsImport *bool `json:"supportsImport,omitempty"`
+
 		// UiSchema UISchema contains free-form rendering hints for the frontend forms that
 		// configure backup, restore, and PITR for an Instance using this class.
 		// The runtime treats this field as opaque; only the UI consumes it. The

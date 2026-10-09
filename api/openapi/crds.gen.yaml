@@ -755,6 +755,11 @@ components:
               items:
                 type: string
               type: array
+            supportsImport:
+              description: |-
+                SupportsImport indicates whether the owner of this class can discover and
+                import restorable backups already sitting in a BackupStorage.
+              type: boolean
             uiSchema:
               description: |-
                 UISchema contains free-form rendering hints for the frontend forms that
