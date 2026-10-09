@@ -2530,6 +2530,8 @@ paths:
       responses:
         '204':
           description: Secret deleted successfully
+        '202':
+          description: Secret deletion accepted
         '404':
           description: Secret not found
           content:

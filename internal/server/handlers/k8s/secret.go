@@ -84,7 +84,9 @@ func (h *k8sHandler) GetSecret(ctx context.Context, _ string, namespace, name st
 	return stripSecretData(secret), nil
 }
 
-// DeleteSecret deletes the secret specified by name in the namespace.
+// DeleteSecret deletes the secret specified by name in the namespace. It returns
+// ErrDeletionPending when the secret still exists after the delete call because a
+// finalizer is blocking its removal.
 func (h *k8sHandler) DeleteSecret(ctx context.Context, _ string, namespace, name string) error {
 	secret, err := h.kubeConnector.GetSecret(ctx, ctrlclient.ObjectKey{
 		Name:      name,
@@ -98,7 +100,17 @@ func (h *k8sHandler) DeleteSecret(ctx context.Context, _ string, namespace, name
 		return ErrNotFound
 	}
 
-	return h.kubeConnector.DeleteSecret(ctx, secret)
+	if err := h.kubeConnector.DeleteSecret(ctx, secret); err != nil {
+		return err
+	}
+
+	// A finalizer keeps the object around after the delete call, so the removal
+	// is only pending rather than complete.
+	if len(secret.GetFinalizers()) > 0 {
+		return ErrDeletionPending
+	}
+
+	return nil
 }
 
 // stripSecretData removes the contents of a secret, leaving only metadata.

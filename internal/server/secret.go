@@ -15,6 +15,7 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/AlekSi/pointer"
@@ -22,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	k8shandler "github.com/openeverest/openeverest/v2/internal/server/handlers/k8s"
 )
 
 // CreateSecret creates a new secret in the specified namespace and cluster.
@@ -71,7 +73,13 @@ func (e *EverestServer) GetSecret(c echo.Context, cluster, namespace, name strin
 
 // DeleteSecret deletes the secret specified by name in the namespace and cluster.
 func (e *EverestServer) DeleteSecret(c echo.Context, cluster, namespace, name string) error {
-	if err := e.handler.DeleteSecret(c.Request().Context(), cluster, namespace, name); err != nil {
+	err := e.handler.DeleteSecret(c.Request().Context(), cluster, namespace, name)
+	if errors.Is(err, k8shandler.ErrDeletionPending) {
+		// The secret is marked for deletion but a finalizer is still blocking its
+		// removal, so the deletion is accepted rather than complete.
+		return c.NoContent(http.StatusAccepted)
+	}
+	if err != nil {
 		e.l.Errorf("DeleteSecret failed: %v", err)
 		return err
 	}
