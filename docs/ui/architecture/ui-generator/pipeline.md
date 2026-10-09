@@ -94,7 +94,8 @@ flowchart TD
     other stages stay relative, so the host nests the section's zod schema and defaults under
     `root`, prefixes `celDependencyGroups` with it, and postprocesses `formData[root]`.
 - **`UiGeneratorProvider`** (context) — provides `provider`, `formMode`, `namespace`, `root`, and
-  loading down the tree.
+  loading down the tree, plus `generator` (the UIGenerator itself) so a field that embeds a form,
+  like the secret field's create modal, renders it without importing UIGenerator (an import cycle).
 - **`orderComponents(components, componentsOrder)`** — field order.
 - **`renderComponent({ item, name, root })`** — recursive traversal:
   - `group` / `hidden` → recurse into nested `components`;

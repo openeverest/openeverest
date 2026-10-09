@@ -12,23 +12,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { useState } from 'react';
+import { useFormContext } from 'react-hook-form';
+import { ActionableLabeledContent } from '@percona/ui-lib';
 import { useSecrets } from 'hooks/api/secrets';
 import { useClusterName } from 'hooks/api/useClusterName';
+import { useRBACPermissions } from 'hooks/rbac';
 import UIComponent from '../ui-component/ui-component';
 import { useUiGeneratorContext } from '../ui-generator-context';
-import { Component, FieldType } from '../ui-generator.types';
+import { Component, FieldType, FormMode } from '../ui-generator.types';
+import { SecretCreateModal } from './secret-create-modal';
+import { getSecretDefinitionSection } from './secret-field.utils';
 import { Messages } from './secret-field.messages';
 import { SecretFieldProps } from './secret-field.types';
 
 type SelectComponent = Extract<Component, { uiType: FieldType.Select }>;
 
 export const SecretField = ({ item, name }: SecretFieldProps) => {
-  const { providerObject, namespace } = useUiGeneratorContext();
+  const { providerObject, namespace, formMode, generator } =
+    useUiGeneratorContext();
   const cluster = useClusterName();
-  const { definition, ...fieldParams } = item.fieldParams;
+  const { setValue } = useFormContext();
+  const [isCreating, setIsCreating] = useState(false);
+  const { definition, createLabel, label, ...fieldParams } = item.fieldParams;
   const provider = providerObject?.metadata?.name;
   // Secrets are scoped to a provider and namespace, which a playground lacks.
   const hasContext = !!provider && !!namespace;
+  const createForm = getSecretDefinitionSection(providerObject, definition);
+  const { canCreate } = useRBACPermissions('secrets', `${namespace}/*`);
+  const canAdd =
+    hasContext &&
+    !!createForm &&
+    canCreate &&
+    !fieldParams.readOnly &&
+    !fieldParams.disabled &&
+    formMode !== FormMode.Edit;
 
   const {
     data: secrets = [],
@@ -47,7 +65,11 @@ export const SecretField = ({ item, name }: SecretFieldProps) => {
       ? Messages.loading
       : isError
         ? Messages.loadFailed
-        : fieldParams.helperText;
+        : secrets.length === 0
+          ? canAdd
+            ? Messages.emptyAddOne
+            : Messages.empty
+          : fieldParams.helperText;
 
   const selectItem: SelectComponent = {
     ...item,
@@ -62,5 +84,35 @@ export const SecretField = ({ item, name }: SecretFieldProps) => {
     },
   };
 
-  return <UIComponent item={selectItem} name={name} />;
+  const handleCreated = (secretName: string) => {
+    setValue(name, secretName, { shouldDirty: true, shouldValidate: true });
+    setIsCreating(false);
+  };
+
+  return (
+    <ActionableLabeledContent
+      label={label}
+      // The label row labels the select, so the select sits right under it.
+      horizontalStackSx={{ marginBottom: 1 }}
+      verticalStackSx={{ '.MuiFormControl-root': { mt: 0 } }}
+      actionButtonProps={
+        canAdd
+          ? { buttonText: createLabel, onClick: () => setIsCreating(true) }
+          : undefined
+      }
+    >
+      <UIComponent item={selectItem} name={name} />
+      {isCreating && createForm && generator && providerObject && namespace && (
+        <SecretCreateModal
+          definition={definition}
+          section={createForm}
+          providerObject={providerObject}
+          namespace={namespace}
+          generator={generator}
+          onClose={() => setIsCreating(false)}
+          onCreated={handleCreated}
+        />
+      )}
+    </ActionableLabeledContent>
+  );
 };
