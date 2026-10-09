@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { useState } from 'react';
-import { useFormContext } from 'react-hook-form';
+import { useFormContext, useWatch } from 'react-hook-form';
 import { ActionableLabeledContent } from '@percona/ui-lib';
 import { useSecrets } from 'hooks/api/secrets';
 import { useClusterName } from 'hooks/api/useClusterName';
@@ -22,8 +22,11 @@ import UIComponent from '../ui-component/ui-component';
 import { useUiGeneratorContext } from '../ui-generator-context';
 import { Component, FieldType, FormMode } from '../ui-generator.types';
 import { SecretCreateModal } from './secret-create-modal';
-import { getSecretDefinitionSection } from './secret-field.utils';
-import { Messages } from './secret-field.messages';
+import {
+  getSecretDefinitionSection,
+  getSecretHelperText,
+  getSecretOptions,
+} from './secret-field.utils';
 import { SecretFieldProps } from './secret-field.types';
 
 type SelectComponent = Extract<Component, { uiType: FieldType.Select }>;
@@ -33,54 +36,57 @@ export const SecretField = ({ item, name }: SecretFieldProps) => {
     useUiGeneratorContext();
   const cluster = useClusterName();
   const { setValue } = useFormContext();
+  const value: unknown = useWatch({ name });
   const [isCreating, setIsCreating] = useState(false);
   const { definition, createLabel, label, ...fieldParams } = item.fieldParams;
   const provider = providerObject?.metadata?.name;
   // Secrets are scoped to a provider and namespace, which a playground lacks.
   const hasContext = !!provider && !!namespace;
+  const isEditable = !fieldParams.readOnly && !fieldParams.disabled;
   const createForm = getSecretDefinitionSection(providerObject, definition);
   const { canCreate } = useRBACPermissions('secrets', `${namespace}/*`);
   const canAdd =
     hasContext &&
+    isEditable &&
     !!createForm &&
     canCreate &&
-    !fieldParams.readOnly &&
-    !fieldParams.disabled &&
     formMode !== FormMode.Edit;
 
   const {
     data: secrets = [],
     isLoading,
     isError,
+    isSuccess,
   } = useSecrets(
     cluster,
     namespace ?? '',
     { provider, definition },
-    { enabled: hasContext }
+    { enabled: hasContext && isEditable }
   );
-
-  const helperText = !hasContext
-    ? Messages.noContext
-    : isLoading
-      ? Messages.loading
-      : isError
-        ? Messages.loadFailed
-        : secrets.length === 0
-          ? canAdd
-            ? Messages.emptyAddOne
-            : Messages.empty
-          : fieldParams.helperText;
+  const names = secrets.flatMap(({ metadata }) =>
+    metadata?.name ? [metadata.name] : []
+  );
 
   const selectItem: SelectComponent = {
     ...item,
     uiType: FieldType.Select,
     fieldParams: {
       ...fieldParams,
-      options: secrets.flatMap(({ metadata }) =>
-        metadata?.name ? [{ label: metadata.name, value: metadata.name }] : []
+      options: getSecretOptions(
+        names,
+        typeof value === 'string' ? value : '',
+        isSuccess
       ),
       disabled: !hasContext || isLoading || isError || fieldParams.disabled,
-      helperText,
+      helperText: getSecretHelperText({
+        hasContext,
+        isEditable,
+        isLoading,
+        isError,
+        isEmpty: names.length === 0,
+        canAdd,
+        helperText: fieldParams.helperText,
+      }),
     },
   };
 
