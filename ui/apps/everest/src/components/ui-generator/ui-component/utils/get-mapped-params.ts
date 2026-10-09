@@ -172,5 +172,10 @@ const mapTextFieldParams = (fieldParams: TextFieldParams) => {
     textFieldProps.InputProps = { readOnly };
   }
 
+  if (textFieldProps.type === 'password') {
+    // A generated form never signs in; keep browsers from filling a saved login password.
+    textFieldProps.autoComplete = 'new-password';
+  }
+
   return { label, defaultValue, textFieldProps, badge };
 };
