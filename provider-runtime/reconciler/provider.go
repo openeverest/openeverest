@@ -41,6 +41,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
@@ -105,6 +107,7 @@ type ReconcilerOption func(*reconcilerOptions)
 type reconcilerOptions struct {
 	serverConfig       *server.ServerConfig
 	metricsBindAddress string
+	admissionCertDir   string // set by WithAdmission
 }
 
 // WithServer enables the integrated HTTP server, which serves the health and
@@ -193,10 +196,27 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 			BindAddress: options.metricsBindAddress,
 		}
 	}
+	if options.admissionCertDir != "" {
+		if err := checkAdmissionCert(options.admissionCertDir); err != nil {
+			return nil, err
+		}
+		mgrOpts.WebhookServer = webhook.NewServer(webhook.Options{
+			Port:    AdmissionPort,
+			CertDir: options.admissionCertDir,
+		})
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create manager: %w", err)
+	}
+
+	if options.admissionCertDir != "" {
+		mgr.GetWebhookServer().Register(AdmissionPath, &webhook.Admission{Handler: &instanceAdmission{
+			provider: p,
+			client:   mgr.GetClient(),
+			decoder:  admission.NewDecoder(scheme),
+		}})
 	}
 
 	// Setup field indexes if provider implements FieldIndexProvider
@@ -432,7 +452,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 
 	// The provider is not called while a referent it needs is missing; the
 	// watches re-enqueue the Instance once it appears.
-	b, err := r.missingReferent(ctx, in)
+	b, err := missingReferent(ctx, r.Client, in)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -640,14 +660,15 @@ type leaderElectionFree struct{ manager.Runnable }
 
 func (leaderElectionFree) NeedLeaderElection() bool { return false }
 
-// startServer wires the validation server into the manager lifecycle. It is a
+// startServer wires the health server into the manager lifecycle. It is a
 // no-op when no server is configured.
 //
 // Readiness is gated on the manager's caches: the server is marked ready from a
-// manager Runnable only after the informers the validation path reads (Instance
-// and Provider) have synced, so /readyz reports ready only once the cache-backed
-// client is usable. This keeps probes from routing validation traffic to the
-// server before it can serve it. Readiness is cleared again on shutdown.
+// manager Runnable only after the Instance and Provider informers have synced,
+// so /readyz reports ready only once the cache-backed client is usable. This
+// keeps the Service from routing admission requests, which read the Provider
+// from that cache, to a pod before it can serve them. Readiness is cleared
+// again on shutdown.
 //
 // The Runnable is wrapped in leaderElectionFree so it runs on every replica, not
 // only the elected leader. Must be called before manager.Start.

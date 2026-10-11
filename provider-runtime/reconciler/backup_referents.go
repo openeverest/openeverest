@@ -29,6 +29,7 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
+	"github.com/openeverest/openeverest/v2/provider-runtime/internal/backupclass"
 )
 
 // isBackupProvider reports whether the provider handles backups, which is
@@ -68,16 +69,10 @@ func (r *ProviderReconciler) unusableBackupClass(ctx context.Context, className,
 			message: fmt.Sprintf("backup class %s not found", className),
 		}, nil
 	}
-	if class.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
+	if err := backupclass.Incompatibility(class, providerName); err != nil {
 		return blocker{
 			reason:  v1alpha1.ReasonBackupClassIncompatible,
-			message: fmt.Sprintf("backup class %s runs backups as Jobs and can't be an instance's backup class", className),
-		}, nil
-	}
-	if !class.Spec.SupportedProviders.Has(providerName) {
-		return blocker{
-			reason:  v1alpha1.ReasonBackupClassIncompatible,
-			message: fmt.Sprintf("backup class %s does not support provider %s", className, providerName),
+			message: fmt.Sprintf("backup class %s %s", className, err.Detail),
 		}, nil
 	}
 	return blocker{}, nil
