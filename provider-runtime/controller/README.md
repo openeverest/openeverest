@@ -60,6 +60,10 @@ its errors name the Instance field that refers to the object and report the
 Instance with reason `InvalidReference`, and the check runs again every minute,
 since the object can change without an event on the Instance.
 
+Test `Validate` with `controller/validationtest`, which runs the same checks
+against the `provider-spec.yaml` your chart publishes, with Instance fixtures
+and no cluster.
+
 Use `BaseProvider` to inherit default implementations:
 
 ```go
