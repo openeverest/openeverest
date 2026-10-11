@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -77,6 +78,14 @@ func (r *BackupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&rbacv1.Role{}).
 		Watches(&rbacv1.ClusterRoleBinding{}, bclusterWideResourceHandler()).
 		Watches(&rbacv1.ClusterRole{}, bclusterWideResourceHandler()).
+		Watches(&backupv1alpha1.BackupClass{},
+			operationsFor[backupv1alpha1.BackupList](mgr.GetClient(), false, backupNamesClass),
+			builder.WithPredicates(referentAppearedOrGone()),
+		).
+		Watches(&corev1alpha1.Instance{},
+			operationsFor[backupv1alpha1.BackupList](mgr.GetClient(), true, backupNamesInstance),
+			builder.WithPredicates(referentAppearedOrGone()),
+		).
 		Complete(r)
 }
 
@@ -182,6 +191,14 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 	if err := r.Client.Get(ctx, client.ObjectKey{
 		Name: backup.Spec.ClassRef.Name,
 	}, bc); err != nil {
+		// Nobody else knows which controller owns the Backup until its class
+		// exists, so it waits here.
+		if apierrors.IsNotFound(err) {
+			backup.Status.State = backupv1alpha1.BackupStatePending
+			backup.Status.Message = fmt.Sprintf("backup class %s not found", backup.Spec.ClassRef.Name)
+			backup.Status.LastObservedGeneration = backup.GetGeneration()
+			return ctrl.Result{}, r.Client.Status().Update(ctx, backup)
+		}
 		return ctrl.Result{}, fmt.Errorf("failed to get backup class: %w", err)
 	}
 
@@ -228,6 +245,13 @@ func (r *BackupReconciler) Reconcile( //nolint:nonamedreturns
 		Name:      backup.Spec.Origin.InstanceRef.Name,
 		Namespace: backup.GetNamespace(),
 	}, instance); err != nil {
+		if apierrors.IsNotFound(err) && backup.Status.StartedAt == nil {
+			backup.Status.State = backupv1alpha1.BackupStatePending
+			backup.Status.Message = fmt.Sprintf("instance %s not found in %s",
+				backup.Spec.Origin.InstanceRef.Name, backup.GetNamespace(),
+			)
+			return ctrl.Result{}, nil
+		}
 		backup.Status.State = backupv1alpha1.BackupStateError
 		backup.Status.Message = fmt.Errorf("failed to get instance: %w", err).Error()
 		return ctrl.Result{}, err

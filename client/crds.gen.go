@@ -181,6 +181,7 @@ func (e BackupImportStatusConditionsStatus) Valid() bool {
 const (
 	BackupImportStatusStateError     BackupImportStatusState = "Error"
 	BackupImportStatusStateFailed    BackupImportStatusState = "Failed"
+	BackupImportStatusStatePending   BackupImportStatusState = "Pending"
 	BackupImportStatusStateSucceeded BackupImportStatusState = "Succeeded"
 )
 
@@ -190,6 +191,8 @@ func (e BackupImportStatusState) Valid() bool {
 	case BackupImportStatusStateError:
 		return true
 	case BackupImportStatusStateFailed:
+		return true
+	case BackupImportStatusStatePending:
 		return true
 	case BackupImportStatusStateSucceeded:
 		return true

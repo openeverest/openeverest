@@ -50,7 +50,7 @@ func (r *ProviderReconciler) missingBackupReferent(ctx context.Context, in *v1al
 		return b, err
 	}
 	for _, s := range spec.Storages {
-		if b, err := r.missingBackupStorage(ctx, in.Namespace, s.StorageRef.Name); err != nil || b.reason != "" {
+		if b, err := missingBackupStorage(ctx, r.Client, in.Namespace, s.StorageRef.Name); err != nil || b.reason != "" {
 			return b, err
 		}
 	}
@@ -83,9 +83,11 @@ func (r *ProviderReconciler) unusableBackupClass(ctx context.Context, className,
 	return blocker{}, nil
 }
 
-func (r *ProviderReconciler) missingBackupStorage(ctx context.Context, namespace, name string) (blocker, error) {
+// missingBackupStorage returns a blocker naming the BackupStorage, or its
+// credentials Secret, when it does not exist in namespace.
+func missingBackupStorage(ctx context.Context, c client.Reader, namespace, name string) (blocker, error) {
 	storage := &backupv1alpha1.BackupStorage{}
-	if err := r.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, storage); err != nil {
+	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, storage); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return blocker{}, fmt.Errorf("get backup storage %s: %w", name, err)
 		}
@@ -100,7 +102,7 @@ func (r *ProviderReconciler) missingBackupStorage(ctx context.Context, namespace
 	}
 	secret := &metav1.PartialObjectMetadata{}
 	secret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
-	if err := r.Get(ctx, client.ObjectKey{Namespace: namespace, Name: secretName}, secret); err != nil {
+	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: secretName}, secret); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return blocker{}, fmt.Errorf("get secret %s: %w", secretName, err)
 		}
@@ -151,12 +153,9 @@ func (r *ProviderReconciler) instancesForBackupStorage(ctx context.Context, obj 
 
 // storagesUsingSecret returns the names of the BackupStorages in namespace
 // whose credentials are the Secret.
-func (r *ProviderReconciler) storagesUsingSecret(ctx context.Context, namespace, secret string) []string {
-	if !r.isBackupProvider() {
-		return nil
-	}
+func storagesUsingSecret(ctx context.Context, c client.Reader, namespace, secret string) []string {
 	list := &backupv1alpha1.BackupStorageList{}
-	if err := r.List(ctx, list, client.InNamespace(namespace)); err != nil {
+	if err := c.List(ctx, list, client.InNamespace(namespace)); err != nil {
 		log.FromContext(ctx).Error(err, "Listing backup storages to enqueue failed")
 		return nil
 	}

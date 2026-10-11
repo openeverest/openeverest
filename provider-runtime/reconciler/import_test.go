@@ -242,10 +242,9 @@ func TestBackupImportReconcile_Status(t *testing.T) {
 			wantState: backupv1alpha1.BackupImportStateFailed,
 		},
 		{
-			name:        "storage fetch failure lands in Error state",
+			name:        "missing storage waits in Pending",
 			withStorage: false,
-			wantErr:     true,
-			wantState:   backupv1alpha1.BackupImportStateError,
+			wantState:   backupv1alpha1.BackupImportStatePending,
 		},
 	}
 

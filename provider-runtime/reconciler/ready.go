@@ -136,7 +136,10 @@ func (r *ProviderReconciler) instancesForProvider(ctx context.Context, _ client.
 // spec.userSecretRef names the Secret, or whose spec.backup.storages names a
 // BackupStorage that keeps its credentials in it.
 func (r *ProviderReconciler) instancesForSecret(ctx context.Context, obj client.Object) []reconcile.Request {
-	storages := r.storagesUsingSecret(ctx, obj.GetNamespace(), obj.GetName())
+	var storages []string
+	if r.isBackupProvider() {
+		storages = storagesUsingSecret(ctx, r.Client, obj.GetNamespace(), obj.GetName())
+	}
 	return r.instancesMatching(ctx, obj.GetNamespace(), func(in *v1alpha1.Instance) bool {
 		if in.Spec.UserSecretRef != nil && in.Spec.UserSecretRef.Name == obj.GetName() {
 			return true

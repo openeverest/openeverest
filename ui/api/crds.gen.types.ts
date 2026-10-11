@@ -661,7 +661,7 @@ export interface components {
                  * @description State is the current state of the backup import.
                  * @enum {string}
                  */
-                state?: "Succeeded" | "Failed" | "Error";
+                state?: "Pending" | "Succeeded" | "Failed" | "Error";
             };
         };
         /** @description BackupImportList is an object that contains the list of the existing backupimports. */
