@@ -163,6 +163,13 @@ func sentinel(spec *corev1alpha1.ProviderSpec, path string, kind leafKind) (any,
 		}
 		return alternative, alternative, nil
 	}
+	if component, ok := componentVersion(path); ok {
+		alternative := nonDefaultComponentVersion(spec, component)
+		if alternative == "" {
+			return nil, "", fmt.Errorf("the catalog has no other version for component %q, so selecting one cannot be observed", component)
+		}
+		return alternative, alternative, nil
+	}
 
 	switch kind {
 	case leafString:
@@ -186,6 +193,35 @@ func nonDefaultBundle(spec *corev1alpha1.ProviderSpec) string {
 	for _, bundle := range spec.Versions {
 		if bundle.Name != spec.DefaultVersion {
 			return bundle.Name
+		}
+	}
+	return ""
+}
+
+// componentVersion reports whether path is spec.components.<name>.version,
+// whose legal values are the component type's catalog versions, and returns
+// the component name.
+func componentVersion(path string) (string, bool) {
+	rest, ok := strings.CutPrefix(path, "spec."+componentsSegment+".")
+	if !ok {
+		return "", false
+	}
+	name, field, ok := strings.Cut(rest, ".")
+	return name, ok && field == "version"
+}
+
+// nonDefaultComponentVersion returns a catalog version of the component's type
+// that neither the type's default nor the default bundle selects, so the
+// baseline render would not have used it.
+func nonDefaultComponentVersion(spec *corev1alpha1.ProviderSpec, component string) string {
+	componentType := spec.ComponentTypes[spec.Components[component].Type]
+	baseline := map[string]bool{componentType.DefaultVersion: true}
+	if bundle := controller.GetDefaultVersionBundle(spec); bundle != nil {
+		baseline[bundle.Components[component]] = true
+	}
+	for _, v := range componentType.Versions {
+		if !baseline[v.Version] {
+			return v.Version
 		}
 	}
 	return ""
