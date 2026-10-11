@@ -2763,6 +2763,11 @@ type Instance struct {
 		// Message Message is a custom user-facing message describing the current state of the instance.
 		Message *string `json:"message,omitempty"`
 
+		// ObservedGeneration ObservedGeneration is the metadata.generation the provider-runtime last
+		// reconciled. Status describes an older spec while it is lower than
+		// metadata.generation.
+		ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
 		// PendingMaintenance PendingMaintenance lists the disruptive actions currently held awaiting
 		// approval. It is recomputed on every reconcile from the actions the
 		// provider currently requests above the Instance's tolerance, so it can

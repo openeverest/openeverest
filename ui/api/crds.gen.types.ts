@@ -2288,6 +2288,13 @@ export interface components {
                 /** @description Message is a custom user-facing message describing the current state of the instance. */
                 message?: string;
                 /**
+                 * Format: int64
+                 * @description ObservedGeneration is the metadata.generation the provider-runtime last
+                 *     reconciled. Status describes an older spec while it is lower than
+                 *     metadata.generation.
+                 */
+                observedGeneration?: number;
+                /**
                  * @description PendingMaintenance lists the disruptive actions currently held awaiting
                  *     approval. It is recomputed on every reconcile from the actions the
                  *     provider currently requests above the Instance's tolerance, so it can

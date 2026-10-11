@@ -511,6 +511,12 @@ func (sr *SourceRanges) NormalizedSourceRanges() SourceRanges {
 
 // InstanceStatus defines the observed state of Instance.
 type InstanceStatus struct {
+	// ObservedGeneration is the metadata.generation the provider-runtime last
+	// reconciled. Status describes an older spec while it is lower than
+	// metadata.generation.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
 	// Phase of the database cluster.
 	Phase InstancePhase `json:"phase,omitempty"`
 
@@ -713,6 +719,14 @@ const (
 
 // Condition types for Instance.
 const (
+	// ConditionReady summarises the Instance for kubectl wait, Argo CD and
+	// Flux. It is False with reason ProviderNotFound, UserSecretNotFound or
+	// ValidationFailed while one of them blocks the Instance, whatever the
+	// phase. Otherwise it is True when the phase is Ready and neither
+	// BackupConfigured nor DataSourceReady is False; else it is False with the
+	// reason and message of the False condition, or with the phase as reason.
+	ConditionReady = "Ready"
+
 	// ConditionConnectionDetailsReady indicates whether the connection
 	// details Secret has been populated by the provider.
 	ConditionConnectionDetailsReady = "ConnectionDetailsReady"
@@ -771,6 +785,22 @@ const (
 	// CreateContainerConfigError, then NotReady. The message has one line per
 	// affected component. Only set when the provider labels its pods.
 	ConditionPodsReady = "PodsReady"
+)
+
+// Reasons for the Ready condition. Ready=True uses ReasonReady.
+const (
+	// ReasonProviderNotFound indicates the Provider named by
+	// spec.providerRef does not exist. The provider is not called.
+	ReasonProviderNotFound = "ProviderNotFound"
+
+	// ReasonUserSecretNotFound indicates the Secret named by
+	// spec.userSecretRef does not exist. The provider is not called, so a new
+	// Instance waits instead of being seeded with generated credentials.
+	ReasonUserSecretNotFound = "UserSecretNotFound"
+
+	// ReasonValidationFailed indicates the provider rejected the spec. The
+	// message carries the provider's error.
+	ReasonValidationFailed = "ValidationFailed"
 )
 
 // Reasons for the PodsScheduled condition.
@@ -958,6 +988,8 @@ type ComponentStatus struct {
 // +kubebuilder:printcolumn:name="Provider",type="string",JSONPath=".spec.providerRef.name"
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.version"
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Topology",type="string",JSONPath=".spec.topology.type",priority=1
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.message",priority=1

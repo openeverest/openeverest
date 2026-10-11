@@ -78,6 +78,7 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 				Name string `json:"name"`
 			} `json:"connectionSecretRef,omitempty"`
 			Message            *string `json:"message,omitempty"`
+			ObservedGeneration *int64  `json:"observedGeneration,omitempty"`
 			PendingMaintenance *[]struct {
 				ApprovalToken *string                                         `json:"approvalToken,omitempty"`
 				Description   string                                          `json:"description"`
@@ -253,6 +254,7 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 				Name string `json:"name"`
 			} `json:"connectionSecretRef,omitempty"`
 			Message            *string `json:"message,omitempty"`
+			ObservedGeneration *int64  `json:"observedGeneration,omitempty"`
 			PendingMaintenance *[]struct {
 				ApprovalToken *string                                         `json:"approvalToken,omitempty"`
 				Description   string                                          `json:"description"`
@@ -321,6 +323,7 @@ func minimalInst() *client.Instance {
 				Name string `json:"name"`
 			} `json:"connectionSecretRef,omitempty"`
 			Message            *string `json:"message,omitempty"`
+			ObservedGeneration *int64  `json:"observedGeneration,omitempty"`
 			PendingMaintenance *[]struct {
 				ApprovalToken *string                                         `json:"approvalToken,omitempty"`
 				Description   string                                          `json:"description"`

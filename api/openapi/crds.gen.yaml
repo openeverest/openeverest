@@ -3461,6 +3461,13 @@ components:
               description: Message is a custom user-facing message describing the
                 current state of the instance.
               type: string
+            observedGeneration:
+              description: |-
+                ObservedGeneration is the metadata.generation the provider-runtime last
+                reconciled. Status describes an older spec while it is lower than
+                metadata.generation.
+              format: int64
+              type: integer
             pendingMaintenance:
               description: |-
                 PendingMaintenance lists the disruptive actions currently held awaiting
