@@ -57,6 +57,12 @@ versions, parameter schemas and `supportedFields` the Provider declares. Rules
 about another object's contents, such as the keys of the user Secret, go in the
 optional `ReferenceValidator.ValidateReferences(c *Context) error`.
 
+With `reconciler.WithAdmission()`, the same checks and `Validate` also run in
+an admission webhook, so a write is rejected before it is persisted. On an
+update, `Validate` gets the previous Instance as `Old`, and errors the stored
+Instance already had do not block the write. `ValidateReferences` runs at
+reconcile time only.
+
 Test `Validate` with `controller/validationtest`, which runs the same checks
 against the `provider-spec.yaml` your chart publishes, with Instance fixtures
 and no cluster.
