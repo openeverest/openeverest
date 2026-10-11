@@ -853,6 +853,28 @@ const (
 	ReasonRetriesExhausted = "RetriesExhausted"
 )
 
+// Reasons for the BackupConfigured condition set by the provider-runtime before
+// it calls the provider. Providers set their own reasons through
+// BackupConfigError.
+const (
+	// ReasonBackupClassNotFound indicates the BackupClass named by
+	// spec.backup.classRef does not exist.
+	ReasonBackupClassNotFound = "BackupClassNotFound"
+
+	// ReasonBackupClassIncompatible indicates the BackupClass named by
+	// spec.backup.classRef is not ProviderManaged or does not list the
+	// Instance's provider in spec.supportedProviders.
+	ReasonBackupClassIncompatible = "BackupClassIncompatible"
+
+	// ReasonBackupStorageNotFound indicates a BackupStorage named in
+	// spec.backup.storages does not exist in the Instance's namespace.
+	ReasonBackupStorageNotFound = "BackupStorageNotFound"
+
+	// ReasonBackupStorageCredentialsNotFound indicates the credentials
+	// Secret of a BackupStorage named in spec.backup.storages does not exist.
+	ReasonBackupStorageCredentialsNotFound = "BackupStorageCredentialsNotFound"
+)
+
 // Reasons for the DataSourceReady condition.
 const (
 	// ReasonDataSourceWaitingForCluster indicates the provider is waiting

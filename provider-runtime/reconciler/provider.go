@@ -336,6 +336,17 @@ func (r *ProviderReconciler) setup() error {
 		).
 		Named(r.provider.Name() + "-controller")
 
+	if r.isBackupProvider() {
+		b.Watches(&backupv1alpha1.BackupClass{},
+			handler.EnqueueRequestsFromMapFunc(r.instancesForBackupClass),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		)
+		b.Watches(&backupv1alpha1.BackupStorage{},
+			handler.EnqueueRequestsFromMapFunc(r.instancesForBackupStorage),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		)
+	}
+
 	// Configure watches if provider implements WatchProvider
 	if wp, ok := r.provider.(controller.WatchProvider); ok {
 		for _, wc := range wp.Watches() {
@@ -430,6 +441,18 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			logger.Error(updateErr, "Failed to update status after validation error")
 		}
 		return reconcile.Result{}, err
+	}
+	backupMiss, err := r.missingBackupReferent(ctx, in)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if backupMiss.reason != "" {
+		logger.Info("Waiting for a backup referent", "reason", backupMiss.reason, "message", backupMiss.message)
+		setCondition(
+			in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
+			backupMiss.reason, backupMiss.message, metav1.Now(),
+		)
+		return reconcile.Result{}, r.block(ctx, in, nil)
 	}
 	if err := validateInstanceBackupConfig(ctx, r.Client, in); err != nil {
 		logger.Error(err, "Backup configuration validation failed")

@@ -17,6 +17,7 @@ package reconciler
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -132,10 +133,20 @@ func (r *ProviderReconciler) instancesForProvider(ctx context.Context, _ client.
 }
 
 // instancesForSecret enqueues the Instances of this provider whose
-// spec.userSecretRef names the Secret.
+// spec.userSecretRef names the Secret, or whose spec.backup.storages names a
+// BackupStorage that keeps its credentials in it.
 func (r *ProviderReconciler) instancesForSecret(ctx context.Context, obj client.Object) []reconcile.Request {
+	storages := r.storagesUsingSecret(ctx, obj.GetNamespace(), obj.GetName())
 	return r.instancesMatching(ctx, obj.GetNamespace(), func(in *v1alpha1.Instance) bool {
-		return in.Spec.UserSecretRef != nil && in.Spec.UserSecretRef.Name == obj.GetName()
+		if in.Spec.UserSecretRef != nil && in.Spec.UserSecretRef.Name == obj.GetName() {
+			return true
+		}
+		for _, name := range backupStorageNames(in) {
+			if slices.Contains(storages, name) {
+				return true
+			}
+		}
+		return false
 	})
 }
 
