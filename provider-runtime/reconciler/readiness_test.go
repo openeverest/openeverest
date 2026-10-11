@@ -35,9 +35,12 @@ type readinessTestProvider struct{}
 
 func (p *readinessTestProvider) Name() string                       { return "readiness-test" }
 func (p *readinessTestProvider) Types() func(*runtime.Scheme) error { return nil }
-func (p *readinessTestProvider) Validate(*controller.Context) error { return nil }
 func (p *readinessTestProvider) Sync(*controller.Context) error     { return nil }
 func (p *readinessTestProvider) Cleanup(*controller.Context) error  { return nil }
+func (p *readinessTestProvider) Validate(controller.ValidationInput) controller.ValidationResult {
+	return controller.ValidationResult{}
+}
+
 func (p *readinessTestProvider) Status(*controller.Context) (controller.Status, error) {
 	return controller.Status{}, nil
 }
@@ -82,10 +85,9 @@ func statusCode(url string) int {
 
 // TestServerReadinessGatedOnManager is a regression test for #2598.
 //
-// The reconciler's validation server must not report ready before the manager's
-// caches have synced (before the fix, SetReady(true) ran before manager.Start,
-// so /readyz returned 200 immediately and /validate could be called against a
-// not-yet-usable cache-backed client).
+// The reconciler's server must not report ready before the manager's caches
+// have synced (before the fix, SetReady(true) ran before manager.Start, so
+// /readyz returned 200 immediately).
 //
 // Pointing the manager at an unreachable API server keeps its caches from ever
 // syncing, so a correctly gated /readyz must never return 200, while /healthz

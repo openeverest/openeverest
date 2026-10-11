@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -28,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	toolscache "k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,6 +49,7 @@ import (
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 	"github.com/openeverest/openeverest/v2/provider-runtime/internal/instanceprep"
 	"github.com/openeverest/openeverest/v2/provider-runtime/server"
+	"github.com/openeverest/openeverest/v2/provider-runtime/validation"
 )
 
 const finalizerName = "everest.percona.com/provider-finalizer"
@@ -54,6 +57,10 @@ const finalizerName = "everest.percona.com/provider-finalizer"
 // conflictRequeue gives the cache time to catch up with the write that won
 // the optimistic lock.
 const conflictRequeue = time.Second
+
+// referenceRecheck is how often an Instance with an invalid reference is
+// checked again: a referent's contents change without an event on the Instance.
+const referenceRecheck = time.Minute
 
 // =============================================================================
 // PROVIDER RECONCILER - Works with both Interface and Builder providers
@@ -63,12 +70,13 @@ const conflictRequeue = time.Second
 type ProviderReconciler struct {
 	provider      providerAdapter
 	manager       ctrl.Manager
-	serverConfig  *server.ServerConfig
 	server        *server.Server
 	breaker       maintenanceBreaker
 	pods          atomic.Value // client.Reader, set once the pod watch runs
 	apiReader     client.Reader
 	kubeSystemUID atomic.Value // string, the cluster identity of monitoring sources
+	recorder      events.EventRecorder
+	warned        sync.Map // Instance UID -> the generation its warnings were recorded for
 	client.Client
 }
 
@@ -76,7 +84,7 @@ type ProviderReconciler struct {
 type providerAdapter interface {
 	Name() string
 	Types() func(*runtime.Scheme) error
-	Validate(c *controller.Context) error
+	Validate(in controller.ValidationInput) controller.ValidationResult
 	Sync(c *controller.Context) error
 	Status(c *controller.Context) (controller.Status, error)
 	Cleanup(c *controller.Context) error
@@ -99,23 +107,14 @@ type reconcilerOptions struct {
 	metricsBindAddress string
 }
 
-// WithServer enables the integrated HTTP server for the validation webhook.
-//
-// The server provides:
-// - Validation webhook: Accepts validation requests and runs the provider's Validate() method
-// - Health/Ready endpoints: For Kubernetes probes
+// WithServer enables the integrated HTTP server, which serves the health and
+// readiness endpoints for Kubernetes probes.
 //
 // Example:
 //
-//	r, err := reconciler.NewFromInterface(provider,
-//	    reconciler.WithServer(reconciler.ServerConfig{
-//	        Port:           8080,
-//	        ValidationPath: "/validate",
-//	    }),
+//	r, err := reconciler.New(ctx, provider,
+//	    reconciler.WithServer(reconciler.ServerConfig{Port: 8082}),
 //	)
-//
-// Validation is handled by the provider's Validate() method - the same validation
-// used during reconciliation is exposed via the webhook.
 func WithServer(config server.ServerConfig) ReconcilerOption {
 	return func(o *reconcilerOptions) {
 		o.serverConfig = &config
@@ -246,18 +245,15 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 	}
 
 	r := &ProviderReconciler{
-		provider:     p,
-		manager:      mgr,
-		serverConfig: options.serverConfig,
-		apiReader:    mgr.GetAPIReader(),
-		Client:       mgr.GetClient(),
+		provider:  p,
+		manager:   mgr,
+		apiReader: mgr.GetAPIReader(),
+		recorder:  mgr.GetEventRecorder(p.Name() + "-provider"),
+		Client:    mgr.GetClient(),
 	}
 
-	// Setup server if configured
 	if options.serverConfig != nil {
-		if err := r.setupServer(p); err != nil {
-			return nil, fmt.Errorf("failed to setup server: %w", err)
-		}
+		r.server = server.NewServer(*options.serverConfig)
 	}
 
 	if err := r.setup(); err != nil {
@@ -294,24 +290,6 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 // GetManager returns the controller manager.
 func (r *ProviderReconciler) GetManager() ctrl.Manager {
 	return r.manager
-}
-
-// setupServer initializes the HTTP server with a validation webhook.
-func (r *ProviderReconciler) setupServer(p providerAdapter) error {
-	// Create validator function that wraps the provider's Validate method
-	validator := func(ctx context.Context, c client.Client, in *v1alpha1.Instance) error {
-		if err := validateVersionBundle(ctx, c, in); err != nil {
-			return err
-		}
-		if err := validateInstanceBackupConfig(ctx, c, in); err != nil {
-			return err
-		}
-		inCtx := controller.NewContext(ctx, c, in, p.Name())
-		return p.Validate(inCtx)
-	}
-
-	r.server = server.NewServer(*r.serverConfig, validator)
-	return nil
 }
 
 // Start starts the reconciler and server (blocking).
@@ -463,14 +441,6 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return reconcile.Result{}, r.block(ctx, in, &b)
 	}
 
-	// Run validation
-	if err := validateVersionBundle(ctx, r.Client, in); err != nil {
-		logger.Error(err, "Version bundle validation failed")
-		if updateErr := r.block(ctx, in, &blocker{reason: v1alpha1.ReasonValidationFailed, message: err.Error()}); updateErr != nil {
-			logger.Error(updateErr, "Failed to update status after validation error")
-		}
-		return reconcile.Result{}, err
-	}
 	backupMiss, err := r.missingBackupReferent(ctx, in)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -499,12 +469,29 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		}
 		return reconcile.Result{}, nil
 	}
-	if err := r.provider.Validate(inCtx); err != nil {
-		logger.Error(err, "Validation failed")
-		if updateErr := r.block(ctx, in, &blocker{reason: v1alpha1.ReasonValidationFailed, message: err.Error()}); updateErr != nil {
-			logger.Error(updateErr, "Failed to update status after validation error")
-		}
+	// A rejected spec waits for the Instance or the Provider to change, and
+	// both enqueue the Instance, so it is not requeued.
+	errs, err := r.validate(ctx, in)
+	if err != nil {
 		return reconcile.Result{}, err
+	}
+	if len(errs) > 0 {
+		message := validation.Summary(errs)
+		logger.Info("Validation failed", "errors", message)
+		return reconcile.Result{}, r.block(ctx, in, &blocker{reason: v1alpha1.ReasonValidationFailed, message: message})
+	}
+	if rv, ok := r.provider.(controller.ReferenceValidator); ok {
+		errs, err := rv.ValidateReferences(inCtx)
+		if err != nil {
+			logger.Error(err, "Reference validation could not run")
+			return reconcile.Result{}, err
+		}
+		if len(errs) > 0 {
+			message := validation.Summary(errs)
+			logger.Info("Reference validation failed", "errors", message)
+			return reconcile.Result{RequeueAfter: referenceRecheck},
+				r.block(ctx, in, &blocker{reason: v1alpha1.ReasonInvalidReference, message: message})
+		}
 	}
 
 	// The provider is handed a prepared copy, never the stored object.
@@ -669,7 +656,6 @@ func (r *ProviderReconciler) startServer(ctx context.Context) error {
 		return nil
 	}
 
-	r.server.SetClient(r.Client)
 	go func() {
 		if err := r.server.Start(ctx); err != nil {
 			log.FromContext(ctx).Error(err, "Server error")
@@ -677,9 +663,8 @@ func (r *ProviderReconciler) startServer(ctx context.Context) error {
 	}()
 
 	return r.manager.Add(leaderElectionFree{manager.RunnableFunc(func(runnableCtx context.Context) error {
-		// Report ready only once the informers the validation path reads have
-		// synced, so the cache-backed client is usable before /readyz turns
-		// green. Stay not-ready if the context is cancelled first (shutdown).
+		// Report ready only once the Instance and Provider informers have
+		// synced. Stay not-ready if the context is cancelled first (shutdown).
 		for _, obj := range []client.Object{&v1alpha1.Instance{}, &v1alpha1.Provider{}} {
 			if !r.waitForCacheSync(runnableCtx, obj) {
 				return nil
@@ -720,6 +705,7 @@ func (r *ProviderReconciler) handleDeletion(
 	in *v1alpha1.Instance,
 	logger interface{ Info(string, ...interface{}) },
 ) (reconcile.Result, error) {
+	r.warned.Delete(in.UID)
 	if !controllerutil.ContainsFinalizer(in, finalizerName) {
 		return reconcile.Result{}, nil
 	}
@@ -1007,30 +993,6 @@ func (r *ProviderReconciler) prepareInstance(
 		return nil, "", fmt.Errorf("fetching provider for version resolution: %w", err)
 	}
 	return instanceprep.PrepareForSync(&providerObj.Spec, in)
-}
-
-// validateVersionBundle checks that spec.version (if set) exists in the
-// Provider's Versions map. This runs for both the reconciler and the webhook
-// so users get immediate feedback on an invalid version selection.
-func validateVersionBundle(ctx context.Context, c client.Client, in *v1alpha1.Instance) error {
-	if in.Spec.Version == "" {
-		return nil
-	}
-	providerObj := &v1alpha1.Provider{}
-	if err := c.Get(ctx, client.ObjectKey{Name: in.Spec.ProviderRef.Name}, providerObj); err != nil {
-		return fmt.Errorf("fetching provider for version validation: %w", err)
-	}
-	found := false
-	for _, b := range providerObj.Spec.Versions {
-		if b.Name == in.Spec.Version {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return fmt.Errorf("version %q is not defined by provider %q", in.Spec.Version, in.Spec.ProviderRef.Name)
-	}
-	return nil
 }
 
 // fetchBackupClassForInstance returns the BackupClass referenced by

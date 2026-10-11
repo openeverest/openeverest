@@ -194,8 +194,11 @@ type boolProbeProvider struct {
 
 func (p *boolProbeProvider) Name() string                       { return "bool-probe" }
 func (p *boolProbeProvider) Types() func(*runtime.Scheme) error { return nil }
-func (p *boolProbeProvider) Validate(*controller.Context) error { return nil }
 func (p *boolProbeProvider) Cleanup(*controller.Context) error  { return nil }
+
+func (p *boolProbeProvider) Validate(controller.ValidationInput) controller.ValidationResult {
+	return controller.ValidationResult{}
+}
 
 func (p *boolProbeProvider) Status(*controller.Context) (controller.Status, error) {
 	return controller.Status{}, nil
