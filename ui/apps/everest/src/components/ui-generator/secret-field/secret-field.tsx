@@ -26,6 +26,7 @@ import {
   getSecretDefinitionSection,
   getSecretHelperText,
   getSecretOptions,
+  isSecretEditable,
 } from './secret-field.utils';
 import { SecretFieldProps } from './secret-field.types';
 
@@ -42,7 +43,7 @@ export const SecretField = ({ item, name }: SecretFieldProps) => {
   const provider = providerObject?.metadata?.name;
   // Secrets are scoped to a provider and namespace, which a playground lacks.
   const hasContext = !!provider && !!namespace;
-  const isEditable = !fieldParams.readOnly && !fieldParams.disabled;
+  const isEditable = isSecretEditable(fieldParams);
   const createForm = getSecretDefinitionSection(providerObject, definition);
   const { canCreate } = useRBACPermissions('secrets', `${namespace}/*`);
   const canAdd =

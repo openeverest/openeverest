@@ -13,7 +13,14 @@
 // limitations under the License.
 
 import { Provider } from 'shared-types/api.types';
-import { isSection, Section } from '../ui-generator.types';
+import {
+  FieldType,
+  isSection,
+  Section,
+  SecretFieldParams,
+} from '../ui-generator.types';
+import { getComponentSourcePath } from '../utils/preprocess/normalized-component';
+import { walkLeafComponents } from '../utils/schema-walker/schema-walker';
 import { Messages } from './secret-field.messages';
 
 // The create form of a provider's secret definition, if the provider ships one.
@@ -23,6 +30,26 @@ export const getSecretDefinitionSection = (
 ): Section | undefined => {
   const uiSchema = provider?.spec?.secrets?.[definition]?.uiSchema;
   return isSection(uiSchema) ? uiSchema : undefined;
+};
+
+export const isSecretEditable = ({
+  readOnly,
+  disabled,
+}: Pick<SecretFieldParams, 'readOnly' | 'disabled'>) => !readOnly && !disabled;
+
+// Form paths of the secret fields whose value is picked from a list.
+export const getEditableSecretFields = (sections: Record<string, Section>) => {
+  const fields: { path: string; definition: string }[] = [];
+  Object.values(sections).forEach(({ components }) =>
+    walkLeafComponents(components, ({ component }) => {
+      if (component.uiType !== FieldType.Secret) return;
+      const path = getComponentSourcePath(component);
+      if (path && isSecretEditable(component.fieldParams)) {
+        fields.push({ path, definition: component.fieldParams.definition });
+      }
+    })
+  );
+  return fields;
 };
 
 // A value that isn't a listed secret (e.g. set by a preset) stays selectable, marked once the list confirms it.

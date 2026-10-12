@@ -136,6 +136,13 @@ mount and `DataSourceField` when the specific field renders. Both check the curr
 `DataSourcePrefetcher` skips fields of switched-off `toggleable` groups, so a disabled section
 triggers no request.
 
+### Secret fields on a namespace switch
+
+The create wizard mounts only the active step, so a `secret` field misses a namespace switch on
+the first step. `SecretNamespaceSync`, mounted next to `DataSourcePrefetcher` while no preset is
+selected, lists the definition's secrets in the new namespace and clears picks it doesn't have.
+Read-only and disabled fields keep their value.
+
 ## 5. Postprocess
 
 **Files:** `utils/postprocess/`
@@ -242,6 +249,7 @@ components:
 | API provider registrations | `api-providers/providers.ts`                               |
 | DataSourceField            | `api-providers/data-source-field/data-source-field.tsx`    |
 | DataSourcePrefetcher       | `api-providers/data-source-prefetcher.tsx`                 |
+| SecretNamespaceSync        | `secret-field/secret-namespace-sync.tsx`                   |
 | Error boundary             | `component-error-boundary/component-error-boundary.tsx`    |
 | Monitoring options hook    | `hooks/api/monitoring/useMonitoringConfigsOptions.ts`      |
 | Storage classes hook       | `hooks/api/kubernetesClusters/useStorageClassesOptions.ts` |
@@ -250,4 +258,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-09
+- Last updated: 2026-10-12
