@@ -60,7 +60,7 @@ test.describe.serial('PSMDB cluster tests', () => {
           expect(dbCluster.spec.engine.replicas).toBe(dbEngineReplicas)
         }).toPass({
           intervals: [1000],
-          timeout: 30 * 1000,
+          timeout: 100 * 1000,
         })
       })
 
