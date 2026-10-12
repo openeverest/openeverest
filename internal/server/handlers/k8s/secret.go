@@ -18,6 +18,7 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/pkg/common"
@@ -88,10 +89,9 @@ func (h *k8sHandler) GetSecret(ctx context.Context, _ string, namespace, name st
 // ErrDeletionPending when the secret still exists after the delete call because a
 // finalizer is blocking its removal.
 func (h *k8sHandler) DeleteSecret(ctx context.Context, _ string, namespace, name string) error {
-	secret, err := h.kubeConnector.GetSecret(ctx, ctrlclient.ObjectKey{
-		Name:      name,
-		Namespace: namespace,
-	})
+	key := ctrlclient.ObjectKey{Name: name, Namespace: namespace}
+
+	secret, err := h.kubeConnector.GetSecret(ctx, key)
 	if err != nil {
 		return err
 	}
@@ -101,16 +101,24 @@ func (h *k8sHandler) DeleteSecret(ctx context.Context, _ string, namespace, name
 	}
 
 	if err := h.kubeConnector.DeleteSecret(ctx, secret); err != nil {
+		// The object was already gone, so the delete is effectively complete.
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+
 		return err
 	}
 
-	// A finalizer keeps the object around after the delete call, so the removal
-	// is only pending rather than complete.
-	if len(secret.GetFinalizers()) > 0 {
-		return ErrDeletionPending
+	// Re-read the object to learn if the deletion is pending.
+	if _, err := h.kubeConnector.GetSecret(ctx, key); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+
+		return err
 	}
 
-	return nil
+	return ErrDeletionPending
 }
 
 // stripSecretData removes the contents of a secret, leaving only metadata.

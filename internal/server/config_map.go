@@ -15,6 +15,7 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/AlekSi/pointer"
@@ -22,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	k8shandler "github.com/openeverest/openeverest/v2/internal/server/handlers/k8s"
 )
 
 // CreateConfigMap creates a new ConfigMap in the specified cluster and namespace.
@@ -76,7 +78,13 @@ func (e *EverestServer) GetConfigMap(ctx echo.Context, cluster, namespace, name 
 
 // DeleteConfigMap deletes an OpenEverest-managed ConfigMap in the namespace.
 func (e *EverestServer) DeleteConfigMap(ctx echo.Context, cluster, namespace, name string) error {
-	if err := e.handler.DeleteConfigMap(ctx.Request().Context(), cluster, namespace, name); err != nil {
+	err := e.handler.DeleteConfigMap(ctx.Request().Context(), cluster, namespace, name)
+	if errors.Is(err, k8shandler.ErrDeletionPending) {
+		// The ConfigMap is marked for deletion but a finalizer is still blocking its
+		// removal, so the deletion is accepted rather than complete.
+		return ctx.NoContent(http.StatusAccepted)
+	}
+	if err != nil {
 		e.l.Errorf("DeleteConfigMap failed: %v", err)
 
 		return err
