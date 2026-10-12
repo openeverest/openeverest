@@ -13,6 +13,8 @@
 A select of the provider's Secrets of one secret definition, with a button that creates a new
 Secret in a dialog. The field's value is the selected Secret's name.
 
+![Secret field with its list open](../images/secret-field-list.png)
+
 ## Properties:
 
 - `uiType`: `"secret"` (**Required**)
@@ -45,11 +47,15 @@ The dialog adds a **Secret name** field, prefilled with `<definition>-<random su
 contains only lowercase letters, numbers and hyphens, doesn't start with a hyphen or a number,
 doesn't end with a hyphen, and is at most 22 characters long.
 
+![Create dialog](../images/secret-field-create-dialog.png)
+
 **Create** saves the Secret right away and selects it in the field. The Secret gets:
 
 - the labels `openeverest.io/provider: <provider>` and `openeverest.io/definition: <definition>`,
   which put it in the field's list;
 - the form values as `stringData`; number and toggle values are stored as their JSON text.
+
+![Created Secret selected in the field](../images/secret-field-selected.png)
 
 If the name is taken, the name field shows an error and nothing is saved. Cancelling the wizard
 afterwards doesn't delete a created Secret.
@@ -128,6 +134,9 @@ The field is optional on create, read-only on edit, and hidden on restore.
   `<name> (not managed by OpenEverest)`.
 - **Read-only or disabled**: shows the selected name; no list is requested.
 - **Empty list**: "No secrets yet", or "No secrets yet — add one" when the create button is shown.
+
+  ![Empty list with the create button](../images/secret-field-empty.png)
+
 - **Namespace switch** in the create wizard: a selected Secret the new namespace doesn't have is
   cleared.
 - **No provider or namespace** (e.g. a schema playground): the field is disabled.
