@@ -49,7 +49,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  CMP["Component"] --> UT["uiType<br/>(number, select, text, toggle, hidden)"]
+  CMP["Component"] --> UT["uiType<br/>(number, select, text, toggle, secret, hidden)"]
   CMP --> PID{"path | id"}
   CMP --> TP2["techPreview? 🛠️"]
   CMP --> DS2["dataSource?"]
@@ -144,6 +144,11 @@ classDiagram
   class ToggleFieldParams {
     <<CommonFieldParams>>
   }
+  class SecretFieldParams {
+    definition
+    createLabel?
+    readOnly?
+  }
   class HiddenFieldParams {
     <<CommonFieldParams>>
   }
@@ -151,6 +156,7 @@ classDiagram
   CommonFieldParams <|-- TextFieldParams
   CommonFieldParams <|-- SelectFieldParams
   CommonFieldParams <|-- ToggleFieldParams
+  CommonFieldParams <|-- SecretFieldParams
   CommonFieldParams <|-- HiddenFieldParams
   TextFieldParams --> TextType : type
   SelectFieldParams <|-- SelectStaticOptions
@@ -210,6 +216,7 @@ classDiagram
 - **modes (mode-aware)** — `{ [FormMode]: <same rules> + inheritShared? }`.
 - **`toggle`** — `required` is always optional (`never`).
 - **`select` / `hidden`** — common rules only.
+- **`secret`** — `text` rules; the value is the Secret's name.
 
 ## Cross-Cutting Concepts
 
@@ -233,4 +240,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-30
+- Last updated: 2026-10-12
