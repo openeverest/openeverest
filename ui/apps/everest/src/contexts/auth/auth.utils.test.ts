@@ -14,7 +14,8 @@
 
 import { AxiosError, AxiosHeaders } from 'axios';
 import { api } from 'api/api';
-import { exchangeSsoToken, isReusableToken } from './auth.utils';
+import { exchangeSsoToken } from 'api/session';
+import { isReusableToken } from './auth.utils';
 
 const axiosError = (status: number) =>
   new AxiosError('request failed', String(status), undefined, undefined, {

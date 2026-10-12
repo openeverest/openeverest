@@ -27,7 +27,7 @@ import { AuthProvider } from 'contexts/auth';
 import {
   logAuthError,
   SSO_LOGIN_ERROR_KEY,
-  exchangeSsoToken,
+  exchangeAndStoreSsoToken,
 } from 'contexts/auth/auth.utils';
 import { DrawerContextProvider } from 'contexts/drawer/drawer.context';
 import router from 'router';
@@ -120,10 +120,7 @@ const App = () => {
                   onSignIn: async (user) => {
                     try {
                       if (user?.access_token) {
-                        const everestToken = await exchangeSsoToken(
-                          user.access_token
-                        );
-                        localStorage.setItem('everestToken', everestToken);
+                        await exchangeAndStoreSsoToken(user.access_token);
                       }
                       window.location.href = '/';
                     } catch (error) {

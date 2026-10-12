@@ -1,3 +1,5 @@
+import { JwtPayload } from 'jwt-decode';
+
 export type UserAuthStatus =
   | 'loggingIn'
   | 'loggingOut'
@@ -20,3 +22,5 @@ export interface AuthProviderProps {
   children: React.ReactNode;
   isSsoEnabled: boolean;
 }
+
+export type EverestJwtPayload = JwtPayload & { oidc_issuer?: string };
