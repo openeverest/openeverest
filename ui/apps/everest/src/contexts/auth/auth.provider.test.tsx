@@ -24,7 +24,7 @@ const { fakeOidc } = vi.hoisted(() => ({
     signIn: vi.fn(),
     userManager: {
       signinSilent: vi.fn(),
-      getUser: vi.fn(async () => null),
+      getUser: vi.fn<() => Promise<object | null>>(async () => null),
       clearStaleState: vi.fn(async () => {}),
       removeUser: vi.fn(async () => {}),
       signinSilentCallback: vi.fn(async () => {}),
@@ -58,6 +58,17 @@ const tokens = {
     iss: 'everest',
     sub: 'admin:login',
     exp: nowInSeconds + 3600,
+  }),
+  // Stored as-is by sessions created before the Everest token exchange.
+  rawIdp: toJwt({
+    iss: 'https://idp.example',
+    sub: 'idp-user',
+    exp: nowInSeconds + 600,
+  }),
+  expiredRawIdp: toJwt({
+    iss: 'https://idp.example',
+    sub: 'idp-user',
+    exp: nowInSeconds - 60,
   }),
 };
 
@@ -148,6 +159,27 @@ describe('AuthProvider session renewal', () => {
     await renderOnSsoInstance(tokens.expiredSso);
 
     expect(localStorage.getItem('everestToken')).toBe(tokens.renewedSso);
+  });
+
+  it('renews an expired raw IdP token on page load', async () => {
+    await renderOnSsoInstance(tokens.expiredRawIdp);
+
+    expect(localStorage.getItem('everestToken')).toBe(tokens.renewedSso);
+  });
+
+  it('renews a raw IdP token session on 401 and replays the request', async () => {
+    fakeOidc.userManager.getUser.mockResolvedValueOnce({});
+    await renderOnSsoInstance(tokens.rawIdp);
+    rejectedTokens.add(tokens.rawIdp);
+
+    await api.get('/database-clusters');
+
+    expect(fakeOidc.userManager.signinSilent).toHaveBeenCalledTimes(1);
+    expect(requests[requests.length - 1]).toEqual({
+      url: '/database-clusters',
+      token: tokens.renewedSso,
+    });
+    expect(navigations).toEqual([]);
   });
 
   it('renews an SSO session on 401 and replays the request', async () => {
