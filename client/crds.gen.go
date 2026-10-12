@@ -181,6 +181,7 @@ func (e BackupImportStatusConditionsStatus) Valid() bool {
 const (
 	BackupImportStatusStateError     BackupImportStatusState = "Error"
 	BackupImportStatusStateFailed    BackupImportStatusState = "Failed"
+	BackupImportStatusStatePending   BackupImportStatusState = "Pending"
 	BackupImportStatusStateSucceeded BackupImportStatusState = "Succeeded"
 )
 
@@ -190,6 +191,8 @@ func (e BackupImportStatusState) Valid() bool {
 	case BackupImportStatusStateError:
 		return true
 	case BackupImportStatusStateFailed:
+		return true
+	case BackupImportStatusStatePending:
 		return true
 	case BackupImportStatusStateSucceeded:
 		return true
@@ -1200,6 +1203,10 @@ type BackupClass struct {
 		// supports. The Instance.spec.provider must appear in this list for the
 		// class to be usable on that Instance.
 		SupportedProviders *[]string `json:"supportedProviders,omitempty"`
+
+		// SupportsImport SupportsImport indicates whether the owner of this class can discover and
+		// import restorable backups already sitting in a BackupStorage.
+		SupportsImport *bool `json:"supportsImport,omitempty"`
 
 		// UiSchema UISchema contains free-form rendering hints for the frontend forms that
 		// configure backup, restore, and PITR for an Instance using this class.
@@ -2758,6 +2765,11 @@ type Instance struct {
 
 		// Message Message is a custom user-facing message describing the current state of the instance.
 		Message *string `json:"message,omitempty"`
+
+		// ObservedGeneration ObservedGeneration is the metadata.generation the provider-runtime last
+		// reconciled. Status describes an older spec while it is lower than
+		// metadata.generation.
+		ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 		// PendingMaintenance PendingMaintenance lists the disruptive actions currently held awaiting
 		// approval. It is recomputed on every reconcile from the actions the

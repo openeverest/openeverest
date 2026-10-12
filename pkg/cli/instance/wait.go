@@ -27,8 +27,12 @@ import (
 )
 
 // instanceCondition classifies an Instance: Ready -> Succeeded,
-// Failed/Terminating -> Failed, anything else (incl. Suspended) -> Pending.
+// Failed/Terminating or a Ready condition that needs a spec or provider fix
+// -> Failed, anything else (incl. Suspended) -> Pending.
 func instanceCondition(inst *client.Instance) (wait.Outcome, string) {
+	if reason, msg, ok := blockingReadyReason(inst); ok {
+		return wait.Failed, fmt.Sprintf("instance is not ready: %s: %s", reason, msg)
+	}
 	phase := instancePhase(inst)
 	switch phase {
 	case string(client.InstanceStatusPhaseReady):
@@ -78,6 +82,31 @@ func instancePhase(inst *client.Instance) string {
 		return ""
 	}
 	return string(*inst.Status.Phase)
+}
+
+// blockingReadyReason reports a Ready=False condition, set for the current
+// generation, that only a spec change or a provider install clears.
+func blockingReadyReason(inst *client.Instance) (string, string, bool) {
+	if inst == nil || inst.Status == nil || inst.Status.Conditions == nil {
+		return "", "", false
+	}
+	var generation int64
+	if inst.Metadata != nil {
+		generation = inst.Metadata.Generation
+	}
+	for _, c := range *inst.Status.Conditions {
+		if c.Type != "Ready" || c.Status != client.InstanceStatusConditionsStatusFalse {
+			continue
+		}
+		if c.ObservedGeneration == nil || *c.ObservedGeneration != generation {
+			return "", "", false
+		}
+		switch c.Reason {
+		case "ValidationFailed", "ProviderNotFound":
+			return c.Reason, c.Message, true
+		}
+	}
+	return "", "", false
 }
 
 func instanceStatusMessage(inst *client.Instance) string {

@@ -755,6 +755,11 @@ components:
               items:
                 type: string
               type: array
+            supportsImport:
+              description: |-
+                SupportsImport indicates whether the owner of this class can discover and
+                import restorable backups already sitting in a BackupStorage.
+              type: boolean
             uiSchema:
               description: |-
                 UISchema contains free-form rendering hints for the frontend forms that
@@ -1020,6 +1025,7 @@ components:
             state:
               description: State is the current state of the backup import.
               enum:
+              - Pending
               - Succeeded
               - Failed
               - Error
@@ -3456,6 +3462,13 @@ components:
               description: Message is a custom user-facing message describing the
                 current state of the instance.
               type: string
+            observedGeneration:
+              description: |-
+                ObservedGeneration is the metadata.generation the provider-runtime last
+                reconciled. Status describes an older spec while it is lower than
+                metadata.generation.
+              format: int64
+              type: integer
             pendingMaintenance:
               description: |-
                 PendingMaintenance lists the disruptive actions currently held awaiting
