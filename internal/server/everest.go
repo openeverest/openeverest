@@ -636,7 +636,7 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 				Message: apiErrorBody{
 					Message: message,
 					Reason:  string(metav1.StatusReasonConflict),
-					Field:   "metadata.resourceVersion",
+					Field:   conflictField(message),
 				},
 			}
 		case errors.Is(err, rbachandler.ErrInsufficientPermissions):
@@ -673,6 +673,25 @@ type apiErrorBody struct {
 	Message string `json:"message"`
 	Reason  string `json:"reason,omitempty"`
 	Field   string `json:"field,omitempty"`
+}
+
+// conflictField maps a Kubernetes Conflict message to the object field whose
+// precondition was violated.
+func conflictField(message string) string {
+	switch {
+	// https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiserver/pkg/registry/rest/delete.go#L86
+	case strings.Contains(message, "UID"):
+		return "metadata.uid"
+
+		// https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiserver/pkg/registry/generic/registry/store.go#L277
+	case strings.Contains(message, "the object has been modified"),
+		// https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiserver/pkg/registry/rest/delete.go#L89
+		strings.Contains(message, "ResourceVersion"):
+		return "metadata.resourceVersion"
+
+	default:
+		return ""
+	}
 }
 
 // trimStrictDecodingError drops the API server's dump of the whole submitted
