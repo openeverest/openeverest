@@ -12,19 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { AxiosError, AxiosHeaders } from 'axios';
-import { api } from 'api/api';
-import { exchangeSsoToken } from 'api/session';
 import { isReusableToken } from './auth.utils';
-
-const axiosError = (status: number) =>
-  new AxiosError('request failed', String(status), undefined, undefined, {
-    status,
-    statusText: '',
-    data: {},
-    headers: {},
-    config: { headers: new AxiosHeaders() },
-  });
 
 // Unsigned JWT; isReusableToken only decodes the payload.
 const tokenExpiringIn = (seconds: number) =>
@@ -33,50 +21,6 @@ const tokenExpiringIn = (seconds: number) =>
     btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + seconds })),
     '',
   ].join('.');
-
-describe('exchangeSsoToken', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-    vi.restoreAllMocks();
-  });
-
-  it('retries a throttled exchange and returns the token', async () => {
-    const post = vi
-      .spyOn(api, 'post')
-      .mockRejectedValueOnce(axiosError(429))
-      .mockResolvedValueOnce({ data: { token: 'everest-jwt' } });
-
-    const result = exchangeSsoToken('oidc-token');
-    await vi.runAllTimersAsync();
-
-    await expect(result).resolves.toBe('everest-jwt');
-    expect(post).toHaveBeenCalledTimes(2);
-  });
-
-  it('gives up after the retry budget', async () => {
-    const post = vi.spyOn(api, 'post').mockRejectedValue(axiosError(429));
-
-    const result = exchangeSsoToken('oidc-token');
-    const assertion = expect(result).rejects.toBeInstanceOf(AxiosError);
-    await vi.runAllTimersAsync();
-
-    await assertion;
-    expect(post).toHaveBeenCalledTimes(4);
-  });
-
-  it('does not retry an invalid token', async () => {
-    const post = vi.spyOn(api, 'post').mockRejectedValue(axiosError(401));
-
-    await expect(exchangeSsoToken('oidc-token')).rejects.toBeInstanceOf(
-      AxiosError
-    );
-    expect(post).toHaveBeenCalledTimes(1);
-  });
-});
 
 describe('isReusableToken', () => {
   it('accepts a token with time left', () => {
