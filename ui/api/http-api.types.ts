@@ -943,6 +943,23 @@ export interface components {
         Error: {
             message?: string;
         };
+        /**
+         * @description APIError exposes the `reason` and the offending `field` in addition
+         *     to the `message` for better programmatic handling of errors.
+         */
+        APIError: {
+            message: string;
+            /**
+             * @description Machine-readable reason for the conflict.
+             * @example AlreadyExists
+             */
+            reason: string;
+            /**
+             * @description The field path that caused the conflict.
+             * @example metadata.name
+             */
+            field?: string;
+        };
         /** @description A list of OpenEverest-managed Secrets (metadata only). */
         SecretList: {
             /** @example v1 */
@@ -6216,6 +6233,15 @@ export interface operations {
                     "application/json": components["schemas"]["Instance"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -6309,6 +6335,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -6421,6 +6456,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description The Content-Type is not application/merge-patch+json */
@@ -6681,6 +6725,15 @@ export interface operations {
                     "application/json": components["schemas"]["Backup"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -6868,6 +6921,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -6984,6 +7046,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Restore"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -7183,6 +7254,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -7296,6 +7376,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -7400,6 +7489,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description The Content-Type is not application/merge-patch+json */
             415: {
                 headers: {
@@ -7498,6 +7596,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Internal server error */
@@ -7665,6 +7772,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -7776,7 +7892,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Internal server error */
@@ -7996,7 +8112,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Internal server error */

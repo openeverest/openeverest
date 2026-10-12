@@ -42,6 +42,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientgo "k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -606,16 +607,38 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 					Message: trimStrictDecodingError(trimWebhookErrorText(statusError.Status().Message)),
 				}
 			}
-		case k8serrors.IsAlreadyExists(err),
-			k8serrors.IsConflict(err):
-			// A bare 409 renders as a null body, leaving a client with nothing
-			// to show for a failed resourceVersion precondition.
-			httpErr := &echo.HTTPError{Code: http.StatusConflict}
+		case k8serrors.IsAlreadyExists(err):
+			var message string
+
 			statusError := &k8serrors.StatusError{}
 			if errors.As(err, &statusError) {
-				httpErr.Message = trimWebhookErrorText(statusError.Status().Message)
+				message = trimWebhookErrorText(statusError.Status().Message)
 			}
-			err = httpErr
+
+			err = &echo.HTTPError{
+				Code: http.StatusConflict,
+				Message: apiErrorBody{
+					Message: message,
+					Reason:  string(metav1.StatusReasonAlreadyExists),
+					Field:   "metadata.name",
+				},
+			}
+		case k8serrors.IsConflict(err):
+			var message string
+
+			statusError := &k8serrors.StatusError{}
+			if errors.As(err, &statusError) {
+				message = trimWebhookErrorText(statusError.Status().Message)
+			}
+
+			err = &echo.HTTPError{
+				Code: http.StatusConflict,
+				Message: apiErrorBody{
+					Message: message,
+					Reason:  string(metav1.StatusReasonConflict),
+					Field:   "metadata.resourceVersion",
+				},
+			}
 		case errors.Is(err, rbachandler.ErrInsufficientPermissions):
 			err = &echo.HTTPError{
 				Code:    http.StatusForbidden,
@@ -641,6 +664,15 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 		}
 		next(err, c)
 	}
+}
+
+// apiErrorBody exposes `reason` and the offending `field` beyond the free
+// form `message`, so clients can map a failure to a specific input instead
+// of only showing a generic notification.
+type apiErrorBody struct {
+	Message string `json:"message"`
+	Reason  string `json:"reason,omitempty"`
+	Field   string `json:"field,omitempty"`
 }
 
 // trimStrictDecodingError drops the API server's dump of the whole submitted

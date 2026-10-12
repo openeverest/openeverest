@@ -709,6 +709,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -809,6 +815,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -865,6 +877,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '415':
           description: The Content-Type is not application/merge-patch+json
           content:
@@ -1189,6 +1207,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Backup'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1379,6 +1403,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1503,6 +1533,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Restore'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1638,6 +1674,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -1797,6 +1839,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '415':
           description: The Content-Type is not application/merge-patch+json
           content:
@@ -1863,6 +1911,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1956,6 +2010,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -2103,6 +2163,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -2222,7 +2288,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -2435,7 +2501,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -2602,6 +2668,25 @@ components:
       properties:
         message:
           type: string
+    APIError:
+      type: object
+      description: |
+        APIError exposes the `reason` and the offending `field` in addition
+        to the `message` for better programmatic handling of errors.
+      properties:
+        message:
+          type: string
+        reason:
+          type: string
+          description: Machine-readable reason for the conflict.
+          example: AlreadyExists
+        field:
+          type: string
+          description: The field path that caused the conflict.
+          example: metadata.name
+      required:
+        - message
+        - reason
     SecretList:
       type: object
       description: A list of OpenEverest-managed Secrets (metadata only).
