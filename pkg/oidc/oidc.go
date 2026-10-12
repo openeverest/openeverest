@@ -49,8 +49,11 @@ const (
 	// WellKnownPath is the path to the well-known OIDC configuration.
 	WellKnownPath = "/.well-known/openid-configuration"
 
-	// defaultHTTPClientTimeout bounds OIDC well-known config fetches.
+	// defaultHTTPClientTimeout bounds OIDC well-known config and JWKS fetches.
 	defaultHTTPClientTimeout = 30 * time.Second
+
+	// maxWellKnownResponseSize caps the well-known config response body.
+	maxWellKnownResponseSize = 10 * 1024 * 1024
 )
 
 // ErrUnexpectedSatusCode is returned when HTTP 200 is not returned.
@@ -74,7 +77,7 @@ func NewProviderConfig(ctx context.Context, issuer string) (ProviderConfig, erro
 	}
 	defer resp.Body.Close() //nolint:errcheck
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxWellKnownResponseSize))
 	if err != nil {
 		return ProviderConfig{}, fmt.Errorf("unable to read response body: %w", err)
 	}
@@ -103,7 +106,7 @@ func (c *ProviderConfig) NewKeyFunc(ctx context.Context) (jwt.Keyfunc, error) {
 	}
 
 	keyCache := jwk.NewCache(ctx)
-	if err := keyCache.Register(c.JWKSURL); err != nil {
+	if err := keyCache.Register(c.JWKSURL, jwk.WithHTTPClient(&http.Client{Timeout: defaultHTTPClientTimeout})); err != nil {
 		return nil, errors.Join(err, errors.New("failed to register jwk cache"))
 	}
 
