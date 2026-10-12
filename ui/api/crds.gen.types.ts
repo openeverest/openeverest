@@ -497,6 +497,11 @@ export interface components {
                  */
                 supportedProviders?: string[];
                 /**
+                 * @description SupportsImport indicates whether the owner of this class can discover and
+                 *     import restorable backups already sitting in a BackupStorage.
+                 */
+                supportsImport?: boolean;
+                /**
                  * @description UISchema contains free-form rendering hints for the frontend forms that
                  *     configure backup, restore, and PITR for an Instance using this class.
                  *     The runtime treats this field as opaque; only the UI consumes it. The
@@ -656,7 +661,7 @@ export interface components {
                  * @description State is the current state of the backup import.
                  * @enum {string}
                  */
-                state?: "Succeeded" | "Failed" | "Error";
+                state?: "Pending" | "Succeeded" | "Failed" | "Error";
             };
         };
         /** @description BackupImportList is an object that contains the list of the existing backupimports. */
@@ -2282,6 +2287,13 @@ export interface components {
                 };
                 /** @description Message is a custom user-facing message describing the current state of the instance. */
                 message?: string;
+                /**
+                 * Format: int64
+                 * @description ObservedGeneration is the metadata.generation the provider-runtime last
+                 *     reconciled. Status describes an older spec while it is lower than
+                 *     metadata.generation.
+                 */
+                observedGeneration?: number;
                 /**
                  * @description PendingMaintenance lists the disruptive actions currently held awaiting
                  *     approval. It is recomputed on every reconcile from the actions the

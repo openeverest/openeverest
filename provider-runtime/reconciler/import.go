@@ -18,9 +18,12 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -46,6 +49,18 @@ func setupBackupImportReconciler(mgr ctrl.Manager, bi controller.BackupImporter,
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&backupv1alpha1.BackupImport{}).
+		Watches(&backupv1alpha1.BackupClass{},
+			handler.EnqueueRequestsFromMapFunc(r.importsForClass),
+			builder.WithPredicates(existenceChanged()),
+		).
+		Watches(&backupv1alpha1.BackupStorage{},
+			handler.EnqueueRequestsFromMapFunc(r.importsForStorage),
+			builder.WithPredicates(existenceChanged()),
+		).
+		WatchesMetadata(&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.importsForSecret),
+			builder.WithPredicates(existenceChanged()),
+		).
 		Named(providerName + "-backup-import").
 		Complete(r)
 }
@@ -72,6 +87,17 @@ func (r *backupImportReconciler) Reconcile(ctx context.Context, req reconcile.Re
 	if imp.Status.State == backupv1alpha1.BackupImportStateSucceeded ||
 		imp.Status.State == backupv1alpha1.BackupImportStateFailed {
 		return reconcile.Result{}, nil
+	}
+
+	missing, err := missingBackupStorage(ctx, r.client, imp.Namespace, imp.Spec.StorageRef.Name)
+	if err != nil {
+		return r.updateErrorStatus(ctx, imp, err)
+	}
+	if missing.reason != "" {
+		imp.Status.State = backupv1alpha1.BackupImportStatePending
+		imp.Status.Message = missing.message
+		imp.Status.LastObservedGeneration = imp.Generation
+		return reconcile.Result{}, r.client.Status().Update(ctx, imp)
 	}
 
 	storage := &backupv1alpha1.BackupStorage{}
@@ -248,7 +274,8 @@ func (r *backupImportReconciler) createBackups(
 }
 
 // resolveImportOwnership checks the referenced BackupClass uses executionMode
-// "ProviderManaged", and lists this provider in supportedProviders.
+// "ProviderManaged", has supportsImport enabled and lists this provider
+// in supportedProviders.
 func resolveImportOwnership(
 	ctx context.Context,
 	c client.Client,
@@ -262,8 +289,14 @@ func resolveImportOwnership(
 		}
 		return false, fmt.Errorf("failed to get BackupClass: %w", err)
 	}
+
+	if !bc.Spec.SupportsImport {
+		return false, nil
+	}
+
 	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
 		return false, nil
 	}
+
 	return bc.Spec.SupportedProviders.Has(providerName), nil
 }

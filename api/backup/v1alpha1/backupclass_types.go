@@ -62,6 +62,10 @@ type BackupClassSpec struct {
 	// ExecutionMode selects between job-based and provider-managed execution.
 	// +kubebuilder:validation:Required
 	ExecutionMode BackupExecutionMode `json:"executionMode"`
+	// SupportsImport indicates whether the owner of this class can discover and
+	// import restorable backups already sitting in a BackupStorage.
+	// +optional
+	SupportsImport bool `json:"supportsImport,omitempty"`
 	// ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
 	// schema is intentionally open: providers may surface capability
 	// information (e.g., whether PITR is supported, schedule expression

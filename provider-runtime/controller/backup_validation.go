@@ -106,6 +106,11 @@ const (
 	// when a Restore requests date-based point-in-time recovery without
 	// specifying spec.dataSource.backup.pitr.date.
 	ErrRestorePITRDateRequired referenceError = "point-in-time recovery date is required"
+
+	// ErrBackupImportUnsupported is the sentinel returned when a BackupImport
+	// references a BackupClass whose owning provider cannot discover and import
+	// backups.
+	ErrBackupImportUnsupported referenceError = "backup import is not supported"
 )
 
 // ValidateInstanceBackupAgainstClass enforces the generic limits declared on
@@ -242,6 +247,16 @@ func ValidateBackupSucceeded(backup *backupv1alpha1.Backup) error {
 func ValidateClassSupportsProvider(bc *backupv1alpha1.BackupClass, provider string) error {
 	if !bc.Spec.SupportedProviders.Has(provider) {
 		return fmt.Errorf("%w: class '%s', provider '%s'", ErrProviderUnsupported, bc.GetName(), provider)
+	}
+	return nil
+}
+
+// ValidateBackupImportSupported returns ErrBackupImportUnsupported if the BackupClass
+// does not advertise spec.supportsImport. Callers are responsible for
+// fetching the BackupClass themselves.
+func ValidateBackupImportSupported(bc *backupv1alpha1.BackupClass) error {
+	if !bc.Spec.SupportsImport {
+		return fmt.Errorf("%w: class '%s'", ErrBackupImportUnsupported, bc.GetName())
 	}
 	return nil
 }
