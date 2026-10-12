@@ -12,11 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { Component, FieldType } from '../ui-generator.types';
+import type { Component, FieldType, Section } from '../ui-generator.types';
 
 export type SecretComponent = Extract<Component, { uiType: FieldType.Secret }>;
 
 export interface SecretFieldProps {
   item: SecretComponent;
   name: string;
+}
+
+export interface SecretNamespaceSyncProps {
+  sections: Record<string, Section>;
+  namespace?: string | null;
+  provider?: string;
 }

@@ -13,3 +13,4 @@
 // limitations under the License.
 
 export { SecretField } from './secret-field';
+export { SecretNamespaceSync } from './secret-namespace-sync';

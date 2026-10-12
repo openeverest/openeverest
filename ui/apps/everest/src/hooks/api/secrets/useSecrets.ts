@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { createSecretFn, deleteSecretFn, getSecretsFn } from 'api/secrets';
@@ -23,6 +24,15 @@ export const SECRETS_QUERY_KEY = 'secrets';
 const dropTerminating = (secrets: Secret[]) =>
   secrets.filter((secret) => !secret.metadata?.deletionTimestamp);
 
+const secretsQuery = (
+  cluster: string,
+  namespace: string,
+  filter: SecretListFilter
+) => ({
+  queryKey: [SECRETS_QUERY_KEY, cluster, namespace, filter],
+  queryFn: () => getSecretsFn(cluster, namespace, filter),
+});
+
 export const useSecrets = (
   cluster: string,
   namespace: string,
@@ -30,11 +40,23 @@ export const useSecrets = (
   options?: { enabled?: boolean }
 ) =>
   useQuery({
-    queryKey: [SECRETS_QUERY_KEY, cluster, namespace, filter],
-    queryFn: () => getSecretsFn(cluster, namespace, filter),
+    ...secretsQuery(cluster, namespace, filter),
     select: dropTerminating,
     enabled: (options?.enabled ?? true) && !!cluster && !!namespace,
   });
+
+// Lists secrets outside render through the useSecrets cache.
+export const useFetchSecrets = (cluster: string) => {
+  const queryClient = useQueryClient();
+
+  return useCallback(
+    (namespace: string, filter: SecretListFilter) =>
+      queryClient
+        .fetchQuery(secretsQuery(cluster, namespace, filter))
+        .then(dropTerminating),
+    [queryClient, cluster]
+  );
+};
 
 export const useCreateSecret = (cluster: string, namespace: string) => {
   const queryClient = useQueryClient();
