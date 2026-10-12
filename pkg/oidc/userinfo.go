@@ -23,17 +23,82 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
-// UserInfo contains the subset of claims returned by the OIDC provider's UserInfo endpoint.
+// UserInfo contains the subset of identity claims Everest reads from the OIDC provider,
+// either from its UserInfo endpoint or from a verified JWT access token.
 // Name and PreferredUsername are only present when the `profile` scope was granted.
 //
 //nolint:tagliatelle // preferred_username is an OIDC claim name, not a Go-style identifier.
 type UserInfo struct {
-	Subject           string `json:"sub"`
-	Email             string `json:"email"`
-	Name              string `json:"name"`
-	PreferredUsername string `json:"preferred_username"`
+	Subject           string     `json:"sub"`
+	Email             string     `json:"email"`
+	Name              string     `json:"name"`
+	PreferredUsername string     `json:"preferred_username"`
+	Groups            StringList `json:"groups"`
+}
+
+// StringList decodes a claim that IdPs emit either as a single string or as an array.
+// Non-string array items are skipped, so an unexpected shape never fails the login.
+type StringList []string
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (s *StringList) UnmarshalJSON(data []byte) error {
+	var raw any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	*s = nil
+	switch v := raw.(type) {
+	case string:
+		*s = StringList{v}
+	case []any:
+		for _, item := range v {
+			if str, ok := item.(string); ok {
+				*s = append(*s, str)
+			}
+		}
+	}
+	return nil
+}
+
+// asymmetricSigningMethods are the algorithms accepted for provider-signed JWTs. Symmetric
+// (HS*) tokens are signed with the client secret and can't be verified against the JWKS.
+var asymmetricSigningMethods = []string{ //nolint:gochecknoglobals
+	"RS256", "RS384", "RS512",
+	"PS256", "PS384", "PS512",
+	"ES256", "ES384", "ES512",
+	"EdDSA",
+}
+
+// UserInfoFromJWT verifies a JWT access token against the provider's signing keys and returns
+// the identity claims it carries. It fails for opaque tokens and for JWTs that can't be verified
+// locally; callers fall back to FetchUserInfo in that case.
+func UserInfoFromJWT(accessToken string, keyFunc jwt.Keyfunc) (*UserInfo, error) {
+	token, err := jwt.Parse(accessToken, keyFunc,
+		jwt.WithValidMethods(asymmetricSigningMethods),
+		jwt.WithExpirationRequired(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify JWT: %w", err)
+	}
+
+	// Round-trip through JSON so the claims are decoded exactly like a UserInfo response.
+	raw, err := json.Marshal(token.Claims)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal JWT claims: %w", err)
+	}
+	var info UserInfo
+	if err := json.Unmarshal(raw, &info); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JWT claims: %w", err)
+	}
+	if info.Subject == "" {
+		return nil, errors.New("JWT missing 'sub' claim")
+	}
+
+	return &info, nil
 }
 
 // FetchUserInfo calls the OIDC provider's UserInfo endpoint with the given access token

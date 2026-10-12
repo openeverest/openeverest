@@ -110,7 +110,8 @@ paths:
       summary: SSO Token Exchange
       description: |
         Exchanges an OIDC access token (JWT or opaque) for an Everest-signed JWT.
-        The OIDC token is validated by calling the IdP's UserInfo endpoint.
+        A JWT signed by the IdP is verified against its JWKS; any other token is
+        validated by calling the IdP's UserInfo endpoint.
         The returned Everest JWT can be used as a Bearer token for subsequent API calls.
       operationId: createSSOSession
       responses:

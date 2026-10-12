@@ -78,8 +78,11 @@ type EverestServer struct {
 	kubeStreamer  clientgo.Interface
 	sessionMgr    *session.Manager
 	attemptsStore *RateLimiterMemoryStore
-	handler       handlers.Handler
-	oidcProvider  *oidc.ProviderConfig
+	// ssoAttemptsStore is separate so SSO renewals neither consume nor penalize password logins.
+	ssoAttemptsStore *RateLimiterMemoryStore
+	handler          handlers.Handler
+	oidcProvider     *oidc.ProviderConfig
+	oidcKeyFunc      jwt.Keyfunc
 }
 
 func getOIDCProviderConfig(ctx context.Context, kubeClient kubernetes.KubernetesConnector) (*oidc.ProviderConfig, error) {
@@ -135,8 +138,10 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 		},
 	}))
 	echoServer.Use(echomiddleware.RateLimiter(echomiddleware.NewRateLimiterMemoryStore(rate.Limit(c.APIRequestsRateLimit))))
-	middleware, store := sessionRateLimiter(c.CreateSessionRateLimit)
+	middleware, store := pathRateLimiter("/v1/session", c.CreateSessionRateLimit)
 	echoServer.Use(middleware)
+	ssoMiddleware, ssoStore := pathRateLimiter("/v1/session/sso", c.CreateSSOSessionRateLimit)
+	echoServer.Use(ssoMiddleware)
 
 	sessionManagerClient, err := createSessionManagerClient(ctx, l)
 	if err != nil {
@@ -156,14 +161,15 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 	}
 
 	e := &EverestServer{
-		config:        c,
-		l:             l,
-		echo:          echoServer,
-		kubeConnector: kubeConnector,
-		kubeStreamer:  kubeStreamer,
-		sessionMgr:    sessMgr,
-		attemptsStore: store,
-		oidcProvider:  oidcProvider,
+		config:           c,
+		l:                l,
+		echo:             echoServer,
+		kubeConnector:    kubeConnector,
+		kubeStreamer:     kubeStreamer,
+		sessionMgr:       sessMgr,
+		attemptsStore:    store,
+		ssoAttemptsStore: ssoStore,
+		oidcProvider:     oidcProvider,
 	}
 	e.echo.HTTPErrorHandler = e.errorHandlerChain()
 
@@ -359,13 +365,13 @@ func newHandlerChain(hs ...handlers.Handler) handlers.Handler { //nolint:ireturn
 }
 
 func (e *EverestServer) newJWTKeyFunc(ctx context.Context) (jwt.Keyfunc, error) {
-	var oidcKeyFn jwt.Keyfunc
 	if e.oidcProvider != nil {
 		fn, err := e.oidcProvider.NewKeyFunc(ctx)
 		if err != nil {
 			return nil, errors.Join(err, errors.New("failed to get OIDC key function"))
 		}
-		oidcKeyFn = fn
+		// Also used by the SSO token exchange to verify provider-signed JWTs.
+		e.oidcKeyFunc = fn
 	}
 
 	return func(token *jwt.Token) (any, error) {
@@ -383,8 +389,8 @@ func (e *EverestServer) newJWTKeyFunc(ctx context.Context) (jwt.Keyfunc, error) 
 		}
 		// XXX: currently we use OIDC only, but once we have multiple protocols supported,
 		// we should have a way to select which KeyFunc to use.
-		if oidcKeyFn != nil {
-			return oidcKeyFn(token)
+		if e.oidcKeyFunc != nil {
+			return e.oidcKeyFunc(token)
 		}
 		return nil, errors.New("no key found for token")
 	}, nil
@@ -495,14 +501,13 @@ func (e *EverestServer) getBodyFromContext(ctx echo.Context, into any) error {
 	return nil
 }
 
-func sessionRateLimiter(limit int) (echo.MiddlewareFunc, *RateLimiterMemoryStore) {
-	// Both credential-accepting endpoints must share the strict limit; the SSO exchange hits the IdP per call.
-	allButSession := func(c echo.Context) bool {
-		path := c.Request().URL.Path
-		return path != "/v1/session" && path != "/v1/session/sso"
-	}
+// pathRateLimiter limits requests to a single path per client IP. The returned store is also
+// used by the handler to back off a client after failed attempts.
+func pathRateLimiter(path string, limit int) (echo.MiddlewareFunc, *RateLimiterMemoryStore) {
 	config := echomiddleware.DefaultRateLimiterConfig
-	config.Skipper = allButSession
+	config.Skipper = func(c echo.Context) bool {
+		return c.Request().URL.Path != path
+	}
 	store := NewRateLimiterMemoryStoreWithConfig(RateLimiterMemoryStoreConfig{
 		Rate: rate.Limit(limit),
 	})

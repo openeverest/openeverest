@@ -18,6 +18,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -73,9 +74,8 @@ func (e *EverestServer) CreateSession(ctx echo.Context) error {
 }
 
 // CreateSSOSession exchanges an OIDC access token (JWT or opaque) for an Everest-signed JWT.
-// The OIDC token is validated against the provider's UserInfo endpoint, so this works with
-// providers that issue opaque access tokens (e.g. Authentik) as well as JWT ones. The resulting
-// Everest JWT is compatible with the existing JWT middleware and session blocklist.
+// See resolveSSOIdentity for how the OIDC token is validated. The resulting Everest JWT is
+// compatible with the existing JWT middleware and session blocklist.
 func (e *EverestServer) CreateSSOSession(ctx echo.Context) error {
 	if e.oidcProvider == nil {
 		return ctx.JSON(http.StatusBadRequest, api.Error{
@@ -94,10 +94,10 @@ func (e *EverestServer) CreateSSOSession(ctx echo.Context) error {
 	}
 
 	c := ctx.Request().Context()
-	userInfo, err := oidc.FetchUserInfo(c, e.oidcProvider.UserInfoURL, params.Token)
+	userInfo, err := e.resolveSSOIdentity(c, params.Token)
 	if err != nil {
 		e.l.Debugf("SSO token exchange failed: %v", err)
-		e.attemptsStore.IncreaseTimeout(ctx.RealIP())
+		e.ssoAttemptsStore.IncreaseTimeout(ctx.RealIP())
 		return ctx.JSON(http.StatusUnauthorized, api.Error{
 			Message: new("Invalid OIDC token"),
 		})
@@ -118,14 +118,31 @@ func (e *EverestServer) CreateSSOSession(ctx echo.Context) error {
 		Email:             userInfo.Email,
 		Name:              userInfo.Name,
 		PreferredUsername: userInfo.PreferredUsername,
+		Groups:            userInfo.Groups,
 	})
 	if err != nil {
 		return err
 	}
 
-	e.attemptsStore.CleanupVisitor(ctx.RealIP())
+	e.ssoAttemptsStore.CleanupVisitor(ctx.RealIP())
 
 	return ctx.JSON(http.StatusOK, map[string]string{"token": jwtToken})
+}
+
+// resolveSSOIdentity validates an OIDC access token and returns the identity it represents.
+// A JWT signed by the provider is verified locally against its JWKS, the same check the JWT
+// middleware applies; this keeps working for IdPs whose UserInfo endpoint rejects tokens
+// minted for a custom API audience (e.g. Entra ID). Opaque or locally unverifiable tokens
+// (e.g. Authentik HS256 tokens) are validated by the provider's UserInfo endpoint instead.
+func (e *EverestServer) resolveSSOIdentity(ctx context.Context, token string) (*oidc.UserInfo, error) {
+	if e.oidcKeyFunc != nil {
+		info, err := oidc.UserInfoFromJWT(token, e.oidcKeyFunc)
+		if err == nil {
+			return info, nil
+		}
+		e.l.Debugf("SSO token is not a locally verifiable JWT, using UserInfo: %v", err)
+	}
+	return oidc.FetchUserInfo(ctx, e.oidcProvider.UserInfoURL, token)
 }
 
 // DeleteSession invalidates the user token by adding it to the blocklist.

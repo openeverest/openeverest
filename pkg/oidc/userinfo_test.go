@@ -18,10 +18,16 @@ package oidc
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -89,6 +95,135 @@ func TestFetchUserInfo(t *testing.T) {
 		defer srv.Close()
 
 		_, err := FetchUserInfo(context.Background(), srv.URL, "tok")
+		require.Error(t, err)
+	})
+
+	t.Run("groups are returned", func(t *testing.T) {
+		t.Parallel()
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"sub":"s","groups":["admins","devs"]}`))
+		}))
+		defer srv.Close()
+
+		info, err := FetchUserInfo(context.Background(), srv.URL, "tok")
+		require.NoError(t, err)
+		assert.Equal(t, StringList{"admins", "devs"}, info.Groups)
+	})
+}
+
+func TestStringListUnmarshal(t *testing.T) {
+	t.Parallel()
+
+	tcases := []struct {
+		name string
+		in   string
+		out  StringList
+	}{
+		{name: "array", in: `{"groups":["a","b"]}`, out: StringList{"a", "b"}},
+		{name: "single string", in: `{"groups":"a"}`, out: StringList{"a"}},
+		{name: "non-string items are skipped", in: `{"groups":["a",{"id":1},2]}`, out: StringList{"a"}},
+		{name: "unexpected shape is ignored", in: `{"groups":{"id":1}}`, out: nil},
+		{name: "missing", in: `{}`, out: nil},
+	}
+	for _, tc := range tcases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var info UserInfo
+			require.NoError(t, json.Unmarshal([]byte(tc.in), &info))
+			assert.Equal(t, tc.out, info.Groups)
+		})
+	}
+}
+
+func TestUserInfoFromJWT(t *testing.T) {
+	t.Parallel()
+
+	idpKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	otherKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+
+	const kid = "idp-key"
+	keyFunc := func(token *jwt.Token) (any, error) {
+		if token.Header["kid"] != kid {
+			return nil, errors.New("unknown kid")
+		}
+		return idpKey.Public(), nil
+	}
+
+	sign := func(t *testing.T, method jwt.SigningMethod, key any, claims jwt.MapClaims) string {
+		t.Helper()
+		token := jwt.NewWithClaims(method, claims)
+		token.Header["kid"] = kid
+		s, err := token.SignedString(key)
+		require.NoError(t, err)
+		return s
+	}
+	validClaims := func() jwt.MapClaims {
+		return jwt.MapClaims{
+			"iss":                "https://idp.example.com",
+			"sub":                "oidc-subject",
+			"exp":                time.Now().Add(time.Hour).Unix(),
+			"email":              "user@example.com",
+			"name":               "Example User",
+			"preferred_username": "euser",
+			"groups":             []string{"admins", "devs"},
+		}
+	}
+
+	t.Run("provider-signed JWT returns its claims", func(t *testing.T) {
+		t.Parallel()
+		info, err := UserInfoFromJWT(sign(t, jwt.SigningMethodRS256, idpKey, validClaims()), keyFunc)
+		require.NoError(t, err)
+		assert.Equal(t, &UserInfo{
+			Subject:           "oidc-subject",
+			Email:             "user@example.com",
+			Name:              "Example User",
+			PreferredUsername: "euser",
+			Groups:            StringList{"admins", "devs"},
+		}, info)
+	})
+
+	t.Run("opaque token is rejected", func(t *testing.T) {
+		t.Parallel()
+		_, err := UserInfoFromJWT("opaque-random-string", keyFunc)
+		require.Error(t, err)
+	})
+
+	t.Run("JWT signed by another key is rejected", func(t *testing.T) {
+		t.Parallel()
+		_, err := UserInfoFromJWT(sign(t, jwt.SigningMethodRS256, otherKey, validClaims()), keyFunc)
+		require.Error(t, err)
+	})
+
+	t.Run("symmetric JWT is rejected", func(t *testing.T) {
+		t.Parallel()
+		_, err := UserInfoFromJWT(sign(t, jwt.SigningMethodHS256, []byte("client-secret"), validClaims()), keyFunc)
+		require.Error(t, err)
+	})
+
+	t.Run("expired JWT is rejected", func(t *testing.T) {
+		t.Parallel()
+		claims := validClaims()
+		claims["exp"] = time.Now().Add(-time.Minute).Unix()
+		_, err := UserInfoFromJWT(sign(t, jwt.SigningMethodRS256, idpKey, claims), keyFunc)
+		require.Error(t, err)
+	})
+
+	t.Run("JWT without exp is rejected", func(t *testing.T) {
+		t.Parallel()
+		claims := validClaims()
+		delete(claims, "exp")
+		_, err := UserInfoFromJWT(sign(t, jwt.SigningMethodRS256, idpKey, claims), keyFunc)
+		require.Error(t, err)
+	})
+
+	t.Run("JWT without sub is rejected", func(t *testing.T) {
+		t.Parallel()
+		claims := validClaims()
+		delete(claims, "sub")
+		_, err := UserInfoFromJWT(sign(t, jwt.SigningMethodRS256, idpKey, claims), keyFunc)
 		require.Error(t, err)
 	})
 }

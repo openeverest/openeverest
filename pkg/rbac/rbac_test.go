@@ -16,6 +16,7 @@ package rbac
 
 import (
 	"context"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -31,7 +32,42 @@ import (
 
 	"github.com/percona/everest/pkg/common"
 	configmapadapter "github.com/percona/everest/pkg/rbac/configmap-adapter"
+	"github.com/percona/everest/pkg/session"
 )
+
+// TestSSOGroupPolicy pins that a policy granted only to an IdP group still applies to an SSO
+// user, whose Everest-issued token carries the IdP groups in its "groups" claim.
+func TestSSOGroupPolicy(t *testing.T) {
+	t.Parallel()
+
+	enf, err := NewIOReaderEnforcer(strings.NewReader(
+		"p, role:dev, database-clusters, read, */*\n" +
+			"g, everest-devs, role:dev\n",
+	))
+	require.NoError(t, err)
+
+	// Claims as produced by session.Manager.CreateSSO and decoded by the JWT middleware.
+	token := &jwt.Token{Claims: jwt.MapClaims{
+		"iss":         session.SessionManagerClaimsIssuer,
+		"sub":         "oidc-subject",
+		"oidc_issuer": "https://idp.example.com",
+		"groups":      []any{"everest-devs"},
+	}}
+	ctx := context.WithValue(context.Background(), common.UserCtxKey, token) //nolint:staticcheck // mirrors how the JWT middleware stores the token
+
+	user, err := GetUser(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "oidc-subject", user.Subject)
+	assert.Equal(t, []string{"everest-devs"}, user.Groups)
+
+	ok, err := enf.Enforce(user.Subject, "database-clusters", "read", "ns/db")
+	require.NoError(t, err)
+	assert.False(t, ok, "the subject itself has no policy")
+
+	ok, err = enf.Enforce(user.Groups[0], "database-clusters", "read", "ns/db")
+	require.NoError(t, err)
+	assert.True(t, ok, "the group policy must apply")
+}
 
 func TestGetScopeValues(t *testing.T) {
 	t.Parallel()

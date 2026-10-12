@@ -91,7 +91,15 @@ export const addApiErrorInterceptor = () => {
               tokenRefresher &&
               !isAuthEndpoint(config.url)
             ) {
-              const newToken = await refreshAuthToken();
+              const sentToken = String(
+                config.headers['Authorization'] ?? ''
+              ).replace(/^Bearer /, '');
+              const currentToken = localStorage.getItem('everestToken');
+              // Another tab or an earlier refresh may already have replaced the rejected token.
+              const newToken =
+                currentToken && currentToken !== sentToken
+                  ? currentToken
+                  : await refreshAuthToken();
               if (newToken) {
                 config._retry = true;
                 config.headers['Authorization'] = `Bearer ${newToken}`;

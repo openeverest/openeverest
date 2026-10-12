@@ -147,6 +147,8 @@ type SSOIdentity struct {
 	Email             string
 	Name              string
 	PreferredUsername string
+	// Groups is read by rbac.GetUser from the token's "groups" claim for group-based policies.
+	Groups []string
 }
 
 // SSOClaims extends the standard registered claims with the original OIDC issuer.
@@ -156,10 +158,11 @@ type SSOIdentity struct {
 type SSOClaims struct {
 	jwt.RegisteredClaims
 
-	OIDCIssuer        string `json:"oidc_issuer"`
-	Email             string `json:"email,omitempty"`
-	Name              string `json:"name,omitempty"`
-	PreferredUsername string `json:"preferred_username,omitempty"`
+	OIDCIssuer        string   `json:"oidc_issuer"`
+	Email             string   `json:"email,omitempty"`
+	Name              string   `json:"name,omitempty"`
+	PreferredUsername string   `json:"preferred_username,omitempty"`
+	Groups            []string `json:"groups,omitempty"`
 }
 
 // CreateSSO creates a new Everest-signed token for an SSO user whose identity was
@@ -179,6 +182,7 @@ func (mgr *Manager) CreateSSO(subject string, secondsBeforeExpiry int64, id, oid
 		Email:             identity.Email,
 		Name:              identity.Name,
 		PreferredUsername: identity.PreferredUsername,
+		Groups:            identity.Groups,
 	}
 	if secondsBeforeExpiry > 0 {
 		expires := now.Add(time.Duration(secondsBeforeExpiry) * time.Second)

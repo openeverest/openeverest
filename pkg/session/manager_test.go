@@ -170,6 +170,7 @@ func TestCreateSSO(t *testing.T) {
 		Email:             "user@example.com",
 		Name:              "Example User",
 		PreferredUsername: "euser",
+		Groups:            []string{"everest-admins", "everest-devs"},
 	}
 
 	tokenStr, err := mgr.CreateSSO(subject, int64(time.Hour.Seconds()), id, issuer, identity)
@@ -191,6 +192,8 @@ func TestCreateSSO(t *testing.T) {
 	// The UI resolves the displayed user as preferred_username || name || email || sub.
 	assert.Equal(t, identity.Name, claims["name"])
 	assert.Equal(t, identity.PreferredUsername, claims["preferred_username"])
+	// rbac.GetUser reads group memberships from the "groups" claim.
+	assert.Equal(t, []any{"everest-admins", "everest-devs"}, claims["groups"])
 	assert.Contains(t, claims, "exp")
 
 	// An SSO session token must be treated as an external (non-built-in) user keyed on the OIDC subject.

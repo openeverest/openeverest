@@ -46,6 +46,8 @@ import {
   logAuthError,
   isRunningInIframe,
   exchangeSsoToken,
+  withSsoRenewLock,
+  isReusableToken,
 } from './auth.utils';
 
 const Provider = ({
@@ -157,18 +159,28 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
   // Renews the Everest JWT from a still-valid IdP session, returning the new token
   // or null if renewal is no longer possible. Also used by the 401 handler (see api.ts).
   const refreshEverestToken = useCallback(async (): Promise<string | null> => {
-    try {
-      const newLoggedUser = await userManager.signinSilent();
-      if (newLoggedUser?.access_token) {
-        const everestToken = await exchangeSsoToken(newLoggedUser.access_token);
-        localStorage.setItem('everestToken', everestToken);
-        return everestToken;
+    const tokenBeforeLock = localStorage.getItem('everestToken');
+    return withSsoRenewLock(async () => {
+      // Another tab may have renewed while this one waited for the lock.
+      const currentToken = localStorage.getItem('everestToken');
+      if (currentToken !== tokenBeforeLock && isReusableToken(currentToken)) {
+        return currentToken;
       }
-      return null;
-    } catch (error) {
-      logAuthError('silent token renewal failed', error);
-      return null;
-    }
+      try {
+        const newLoggedUser = await userManager.signinSilent();
+        if (newLoggedUser?.access_token) {
+          const everestToken = await exchangeSsoToken(
+            newLoggedUser.access_token
+          );
+          localStorage.setItem('everestToken', everestToken);
+          return everestToken;
+        }
+        return null;
+      } catch (error) {
+        logAuthError('silent token renewal failed', error);
+        return null;
+      }
+    });
   }, [userManager]);
 
   const silentlyRenewToken = useCallback(async () => {
