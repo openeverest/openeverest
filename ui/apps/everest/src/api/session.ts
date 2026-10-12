@@ -17,6 +17,21 @@ import { api } from './api';
 
 const SSO_EXCHANGE_MAX_RETRIES = 3;
 
+export const createSession = async (username: string, password: string) => {
+  const response = await api.post<{ token: string }>(
+    '/session',
+    { username, password },
+    { skipAuthRefresh: true }
+  );
+  return response.data.token;
+};
+
+export const deleteSession = (everestToken: string | null) =>
+  api.delete('/session', {
+    headers: { token: everestToken },
+    skipAuthRefresh: true,
+  });
+
 // Exchanges an IdP access token (JWT or opaque) for an Everest JWT. The endpoint is rate limited
 // per IP, so a throttled (429) attempt is retried with jittered backoff.
 export const exchangeSsoToken = async (idpAccessToken: string) => {

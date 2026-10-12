@@ -28,6 +28,7 @@ import {
   removeApiAuthInterceptor,
   setTokenRefresher,
 } from 'api/api';
+import { createSession, deleteSession } from 'api/session';
 import { enqueueSnackbar } from 'notistack';
 import AuthContext from './auth.context';
 import { EVEREST_JWT_ISSUER } from 'consts';
@@ -97,12 +98,7 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     } else {
       const { username, password } = manualAuthArgs!;
       try {
-        const response = await api.post(
-          '/session',
-          { username, password },
-          { skipAuthRefresh: true }
-        );
-        const token = response.data.token; // Assuming the response structure has a token field
+        const token = await createSession(username, password);
         localStorage.setItem('everestToken', token);
         setLoggedInStatus(username);
       } catch (error) {
@@ -127,11 +123,7 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
   };
 
   const logout = async () => {
-    const token = localStorage.getItem('everestToken');
-    await api.delete('/session', {
-      headers: { token: token },
-      skipAuthRefresh: true,
-    });
+    await deleteSession(localStorage.getItem('everestToken'));
     if (isSsoEnabled) {
       await userManager.clearStaleState();
       await setLogoutStatus();
