@@ -5856,6 +5856,15 @@ export interface operations {
                     "application/json": components["schemas"]["Cluster"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Cluster not found */
             404: {
                 headers: {
@@ -5957,6 +5966,15 @@ export interface operations {
                     "application/json": components["schemas"]["InstancePreset"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Instance preset not found */
             404: {
                 headers: {
@@ -6001,6 +6019,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstancePreset"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Instance preset not found */
@@ -6076,6 +6103,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Provider"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Provider not found */
@@ -6233,6 +6269,24 @@ export interface operations {
                     "application/json": components["schemas"]["Instance"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Conflict */
             409: {
                 headers: {
@@ -6276,6 +6330,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Instance"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Instance not found */
@@ -6326,6 +6389,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Instance"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Instance not found */
@@ -6397,6 +6469,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Instance not found */
             404: {
                 headers: {
@@ -6456,6 +6537,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Instance"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Instance not found */
@@ -6521,6 +6611,15 @@ export interface operations {
                     "application/json": components["schemas"]["InstanceConnectionDetails"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Instance or connection details not found */
             404: {
                 headers: {
@@ -6566,8 +6665,8 @@ export interface operations {
                     "application/json": components["schemas"]["BackupList"];
                 };
             };
-            /** @description Unsuccessful operation */
-            400: {
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6611,8 +6710,8 @@ export interface operations {
                     "application/json": components["schemas"]["RestoreList"];
                 };
             };
-            /** @description Unsuccessful operation */
-            400: {
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6686,6 +6785,15 @@ export interface operations {
                     "application/json": components["schemas"]["BackupClass"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Backup class not found */
             404: {
                 headers: {
@@ -6734,6 +6842,24 @@ export interface operations {
                     "application/json": components["schemas"]["Backup"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Conflict */
             409: {
                 headers: {
@@ -6777,6 +6903,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Backup"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Backup not found */
@@ -6838,6 +6973,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
             /** @description Backup not found */
             404: {
@@ -6939,6 +7083,24 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Conflict */
             409: {
                 headers: {
@@ -6984,6 +7146,15 @@ export interface operations {
                     "application/json": components["schemas"]["BackupImport"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Backup import not found */
             404: {
                 headers: {
@@ -7026,6 +7197,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
             };
             /** @description Conflict */
             409: {
@@ -7075,6 +7255,24 @@ export interface operations {
                     "application/json": components["schemas"]["Restore"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Conflict */
             409: {
                 headers: {
@@ -7118,6 +7316,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Restore"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Restore not found */
@@ -7172,6 +7379,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Restore not found */
             404: {
                 headers: {
@@ -7224,15 +7440,6 @@ export interface operations {
                     "application/json": components["schemas"]["BackupStorageList"];
                 };
             };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -7283,6 +7490,24 @@ export interface operations {
             };
             /** @description Unsuccessful operation */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7344,6 +7569,15 @@ export interface operations {
                     "application/json": components["schemas"]["BackupStorage"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Backup storage not found */
             404: {
                 headers: {
@@ -7396,6 +7630,15 @@ export interface operations {
             };
             /** @description Unsuccessful operation */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7464,6 +7707,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Conflict */
             409: {
                 headers: {
@@ -7518,6 +7770,15 @@ export interface operations {
             };
             /** @description Unsuccessful operation */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7586,15 +7847,6 @@ export interface operations {
                     "application/json": components["schemas"]["MonitoringConfigList"];
                 };
             };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -7636,6 +7888,24 @@ export interface operations {
             };
             /** @description Unsuccessful operation */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7688,8 +7958,8 @@ export interface operations {
                     "application/json": components["schemas"]["MonitoringConfig"];
                 };
             };
-            /** @description Unsuccessful operation */
-            400: {
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7742,6 +8012,15 @@ export interface operations {
             };
             /** @description Unsuccessful operation */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7810,6 +8089,15 @@ export interface operations {
             };
             /** @description Unsuccessful operation */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

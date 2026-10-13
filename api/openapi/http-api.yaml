@@ -340,6 +340,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Cluster'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Cluster not found
           content:
@@ -440,6 +446,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance preset not found
           content:
@@ -490,6 +502,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance preset not found
           content:
@@ -560,6 +578,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Provider'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Provider not found
           content:
@@ -709,6 +733,18 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
           content:
@@ -756,6 +792,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance not found
           content:
@@ -809,6 +851,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance not found
           content:
@@ -871,6 +919,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance not found
           content:
@@ -943,6 +997,12 @@ paths:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
         '204':
           description: Instance deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance not found
           content:
@@ -999,6 +1059,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/InstanceConnectionDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance or connection details not found
           content:
@@ -1047,8 +1113,8 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/BackupList'
-        '400':
-          description: Unsuccessful operation
+        '403':
+          description: Forbidden
           content:
             application/json:
               schema:
@@ -1095,8 +1161,8 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/RestoreList'
-        '400':
-          description: Unsuccessful operation
+        '403':
+          description: Forbidden
           content:
             application/json:
               schema:
@@ -1165,6 +1231,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/BackupClass'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup class not found
           content:
@@ -1213,6 +1285,18 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Backup'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
           content:
@@ -1260,6 +1344,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Backup'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup not found
           content:
@@ -1320,6 +1410,12 @@ paths:
                 $ref: 'crds.gen.yaml#/components/schemas/Backup'
         '204':
           description: Backup deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup not found
           content:
@@ -1415,6 +1511,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
           content:
@@ -1462,6 +1570,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/BackupImport'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup import not found
           content:
@@ -1503,6 +1617,12 @@ paths:
       responses:
         '204':
           description: Backup import deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
           content:
@@ -1551,6 +1671,18 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Restore'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
           content:
@@ -1598,6 +1730,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Restore'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Restore not found
           content:
@@ -1645,6 +1783,12 @@ paths:
                 $ref: 'crds.gen.yaml#/components/schemas/Restore'
         '204':
           description: Restore deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Restore not found
           content:
@@ -1694,6 +1838,18 @@ paths:
                 $ref: 'crds.gen.yaml#/components/schemas/BackupStorage'
         '400':
           description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
           content:
             application/json:
               schema:
@@ -1750,12 +1906,6 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/BackupStorageList'
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
           content:
@@ -1803,6 +1953,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/BackupStorage'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup storage not found
           content:
@@ -1853,6 +2009,12 @@ paths:
                 $ref: 'crds.gen.yaml#/components/schemas/BackupStorage'
         '400':
           description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
           content:
             application/json:
               schema:
@@ -1929,6 +2091,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup storage not found
           content:
@@ -1989,6 +2157,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
           content:
@@ -2040,6 +2214,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
           content:
@@ -2085,12 +2271,6 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfigList'
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
           content:
@@ -2131,8 +2311,8 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfig'
-        '400':
-          description: Unsuccessful operation
+        '403':
+          description: Forbidden
           content:
             application/json:
               schema:
@@ -2183,6 +2363,12 @@ paths:
                 $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfig'
         '400':
           description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
           content:
             application/json:
               schema:
@@ -2242,6 +2428,12 @@ paths:
           description: Successful operation
         '400':
           description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
           content:
             application/json:
               schema:
