@@ -4512,28 +4512,27 @@ export interface components {
                          */
                         path: string;
                         /**
-                         * @description SourceMetadata is engine specific metadata that is used to select
-                         *     compatible options when seeding a new Instance from this Backup.
+                         * @description SourceMetadata is engine-specific metadata that is used to make
+                         *     compatibility decisions for creating an Instance from this Backup.
                          */
                         sourceMetadata?: {
                             /**
-                             * @description BackupType is the engine-native backup method recorded by the engine
-                             *     (e.g. "logical" or "physical" for PBM). It constrains which restore
-                             *     paths and target topologies are valid.
+                             * @description BackupType is the backup method recorded in the metadata (e.g.
+                             *     "logical" or "physical" for PBM).
                              */
                             backupType?: string;
                             /**
-                             * @description EngineVersion is the database engine version recorded in the backup.
-                             *     Its granularity is whatever the engine's metadata records, so it may be
-                             *     a full version (e.g. a MongoDB server version like "8.0.12-4", a PXC
-                             *     server version like "8.4.8-8.1") or only a major version (e.g. a
-                             *     PostgreSQL version like "18").
+                             * @description EngineVersion is the engine version recorded in the backup.
+                             *     Its granularity is whatever the backup metadata records, so it may be
+                             *     a full version (e.g. a MongoDB server version like "8.0.12-4", a
+                             *     Percona XtraDB Cluster server version like "8.4.8-8.1") or only a
+                             *     major version (e.g. a PostgreSQL version like "18").
                              */
                             engineVersion?: string;
                             /**
-                             * @description Topology names the source topology using the owning provider's topology
-                             *     vocabulary (e.g. "replicaSet" or "sharded" for PSMDB). It may not match
-                             *     the target Instance's topology.
+                             * @description Topology names the source Instance's topology (e.g. "replicaSet" or
+                             *     "sharded" for PSMDB). Recorded only for backups taken by a
+                             *     ProviderManaged backup class.
                              */
                             topology?: string;
                         };

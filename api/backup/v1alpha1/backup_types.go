@@ -148,32 +148,30 @@ type BackupOriginExternal struct {
 	// CompletedAt is the time when the backup completed.
 	// +kubebuilder:validation:Required
 	CompletedAt metav1.Time `json:"completedAt"`
-	// SourceMetadata is engine specific metadata that is used to select
-	// compatible options when seeding a new Instance from this Backup.
+	// SourceMetadata is engine-specific metadata that is used to make
+	// compatibility decisions for creating an Instance from this Backup.
 	// +optional
 	SourceMetadata *BackupSourceMetadata `json:"sourceMetadata,omitempty"`
 }
 
-// BackupSourceMetadata describes the source database of an imported Backup,
-// read from its engine-native metadata during discovery. Fields are
-// engine-neutral and best-effort: a provider leaves empty what it cannot
-// determine.
+// BackupSourceMetadata describes the source Instance of an imported Backup,
+// as recorded in its backup metadata. Fields are engine-neutral and
+// best-effort, so any of them may be empty.
 type BackupSourceMetadata struct {
-	// EngineVersion is the database engine version recorded in the backup.
-	// Its granularity is whatever the engine's metadata records, so it may be
-	// a full version (e.g. a MongoDB server version like "8.0.12-4", a PXC
-	// server version like "8.4.8-8.1") or only a major version (e.g. a
-	// PostgreSQL version like "18").
+	// EngineVersion is the engine version recorded in the backup.
+	// Its granularity is whatever the backup metadata records, so it may be
+	// a full version (e.g. a MongoDB server version like "8.0.12-4", a
+	// Percona XtraDB Cluster server version like "8.4.8-8.1") or only a
+	// major version (e.g. a PostgreSQL version like "18").
 	// +optional
 	EngineVersion string `json:"engineVersion,omitempty"`
-	// BackupType is the engine-native backup method recorded by the engine
-	// (e.g. "logical" or "physical" for PBM). It constrains which restore
-	// paths and target topologies are valid.
+	// BackupType is the backup method recorded in the metadata (e.g.
+	// "logical" or "physical" for PBM).
 	// +optional
 	BackupType string `json:"backupType,omitempty"`
-	// Topology names the source topology using the owning provider's topology
-	// vocabulary (e.g. "replicaSet" or "sharded" for PSMDB). It may not match
-	// the target Instance's topology.
+	// Topology names the source Instance's topology (e.g. "replicaSet" or
+	// "sharded" for PSMDB). Recorded only for backups taken by a
+	// ProviderManaged backup class.
 	// +optional
 	Topology string `json:"topology,omitempty"`
 }
