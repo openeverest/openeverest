@@ -19,8 +19,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 
+	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -59,6 +61,7 @@ type ProviderReconciler struct {
 	serverConfig *server.ServerConfig
 	server       *server.Server
 	breaker      maintenanceBreaker
+	pods         atomic.Value // client.Reader, set once the pod watch runs
 	client.Client
 }
 
@@ -147,6 +150,9 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 	// Register core Kubernetes types
 	if err := corev1.AddToScheme(scheme); err != nil {
 		return nil, fmt.Errorf("failed to add corev1 scheme: %w", err)
+	}
+	if err := authorizationv1.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("failed to add authorizationv1 scheme: %w", err)
 	}
 
 	// Register core types
@@ -317,7 +323,29 @@ func (r *ProviderReconciler) setup() error {
 
 	b := ctrl.NewControllerManagedBy(r.manager).
 		For(&v1alpha1.Instance{}, builder.WithPredicates(filter)).
+		Watches(&v1alpha1.Provider{},
+			handler.EnqueueRequestsFromMapFunc(r.instancesForProvider),
+			builder.WithPredicates(
+				predicate.NewPredicateFuncs(func(o client.Object) bool { return o.GetName() == r.provider.Name() }),
+				predicate.GenerationChangedPredicate{},
+			),
+		).
+		WatchesMetadata(&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.instancesForSecret),
+			builder.WithPredicates(existenceChanged()),
+		).
 		Named(r.provider.Name() + "-controller")
+
+	if r.isBackupProvider() {
+		b.Watches(&backupv1alpha1.BackupClass{},
+			handler.EnqueueRequestsFromMapFunc(r.instancesForBackupClass),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		)
+		b.Watches(&backupv1alpha1.BackupStorage{},
+			handler.EnqueueRequestsFromMapFunc(r.instancesForBackupStorage),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		)
+	}
 
 	// Configure watches if provider implements WatchProvider
 	if wp, ok := r.provider.(controller.WatchProvider); ok {
@@ -347,7 +375,14 @@ func (r *ProviderReconciler) setup() error {
 		}
 	}
 
-	return b.Complete(r)
+	c, err := b.Build(r)
+	if err != nil {
+		return err
+	}
+
+	return r.manager.Add(manager.RunnableFunc(func(ctx context.Context) error {
+		return r.watchPods(ctx, c)
+	}))
 }
 
 // Reconcile implements the reconciliation loop.
@@ -388,14 +423,36 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	// The provider is not called while a referent it needs is missing; the
+	// watches re-enqueue the Instance once it appears.
+	b, err := r.missingReferent(ctx, in)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if b.reason != "" {
+		logger.Info("Waiting for a referent", "reason", b.reason, "message", b.message)
+		return reconcile.Result{}, r.block(ctx, in, &b)
+	}
+
 	// Run validation
 	if err := validateVersionBundle(ctx, r.Client, in); err != nil {
 		logger.Error(err, "Version bundle validation failed")
-		in.Status.Phase = v1alpha1.InstancePhaseFailed
-		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
+		if updateErr := r.block(ctx, in, &blocker{reason: v1alpha1.ReasonValidationFailed, message: err.Error()}); updateErr != nil {
 			logger.Error(updateErr, "Failed to update status after validation error")
 		}
 		return reconcile.Result{}, err
+	}
+	backupMiss, err := r.missingBackupReferent(ctx, in)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if backupMiss.reason != "" {
+		logger.Info("Waiting for a backup referent", "reason", backupMiss.reason, "message", backupMiss.message)
+		setCondition(
+			in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
+			backupMiss.reason, backupMiss.message, metav1.Now(),
+		)
+		return reconcile.Result{}, r.block(ctx, in, nil)
 	}
 	if err := validateInstanceBackupConfig(ctx, r.Client, in); err != nil {
 		logger.Error(err, "Backup configuration validation failed")
@@ -408,16 +465,14 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		}
 		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
 			reason, err.Error(), metav1.Now())
-		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
+		if updateErr := r.updateStatus(ctx, in, nil); updateErr != nil {
 			logger.Error(updateErr, "Failed to update status after backup config violation")
 		}
 		return reconcile.Result{}, nil
 	}
 	if err := r.provider.Validate(inCtx); err != nil {
 		logger.Error(err, "Validation failed")
-		// Update status to failed
-		in.Status.Phase = v1alpha1.InstancePhaseFailed
-		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
+		if updateErr := r.block(ctx, in, &blocker{reason: v1alpha1.ReasonValidationFailed, message: err.Error()}); updateErr != nil {
 			logger.Error(updateErr, "Failed to update status after validation error")
 		}
 		return reconcile.Result{}, err
@@ -455,7 +510,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			if syncCtx.MaintenanceRequested() {
 				flushPendingMaintenance(syncCtx, in)
 			}
-			_ = r.Client.Status().Update(ctx, in)
+			_ = r.updateStatus(ctx, in, nil)
 			return reconcile.Result{}, nil
 		}
 		// DataSourceConfigError means the engine is healthy but initial seeding
@@ -468,7 +523,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			if syncCtx.MaintenanceRequested() {
 				flushPendingMaintenance(syncCtx, in)
 			}
-			_ = r.Client.Status().Update(ctx, in)
+			_ = r.updateStatus(ctx, in, nil)
 			return reconcile.Result{}, nil
 		}
 		logger.Error(err, "Sync failed")
@@ -515,6 +570,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	instanceStatus := status.ToV2Alpha1()
 	in.Status.Phase = instanceStatus.Phase
 	in.Status.Message = instanceStatus.Message
+	recheck := r.setPodStatus(ctx, in, syncCtx.LabelledComponents(), time.Now())
 
 	// Collect per-storage backup observability data (e.g. the latest
 	// restorable time for PITR) when the provider opts into reporting it.
@@ -548,13 +604,13 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return reconcile.Result{}, err
 	}
 
-	if err := r.Client.Status().Update(ctx, in); err != nil {
+	if err := r.updateStatus(ctx, in, nil); err != nil {
 		logger.Error(err, "Failed to update status")
 		return reconcile.Result{}, err
 	}
 
 	logger.Info("Reconciliation complete", "phase", in.Status.Phase)
-	return reconcile.Result{}, nil
+	return reconcile.Result{RequeueAfter: recheck}, nil
 }
 
 // leaderElectionFree marks a Runnable as one that must run on every replica,
@@ -639,7 +695,7 @@ func (r *ProviderReconciler) handleDeletion(
 	// Update status to deleting
 	if in.Status.Phase != v1alpha1.InstancePhaseTerminating {
 		in.Status.Phase = v1alpha1.InstancePhaseTerminating
-		if err := r.Client.Status().Update(ctx, in); err != nil {
+		if err := r.updateStatus(ctx, in, nil); err != nil {
 			return reconcile.Result{}, err
 		}
 	}

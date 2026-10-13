@@ -35,7 +35,7 @@ export const OverviewSectionRow = ({
         {label}
       </Typography>
     </Grid>
-    <Grid>
+    <Grid size="grow">
       {typeof content === 'string' && content !== '' ? (
         <Typography variant="body2">{content}</Typography>
       ) : content === null || content === undefined || content === '' ? (

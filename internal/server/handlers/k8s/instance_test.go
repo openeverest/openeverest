@@ -47,8 +47,8 @@ func TestK8s_PatchInstance(t *testing.T) {
 			Spec: corev1alpha1.InstanceSpec{
 				Version: "8.0",
 				Components: map[string]corev1alpha1.ComponentSpec{
-					"engine": {Name: "engine", Replicas: &replicas},
-					"proxy":  {Name: "proxy", Version: "1.2"},
+					"engine": {Type: "mongod", Replicas: &replicas},
+					"proxy":  {Type: "mongos", Version: "1.2"},
 				},
 			},
 		}
@@ -80,7 +80,7 @@ func TestK8s_PatchInstance(t *testing.T) {
 		// Anything the patch did not name keeps its stored value.
 		assert.Equal(t, "8.0", result.Spec.Version)
 		assert.Equal(t, "1.2", result.Spec.Components["proxy"].Version)
-		assert.Equal(t, "engine", result.Spec.Components["engine"].Name)
+		assert.Equal(t, "mongod", result.Spec.Components["engine"].Type)
 	})
 
 	t.Run("stamps the calling actor", func(t *testing.T) {
@@ -129,6 +129,6 @@ func TestK8s_PatchInstance(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Nil(t, result.Spec.Components["engine"].Replicas)
-		assert.Equal(t, "engine", result.Spec.Components["engine"].Name)
+		assert.Equal(t, "mongod", result.Spec.Components["engine"].Type)
 	})
 }

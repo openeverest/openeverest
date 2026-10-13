@@ -31,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -68,6 +69,18 @@ func (r *RestoreReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&rbacv1.Role{}).
 		Watches(&rbacv1.ClusterRoleBinding{}, rclusterWideResourceHandler()).
 		Watches(&rbacv1.ClusterRole{}, rclusterWideResourceHandler()).
+		Watches(&backupv1alpha1.BackupClass{},
+			operationsFor[backupv1alpha1.RestoreList](mgr.GetClient(), false, restoreWaitsForClass),
+			builder.WithPredicates(referentAppearedOrGone()),
+		).
+		Watches(&backupv1alpha1.Backup{},
+			operationsFor[backupv1alpha1.RestoreList](mgr.GetClient(), true, restoreNamesBackup),
+			builder.WithPredicates(referentAppearedOrGone()),
+		).
+		Watches(&corev1alpha1.Instance{},
+			operationsFor[backupv1alpha1.RestoreList](mgr.GetClient(), true, restoreNamesInstance),
+			builder.WithPredicates(referentAppearedOrGone()),
+		).
 		Complete(r)
 }
 
@@ -159,9 +172,20 @@ func (r *RestoreReconciler) Reconcile( //nolint:nonamedreturns
 	// Resolve the BackupClass before touching status so that ProviderManaged
 	// restores can bail out without the deferred Status().Update() fighting
 	// with the provider-runtime reconciler.
-	bc, err := r.resolveBackupClass(ctx, restore)
+	bc, missing, err := r.resolveBackupClass(ctx, restore)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to resolve backup class: %w", err)
+	}
+	if missing != "" {
+		// Nobody else knows which controller owns the Restore until its class
+		// resolves, so a Restore that has not started waits here.
+		if restore.Status.State != "" && restore.Status.State != backupv1alpha1.RestoreStatePending {
+			return ctrl.Result{}, nil
+		}
+		restore.Status.State = backupv1alpha1.RestoreStatePending
+		restore.Status.Message = missing
+		restore.Status.LastObservedGeneration = restore.GetGeneration()
+		return ctrl.Result{}, r.Client.Status().Update(ctx, restore)
 	}
 
 	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeJob {
@@ -283,21 +307,24 @@ func (r *RestoreReconciler) ensureInstanceNameLabel(ctx context.Context, restore
 func (r *RestoreReconciler) resolveBackupClass(
 	ctx context.Context,
 	restore *backupv1alpha1.Restore,
-) (*backupv1alpha1.BackupClass, error) {
+) (*backupv1alpha1.BackupClass, string, error) {
 	ds := restore.Spec.DataSource
 
 	var backupClassName string
 	switch ds.Type {
 	case backupv1alpha1.DataSourceTypeBackup:
 		if ds.Backup == nil {
-			return nil, fmt.Errorf("dataSource.backup is required when type is %q", ds.Type)
+			return nil, "", fmt.Errorf("dataSource.backup is required when type is %q", ds.Type)
 		}
 		backup := &backupv1alpha1.Backup{}
 		if err := r.Client.Get(ctx, client.ObjectKey{
 			Name:      ds.Backup.BackupRef.Name,
 			Namespace: restore.GetNamespace(),
 		}, backup); err != nil {
-			return nil, fmt.Errorf("failed to get backup %q: %w", ds.Backup.BackupRef.Name, err)
+			if apierrors.IsNotFound(err) {
+				return nil, fmt.Sprintf("backup %s not found in %s", ds.Backup.BackupRef.Name, restore.GetNamespace()), nil
+			}
+			return nil, "", fmt.Errorf("failed to get backup %q: %w", ds.Backup.BackupRef.Name, err)
 		}
 		backupClassName = backup.Spec.ClassRef.Name
 
@@ -308,10 +335,13 @@ func (r *RestoreReconciler) resolveBackupClass(
 			Name:      name,
 			Namespace: restore.GetNamespace(),
 		}, instance); err != nil {
-			return nil, fmt.Errorf("failed to get instance %q: %w", name, err)
+			if apierrors.IsNotFound(err) {
+				return nil, fmt.Sprintf("instance %s not found in %s", name, restore.GetNamespace()), nil
+			}
+			return nil, "", fmt.Errorf("failed to get instance %q: %w", name, err)
 		}
 		if instance.Spec.Backup == nil || instance.Spec.Backup.ClassRef.Name == "" {
-			return nil, fmt.Errorf(
+			return nil, "", fmt.Errorf(
 				"instance %q has no backup class configured; cannot resolve how to read its point-in-time stream",
 				name,
 			)
@@ -319,17 +349,20 @@ func (r *RestoreReconciler) resolveBackupClass(
 		backupClassName = instance.Spec.Backup.ClassRef.Name
 
 	default:
-		return nil, fmt.Errorf("unsupported dataSource type %q", ds.Type)
+		return nil, "", fmt.Errorf("unsupported dataSource type %q", ds.Type)
 	}
 
 	bc := &backupv1alpha1.BackupClass{}
 	if err := r.Client.Get(ctx, client.ObjectKey{
 		Name: backupClassName,
 	}, bc); err != nil {
-		return nil, fmt.Errorf("failed to get backup class %q: %w", backupClassName, err)
+		if apierrors.IsNotFound(err) {
+			return nil, fmt.Sprintf("backup class %s not found", backupClassName), nil
+		}
+		return nil, "", fmt.Errorf("failed to get backup class %q: %w", backupClassName, err)
 	}
 
-	return bc, nil
+	return bc, "", nil
 }
 
 func (r *RestoreReconciler) ensureRestoreJob(

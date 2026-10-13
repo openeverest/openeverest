@@ -27,8 +27,12 @@ import (
 )
 
 // instanceCondition classifies an Instance: Ready -> Succeeded,
-// Failed/Terminating -> Failed, anything else (incl. Suspended) -> Pending.
+// Failed/Terminating or a Ready condition that needs a spec or provider fix
+// -> Failed, anything else (incl. Suspended) -> Pending.
 func instanceCondition(inst *client.Instance) (wait.Outcome, string) {
+	if reason, msg, ok := blockingReadyReason(inst); ok {
+		return wait.Failed, fmt.Sprintf("instance is not ready: %s: %s", reason, msg)
+	}
 	phase := instancePhase(inst)
 	switch phase {
 	case string(client.InstanceStatusPhaseReady):
@@ -80,6 +84,31 @@ func instancePhase(inst *client.Instance) string {
 	return string(*inst.Status.Phase)
 }
 
+// blockingReadyReason reports a Ready=False condition, set for the current
+// generation, that only a spec change or a provider install clears.
+func blockingReadyReason(inst *client.Instance) (string, string, bool) {
+	if inst == nil || inst.Status == nil || inst.Status.Conditions == nil {
+		return "", "", false
+	}
+	var generation int64
+	if inst.Metadata != nil {
+		generation = inst.Metadata.Generation
+	}
+	for _, c := range *inst.Status.Conditions {
+		if c.Type != "Ready" || c.Status != client.InstanceStatusConditionsStatusFalse {
+			continue
+		}
+		if c.ObservedGeneration == nil || *c.ObservedGeneration != generation {
+			return "", "", false
+		}
+		switch c.Reason {
+		case "ValidationFailed", "ProviderNotFound":
+			return c.Reason, c.Message, true
+		}
+	}
+	return "", "", false
+}
+
 func instanceStatusMessage(inst *client.Instance) string {
 	if inst == nil || inst.Status == nil || inst.Status.Message == nil {
 		return ""
@@ -106,18 +135,14 @@ func componentSummary(inst *client.Instance) string {
 	}
 	parts := make([]string, 0, len(*inst.Status.Components))
 	for _, comp := range *inst.Status.Components {
-		state := "-"
-		if comp.State != nil {
-			state = *comp.State
+		var ready, replicas int32
+		if comp.ReadyReplicas != nil {
+			ready = *comp.ReadyReplicas
 		}
-		var ready, total int32
-		if comp.Ready != nil {
-			ready = *comp.Ready
+		if comp.Replicas != nil {
+			replicas = *comp.Replicas
 		}
-		if comp.Total != nil {
-			total = *comp.Total
-		}
-		parts = append(parts, fmt.Sprintf("%s %d/%d ready", state, ready, total))
+		parts = append(parts, fmt.Sprintf("%s %d/%d ready", comp.Name, ready, replicas))
 	}
 	return strings.Join(parts, ", ")
 }

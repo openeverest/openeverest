@@ -17,9 +17,11 @@ import {
   Component,
   ComponentGroup,
   FormMode,
+  isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { ZOD_SCHEMA_MAP } from 'components/ui-generator/constants';
 import { generateFieldId } from '../component-renderer/generate-field-id';
+import { getComponentSourcePath } from '../preprocess/normalized-component';
 import { applyValidationFromSchema } from './apply-from-schema';
 import { resolveValidationForMode } from '../validation/resolve-validation-for-mode';
 import {
@@ -78,6 +80,17 @@ export const buildShapeFromComponents = (
       return;
     }
 
+    // Widget components own their value shape and validation. A pure marker
+    // widget (no bound path) owns no form value, so it must not contribute a
+    // schema entry — its synthetic id would otherwise nest into a required
+    // parent object and wrongly invalidate the form.
+    if (isWidgetComponent(component)) {
+      if (getComponentSourcePath(component)) {
+        schemaShape[fieldId] = z.any().optional();
+      }
+      return;
+    }
+
     const baseSchema = ZOD_SCHEMA_MAP[component.uiType] ?? z.any();
 
     // Resolve mode-aware validation to flat validation for current mode
@@ -110,7 +123,19 @@ export const buildShapeFromComponents = (
         celDependencyGroups.push(celData.celDependencyGroup);
       }
     } else {
-      fieldSchema = baseSchema;
+      // No validation means not required, same as a validated non-required field.
+      fieldSchema = baseSchema.optional();
+    }
+
+    if (activeSwitch) {
+      toggleableFieldRules.push({
+        switchName: activeSwitch,
+        fieldId,
+        schema: fieldSchema,
+      });
+      // Still transforms valid values, but never fails on its own.
+      schemaShape[fieldId] = fieldSchema.or(z.any());
+      return;
     }
 
     if (activeSwitch) {

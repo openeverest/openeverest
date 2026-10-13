@@ -30,6 +30,8 @@ import {
   createToggleableScope,
   resolveToggleable,
 } from '../toggleable/toggleable';
+import { withWidgetTargets } from '../widget-targets';
+import { widgetTargetResolvers } from '../../widget-target-resolvers';
 
 const describeDegrade = (
   resolution: ToggleableResolution
@@ -173,9 +175,15 @@ export const preprocessSchema = (
         return [topologyKey, topology];
       }
 
-      const scope = createToggleableScope(topology.sections);
+      const withTargets = withWidgetTargets(topology.sections, (widget) =>
+        widgetTargetResolvers[widget.widgetType]?.({
+          providerObject,
+          topology: topologyKey,
+        })
+      );
+      const scope = createToggleableScope(withTargets);
       const sections = Object.fromEntries(
-        Object.entries(topology.sections).map(([sectionKey, section]) => [
+        Object.entries(withTargets).map(([sectionKey, section]) => [
           sectionKey,
           {
             ...section,

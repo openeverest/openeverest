@@ -37,7 +37,7 @@ export interface FormDialogProps<T extends FieldValues> {
   submitMessage?: string;
   validationMode?: keyof ValidationMode;
   size?: 'L' | 'XL' | 'XXL' | 'XXXL';
-  subHead2?: string;
+  description?: string;
   submitting?: boolean;
   disableSubmit?: boolean;
   dataTestId?: string;

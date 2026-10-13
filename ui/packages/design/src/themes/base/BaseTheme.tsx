@@ -126,6 +126,12 @@ declare module '@mui/material/Paper' {
   }
 }
 
+declare module '@mui/material/Tabs' {
+  interface TabsPropsVariantOverrides {
+    compact: true;
+  }
+}
+
 const BaseTheme = createTheme();
 
 const baseThemeOptions = (mode: PaletteMode): ThemeOptions => ({
@@ -653,6 +659,23 @@ const baseThemeOptions = (mode: PaletteMode): ThemeOptions => ({
           },
         },
       },
+      variants: [
+        {
+          // Secondary tabs nested in a card, section or dialog. Not scrollable,
+          // so keep it to a handful of short labels.
+          props: { variant: 'compact' },
+          style: ({ theme }) => ({
+            '.MuiButtonBase-root': {
+              minHeight: theme.spacing(4),
+              padding: theme.spacing(0.75, 1.5),
+              fontSize: theme.typography.body2.fontSize,
+            },
+            '.MuiTabs-indicator': {
+              height: '2px',
+            },
+          }),
+        },
+      ],
     },
     MuiDialog: {
       styleOverrides: {

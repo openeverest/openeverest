@@ -48,7 +48,7 @@ export const FormDialog = <T extends FieldValues>({
   cancelMessage = 'Cancel',
   submitMessage = 'Create',
   validationMode = 'onChange',
-  subHead2,
+  description,
   size = 'L',
   submitting = false,
   dataTestId,
@@ -113,7 +113,16 @@ export const FormDialog = <T extends FieldValues>({
     >
       <DialogTitle onClose={closeModal}>{headerMessage}</DialogTitle>
       <DialogContent>
-        {subHead2 && <Typography variant="subHead2">{subHead2}</Typography>}
+        {description && (
+          // Pull the description up to counter the stacked DialogTitle/DialogContent padding.
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ display: 'block', mt: -2, mb: 3 }}
+          >
+            {description}
+          </Typography>
+        )}
         <FormProvider {...methods}>
           <form onSubmit={methods.handleSubmit(handleSubmit)}>
             <FormGroup>

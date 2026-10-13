@@ -42,7 +42,7 @@ describe('applyModeOverrides', () => {
     const result = applyModeOverrides(sections, FormMode.Edit);
     const comp = result.basic.components.name as Component;
     expect(comp.uiType).toBe(FieldType.Text);
-    expect(comp.fieldParams.disabled).toBeUndefined();
+    expect(comp.fieldParams?.disabled).toBeUndefined();
   });
 
   it('disables a component via fieldParams.modes', () => {
@@ -61,7 +61,7 @@ describe('applyModeOverrides', () => {
 
     const result = applyModeOverrides(sections, FormMode.Edit);
     const comp = result.basic.components.name as Component;
-    expect(comp.fieldParams.disabled).toBe(true);
+    expect(comp.fieldParams?.disabled).toBe(true);
   });
 
   it('does not disable when a different mode is active', () => {
@@ -80,7 +80,7 @@ describe('applyModeOverrides', () => {
 
     const result = applyModeOverrides(sections, FormMode.New);
     const comp = result.basic.components.name as Component;
-    expect(comp.fieldParams.disabled).toBeUndefined();
+    expect(comp.fieldParams?.disabled).toBeUndefined();
   });
 
   it('hides a component via component.modes uiType override and strips CEL', () => {
@@ -146,7 +146,7 @@ describe('applyModeOverrides', () => {
     const result = applyModeOverrides(sections, FormMode.Edit);
     const g = result.resources.components.group as ComponentGroup;
     const inner = g.components.inner as Component;
-    expect(inner.fieldParams.disabled).toBe(true);
+    expect(inner.fieldParams?.disabled).toBe(true);
   });
 
   it('applies readOnly from fieldParams.modes', () => {
@@ -184,7 +184,7 @@ describe('applyModeOverrides', () => {
 
     const result = applyModeOverrides(sections, FormMode.Edit);
     const comp = result.basic.components.name as Component;
-    expect(comp.fieldParams.label).toBe('Name (read-only)');
+    expect(comp.fieldParams?.label).toBe('Name (read-only)');
   });
 
   it('applies helperText override from fieldParams.modes', () => {
@@ -208,7 +208,7 @@ describe('applyModeOverrides', () => {
 
     const result = applyModeOverrides(sections, FormMode.Edit);
     const comp = result.basic.components.name as Component;
-    expect(comp.fieldParams.helperText).toBe(
+    expect(comp.fieldParams?.helperText).toBe(
       'Name cannot be changed after creation'
     );
   });
@@ -232,7 +232,7 @@ describe('applyModeOverrides', () => {
 
     const result = applyModeOverrides(sections, FormMode.Edit);
     const comp = result.basic.components.name as Component;
-    expect(comp.fieldParams.defaultValue).toBe('default-edit');
+    expect(comp.fieldParams?.defaultValue).toBe('default-edit');
   });
 
   it('applies autoFocus override from fieldParams.modes', () => {
@@ -251,6 +251,6 @@ describe('applyModeOverrides', () => {
 
     const result = applyModeOverrides(sections, FormMode.Edit);
     const comp = result.basic.components.name as Component;
-    expect(comp.fieldParams.autoFocus).toBe(true);
+    expect(comp.fieldParams?.autoFocus).toBe(true);
   });
 });

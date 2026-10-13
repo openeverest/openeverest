@@ -17,6 +17,7 @@ flowchart TD
   SEC --> CO["componentsOrder?"]
   SEC --> C["components"]
   C --> CMP["Component<br/>(leaf field)"]
+  C --> WGT["Widget<br/>(uiType: widget)"]
   C --> GRP["ComponentGroup<br/>(container)"]
   GRP --> C
 
@@ -65,6 +66,26 @@ flowchart TD
 - **`path` | `id`** — `path` (`string` | `string[]`) writes to the API; an array is a multi-path (`[0]` is the source, all entries are targets). `id` has no API binding and is used only for validation / CEL.
 - **`dataSource.provider`** — a key in the open runtime registry (`register()`), not a closed enum.
 - **`modes?`** — `{ [FormMode]: { uiType? } }`; `import` is declared in the enum but is not used by the code.
+
+## Level 2 — Widget (host-rendered leaf)
+
+```mermaid
+flowchart TD
+  W["Widget"] --> WU["uiType: widget"]
+  W --> WT["widgetType<br/>(podSchedulingPolicy; affinity is internal)"]
+  W --> WTG["_widgetTargets<br/>(set by preprocess)"]
+```
+
+- **Supported props:** `uiType: widget` and `widgetType`.
+- **`widgetType`** selects the renderer from the consumer's `WidgetRegistry` (edit) and
+  `WidgetSummaryRegistry` (`label` + `View` + `digest` for the overview and wizard preview).
+  Unknown types render nothing.
+- **Location is defined per widget type** — a widget is unique, so there is no shared rule
+  for where its data lives:
+  - `affinity` (internal) binds one `path`, like a field.
+  - `podSchedulingPolicy` is placed without `path` / `id`: preprocess resolves the paths it
+    writes per provider and topology (`widgetTargetResolvers`) into `_widgetTargets`, which
+    toggleable groups, payload merging and the overview read.
 
 ## Level 3 — fieldParams (by field type)
 
@@ -212,4 +233,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-29
+- Last updated: 2026-09-30
