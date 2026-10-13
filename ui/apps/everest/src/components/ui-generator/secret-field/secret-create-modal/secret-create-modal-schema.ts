@@ -27,12 +27,13 @@ import { Messages } from './secret-create-modal.messages';
 // `takenNames` holds names the server rejected as already in use.
 export const secretCreateSchema = (
   sections: Record<string, Section>,
-  takenNames: string[]
+  takenNames: string[],
+  formMode: FormMode
 ) => {
   const { schema, celDependencyGroups } = buildSectionZodSchema(
     SECRET_SECTION_KEY,
     sections,
-    { formMode: FormMode.New }
+    { formMode }
   );
 
   return {

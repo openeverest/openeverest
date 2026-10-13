@@ -15,6 +15,7 @@
 import { ComponentType } from 'react';
 import { Provider } from 'shared-types/api.types';
 import {
+  FormMode,
   Section,
   UIGeneratorProps,
 } from 'components/ui-generator/ui-generator.types';
@@ -28,6 +29,8 @@ export interface SecretCreateModalProps {
   namespace: string;
   // The enclosing UIGenerator (UiGeneratorContext.generator).
   generator: ComponentType<UIGeneratorProps>;
+  // The enclosing form's mode; the definition's `modes` follow it.
+  formMode?: FormMode;
   onClose: () => void;
   onCreated: (name: string) => void;
 }

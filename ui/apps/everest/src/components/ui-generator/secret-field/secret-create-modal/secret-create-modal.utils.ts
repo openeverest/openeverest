@@ -41,7 +41,8 @@ export const generateSecretName = (definition: string): string => {
 // The pipeline stages take a topology, so the definition's one section is wrapped as one.
 export const toSecretSchema = (
   section: Section,
-  providerObject: Provider
+  providerObject: Provider,
+  formMode: FormMode
 ): TopologyUISchemas => {
   const { sections } = preprocessSchema(
     { [SECRET_SECTION_KEY]: { sections: { [SECRET_SECTION_KEY]: section } } },
@@ -49,7 +50,7 @@ export const toSecretSchema = (
   )[SECRET_SECTION_KEY];
   return {
     [SECRET_SECTION_KEY]: {
-      sections: applyModeOverrides(sections, FormMode.New),
+      sections: applyModeOverrides(sections, formMode),
     },
   };
 };
