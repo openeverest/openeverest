@@ -31,7 +31,7 @@ require (
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/openeverest/helm-charts/charts/everest v0.0.0-20260828151659-568186ace628
 	github.com/operator-framework/api v0.45.0
-	github.com/percona/everest-operator v0.6.0-dev1.0.20261012084919-6fc25ff2bca5
+	github.com/percona/everest-operator v1.17.0-rc2
 	github.com/rodaine/table v1.4.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1
