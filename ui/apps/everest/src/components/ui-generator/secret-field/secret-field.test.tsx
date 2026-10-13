@@ -247,6 +247,18 @@ describe('SecretField', () => {
     expect(getCombobox()).toHaveTextContent(Messages.unmanaged('legacy-creds'));
   });
 
+  it('ignores a default secret name in the schema', () => {
+    renderField({
+      providerObject: PROVIDER,
+      // Schemas are untyped YAML, so one can still carry it.
+      fieldParams: {
+        defaultValue: 'legacy-creds',
+      } as unknown as Partial<SecretFieldParams>,
+    });
+
+    expect(getCombobox()).not.toHaveTextContent('legacy-creds');
+  });
+
   it('shows the value of a read-only field without listing secrets', () => {
     mockUseSecrets.mockReturnValue(IDLE);
     renderField({
