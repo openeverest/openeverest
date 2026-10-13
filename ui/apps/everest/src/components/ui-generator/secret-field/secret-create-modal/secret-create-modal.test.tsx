@@ -16,7 +16,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'shared-types/api.types';
 import { TestWrapper } from 'utils/test';
 import { UIGenerator } from '../../ui-generator';
-import { FieldType, Section } from '../../ui-generator.types';
+import { FieldType, FormMode, Section } from '../../ui-generator.types';
 import { SecretCreateModal } from './secret-create-modal';
 import { Messages } from './secret-create-modal.messages';
 
@@ -54,16 +54,31 @@ const SECTION: Section = {
   },
 };
 
-const renderModal = () => {
+const IMPORT_ONLY_SECTION: Section = {
+  components: {
+    password: {
+      uiType: FieldType.Text,
+      path: 'MONGODB_PASSWORD',
+      fieldParams: { label: 'Password' },
+      validation: { modes: { [FormMode.Import]: { required: true } } },
+    },
+  },
+};
+
+const renderModal = ({
+  section = SECTION,
+  formMode,
+}: { section?: Section; formMode?: FormMode } = {}) => {
   const onCreated = vi.fn();
   render(
     <TestWrapper>
       <SecretCreateModal
         definition="user"
-        section={SECTION}
+        section={section}
         providerObject={PROVIDER}
         namespace="ns"
         generator={UIGenerator}
+        formMode={formMode}
         onClose={vi.fn()}
         onCreated={onCreated}
       />
@@ -130,5 +145,27 @@ describe('SecretCreateModal', () => {
       expect(screen.queryByText(Messages.nameTaken)).not.toBeInTheDocument()
     );
     expect(getCreateButton()).toBeEnabled();
+  });
+
+  it('creates without a field required only on import, leaving its key out', async () => {
+    mockMutate.mockImplementation((_secret, { onSuccess }) => onSuccess());
+    renderModal({ section: IMPORT_ONLY_SECTION });
+
+    await waitFor(() => expect(getCreateButton()).toBeEnabled());
+    fireEvent.click(getCreateButton());
+
+    await waitFor(() => expect(mockMutate).toHaveBeenCalled());
+    expect(mockMutate.mock.calls[0][0].stringData).toEqual({});
+  });
+
+  it('requires that field on import', async () => {
+    renderModal({ section: IMPORT_ONLY_SECTION, formMode: FormMode.Import });
+    const password = screen.getByLabelText(/Password/);
+
+    fireEvent.change(password, { target: { value: 'secret' } });
+    await waitFor(() => expect(getCreateButton()).toBeEnabled());
+    fireEvent.change(password, { target: { value: '' } });
+
+    await waitFor(() => expect(getCreateButton()).toBeDisabled());
   });
 });

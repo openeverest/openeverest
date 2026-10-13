@@ -43,6 +43,7 @@ export const SecretCreateModal = ({
   providerObject,
   namespace,
   generator: Generator,
+  formMode = FormMode.New,
   onClose,
   onCreated,
 }: SecretCreateModalProps) => {
@@ -51,14 +52,14 @@ export const SecretCreateModal = ({
   const [takenNames, setTakenNames] = useState<string[]>([]);
 
   const schema = useMemo(
-    () => toSecretSchema(section, providerObject),
-    [section, providerObject]
+    () => toSecretSchema(section, providerObject, formMode),
+    [section, providerObject, formMode]
   );
   const sections = schema[SECRET_SECTION_KEY].sections;
 
   const { schema: formSchema, celDependencyGroups } = useMemo(
-    () => secretCreateSchema(sections, takenNames),
-    [sections, takenNames]
+    () => secretCreateSchema(sections, takenNames, formMode),
+    [sections, takenNames, formMode]
   );
 
   const defaultValues = useMemo<SecretFormData>(
@@ -113,7 +114,7 @@ export const SecretCreateModal = ({
         root={SECRET_DATA_ROOT}
         providerObject={providerObject}
         namespace={namespace}
-        formMode={FormMode.New}
+        formMode={formMode}
       />
     </FormDialog>
   );

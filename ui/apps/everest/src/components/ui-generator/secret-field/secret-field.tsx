@@ -116,6 +116,7 @@ export const SecretField = ({ item, name }: SecretFieldProps) => {
           providerObject={providerObject}
           namespace={namespace}
           generator={generator}
+          formMode={formMode}
           onClose={() => setIsCreating(false)}
           onCreated={handleCreated}
         />
