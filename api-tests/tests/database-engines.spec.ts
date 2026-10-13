@@ -43,9 +43,9 @@ test.describe.parallel('DB engines tests', () => {
       availableVersions = engineData.status.availableVersions;
 
     expect(availableVersions.engine['8.0.19-7'].imageHash).toBe('779378a9f52cd9e617d0c356053b4b9c97209b0b759aa819300427836f6f2c66');
-    expect(availableVersions.backup['2.12.0'].status).toBe('recommended');
+    expect(availableVersions.backup['2.15.0'].status).toBe('recommended');
 
-    const allowedVersions = ['6.0.27-21', '7.0.24-13', '7.0.28-15', '7.0.30-16', '8.0.12-4', '8.0.17-6', '8.0.19-7'];
+    const allowedVersions = ['6.0.27-21', '7.0.24-13', '7.0.28-15', '7.0.30-16', '8.0.12-4', '8.0.17-6', '8.0.19-7', '8.0.32-14'];
 
     delete engineData.status;
     engineData.spec.allowedVersions = allowedVersions;
