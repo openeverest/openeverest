@@ -91,7 +91,7 @@ check:                  ## Run checks/linters for the whole project.
 	LOG_LEVEL=error go tool golangci-lint run
 
 .PHONY: check-pr
-check-pr: ## Run checks/linters for against main branch.
+check-pr: ## Run checks/linters against main branch.
 # We need to ensure that /public/dist/index.html exists before linting because
 # it's embedded into the binary and a missing file breaks typechecking.
 	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
