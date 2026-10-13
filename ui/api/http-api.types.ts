@@ -947,8 +947,7 @@ export interface components {
          * @description APIError exposes the `reason` and the offending `field` in addition
          *     to the `message` for better programmatic handling of errors.
          */
-        APIError: {
-            message: string;
+        APIError: components["schemas"]["Error"] & {
             /**
              * @description Machine-readable reason for the conflict.
              * @example AlreadyExists

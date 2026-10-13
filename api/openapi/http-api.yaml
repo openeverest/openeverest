@@ -2909,24 +2909,23 @@ components:
         message:
           type: string
     APIError:
-      type: object
       description: |
         APIError exposes the `reason` and the offending `field` in addition
         to the `message` for better programmatic handling of errors.
-      properties:
-        message:
-          type: string
-        reason:
-          type: string
-          description: Machine-readable reason for the conflict.
-          example: AlreadyExists
-        field:
-          type: string
-          description: The field path that caused the conflict.
-          example: metadata.name
-      required:
-        - message
-        - reason
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - type: object
+          properties:
+            reason:
+              type: string
+              description: Machine-readable reason for the conflict.
+              example: AlreadyExists
+            field:
+              type: string
+              description: The field path that caused the conflict.
+              example: metadata.name
+          required:
+            - reason
     SecretList:
       type: object
       description: A list of OpenEverest-managed Secrets (metadata only).
