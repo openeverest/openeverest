@@ -16,6 +16,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { AxiosAdapter, AxiosError, AxiosResponse } from 'axios';
 import { ReactNode, useContext } from 'react';
 import { api } from 'api/api';
+import { initializeAuthorizerFetchLoop } from 'utils/rbac';
 import AuthContext from './auth.context';
 import AuthProvider from './auth.provider';
 
@@ -159,6 +160,7 @@ describe('AuthProvider session renewal', () => {
     await renderOnSsoInstance(tokens.expiredSso);
 
     expect(localStorage.getItem('everestToken')).toBe(tokens.renewedSso);
+    expect(initializeAuthorizerFetchLoop).toHaveBeenLastCalledWith('idp-user');
   });
 
   it('renews an expired raw IdP token on page load', async () => {

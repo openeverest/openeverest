@@ -35,7 +35,6 @@ import { EVEREST_JWT_ISSUER } from 'consts';
 import {
   AuthMode,
   AuthProviderProps,
-  EverestJwtPayload,
   ManualAuthArgs,
   UserAuthStatus,
 } from './auth.context.types';
@@ -256,22 +255,22 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
 
     const authRoutine = async (token: string) => {
       try {
-        const decoded = jwtDecode<EverestJwtPayload>(token);
+        const decoded = jwtDecode(token);
         const iss = decoded.iss;
         const exp = decoded.exp;
         if (iss === EVEREST_JWT_ISSUER) {
           const isTokenValid = await checkAuth(token);
           if (isTokenValid) {
             setLoggedInStatus(getUsernameFromSub(decoded.sub));
-          } else if (isSsoEnabled && decoded.oidc_issuer) {
+          } else if (isSsoEnabled && isSsoSessionToken(token)) {
             // Everest SSO JWTs expire independently of the IdP session (see jwtSSOExpiry).
-            renewOnLoad();
+            await renewOnLoad();
           } else {
             setLogoutStatus();
           }
         } else {
           if (isAfter(new Date(), new Date((exp || 0) * 1000))) {
-            renewOnLoad();
+            await renewOnLoad();
             return;
           }
 
