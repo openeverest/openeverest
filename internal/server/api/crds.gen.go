@@ -813,6 +813,27 @@ type Backup struct {
 				// is unique within its storage and is used for restore.
 				Path string `json:"path"`
 
+				// SourceMetadata SourceMetadata is engine specific metadata that is used to select
+				// compatible options when seeding a new Instance from this Backup.
+				SourceMetadata *struct {
+					// BackupType BackupType is the engine-native backup method recorded by the engine
+					// (e.g. "logical" or "physical" for PBM). It constrains which restore
+					// paths and target topologies are valid.
+					BackupType *string `json:"backupType,omitempty"`
+
+					// EngineVersion EngineVersion is the database engine version recorded in the backup.
+					// Its granularity is whatever the engine's metadata records, so it may be
+					// a full version (e.g. a MongoDB server version like "8.0.12-4", a PXC
+					// server version like "8.4.8-8.1") or only a major version (e.g. a
+					// PostgreSQL version like "18").
+					EngineVersion *string `json:"engineVersion,omitempty"`
+
+					// Topology Topology names the source topology using the owning provider's topology
+					// vocabulary (e.g. "replicaSet" or "sharded" for PSMDB). It may not match
+					// the target Instance's topology.
+					Topology *string `json:"topology,omitempty"`
+				} `json:"sourceMetadata,omitempty"`
+
 				// StartedAt StartedAt is the time when the backup started.
 				StartedAt time.Time `json:"startedAt"`
 			} `json:"external,omitempty"`
