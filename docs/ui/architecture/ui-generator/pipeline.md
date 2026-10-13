@@ -74,7 +74,8 @@ flowchart TD
 **Files:** `utils/default-values/`
 **Output:** a `defaultValues` object for `useForm`.
 
-- Collects initial values from `fieldParams.defaultValue` (create).
+- Collects initial values from `fieldParams.defaultValue` (create). A `secret` field never takes
+  one: a Secret is namespaced, while the schema is cluster-wide (`getSchemaDefault`).
 - **Topology switch** (create wizard, no preset) — `useDatabaseFormSync` drops the previous
   topology's values with `dropOtherTopologyValues` (`utils/topology-scope/`), then merges the new
   topology's defaults over the rest (`mergeTopologyDefaults`). Switching back therefore starts from
@@ -258,4 +259,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-12
+- Last updated: 2026-10-13

@@ -148,6 +148,7 @@ classDiagram
     definition
     createLabel?
     readOnly?
+    defaultValue? never
   }
   class HiddenFieldParams {
     <<CommonFieldParams>>
@@ -240,4 +241,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-12
+- Last updated: 2026-10-13
