@@ -15,12 +15,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   FieldType,
+  FormMode,
   GroupType,
   WIDGET_UI_TYPE,
   WidgetType,
 } from 'components/ui-generator/ui-generator.types';
 import { TOGGLEABLE_SWITCHES_KEY } from '../toggleable/toggleable';
+import { deepClone, setByPath } from '../object-path';
 import { preprocessSchema } from '../preprocess/preprocess-schema';
+import { extractInstanceValues } from '../default-values/extract-instance-values';
 import { mergeSectionEdit } from './merge-section-edit';
 
 const { sections } = preprocessSchema({
@@ -62,6 +65,10 @@ const merge = (switchOn: boolean, spec = savedSpec()) =>
     sections,
     sectionKey: 'advanced',
     topology: 'replicaSet',
+    initialValues: {
+      [TOGGLEABLE_SWITCHES_KEY]: { 'advanced~monitoring': true },
+      spec: { replicas: 3, monitoring: { url: 'http://pmm' } },
+    },
     formData: {
       [TOGGLEABLE_SWITCHES_KEY]: { 'advanced~monitoring': switchOn },
       spec: { replicas: 5, monitoring: { url: 'http://pmm-2' } },
@@ -81,6 +88,58 @@ describe('mergeSectionEdit', () => {
     const spec = savedSpec();
     merge(false, spec);
     expect(spec).toEqual(savedSpec());
+  });
+
+  describe('saved values the form reads in another form', () => {
+    const quantitySections = preprocessSchema({
+      t: {
+        sections: {
+          resources: {
+            components: {
+              cpu: {
+                uiType: FieldType.Number,
+                path: 'spec.cpu',
+                fieldParams: { label: 'CPU' },
+              },
+              replicas: {
+                uiType: FieldType.Number,
+                path: 'spec.replicas',
+                fieldParams: { label: 'Replicas' },
+              },
+            },
+          },
+        },
+      },
+    }).t.sections;
+    const saved = { cpu: '600m', replicas: 3 };
+
+    const save = (changes: Record<string, unknown>) => {
+      const initialValues = extractInstanceValues(
+        quantitySections,
+        { spec: saved },
+        FormMode.Edit
+      );
+      const formData = deepClone(initialValues);
+      Object.entries(changes).forEach(([key, value]) =>
+        setByPath(formData, `spec.${key}`, value)
+      );
+      return mergeSectionEdit({
+        spec: saved,
+        sections: quantitySections,
+        sectionKey: 'resources',
+        topology: 't',
+        initialValues,
+        formData,
+      });
+    };
+
+    it('keeps an untouched quantity as saved, not as the number it reads as', () => {
+      expect(save({ replicas: 5 })).toEqual({ cpu: '600m', replicas: 5 });
+    });
+
+    it('writes a quantity the user changed', () => {
+      expect(save({ cpu: 2 })).toEqual({ cpu: 2, replicas: 3 });
+    });
   });
 
   describe('widget values', () => {
@@ -104,6 +163,7 @@ describe('mergeSectionEdit', () => {
         spec: savedAffinity,
         sections: widgetSections,
         sectionKey: 'scheduling',
+        initialValues: { spec: { affinity: savedAffinity.affinity } },
         formData: { spec: { affinity } },
       });
 

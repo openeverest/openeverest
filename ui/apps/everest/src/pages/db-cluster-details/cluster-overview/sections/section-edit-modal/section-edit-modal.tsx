@@ -94,6 +94,7 @@ const SectionEditModal = ({
     updatedInstance.spec = mergeSectionEdit({
       spec: updatedInstance.spec as unknown as Record<string, unknown>,
       formData,
+      initialValues: defaultValues,
       sections,
       sectionKey,
       topology: instance?.spec?.topology?.type,

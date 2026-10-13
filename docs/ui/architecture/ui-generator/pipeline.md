@@ -162,7 +162,7 @@ flowchart TD
   ZOD_EDIT --> FORM["FormDialog + UIGenerator"]
   VALUES --> FORM
   FORM --> SUBMIT["submit"]
-  SUBMIT --> MERGE["mergeSectionEdit:<br/>postprocessSchemaData → deepMerge into spec<br/>→ delete switched-off toggleable paths<br/>(and parents left empty)"]
+  SUBMIT --> MERGE["mergeSectionEdit(spec, formData, initialValues = values):<br/>postprocessSchemaData → write fields that differ from initialValues<br/>→ delete switched-off toggleable paths<br/>(and parents left empty)"]
   MERGE --> UPDATE["useUpdateDbInstanceWithConflictRetry"]
 ```
 
@@ -174,9 +174,11 @@ CEL's `original` is the instance with the form's own values laid over it, so a f
 same on both sides of a comparison (`"10Gi"` → `10`, `"500m"` → `0.5`). Reading it separately
 left the form with numbers and `original` with strings, and cel-js throws on that mix.
 
-The update replaces the whole instance and `deepMerge` keeps keys missing from the form, so
-`mergeSectionEdit` deletes the paths of switched-off toggleable groups explicitly, with parents
-left empty.
+The update replaces the whole instance, so `mergeSectionEdit` starts from the saved spec and writes
+only the fields whose form value differs from the value the form opened with. An untouched field
+keeps its saved form: a CPU stored as `"600m"` reads as `0.6` but is not sent back as `0.6`. A
+field cleared by the user is not written either, so its saved value stays (#3266). The paths of
+switched-off toggleable groups are deleted explicitly, with parents left empty.
 
 ## Cross-cutting principles
 
@@ -250,4 +252,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-09
+- Last updated: 2026-10-13

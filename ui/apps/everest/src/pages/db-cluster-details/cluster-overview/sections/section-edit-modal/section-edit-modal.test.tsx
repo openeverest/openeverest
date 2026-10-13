@@ -25,7 +25,10 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import type { Instance, Provider } from 'shared-types/api.types';
 import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
-import { setByPath } from 'components/ui-generator/utils/object-path/object-path';
+import {
+  getByPath,
+  setByPath,
+} from 'components/ui-generator/utils/object-path/object-path';
 import SectionEditModal from './section-edit-modal';
 
 const { mutate } = vi.hoisted(() => ({ mutate: vi.fn() }));
@@ -240,8 +243,9 @@ describe('SectionEditModal stored quantities', () => {
       fieldParams: { label: 'CPU' },
     },
   ])(
-    'allows saving another section when $stored has an edit-mode CEL rule',
+    'saves another section and sends $stored back unchanged, with an edit-mode CEL rule on it',
     async ({ stored, path, fieldParams }) => {
+      mutate.mockClear();
       const sections: Record<string, Section> = {
         nodes: {
           label: 'Nodes',
@@ -292,6 +296,12 @@ describe('SectionEditModal stored quantities', () => {
       await waitFor(() =>
         expect(screen.getByTestId('form-dialog-save')).toBeEnabled()
       );
+      fireEvent.click(screen.getByTestId('form-dialog-save'));
+
+      await waitFor(() => expect(mutate).toHaveBeenCalled());
+      const sent = mutate.mock.calls[0][0];
+      expect(getByPath(sent, path)).toBe(stored);
+      expect(sent.spec.components.engine.replicas).toBe(5);
     }
   );
 });
