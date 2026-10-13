@@ -101,19 +101,19 @@ export const stripBadgeFromValue = (
 };
 
 // A number field may read back a Kubernetes quantity string for a value it sent
-// as a number (0.5 → "500m"); return the number, in the API unit when given.
+// as a number (0.5 → "500m"); return the number, in the badge unit when given.
 export const readNumberFieldValue = (
   value: unknown,
-  apiUnit?: string
+  badge?: string
 ): unknown => {
   if (typeof value !== 'string') {
     return value;
   }
-  if (!apiUnit) {
+  if (!badge) {
     return parseQuantity(value) ?? value;
   }
-  // In the API unit only: a suffix left after stripping is a unit we can't convert.
-  const stripped = stripBadgeFromValue(value, apiUnit);
+  // Letters left after stripping the badge are a unit we can't convert to it; keep the raw value.
+  const stripped = stripBadgeFromValue(value, badge);
   const amount =
     typeof stripped === 'string' && !/[A-Za-z]/.test(stripped)
       ? parseQuantity(stripped)

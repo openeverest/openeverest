@@ -53,22 +53,17 @@ const SectionEditModal = ({
   }, [sections, instance, clusterInfo]);
 
   const section = editSections[sectionKey];
+  const instanceData = instance as unknown as Record<string, unknown>;
 
   const defaultValues = useMemo(
-    () =>
-      extractInstanceValues(
-        editSections,
-        instance as unknown as Record<string, unknown>,
-        FormMode.Edit
-      ),
-    [editSections, instance]
+    () => extractInstanceValues(editSections, instanceData, FormMode.Edit),
+    [editSections, instanceData]
   );
 
   // CEL compares form values with `original`, so both must be read the same way ("10Gi" → 10).
   const originalDataForCel = useMemo(
-    () =>
-      deepMerge(instance as unknown as Record<string, unknown>, defaultValues),
-    [instance, defaultValues]
+    () => deepMerge(instanceData, defaultValues),
+    [instanceData, defaultValues]
   );
 
   const { schema: zodSchema, celDependencyGroups } = useMemo(

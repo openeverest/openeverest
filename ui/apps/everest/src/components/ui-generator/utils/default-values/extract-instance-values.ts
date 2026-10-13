@@ -89,13 +89,13 @@ const extractFlat = (
     if (sourcePath) {
       const instanceValue = getByPath(instance, sourcePath);
       if (instanceValue !== undefined) {
-        const apiUnit = component.fieldParams?.badgeToApi
+        const badge = component.fieldParams?.badgeToApi
           ? component.fieldParams.badge
           : undefined;
         result[fieldId] =
           component.uiType === FieldType.Number
-            ? readNumberFieldValue(instanceValue, apiUnit)
-            : stripBadgeFromValue(instanceValue, apiUnit);
+            ? readNumberFieldValue(instanceValue, badge)
+            : stripBadgeFromValue(instanceValue, badge);
         continue;
       }
     }
