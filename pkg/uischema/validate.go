@@ -113,7 +113,7 @@ type celField struct {
 // those paths exclusively and must not sit inside another toggleable. CEL rules
 // outside the group then see those paths as absent and must guard them.
 func validateToggleables(topology string, sections map[string]any) []Issue {
-	pathUsage := map[string]int{}
+	pathUsage := make(map[string]int)
 	for _, key := range sortedKeys(sections) {
 		section, _ := asMap(sections[key])
 		components, _ := asMap(section["components"])
@@ -199,7 +199,8 @@ func unguardedCelIssues(topology string, active []toggleable, celFields []celFie
 					Group:    group.key,
 					Field:    field.key,
 					Message: fmt.Sprintf("a CEL rule reads %q of toggleable group %q without has(%s); it fails while the group is switched off",
-						path, group.key, path),
+						path, group.key, path,
+					),
 				})
 			}
 		}
@@ -217,7 +218,7 @@ var (
 // or below it) without a has() on that exact path, or "".
 func firstUnguardedRef(exprs, groupPaths []string) string {
 	for _, expr := range exprs {
-		guarded := map[string]bool{}
+		guarded := make(map[string]bool)
 		for _, m := range celHasCall.FindAllStringSubmatch(expr, -1) {
 			guarded[m[1]] = true
 		}
@@ -261,7 +262,7 @@ func celExprList(validation map[string]any) []string {
 // firstSharedPath returns a path of the group that is also written by a field
 // outside it, or "".
 func firstSharedPath(groupPaths []string, topologyUsage map[string]int) string {
-	own := map[string]int{}
+	own := make(map[string]int)
 	for _, p := range groupPaths {
 		own[p]++
 	}
@@ -303,7 +304,7 @@ func targetPaths(path any) []string {
 			return []string{p}
 		}
 	case []any:
-		seen := map[string]bool{}
+		seen := make(map[string]bool)
 		var out []string
 		for _, v := range p {
 			if s, ok := v.(string); ok && s != "" && !seen[s] {

@@ -14,6 +14,8 @@ Rules are evaluated per topology `T`.
   - `path` is a non-empty string `s` → `{s}`
   - `path` is a list → the set of its non-empty string entries (duplicates collapse)
   - otherwise → `∅`
+
+  Not covered: a marker widget (`uiType: widget` without `path`, e.g. `podSchedulingPolicy`) writes paths the UI resolves from the Provider at runtime, so `Validate` sees `∅` for it. A toggleable holding only such widgets is reported as `toggleable-no-fields`, and overlaps through widget paths are not detected.
 - **Fields(C)**, all fields under a components map `C`, found by walking every container recursively.
 - **P(g)**, the paths of group `g`: the multiset `⋃ paths(f)` over `f ∈ Fields(g.components)`.
 - **usage_T(p)**: the number of fields `f` in all sections of `T` with `p ∈ paths(f)`.
