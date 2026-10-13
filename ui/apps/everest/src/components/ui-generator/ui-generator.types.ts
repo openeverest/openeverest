@@ -128,6 +128,8 @@ export interface SecretFieldParams extends CommonFieldParams {
   definition: string;
   readOnly?: boolean;
   createLabel?: string;
+  // A Secret is namespaced, so a cluster-wide schema can't name a default one.
+  defaultValue?: never;
 }
 
 export interface TextFieldParams extends CommonFieldParams {
