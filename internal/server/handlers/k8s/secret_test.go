@@ -262,3 +262,86 @@ func TestListSecrets(t *testing.T) {
 	assert.Nil(t, result.Items[1].Data)
 	assert.Nil(t, result.Items[1].StringData)
 }
+
+func TestDeleteSecret(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	namespace := "test-namespace"
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+
+	tests := []struct {
+		name   string
+		secret *corev1.Secret
+		err    error
+	}{
+		{
+			name: "OpenEverest secret is deleted",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "openeverest-secret",
+					Namespace: namespace,
+					Labels: map[string]string{
+						common.OpenEverestManagedLabel: "true",
+					},
+				},
+				Type: corev1.SecretTypeOpaque,
+			},
+		},
+		{
+			name: "other secret is rejected",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "unmanaged-secret",
+					Namespace: namespace,
+				},
+				Type: corev1.SecretTypeOpaque,
+			},
+			err: ErrNotFound,
+		},
+		{
+			name: "secret blocked by finalizer is pending",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "pending-secret",
+					Namespace: namespace,
+					Labels: map[string]string{
+						common.OpenEverestManagedLabel: "true",
+					},
+					Finalizers: []string{"openeverest.io/test-finalizer"},
+				},
+				Type: corev1.SecretTypeOpaque,
+			},
+			err: ErrDeletionPending,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			fakeClient := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(tt.secret).
+				Build()
+
+			handler := &k8sHandler{
+				kubeConnector: kubernetes.
+					NewEmpty(zap.NewNop().Sugar(), namespace).
+					WithKubernetesClient(fakeClient),
+				log: zap.NewNop().Sugar(),
+			}
+
+			err := handler.DeleteSecret(ctx, "", namespace, tt.secret.Name)
+			if tt.err != nil {
+				require.ErrorIs(t, err, tt.err)
+
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}

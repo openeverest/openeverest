@@ -18,7 +18,7 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/pkg/common"
@@ -73,11 +73,12 @@ func (h *k8sHandler) GetConfigMap(ctx context.Context, _ string, namespace, name
 // DeleteConfigMap deletes the ConfigMap specified by name in the namespace.
 // It only allows deletion of OpenEverest-managed ConfigMaps.
 // If the ConfigMap is not managed by OpenEverest, it returns ErrNotFound.
+// It returns ErrDeletionPending when the ConfigMap still exists after the delete
+// call because a finalizer is blocking its removal.
 func (h *k8sHandler) DeleteConfigMap(ctx context.Context, _ string, namespace, name string) error {
-	configMap, err := h.kubeConnector.GetConfigMap(ctx, ctrlclient.ObjectKey{
-		Name:      name,
-		Namespace: namespace,
-	})
+	key := ctrlclient.ObjectKey{Name: name, Namespace: namespace}
+
+	configMap, err := h.kubeConnector.GetConfigMap(ctx, key)
 	if err != nil {
 		return err
 	}
@@ -86,10 +87,23 @@ func (h *k8sHandler) DeleteConfigMap(ctx context.Context, _ string, namespace, n
 		return ErrNotFound
 	}
 
-	return h.kubeConnector.DeleteConfigMap(ctx, &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-	})
+	if err := h.kubeConnector.DeleteConfigMap(ctx, configMap); err != nil {
+		// The object was already gone, so the delete is effectively complete.
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	// Re-read the object to learn if the deletion is pending.
+	if _, err := h.kubeConnector.GetConfigMap(ctx, key); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+
+		return err
+	}
+
+	return ErrDeletionPending
 }

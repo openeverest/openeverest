@@ -7833,6 +7833,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description ConfigMap deletion accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description ConfigMap deleted successfully */
             204: {
                 headers: {
@@ -8017,6 +8024,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description Secret deletion accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Secret deleted successfully */
             204: {
                 headers: {

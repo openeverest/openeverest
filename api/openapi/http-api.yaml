@@ -2339,6 +2339,8 @@ paths:
       responses:
         '204':
           description: ConfigMap deleted successfully
+        '202':
+          description: ConfigMap deletion accepted
         '404':
           description: ConfigMap not found
           content:
@@ -2530,6 +2532,8 @@ paths:
       responses:
         '204':
           description: Secret deleted successfully
+        '202':
+          description: Secret deletion accepted
         '404':
           description: Secret not found
           content:
