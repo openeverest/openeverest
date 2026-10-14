@@ -661,7 +661,7 @@ export interface components {
                  * @description State is the current state of the backup import.
                  * @enum {string}
                  */
-                state?: "Succeeded" | "Failed" | "Error";
+                state?: "Pending" | "Succeeded" | "Failed" | "Error";
             };
         };
         /** @description BackupImportList is an object that contains the list of the existing backupimports. */
@@ -2287,6 +2287,13 @@ export interface components {
                 };
                 /** @description Message is a custom user-facing message describing the current state of the instance. */
                 message?: string;
+                /**
+                 * Format: int64
+                 * @description ObservedGeneration is the metadata.generation the provider-runtime last
+                 *     reconciled. Status describes an older spec while it is lower than
+                 *     metadata.generation.
+                 */
+                observedGeneration?: number;
                 /**
                  * @description PendingMaintenance lists the disruptive actions currently held awaiting
                  *     approval. It is recomputed on every reconcile from the actions the

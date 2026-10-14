@@ -18,8 +18,10 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -38,6 +40,10 @@ func (r *BackupImportReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("BackupImport").
 		For(&backupv1alpha1.BackupImport{}).
+		Watches(&backupv1alpha1.BackupClass{},
+			operationsFor[backupv1alpha1.BackupImportList](mgr.GetClient(), false, importNamesClass),
+			builder.WithPredicates(referentAppearedOrGone()),
+		).
 		Complete(r)
 }
 
@@ -79,6 +85,14 @@ func (r *BackupImportReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		Name: imp.Spec.ClassRef.Name,
 	}, bc,
 	); err != nil {
+		// Nobody else knows which controller owns the import until its class
+		// exists, so it waits here.
+		if apierrors.IsNotFound(err) {
+			imp.Status.State = backupv1alpha1.BackupImportStatePending
+			imp.Status.Message = fmt.Sprintf("backup class %s not found", imp.Spec.ClassRef.Name)
+			imp.Status.LastObservedGeneration = imp.GetGeneration()
+			return ctrl.Result{}, r.Client.Status().Update(ctx, imp)
+		}
 		return ctrl.Result{}, fmt.Errorf("failed to get backup class: %w", err)
 	}
 
