@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { AxiosError } from 'axios';
 import { jwtDecode } from 'jwt-decode';
-import { api } from 'api/api';
+import { exchangeSsoToken } from 'api/session';
+import { EVEREST_JWT_ISSUER } from 'consts';
+import { EverestJwtPayload } from './auth.context.types';
 
 // Axios/network errors carry the request config (including Authorization headers
 // with bearer tokens), so dumping the whole object would leak credentials into the
@@ -37,28 +38,25 @@ export const logAuthError = (context: string, error: unknown) => {
 
 export const SSO_LOGIN_ERROR_KEY = 'ssoLoginError';
 
-const SSO_EXCHANGE_MAX_RETRIES = 3;
 const SSO_RENEW_LOCK_NAME = 'everest-sso-renew';
 const MIN_REUSABLE_TOKEN_VALIDITY_MS = 60_000;
 
-// Exchanges an OIDC access token (JWT or opaque) for an Everest-signed JWT. The exchange shares
-// a per-IP rate limit, so a throttled (429) attempt is retried with jittered backoff.
-export const exchangeSsoToken = async (
-  accessToken: string
-): Promise<string> => {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      const response = await api.post('/session/sso', { token: accessToken });
-      return response.data.token;
-    } catch (error) {
-      const throttled =
-        error instanceof AxiosError && error.response?.status === 429;
-      if (!throttled || attempt >= SSO_EXCHANGE_MAX_RETRIES) {
-        throw error;
-      }
-      const delayMs = 500 * 2 ** attempt + Math.random() * 500;
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
+export const exchangeAndStoreSsoToken = async (idpAccessToken: string) => {
+  const everestToken = await exchangeSsoToken(idpAccessToken);
+  localStorage.setItem('everestToken', everestToken);
+  return everestToken;
+};
+
+// Built-in subs are "<user>:<capability>"; split like the server's rbac.GetUser.
+export const getUsernameFromSub = (sub = '') => sub.split(':')[0];
+
+// Exchanged SSO tokens carry oidc_issuer; legacy SSO sessions still hold the raw IdP token.
+export const isSsoSessionToken = (token: string) => {
+  try {
+    const payload = jwtDecode<EverestJwtPayload>(token);
+    return !!payload.oidc_issuer || payload.iss !== EVEREST_JWT_ISSUER;
+  } catch {
+    return false;
   }
 };
 
