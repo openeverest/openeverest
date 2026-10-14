@@ -75,6 +75,11 @@ func TestReconcileExternalBackupStatus(t *testing.T) {
 				Path:        "backups/a",
 				StartedAt:   now,
 				CompletedAt: metav1.NewTime(time.Now().Add(time.Minute)),
+				SourceMetadata: &backupv1alpha1.BackupSourceMetadata{
+					EngineVersion: "8.0.12-4",
+					BackupType:    "logical",
+					Topology:      "replicaSet",
+				},
 			},
 			expectedState: backupv1alpha1.BackupStateSucceeded,
 		},
@@ -125,6 +130,7 @@ func TestReconcileExternalBackupStatus(t *testing.T) {
 				require.NotNil(t, backup.Status.CompletedAt)
 				assert.Equal(t, tc.external.StartedAt, *backup.Status.StartedAt)
 				assert.Equal(t, tc.external.CompletedAt, *backup.Status.CompletedAt)
+				assert.Equal(t, tc.external.SourceMetadata, backup.Status.SourceMetadata)
 			}
 		})
 	}
