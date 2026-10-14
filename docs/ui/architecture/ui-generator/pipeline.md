@@ -146,6 +146,11 @@ triggers no request.
   - **`getInactiveToggleablePaths`** — returns the `childPaths` of switched-off toggleable groups;
     they are deleted together with the form-only `toggleable-switches` key.
   - **`removeEmptyFieldValues`** — strip `undefined` / `null` / `""`.
+- **`groupFieldPathsByChange`** (`field-changes.ts`) — splits field paths into changed and
+  untouched against the values the form opened with. Reading can change a value's form
+  (`"500m"` → `0.5`), so an untouched field is sent in its stored form: restore uses
+  `keepUntouchedSourceValues` with the source instance, the section edit modal writes only the
+  changed paths (`mergeSectionEdit`).
 
 **Principle:** the mapping source is the same `_normalized` computed in preprocess.
 
@@ -238,6 +243,7 @@ components:
 | Toggleable groups          | `utils/toggleable/toggleable.ts`                           |
 | Toggleable validation      | `utils/schema-builder/apply-toggleable-validation.ts`      |
 | Section edit merge         | `utils/postprocess/merge-section-edit.ts`                  |
+| Changed / untouched fields | `utils/postprocess/field-changes.ts`                       |
 | Topology scope             | `utils/topology-scope/topology-scope.ts`                   |
 | Object path                | `utils/object-path/object-path.ts`                         |
 | API provider registry      | `api-providers/registry.ts`                                |

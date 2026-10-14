@@ -14,20 +14,17 @@
 
 import { type Section, isWidgetComponent } from '../../ui-generator.types';
 import { postprocessSchemaData } from './postprocess-schema';
+import { FieldChangeInput, groupFieldPathsByChange } from './field-changes';
 import {
   deepClone,
   deleteByPathAndEmptyParents,
   getByPath,
-  isEmptyFieldValue,
   isPlainObject,
   setByPath,
 } from '../object-path';
 import { getInactiveToggleablePaths } from '../toggleable/toggleable';
 import { walkLeafComponents } from '../schema-walker';
-import {
-  getComponentSourcePath,
-  getComponentTargetPaths,
-} from '../preprocess/normalized-component';
+import { getComponentSourcePath } from '../preprocess/normalized-component';
 import { getWidgetTargetPaths } from '../widget-targets';
 
 const collectWidgetPaths = (section: Section | undefined): string[] => {
@@ -43,53 +40,16 @@ const collectWidgetPaths = (section: Section | undefined): string[] => {
   return paths;
 };
 
-export interface MergeSectionEditParams {
+export interface MergeSectionEditParams extends FieldChangeInput {
   spec: Record<string, unknown>;
-  formData: Record<string, unknown>;
-  // The form's values when it was opened (read from the saved spec).
-  initialValues: Record<string, unknown>;
-  // Preprocessed sections of the instance's topology.
-  sections: Record<string, Section>;
   sectionKey: string;
   topology?: string;
 }
 
-const isSameFieldValue = (a: unknown, b: unknown): boolean =>
-  (isEmptyFieldValue(a) && isEmptyFieldValue(b)) ||
-  JSON.stringify(a) === JSON.stringify(b);
-
-// Reading a value can change its form ("600m" → 0.6), so an untouched field must
-// keep the saved value instead of being written back.
-const applyChangedFields = (
-  root: Record<string, unknown>,
-  processed: Record<string, unknown>,
-  { formData, initialValues, sections }: MergeSectionEditParams
-) => {
-  Object.values(sections).forEach((section) => {
-    if (!section?.components) return;
-    walkLeafComponents(section.components, ({ component }) => {
-      const sourcePath = getComponentSourcePath(component);
-      if (
-        isWidgetComponent(component) ||
-        !sourcePath ||
-        isSameFieldValue(
-          getByPath(formData, sourcePath),
-          getByPath(initialValues, sourcePath)
-        )
-      ) {
-        return;
-      }
-      getComponentTargetPaths(component).forEach((path) => {
-        const value = getByPath(processed, path);
-        if (value !== undefined) setByPath(root, path, value);
-      });
-    });
-  });
-};
-
-// Applies the fields the user changed to a saved spec for a full update. The
-// rest of the spec is kept as saved, so a switched-off group's paths are deleted
-// explicitly (with parents left empty), and widget values are replaced whole.
+// Applies the fields the user changed to a saved spec for a full update. An
+// untouched field keeps its saved form ("600m", not the 0.6 it reads as), a
+// switched-off group's paths are deleted explicitly (with parents left empty),
+// and widget values are replaced whole.
 export const mergeSectionEdit = (
   params: MergeSectionEditParams
 ): Record<string, unknown> => {
@@ -101,7 +61,10 @@ export const mergeSectionEdit = (
       : undefined
   );
   const root: Record<string, unknown> = { spec: deepClone(spec) };
-  applyChangedFields(root, processed, params);
+  groupFieldPathsByChange(params).changed.forEach((path) => {
+    const value = getByPath(processed, path);
+    if (value !== undefined) setByPath(root, path, value);
+  });
 
   getInactiveToggleablePaths(
     { [sectionKey]: sections[sectionKey] },
