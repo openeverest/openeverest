@@ -19,7 +19,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
+	"slices"
+	"sort"
 
 	"github.com/AlekSi/pointer"
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +35,8 @@ import (
 )
 
 const (
-	annotationStorageClassDefault = "storageclass.kubernetes.io/is-default-class"
+	annotationStorageClassDefault      = "storageclass.kubernetes.io/is-default-class"
+	annotationStorageClassDefaultValue = "true"
 )
 
 func (h *k8sHandler) GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error) {
@@ -115,17 +117,34 @@ func (h *k8sHandler) GetSettings(ctx context.Context) (*api.Settings, error) {
 	}, nil
 }
 
+// storageClasses extracts the names of StorageClasses, placing default StorageClasses
+// at the beginning of the list (ordered by CreationTimestamp descending, with the most
+// recently created default at index 0 to match Kubernetes PVC default resolution behavior),
+// followed by non-default StorageClasses preserving their original order.
 func storageClasses(storagesList *storagev1.StorageClassList) []string {
-	classNames := make([]string, len(storagesList.Items))
-	swap := reflect.Swapper(classNames)
-	for i, storageClass := range storagesList.Items {
-		classNames[i] = storageClass.Name
-		if _, ok := storageClass.Annotations[annotationStorageClassDefault]; ok {
-			if i != 0 {
-				swap(i, 0)
-			}
-		}
+	if storagesList == nil || len(storagesList.Items) == 0 {
+		return []string{}
 	}
+
+	// Clone to avoid reordering the caller's list.
+	classes := slices.Clone(storagesList.Items)
+	isDefault := func(sc storagev1.StorageClass) bool {
+		return sc.Annotations[annotationStorageClassDefault] == annotationStorageClassDefaultValue
+	}
+
+	sort.SliceStable(classes, func(i, j int) bool {
+		defaultI, defaultJ := isDefault(classes[i]), isDefault(classes[j])
+		if defaultI != defaultJ {
+			return defaultI
+		}
+		return defaultI && classes[i].CreationTimestamp.After(classes[j].CreationTimestamp.Time)
+	})
+
+	classNames := make([]string, len(classes))
+	for i, sc := range classes {
+		classNames[i] = sc.Name
+	}
+
 	return classNames
 }
 

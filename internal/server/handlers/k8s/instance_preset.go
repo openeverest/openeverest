@@ -35,14 +35,14 @@ const (
 )
 
 // ListClusterInstancePresets returns list of instance presets, optionally filtered by provider.
-func (h *k8sHandler) ListClusterInstancePresets(ctx context.Context, cluster string, provider string) (*corev1alpha1.ClusterInstancePresetList, error) {
+func (h *k8sHandler) ListClusterInstancePresets(ctx context.Context, _ string, provider string) (*corev1alpha1.ClusterInstancePresetList, error) {
 	list, err := h.kubeConnector.ListClusterInstancePresets(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list instance presets: %w", err)
 	}
 
 	if provider != "" {
-		filtered := make([]corev1alpha1.ClusterInstancePreset, 0)
+		filtered := []corev1alpha1.ClusterInstancePreset{}
 		for _, preset := range list.Items {
 			if preset.Spec.ProviderRef.Name == provider {
 				filtered = append(filtered, preset)
@@ -55,12 +55,12 @@ func (h *k8sHandler) ListClusterInstancePresets(ctx context.Context, cluster str
 }
 
 // GetClusterInstancePreset returns an instance preset that matches the criteria.
-func (h *k8sHandler) GetClusterInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.ClusterInstancePreset, error) {
+func (h *k8sHandler) GetClusterInstancePreset(ctx context.Context, _, name string) (*corev1alpha1.ClusterInstancePreset, error) {
 	return h.kubeConnector.GetClusterInstancePreset(ctx, types.NamespacedName{Name: name})
 }
 
 // ResolveClusterInstancePreset returns an instance preset with namespace-specific default values populated.
-func (h *k8sHandler) ResolveClusterInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.ClusterInstancePreset, error) {
+func (h *k8sHandler) ResolveClusterInstancePreset(ctx context.Context, _, name, namespace string) (*corev1alpha1.ClusterInstancePreset, error) {
 	preset, err := h.kubeConnector.GetClusterInstancePreset(ctx, types.NamespacedName{Name: name})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get instance preset: %w", err)
@@ -72,7 +72,60 @@ func (h *k8sHandler) ResolveClusterInstancePreset(ctx context.Context, cluster, 
 	return h.resolveNamespaceDefaults(ctx, resolved, namespace)
 }
 
-// resolveNamespaceDefaults scans components and resolves
+// ListInstancePresets returns namespace-scoped instance presets, optionally filtered by provider.
+func (h *k8sHandler) ListInstancePresets(ctx context.Context, _, namespace, provider string) (*corev1alpha1.InstancePresetList, error) {
+	list, err := h.kubeConnector.ListInstancePresets(ctx, ctrlclient.InNamespace(namespace))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list instance presets: %w", err)
+	}
+
+	if provider != "" {
+		filtered := []corev1alpha1.InstancePreset{}
+		for _, preset := range list.Items {
+			if preset.Spec.ProviderRef.Name == provider {
+				filtered = append(filtered, preset)
+			}
+		}
+		list.Items = filtered
+	}
+
+	return list, nil
+}
+
+// GetInstancePreset returns a namespace-scoped instance preset by name and namespace.
+func (h *k8sHandler) GetInstancePreset(ctx context.Context, _, namespace, name string) (*corev1alpha1.InstancePreset, error) {
+	return h.kubeConnector.GetInstancePreset(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+}
+
+// CreateInstancePreset creates a namespace-scoped instance preset.
+func (h *k8sHandler) CreateInstancePreset(ctx context.Context, _ string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
+	return h.kubeConnector.CreateInstancePreset(ctx, preset)
+}
+
+// UpdateInstancePreset updates a namespace-scoped instance preset.
+func (h *k8sHandler) UpdateInstancePreset(ctx context.Context, _ string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
+	return h.kubeConnector.UpdateInstancePreset(ctx, preset)
+}
+
+// DeleteInstancePreset deletes a namespace-scoped instance preset.
+func (h *k8sHandler) DeleteInstancePreset(ctx context.Context, _, namespace, name string) error {
+	preset, err := h.kubeConnector.GetInstancePreset(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+	if ctrlclient.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("failed to get instance preset: %w", err)
+	}
+
+	if preset == nil {
+		// nothing to delete
+		return nil
+	}
+
+	if err := h.kubeConnector.DeleteInstancePreset(ctx, preset); ctrlclient.IgnoreNotFound(err) != nil {
+		return fmt.Errorf("failed to delete instance preset: %w", err)
+	}
+
+	return nil
+}
+
 // empty namespace reference fields and empty StorageClass and populates them.
 // The fields that could have namespace references are in parameters.
 // It skips other fields like resources, image, etc. since they are not

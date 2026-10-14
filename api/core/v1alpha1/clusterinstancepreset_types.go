@@ -62,13 +62,15 @@ type ClusterInstancePreset struct {
 
 // +kubebuilder:object:root=true
 
-// ClusterInstancePresetList contains a list of ClusterInstancePreset
+// ClusterInstancePresetList contains a list of ClusterInstancePreset.
 type ClusterInstancePresetList struct {
 	metav1.TypeMeta `json:",inline"`
+
 	metav1.ListMeta `json:"metadata,omitzero"`
-	Items           []ClusterInstancePreset `json:"items"`
+
+	Items []ClusterInstancePreset `json:"items"`
 }
 
-func init() {
+func init() { //nolint:gochecknoinits // required by kubebuilder
 	SchemeBuilder.Register(&ClusterInstancePreset{}, &ClusterInstancePresetList{})
 }

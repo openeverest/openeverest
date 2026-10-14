@@ -502,6 +502,277 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/instance-presets':
+    x-everest-resource-name: instance-presets
+    get:
+      tags:
+        - Preset
+      summary: List instance presets
+      description: |
+        This API lists all instance presets in the specified namespace and cluster.
+        Optionally filter by provider.
+      operationId: listInstancePresets
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where instance presets are located
+          schema:
+            type: string
+        - name: provider
+          in: query
+          required: false
+          description: Filter presets by provider name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of instance presets
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/InstancePresetList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Preset
+      summary: Create instance preset
+      description: |
+        This API creates a new instance preset in the specified namespace and cluster.
+      operationId: createInstancePreset
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the instance preset will be created
+          schema:
+            type: string
+      requestBody:
+        description: The instance preset object to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+      responses:
+        '201':
+          description: Instance preset created successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/instance-presets/{name}':
+    x-everest-resource-name: instance-presets
+    get:
+      tags:
+        - Preset
+      summary: Get instance preset
+      description: |
+        This API gets the instance preset specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: getInstancePreset
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the instance preset is located
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the instance preset
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Instance preset details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Instance preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Preset
+      summary: Update instance preset
+      description: |
+        This API updates the instance preset specified by the `name` in the specified `namespace` and `cluster`,
+        replacing the entire resource with the new one.
+      operationId: updateInstancePreset
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the instance preset is located
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the instance preset
+          schema:
+            type: string
+      requestBody:
+        description: The instance preset object to be updated
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+      responses:
+        '200':
+          description: Instance preset updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Instance preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Preset
+      summary: Delete instance preset
+      description: |
+        This API deletes the instance preset specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: deleteInstancePreset
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the instance preset is located
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the instance preset
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Instance preset deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Instance preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/providers':
     x-everest-resource-name: providers
     get:
