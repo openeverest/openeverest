@@ -13,7 +13,12 @@
 // limitations under the License.
 
 import { type Section, isWidgetComponent } from '../../ui-generator.types';
-import { getByPath, isEmptyFieldValue, setByPath } from '../object-path';
+import {
+  deepClone,
+  getByPath,
+  isEmptyFieldValue,
+  setByPath,
+} from '../object-path';
 import { walkLeafComponents } from '../schema-walker';
 import {
   getComponentSourcePath,
@@ -63,11 +68,13 @@ export const keepUntouchedSourceValues = (
   payload: Record<string, unknown>,
   source: Record<string, unknown>,
   input: FieldChangeInput
-): void => {
+): Record<string, unknown> => {
+  const result = deepClone(payload);
   groupFieldPathsByChange(input).untouched.forEach((path) => {
     const sourceValue = getByPath(source, path);
-    if (sourceValue !== undefined && getByPath(payload, path) !== undefined) {
-      setByPath(payload, path, sourceValue);
+    if (sourceValue !== undefined && getByPath(result, path) !== undefined) {
+      setByPath(result, path, sourceValue);
     }
   });
+  return result;
 };

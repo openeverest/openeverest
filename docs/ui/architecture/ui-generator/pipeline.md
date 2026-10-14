@@ -150,7 +150,9 @@ triggers no request.
   untouched against the values the form opened with. Reading can change a value's form
   (`"500m"` → `0.5`), so an untouched field is sent in its stored form: restore uses
   `keepUntouchedSourceValues` with the source instance, the section edit modal writes only the
-  changed paths (`mergeSectionEdit`).
+  changed paths (`mergeSectionEdit`). The two differ on purpose: restore builds a new instance
+  from the form, so starting from the source would carry over fields the form doesn't show; the
+  edit modal sends a full update of the saved instance, so it has to keep them.
 
 **Principle:** the mapping source is the same `_normalized` computed in preprocess.
 
@@ -258,4 +260,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-13
+- Last updated: 2026-10-14

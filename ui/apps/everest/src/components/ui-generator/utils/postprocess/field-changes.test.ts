@@ -60,12 +60,11 @@ const restorePayload = (changes: Record<string, unknown> = {}) => {
     schema,
     selectedTopology: 't',
   });
-  keepUntouchedSourceValues(payload, source, {
+  return keepUntouchedSourceValues(payload, source, {
     sections,
     formData,
     initialValues,
   });
-  return payload;
 };
 
 describe('keepUntouchedSourceValues', () => {
@@ -88,11 +87,12 @@ describe('keepUntouchedSourceValues', () => {
       source,
       FormMode.Restore
     );
-    keepUntouchedSourceValues(payload, source, {
-      sections,
-      formData: initialValues,
-      initialValues,
-    });
-    expect(payload).toEqual({ spec: { replicas: 3 } });
+    expect(
+      keepUntouchedSourceValues(payload, source, {
+        sections,
+        formData: initialValues,
+        initialValues,
+      })
+    ).toEqual({ spec: { replicas: 3 } });
   });
 });

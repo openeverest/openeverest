@@ -14,7 +14,10 @@
 
 import { type Section, isWidgetComponent } from '../../ui-generator.types';
 import { postprocessSchemaData } from './postprocess-schema';
-import { FieldChangeInput, groupFieldPathsByChange } from './field-changes';
+import {
+  type FieldChangeInput,
+  groupFieldPathsByChange,
+} from './field-changes';
 import {
   deepClone,
   deleteByPathAndEmptyParents,

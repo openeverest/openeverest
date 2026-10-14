@@ -465,14 +465,15 @@ export const DatabasePage = () => {
       return;
     }
 
-    const postProcessedData = engine.postprocess(data);
-    if (mode === FormMode.Restore && defaultValues) {
-      keepUntouchedSourceValues(postProcessedData, dbClusterData, {
-        sections: engine.sections,
-        formData: data,
-        initialValues: defaultValues,
-      });
-    }
+    const processedData = engine.postprocess(data);
+    const postProcessedData =
+      mode === FormMode.Restore
+        ? keepUntouchedSourceValues(processedData, dbClusterData, {
+            sections: engine.sections,
+            formData: data,
+            initialValues: defaultValues,
+          })
+        : processedData;
 
     // Transform flat backup schedules into nested storages structure
     const formData = postProcessedData;
