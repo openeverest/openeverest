@@ -65,13 +65,15 @@ type InstancePreset struct {
 
 // +kubebuilder:object:root=true
 
-// InstancePresetList contains a list of InstancePreset
+// InstancePresetList contains a list of InstancePreset.
 type InstancePresetList struct {
 	metav1.TypeMeta `json:",inline"`
+
 	metav1.ListMeta `json:"metadata,omitzero"`
-	Items           []InstancePreset `json:"items"`
+
+	Items []InstancePreset `json:"items"`
 }
 
-func init() {
+func init() { //nolint:gochecknoinits // required by kubebuilder
 	SchemeBuilder.Register(&InstancePreset{}, &InstancePresetList{})
 }

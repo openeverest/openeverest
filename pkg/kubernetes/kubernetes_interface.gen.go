@@ -388,6 +388,16 @@ type KubernetesConnector interface {
 	ListClusterInstancePresets(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.ClusterInstancePresetList, error)
 	// GetClusterInstancePreset returns a cluster instance preset that matches the criteria.
 	GetClusterInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.ClusterInstancePreset, error)
+	// ListInstancePresets returns list of namespace-scoped instance presets that match the criteria.
+	ListInstancePresets(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.InstancePresetList, error)
+	// GetInstancePreset returns a namespace-scoped instance preset that matches the criteria.
+	GetInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.InstancePreset, error)
+	// CreateInstancePreset creates a namespace-scoped instance preset.
+	CreateInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) (*v1alpha1.InstancePreset, error)
+	// UpdateInstancePreset updates a namespace-scoped instance preset.
+	UpdateInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) (*v1alpha1.InstancePreset, error)
+	// DeleteInstancePreset deletes a namespace-scoped instance preset.
+	DeleteInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) error
 	// WatchBackups returns a watch.Interface that streams
 	// Backup events across all namespaces.
 	WatchBackups(ctx context.Context) (watch.Interface, error)

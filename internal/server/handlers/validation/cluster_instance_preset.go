@@ -35,3 +35,28 @@ func (h *validateHandler) GetClusterInstancePreset(ctx context.Context, cluster,
 func (h *validateHandler) ResolveClusterInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.ClusterInstancePreset, error) {
 	return h.next.ResolveClusterInstancePreset(ctx, cluster, name, namespace)
 }
+
+// ListInstancePresets proxies the request to the next handler.
+func (h *validateHandler) ListInstancePresets(ctx context.Context, cluster, namespace, provider string) (*corev1alpha1.InstancePresetList, error) {
+	return h.next.ListInstancePresets(ctx, cluster, namespace, provider)
+}
+
+// GetInstancePreset proxies the request to the next handler.
+func (h *validateHandler) GetInstancePreset(ctx context.Context, cluster, namespace, name string) (*corev1alpha1.InstancePreset, error) {
+	return h.next.GetInstancePreset(ctx, cluster, namespace, name)
+}
+
+// CreateInstancePreset proxies the request to the next handler.
+func (h *validateHandler) CreateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
+	return h.next.CreateInstancePreset(ctx, cluster, preset)
+}
+
+// UpdateInstancePreset proxies the request to the next handler.
+func (h *validateHandler) UpdateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
+	return h.next.UpdateInstancePreset(ctx, cluster, preset)
+}
+
+// DeleteInstancePreset proxies the request to the next handler.
+func (h *validateHandler) DeleteInstancePreset(ctx context.Context, cluster, namespace, name string) error {
+	return h.next.DeleteInstancePreset(ctx, cluster, namespace, name)
+}
