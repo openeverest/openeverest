@@ -20,52 +20,26 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  build:
-    name: Build (${{ matrix.arch }})
-    
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - arch: amd64
-            runner: ubuntu-latest
-            platform: linux/amd64
-          - arch: arm64
-            runner: ubuntu-24.04-arm
-            platform: linux/arm64
-    
-    runs-on: ${{ matrix.runner }}
+  setup-release-branches:
+    name: Create / update release branches
+    runs-on: ubuntu-latest
     permissions:
-      contents: write
-      packages: write
-      id-token: write
-      attestations: write
-    
+      contents: read
+    outputs:
+      operator_sha: ${{ steps.operator.outputs.sha }}
+      catalog_sha: ${{ steps.catalog.outputs.sha }}
+      everest_sha: ${{ steps.everest.outputs.sha }}
     env:
-      TOOLS_PATH: "/opt/tools/bin"
       VERSION: ${{ github.event.inputs.version }}
-      # version in format "X.Y" which is going to be updated with each patch release
-      FLOATING_TAG: ""
       # branch name in format "release-X.Y"
       BRANCH_NAME: ""
       # GitHub tag name to use for the RC/Release
       GH_TAG: ""
       # Shows if this workflow is triggered for RC or Release
       IS_RC: 0
-      ARCH: ""
-      OS: ""
       IMAGE_PREFIX: 'ghcr.io/${{ github.repository_owner }}'
-      EVEREST_SERVER_IMAGE_NAME: 'openeverest'
-      EVEREST_SERVER_DEV_IMAGE_NAME: 'openeverest-dev'
       EVEREST_OPERATOR_IMAGE_NAME: 'openeverest-operator'
       EVEREST_OPERATOR_DEV_IMAGE_NAME: 'openeverest-operator-dev'
-      EVEREST_OPERATOR_BUNDLE_IMAGE_NAME: 'openeverest-operator-bundle'
-      EVEREST_OPERATOR_BUNDLE_DEV_IMAGE_NAME: 'openeverest-operator-bundle-dev'
-      EVEREST_CATALOG_IMAGE_NAME: 'openeverest-catalog'
-      EVEREST_CATALOG_DEV_IMAGE_NAME: 'openeverest-catalog-dev'
-      EVEREST_VERSION_SERVICE_DEV_IMAGE_NAME: 'version-service-dev'
-      EVEREST_CTL_IMAGE_NAME: 'everestctl'
-      EVEREST_CTL_DEV_IMAGE_NAME: 'everestctl-dev'
     steps:
       - name: Enable /mnt (big volume) to be used by runner
         run: |
@@ -73,6 +47,10 @@ jobs:
 
       - name: Validate input
         run: |
+          if [[ "$GITHUB_REF" != "refs/heads/v1.x" ]]; then
+            echo "::error::Run this workflow from the v1.x branch, not ${GITHUB_REF#refs/heads/}"
+            exit 1
+          fi
           if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc[1-9][0-9]*)?$ ]]; then
             echo "Wrong version format provided, please use "X.Y.Z-rcN" format for an RC or "X.Y.Z" format for a release"
             exit 1
@@ -81,14 +59,11 @@ jobs:
       - name: Set environment variables
         run: |
           floating_tag=${VERSION%.*}
-          echo "FLOATING_TAG=$floating_tag" >> $GITHUB_ENV
           echo "BRANCH_NAME=release-$floating_tag" >> $GITHUB_ENV
           echo "GH_TAG=v$VERSION" >> $GITHUB_ENV
           if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "IS_RC=1" >> $GITHUB_ENV
           fi
-          echo "ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')" >> $GITHUB_ENV
-          echo "OS=$(uname | awk '{print tolower($0)}')" >> $GITHUB_ENV
 
       - name: Operator - check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -98,7 +73,7 @@ jobs:
           token: ${{ secrets.ROBOT_TOKEN }}
 
       - name: Operator - create release branch
-        if: matrix.arch == 'amd64'
+        id: operator
         run: |
           cd openeverest-operator
           # Check if the branch already exists
@@ -135,30 +110,154 @@ jobs:
           git tag $GH_TAG
           git push origin $GH_TAG
 
-      - name: Operator - install operator-sdk
+          echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Catalog - checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openeverest/openeverest-catalog
+          path: openeverest-catalog
+          token: ${{ secrets.ROBOT_TOKEN }}
+
+      - name: Catalog - create release branch
+        id: catalog
         run: |
-          mkdir -p $TOOLS_PATH
-          echo $TOOLS_PATH >> $GITHUB_PATH
+          cd openeverest-catalog
+          # Check if the branch already exists
+          git fetch
+          check_branch=$(git ls-remote --heads origin ${BRANCH_NAME})
 
-          export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/v1.38.0
-          curl -LO ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH}
+          if [[ -z ${check_branch} ]]; then
+            git checkout -b $BRANCH_NAME
+            git push origin $BRANCH_NAME
+          fi
+          git checkout $BRANCH_NAME
 
-          gpg --keyserver keyserver.ubuntu.com --recv-keys 052996E2A20B5C7E
+          # if the tag doesn't exist yet, create it
+          if git tag --list | grep -q "^$GH_TAG$"; then
+            echo "The tag is already present in github. Please create a different RC/Release"
+            exit 1
+          fi
 
-          curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt
-          curl -LO ${OPERATOR_SDK_DL_URL}/checksums.txt.asc
-          gpg -u "Operator SDK (release) <cncf-operator-sdk@cncf.io>" --verify checksums.txt.asc
+          # configure userdata for commits
+          git config --global user.email "everest-ci@percona.com"
+          git config --global user.name "Everest RC CI triggered by ${{ github.actor }}"
 
-          grep operator-sdk_${OS}_${ARCH} checksums.txt | sha256sum -c -
+          git tag $GH_TAG
+          git push origin $GH_TAG
 
-          chmod +x operator-sdk_${OS}_${ARCH}
-          mv operator-sdk_${OS}_${ARCH} $TOOLS_PATH/operator-sdk
+          echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
-      - name: Operator - build and bundle
-        if: matrix.arch == 'amd64'
+      - name: Everest - check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ secrets.ROBOT_TOKEN }}
+
+      - name: Set up Go release
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: "go.mod"
+          cache: true
+
+      - name: Everest - create and update release branch
+        id: everest
         run: |
-          cd openeverest-operator
-          make build manifests bundle
+          # Check if the branch already exists
+          git fetch
+          check_branch=$(git ls-remote --heads origin ${BRANCH_NAME})
+
+          if [[ -z ${check_branch} ]]; then
+            git checkout -b $BRANCH_NAME
+            git push origin $BRANCH_NAME
+          fi
+          git checkout $BRANCH_NAME
+
+          # Update the operator go module to reference the version tag
+          go get github.com/percona/everest-operator@$GH_TAG
+          go mod tidy
+
+          # Change version in Makefile
+          sed -i "s/RELEASE_VERSION ?=.*/RELEASE_VERSION ?= v$VERSION/g" Makefile
+
+          # if there is something to commit, commit it and add the tag 
+          if [[ -n $(git status --porcelain) ]]; then
+            if git tag --list | grep -q "^$GH_TAG$"; then
+              echo "The tag is already present in github. Please create a different RC/Release"
+              exit 1
+            fi
+            # configure userdata for commits
+            git config --global user.email "everest-ci@percona.com"
+            git config --global user.name "Everest RC CI triggered by ${{ github.actor }}"
+
+            # commit and push the updated files
+            git commit -a -m "update version tag"
+            git push origin $BRANCH_NAME
+
+            git tag $GH_TAG
+            git push origin $GH_TAG
+          fi
+
+          echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+  build:
+    name: Build (${{ matrix.arch }})
+    needs: setup-release-branches
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+            platform: linux/amd64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+    
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    
+    env:
+      VERSION: ${{ github.event.inputs.version }}
+      # version in format "X.Y" which is going to be updated with each patch release
+      FLOATING_TAG: ""
+      # Shows if this workflow is triggered for RC or Release
+      IS_RC: 0
+      IMAGE_PREFIX: 'ghcr.io/${{ github.repository_owner }}'
+      EVEREST_SERVER_IMAGE_NAME: 'openeverest'
+      EVEREST_SERVER_DEV_IMAGE_NAME: 'openeverest-dev'
+      EVEREST_OPERATOR_IMAGE_NAME: 'openeverest-operator'
+      EVEREST_OPERATOR_DEV_IMAGE_NAME: 'openeverest-operator-dev'
+      EVEREST_OPERATOR_BUNDLE_IMAGE_NAME: 'openeverest-operator-bundle'
+      EVEREST_OPERATOR_BUNDLE_DEV_IMAGE_NAME: 'openeverest-operator-bundle-dev'
+      EVEREST_CATALOG_IMAGE_NAME: 'openeverest-catalog'
+      EVEREST_CATALOG_DEV_IMAGE_NAME: 'openeverest-catalog-dev'
+      EVEREST_VERSION_SERVICE_DEV_IMAGE_NAME: 'version-service-dev'
+      EVEREST_CTL_IMAGE_NAME: 'everestctl'
+      EVEREST_CTL_DEV_IMAGE_NAME: 'everestctl-dev'
+    steps:
+      - name: Enable /mnt (big volume) to be used by runner
+        run: |
+          sudo chown -v runner:runner /mnt
+
+      - name: Set environment variables
+        run: |
+          floating_tag=${VERSION%.*}
+          echo "FLOATING_TAG=$floating_tag" >> $GITHUB_ENV
+          if [[ ! $VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "IS_RC=1" >> $GITHUB_ENV
+          fi
+
+      - name: Operator - check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: openeverest/openeverest-operator
+          ref: ${{ needs.setup-release-branches.outputs.operator_sha }}
+          path: openeverest-operator
 
       - name: Operator - setup Docker meta for openeverest-operator
         id: operator_meta
@@ -322,35 +421,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: openeverest/openeverest-catalog
+          ref: ${{ needs.setup-release-branches.outputs.catalog_sha }}
           path: openeverest-catalog
-          token: ${{ secrets.ROBOT_TOKEN }}
-
-      - name: Catalog - create release branch
-        if: matrix.arch == 'amd64'
-        run: |
-          cd openeverest-catalog
-          # Check if the branch already exists
-          git fetch
-          check_branch=$(git ls-remote --heads origin ${BRANCH_NAME})
-
-          if [[ -z ${check_branch} ]]; then
-            git checkout -b $BRANCH_NAME
-            git push origin $BRANCH_NAME
-          fi
-          git checkout $BRANCH_NAME
-
-          # if the tag doesn't exist yet, create it
-          if git tag --list | grep -q "^$GH_TAG$"; then
-            echo "The tag is already present in github. Please create a different RC/Release"
-            exit 1
-          fi
-
-          # configure userdata for commits
-          git config --global user.email "everest-ci@percona.com"
-          git config --global user.name "Everest RC CI triggered by ${{ github.actor }}"
-
-          git tag $GH_TAG
-          git push origin $GH_TAG
 
       - name: Catalog - docker meta
         id: catalog_meta
@@ -427,51 +499,13 @@ jobs:
       - name: Everest - check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          token: ${{ secrets.ROBOT_TOKEN }}
+          ref: ${{ needs.setup-release-branches.outputs.everest_sha }}
 
       - name: Set up Go release
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: "go.mod"
           cache: true
-
-      - name: Everest - create and update release branch
-        if: matrix.arch == 'amd64'
-        run: |
-          # Check if the branch already exists
-          git fetch
-          check_branch=$(git ls-remote --heads origin ${BRANCH_NAME})
-
-          if [[ -z ${check_branch} ]]; then
-            git checkout -b $BRANCH_NAME
-            git push origin $BRANCH_NAME
-          fi
-          git checkout $BRANCH_NAME
-
-          # Update the operator go module to reference the version tag
-          go get github.com/percona/everest-operator@$GH_TAG
-          go mod tidy
-
-          # Change version in Makefile
-          sed -i "s/RELEASE_VERSION ?=.*/RELEASE_VERSION ?= v$VERSION/g" Makefile
-
-          # if there is something to commit, commit it and add the tag 
-          if [[ -n $(git status --porcelain) ]]; then
-            if git tag --list | grep -q "^$GH_TAG$"; then
-              echo "The tag is already present in github. Please create a different RC/Release"
-              exit 1
-            fi
-            # configure userdata for commits
-            git config --global user.email "everest-ci@percona.com"
-            git config --global user.name "Everest RC CI triggered by ${{ github.actor }}"
-
-            # commit and push the updated files
-            git commit -a -m "update version tag"
-            git push origin $BRANCH_NAME
-
-            git tag $GH_TAG
-            git push origin $GH_TAG
-          fi
 
       - name: Everest UI - setup pnpm
         uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
@@ -655,7 +689,7 @@ jobs:
           tags: ${{ steps.everestctl_meta.outputs.tags }}
           build-args: |
             VERSION=${{ env.VERSION }}
-            RELEASE_FULLCOMMIT=${{ github.sha }}
+            RELEASE_FULLCOMMIT=${{ needs.setup-release-branches.outputs.everest_sha }}
 
       - name: CLI - attest everestctl image
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
