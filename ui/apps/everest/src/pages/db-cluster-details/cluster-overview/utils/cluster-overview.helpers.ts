@@ -45,6 +45,10 @@ import {
   getWidgetTargets,
   readWidgetTargetValues,
 } from 'components/ui-generator/utils/widget-targets';
+import {
+  formatQuantity,
+  readQuantity,
+} from 'components/ui-generator/utils/quantity/quantity';
 import { Messages } from '../cluster-overview.messages';
 
 export type SectionField = {
@@ -75,6 +79,12 @@ const formatBadgedValue = (rawValue: unknown, badge?: string): string => {
 };
 
 const formatFieldValue = (component: Component, rawValue: unknown): string => {
+  if (component.uiType === FieldType.Quantity) {
+    const amount = readQuantity(rawValue, component.fieldParams.unit ?? '');
+    return typeof amount === 'number'
+      ? formatQuantity(amount, component.fieldParams)
+      : formatDisplayValue(amount);
+  }
   const { badge, badgeToApi } = component.fieldParams ?? {};
   if (component.uiType !== FieldType.Number) {
     return formatBadgedValue(rawValue, badge);

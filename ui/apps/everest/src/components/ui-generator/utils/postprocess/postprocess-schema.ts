@@ -12,7 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { TopologyUISchemas } from '../../ui-generator.types';
+import {
+  FieldType,
+  TopologyUISchemas,
+  isNumberLikeField,
+} from '../../ui-generator.types';
+import { writeQuantity } from '../quantity/quantity';
 import {
   isPlainObject,
   deepClone,
@@ -167,7 +172,7 @@ export const coerceSchemaNumbers = (
   const numberPaths: string[] = [];
 
   walkTopologyComponents(schema, selectedTopology, ({ component }) => {
-    if (component.uiType === 'number') {
+    if (isNumberLikeField(component.uiType)) {
       const paths = getComponentTargetPaths(component);
       numberPaths.push(...paths);
     }
@@ -183,6 +188,25 @@ export const coerceSchemaNumbers = (
     }
   });
 
+  return result;
+};
+
+export const writeQuantityFields = (
+  input: PostprocessInput,
+  schema: TopologyUISchemas,
+  selectedTopology: string
+): PostprocessInput => {
+  const result = deepClone(input);
+  walkTopologyComponents(schema, selectedTopology, ({ component }) => {
+    if (component.uiType !== FieldType.Quantity) return;
+    const unit = component.fieldParams.unit ?? '';
+    getComponentTargetPaths(component).forEach((path) => {
+      const value = getByPath(result, path);
+      if (value !== undefined) {
+        setByPath(result, path, writeQuantity(value, unit));
+      }
+    });
+  });
   return result;
 };
 
@@ -213,7 +237,11 @@ export const postprocessSchemaData = (
 
   const coerced =
     options?.schema && options.selectedTopology
-      ? coerceSchemaNumbers(mapped, options.schema, options.selectedTopology)
+      ? writeQuantityFields(
+          coerceSchemaNumbers(mapped, options.schema, options.selectedTopology),
+          options.schema,
+          options.selectedTopology
+        )
       : mapped;
 
   const badgeMappings =

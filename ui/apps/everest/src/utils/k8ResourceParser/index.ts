@@ -50,6 +50,10 @@ const memoryMultipliers: Record<kubernetesUnit, number> = {
 export const isKubernetesMemoryUnit = (unit: string): unit is kubernetesUnit =>
   Object.prototype.hasOwnProperty.call(memoryMultipliers, unit);
 
+// Size of one `unit` in base units (cores, bytes); '' is the base unit itself.
+export const getQuantityUnitSize = (unit: '' | kubernetesUnit): number =>
+  unit === '' ? 1 : memoryMultipliers[unit];
+
 const QUANTITY_PATTERN = /^([+-]?(?:\d+\.?\d*|\.\d+))([A-Za-z]{0,2})$/;
 
 // Numeric value of a Kubernetes quantity in its base unit (cores, bytes):

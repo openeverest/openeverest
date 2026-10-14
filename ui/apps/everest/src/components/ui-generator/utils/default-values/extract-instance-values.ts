@@ -34,6 +34,19 @@ import {
   isToggleableOnInInstance,
 } from '../toggleable/toggleable';
 import { getWidgetTargets } from '../widget-targets';
+import { readQuantity } from '../quantity/quantity';
+
+const readStoredValue = (component: Component, value: unknown): unknown => {
+  if (component.uiType === FieldType.Quantity) {
+    return readQuantity(value, component.fieldParams.unit ?? '');
+  }
+  const badge = component.fieldParams?.badgeToApi
+    ? component.fieldParams.badge
+    : undefined;
+  return component.uiType === FieldType.Number
+    ? readNumberFieldValue(value, badge)
+    : stripBadgeFromValue(value, badge);
+};
 
 /*
  Walks schema components across all sections and extracts current values
@@ -89,13 +102,7 @@ const extractFlat = (
     if (sourcePath) {
       const instanceValue = getByPath(instance, sourcePath);
       if (instanceValue !== undefined) {
-        const badge = component.fieldParams?.badgeToApi
-          ? component.fieldParams.badge
-          : undefined;
-        result[fieldId] =
-          component.uiType === FieldType.Number
-            ? readNumberFieldValue(instanceValue, badge)
-            : stripBadgeFromValue(instanceValue, badge);
+        result[fieldId] = readStoredValue(component, instanceValue);
         continue;
       }
     }

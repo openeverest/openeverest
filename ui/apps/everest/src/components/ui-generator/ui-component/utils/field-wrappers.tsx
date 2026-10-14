@@ -17,6 +17,7 @@ import { Box, Tooltip } from '@mui/material';
 import {
   Component,
   FieldType,
+  isNumberLikeField,
 } from 'components/ui-generator/ui-generator.types';
 
 type FieldWrapper = (
@@ -25,7 +26,7 @@ type FieldWrapper = (
 ) => React.ReactElement;
 
 const shouldCompensateTooltipMargin = (item: Component): boolean => {
-  return item.uiType === FieldType.Number || item.uiType === FieldType.Text;
+  return isNumberLikeField(item.uiType) || item.uiType === FieldType.Text;
 };
 
 const tooltipWrapper: FieldWrapper = (element, item) => {

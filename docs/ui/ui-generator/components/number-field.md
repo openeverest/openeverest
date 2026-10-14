@@ -14,6 +14,8 @@
 
 A numeric input field for integer and decimal values.
 
+For a Kubernetes resource quantity (CPU, memory, disk), use the [quantity field](quantity-field.md): it always sends a quantity string, while a `number` field without `badgeToApi` sends a fractional value as a float, which Kubernetes rejects on these paths.
+
 ## Properties:
 
 - `uiType`: `"number"` (required)

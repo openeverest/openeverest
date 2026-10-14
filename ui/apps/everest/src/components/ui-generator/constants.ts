@@ -39,22 +39,26 @@ export const componentGroupMap: Record<
 };
 export const muiComponentMap: Record<FieldType, React.ElementType> = {
   [FieldType.Number]: TextInput,
+  [FieldType.Quantity]: TextInput,
   [FieldType.Text]: TextInput,
   [FieldType.Select]: SelectInput,
   [FieldType.Toggle]: SwitchInput,
   [FieldType.Hidden]: () => null,
 };
 
+const NUMBER_ZOD_RULES = {
+  min: 'min',
+  max: 'max',
+  gt: 'gt',
+  lt: 'lt',
+  int: 'int',
+  multipleOf: 'multipleOf',
+  safe: 'safe',
+};
+
 export const zodRuleMapByType: Record<FieldType, Record<string, string>> = {
-  [FieldType.Number]: {
-    min: 'min',
-    max: 'max',
-    gt: 'gt',
-    lt: 'lt',
-    int: 'int',
-    multipleOf: 'multipleOf',
-    safe: 'safe',
-  },
+  [FieldType.Number]: NUMBER_ZOD_RULES,
+  [FieldType.Quantity]: NUMBER_ZOD_RULES,
   /**
    * Text field zod string validations.
    * Boolean flags (email, url, uuid, trim, toLowerCase, toUpperCase) are
@@ -104,16 +108,19 @@ export const applyZodValidation = (
   return value !== undefined ? method.call(schema, value) : method.call(schema);
 };
 
+const numberSchema = z
+  .union([z.string(), z.number()])
+  .optional()
+  .transform((val) => {
+    // this is needed to handle required param from the schema
+    if (val === undefined || val === '') return undefined;
+    const num = typeof val === 'string' ? parseFloat(val) : val;
+    return isNaN(num) ? undefined : num;
+  });
+
 export const ZOD_SCHEMA_MAP: Record<FieldType, z.ZodTypeAny> = {
-  [FieldType.Number]: z
-    .union([z.string(), z.number()])
-    .optional()
-    .transform((val) => {
-      // this is needed to handle required param from the schema
-      if (val === undefined || val === '') return undefined;
-      const num = typeof val === 'string' ? parseFloat(val) : val;
-      return isNaN(num) ? undefined : num;
-    }),
+  [FieldType.Number]: numberSchema,
+  [FieldType.Quantity]: numberSchema,
   [FieldType.Text]: z.string(),
   [FieldType.Select]: z.string(),
   [FieldType.Toggle]: z.boolean(),

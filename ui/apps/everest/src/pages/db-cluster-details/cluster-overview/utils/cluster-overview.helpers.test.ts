@@ -115,6 +115,26 @@ describe('collectSectionFields', () => {
     expect(fields.map(({ value }) => value)).toEqual(['0.5', '1.5cores']);
   });
 
+  it('shows quantity fields in their unit with the unit label', () => {
+    const fields = collectSectionFields(
+      {
+        cpu: {
+          uiType: FieldType.Quantity,
+          path: 'spec.cpu',
+          fieldParams: { label: 'CPU', unitLabel: 'cores' },
+        },
+        memory: {
+          uiType: FieldType.Quantity,
+          path: 'spec.memory',
+          fieldParams: { label: 'Memory', unit: 'Gi' },
+        },
+      },
+      { spec: { cpu: '500m', memory: '644245094400m' } }
+    );
+
+    expect(fields.map(({ value }) => value)).toEqual(['0.5 cores', '0.6 Gi']);
+  });
+
   describe('toggleable group', () => {
     const { advanced } = preprocessSchema({
       replicaSet: {

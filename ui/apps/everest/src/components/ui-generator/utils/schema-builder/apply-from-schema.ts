@@ -88,6 +88,7 @@ export const applyValidationFromSchema = (
 
   switch (component.uiType) {
     case 'number':
+    case 'quantity':
       fieldSchema = buildNumberValidationSchema(component);
       break;
 

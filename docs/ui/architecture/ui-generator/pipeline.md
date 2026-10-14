@@ -80,7 +80,8 @@ flowchart TD
   topology's defaults over the rest (`mergeTopologyDefaults`). Switching back therefore starts from
   defaults, not stale values.
 - **`extractInstanceValues`** — in edit/restore, reads values **only from the instance** (by
-  `sourcePath`), **without** schema defaults (so edit doesn't inject defaults).
+  `sourcePath`), **without** schema defaults (so edit doesn't inject defaults). A `quantity`
+  field reads the stored quantity as a number in its `unit` (`readQuantity`).
 - **Toggleable switches** — `false` on create; when values come from an instance or preset, on
   if any of the group's `childPaths` has a value.
 
@@ -143,6 +144,8 @@ triggers no request.
     kept; values no topology binds (`dbName`, `backup`, …) are untouched.
   - **`extractMultiPathMappings` / `applyMultiPathMappings`** — one value → all `targetPaths`.
   - **`extractBadgeMappings` / `applyBadgesToFormData`** — unit suffix (`8` → `8Gi`).
+  - **`writeQuantityFields`** — a `quantity` field's number → a quantity string in its `unit`
+    (`0.5` → `"0.5"`, `4` → `"4Gi"`), so int-or-string API paths never get a float.
   - **`getInactiveToggleablePaths`** — returns the `childPaths` of switched-off toggleable groups;
     they are deleted together with the form-only `toggleable-switches` key.
   - **`removeEmptyFieldValues`** — strip `undefined` / `null` / `""`.
