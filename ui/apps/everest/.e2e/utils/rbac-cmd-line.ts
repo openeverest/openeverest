@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { execSync } from 'child_process';
-import { request } from '@playwright/test';
+import { expect, request } from '@playwright/test';
 import { getTokenFromLocalStorage } from './localStorage';
 
 const OLD_RBAC_FILE = 'old_rbac_permissions';
@@ -31,12 +31,26 @@ export const restoreOldRBACPermissions = async () => {
   const oldRbacFileContent = execSync(`cat ${OLD_RBAC_FILE}`).toString();
   const command = `kubectl patch configmap/everest-rbac --namespace everest-system --type merge -p '{"data":${oldRbacFileContent}}'`;
   execSync(command);
+};
 
-  return new Promise<void>((resolve) =>
-    setTimeout(() => {
-      resolve();
-    }, 1000)
-  );
+// Until the server reloads the restored policy, admin is still unbound and
+// /v1/namespaces returns [], which breaks the next project's API setup.
+export const waitForRBACRestored = async (adminToken: string) => {
+  const ctx = await request.newContext({ baseURL: BASE_URL });
+  try {
+    await expect(async () => {
+      const resp = await ctx.get('/v1/namespaces', {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      expect(resp.ok()).toBeTruthy();
+      expect(await resp.json()).not.toHaveLength(0);
+    }).toPass({
+      timeout: RBAC_APPLY_TIMEOUT_MS,
+      intervals: [RBAC_APPLY_POLL_INTERVAL_MS],
+    });
+  } finally {
+    await ctx.dispose();
+  }
 };
 
 // rbac.setup switches to the RBAC user, so its token (the same for the whole
