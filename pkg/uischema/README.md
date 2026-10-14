@@ -1,6 +1,6 @@
 # uischema
 
-`Validate(uiSchema)` checks a provider UI schema (`Provider.spec.uiSchema`: topology name → `{sections: {<key>: {components: ...}}}`) and returns the toggleable groups the UI will not render as the author declared them, and the CEL rules that fail while such a group is switched off.
+`Validate(Input{UISchema: ...})` checks a provider UI schema (`Provider.spec.uiSchema`: topology name → `{sections: {<key>: {components: ...}}}`) and returns the toggleable groups the UI will not render as the author declared them, and the CEL rules that fail while such a group is switched off.
 
 The UI applies the same rules at runtime in `ui/apps/everest/src/components/ui-generator/utils/toggleable/`: `resolveToggleable` (in `toggleable.ts`, called by `preprocessSchema`) and `findUnguardedCelReferences` (a dev-time warning). [testdata/toggleable.yaml](testdata/toggleable.yaml) is the shared set of cases both implementations are tested against: `validate_test.go` here and `toggleable-shared-cases.test.ts` in the same UI folder. CI runs both suites when the file changes.
 

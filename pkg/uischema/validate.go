@@ -62,13 +62,19 @@ func (i Issue) String() string {
 	return fmt.Sprintf("topology %s: group %q: %s (%s)", i.Topology, i.Group, i.Message, i.Rule)
 }
 
-// Validate checks a provider UI schema: a map of topology name to topology
-// (`{sections: {<key>: {components: ...}}}`), as stored in Provider.spec.uiSchema.
-// Issues are sorted by topology, group and field.
-func Validate(uiSchema map[string]any) []Issue {
+// Input is what Validate checks; new inputs are optional fields, skipped when unset.
+type Input struct {
+	// UISchema maps topology name to topology
+	// (`{sections: {<key>: {components: ...}}}`), as stored in Provider.spec.uiSchema.
+	UISchema map[string]any
+}
+
+// Validate checks a provider UI schema. Issues are sorted by topology, group
+// and field.
+func Validate(in Input) []Issue {
 	var issues []Issue
-	for _, topology := range sortedKeys(uiSchema) {
-		topologySchema, _ := asMap(uiSchema[topology])
+	for _, topology := range sortedKeys(in.UISchema) {
+		topologySchema, _ := asMap(in.UISchema[topology])
 		sections, ok := asMap(topologySchema["sections"])
 		if !ok {
 			continue

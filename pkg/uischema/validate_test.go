@@ -54,7 +54,7 @@ func TestValidateToggleableSharedCases(t *testing.T) {
 	for _, tc := range loadToggleableCases(t) {
 		t.Run(tc.Name, func(t *testing.T) {
 			t.Parallel()
-			issues := Validate(tc.UISchema)
+			issues := Validate(Input{UISchema: tc.UISchema})
 			got := make([]expectedIssue, 0, len(issues))
 			for _, issue := range issues {
 				assert.NotEmpty(t, issue.Message)
@@ -71,8 +71,8 @@ func TestValidateToggleableSharedCases(t *testing.T) {
 
 func TestValidateIgnoresMalformedTopologies(t *testing.T) {
 	t.Parallel()
-	assert.Empty(t, Validate(map[string]any{
+	assert.Empty(t, Validate(Input{UISchema: map[string]any{
 		"replicaSet": "not a topology",
 		"sharded":    map[string]any{"sections": []any{}},
-	}))
+	}}))
 }
