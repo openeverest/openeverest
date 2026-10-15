@@ -35,6 +35,7 @@ import (
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
@@ -50,18 +51,19 @@ type Config struct {
 }
 
 type CreateOptions struct {
-	Name       string
-	Namespace  string
-	Provider   string
-	Preset     string // InstancePreset name; provider must match --provider
-	Cluster    string
-	Version    string
-	Topology   string
-	Context    string        // overrides the active context when set
-	ValuesFile string        // path to a YAML values file with spec-level overrides (optional)
-	Set        []string      // dot-notation overrides e.g. "components.engine.replicas=3"; takes precedence over ValuesFile
-	Wait       bool          // block until the instance reaches the Ready phase
-	Timeout    time.Duration // bounds --wait; must be positive
+	Name          string
+	Namespace     string
+	Provider      string
+	Preset        string // InstancePreset name in the target namespace; mutually exclusive with ClusterPreset
+	ClusterPreset string // ClusterInstancePreset name; mutually exclusive with Preset
+	Cluster       string
+	Version       string
+	Topology      string
+	Context       string        // overrides the active context when set
+	ValuesFile    string        // path to a YAML values file with spec-level overrides (optional)
+	Set           []string      // dot-notation overrides e.g. "components.engine.replicas=3"; takes precedence over ValuesFile
+	Wait          bool          // block until the instance reaches the Ready phase
+	Timeout       time.Duration // bounds --wait; must be positive
 }
 
 type InstanceCreator struct {
@@ -78,11 +80,15 @@ func NewInstanceCreator(cfg Config, l *zap.SugaredLogger) *InstanceCreator {
 }
 
 func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath string) error {
-	if opts.Provider == "" && opts.Preset == "" {
-		return fmt.Errorf("--provider is required when --preset is not given")
+	if opts.Preset != "" && opts.ClusterPreset != "" {
+		return fmt.Errorf("--preset cannot be combined with --clusterpreset")
 	}
-	if opts.Preset != "" && opts.Topology != "" {
-		return fmt.Errorf("--topology cannot be combined with --preset")
+	usesPreset := opts.Preset != "" || opts.ClusterPreset != ""
+	if opts.Provider == "" && !usesPreset {
+		return fmt.Errorf("--provider is required when --preset or --clusterpreset is not given")
+	}
+	if usesPreset && opts.Topology != "" {
+		return fmt.Errorf("--topology cannot be combined with --preset or --clusterpreset")
 	}
 
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: ic.config.Pretty}, ic.l.Desugar().Sugar(), cfgPath, opts.Context)
@@ -94,16 +100,21 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 		presetSpecBase map[string]any
 		annotations    map[string]string
 	)
-	if opts.Preset != "" {
-		pr, err := ic.resolvePreset(ctx, c, opts.Preset, opts.Cluster, opts.Namespace)
+	if usesPreset {
+		var pr *presetResult
+		if opts.ClusterPreset != "" {
+			pr, err = ic.resolveClusterInstancePreset(ctx, c, opts.ClusterPreset, opts.Cluster, opts.Namespace)
+		} else {
+			pr, err = ic.resolveInstancePreset(ctx, c, opts.Preset, opts.Cluster, opts.Namespace)
+		}
 		if err != nil {
 			return err
 		}
-		if err := applyPresetDefaults(opts.Preset, &opts, pr); err != nil {
+		if err := applyPresetDefaults(pr.name, &opts, pr); err != nil {
 			return err
 		}
 		presetSpecBase = pr.specMap
-		annotations = map[string]string{"openeverest.io/instance-preset": opts.Preset}
+		annotations = map[string]string{pr.annotation: pr.name}
 	}
 
 	provResp, err := c.GetProviderWithResponse(ctx, opts.Cluster, opts.Provider)
@@ -290,13 +301,46 @@ func applyPresetDefaults(preset string, opts *CreateOptions, pr *presetResult) e
 }
 
 type presetResult struct {
-	specMap  map[string]any
-	provider string
-	version  string
-	topology string
+	annotation string // records the preset on the created Instance
+	name       string
+	specMap    map[string]any
+	provider   string
+	version    string
+	topology   string
 }
 
-func (ic *InstanceCreator) resolvePreset(ctx context.Context, c *client.ClientWithResponses, preset, cluster, namespace string) (*presetResult, error) {
+// resolveInstancePreset fetches the namespace-scoped InstancePreset as stored;
+// the server compares deploy-only creates against the same object.
+func (ic *InstanceCreator) resolveInstancePreset(ctx context.Context, c *client.ClientWithResponses, preset, cluster, namespace string) (*presetResult, error) {
+	resp, err := c.GetInstancePresetWithResponse(ctx, cluster, namespace, preset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get preset %q: %w", preset, err)
+	}
+	if resp.StatusCode() == http.StatusNotFound {
+		return nil, fmt.Errorf("preset %q not found in namespace %q of cluster %q", preset, namespace, cluster)
+	}
+	if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response getting preset %q: %s", preset, resp.Status())
+	}
+
+	spec := resp.JSON200.Spec
+	pr := &presetResult{annotation: "openeverest.io/instance-preset", name: preset}
+	pr.provider = spec.ProviderRef.Name
+	if spec.Version != nil {
+		pr.version = *spec.Version
+	}
+	if spec.Topology != nil && spec.Topology.Type != nil {
+		pr.topology = *spec.Topology.Type
+	}
+	if pr.specMap, err = specToMap(spec); err != nil {
+		return nil, err
+	}
+	return pr, nil
+}
+
+// resolveClusterInstancePreset fetches the ClusterInstancePreset with namespace
+// defaults filled in; the server compares deploy-only creates against it.
+func (ic *InstanceCreator) resolveClusterInstancePreset(ctx context.Context, c *client.ClientWithResponses, preset, cluster, namespace string) (*presetResult, error) {
 	resp, err := c.ResolveClusterInstancePresetWithResponse(
 		ctx,
 		cluster,
@@ -304,29 +348,27 @@ func (ic *InstanceCreator) resolvePreset(ctx context.Context, c *client.ClientWi
 		&client.ResolveClusterInstancePresetParams{Namespace: namespace},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve preset %q: %w", preset, err)
+		return nil, fmt.Errorf("failed to resolve cluster instance preset %q: %w", preset, err)
 	}
 	if resp.StatusCode() == http.StatusNotFound {
-		return nil, fmt.Errorf("preset %q not found in cluster %q", preset, cluster)
+		return nil, fmt.Errorf("cluster instance preset %q not found in cluster %q", preset, cluster)
 	}
 	if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response resolving preset %q: %s", preset, resp.Status())
+		return nil, fmt.Errorf("unexpected response resolving cluster instance preset %q: %s", preset, resp.Status())
 	}
 
-	p := resp.JSON200
-	pr := &presetResult{}
-	pr.provider = p.Spec.ProviderRef.Name
-	if p.Spec.Version != nil {
-		pr.version = *p.Spec.Version
+	spec := resp.JSON200.Spec
+	pr := &presetResult{annotation: common.ClusterInstancePresetAnnotation, name: preset}
+	pr.provider = spec.ProviderRef.Name
+	if spec.Version != nil {
+		pr.version = *spec.Version
 	}
-	if p.Spec.Topology != nil && p.Spec.Topology.Type != nil {
-		pr.topology = *p.Spec.Topology.Type
+	if spec.Topology != nil && spec.Topology.Type != nil {
+		pr.topology = *spec.Topology.Type
 	}
-	specMap, err := specToMap(p.Spec)
-	if err != nil {
+	if pr.specMap, err = specToMap(spec); err != nil {
 		return nil, err
 	}
-	pr.specMap = specMap
 	return pr, nil
 }
 
