@@ -12,31 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { InstancePreset, InstancePresetList } from 'shared-types/api.types';
+import { ResolvedPresetList } from 'shared-types/api.types';
 import { api } from './api';
 
-export const getInstancePresetsFn = async (
+// Returns both cluster- and namespace-scoped presets selectable in the
+// namespace, already resolved (e.g. default StorageClass) so each item's spec
+// can be used verbatim as an Instance spec.
+export const getResolvedPresetsFn = async (
   clusterName: string,
+  namespace: string,
   provider?: string
 ) => {
   const query = provider ? `?provider=${encodeURIComponent(provider)}` : '';
-  const response = await api.get<InstancePresetList>(
-    `clusters/${clusterName}/instance-presets${query}`
-  );
-  return response.data;
-};
-
-// Resolve fills the preset spec with namespace defaults (e.g. default
-// StorageClass) so it can be used verbatim as an Instance spec.
-export const resolveInstancePresetFn = async (
-  clusterName: string,
-  name: string,
-  namespace: string
-) => {
-  const response = await api.get<InstancePreset>(
-    `clusters/${clusterName}/instance-presets/${name}/resolve?namespace=${encodeURIComponent(
-      namespace
-    )}`
+  const response = await api.get<ResolvedPresetList>(
+    `clusters/${clusterName}/namespaces/${namespace}/resolved-presets${query}`
   );
   return response.data;
 };
