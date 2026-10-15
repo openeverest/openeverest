@@ -53,7 +53,7 @@ flowchart TD
   CMP --> PID{"path | id"}
   CMP --> TP2["techPreview? 🛠️"]
   CMP --> DS2["dataSource?"]
-  DS2 --> PROVIDER["provider<br/>(monitoringConfigs, storageClasses, backupStorages)"]
+  DS2 --> PROVIDER["provider<br/>(monitoringConfigs, storageClasses, backupStorages,<br/>backupClasses, instances, secrets)"]
   CMP --> MOD2["modes?"]
   MOD2 --> FORM_MODE["FormMode<br/>(new, edit, restore, import🛠️)"]
   CMP --> FP2["fieldParams"]

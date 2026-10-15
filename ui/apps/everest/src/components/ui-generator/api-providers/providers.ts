@@ -16,6 +16,9 @@ import { providerRegistry } from './registry';
 import { useMonitoringConfigsOptions } from 'hooks/api/monitoring/useMonitoringConfigsOptions';
 import { useStorageClassesOptions } from 'hooks/api/kubernetesClusters/useStorageClassesOptions';
 import { useBackupStoragesOptions } from 'hooks/api/backup-storages/useBackupStoragesOptions';
+import { useBackupClassesOptions } from 'hooks/api/backup-classes/useBackupClassesOptions';
+import { useDbInstancesOptions } from 'hooks/api/db-instances/useDbInstancesOptions';
+import { useSecretsOptions } from 'hooks/api/secrets/useSecretsOptions';
 import {
   BackupStoragesEmptyFallback,
   MonitoringEmptyFallback,
@@ -38,4 +41,22 @@ providerRegistry.register('backupStorages', {
     'BackupStorage (storage location) names in the current namespace.',
   useOptions: useBackupStoragesOptions,
   emptyStateFallback: { component: BackupStoragesEmptyFallback },
+});
+
+providerRegistry.register('backupClasses', {
+  description: 'BackupClass names available on the cluster.',
+  useOptions: useBackupClassesOptions,
+  emptyStateFallback: null,
+});
+
+providerRegistry.register('instances', {
+  description: 'Instance names in the current namespace.',
+  useOptions: useDbInstancesOptions,
+  emptyStateFallback: null,
+});
+
+providerRegistry.register('secrets', {
+  description: 'OpenEverest-managed Secret names in the current namespace.',
+  useOptions: useSecretsOptions,
+  emptyStateFallback: null,
 });
