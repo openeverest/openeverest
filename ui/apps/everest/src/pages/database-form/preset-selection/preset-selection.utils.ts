@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { InstancePreset } from 'shared-types/api.types';
-import { INSTANCE_PRESET_ANNOTATION } from './preset-selection.constants';
+import { ResolvedPreset } from 'shared-types/api.types';
+import {
+  CLUSTER_INSTANCE_PRESET_ANNOTATION,
+  INSTANCE_PRESET_ANNOTATION,
+} from './preset-selection.constants';
 
 interface BuildPresetCreateArgsInput {
-  resolvedPreset: InstancePreset;
+  resolvedPreset: ResolvedPreset;
   provider: string;
   dbName: string;
   k8sNamespace: string;
@@ -28,10 +31,15 @@ interface PresetCreateArgs {
     provider: string;
     dbName: string;
     k8sNamespace: string;
-    spec: InstancePreset['spec'];
+    spec: ResolvedPreset['spec'];
   };
   annotations: Record<string, string>;
 }
+
+const presetAnnotation = (preset: ResolvedPreset): string =>
+  preset.kind === 'ClusterInstancePreset'
+    ? CLUSTER_INSTANCE_PRESET_ANNOTATION
+    : INSTANCE_PRESET_ANNOTATION;
 
 // Builds the create-instance arguments for a one-click preset deploy: the
 // resolved preset spec is sent verbatim (never rebuilt from the wizard fields)
@@ -51,5 +59,5 @@ export const buildPresetCreateArgs = ({
     k8sNamespace,
     spec: resolvedPreset.spec,
   },
-  annotations: { [INSTANCE_PRESET_ANNOTATION]: presetName },
+  annotations: { [presetAnnotation(resolvedPreset)]: presetName },
 });
