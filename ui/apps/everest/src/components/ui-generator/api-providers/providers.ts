@@ -49,6 +49,8 @@ providerRegistry.register('backupClasses', {
   emptyStateFallback: null,
 });
 
+// Namespace-scoped for now; cross-namespace references (e.g. a shared object
+// store Instance) would need a server-side access check on the referenced one.
 providerRegistry.register('instances', {
   description: 'Instance names in the current namespace.',
   useOptions: useDbInstancesOptions,
