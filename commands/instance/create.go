@@ -48,8 +48,11 @@ to override any Instance spec field using dot-notation paths rooted at the spec
 		Example: `  # Minimal: server defaults for all components
   everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb
 
-  # Bootstrap from a preset (provider inferred; version/topology/components from preset)
+  # Bootstrap from an InstancePreset (provider inferred; version/topology/components from preset)
   everestctl instance create --name my-mongo --namespace everest --preset mongodb-production
+
+  # Bootstrap from a cluster-wide ClusterInstancePreset
+  everestctl instance create --name my-mongo --namespace everest --clusterpreset mongodb-default
 
   # Preset as base, override a field on top
   everestctl instance create --name my-mongo --namespace everest --preset mongodb-production \
@@ -93,11 +96,13 @@ to override any Instance spec field using dot-notation paths rooted at the spec
 func init() {
 	createCmd.Flags().StringVar(&createOpts.Name, cli.FlagInstanceName, "", "Instance name (required)")
 	createCmd.Flags().StringVarP(&createOpts.Namespace, cli.FlagInstanceNamespace, "n", "", "Namespace to create the instance in (required)")
-	createCmd.Flags().StringVar(&createOpts.Provider, cli.FlagInstanceProvider, "", "Provider name, e.g. percona-server-mongodb (required unless --preset is given)")
-	createCmd.Flags().StringVar(&createOpts.Preset, cli.FlagInstancePreset, "", "InstancePreset name to bootstrap from; --provider is inferred from the preset when omitted")
+	createCmd.Flags().StringVar(&createOpts.Provider, cli.FlagInstanceProvider, "", "Provider name, e.g. percona-server-mongodb (required unless --preset or --clusterpreset is given)")
+	createCmd.Flags().StringVar(&createOpts.Preset, cli.FlagInstancePreset, "", "InstancePreset to bootstrap from; --provider is inferred from the preset when omitted; cannot be used with --clusterpreset ")
+	createCmd.Flags().StringVar(&createOpts.ClusterPreset, cli.FlagInstanceClusterPreset, "", "ClusterInstancePreset to bootstrap from; --provider is inferred from the preset when omitted; cannot be used with --preset")
+	createCmd.MarkFlagsMutuallyExclusive(cli.FlagInstancePreset, cli.FlagInstanceClusterPreset)
 	createCmd.Flags().StringVar(&createOpts.Cluster, cli.FlagInstanceCluster, "main", "Cluster name")
-	createCmd.Flags().StringVar(&createOpts.Version, cli.FlagInstanceVersion, "", "Provider version bundle to use (default: taken from preset if --preset is given, otherwise provider's default)")
-	createCmd.Flags().StringVar(&createOpts.Topology, cli.FlagInstanceTopology, "", "Topology name; cannot be used with --preset (default: provider's first topology)")
+	createCmd.Flags().StringVar(&createOpts.Version, cli.FlagInstanceVersion, "", "Provider version bundle to use (default: taken from the preset if one is given, otherwise provider's default)")
+	createCmd.Flags().StringVar(&createOpts.Topology, cli.FlagInstanceTopology, "", "Topology name; cannot be used with --preset or --clusterpreset (default: provider's first topology)")
 	createCmd.Flags().StringVar(&createOpts.Context, cli.FlagInstanceContext, "", "Context to use (default: current context)")
 	createCmd.Flags().StringVarP(&createOpts.ValuesFile, cli.FlagInstanceFile, "f", "", "Path to a YAML file with component overrides (--set takes precedence)")
 	createCmd.Flags().StringArrayVar(&createOpts.Set, cli.FlagInstanceSet, nil, "Set a spec field: --set components.engine.replicas=3 or --set backup.enabled=true (repeatable)")
