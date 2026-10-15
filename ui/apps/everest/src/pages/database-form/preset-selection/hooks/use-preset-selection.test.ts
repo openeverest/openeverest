@@ -13,44 +13,51 @@
 // limitations under the License.
 
 import { renderHook } from '@testing-library/react';
-import { InstancePreset } from 'shared-types/api.types';
-import {
-  useInstancePresets,
-  useResolveInstancePreset,
-} from 'hooks/api/instance-presets';
+import { ResolvedPreset } from 'shared-types/api.types';
+import { useInstancePresets } from 'hooks/api/instance-presets';
 import { usePresetSelection } from './use-preset-selection';
 
 vi.mock('hooks/api/instance-presets', () => ({
   useInstancePresets: vi.fn(),
-  useResolveInstancePreset: vi.fn(),
 }));
 
-const resolved = { spec: { version: '8.0.12' } } as unknown as InstancePreset;
+const spec = { providerRef: { name: 'psmdb' } };
+const clusterPreset: ResolvedPreset = {
+  kind: 'ClusterInstancePreset',
+  metadata: { name: 'psmdb-replicaset' },
+  spec,
+};
+const namespacePreset: ResolvedPreset = {
+  kind: 'InstancePreset',
+  metadata: { name: 'my-preset', namespace: 'ns' },
+  spec,
+};
+const presets = [clusterPreset, namespacePreset];
 
 const mockList = (overrides = {}) =>
   vi.mocked(useInstancePresets).mockReturnValue({
-    data: [],
+    data: presets,
     isLoading: false,
-    isError: false,
-    ...overrides,
-  } as unknown as ReturnType<typeof useInstancePresets>);
-
-const mockResolve = (overrides = {}) =>
-  vi.mocked(useResolveInstancePreset).mockReturnValue({
-    data: undefined,
     isFetching: false,
     isError: false,
     ...overrides,
-  } as unknown as ReturnType<typeof useResolveInstancePreset>);
+  } as unknown as ReturnType<typeof useInstancePresets>);
 
 describe('usePresetSelection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
+  it('queries presets for the namespace and provider', () => {
+    mockList();
+
+    renderHook(() => usePresetSelection('cluster', 'psmdb', 'ns', ''));
+
+    expect(useInstancePresets).toHaveBeenCalledWith('cluster', 'ns', 'psmdb');
+  });
+
   it('is not selected and not pending when no preset is chosen', () => {
     mockList();
-    mockResolve();
 
     const { result } = renderHook(() =>
       usePresetSelection('cluster', 'psmdb', 'ns', '')
@@ -58,63 +65,57 @@ describe('usePresetSelection', () => {
 
     expect(result.current.presetSelected).toBe(false);
     expect(result.current.presetPending).toBe(false);
-  });
-
-  it('is pending while a chosen preset is still resolving', () => {
-    mockList();
-    mockResolve({ data: undefined, isFetching: true });
-
-    const { result } = renderHook(() =>
-      usePresetSelection('cluster', 'psmdb', 'ns', 'psmdb-replicaset')
-    );
-
-    expect(result.current.presetSelected).toBe(true);
-    expect(result.current.presetPending).toBe(true);
-  });
-
-  it('is pending when a chosen preset has not resolved yet', () => {
-    mockList();
-    mockResolve({ data: undefined, isFetching: false });
-
-    const { result } = renderHook(() =>
-      usePresetSelection('cluster', 'psmdb', 'ns', 'psmdb-replicaset')
-    );
-
-    expect(result.current.presetPending).toBe(true);
     expect(result.current.resolvedPreset).toBeNull();
   });
 
-  it('stops being pending once the preset resolves', () => {
+  it.each([
+    ['cluster-scoped', clusterPreset],
+    ['namespace-scoped', namespacePreset],
+  ])('picks the chosen %s preset from the list', (_, preset) => {
     mockList();
-    mockResolve({ data: resolved, isFetching: false });
+
+    const { result } = renderHook(() =>
+      usePresetSelection('cluster', 'psmdb', 'ns', preset.metadata?.name ?? '')
+    );
+
+    expect(result.current.resolvedPreset).toBe(preset);
+    expect(result.current.presetPending).toBe(false);
+  });
+
+  it('is pending while the list is refetching for a chosen preset', () => {
+    mockList({ isFetching: true });
 
     const { result } = renderHook(() =>
       usePresetSelection('cluster', 'psmdb', 'ns', 'psmdb-replicaset')
     );
 
-    expect(result.current.presetPending).toBe(false);
-    expect(result.current.resolvedPreset).toBe(resolved);
+    expect(result.current.presetPending).toBe(true);
+  });
+
+  it('is pending when the chosen preset is not in the list', () => {
+    mockList();
+
+    const { result } = renderHook(() =>
+      usePresetSelection('cluster', 'psmdb', 'ns', 'missing')
+    );
+
+    expect(result.current.resolvedPreset).toBeNull();
+    expect(result.current.presetPending).toBe(true);
   });
 
   it('surfaces a resolve error only when a preset is chosen', () => {
-    mockList();
-    mockResolve({ data: undefined, isFetching: false, isError: true });
+    mockList({ data: [], isError: true });
 
-    const { result } = renderHook(() =>
+    const { result: unselected } = renderHook(() =>
+      usePresetSelection('cluster', 'psmdb', 'ns', '')
+    );
+    const { result: selected } = renderHook(() =>
       usePresetSelection('cluster', 'psmdb', 'ns', 'psmdb-replicaset')
     );
 
-    expect(result.current.resolveError).toBeTruthy();
-  });
-
-  it('reports the list error state from the presets query', () => {
-    mockList({ isError: true });
-    mockResolve();
-
-    const { result } = renderHook(() =>
-      usePresetSelection('cluster', 'psmdb', 'ns', '')
-    );
-
-    expect(result.current.isError).toBe(true);
+    expect(unselected.current.isError).toBe(true);
+    expect(unselected.current.resolveError).toBeNull();
+    expect(selected.current.resolveError).toBeTruthy();
   });
 });
+

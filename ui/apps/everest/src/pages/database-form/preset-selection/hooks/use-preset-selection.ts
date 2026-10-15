@@ -13,16 +13,13 @@
 // limitations under the License.
 
 import { useMemo } from 'react';
-import {
-  useInstancePresets,
-  useResolveInstancePreset,
-} from 'hooks/api/instance-presets';
+import { useInstancePresets } from 'hooks/api/instance-presets';
 import { PresetSelectionContextType } from '../preset-selection-context';
 import { Messages } from '../preset-selection.messages';
 
-// Resolves the picked preset for the current namespace and exposes the list +
-// gating flags. The picked preset NAME lives in react-hook-form (PRESET_NAME_FIELD)
-// and is passed in; this hook only owns the async resolved spec.
+// Exposes the namespace-resolved preset list + gating flags. The picked preset
+// NAME lives in react-hook-form (PRESET_NAME_FIELD) and is passed in; list items
+// are already resolved, so the picked one is read straight from the list.
 export const usePresetSelection = (
   clusterName: string,
   provider: string | undefined,
@@ -32,19 +29,20 @@ export const usePresetSelection = (
   const {
     data: presets = [],
     isLoading: isLoadingPresets,
+    isFetching,
     isError,
-  } = useInstancePresets(clusterName, provider);
+  } = useInstancePresets(clusterName, namespace, provider);
 
-  // Re-resolves automatically when presetName or namespace changes (query key);
-  // react-query dedupes/cancels stale fetches.
-  const {
-    data: resolved,
-    isFetching: isResolving,
-    isError: hasResolveError,
-  } = useResolveInstancePreset(clusterName, presetName, namespace);
-
-  const resolvedPreset = resolved ?? null;
-  const resolveError = hasResolveError ? Messages.resolveError : null;
+  const resolvedPreset = useMemo(
+    () =>
+      presetName
+        ? (presets.find((preset) => preset.metadata?.name === presetName) ??
+          null)
+        : null,
+    [presets, presetName]
+  );
+  const resolveError =
+    presetName && isError ? Messages.resolveError : null;
 
   return useMemo<PresetSelectionContextType>(
     () => ({
@@ -53,10 +51,9 @@ export const usePresetSelection = (
       isError,
       presetName,
       resolvedPreset,
-      isResolving,
       resolveError,
       presetSelected: Boolean(presetName),
-      presetPending: Boolean(presetName) && (!resolvedPreset || isResolving),
+      presetPending: Boolean(presetName) && (!resolvedPreset || isFetching),
     }),
     [
       presets,
@@ -64,7 +61,7 @@ export const usePresetSelection = (
       isError,
       presetName,
       resolvedPreset,
-      isResolving,
+      isFetching,
       resolveError,
     ]
   );

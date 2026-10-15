@@ -12,5 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Records which preset an Instance was created from (provenance).
+// Records which preset an Instance was created from (provenance), one
+// annotation per preset kind.
 export const INSTANCE_PRESET_ANNOTATION = 'openeverest.io/instance-preset';
+export const CLUSTER_INSTANCE_PRESET_ANNOTATION =
+  'openeverest.io/cluster-instance-preset';

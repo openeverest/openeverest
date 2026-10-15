@@ -13,48 +13,27 @@
 // limitations under the License.
 
 import { useQuery } from '@tanstack/react-query';
-import {
-  getInstancePresetsFn,
-  resolveInstancePresetFn,
-} from 'api/instancePresetApi';
+import { getResolvedPresetsFn } from 'api/instancePresetApi';
 import { PerconaQueryOptions } from 'shared-types/query.types';
-import { InstancePreset, InstancePresetList } from 'shared-types/api.types';
+import { ResolvedPreset, ResolvedPresetList } from 'shared-types/api.types';
 
-export const INSTANCE_PRESETS_QUERY_KEY = 'instance-presets';
-export const RESOLVE_INSTANCE_PRESET_QUERY_KEY = 'resolve-instance-preset';
+export const RESOLVED_PRESETS_QUERY_KEY = 'resolved-presets';
 
+// Items are already resolved for the namespace, so the picked preset is read
+// straight from this list. Keyed on namespace so switching it refetches.
 export const useInstancePresets = (
   clusterName: string,
+  namespace: string | undefined,
   provider?: string,
-  options?: PerconaQueryOptions<InstancePresetList, unknown, InstancePreset[]>
+  options?: PerconaQueryOptions<ResolvedPresetList, unknown, ResolvedPreset[]>
 ) =>
-  useQuery<InstancePresetList, unknown, InstancePreset[]>({
-    queryKey: [INSTANCE_PRESETS_QUERY_KEY, clusterName, provider],
-    queryFn: () => getInstancePresetsFn(clusterName, provider),
-    enabled: Boolean(clusterName) && Boolean(provider),
+  useQuery<ResolvedPresetList, unknown, ResolvedPreset[]>({
+    queryKey: [RESOLVED_PRESETS_QUERY_KEY, clusterName, namespace, provider],
+    queryFn: () => getResolvedPresetsFn(clusterName, namespace ?? '', provider),
+    enabled: Boolean(clusterName) && Boolean(namespace) && Boolean(provider),
     ...options,
     select: (data) =>
-      (data.items ?? []).filter((preset): preset is InstancePreset =>
+      (data.items ?? []).filter((preset): preset is ResolvedPreset =>
         Boolean(preset)
       ),
-  });
-
-// Resolve is a GET modelled as a query keyed on cluster+name+namespace so the
-// spec re-resolves automatically when the namespace changes and react-query
-// dedupes/cancels stale fetches (no manual race handling needed).
-export const useResolveInstancePreset = (
-  clusterName: string,
-  name: string,
-  namespace: string | undefined,
-  options?: PerconaQueryOptions<InstancePreset, unknown, InstancePreset>
-) =>
-  useQuery<InstancePreset, unknown, InstancePreset>({
-    queryKey: [RESOLVE_INSTANCE_PRESET_QUERY_KEY, clusterName, name, namespace],
-    queryFn: () => resolveInstancePresetFn(clusterName, name, namespace ?? ''),
-    enabled: Boolean(clusterName) && Boolean(name) && Boolean(namespace),
-    // A resolved spec is stable for a given name+namespace; disable background
-    // refetches so `isFetching` doesn't briefly re-block the one-click submit.
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
-    ...options,
   });

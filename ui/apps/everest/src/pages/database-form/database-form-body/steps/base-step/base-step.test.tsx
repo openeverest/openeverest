@@ -74,7 +74,6 @@ const presetSelectionValue: PresetSelectionContextType = {
   isError: false,
   presetName: '',
   resolvedPreset: null,
-  isResolving: false,
   resolveError: null,
   presetSelected: false,
   presetPending: false,

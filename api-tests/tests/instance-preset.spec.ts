@@ -92,7 +92,7 @@ test.describe('Instance Preset tests', () => {
         metadata: {
           name: INSTANCE_NAME,
           annotations: {
-            'openeverest.io/instance-preset': PRESET_NAME,
+            'openeverest.io/cluster-instance-preset': PRESET_NAME,
           },
         },
         spec: preset.spec,

@@ -268,7 +268,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/clusters/{cluster}/instance-presets": {
+    "/clusters/{cluster}/cluster-instance-presets": {
         parameters: {
             query?: never;
             header?: never;
@@ -280,7 +280,7 @@ export interface paths {
          * @description This API lists all instance presets in the specified cluster.
          *     Optionally filter by provider.
          */
-        get: operations["listInstancePresets"];
+        get: operations["listClusterInstancePresets"];
         put?: never;
         post?: never;
         delete?: never;
@@ -289,7 +289,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/clusters/{cluster}/instance-presets/{name}": {
+    "/clusters/{cluster}/cluster-instance-presets/{name}": {
         parameters: {
             query?: never;
             header?: never;
@@ -300,7 +300,7 @@ export interface paths {
          * Get instance preset
          * @description This API gets the instance preset specified by the `name` in the specified `cluster`.
          */
-        get: operations["getInstancePreset"];
+        get: operations["getClusterInstancePreset"];
         put?: never;
         post?: never;
         delete?: never;
@@ -309,7 +309,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/clusters/{cluster}/instance-presets/{name}/resolve": {
+    "/clusters/{cluster}/cluster-instance-presets/{name}/resolve": {
         parameters: {
             query?: never;
             header?: never;
@@ -317,13 +317,92 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Resolve instance preset with namespace defaults and default StorageClass of the cluster
+         * Resolve instance preset with default StorageClass of the cluster
          * @description This API resolves the instance preset specified by the `name` in the specified `cluster`.
          *     This endpoint is useful when creating instances from presets, as it provides a
-         *     fully-populated preset with all namespace defaults, and default StorageClass of the cluster
+         *     fully-populated preset with default StorageClass of the cluster
          *     if it has empty StorageClass.
          */
-        get: operations["resolveInstancePreset"];
+        get: operations["resolveClusterInstancePreset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/namespaces/{namespace}/instance-presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List instance presets
+         * @description This API lists all instance presets in the specified namespace and cluster.
+         *     Optionally filter by provider.
+         */
+        get: operations["listInstancePresets"];
+        put?: never;
+        /**
+         * Create instance preset
+         * @description This API creates a new instance preset in the specified namespace and cluster.
+         */
+        post: operations["createInstancePreset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/namespaces/{namespace}/instance-presets/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get instance preset
+         * @description This API gets the instance preset specified by the `name` in the specified `namespace` and `cluster`.
+         */
+        get: operations["getInstancePreset"];
+        /**
+         * Update instance preset
+         * @description This API updates the instance preset specified by the `name` in the specified `namespace` and `cluster`,
+         *     replacing the entire resource with the new one.
+         */
+        put: operations["updateInstancePreset"];
+        post?: never;
+        /**
+         * Delete instance preset
+         * @description This API deletes the instance preset specified by the `name` in the specified `namespace` and `cluster`.
+         */
+        delete: operations["deleteInstancePreset"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/namespaces/{namespace}/resolved-presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List resolved presets (cluster-scoped and namespace-scoped)
+         * @description Returns a single RBAC-filtered list combining cluster-scoped
+         *     ClusterInstancePresets and namespace-scoped InstancePresets visible in
+         *     the given namespace. Each item is tagged with its `kind` and returned
+         *     with the cluster default StorageClass resolved, so consumers can render
+         *     one picker and build an Instance from any item without branching on kind.
+         *     Optionally filtered by provider.
+         */
+        get: operations["listResolvedPresets"];
         put?: never;
         post?: never;
         delete?: never;
@@ -943,6 +1022,18 @@ export interface components {
         Error: {
             message?: string;
         };
+        /**
+         * @description A single selectable preset with the cluster default StorageClass
+         *     resolved. It is a full preset object that self-identifies via its
+         *     `kind` (ClusterInstancePreset or InstancePreset), following the same
+         *     convention as a Kubernetes List item. Consumers discriminate on the
+         *     `kind` field carried by each item.
+         */
+        ResolvedPreset: components["schemas"]["ClusterInstancePreset"] | components["schemas"]["InstancePreset"];
+        /** @description A combined, RBAC-filtered list of resolved cluster- and namespace-scoped presets. */
+        ResolvedPresetList: {
+            items: components["schemas"]["ResolvedPreset"][];
+        };
         /** @description A list of OpenEverest-managed Secrets (metadata only). */
         SecretList: {
             /** @example v1 */
@@ -1494,7 +1585,1305 @@ export interface components {
             /** @description UID is the unique in time and space value for this object. Populated by the system. Read-only. */
             uid?: string;
         };
-        /** @description InstancePreset is the Schema for the instancepresets API */
+        /**
+         * @description ClusterInstancePreset is a cluster-scoped, template of portable provider
+         *     defaults for creating Instances.
+         *
+         *     Because it is cluster-scoped it is available in every namespace, therefore
+         *     must not embed any namespace-scoped reference.
+         *
+         *     It is similar to an InstancePreset, however it is cluster-scoped and
+         *     therefore can be used to create Instances in any namespace, not just the
+         *     namespace of the referent.
+         */
+        ClusterInstancePreset: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: components["schemas"]["ObjectMeta"];
+            /** @description spec defines the desired state of ClusterInstancePreset */
+            spec: {
+                /**
+                 * @description Backup configures the backup feature for this Instance. When enabled,
+                 *     the provider's reconciler is given the resolved BackupClass and storage
+                 *     list so it can configure the engine accordingly (sidecars, agent
+                 *     configuration, etc.). Required for ProviderManaged BackupClasses; Job
+                 *     classes do not need an entry here because they read directly from
+                 *     individual Backup CRs.
+                 */
+                backup?: {
+                    /**
+                     * @description ClassRef references the cluster-scoped BackupClass that the provider
+                     *     should use to configure the engine. The class must have
+                     *     ExecutionMode=ProviderManaged and list the Instance's provider in its
+                     *     SupportedProviders.
+                     */
+                    classRef: {
+                        /** @description Name of the referenced object. */
+                        name: string;
+                    };
+                    /**
+                     * @description Enabled toggles the backup feature for this Instance. When false the
+                     *     runtime skips ConfigureBackup() and the rest of this struct is ignored.
+                     */
+                    enabled: boolean;
+                    /**
+                     * @description Storages registers BackupStorages on the engine. Each entry references
+                     *     a BackupStorage resource in the same namespace; the BackupStorage name
+                     *     is also the storage key the engine uses and the value that Backup CRs
+                     *     target via .spec.storageRef. Schedules and PITR are configured per
+                     *     storage via the nested .schedules and .pitr fields.
+                     */
+                    storages?: {
+                        /**
+                         * @description PITR enables and configures point-in-time recovery writing to this
+                         *     storage. Requires the BackupClass to advertise PITR support via
+                         *     .spec.providerManaged. Engines that support only a single PITR stream
+                         *     (e.g. PSMDB, PXC) require at most one storage on the Instance to set
+                         *     .pitr.enabled=true; this is enforced by the provider, not by the
+                         *     core schema (PG legitimately archives WAL to every configured repo).
+                         */
+                        pitr?: {
+                            /** @description Enabled toggles PITR for this storage. */
+                            enabled: boolean;
+                            /**
+                             * @description Parameters holds provider-specific PITR options, validated against the
+                             *     BackupClass's .spec.providerManaged.pitrParametersSchema.
+                             */
+                            parameters?: Record<string, never>;
+                        };
+                        /**
+                         * @description Schedules registers recurring backup tasks that write to this storage.
+                         *     Schedules produce Backup CRs (via the provider's mirroring loop) using
+                         *     the operator-native scheduler — the runtime never spawns CronJobs for
+                         *     ProviderManaged BackupClasses. Schedule names must be unique across
+                         *     all storages on the Instance.
+                         */
+                        schedules?: {
+                            /**
+                             * @description Cron is a standard 5-field cron expression. The provider may reject
+                             *     expressions the engine does not support.
+                             */
+                            cron: string;
+                            /**
+                             * @description Enabled toggles the schedule. A disabled schedule is removed from
+                             *     the engine without losing its definition on the Instance.
+                             */
+                            enabled: boolean;
+                            /**
+                             * @description Name uniquely identifies the schedule. The provider uses it as the
+                             *     schedule key on the engine and as the value of Backup.spec.scheduleName
+                             *     on mirrored Backup CRs. Names must be unique across all storages on
+                             *     the Instance.
+                             */
+                            name: string;
+                            /**
+                             * @description Parameters is schedule-specific structured configuration validated
+                             *     against the BackupClass's .spec.parametersSchema. When unset the
+                             *     provider falls back to engine defaults. The schema is the same as for
+                             *     Backup.spec.parameters but applied per-schedule rather than
+                             *     per-backup-run.
+                             */
+                            parameters?: Record<string, never>;
+                            /**
+                             * @description Retention configures count-based or time-based backup retention for
+                             *     this schedule. Unset keeps all backups.
+                             */
+                            retention?: {
+                                /**
+                                 * Format: int32
+                                 * @description Count is the number of recent backups to keep when Type is count.
+                                 *     Required when Type is count (minimum 1). Forbidden when Type is time.
+                                 *     Omit Retention on the schedule to keep all backups.
+                                 */
+                                count?: number;
+                                /**
+                                 * @description Duration is the recovery window when Type is time, in the form
+                                 *     <positive-integer><unit> where unit is d (days), w (weeks), or m
+                                 *     (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+                                 */
+                                duration?: string;
+                                /**
+                                 * @description Type selects count-based or time-based retention.
+                                 * @default count
+                                 * @enum {string}
+                                 */
+                                type: "count" | "time";
+                            };
+                        }[];
+                        /**
+                         * @description StorageRef references a BackupStorage in the same namespace. The
+                         *     BackupStorage name doubles as the storage key on the engine, so it
+                         *     must be unique across all entries.
+                         */
+                        storageRef: {
+                            /** @description Name of the referenced object. */
+                            name: string;
+                        };
+                    }[];
+                };
+                /**
+                 * @description Components defines the component instances for this cluster.
+                 *     The keys are component names (e.g., "engine", "proxy", "backupAgent").
+                 *     Which components are valid depends on the selected topology.
+                 */
+                components?: {
+                    [key: string]: {
+                        /**
+                         * @description Image specifies an override for the image to use.
+                         *     When unspecified, it is autmatically set from the ComponentVersions
+                         *     based on the Version specified.
+                         */
+                        image?: string;
+                        /**
+                         * @description Parameters contains component-specific structured parameters, validated
+                         *     against the provider's components[].parametersSchema. Engine
+                         *     configuration file content is carried here as well, under the
+                         *     provider-declared "configuration" property.
+                         */
+                        parameters?: Record<string, never>;
+                        /**
+                         * Format: int32
+                         * @description Replicas specifies the number of replicas for this component.
+                         */
+                        replicas?: number;
+                        /** @description Resources requirements for this component. */
+                        resources?: {
+                            /**
+                             * @description Claims lists the names of resources, defined in spec.resourceClaims,
+                             *     that are used by this container.
+                             *
+                             *     This field depends on the
+                             *     DynamicResourceAllocation feature gate.
+                             *
+                             *     This field is immutable. It can only be set for containers.
+                             */
+                            claims?: {
+                                /**
+                                 * @description Name must match the name of one entry in pod.spec.resourceClaims of
+                                 *     the Pod where this field is used. It makes that resource available
+                                 *     inside a container.
+                                 */
+                                name: string;
+                                /**
+                                 * @description Request is the name chosen for a request in the referenced claim.
+                                 *     If empty, everything from the claim is made available, otherwise
+                                 *     only the result of this request.
+                                 */
+                                request?: string;
+                            }[];
+                            /**
+                             * @description Limits describes the maximum amount of compute resources allowed.
+                             *     More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                             */
+                            limits?: {
+                                [key: string]: number | string;
+                            };
+                            /**
+                             * @description Requests describes the minimum amount of compute resources required.
+                             *     If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                             *     otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                             *     More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                             */
+                            requests?: {
+                                [key: string]: number | string;
+                            };
+                        };
+                        /**
+                         * @description SchedulingPolicy controls where this component's pods run: node
+                         *     selection, pod co-location, anti-affinity, tolerations and topology
+                         *     spread.
+                         */
+                        schedulingPolicy?: {
+                            /**
+                             * @description Affinity constrains node selection, pod co-location and pod
+                             *     anti-affinity (spreading pods across nodes, zones or other topology
+                             *     domains for high availability).
+                             *     When omitted, the provider applies its default, which may require each
+                             *     replica on its own node; an empty affinity ({}) sets no constraints.
+                             */
+                            affinity?: {
+                                /** @description Describes node affinity scheduling rules for the pod. */
+                                nodeAffinity?: {
+                                    /**
+                                     * @description The scheduler will prefer to schedule pods to nodes that satisfy
+                                     *     the affinity expressions specified by this field, but it may choose
+                                     *     a node that violates one or more of the expressions. The node that is
+                                     *     most preferred is the one with the greatest sum of weights, i.e.
+                                     *     for each node that meets all of the scheduling requirements (resource
+                                     *     request, requiredDuringScheduling affinity expressions, etc.),
+                                     *     compute a sum by iterating through the elements of this field and adding
+                                     *     "weight" to the sum if the node matches the corresponding matchExpressions; the
+                                     *     node(s) with the highest sum are the most preferred.
+                                     */
+                                    preferredDuringSchedulingIgnoredDuringExecution?: {
+                                        /** @description A node selector term, associated with the corresponding weight. */
+                                        preference: {
+                                            /** @description A list of node selector requirements by node's labels. */
+                                            matchExpressions?: {
+                                                /** @description The label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description Represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description An array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. If the operator is Gt or Lt, the values
+                                                 *     array must have a single element, which will be interpreted as an integer.
+                                                 *     This array is replaced during a strategic merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /** @description A list of node selector requirements by node's fields. */
+                                            matchFields?: {
+                                                /** @description The label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description Represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description An array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. If the operator is Gt or Lt, the values
+                                                 *     array must have a single element, which will be interpreted as an integer.
+                                                 *     This array is replaced during a strategic merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                        };
+                                        /**
+                                         * Format: int32
+                                         * @description Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.
+                                         */
+                                        weight: number;
+                                    }[];
+                                    /**
+                                     * @description If the affinity requirements specified by this field are not met at
+                                     *     scheduling time, the pod will not be scheduled onto the node.
+                                     *     If the affinity requirements specified by this field cease to be met
+                                     *     at some point during pod execution (e.g. due to an update), the system
+                                     *     may or may not try to eventually evict the pod from its node.
+                                     */
+                                    requiredDuringSchedulingIgnoredDuringExecution?: {
+                                        /** @description Required. A list of node selector terms. The terms are ORed. */
+                                        nodeSelectorTerms: {
+                                            /** @description A list of node selector requirements by node's labels. */
+                                            matchExpressions?: {
+                                                /** @description The label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description Represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description An array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. If the operator is Gt or Lt, the values
+                                                 *     array must have a single element, which will be interpreted as an integer.
+                                                 *     This array is replaced during a strategic merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /** @description A list of node selector requirements by node's fields. */
+                                            matchFields?: {
+                                                /** @description The label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description Represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description An array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. If the operator is Gt or Lt, the values
+                                                 *     array must have a single element, which will be interpreted as an integer.
+                                                 *     This array is replaced during a strategic merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                        }[];
+                                    };
+                                };
+                                /** @description Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)). */
+                                podAffinity?: {
+                                    /**
+                                     * @description The scheduler will prefer to schedule pods to nodes that satisfy
+                                     *     the affinity expressions specified by this field, but it may choose
+                                     *     a node that violates one or more of the expressions. The node that is
+                                     *     most preferred is the one with the greatest sum of weights, i.e.
+                                     *     for each node that meets all of the scheduling requirements (resource
+                                     *     request, requiredDuringScheduling affinity expressions, etc.),
+                                     *     compute a sum by iterating through the elements of this field and adding
+                                     *     "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                     *     node(s) with the highest sum are the most preferred.
+                                     */
+                                    preferredDuringSchedulingIgnoredDuringExecution?: {
+                                        /** @description Required. A pod affinity term, associated with the corresponding weight. */
+                                        podAffinityTerm: {
+                                            /**
+                                             * @description A label query over a set of resources, in this case pods.
+                                             *     If it's null, this PodAffinityTerm matches with no Pods.
+                                             */
+                                            labelSelector?: {
+                                                /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                                matchExpressions?: {
+                                                    /** @description key is the label key that the selector applies to. */
+                                                    key: string;
+                                                    /**
+                                                     * @description operator represents a key's relationship to a set of values.
+                                                     *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                     */
+                                                    operator: string;
+                                                    /**
+                                                     * @description values is an array of string values. If the operator is In or NotIn,
+                                                     *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                     *     the values array must be empty. This array is replaced during a strategic
+                                                     *     merge patch.
+                                                     */
+                                                    values?: string[];
+                                                }[];
+                                                /**
+                                                 * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                                 *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                                 *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                                 */
+                                                matchLabels?: {
+                                                    [key: string]: string;
+                                                };
+                                            };
+                                            /**
+                                             * @description MatchLabelKeys is a set of pod label keys to select which pods will
+                                             *     be taken into consideration. The keys are used to lookup values from the
+                                             *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+                                             *     to select the group of existing pods which pods will be taken into consideration
+                                             *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                             *     pod labels will be ignored. The default value is empty.
+                                             *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                             *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                             */
+                                            matchLabelKeys?: string[];
+                                            /**
+                                             * @description MismatchLabelKeys is a set of pod label keys to select which pods will
+                                             *     be taken into consideration. The keys are used to lookup values from the
+                                             *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+                                             *     to select the group of existing pods which pods will be taken into consideration
+                                             *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                             *     pod labels will be ignored. The default value is empty.
+                                             *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                             *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                             */
+                                            mismatchLabelKeys?: string[];
+                                            /**
+                                             * @description A label query over the set of namespaces that the term applies to.
+                                             *     The term is applied to the union of the namespaces selected by this field
+                                             *     and the ones listed in the namespaces field.
+                                             *     null selector and null or empty namespaces list means "this pod's namespace".
+                                             *     An empty selector ({}) matches all namespaces.
+                                             */
+                                            namespaceSelector?: {
+                                                /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                                matchExpressions?: {
+                                                    /** @description key is the label key that the selector applies to. */
+                                                    key: string;
+                                                    /**
+                                                     * @description operator represents a key's relationship to a set of values.
+                                                     *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                     */
+                                                    operator: string;
+                                                    /**
+                                                     * @description values is an array of string values. If the operator is In or NotIn,
+                                                     *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                     *     the values array must be empty. This array is replaced during a strategic
+                                                     *     merge patch.
+                                                     */
+                                                    values?: string[];
+                                                }[];
+                                                /**
+                                                 * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                                 *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                                 *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                                 */
+                                                matchLabels?: {
+                                                    [key: string]: string;
+                                                };
+                                            };
+                                            /**
+                                             * @description namespaces specifies a static list of namespace names that the term applies to.
+                                             *     The term is applied to the union of the namespaces listed in this field
+                                             *     and the ones selected by namespaceSelector.
+                                             *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+                                             */
+                                            namespaces?: string[];
+                                            /**
+                                             * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+                                             *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
+                                             *     whose value of the label with key topologyKey matches that of any node on which any of the
+                                             *     selected pods is running.
+                                             *     Empty topologyKey is not allowed.
+                                             */
+                                            topologyKey: string;
+                                        };
+                                        /**
+                                         * Format: int32
+                                         * @description weight associated with matching the corresponding podAffinityTerm,
+                                         *     in the range 1-100.
+                                         */
+                                        weight: number;
+                                    }[];
+                                    /**
+                                     * @description If the affinity requirements specified by this field are not met at
+                                     *     scheduling time, the pod will not be scheduled onto the node.
+                                     *     If the affinity requirements specified by this field cease to be met
+                                     *     at some point during pod execution (e.g. due to a pod label update), the
+                                     *     system may or may not try to eventually evict the pod from its node.
+                                     *     When there are multiple elements, the lists of nodes corresponding to each
+                                     *     podAffinityTerm are intersected, i.e. all terms must be satisfied.
+                                     */
+                                    requiredDuringSchedulingIgnoredDuringExecution?: {
+                                        /**
+                                         * @description A label query over a set of resources, in this case pods.
+                                         *     If it's null, this PodAffinityTerm matches with no Pods.
+                                         */
+                                        labelSelector?: {
+                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                            matchExpressions?: {
+                                                /** @description key is the label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description operator represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description values is an array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. This array is replaced during a strategic
+                                                 *     merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /**
+                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                             */
+                                            matchLabels?: {
+                                                [key: string]: string;
+                                            };
+                                        };
+                                        /**
+                                         * @description MatchLabelKeys is a set of pod label keys to select which pods will
+                                         *     be taken into consideration. The keys are used to lookup values from the
+                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+                                         *     to select the group of existing pods which pods will be taken into consideration
+                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                         *     pod labels will be ignored. The default value is empty.
+                                         *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                         *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                         */
+                                        matchLabelKeys?: string[];
+                                        /**
+                                         * @description MismatchLabelKeys is a set of pod label keys to select which pods will
+                                         *     be taken into consideration. The keys are used to lookup values from the
+                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+                                         *     to select the group of existing pods which pods will be taken into consideration
+                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                         *     pod labels will be ignored. The default value is empty.
+                                         *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                         *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                         */
+                                        mismatchLabelKeys?: string[];
+                                        /**
+                                         * @description A label query over the set of namespaces that the term applies to.
+                                         *     The term is applied to the union of the namespaces selected by this field
+                                         *     and the ones listed in the namespaces field.
+                                         *     null selector and null or empty namespaces list means "this pod's namespace".
+                                         *     An empty selector ({}) matches all namespaces.
+                                         */
+                                        namespaceSelector?: {
+                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                            matchExpressions?: {
+                                                /** @description key is the label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description operator represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description values is an array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. This array is replaced during a strategic
+                                                 *     merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /**
+                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                             */
+                                            matchLabels?: {
+                                                [key: string]: string;
+                                            };
+                                        };
+                                        /**
+                                         * @description namespaces specifies a static list of namespace names that the term applies to.
+                                         *     The term is applied to the union of the namespaces listed in this field
+                                         *     and the ones selected by namespaceSelector.
+                                         *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+                                         */
+                                        namespaces?: string[];
+                                        /**
+                                         * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+                                         *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
+                                         *     whose value of the label with key topologyKey matches that of any node on which any of the
+                                         *     selected pods is running.
+                                         *     Empty topologyKey is not allowed.
+                                         */
+                                        topologyKey: string;
+                                    }[];
+                                };
+                                /** @description Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)). */
+                                podAntiAffinity?: {
+                                    /**
+                                     * @description The scheduler will prefer to schedule pods to nodes that satisfy
+                                     *     the anti-affinity expressions specified by this field, but it may choose
+                                     *     a node that violates one or more of the expressions. The node that is
+                                     *     most preferred is the one with the greatest sum of weights, i.e.
+                                     *     for each node that meets all of the scheduling requirements (resource
+                                     *     request, requiredDuringScheduling anti-affinity expressions, etc.),
+                                     *     compute a sum by iterating through the elements of this field and subtracting
+                                     *     "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                     *     node(s) with the highest sum are the most preferred.
+                                     */
+                                    preferredDuringSchedulingIgnoredDuringExecution?: {
+                                        /** @description Required. A pod affinity term, associated with the corresponding weight. */
+                                        podAffinityTerm: {
+                                            /**
+                                             * @description A label query over a set of resources, in this case pods.
+                                             *     If it's null, this PodAffinityTerm matches with no Pods.
+                                             */
+                                            labelSelector?: {
+                                                /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                                matchExpressions?: {
+                                                    /** @description key is the label key that the selector applies to. */
+                                                    key: string;
+                                                    /**
+                                                     * @description operator represents a key's relationship to a set of values.
+                                                     *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                     */
+                                                    operator: string;
+                                                    /**
+                                                     * @description values is an array of string values. If the operator is In or NotIn,
+                                                     *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                     *     the values array must be empty. This array is replaced during a strategic
+                                                     *     merge patch.
+                                                     */
+                                                    values?: string[];
+                                                }[];
+                                                /**
+                                                 * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                                 *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                                 *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                                 */
+                                                matchLabels?: {
+                                                    [key: string]: string;
+                                                };
+                                            };
+                                            /**
+                                             * @description MatchLabelKeys is a set of pod label keys to select which pods will
+                                             *     be taken into consideration. The keys are used to lookup values from the
+                                             *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+                                             *     to select the group of existing pods which pods will be taken into consideration
+                                             *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                             *     pod labels will be ignored. The default value is empty.
+                                             *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                             *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                             */
+                                            matchLabelKeys?: string[];
+                                            /**
+                                             * @description MismatchLabelKeys is a set of pod label keys to select which pods will
+                                             *     be taken into consideration. The keys are used to lookup values from the
+                                             *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+                                             *     to select the group of existing pods which pods will be taken into consideration
+                                             *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                             *     pod labels will be ignored. The default value is empty.
+                                             *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                             *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                             */
+                                            mismatchLabelKeys?: string[];
+                                            /**
+                                             * @description A label query over the set of namespaces that the term applies to.
+                                             *     The term is applied to the union of the namespaces selected by this field
+                                             *     and the ones listed in the namespaces field.
+                                             *     null selector and null or empty namespaces list means "this pod's namespace".
+                                             *     An empty selector ({}) matches all namespaces.
+                                             */
+                                            namespaceSelector?: {
+                                                /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                                matchExpressions?: {
+                                                    /** @description key is the label key that the selector applies to. */
+                                                    key: string;
+                                                    /**
+                                                     * @description operator represents a key's relationship to a set of values.
+                                                     *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                     */
+                                                    operator: string;
+                                                    /**
+                                                     * @description values is an array of string values. If the operator is In or NotIn,
+                                                     *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                     *     the values array must be empty. This array is replaced during a strategic
+                                                     *     merge patch.
+                                                     */
+                                                    values?: string[];
+                                                }[];
+                                                /**
+                                                 * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                                 *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                                 *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                                 */
+                                                matchLabels?: {
+                                                    [key: string]: string;
+                                                };
+                                            };
+                                            /**
+                                             * @description namespaces specifies a static list of namespace names that the term applies to.
+                                             *     The term is applied to the union of the namespaces listed in this field
+                                             *     and the ones selected by namespaceSelector.
+                                             *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+                                             */
+                                            namespaces?: string[];
+                                            /**
+                                             * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+                                             *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
+                                             *     whose value of the label with key topologyKey matches that of any node on which any of the
+                                             *     selected pods is running.
+                                             *     Empty topologyKey is not allowed.
+                                             */
+                                            topologyKey: string;
+                                        };
+                                        /**
+                                         * Format: int32
+                                         * @description weight associated with matching the corresponding podAffinityTerm,
+                                         *     in the range 1-100.
+                                         */
+                                        weight: number;
+                                    }[];
+                                    /**
+                                     * @description If the anti-affinity requirements specified by this field are not met at
+                                     *     scheduling time, the pod will not be scheduled onto the node.
+                                     *     If the anti-affinity requirements specified by this field cease to be met
+                                     *     at some point during pod execution (e.g. due to a pod label update), the
+                                     *     system may or may not try to eventually evict the pod from its node.
+                                     *     When there are multiple elements, the lists of nodes corresponding to each
+                                     *     podAffinityTerm are intersected, i.e. all terms must be satisfied.
+                                     */
+                                    requiredDuringSchedulingIgnoredDuringExecution?: {
+                                        /**
+                                         * @description A label query over a set of resources, in this case pods.
+                                         *     If it's null, this PodAffinityTerm matches with no Pods.
+                                         */
+                                        labelSelector?: {
+                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                            matchExpressions?: {
+                                                /** @description key is the label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description operator represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description values is an array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. This array is replaced during a strategic
+                                                 *     merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /**
+                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                             */
+                                            matchLabels?: {
+                                                [key: string]: string;
+                                            };
+                                        };
+                                        /**
+                                         * @description MatchLabelKeys is a set of pod label keys to select which pods will
+                                         *     be taken into consideration. The keys are used to lookup values from the
+                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+                                         *     to select the group of existing pods which pods will be taken into consideration
+                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                         *     pod labels will be ignored. The default value is empty.
+                                         *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                         *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                         */
+                                        matchLabelKeys?: string[];
+                                        /**
+                                         * @description MismatchLabelKeys is a set of pod label keys to select which pods will
+                                         *     be taken into consideration. The keys are used to lookup values from the
+                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+                                         *     to select the group of existing pods which pods will be taken into consideration
+                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                         *     pod labels will be ignored. The default value is empty.
+                                         *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                         *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                         */
+                                        mismatchLabelKeys?: string[];
+                                        /**
+                                         * @description A label query over the set of namespaces that the term applies to.
+                                         *     The term is applied to the union of the namespaces selected by this field
+                                         *     and the ones listed in the namespaces field.
+                                         *     null selector and null or empty namespaces list means "this pod's namespace".
+                                         *     An empty selector ({}) matches all namespaces.
+                                         */
+                                        namespaceSelector?: {
+                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                            matchExpressions?: {
+                                                /** @description key is the label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description operator represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description values is an array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. This array is replaced during a strategic
+                                                 *     merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /**
+                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                             */
+                                            matchLabels?: {
+                                                [key: string]: string;
+                                            };
+                                        };
+                                        /**
+                                         * @description namespaces specifies a static list of namespace names that the term applies to.
+                                         *     The term is applied to the union of the namespaces listed in this field
+                                         *     and the ones selected by namespaceSelector.
+                                         *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+                                         */
+                                        namespaces?: string[];
+                                        /**
+                                         * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+                                         *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
+                                         *     whose value of the label with key topologyKey matches that of any node on which any of the
+                                         *     selected pods is running.
+                                         *     Empty topologyKey is not allowed.
+                                         */
+                                        topologyKey: string;
+                                    }[];
+                                };
+                            };
+                            /**
+                             * @description NodeSelector must match a node's labels for the pods to be schedulable
+                             *     onto that node.
+                             */
+                            nodeSelector?: {
+                                [key: string]: string;
+                            };
+                            /**
+                             * @description SchedulerName selects the scheduler that dispatches the pods.
+                             *     When omitted the cluster's default scheduler is used.
+                             */
+                            schedulerName?: string;
+                            /**
+                             * @description Tolerations allow the pods to schedule onto nodes carrying matching
+                             *     taints, typically nodes reserved for database workloads.
+                             */
+                            tolerations?: {
+                                /**
+                                 * @description Effect indicates the taint effect to match. Empty means match all taint effects.
+                                 *     When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                                 */
+                                effect?: string;
+                                /**
+                                 * @description Key is the taint key that the toleration applies to. Empty means match all taint keys.
+                                 *     If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+                                 */
+                                key?: string;
+                                /**
+                                 * @description Operator represents a key's relationship to the value.
+                                 *     Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
+                                 *     Exists is equivalent to wildcard for value, so that a pod can
+                                 *     tolerate all taints of a particular category.
+                                 *     Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
+                                 */
+                                operator?: string;
+                                /**
+                                 * Format: int64
+                                 * @description TolerationSeconds represents the period of time the toleration (which must be
+                                 *     of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+                                 *     it is not set, which means tolerate the taint forever (do not evict). Zero and
+                                 *     negative values will be treated as 0 (evict immediately) by the system.
+                                 */
+                                tolerationSeconds?: number;
+                                /**
+                                 * @description Value is the taint value the toleration matches to.
+                                 *     If the operator is Exists, the value should be empty, otherwise just a regular string.
+                                 */
+                                value?: string;
+                            }[];
+                            /**
+                             * @description TopologySpreadConstraints describe how the pods spread across topology
+                             *     domains. A constraint with neither labelSelector nor matchLabelKeys counts
+                             *     this component's pods. When omitted, the provider applies its default; an
+                             *     empty list sets no constraints.
+                             */
+                            topologySpreadConstraints?: {
+                                /**
+                                 * @description LabelSelector is used to find matching pods.
+                                 *     Pods that match this label selector are counted to determine the number of pods
+                                 *     in their corresponding topology domain.
+                                 */
+                                labelSelector?: {
+                                    /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                    matchExpressions?: {
+                                        /** @description key is the label key that the selector applies to. */
+                                        key: string;
+                                        /**
+                                         * @description operator represents a key's relationship to a set of values.
+                                         *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                         */
+                                        operator: string;
+                                        /**
+                                         * @description values is an array of string values. If the operator is In or NotIn,
+                                         *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                         *     the values array must be empty. This array is replaced during a strategic
+                                         *     merge patch.
+                                         */
+                                        values?: string[];
+                                    }[];
+                                    /**
+                                     * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                     *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                     *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                     */
+                                    matchLabels?: {
+                                        [key: string]: string;
+                                    };
+                                };
+                                /**
+                                 * @description MatchLabelKeys is a set of pod label keys to select the pods over which
+                                 *     spreading will be calculated. The keys are used to lookup values from the
+                                 *     incoming pod labels, those key-value labels are ANDed with labelSelector
+                                 *     to select the group of existing pods over which spreading will be calculated
+                                 *     for the incoming pod. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
+                                 *     MatchLabelKeys cannot be set when LabelSelector isn't set.
+                                 *     Keys that don't exist in the incoming pod labels will
+                                 *     be ignored. A null or empty list means only match against labelSelector.
+                                 *
+                                 *     This is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default).
+                                 */
+                                matchLabelKeys?: string[];
+                                /**
+                                 * Format: int32
+                                 * @description MaxSkew describes the degree to which pods may be unevenly distributed.
+                                 *     When `whenUnsatisfiable=DoNotSchedule`, it is the maximum permitted difference
+                                 *     between the number of matching pods in the target topology and the global minimum.
+                                 *     The global minimum is the minimum number of matching pods in an eligible domain
+                                 *     or zero if the number of eligible domains is less than MinDomains.
+                                 *     For example, in a 3-zone cluster, MaxSkew is set to 1, and pods with the same
+                                 *     labelSelector spread as 2/2/1:
+                                 *     In this case, the global minimum is 1.
+                                 *     | zone1 | zone2 | zone3 |
+                                 *     |  P P  |  P P  |   P   |
+                                 *     - if MaxSkew is 1, incoming pod can only be scheduled to zone3 to become 2/2/2;
+                                 *     scheduling it onto zone1(zone2) would make the ActualSkew(3-1) on zone1(zone2)
+                                 *     violate MaxSkew(1).
+                                 *     - if MaxSkew is 2, incoming pod can be scheduled onto any zone.
+                                 *     When `whenUnsatisfiable=ScheduleAnyway`, it is used to give higher precedence
+                                 *     to topologies that satisfy it.
+                                 *     It's a required field. Default value is 1 and 0 is not allowed.
+                                 */
+                                maxSkew: number;
+                                /**
+                                 * Format: int32
+                                 * @description MinDomains indicates a minimum number of eligible domains.
+                                 *     When the number of eligible domains with matching topology keys is less than minDomains,
+                                 *     Pod Topology Spread treats "global minimum" as 0, and then the calculation of Skew is performed.
+                                 *     And when the number of eligible domains with matching topology keys equals or greater than minDomains,
+                                 *     this value has no effect on scheduling.
+                                 *     As a result, when the number of eligible domains is less than minDomains,
+                                 *     scheduler won't schedule more than maxSkew Pods to those domains.
+                                 *     If value is nil, the constraint behaves as if MinDomains is equal to 1.
+                                 *     Valid values are integers greater than 0.
+                                 *     When value is not nil, WhenUnsatisfiable must be DoNotSchedule.
+                                 *
+                                 *     For example, in a 3-zone cluster, MaxSkew is set to 2, MinDomains is set to 5 and pods with the same
+                                 *     labelSelector spread as 2/2/2:
+                                 *     | zone1 | zone2 | zone3 |
+                                 *     |  P P  |  P P  |  P P  |
+                                 *     The number of domains is less than 5(MinDomains), so "global minimum" is treated as 0.
+                                 *     In this situation, new pod with the same labelSelector cannot be scheduled,
+                                 *     because computed skew will be 3(3 - 0) if new Pod is scheduled to any of the three zones,
+                                 *     it will violate MaxSkew.
+                                 */
+                                minDomains?: number;
+                                /**
+                                 * @description NodeAffinityPolicy indicates how we will treat Pod's nodeAffinity/nodeSelector
+                                 *     when calculating pod topology spread skew. Options are:
+                                 *     - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations.
+                                 *     - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
+                                 *
+                                 *     If this value is nil, the behavior is equivalent to the Honor policy.
+                                 */
+                                nodeAffinityPolicy?: string;
+                                /**
+                                 * @description NodeTaintsPolicy indicates how we will treat node taints when calculating
+                                 *     pod topology spread skew. Options are:
+                                 *     - Honor: nodes without taints, along with tainted nodes for which the incoming pod
+                                 *     has a toleration, are included.
+                                 *     - Ignore: node taints are ignored. All nodes are included.
+                                 *
+                                 *     If this value is nil, the behavior is equivalent to the Ignore policy.
+                                 */
+                                nodeTaintsPolicy?: string;
+                                /**
+                                 * @description TopologyKey is the key of node labels. Nodes that have a label with this key
+                                 *     and identical values are considered to be in the same topology.
+                                 *     We consider each <key, value> as a "bucket", and try to put balanced number
+                                 *     of pods into each bucket.
+                                 *     We define a domain as a particular instance of a topology.
+                                 *     Also, we define an eligible domain as a domain whose nodes meet the requirements of
+                                 *     nodeAffinityPolicy and nodeTaintsPolicy.
+                                 *     e.g. If TopologyKey is "kubernetes.io/hostname", each Node is a domain of that topology.
+                                 *     And, if TopologyKey is "topology.kubernetes.io/zone", each zone is a domain of that topology.
+                                 *     It's a required field.
+                                 */
+                                topologyKey: string;
+                                /**
+                                 * @description WhenUnsatisfiable indicates how to deal with a pod if it doesn't satisfy
+                                 *     the spread constraint.
+                                 *     - DoNotSchedule (default) tells the scheduler not to schedule it.
+                                 *     - ScheduleAnyway tells the scheduler to schedule the pod in any location,
+                                 *       but giving higher precedence to topologies that would help reduce the
+                                 *       skew.
+                                 *     A constraint is considered "Unsatisfiable" for an incoming pod
+                                 *     if and only if every possible node assignment for that pod would violate
+                                 *     "MaxSkew" on some topology.
+                                 *     For example, in a 3-zone cluster, MaxSkew is set to 1, and pods with the same
+                                 *     labelSelector spread as 3/1/1:
+                                 *     | zone1 | zone2 | zone3 |
+                                 *     | P P P |   P   |   P   |
+                                 *     If WhenUnsatisfiable is set to DoNotSchedule, incoming pod can only be scheduled
+                                 *     to zone2(zone3) to become 3/2/1(3/1/2) as ActualSkew(2-1) on zone2(zone3) satisfies
+                                 *     MaxSkew(1). In other words, the cluster can still be imbalanced, but scheduler
+                                 *     won't make it *more* imbalanced.
+                                 *     It's a required field.
+                                 */
+                                whenUnsatisfiable: string;
+                            }[];
+                        };
+                        /** @description Service defines how this component is exposed. */
+                        service?: {
+                            /**
+                             * @description Annotations is a map of key-value pairs for annotating the Service.
+                             *     Commonly used to configure cloud provider settings
+                             *     (e.g., AWS ELB annotations, GCP load balancer settings).
+                             */
+                            annotations?: {
+                                [key: string]: string;
+                            };
+                            /**
+                             * @description LoadBalancerService contains LoadBalancer-specific configuration.
+                             *     Only applicable for "LoadBalancer" ServiceType.
+                             */
+                            loadBalancerService?: {
+                                /**
+                                 * @description SourceRanges lists IP source ranges (CIDR notation) that are
+                                 *     allowed to access the load balancer.
+                                 *     If unset, there is no limitations.
+                                 */
+                                sourceRanges?: string[];
+                            };
+                            /**
+                             * @description ServiceType defines how the component is exposed.
+                             *     The provider ultimately decides and validates supported service types.
+                             * @default ClusterIP
+                             */
+                            serviceType: string;
+                        };
+                        /**
+                         * @description Storage requirements for this component.
+                         *     For stateless components, this is an optional field.
+                         */
+                        storage?: {
+                            size?: number | string;
+                            storageClass?: string;
+                        };
+                        /** @description Type of the component from the Provider. */
+                        type?: string;
+                        /** @description Version of the component from ComponentVersions. */
+                        version?: string;
+                    };
+                };
+                /**
+                 * @description DataSource allows creating a new Instance from an existing
+                 *     Backup CR of another Instance.
+                 *
+                 *     Only ProviderManaged BackupClasses are supported. The referenced Backup
+                 *     must be in the same namespace, in Succeeded state, and its BackupClass
+                 *     must list the Instance's provider in SupportedProviders. Instance must
+                 *     also have backup enabled and include a storage entry that matches the
+                 *     storage used by the source Backup so the provider can access the data.
+                 */
+                dataSource?: {
+                    /** @description Backup identifies the backup to restore. Required when type=Backup. */
+                    backup?: {
+                        /** @description BackupRef references the Backup CR in the same namespace. */
+                        backupRef: {
+                            /** @description Name of the referenced object. */
+                            name: string;
+                        };
+                    };
+                    /**
+                     * @description PointInTime identifies the stream and the point to recover to.
+                     *     Required when type=PointInTime.
+                     */
+                    pointInTime?: {
+                        /**
+                         * Format: date-time
+                         * @description Date is the recovery point, RFC 3339 with an explicit UTC offset.
+                         *     Required when RecoveryTarget is "date", forbidden otherwise. Providers
+                         *     convert it to the engine's expected representation; several engines
+                         *     interpret timezone-less timestamps as node-local, so the offset is not
+                         *     optional.
+                         */
+                        date?: string;
+                        /**
+                         * @description RecoveryTarget selects date-based or latest recovery. This enum is
+                         *     deliberately closed: date and latest are the only recovery targets that
+                         *     are meaningful without knowing which engine is running. Engine-specific
+                         *     targets (GTID, LSN, XID, named restore points) are out of scope.
+                         * @enum {string}
+                         */
+                        recoveryTarget: "date" | "latest";
+                        /** @description Source identifies the backup stream to recover from. */
+                        source: {
+                            /**
+                             * @description InstanceRef names the Instance whose stream to recover. Defaults to the
+                             *     Restore's target Instance when omitted; required when seeding a new
+                             *     Instance via Instance.spec.dataSource, which has no stream of its own.
+                             */
+                            instanceRef?: {
+                                /** @description Name of the referenced object. */
+                                name: string;
+                            };
+                            /**
+                             * @description StorageRef selects which of the source Instance's registered
+                             *     BackupStorages to read the stream from. It must name a storage with
+                             *     .pitr.enabled=true on that Instance.
+                             */
+                            storageRef: {
+                                /** @description Name of the referenced object. */
+                                name: string;
+                            };
+                        };
+                    };
+                    /**
+                     * @description Type selects the restore intent.
+                     * @enum {string}
+                     */
+                    type: "Backup" | "PointInTime";
+                };
+                /**
+                 * @description DeletionPolicy controls what happens to Backup and Restore CRs that
+                 *     reference this Instance when the Instance is deleted.
+                 *     Cascade (default) instructs the runtime to delete every Backup and
+                 *     Restore in the Instance's namespace whose .spec.instanceRef matches
+                 *     this Instance before tearing down the engine. Each Backup's own
+                 *     .spec.deletionPolicy then independently controls whether its
+                 *     underlying data in the BackupStorage is purged or retained.
+                 *     Orphan instructs the runtime to leave Backup and Restore CRs in
+                 *     place; they survive the Instance deletion and can later be used to
+                 *     restore into a newly-created Instance.
+                 *
+                 *     The Instance is held in the Terminating phase until all referenced
+                 *     Backups/Restores have been deleted (Cascade) or until the engine
+                 *     resources have been torn down (both policies).
+                 *
+                 *     The field is mutable on a live Instance but is frozen once deletion
+                 *     has started: switching policies after .metadata.deletionTimestamp
+                 *     has been set is rejected so the cascade path cannot race with
+                 *     itself.
+                 * @default Cascade
+                 * @enum {string}
+                 */
+                deletionPolicy: "Cascade" | "Orphan";
+                /**
+                 * @description Maintenance governs how disruptive actions raised against this
+                 *     Instance (e.g. the convergence step after a provider upgrade) are
+                 *     authorized. It does NOT govern the deliberate engine-version upgrade
+                 *     flow (spec.version / spec.components[].version).
+                 */
+                maintenance?: {
+                    /**
+                     * @description Approved is a one-time authorization for an action above the standing
+                     *     tolerance: set it to the exact approvalToken of the held action from
+                     *     status.pendingMaintenance. It is matched literally, authorizes only
+                     *     that occurrence, and re-arms naturally — a later action carries a
+                     *     different token, so a stale value never authorizes it. It is NOT a
+                     *     provider version.
+                     */
+                    approved?: string;
+                    /**
+                     * @description AutoApproveUpTo is the standing disruption tolerance: any action at or
+                     *     below this impact applies automatically, anything above it is held on
+                     *     status.pendingMaintenance. It is cause-agnostic — the tolerance applies
+                     *     whether the action was raised by a provider upgrade or anything else.
+                     * @default NonDisruptive
+                     * @enum {string}
+                     */
+                    autoApproveUpTo: "NonDisruptive" | "RollingRestart" | "Downtime";
+                };
+                /**
+                 * @description Parameters contains structured parameters that apply to the Instance
+                 *     as a whole, complementing the topology- and component-scoped
+                 *     parameters. The payload is validated against the referenced Provider's
+                 *     .spec.parametersSchema.
+                 */
+                parameters?: Record<string, never>;
+                /**
+                 * @description ProviderRef references the cluster-scoped Provider that manages this
+                 *     Instance (e.g., "percona-server-mongodb", "postgresql").
+                 */
+                providerRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
+                /** @description Topology defines the deployment topology and its configuration. */
+                topology?: {
+                    /**
+                     * @description Parameters contains topology-specific structured parameters, validated
+                     *     against the provider's topologies[].parametersSchema.
+                     *     Examples: shard count for sharded topology, replication factor, etc.
+                     */
+                    parameters?: Record<string, never>;
+                    /**
+                     * @description Type is the topology name (e.g., "sharded", "replicaset").
+                     *     The available topologies are defined by the provider.
+                     *     If omitted, the provider's default topology is used.
+                     */
+                    type?: string;
+                };
+                /**
+                 * @description UserSecretRef optionally seeds the engine's initial (bootstrap)
+                 *     credentials from a Secret in the same namespace, for providers whose
+                 *     engine supports setting initial credentials at creation time.
+                 *
+                 *     When omitted, the provider generates credentials automatically. The
+                 *     referenced Secret's required keys are provider-specific and validated
+                 *     by the referenced Provider. The field is immutable once set: initial
+                 *     credentials only apply at engine creation time, so changing it later
+                 *     would have no effect.
+                 */
+                userSecretRef?: {
+                    /** @description Name of the referenced Secret. */
+                    name: string;
+                };
+                /**
+                 * @description Version selects a provider-defined version bundle, resolving compatible
+                 *     versions for all components automatically. Per-component versions set
+                 *     in Components take precedence over the bundle.
+                 *     If omitted and the provider defines a default bundle, that bundle is used.
+                 */
+                version?: string;
+            };
+            /** @description status defines the observed state of ClusterInstancePreset */
+            status?: {
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+            };
+        };
+        /** @description ClusterInstancePresetList is an object that contains the list of the existing clusterinstancepresets. */
+        ClusterInstancePresetList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["ClusterInstancePreset"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+            };
+        };
+        /**
+         * @description InstancePreset is a namespace-scoped, template for creating Instances
+         *     within a single namespace.
+         *
+         *     Because a InstancePreset lives in the same namespace as the Instances
+         *     it produces, it may reference namespace-scoped objects (Secrets, etc.)
+         *     directly by name. It is used for capturing a known-good configuration,
+         *     including concrete local references, and reuse it to create Instances
+         *     in that namespace.
+         *
+         *     It is similar to a ClusterInstancePreset, however it is scoped to a single
+         *     namespace and can therefore only be used to create Instances within that
+         *     same namespace.
+         */
         InstancePreset: {
             /**
              * @description APIVersion defines the versioned schema of this representation of an object.
@@ -2767,6 +4156,8 @@ export interface components {
             metadata?: {
                 /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
                 name?: string;
+                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+                namespace?: string;
             };
         };
         /** @description Provider is the Schema for the providers API */
@@ -5882,6 +7273,130 @@ export interface operations {
             };
         };
     };
+    listClusterInstancePresets: {
+        parameters: {
+            query?: {
+                /** @description Filter presets by provider name */
+                provider?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of instance presets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClusterInstancePresetList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getClusterInstancePreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The name of the instance preset */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Instance preset details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClusterInstancePreset"];
+                };
+            };
+            /** @description Instance preset not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    resolveClusterInstancePreset: {
+        parameters: {
+            query: {
+                /** @description The namespace for which to resolve default values */
+                namespace: string;
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The name of the instance preset */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resolved instance preset with namespace defaults */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClusterInstancePreset"];
+                };
+            };
+            /** @description Instance preset not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listInstancePresets: {
         parameters: {
             query?: {
@@ -5892,6 +7407,8 @@ export interface operations {
             path: {
                 /** @description The name of the cluster */
                 cluster: string;
+                /** @description The namespace where instance presets are located */
+                namespace: string;
             };
             cookie?: never;
         };
@@ -5917,6 +7434,72 @@ export interface operations {
             };
         };
     };
+    createInstancePreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace where the instance preset will be created */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        /** @description The instance preset object to be created */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstancePreset"];
+            };
+        };
+        responses: {
+            /** @description Instance preset created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstancePreset"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getInstancePreset: {
         parameters: {
             query?: never;
@@ -5924,6 +7507,8 @@ export interface operations {
             path: {
                 /** @description The name of the cluster */
                 cluster: string;
+                /** @description The namespace where the instance preset is located */
+                namespace: string;
                 /** @description The name of the instance preset */
                 name: string;
             };
@@ -5938,6 +7523,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstancePreset"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Instance preset not found */
@@ -5960,30 +7554,43 @@ export interface operations {
             };
         };
     };
-    resolveInstancePreset: {
+    updateInstancePreset: {
         parameters: {
-            query: {
-                /** @description The namespace for which to resolve default values */
-                namespace: string;
-            };
+            query?: never;
             header?: never;
             path: {
                 /** @description The name of the cluster */
                 cluster: string;
+                /** @description The namespace where the instance preset is located */
+                namespace: string;
                 /** @description The name of the instance preset */
                 name: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        /** @description The instance preset object to be updated */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstancePreset"];
+            };
+        };
         responses: {
-            /** @description Resolved instance preset with namespace defaults */
+            /** @description Instance preset updated successfully */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["InstancePreset"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Instance preset not found */
@@ -5993,6 +7600,113 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteInstancePreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace where the instance preset is located */
+                namespace: string;
+                /** @description The name of the instance preset */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Instance preset deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Instance preset not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listResolvedPresets: {
+        parameters: {
+            query?: {
+                /** @description Filter presets by provider name */
+                provider?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace used to scope namespace-scoped presets */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Combined list of resolved presets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolvedPresetList"];
                 };
             };
             /** @description Error */

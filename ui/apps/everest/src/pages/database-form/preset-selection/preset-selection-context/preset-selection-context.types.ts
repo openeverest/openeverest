@@ -12,15 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { InstancePreset } from 'shared-types/api.types';
+import { ResolvedPreset } from 'shared-types/api.types';
 
 export interface PresetSelectionContextType {
-  presets: InstancePreset[];
+  presets: ResolvedPreset[];
   isLoadingPresets: boolean;
   isError: boolean;
   presetName: string;
-  resolvedPreset: InstancePreset | null;
-  isResolving: boolean;
+  resolvedPreset: ResolvedPreset | null;
   resolveError: string | null;
   presetSelected: boolean;
   // True while a preset is picked but its spec is not yet resolved (or failed):

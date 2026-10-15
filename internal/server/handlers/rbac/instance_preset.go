@@ -20,19 +20,65 @@ import (
 	"errors"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/runtime"
+
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
-// ListInstancePresets returns instance presets filtered by RBAC permissions.
-func (h *rbacHandler) ListInstancePresets(ctx context.Context, cluster string, provider string) (*corev1alpha1.InstancePresetList, error) {
-	list, err := h.next.ListInstancePresets(ctx, cluster, provider)
+// ListClusterInstancePresets returns instance presets filtered by RBAC permissions.
+func (h *rbacHandler) ListClusterInstancePresets(ctx context.Context, cluster string, provider string) (*corev1alpha1.ClusterInstancePresetList, error) {
+	list, err := h.next.ListClusterInstancePresets(ctx, cluster, provider)
+	if err != nil {
+		return nil, fmt.Errorf("ListClusterInstancePresets failed: %w", err)
+	}
+	filtered := make([]corev1alpha1.ClusterInstancePreset, 0, len(list.Items))
+	for _, preset := range list.Items {
+		object := rbac.ClusterObjectName(cluster, preset.GetName())
+		if err := h.enforce(ctx, rbac.ResourceClusterInstancePresets, rbac.ActionRead, object); errors.Is(err, ErrInsufficientPermissions) {
+			continue
+		} else if err != nil {
+			return nil, fmt.Errorf("enforce failed: %w", err)
+		}
+		filtered = append(filtered, preset)
+	}
+	list.Items = filtered
+	return list, nil
+}
+
+// GetClusterInstancePreset returns an instance preset, gated by RBAC.
+func (h *rbacHandler) GetClusterInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.ClusterInstancePreset, error) {
+	object := rbac.ClusterObjectName(cluster, name)
+	if err := h.enforce(ctx, rbac.ResourceClusterInstancePresets, rbac.ActionRead, object); err != nil {
+		return nil, err
+	}
+	return h.next.GetClusterInstancePreset(ctx, cluster, name)
+}
+
+// ResolveClusterInstancePreset returns an instance preset with namespace defaults, gated by RBAC.
+func (h *rbacHandler) ResolveClusterInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.ClusterInstancePreset, error) {
+	object := rbac.ClusterObjectName(cluster, name)
+	if err := h.enforce(ctx, rbac.ResourceClusterInstancePresets, rbac.ActionRead, object); err != nil {
+		return nil, err
+	}
+	// Also check namespace access
+	nsObject := rbac.ClusterObjectName(cluster, namespace)
+	if err := h.enforce(ctx, rbac.ResourceNamespaces, rbac.ActionRead, nsObject); err != nil {
+		return nil, err
+	}
+	return h.next.ResolveClusterInstancePreset(ctx, cluster, name, namespace)
+}
+
+// ListInstancePresets returns namespace-scoped instance presets filtered by RBAC permissions.
+func (h *rbacHandler) ListInstancePresets(ctx context.Context, cluster, namespace, provider string) (*corev1alpha1.InstancePresetList, error) {
+	list, err := h.next.ListInstancePresets(ctx, cluster, namespace, provider)
 	if err != nil {
 		return nil, fmt.Errorf("ListInstancePresets failed: %w", err)
 	}
 	filtered := make([]corev1alpha1.InstancePreset, 0, len(list.Items))
 	for _, preset := range list.Items {
-		object := rbac.ClusterObjectName(cluster, preset.GetName())
+		object := rbac.ClusterNamespacedObjectName(cluster, preset.GetNamespace(), preset.GetName())
 		if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionRead, object); errors.Is(err, ErrInsufficientPermissions) {
 			continue
 		} else if err != nil {
@@ -44,25 +90,70 @@ func (h *rbacHandler) ListInstancePresets(ctx context.Context, cluster string, p
 	return list, nil
 }
 
-// GetInstancePreset returns an instance preset, gated by RBAC.
-func (h *rbacHandler) GetInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.InstancePreset, error) {
-	object := rbac.ClusterObjectName(cluster, name)
+// GetInstancePreset returns a namespace-scoped instance preset, gated by RBAC.
+func (h *rbacHandler) GetInstancePreset(ctx context.Context, cluster, namespace, name string) (*corev1alpha1.InstancePreset, error) {
+	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
 	if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionRead, object); err != nil {
 		return nil, err
 	}
-	return h.next.GetInstancePreset(ctx, cluster, name)
+	return h.next.GetInstancePreset(ctx, cluster, namespace, name)
 }
 
-// ResolveInstancePreset returns an instance preset with namespace defaults, gated by RBAC.
-func (h *rbacHandler) ResolveInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.InstancePreset, error) {
-	object := rbac.ClusterObjectName(cluster, name)
-	if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionRead, object); err != nil {
+// CreateInstancePreset creates a namespace-scoped instance preset, gated by RBAC.
+func (h *rbacHandler) CreateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
+	object := rbac.ClusterNamespacedObjectName(cluster, preset.GetNamespace(), preset.GetName())
+	if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionCreate, object); err != nil {
 		return nil, err
 	}
-	// Also check namespace access
-	nsObject := rbac.ClusterObjectName(cluster, namespace)
-	if err := h.enforce(ctx, rbac.ResourceNamespaces, rbac.ActionRead, nsObject); err != nil {
+	return h.next.CreateInstancePreset(ctx, cluster, preset)
+}
+
+// UpdateInstancePreset updates a namespace-scoped instance preset, gated by RBAC.
+func (h *rbacHandler) UpdateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
+	object := rbac.ClusterNamespacedObjectName(cluster, preset.GetNamespace(), preset.GetName())
+	if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionUpdate, object); err != nil {
 		return nil, err
 	}
-	return h.next.ResolveInstancePreset(ctx, cluster, name, namespace)
+	return h.next.UpdateInstancePreset(ctx, cluster, preset)
+}
+
+// DeleteInstancePreset deletes a namespace-scoped instance preset, gated by RBAC.
+func (h *rbacHandler) DeleteInstancePreset(ctx context.Context, cluster, namespace, name string) error {
+	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
+	if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionDelete, object); err != nil {
+		return err
+	}
+	return h.next.DeleteInstancePreset(ctx, cluster, namespace, name)
+}
+
+// ListResolvedPresets returns the combined resolved preset list, filtering each
+// item by the read permission of its own kind (cluster-scoped presets use the
+// cluster-instance-presets resource, namespace-scoped presets use instance-presets).
+func (h *rbacHandler) ListResolvedPresets(ctx context.Context, cluster, namespace, provider string) (*handlers.ResolvedPresetList, error) {
+	list, err := h.next.ListResolvedPresets(ctx, cluster, namespace, provider)
+	if err != nil {
+		return nil, fmt.Errorf("ListResolvedPresets failed: %w", err)
+	}
+	filtered := make([]runtime.Object, 0, len(list.Items))
+	for _, item := range list.Items {
+		var resource, object string
+		switch preset := item.(type) {
+		case *corev1alpha1.ClusterInstancePreset:
+			resource = rbac.ResourceClusterInstancePresets
+			object = rbac.ClusterObjectName(cluster, preset.GetName())
+		case *corev1alpha1.InstancePreset:
+			resource = rbac.ResourceInstancePresets
+			object = rbac.ClusterNamespacedObjectName(cluster, preset.GetNamespace(), preset.GetName())
+		default:
+			continue
+		}
+		if err := h.enforce(ctx, resource, rbac.ActionRead, object); errors.Is(err, ErrInsufficientPermissions) {
+			continue
+		} else if err != nil {
+			return nil, fmt.Errorf("enforce failed: %w", err)
+		}
+		filtered = append(filtered, item)
+	}
+	list.Items = filtered
+	return list, nil
 }

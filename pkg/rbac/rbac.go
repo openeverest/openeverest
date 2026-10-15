@@ -66,17 +66,18 @@ const (
 
 	// v2 multi-cluster resource names.
 
-	ResourceClusters          = "clusters"
-	ResourceProviders         = "providers"
-	ResourceInstances         = "instances"
-	ResourceInstancePresets   = "instance-presets"
-	ResourceBackupClasses     = "backup-classes"
-	ResourceBackups           = "backups"
-	ResourceBackupImports     = "backup-imports"
-	ResourceRestores          = "restores"
-	ResourceMonitoringConfigs = "monitoring-configs"
-	ResourceConfigMaps        = "config-maps"
-	ResourceSecrets           = "secrets"
+	ResourceClusters               = "clusters"
+	ResourceProviders              = "providers"
+	ResourceInstances              = "instances"
+	ResourceClusterInstancePresets = "cluster-instance-presets"
+	ResourceInstancePresets        = "instance-presets"
+	ResourceBackupClasses          = "backup-classes"
+	ResourceBackups                = "backups"
+	ResourceBackupImports          = "backup-imports"
+	ResourceRestores               = "restores"
+	ResourceMonitoringConfigs      = "monitoring-configs"
+	ResourceConfigMaps             = "config-maps"
+	ResourceSecrets                = "secrets"
 )
 
 // GlobalResources is a list of all Everest API resources that are considered global.
@@ -101,6 +102,7 @@ var ClusterScopedResources = []string{
 // These use the 3-segment object format: cluster/namespace/name.
 var ClusterNamespacedResources = []string{
 	ResourceInstances,
+	ResourceInstancePresets,
 	ResourceBackups,
 	ResourceBackupImports,
 	ResourceRestores,
