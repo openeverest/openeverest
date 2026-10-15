@@ -20,7 +20,10 @@ import (
 	"errors"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/runtime"
+
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
@@ -121,4 +124,36 @@ func (h *rbacHandler) DeleteInstancePreset(ctx context.Context, cluster, namespa
 		return err
 	}
 	return h.next.DeleteInstancePreset(ctx, cluster, namespace, name)
+}
+
+// ListResolvedPresets returns the combined resolved preset list, filtering each
+// item by the read permission of its own kind (cluster-scoped presets use the
+// cluster-instance-presets resource, namespace-scoped presets use instance-presets).
+func (h *rbacHandler) ListResolvedPresets(ctx context.Context, cluster, namespace, provider string) (*handlers.ResolvedPresetList, error) {
+	list, err := h.next.ListResolvedPresets(ctx, cluster, namespace, provider)
+	if err != nil {
+		return nil, fmt.Errorf("ListResolvedPresets failed: %w", err)
+	}
+	filtered := make([]runtime.Object, 0, len(list.Items))
+	for _, item := range list.Items {
+		var resource, object string
+		switch preset := item.(type) {
+		case *corev1alpha1.ClusterInstancePreset:
+			resource = rbac.ResourceClusterInstancePresets
+			object = rbac.ClusterObjectName(cluster, preset.GetName())
+		case *corev1alpha1.InstancePreset:
+			resource = rbac.ResourceInstancePresets
+			object = rbac.ClusterNamespacedObjectName(cluster, preset.GetNamespace(), preset.GetName())
+		default:
+			continue
+		}
+		if err := h.enforce(ctx, resource, rbac.ActionRead, object); errors.Is(err, ErrInsufficientPermissions) {
+			continue
+		} else if err != nil {
+			return nil, fmt.Errorf("enforce failed: %w", err)
+		}
+		filtered = append(filtered, item)
+	}
+	list.Items = filtered
+	return list, nil
 }

@@ -386,6 +386,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clusters/{cluster}/namespaces/{namespace}/resolved-presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List resolved presets (cluster-scoped and namespace-scoped)
+         * @description Returns a single RBAC-filtered list combining cluster-scoped
+         *     ClusterInstancePresets and namespace-scoped InstancePresets visible in
+         *     the given namespace. Each item is tagged with its `kind` and returned
+         *     with the cluster default StorageClass resolved, so consumers can render
+         *     one picker and build an Instance from any item without branching on kind.
+         *     Optionally filtered by provider.
+         */
+        get: operations["listResolvedPresets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clusters/{cluster}/providers": {
         parameters: {
             query?: never;
@@ -996,6 +1021,18 @@ export interface components {
         /** @description Error response */
         Error: {
             message?: string;
+        };
+        /**
+         * @description A single selectable preset with the cluster default StorageClass
+         *     resolved. It is a full preset object that self-identifies via its
+         *     `kind` (ClusterInstancePreset or InstancePreset), following the same
+         *     convention as a Kubernetes List item. Consumers discriminate on the
+         *     `kind` field carried by each item.
+         */
+        ResolvedPreset: components["schemas"]["ClusterInstancePreset"] | components["schemas"]["InstancePreset"];
+        /** @description A combined, RBAC-filtered list of resolved cluster- and namespace-scoped presets. */
+        ResolvedPresetList: {
+            items: components["schemas"]["ResolvedPreset"][];
         };
         /** @description A list of OpenEverest-managed Secrets (metadata only). */
         SecretList: {
@@ -7633,6 +7670,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listResolvedPresets: {
+        parameters: {
+            query?: {
+                /** @description Filter presets by provider name */
+                provider?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace used to scope namespace-scoped presets */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Combined list of resolved presets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolvedPresetList"];
                 };
             };
             /** @description Error */

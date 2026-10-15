@@ -21,6 +21,7 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
@@ -45,6 +46,7 @@ type Handler interface {
 	InstanceHandler
 	ClusterInstancePresetHandler
 	InstancePresetHandler
+	ResolvedPresetHandler
 	ClusterHandler
 	BackupClassHandler
 	BackupHandler
@@ -114,6 +116,22 @@ type InstancePresetHandler interface {
 	CreateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error)
 	UpdateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error)
 	DeleteInstancePreset(ctx context.Context, cluster, namespace, name string) error
+}
+
+// ResolvedPresetList is a combined, RBAC-filtered list of resolved cluster- and
+// namespace-scoped presets. Each item is a full preset object (a
+// *corev1alpha1.ClusterInstancePreset or *corev1alpha1.InstancePreset) that
+// self-identifies via its apiVersion/kind, so the list is heterogeneous in the
+// same way a Kubernetes List is. runtime.Object guarantees every item carries
+// TypeMeta and serializes as a full Kubernetes object.
+type ResolvedPresetList struct {
+	Items []runtime.Object `json:"items"`
+}
+
+// ResolvedPresetHandler provides a combined, resolved view over both cluster-scoped
+// and namespace-scoped presets.
+type ResolvedPresetHandler interface {
+	ListResolvedPresets(ctx context.Context, cluster, namespace, provider string) (*ResolvedPresetList, error)
 }
 
 // ClusterHandler provides methods for handling operations on clusters.

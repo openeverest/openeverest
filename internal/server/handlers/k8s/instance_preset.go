@@ -21,12 +21,14 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 )
 
 const (
@@ -123,6 +125,49 @@ func (h *k8sHandler) DeleteInstancePreset(ctx context.Context, _, namespace, nam
 		return fmt.Errorf("failed to delete instance preset: %w", err)
 	}
 
+	return nil
+}
+
+// ListResolvedPresets returns a combined list of cluster-scoped and namespace-scoped
+// presets. The cluster default StorageClass resolved for cluster-scoped presets.
+// Optionally filtered by provider.
+func (h *k8sHandler) ListResolvedPresets(ctx context.Context, cluster, namespace, provider string) (*handlers.ResolvedPresetList, error) {
+	result := &handlers.ResolvedPresetList{Items: []runtime.Object{}}
+
+	clusterList, err := h.ListClusterInstancePresets(ctx, cluster, provider)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list cluster instance presets: %w", err)
+	}
+	for i := range clusterList.Items {
+		resolved := &clusterList.Items[i]
+		if err := h.resolveComponentsStorage(ctx, resolved.Spec.Components); err != nil {
+			return nil, fmt.Errorf("failed to resolve cluster instance preset %s: %w", resolved.GetName(), err)
+		}
+		result.Items = append(result.Items, resolved)
+	}
+
+	nsList, err := h.ListInstancePresets(ctx, cluster, namespace, provider)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list instance presets: %w", err)
+	}
+	for i := range nsList.Items {
+		result.Items = append(result.Items, &nsList.Items[i])
+	}
+
+	return result, nil
+}
+
+// resolveComponentsStorage fills every component's empty StorageClass with the
+// cluster default StorageClass. This resolution is cluster-scoped and
+// namespace-independent, so it applies uniformly to both preset kinds.
+func (h *k8sHandler) resolveComponentsStorage(ctx context.Context, components map[string]corev1alpha1.ComponentSpec) error {
+	for name, component := range components {
+		resolved, err := h.resolveStorageFields(ctx, component)
+		if err != nil {
+			return err
+		}
+		components[name] = resolved
+	}
 	return nil
 }
 

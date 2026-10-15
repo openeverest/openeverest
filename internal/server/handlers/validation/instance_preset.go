@@ -19,6 +19,7 @@ import (
 	"context"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 )
 
 // ListClusterInstancePresets proxies the request to the next handler.
@@ -59,4 +60,9 @@ func (h *validateHandler) UpdateInstancePreset(ctx context.Context, cluster stri
 // DeleteInstancePreset proxies the request to the next handler.
 func (h *validateHandler) DeleteInstancePreset(ctx context.Context, cluster, namespace, name string) error {
 	return h.next.DeleteInstancePreset(ctx, cluster, namespace, name)
+}
+
+// ListResolvedPresets proxies the request to the next handler.
+func (h *validateHandler) ListResolvedPresets(ctx context.Context, cluster, namespace, provider string) (*handlers.ResolvedPresetList, error) {
+	return h.next.ListResolvedPresets(ctx, cluster, namespace, provider)
 }

@@ -134,3 +134,14 @@ func (e *EverestServer) DeleteInstancePreset(c echo.Context, cluster string, nam
 	}
 	return c.NoContent(http.StatusNoContent)
 }
+
+// ListResolvedPresets returns a combined list of cluster-scoped and namespace-scoped
+// presets, each tagged by kind and with the cluster default StorageClass resolved.
+func (e *EverestServer) ListResolvedPresets(c echo.Context, cluster string, namespace string, params api.ListResolvedPresetsParams) error {
+	result, err := e.handler.ListResolvedPresets(c.Request().Context(), cluster, namespace, pointer.GetString(params.Provider))
+	if err != nil {
+		e.l.Errorf("ListResolvedPresets failed: %v", err)
+		return err
+	}
+	return c.JSON(http.StatusOK, result)
+}

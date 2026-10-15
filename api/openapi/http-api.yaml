@@ -773,6 +773,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/resolved-presets':
+    # No x-everest-resource-name: this aggregates cluster-scoped and
+    # namespace-scoped presets, which have different RBAC resources. The
+    # blanket middleware check is skipped; the handler enforces read per item
+    # against each item's own resource (cluster-instance-presets / instance-presets).
+    get:
+      tags:
+        - Preset
+      summary: List resolved presets (cluster-scoped and namespace-scoped)
+      description: |
+        Returns a single RBAC-filtered list combining cluster-scoped
+        ClusterInstancePresets and namespace-scoped InstancePresets visible in
+        the given namespace. Each item is tagged with its `kind` and returned
+        with the cluster default StorageClass resolved, so consumers can render
+        one picker and build an Instance from any item without branching on kind.
+        Optionally filtered by provider.
+      operationId: listResolvedPresets
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace used to scope namespace-scoped presets
+          schema:
+            type: string
+        - name: provider
+          in: query
+          required: false
+          description: Filter presets by provider name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Combined list of resolved presets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResolvedPresetList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/providers':
     x-everest-resource-name: providers
     get:
@@ -2825,6 +2874,26 @@ components:
       properties:
         message:
           type: string
+    ResolvedPreset:
+      description: |
+        A single selectable preset with the cluster default StorageClass
+        resolved. It is a full preset object that self-identifies via its
+        `kind` (ClusterInstancePreset or InstancePreset), following the same
+        convention as a Kubernetes List item. Consumers discriminate on the
+        `kind` field carried by each item.
+      oneOf:
+        - $ref: 'crds.gen.yaml#/components/schemas/ClusterInstancePreset'
+        - $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+    ResolvedPresetList:
+      type: object
+      description: A combined, RBAC-filtered list of resolved cluster- and namespace-scoped presets.
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResolvedPreset'
+      required:
+        - items
     SecretList:
       type: object
       description: A list of OpenEverest-managed Secrets (metadata only).

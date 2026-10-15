@@ -64,6 +64,7 @@ var skipPaths = []string{
 	"/auth/revoke",
 	"/auth/token",
 	"/cluster-info",
+	"/clusters/:cluster/namespaces/:namespace/resolved-presets",
 	"/permissions",
 	"/resources",
 	"/settings",
