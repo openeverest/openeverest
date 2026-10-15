@@ -60,6 +60,7 @@ A `dataSource` field is still a regular `select` — the only difference is that
 | ------------------- | ------------------------------------------- | ----------------- | ------------------------------ |
 | `monitoringConfigs` | MonitoringConfig resource names             | cluster/namespace | ActionableAlert + create modal |
 | `storageClasses`    | StorageClass names available on the cluster | cluster           | None (not user-creatable)      |
+| `backupStorages`    | BackupStorage (storage location) names      | cluster/namespace | ActionableAlert + create modal |
 
 ## Field Behavior
 
