@@ -211,7 +211,7 @@ describe('scheduleModalDefaultValues', () => {
       const result = scheduleModalDefaultValues(WizardMode.New);
       expect(result[ScheduleFormFields.scheduleName]).toMatch(/^backup-/);
       expect(result[ScheduleFormFields.storageLocation]).toBeNull();
-      expect(result[ScheduleFormFields.retentionCopies]).toBe('0');
+      expect(result[ScheduleFormFields.retentionType]).toBe('keep-all');
     });
 
     it('includes time selection defaults', () => {
@@ -249,22 +249,33 @@ describe('scheduleModalDefaultValues', () => {
       });
     });
 
-    it('populates retention copies as string', () => {
+    it('populates count retention fields', () => {
       const result = scheduleModalDefaultValues(
         WizardMode.Edit,
         selectedSchedule
       );
+      expect(result[ScheduleFormFields.retentionType]).toBe('count');
       expect(result[ScheduleFormFields.retentionCopies]).toBe('5');
     });
 
-    it('defaults retention copies to 0 for time retention', () => {
+    it('populates time retention fields', () => {
       const result = scheduleModalDefaultValues(
         WizardMode.Edit,
         makeSchedule({
           retention: { type: 'time', duration: '30d' },
         })
       );
-      expect(result[ScheduleFormFields.retentionCopies]).toBe('0');
+      expect(result[ScheduleFormFields.retentionType]).toBe('time');
+      expect(result[ScheduleFormFields.retentionDurationValue]).toBe('30');
+      expect(result[ScheduleFormFields.retentionDurationUnit]).toBe('d');
+    });
+
+    it('defaults to keep-all when retention is unset', () => {
+      const result = scheduleModalDefaultValues(
+        WizardMode.Edit,
+        makeSchedule({ retention: undefined })
+      );
+      expect(result[ScheduleFormFields.retentionType]).toBe('keep-all');
     });
 
     it('includes parameters when present', () => {
