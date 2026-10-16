@@ -177,6 +177,38 @@ describe('postprocessSchemaData', () => {
     });
   });
 
+  it('sends quantity fields as quantity strings in their unit', () => {
+    const schema: TopologyUISchemas = {
+      ha: {
+        sections: {
+          resources: {
+            components: {
+              cpu: {
+                uiType: FieldType.Quantity,
+                path: 'spec.resources.cpu',
+                fieldParams: { label: 'CPU', unitLabel: 'cores' },
+              },
+              memory: {
+                uiType: FieldType.Quantity,
+                path: 'spec.resources.memory',
+                fieldParams: { label: 'Memory', unit: 'Gi' },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const result = postprocessSchemaData(
+      { spec: { resources: { cpu: '0.5', memory: 4 } } },
+      { schema, selectedTopology: 'ha' }
+    );
+
+    expect(result).toEqual({
+      spec: { resources: { cpu: '0.5', memory: '4Gi' } },
+    });
+  });
+
   it('skips badge for empty values during postprocessing', () => {
     const schema: TopologyUISchemas = {
       single: {

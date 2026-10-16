@@ -49,7 +49,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  CMP["Component"] --> UT["uiType<br/>(number, select, text, toggle, hidden)"]
+  CMP["Component"] --> UT["uiType<br/>(number, quantity, select, text, toggle, hidden)"]
   CMP --> PID{"path | id"}
   CMP --> TP2["techPreview? 🛠️"]
   CMP --> DS2["dataSource?"]
@@ -106,6 +106,14 @@ classDiagram
     step?
     placeholder?
   }
+  class QuantityFieldParams {
+    unit?
+    unitLabel?
+    step?
+    placeholder?
+    badge? never
+    badgeToApi? never
+  }
   class TextFieldParams {
     placeholder?
     multiline?
@@ -148,6 +156,7 @@ classDiagram
     <<CommonFieldParams>>
   }
   CommonFieldParams <|-- NumberFieldParams
+  CommonFieldParams <|-- QuantityFieldParams
   CommonFieldParams <|-- TextFieldParams
   CommonFieldParams <|-- SelectFieldParams
   CommonFieldParams <|-- ToggleFieldParams
@@ -229,8 +238,12 @@ classDiagram
 
   When `badgeToApi` is set, the badge also acts as the value's **unit**: applied on write and converted back on read by `stripBadgeFromValue` (`badge-to-api`), which the overview cards reuse for display. The unit semantics, conversion rules and supported-unit list are documented for users in [number-field](../../ui-generator/components/number-field.md#unit-badge).
 
+  `number` fields read stored values through `readNumberFieldValue` (`badge-to-api`) in both the edit form (`extractInstanceValues`) and the overview cards. A Kubernetes quantity string (`"500m"`) becomes a number: in the badge unit when `badgeToApi` is set, otherwise in its base unit (`0.5`). The edit modal builds CEL's `original` from these same values (see [pipeline](pipeline.md#section-edit-modal-flow)).
+
+- **`quantity` vs `number` + `badgeToApi`** — a `quantity` field holds a number in its `unit` in the form and in CEL, and always writes a quantity string (`readQuantity` / `writeQuantity` in `utils/quantity/`), so an int-or-string API path never gets a float. It takes the `number` validation rules. `badge` / `badgeToApi` are typed `never` on it: `unit` replaces them. User docs: [quantity-field](../../ui-generator/components/quantity-field.md).
+
 ## Metadata
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-30
+- Last updated: 2026-10-13

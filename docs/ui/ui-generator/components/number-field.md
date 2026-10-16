@@ -14,6 +14,8 @@
 
 A numeric input field for integer and decimal values.
 
+For a Kubernetes resource quantity (CPU, memory, disk), use the [quantity field](quantity-field.md): it always sends a quantity string, while a `number` field without `badgeToApi` sends a fractional value as a float, which Kubernetes rejects on these paths.
+
 ## Properties:
 
 - `uiType`: `"number"` (required)
@@ -54,6 +56,8 @@ Validates that input is numeric
 Supported units (Kubernetes resource quantities): `m, k, M, G, T, P, E, Ki, Mi, Gi, Ti, Pi, Ei`.
 
 A value stored in any other (non-standard) unit is **not** converted and is shown as-is. This is expected behavior: if a stored value uses a unit outside the list above (e.g. `kg`), the raw value passes through unchanged.
+
+Without `badgeToApi` (no badge, or a display-only badge such as `cores`) a stored Kubernetes quantity is read back as its plain number. For example, Kubernetes stores a CPU limit of `0.5` as `500m`, and the field shows `0.5`.
 
 ```yaml
 memory:

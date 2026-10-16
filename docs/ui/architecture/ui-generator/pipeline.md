@@ -80,7 +80,8 @@ flowchart TD
   topology's defaults over the rest (`mergeTopologyDefaults`). Switching back therefore starts from
   defaults, not stale values.
 - **`extractInstanceValues`** — in edit/restore, reads values **only from the instance** (by
-  `sourcePath`), **without** schema defaults (so edit doesn't inject defaults).
+  `sourcePath`), **without** schema defaults (so edit doesn't inject defaults). A `quantity`
+  field reads the stored quantity as a number in its `unit` (`readQuantity`).
 - **Toggleable switches** — `false` on create; when values come from an instance or preset, on
   if any of the group's `childPaths` has a value.
 
@@ -143,9 +144,16 @@ triggers no request.
     kept; values no topology binds (`dbName`, `backup`, …) are untouched.
   - **`extractMultiPathMappings` / `applyMultiPathMappings`** — one value → all `targetPaths`.
   - **`extractBadgeMappings` / `applyBadgesToFormData`** — unit suffix (`8` → `8Gi`).
+  - **`writeQuantityFields`** — a `quantity` field's number → a quantity string in its `unit`
+    (`0.5` → `"0.5"`, `4` → `"4Gi"`), so int-or-string API paths never get a float.
   - **`getInactiveToggleablePaths`** — returns the `childPaths` of switched-off toggleable groups;
     they are deleted together with the form-only `toggleable-switches` key.
   - **`removeEmptyFieldValues`** — strip `undefined` / `null` / `""`.
+- **`groupFieldPathsByChange`** (`field-changes.ts`) — splits field paths into changed and
+  untouched against the values the form opened with. Reading can change a value's form
+  (`"500m"` → `0.5`), so an untouched field is sent in its stored form: restore uses
+  `keepUntouchedSourceValues` with the source instance, the section edit modal writes only the
+  changed paths (`mergeSectionEdit`).
 
 **Principle:** the mapping source is the same `_normalized` computed in preprocess.
 
@@ -156,12 +164,13 @@ flowchart TD
   OVERVIEW["Overview page"] --> EDITABLE["isSectionEditable(section, Edit)"]
   EDITABLE --> MODAL["SectionEditModal"]
   MODAL --> MODE["applyModeOverrides(sections, Edit)"]
-  MODE --> ZOD_EDIT["buildSectionZodSchema(sectionKey, editSections,<br/>{ formMode: Edit, originalData: instance })"]
   MODE --> VALUES["extractInstanceValues(editSections, instance)"]
+  VALUES --> ORIGINAL["originalData = deepMerge(instance, values)"]
+  ORIGINAL --> ZOD_EDIT["buildSectionZodSchema(sectionKey, editSections,<br/>{ formMode: Edit, originalData })"]
   ZOD_EDIT --> FORM["FormDialog + UIGenerator"]
   VALUES --> FORM
   FORM --> SUBMIT["submit"]
-  SUBMIT --> MERGE["mergeSectionEdit:<br/>postprocessSchemaData → deepMerge into spec<br/>→ delete switched-off toggleable paths<br/>(and parents left empty)"]
+  SUBMIT --> MERGE["mergeSectionEdit(spec, formData, initialValues = values):<br/>postprocessSchemaData → write fields that differ from initialValues<br/>→ delete switched-off toggleable paths<br/>(and parents left empty)"]
   MERGE --> UPDATE["useUpdateDbInstanceWithConflictRetry"]
 ```
 
@@ -169,9 +178,15 @@ The edit modal reuses the same `UIGenerator` but validates only the target secti
 `buildSectionZodSchema`; other fields pass through `.passthrough()`, while CEL dependencies are
 collected from all sections.
 
-The update replaces the whole instance and `deepMerge` keeps keys missing from the form, so
-`mergeSectionEdit` deletes the paths of switched-off toggleable groups explicitly, with parents
-left empty.
+CEL's `original` is the instance with the form's own values laid over it, so a field reads the
+same on both sides of a comparison (`"10Gi"` → `10`, `"500m"` → `0.5`). Reading it separately
+left the form with numbers and `original` with strings, and cel-js throws on that mix.
+
+The update replaces the whole instance, so `mergeSectionEdit` starts from the saved spec and writes
+only the fields whose form value differs from the value the form opened with. An untouched field
+keeps its saved form: a CPU stored as `"600m"` reads as `0.6` but is not sent back as `0.6`. A
+field cleared by the user is not written either, so its saved value stays (#3266). The paths of
+switched-off toggleable groups are deleted explicitly, with parents left empty.
 
 ## Cross-cutting principles
 
@@ -231,6 +246,7 @@ components:
 | Toggleable groups          | `utils/toggleable/toggleable.ts`                           |
 | Toggleable validation      | `utils/schema-builder/apply-toggleable-validation.ts`      |
 | Section edit merge         | `utils/postprocess/merge-section-edit.ts`                  |
+| Changed / untouched fields | `utils/postprocess/field-changes.ts`                       |
 | Topology scope             | `utils/topology-scope/topology-scope.ts`                   |
 | Object path                | `utils/object-path/object-path.ts`                         |
 | API provider registry      | `api-providers/registry.ts`                                |
@@ -245,4 +261,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-30
+- Last updated: 2026-10-13

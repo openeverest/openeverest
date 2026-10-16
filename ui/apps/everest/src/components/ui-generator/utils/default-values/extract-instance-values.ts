@@ -15,12 +15,16 @@
 import {
   Component,
   ComponentGroup,
+  FieldType,
   FormMode,
   Section,
   isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { UI_TYPE_DEFAULT_VALUE } from 'components/ui-generator/constants';
-import { stripBadgeFromValue } from '../badge-to-api/badge-to-api';
+import {
+  readNumberFieldValue,
+  stripBadgeFromValue,
+} from '../badge-to-api/badge-to-api';
 import { generateFieldId } from '../component-renderer/generate-field-id';
 import { getComponentSourcePath } from '../preprocess/normalized-component';
 import { getByPath } from '../object-path/object-path';
@@ -30,6 +34,19 @@ import {
   isToggleableOnInInstance,
 } from '../toggleable/toggleable';
 import { getWidgetTargets } from '../widget-targets';
+import { readQuantity } from '../quantity/quantity';
+
+const readStoredValue = (component: Component, value: unknown): unknown => {
+  if (component.uiType === FieldType.Quantity) {
+    return readQuantity(value, component.fieldParams.unit ?? '');
+  }
+  const badge = component.fieldParams?.badgeToApi
+    ? component.fieldParams.badge
+    : undefined;
+  return component.uiType === FieldType.Number
+    ? readNumberFieldValue(value, badge)
+    : stripBadgeFromValue(value, badge);
+};
 
 /*
  Walks schema components across all sections and extracts current values
@@ -85,12 +102,7 @@ const extractFlat = (
     if (sourcePath) {
       const instanceValue = getByPath(instance, sourcePath);
       if (instanceValue !== undefined) {
-        result[fieldId] = stripBadgeFromValue(
-          instanceValue,
-          component.fieldParams?.badgeToApi
-            ? component.fieldParams.badge
-            : undefined
-        );
+        result[fieldId] = readStoredValue(component, instanceValue);
         continue;
       }
     }

@@ -25,6 +25,10 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import type { Instance, Provider } from 'shared-types/api.types';
 import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
+import {
+  getByPath,
+  setByPath,
+} from 'components/ui-generator/utils/object-path/object-path';
 import SectionEditModal from './section-edit-modal';
 
 const { mutate } = vi.hoisted(() => ({ mutate: vi.fn() }));
@@ -214,4 +218,90 @@ describe('SectionEditModal toggleable group', () => {
     // No `monitoring: {}` left behind either.
     expect(mutate.mock.calls[0][0].spec).toEqual({ other: 'kept' });
   });
+});
+
+describe('SectionEditModal stored quantities', () => {
+  const notDecreased = (path: string): Component['validation'] => ({
+    modes: {
+      [FormMode.Edit]: {
+        celExpressions: [
+          { celExpr: `${path} >= original.${path}`, message: 'Decreased' },
+        ],
+      },
+    },
+  });
+
+  it.each([
+    {
+      stored: '10Gi',
+      path: 'spec.components.engine.storage.size',
+      fieldParams: { label: 'Disk', badge: 'Gi', badgeToApi: true },
+    },
+    {
+      stored: '500m',
+      path: 'spec.components.engine.resources.limits.cpu',
+      fieldParams: { label: 'CPU' },
+    },
+  ])(
+    'saves another section and sends $stored back unchanged, with an edit-mode CEL rule on it',
+    async ({ stored, path, fieldParams }) => {
+      mutate.mockClear();
+      const sections: Record<string, Section> = {
+        nodes: {
+          label: 'Nodes',
+          components: {
+            replicas: makeNumber(
+              'spec.components.engine.replicas',
+              'Number of nodes'
+            ),
+          },
+        },
+        resources: {
+          label: 'Resources',
+          components: {
+            field: {
+              uiType: FieldType.Number,
+              path,
+              fieldParams,
+              validation: notDecreased(path),
+            } as Component,
+          },
+        },
+      };
+
+      const instance = {
+        metadata: { name: 'test-db', namespace: 'ns' },
+        spec: { components: { engine: { replicas: 3 } } },
+      } as unknown as Instance;
+      setByPath(instance as unknown as Record<string, unknown>, path, stored);
+
+      render(
+        <TestWrapper>
+          <SectionEditModal
+            sectionKey="nodes"
+            sections={sections}
+            instance={instance}
+            provider={{ spec: {} } as Provider}
+            namespace="ns"
+            onClose={vi.fn()}
+            onSuccess={vi.fn()}
+          />
+        </TestWrapper>
+      );
+
+      fireEvent.change(screen.getByLabelText('Number of nodes'), {
+        target: { value: '5' },
+      });
+
+      await waitFor(() =>
+        expect(screen.getByTestId('form-dialog-save')).toBeEnabled()
+      );
+      fireEvent.click(screen.getByTestId('form-dialog-save'));
+
+      await waitFor(() => expect(mutate).toHaveBeenCalled());
+      const sent = mutate.mock.calls[0][0];
+      expect(getByPath(sent, path)).toBe(stored);
+      expect(sent.spec.components.engine.replicas).toBe(5);
+    }
+  );
 });

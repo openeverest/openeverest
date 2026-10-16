@@ -99,6 +99,42 @@ describe('collectSectionFields', () => {
     expect(fields[0].value).toBe('16kg');
   });
 
+  it('shows a CPU quantity returned in millicores as cores', () => {
+    const fields = collectSectionFields(
+      {
+        cpu: numberField('spec.cpu', 'CPU'),
+        proxyCpu: {
+          uiType: FieldType.Number,
+          path: 'spec.proxyCpu',
+          fieldParams: { label: 'Proxy CPU', badge: 'cores' },
+        },
+      },
+      { spec: { cpu: '500m', proxyCpu: '1500m' } }
+    );
+
+    expect(fields.map(({ value }) => value)).toEqual(['0.5', '1.5cores']);
+  });
+
+  it('shows quantity fields in their unit with the unit label', () => {
+    const fields = collectSectionFields(
+      {
+        cpu: {
+          uiType: FieldType.Quantity,
+          path: 'spec.cpu',
+          fieldParams: { label: 'CPU', unitLabel: 'cores' },
+        },
+        memory: {
+          uiType: FieldType.Quantity,
+          path: 'spec.memory',
+          fieldParams: { label: 'Memory', unit: 'Gi' },
+        },
+      },
+      { spec: { cpu: '500m', memory: '644245094400m' } }
+    );
+
+    expect(fields.map(({ value }) => value)).toEqual(['0.5 cores', '0.6 Gi']);
+  });
+
   describe('toggleable group', () => {
     const { advanced } = preprocessSchema({
       replicaSet: {
