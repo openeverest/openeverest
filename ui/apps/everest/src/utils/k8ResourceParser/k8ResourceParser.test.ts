@@ -12,24 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { cpuParser, memoryParser } from '.';
+import { memoryParser, parseQuantity } from '.';
 
-describe('cpu parser', () => {
-  // pattern is [description, input, output]
-  const tests: [string, string, number][] = [
-    ['parses full numbers', '1', 1],
-    ['parses floats (< 1)', '1.5', 1.5],
-    ['parses floats (> 1)', '0.5', 0.5],
-    ['parses strings with milli (m) unit (whole number)', '1000m', 1],
-    ['parses strings with milli (m) unit (decimal number)', '1300m', 1.3],
-    ['parses strings with milli (m) unit (< 1)', '300m', 0.3],
-  ];
+describe('parseQuantity', () => {
+  it.each([
+    ['500m', 0.5],
+    ['300m', 0.3],
+    ['1.5', 1.5],
+    ['2k', 2000],
+    ['1Ki', 1024],
+    ['1Gi', 1024 ** 3],
+  ])('reads %s as %s', (input, expected) => {
+    expect(parseQuantity(input)).toBe(expected);
+  });
 
-  tests.map((t) =>
-    it(`${t[0]} (${t[1]} to ${t[2]})`, () => {
-      expect(cpuParser(t[1])).toEqual(t[2]);
-    })
-  );
+  it.each(['', 'abc', '16kg', '1.2.3'])('rejects %j', (input) => {
+    expect(parseQuantity(input)).toBeUndefined();
+  });
 });
 
 describe('memory parser', () => {
