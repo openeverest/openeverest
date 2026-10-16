@@ -78,6 +78,23 @@ export const waitForStatus = async (
 };
 
 /**
+ * Clicks a delete dialog's confirm button and waits for the DELETE request to
+ * succeed, so a following page reload (waitForDelete) cannot abort it in flight.
+ * @param page Page object
+ * @param confirmButtonTestId Test id of the dialog's confirm button
+ */
+export const confirmDeletion = async (
+  page: Page,
+  confirmButtonTestId: string
+) => {
+  const deleteResponse = page.waitForResponse(
+    (response) => response.request().method() === 'DELETE'
+  );
+  await page.getByTestId(confirmButtonTestId).click();
+  expect((await deleteResponse).ok()).toBe(true);
+};
+
+/**
  * Waits for specific object to be removed from the table
  * @param page Page object
  * @param name Name of the object to look for (database, backup)
