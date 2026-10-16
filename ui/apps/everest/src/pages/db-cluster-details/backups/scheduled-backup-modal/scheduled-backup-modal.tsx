@@ -43,21 +43,11 @@ export const ScheduledBackupModal = () => {
 
   const clusterName = useClusterName();
   const { instanceName = '' } = useParams();
-  const { data: backupClasses = [] } = useBackupClassesList(clusterName);
   const classRef = instance.spec?.backup?.classRef?.name;
   const providerType = instance.spec?.providerRef?.name;
-
-  const availableBackupClasses = useMemo(
-    () =>
-      backupClasses.filter((bc) => {
-        // Schedules always require ProviderManaged execution mode.
-        if (bc.spec?.executionMode !== 'ProviderManaged') return false;
-        const supported = bc.spec?.supportedProviders;
-        if (!supported || supported.length === 0) return true;
-        if (!providerType) return true;
-        return supported.includes(providerType);
-      }),
-    [backupClasses, providerType]
+  const { data: availableBackupClasses = [] } = useBackupClassesList(
+    clusterName,
+    { provider: providerType, executionMode: 'ProviderManaged' }
   );
 
   const backupClass = useMemo(

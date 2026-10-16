@@ -54,7 +54,12 @@ export const Schedules = ({ backupStorages }: Props) => {
   const { watch, setValue } = useFormContext();
   const dbWizardMode = useDatabasePageMode();
   const clusterName = useClusterName();
-  const { data: backupClasses = [] } = useBackupClassesList(clusterName);
+  const provider: string = watch(DbWizardFormFields.provider);
+  const { data: backupClasses = [], isFetching: fetchingBackupClasses } =
+    useBackupClassesList(clusterName, {
+      provider,
+      executionMode: 'ProviderManaged',
+    });
 
   const [openScheduleModal, setOpenScheduleModal] = useState(false);
   const [mode, setMode] = useState<ScheduleWizardMode>(WizardMode.New);
@@ -62,36 +67,28 @@ export const Schedules = ({ backupStorages }: Props) => {
 
   const k8sNamespace: string = watch(DbWizardFormFields.k8sNamespace);
   const dbName: string = watch(DbWizardFormFields.dbName);
-  const provider: string = watch(DbWizardFormFields.provider);
   const formSchedules: FlattenedSchedule[] =
     watch(BACKUP_SCHEDULES_FIELD) ?? [];
 
-  // A cluster can expose backup classes for several providers; pick the one
-  // whose supportedProviders matches this database's provider — not just the
-  // first in the list, which may belong to a different engine.
   const selectedClassName: string | undefined = watch(BACKUP_CLASS_REF_FIELD);
-  const providerBackupClass = useMemo(
-    () =>
-      backupClasses.find((bc) =>
-        bc.spec?.supportedProviders?.includes(provider)
-      ),
-    [backupClasses, provider]
-  );
   const backupClass = useMemo(
     () =>
       backupClasses.find((bc) => bc.metadata?.name === selectedClassName) ??
-      providerBackupClass,
-    [backupClasses, selectedClassName, providerBackupClass]
+      backupClasses[0],
+    [backupClasses, selectedClassName]
   );
 
-  // Auto-select the provider's backup class if none is chosen yet.
   useEffect(() => {
-    if (!selectedClassName && providerBackupClass?.metadata?.name) {
-      setValue(BACKUP_CLASS_REF_FIELD, providerBackupClass.metadata.name);
+    if (fetchingBackupClasses) return;
+    if (selectedClassName !== (backupClass?.metadata?.name ?? '')) {
+      setValue(BACKUP_CLASS_REF_FIELD, backupClass?.metadata?.name ?? '');
     }
-  }, [providerBackupClass, selectedClassName, setValue]);
+  }, [backupClass, fetchingBackupClasses, selectedClassName, setValue]);
 
-  const createButtonDisabled = openScheduleModal || backupStorages.length === 0;
+  const createButtonDisabled =
+    openScheduleModal ||
+    backupStorages.length === 0 ||
+    backupClasses.length === 0;
 
   const handleDelete = (name: string) => {
     setValue(

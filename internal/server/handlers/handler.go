@@ -114,7 +114,7 @@ type ClusterHandler interface {
 
 // BackupClassHandler provides methods for handling operations on backup classes.
 type BackupClassHandler interface {
-	ListBackupClasses(ctx context.Context, cluster string) (*backupv1alpha1.BackupClassList, error)
+	ListBackupClasses(ctx context.Context, cluster string, provider, executionMode *string) (*backupv1alpha1.BackupClassList, error)
 	GetBackupClass(ctx context.Context, cluster, name string) (*backupv1alpha1.BackupClass, error)
 }
 

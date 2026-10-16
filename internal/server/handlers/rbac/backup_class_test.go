@@ -35,7 +35,7 @@ func TestRBAC_BackupClass(t *testing.T) {
 
 	mockBackupClasses := func() *handlers.MockHandler {
 		h := &handlers.MockHandler{}
-		h.On("ListBackupClasses", mock.Anything, mock.Anything).Return(
+		h.On("ListBackupClasses", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 			&backupv1alpha1.BackupClassList{
 				Items: []backupv1alpha1.BackupClass{
 					{ObjectMeta: metav1.ObjectMeta{Name: "s3-standard"}},
@@ -130,7 +130,7 @@ func TestRBAC_BackupClass(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				list, err := h.ListBackupClasses(ctx, tc.cluster)
+				list, err := h.ListBackupClasses(ctx, tc.cluster, nil, nil)
 				require.NoError(t, err)
 				assert.Condition(t, func() bool {
 					return tc.assert(list)
