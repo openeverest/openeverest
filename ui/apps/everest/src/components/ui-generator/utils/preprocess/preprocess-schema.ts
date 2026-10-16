@@ -30,6 +30,7 @@ import {
   createToggleableScope,
   resolveToggleable,
 } from '../toggleable/toggleable';
+import { findUnguardedCelReferences } from '../toggleable/find-unguarded-cel-references';
 import { withWidgetTargets } from '../widget-targets';
 import { widgetTargetResolvers } from '../../widget-target-resolvers';
 
@@ -196,6 +197,15 @@ export const preprocessSchema = (
           },
         ])
       );
+
+      if (import.meta.env.DEV) {
+        findUnguardedCelReferences(sections).forEach(({ field, group, path }) =>
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[UISchema] A CEL rule on "${field}" reads "${path}" of toggleable group "${group}" without has(${path}); it fails while the group is switched off.`
+          )
+        );
+      }
 
       return [topologyKey, { ...topology, sections }];
     })

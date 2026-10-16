@@ -36,6 +36,11 @@ flowchart TD
     never change it. The group degrades to `bordered` (dev warning) if a key is outside
     `[A-Za-z0-9_-]`, it has no path-bound fields, it is nested in another toggleable, or a field
     outside it writes one of its paths.
+  - **`findUnguardedCelReferences`** (`utils/toggleable/find-unguarded-cel-references.ts`) —
+    warns (dev-time) when a CEL rule outside a working toggleable reads one of its paths without
+    `has()` on that exact path: while the group is off the path is absent and the rule fails.
+  - The Go validator `pkg/uischema` applies the same toggleable rules to provider schemas;
+    `pkg/uischema/testdata/toggleable.yaml` is the case set both are tested against.
 - **`applyModeOverrides(sections, formMode)`** (`apply-mode-overrides.ts`) — applies `modes` overrides
   for the current `FormMode`.
 
