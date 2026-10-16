@@ -55,6 +55,9 @@ func (h *rbacHandler) CreateRestore(ctx context.Context, cluster string, restore
 	if err := h.enforce(ctx, rbac.ResourceRestores, rbac.ActionCreate, object); err != nil {
 		return nil, err
 	}
+	if err := h.ensureDataSourceReadable(ctx, cluster, restore.GetNamespace(), restore.Spec.DataSource); err != nil {
+		return nil, err
+	}
 	return h.next.CreateRestore(ctx, cluster, restore)
 }
 
@@ -73,4 +76,31 @@ func (h *rbacHandler) DeleteRestore(ctx context.Context, cluster, namespace, nam
 		return err
 	}
 	return h.next.DeleteRestore(ctx, cluster, namespace, name)
+}
+
+// ensureDataSourceReadable checks the caller may read the backups a restore or
+// a new instance is seeded from. Backups are keyed by the instance they belong
+// to, so a backup reference is resolved through GetBackup, which also collapses
+// a missing backup into ErrInsufficientPermissions.
+func (h *rbacHandler) ensureDataSourceReadable(ctx context.Context, cluster, namespace string, dataSource backupv1alpha1.DataSource) error {
+	if dataSource.Backup != nil {
+		if _, err := h.GetBackup(ctx, cluster, namespace, dataSource.Backup.BackupRef.Name); err != nil {
+			return err
+		}
+	}
+	if pitr := dataSource.PointInTime; pitr != nil {
+		storageObject := rbac.ClusterNamespacedObjectName(cluster, namespace, pitr.Source.StorageRef.Name)
+		if err := h.enforce(ctx, rbac.ResourceBackupStorages, rbac.ActionRead, storageObject); err != nil {
+			return err
+		}
+		var sourceInstance string
+		if pitr.Source.InstanceRef != nil {
+			sourceInstance = pitr.Source.InstanceRef.Name
+		}
+		backupsObject := rbac.ClusterNamespacedObjectName(cluster, namespace, sourceInstance)
+		if err := h.enforce(ctx, rbac.ResourceBackups, rbac.ActionRead, backupsObject); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -188,6 +188,70 @@ func TestRBAC_Restore(t *testing.T) {
 		require.ErrorIs(t, err, ErrInsufficientPermissions)
 	})
 
+	// A restore reads its source, so restores:create on the target is not
+	// enough: the caller must also be able to read the backups it restores from.
+	t.Run("CreateRestore requires reading the data source", func(t *testing.T) {
+		t.Parallel()
+
+		fromBackup := func() *backupv1alpha1.Restore {
+			restore := restoreFixture()
+			restore.Spec.DataSource = backupv1alpha1.DataSource{
+				Type:   backupv1alpha1.DataSourceTypeBackup,
+				Backup: &backupv1alpha1.DataSourceBackup{BackupRef: objectref.ObjectRef{Name: "backup-1"}},
+			}
+			return restore
+		}
+		fromPITR := func() *backupv1alpha1.Restore {
+			restore := restoreFixture()
+			restore.Spec.DataSource = backupv1alpha1.DataSource{
+				Type: backupv1alpha1.DataSourceTypePointInTime,
+				PointInTime: &backupv1alpha1.DataSourcePointInTime{Source: backupv1alpha1.StreamSource{
+					InstanceRef: &objectref.ObjectRef{Name: "source-db"},
+					StorageRef:  objectref.ObjectRef{Name: "s3"},
+				}},
+			}
+			return restore
+		}
+		const (
+			createRestore = "p, role:test, restores, create, prod/ns1/instance-1"
+			readSource    = "p, role:test, backups, read, prod/ns1/source-db"
+			readStorage   = "p, role:test, backup-storages, read, prod/ns1/s3"
+		)
+
+		for _, tc := range []struct {
+			desc     string
+			restore  *backupv1alpha1.Restore
+			policy   []string
+			wantDeny bool
+		}{
+			{desc: "backup readable", restore: fromBackup(), policy: []string{createRestore, readSource}},
+			{desc: "backup not readable", restore: fromBackup(), policy: []string{createRestore}, wantDeny: true},
+			{desc: "pitr source readable", restore: fromPITR(), policy: []string{createRestore, readSource, readStorage}},
+			{desc: "pitr storage not readable", restore: fromPITR(), policy: []string{createRestore, readSource}, wantDeny: true},
+			{desc: "pitr source backups not readable", restore: fromPITR(), policy: []string{createRestore, readStorage}, wantDeny: true},
+		} {
+			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+				next := mockRestores()
+				next.On("GetBackup", mock.Anything, mock.Anything, mock.Anything, "backup-1").Return(&backupv1alpha1.Backup{
+					ObjectMeta: metav1.ObjectMeta{Name: "backup-1", Namespace: "ns1"},
+					Spec: backupv1alpha1.BackupSpec{Origin: backupv1alpha1.BackupOrigin{
+						Type:        backupv1alpha1.BackupOriginTypeInstance,
+						InstanceRef: &objectref.ObjectRef{Name: "source-db"},
+					}},
+				}, nil)
+				h := newHandler(t, newPolicy(append(tc.policy, "g, bob, role:test")...), next)
+
+				_, err := h.CreateRestore(ctx, "prod", tc.restore)
+				if tc.wantDeny {
+					require.ErrorIs(t, err, ErrInsufficientPermissions)
+					return
+				}
+				require.NoError(t, err)
+			})
+		}
+	})
+
 	t.Run("missing restore collapses to the same error as denied", func(t *testing.T) {
 		t.Parallel()
 
