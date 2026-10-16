@@ -37,8 +37,10 @@ func backupInstanceName(backup *backupv1alpha1.Backup) string {
 	return backup.Spec.Origin.InstanceRef.Name
 }
 
-// ListBackups returns the backups the caller may read, gated by RBAC on the
-// instance each backup belongs to.
+// ListBackups returns the backups the caller may read. Backups produced by an
+// Instance are gated RBAC on the instance it belongs to, as in
+// ListInstanceBackups. External backups have no Instance, so they are gated by
+// read access to the BackupStorage holding their data.
 func (h *rbacHandler) ListBackups(ctx context.Context, cluster, namespace string, params *api.ListBackupsParams) (*backupv1alpha1.BackupList, error) {
 	list, err := h.next.ListBackups(ctx, cluster, namespace, params)
 	if err != nil {
@@ -47,12 +49,20 @@ func (h *rbacHandler) ListBackups(ctx context.Context, cluster, namespace string
 
 	filtered := make([]backupv1alpha1.Backup, 0, len(list.Items))
 	for _, b := range list.Items {
-		object := rbac.ClusterNamespacedObjectName(cluster, b.GetNamespace(), backupInstanceName(&b))
-		if err := h.enforce(ctx, rbac.ResourceBackups, rbac.ActionRead, object); errors.Is(err, ErrInsufficientPermissions) {
+		resource := rbac.ResourceBackupStorages
+		name := b.Spec.StorageRef.Name
+		if b.Spec.Origin.InstanceRef != nil {
+			resource = rbac.ResourceBackups
+			name = b.Spec.Origin.InstanceRef.Name
+		}
+
+		object := rbac.ClusterNamespacedObjectName(cluster, b.GetNamespace(), name)
+		if err := h.enforce(ctx, resource, rbac.ActionRead, object); errors.Is(err, ErrInsufficientPermissions) {
 			continue
 		} else if err != nil {
 			return nil, fmt.Errorf("enforce failed: %w", err)
 		}
+
 		filtered = append(filtered, b)
 	}
 

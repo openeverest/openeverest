@@ -68,6 +68,7 @@ func TestRBAC_Backup(t *testing.T) {
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "backup-1", Namespace: "ns1"},
 					Spec: backupv1alpha1.BackupSpec{
+						StorageRef: objectref.ObjectRef{Name: "storage-a"},
 						Origin: backupv1alpha1.BackupOrigin{
 							Type:        backupv1alpha1.BackupOriginTypeInstance,
 							InstanceRef: &objectref.ObjectRef{Name: "instance-1"},
@@ -77,6 +78,7 @@ func TestRBAC_Backup(t *testing.T) {
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "backup-2", Namespace: "ns1"},
 					Spec: backupv1alpha1.BackupSpec{
+						StorageRef: objectref.ObjectRef{Name: "storage-b"},
 						Origin: backupv1alpha1.BackupOrigin{
 							Type:        backupv1alpha1.BackupOriginTypeInstance,
 							InstanceRef: &objectref.ObjectRef{Name: "instance-2"},
@@ -86,6 +88,7 @@ func TestRBAC_Backup(t *testing.T) {
 				{
 					ObjectMeta: metav1.ObjectMeta{Name: "backup-external", Namespace: "ns1"},
 					Spec: backupv1alpha1.BackupSpec{
+						StorageRef: objectref.ObjectRef{Name: "storage-a"},
 						Origin: backupv1alpha1.BackupOrigin{
 							Type:     backupv1alpha1.BackupOriginTypeExternal,
 							External: &backupv1alpha1.BackupOriginExternal{Path: "path/to/backup"},
@@ -110,28 +113,77 @@ func TestRBAC_Backup(t *testing.T) {
 				wantBackups: []string{"backup-1", "backup-2", "backup-external"},
 			},
 			{
-				desc:    "namespace wildcard",
+				desc:    "namespace wildcard on backups and storages",
 				cluster: "prod",
 				policy: newPolicy(
 					"p, role:test, backups, read, prod/ns1/*",
+					"p, role:test, backup-storages, read, prod/ns1/*",
 					"g, bob, role:test",
 				),
 				wantBackups: []string{"backup-1", "backup-2", "backup-external"},
 			},
 			{
-				desc:    "specific instance",
+				desc:    "backups access shows only instance backups",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backups, read, prod/ns1/*",
+					"g, bob, role:test",
+				),
+				wantBackups: []string{"backup-1", "backup-2"},
+			},
+			{
+				desc:    "storage access shows only external backups in it",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backup-storages, read, prod/ns1/storage-a",
+					"g, bob, role:test",
+				),
+				wantBackups: []string{"backup-external"},
+			},
+			{
+				desc:    "specific instance and storage",
 				cluster: "prod",
 				policy: newPolicy(
 					"p, role:test, backups, read, prod/ns1/instance-1",
+					"p, role:test, backup-storages, read, prod/ns1/storage-a",
 					"g, bob, role:test",
 				),
-				wantBackups: []string{"backup-1"},
+				wantBackups: []string{"backup-1", "backup-external"},
+			},
+			{
+				desc:    "instance backup does not need storage access",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backups, read, prod/ns1/instance-2",
+					"g, bob, role:test",
+				),
+				wantBackups: []string{"backup-2"},
+			},
+			{
+				desc:    "external backup in other storage",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backup-storages, read, prod/ns1/storage-b",
+					"g, bob, role:test",
+				),
+				wantBackups: []string{},
+			},
+			{
+				desc:    "wrong namespace",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backups, read, prod/ns2/*",
+					"p, role:test, backup-storages, read, prod/ns2/*",
+					"g, bob, role:test",
+				),
+				wantBackups: []string{},
 			},
 			{
 				desc:    "wrong cluster",
 				cluster: "prod",
 				policy: newPolicy(
 					"p, role:test, backups, read, staging/ns1/*",
+					"p, role:test, backup-storages, read, staging/ns1/*",
 					"g, bob, role:test",
 				),
 				wantBackups: []string{},
