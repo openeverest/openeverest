@@ -60,6 +60,124 @@ func TestRBAC_Backup(t *testing.T) {
 		return h
 	}
 
+	t.Run("ListBackups", func(t *testing.T) {
+		t.Parallel()
+
+		backupList := &backupv1alpha1.BackupList{
+			Items: []backupv1alpha1.Backup{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backup-1", Namespace: "ns1"},
+					Spec: backupv1alpha1.BackupSpec{
+						Origin: backupv1alpha1.BackupOrigin{
+							Type:        backupv1alpha1.BackupOriginTypeInstance,
+							InstanceRef: &objectref.ObjectRef{Name: "instance-1"},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backup-2", Namespace: "ns1"},
+					Spec: backupv1alpha1.BackupSpec{
+						Origin: backupv1alpha1.BackupOrigin{
+							Type:        backupv1alpha1.BackupOriginTypeInstance,
+							InstanceRef: &objectref.ObjectRef{Name: "instance-2"},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backup-external", Namespace: "ns1"},
+					Spec: backupv1alpha1.BackupSpec{
+						Origin: backupv1alpha1.BackupOrigin{
+							Type:     backupv1alpha1.BackupOriginTypeExternal,
+							External: &backupv1alpha1.BackupOriginExternal{Path: "path/to/backup"},
+						},
+					},
+				},
+			},
+		}
+
+		testCases := []struct {
+			desc        string
+			cluster     string
+			policy      string
+			wantBackups []string
+		}{
+			{
+				desc:    "admin",
+				cluster: "prod",
+				policy: newPolicy(
+					"g, bob, role:admin",
+				),
+				wantBackups: []string{"backup-1", "backup-2", "backup-external"},
+			},
+			{
+				desc:    "namespace wildcard",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backups, read, prod/ns1/*",
+					"g, bob, role:test",
+				),
+				wantBackups: []string{"backup-1", "backup-2", "backup-external"},
+			},
+			{
+				desc:    "specific instance",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backups, read, prod/ns1/instance-1",
+					"g, bob, role:test",
+				),
+				wantBackups: []string{"backup-1"},
+			},
+			{
+				desc:    "wrong cluster",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backups, read, staging/ns1/*",
+					"g, bob, role:test",
+				),
+				wantBackups: []string{},
+			},
+			{
+				desc:    "no permissions",
+				cluster: "prod",
+				policy: newPolicy(
+					"g, bob, role:test",
+				),
+				wantBackups: []string{},
+			},
+		}
+
+		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"}) //nolint:staticcheck // test only
+		for _, tc := range testCases {
+			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+				k8sMock := newConfigMapMock(tc.policy)
+				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
+				require.NoError(t, err)
+
+				next := &handlers.MockHandler{}
+				next.On("ListBackups", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+					backupList.DeepCopy(), nil,
+				)
+
+				h := &rbacHandler{
+					next:       next,
+					log:        zap.NewNop().Sugar(),
+					enforcer:   enf,
+					userGetter: testUserGetter,
+				}
+
+				result, err := h.ListBackups(ctx, tc.cluster, "ns1", nil)
+				require.NoError(t, err)
+
+				names := make([]string, 0, len(result.Items))
+				for _, b := range result.Items {
+					names = append(names, b.Name)
+				}
+				assert.Equal(t, tc.wantBackups, names)
+			})
+		}
+	})
+
 	t.Run("GetBackup", func(t *testing.T) {
 		t.Parallel()
 

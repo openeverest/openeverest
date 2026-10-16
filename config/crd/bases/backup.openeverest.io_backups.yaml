@@ -351,6 +351,10 @@ spec:
         required:
         - spec
         type: object
+    selectableFields:
+    - jsonPath: .spec.classRef.name
+    - jsonPath: .spec.storageRef.name
+    - jsonPath: .spec.origin.type
     served: true
     storage: true
     subresources:

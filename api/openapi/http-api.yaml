@@ -1176,12 +1176,6 @@ paths:
           description: The namespace of the backups
           schema:
             type: string
-        - name: provider
-          in: query
-          required: false
-          description: Filter backups by provider name
-          schema:
-            type: string
         - name: backupClass
           in: query
           required: false
@@ -1210,6 +1204,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/BackupList'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         default:
           description: Error
           content:

@@ -6661,8 +6661,6 @@ export interface operations {
     listBackups: {
         parameters: {
             query?: {
-                /** @description Filter backups by provider name */
-                provider?: string;
                 /** @description Filter backups by backup class name */
                 backupClass?: string;
                 /** @description Filter backups by backup storage name */
@@ -6688,6 +6686,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BackupList"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Error */

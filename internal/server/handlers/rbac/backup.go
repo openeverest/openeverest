@@ -17,6 +17,7 @@ package rbac
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,6 +35,29 @@ func backupInstanceName(backup *backupv1alpha1.Backup) string {
 		return ""
 	}
 	return backup.Spec.Origin.InstanceRef.Name
+}
+
+// ListBackups returns the backups the caller may read, gated by RBAC on the
+// instance each backup belongs to.
+func (h *rbacHandler) ListBackups(ctx context.Context, cluster, namespace string, params *api.ListBackupsParams) (*backupv1alpha1.BackupList, error) {
+	list, err := h.next.ListBackups(ctx, cluster, namespace, params)
+	if err != nil {
+		return nil, fmt.Errorf("ListBackups failed: %w", err)
+	}
+
+	filtered := make([]backupv1alpha1.Backup, 0, len(list.Items))
+	for _, b := range list.Items {
+		object := rbac.ClusterNamespacedObjectName(cluster, b.GetNamespace(), backupInstanceName(&b))
+		if err := h.enforce(ctx, rbac.ResourceBackups, rbac.ActionRead, object); errors.Is(err, ErrInsufficientPermissions) {
+			continue
+		} else if err != nil {
+			return nil, fmt.Errorf("enforce failed: %w", err)
+		}
+		filtered = append(filtered, b)
+	}
+
+	list.Items = filtered
+	return list, nil
 }
 
 // GetBackup returns a backup, gated by RBAC on the instance it belongs to. A

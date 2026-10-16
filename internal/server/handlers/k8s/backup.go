@@ -19,11 +19,33 @@ package k8s
 import (
 	"context"
 
+	"github.com/AlekSi/pointer"
 	"k8s.io/apimachinery/pkg/types"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
+
+// ListBackups returns backups in the namespace that match all provided filters.
+// Filters are evaluated server-side via the CRD's selectable fields.
+func (h *k8sHandler) ListBackups(ctx context.Context, _, namespace string, params *api.ListBackupsParams) (*backupv1alpha1.BackupList, error) {
+	fields := ctrlclient.MatchingFields{}
+
+	if class := pointer.Get(params.BackupClass); class != "" {
+		fields["spec.classRef.name"] = class
+	}
+
+	if storage := pointer.Get(params.BackupStorage); storage != "" {
+		fields["spec.storageRef.name"] = storage
+	}
+
+	if origin := pointer.Get(params.BackupOrigin); origin != "" {
+		fields["spec.origin.type"] = string(origin)
+	}
+
+	return h.kubeConnector.ListBackups(ctx, ctrlclient.InNamespace(namespace), fields)
+}
 
 // GetBackup returns backup that matches the criteria.
 func (h *k8sHandler) GetBackup(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Backup, error) {
