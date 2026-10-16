@@ -590,7 +590,7 @@ export interface paths {
         /**
          * List backups
          * @description This API lists all backups in the specified namespace and cluster.
-         *     Optionally filter by provider, backup class, backup storage and backup origin.
+         *     Optionally filter by backup class, backup storage and backup origin.
          */
         get: operations["listBackups"];
         put?: never;

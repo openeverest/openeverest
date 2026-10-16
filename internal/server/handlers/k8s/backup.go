@@ -30,6 +30,10 @@ import (
 // ListBackups returns backups in the namespace that match all provided filters.
 // Filters are evaluated server-side via the CRD's selectable fields.
 func (h *k8sHandler) ListBackups(ctx context.Context, _, namespace string, params *api.ListBackupsParams) (*backupv1alpha1.BackupList, error) {
+	if params == nil {
+		params = &api.ListBackupsParams{}
+	}
+
 	fields := ctrlclient.MatchingFields{}
 
 	if class := pointer.Get(params.BackupClass); class != "" {
@@ -44,7 +48,12 @@ func (h *k8sHandler) ListBackups(ctx context.Context, _, namespace string, param
 		fields["spec.origin.type"] = string(origin)
 	}
 
-	return h.kubeConnector.ListBackups(ctx, ctrlclient.InNamespace(namespace), fields)
+	opts := []ctrlclient.ListOption{ctrlclient.InNamespace(namespace)}
+	if len(fields) > 0 {
+		opts = append(opts, fields)
+	}
+
+	return h.kubeConnector.ListBackups(ctx, opts...)
 }
 
 // GetBackup returns backup that matches the criteria.
