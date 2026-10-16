@@ -15,9 +15,15 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/json"
+	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/openeverest/openeverest/v2/pkg/accounts"
 )
 
 func TestUsernamePasswordSanitation(t *testing.T) {
@@ -78,4 +84,164 @@ func TestUsernamePasswordSanitation(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestAccounts_Render_JSON(t *testing.T) {
+	t.Parallel()
+
+	accList := []AccountInfo{
+		{
+			User:         "admin",
+			Capabilities: []accounts.AccountCapability{accounts.AccountCapabilityLogin},
+			Enabled:      true,
+		},
+		{
+			User:         "operator",
+			Capabilities: []accounts.AccountCapability{accounts.AccountCapabilityAPIKey},
+			Enabled:      false,
+		},
+	}
+
+	acc := &Accounts{
+		config: Config{Pretty: false},
+	}
+
+	var buf bytes.Buffer
+	acc.Render(&buf, accList, ListOptions{})
+
+	assert.JSONEq(t, `[{"user":"admin","capabilities":["login"],"enabled":true},{"user":"operator","capabilities":["apiKey"],"enabled":false}]`, buf.String())
+
+	var decoded []AccountInfo
+	err := json.Unmarshal(buf.Bytes(), &decoded)
+	require.NoError(t, err)
+	require.Len(t, decoded, 2)
+	assert.Equal(t, "admin", decoded[0].User)
+	assert.Equal(t, []accounts.AccountCapability{accounts.AccountCapabilityLogin}, decoded[0].Capabilities)
+	assert.True(t, decoded[0].Enabled)
+	assert.Equal(t, "operator", decoded[1].User)
+	assert.Equal(t, []accounts.AccountCapability{accounts.AccountCapabilityAPIKey}, decoded[1].Capabilities)
+	assert.False(t, decoded[1].Enabled)
+}
+
+func TestAccounts_Render_JSON_Empty(t *testing.T) {
+	t.Parallel()
+
+	acc := &Accounts{
+		config: Config{Pretty: false},
+	}
+
+	var buf bytes.Buffer
+	acc.Render(&buf, []AccountInfo{}, ListOptions{})
+	assert.Equal(t, "[]\n", buf.String())
+
+	var decoded []AccountInfo
+	err := json.Unmarshal(buf.Bytes(), &decoded)
+	require.NoError(t, err)
+	assert.Empty(t, decoded)
+
+	buf.Reset()
+	acc.Render(&buf, nil, ListOptions{})
+	assert.Equal(t, "[]\n", buf.String())
+}
+
+func TestAccounts_Render_Table(t *testing.T) {
+	t.Parallel()
+
+	accList := []AccountInfo{
+		{
+			User:         "admin",
+			Capabilities: []accounts.AccountCapability{accounts.AccountCapabilityLogin},
+			Enabled:      true,
+		},
+		{
+			User:         "operator",
+			Capabilities: []accounts.AccountCapability{accounts.AccountCapabilityAPIKey},
+			Enabled:      false,
+		},
+	}
+
+	acc := &Accounts{
+		config: Config{Pretty: true},
+	}
+
+	var buf bytes.Buffer
+	acc.Render(&buf, accList, ListOptions{})
+
+	out := buf.String()
+	assert.Contains(t, out, "USER")
+	assert.Contains(t, out, "CAPABILITIES")
+	assert.Contains(t, out, "ENABLED")
+	assert.Contains(t, out, "admin")
+	assert.Contains(t, out, "true")
+	assert.Contains(t, out, "operator")
+	assert.Contains(t, out, "apiKey")
+	assert.Contains(t, out, "false")
+}
+
+func TestAccounts_Render_Table_NoHeaders(t *testing.T) {
+	t.Parallel()
+
+	accList := []AccountInfo{
+		{
+			User:         "admin",
+			Capabilities: []accounts.AccountCapability{accounts.AccountCapabilityLogin},
+			Enabled:      true,
+		},
+	}
+
+	acc := &Accounts{
+		config: Config{Pretty: true},
+	}
+
+	var buf bytes.Buffer
+	acc.Render(&buf, accList, ListOptions{NoHeaders: true})
+
+	out := buf.String()
+	assert.NotContains(t, out, "USER")
+	assert.NotContains(t, out, "CAPABILITIES")
+	assert.Contains(t, out, "admin")
+}
+
+func TestAccounts_Render_Table_CustomColumns(t *testing.T) {
+	t.Parallel()
+
+	accList := []AccountInfo{
+		{
+			User:         "admin",
+			Capabilities: []accounts.AccountCapability{accounts.AccountCapabilityLogin},
+			Enabled:      true,
+		},
+	}
+
+	acc := &Accounts{
+		config: Config{Pretty: true},
+	}
+
+	var buf bytes.Buffer
+	acc.Render(&buf, accList, ListOptions{Columns: []string{ColumnUser, ColumnEnabled}})
+
+	out := buf.String()
+	assert.Contains(t, out, "USER")
+	assert.Contains(t, out, "ENABLED")
+	assert.NotContains(t, out, "CAPABILITIES")
+	assert.Contains(t, out, "admin")
+}
+
+func TestAccounts_Render_Table_Empty(t *testing.T) {
+	t.Parallel()
+
+	acc := &Accounts{
+		config: Config{Pretty: true},
+	}
+
+	var buf bytes.Buffer
+	acc.Render(&buf, []AccountInfo{}, ListOptions{})
+
+	out := buf.String()
+	assert.Contains(t, out, "USER")
+	assert.Contains(t, out, "CAPABILITIES")
+	assert.Contains(t, out, "ENABLED")
+
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	assert.Len(t, lines, 1)
 }
