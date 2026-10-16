@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/url"
 	"slices"
+	"strings"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
@@ -225,4 +226,21 @@ func ValidateScopes(scopes []string) error {
 		return errors.New("scopes must contain 'openid'")
 	}
 	return nil
+}
+
+// ParseScopes splits the comma-separated --scopes value, trims the spaces around
+// each scope, drops empty entries and validates the result.
+func ParseScopes(scopesStr string) ([]string, error) {
+	var scopesList []string
+	for scope := range strings.SplitSeq(scopesStr, ",") {
+		if trimmed := strings.TrimSpace(scope); trimmed != "" {
+			scopesList = append(scopesList, trimmed)
+		}
+	}
+
+	if err := ValidateScopes(scopesList); err != nil {
+		return nil, err
+	}
+
+	return scopesList, nil
 }
