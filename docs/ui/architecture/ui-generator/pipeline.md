@@ -96,7 +96,8 @@ flowchart TD
     `root`, prefixes `celDependencyGroups` with it, and postprocesses `formData[root]`.
 - **`UiGeneratorProvider`** (context) — provides `provider`, `formMode`, `namespace`, `root`, and
   loading down the tree, plus `generator` (the UIGenerator itself) so a field that embeds a form,
-  like the secret field's create modal, renders it without importing UIGenerator (an import cycle).
+  like the secret field's create modal, renders it without depending on UIGenerator directly (a
+  circular dependency).
 - **`orderComponents(components, componentsOrder)`** — field order.
 - **`renderComponent({ item, name, root })`** — recursive traversal:
   - `group` / `hidden` → recurse into nested `components`;
@@ -259,4 +260,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-13
+- Last updated: 2026-10-15
