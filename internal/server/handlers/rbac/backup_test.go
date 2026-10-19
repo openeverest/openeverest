@@ -36,7 +36,7 @@ import (
 func TestRBAC_Backup(t *testing.T) {
 	t.Parallel()
 
-	backupFixture := func() *backupv1alpha1.Backup {
+	instanceBackupFixture := func() *backupv1alpha1.Backup {
 		return &backupv1alpha1.Backup{
 			ObjectMeta: metav1.ObjectMeta{Name: "backup-1", Namespace: "ns1"},
 			Spec: backupv1alpha1.BackupSpec{
@@ -267,7 +267,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "admin",
 				cluster: "prod",
-				backup:  backupFixture(),
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"g, bob, role:admin",
 				),
@@ -275,7 +275,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "exact match",
 				cluster: "prod",
-				backup:  backupFixture(),
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"p, role:test, backups, read, prod/ns1/instance-1",
 					"g, bob, role:test",
@@ -325,7 +325,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "namespace wildcard",
 				cluster: "prod",
-				backup:  backupFixture(),
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"p, role:test, backups, read, prod/ns1/*",
 					"g, bob, role:test",
@@ -334,7 +334,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "wrong cluster",
 				cluster: "prod",
-				backup:  backupFixture(),
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"p, role:test, backups, read, staging/ns1/instance-1",
 					"g, bob, role:test",
@@ -344,7 +344,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "no permissions",
 				cluster: "prod",
-				backup:  backupFixture(),
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"g, bob, role:test",
 				),
@@ -392,7 +392,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "admin",
 				cluster: "prod",
-				backup:  backupFixture(),
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"g, bob, role:admin",
 				),
@@ -422,7 +422,6 @@ func TestRBAC_Backup(t *testing.T) {
 				cluster: "prod",
 				backup:  externalBackupFixture(),
 				policy: newPolicy(
-					"p, role:test, backups, create, prod/ns1/*",
 					"p, role:test, backup-storages, read, prod/ns1/storage-a",
 					"g, bob, role:test",
 				),
@@ -442,7 +441,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "instance backup has create permission",
 				cluster: "prod",
-				backup:  backupFixture(),
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"p, role:test, backups, create, prod/ns1/instance-1",
 					"g, bob, role:test",
@@ -451,7 +450,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "namespace wildcard",
 				cluster: "prod",
-				backup:  backupFixture(),
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"p, role:test, backups, create, prod/ns1/*",
 					"g, bob, role:test",
@@ -460,7 +459,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "has read but not create",
 				cluster: "prod",
-				backup:  backupFixture(),
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"p, role:test, backups, read, prod/ns1/instance-1",
 					"g, bob, role:test",
@@ -470,7 +469,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "no permissions",
 				cluster: "prod",
-				backup:  backupFixture(),
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"g, bob, role:test",
 				),
@@ -518,7 +517,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "admin",
 				cluster: "prod",
-				backup:  backupFixture(),
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"g, bob, role:admin",
 				),
@@ -545,7 +544,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "has delete permission",
 				cluster: "prod",
-				backup:  backupFixture(),
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"p, role:test, backups, delete, prod/ns1/instance-1",
 					"g, bob, role:test",
@@ -554,7 +553,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "has read but not delete",
 				cluster: "prod",
-				backup:  backupFixture(),
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"p, role:test, backups, read, prod/ns1/instance-1",
 					"g, bob, role:test",
@@ -564,7 +563,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "no permissions",
 				cluster: "prod",
-				backup:  backupFixture(),
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"g, bob, role:test",
 				),
