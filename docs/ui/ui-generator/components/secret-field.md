@@ -138,8 +138,8 @@ The field is optional on create, read-only on edit, and hidden on restore.
 
 - **List**: Secrets in the instance's namespace that carry the provider and definition labels.
   Secrets being deleted are hidden.
-- **Create button**: shown when the definition has a `uiSchema`, the user may create Secrets in the
-  namespace, and the field is editable. It is hidden in edit mode.
+- **Create button**: shown when the definition has a `uiSchema`, the user may create and read
+  Secrets in the namespace, and the field is editable. It is hidden in edit mode.
 - **Value not in the list** (e.g. from a preset): kept and shown as
   `<name> (not managed by OpenEverest)`.
 - **Read-only or disabled**: shows the selected name; no list is requested.

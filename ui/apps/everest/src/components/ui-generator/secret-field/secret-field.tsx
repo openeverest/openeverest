@@ -45,12 +45,17 @@ export const SecretField = ({ item, name }: SecretFieldProps) => {
   const hasContext = !!provider && !!namespace;
   const isEditable = isSecretEditable(fieldParams);
   const createForm = getSecretDefinitionSection(providerObject, definition);
-  const { canCreate } = useRBACPermissions('secrets', `${namespace}/*`);
+  const { canCreate, canRead } = useRBACPermissions(
+    'secrets',
+    `${namespace}/*`
+  );
+  // Without read access the new Secret isn't listed, and the instance can't use it.
   const canAdd =
     hasContext &&
     isEditable &&
     !!createForm &&
     canCreate &&
+    canRead &&
     formMode !== FormMode.Edit;
 
   const {

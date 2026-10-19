@@ -35,7 +35,7 @@ import { Messages } from './secret-field.messages';
 
 const mockUseSecrets = vi.fn();
 const mockMutate = vi.fn();
-const mockPermissions = { canCreate: true };
+const mockPermissions = { canCreate: true, canRead: true };
 
 vi.mock('hooks/api/secrets', () => {
   const createSecret = {
@@ -161,6 +161,7 @@ describe('SecretField', () => {
     mockUseSecrets.mockReturnValue(LOADED);
     mockMutate.mockReset();
     mockPermissions.canCreate = true;
+    mockPermissions.canRead = true;
   });
 
   it('creates a secret from its definition form and selects it', async () => {
@@ -190,10 +191,14 @@ describe('SecretField', () => {
     expect(getCombobox()).toHaveTextContent(secret.metadata.name);
   });
 
-  it.each<[string, FieldContext & { canCreate?: boolean }]>([
+  it.each<[string, FieldContext & { canCreate?: boolean; canRead?: boolean }]>([
     [
       'without create permission',
       { canCreate: false, providerObject: PROVIDER_WITH_FORM },
+    ],
+    [
+      'without read permission',
+      { canRead: false, providerObject: PROVIDER_WITH_FORM },
     ],
     [
       'in edit mode',
@@ -204,13 +209,16 @@ describe('SecretField', () => {
       { providerObject: PROVIDER_WITH_FORM, fieldParams: { readOnly: true } },
     ],
     ['when the definition has no create form', { providerObject: PROVIDER }],
-  ])('offers no Add new %s', (_, { canCreate = true, ...field }) => {
-    mockPermissions.canCreate = canCreate;
-    renderField(field);
+  ])(
+    'offers no Add new %s',
+    (_, { canCreate = true, canRead = true, ...field }) => {
+      Object.assign(mockPermissions, { canCreate, canRead });
+      renderField(field);
 
-    expect(getCombobox()).toBeInTheDocument();
-    expect(queryAddButton()).not.toBeInTheDocument();
-  });
+      expect(getCombobox()).toBeInTheDocument();
+      expect(queryAddButton()).not.toBeInTheDocument();
+    }
+  );
 
   it("offers the provider's secrets of the field's definition", () => {
     renderField({ providerObject: PROVIDER });
