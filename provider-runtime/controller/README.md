@@ -57,6 +57,10 @@ versions, parameter schemas and `supportedFields` the Provider declares. Rules
 about another object's contents, such as the keys of the user Secret, go in the
 optional `ReferenceValidator.ValidateReferences(c *Context) error`.
 
+Test `Validate` with `controller/validationtest`, which runs the same checks
+against the `provider-spec.yaml` your chart publishes, with Instance fixtures
+and no cluster.
+
 Use `BaseProvider` to inherit default implementations:
 
 ```go
