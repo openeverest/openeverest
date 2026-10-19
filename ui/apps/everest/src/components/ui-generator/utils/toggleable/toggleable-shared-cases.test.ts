@@ -23,8 +23,8 @@ import {
 import { preprocessSchema } from '../preprocess/preprocess-schema';
 import { getToggleableMeta } from './toggleable';
 import { findUnguardedCelReferences } from './find-unguarded-cel-references';
-// Also run by the Go validator (pkg/uischema), so both apply the same rules.
-import sharedCasesYaml from '../../../../../../../../pkg/uischema/testdata/toggleable.yaml?raw';
+// Also run by the Go validator (provider-runtime/uischema), so both apply the same rules.
+import sharedCasesYaml from '../../../../../../../../provider-runtime/uischema/testdata/toggleable.yaml?raw';
 
 interface SharedIssue {
   rule: string;
