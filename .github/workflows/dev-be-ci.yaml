@@ -136,7 +136,7 @@ jobs:
           version: 9.4.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 20.x
           cache: "pnpm"
@@ -218,7 +218,7 @@ jobs:
           make build-cli
 
       - name: Create KIND cluster
-        uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
+        uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa # v1.15.1
 
       - name: Build Everest API server image
         run: |
@@ -241,7 +241,7 @@ jobs:
 
       - name: Attach the report
         if: ${{ always() && steps.cli-tests.outcome != 'skipped' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: cli-tests-report
           path: cli-tests/test-report
