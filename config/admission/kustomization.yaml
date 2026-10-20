@@ -1,0 +1,2 @@
+resources:
+- instance_deletion_policy_vap.yaml
