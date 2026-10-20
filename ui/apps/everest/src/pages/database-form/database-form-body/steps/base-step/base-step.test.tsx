@@ -33,12 +33,12 @@ import {
 import { z } from 'zod';
 
 // Mutable holder so individual tests can control which namespaces report an
-// installed DB engine without re-mocking the module.
+// installed DB engine (and of which type) without re-mocking the module.
 const { enginesResult } = vi.hoisted(() => ({
   enginesResult: {
     current: [] as Array<{
       namespace: string;
-      data?: unknown[];
+      data?: Array<{ type: string }>;
       isLoading: boolean;
     }>,
   },
@@ -148,12 +148,21 @@ describe('BaseInfoStep', () => {
     expect(screen.getByTestId('text-input-db-name')).toBeInTheDocument();
   });
 
-  it('defaults the namespace to one that has a DB engine installed', async () => {
-    // 'test-namespace' sorts first but has no engine; only 'another-namespace'
-    // has an operator, so the default must skip the empty namespace.
+  it('defaults the namespace to one that has the selected provider engine', async () => {
+    // Provider is 'psmdb' (see makeDefaultValues). 'test-namespace' sorts first
+    // but only has a postgresql engine; only 'another-namespace' has psmdb, so
+    // the default must skip the namespace that can't host this provider.
     enginesResult.current = [
-      { namespace: 'test-namespace', data: [], isLoading: false },
-      { namespace: 'another-namespace', data: [{}], isLoading: false },
+      {
+        namespace: 'test-namespace',
+        data: [{ type: 'postgresql' }],
+        isLoading: false,
+      },
+      {
+        namespace: 'another-namespace',
+        data: [{ type: 'psmdb' }],
+        isLoading: false,
+      },
     ];
 
     render(

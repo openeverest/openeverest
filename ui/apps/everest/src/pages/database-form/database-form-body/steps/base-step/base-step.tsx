@@ -31,10 +31,10 @@ import {
   PresetSelectCards,
   usePresetSelectionContext,
 } from 'pages/database-form/preset-selection';
+import { providerToEngineType } from './base-step.utils.js';
 
 export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
   const mode = useDatabasePageMode();
-  // TODO probably we should show only list of available namespaces for provider, needs to be checked
   const { data: namespaces = [] } = useNamespaces({
     refetchInterval: 10 * 1000,
   });
@@ -87,14 +87,27 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
 
   const { results: dbEnginesPerNamespace } = useDBEnginesForNamespaces();
 
-  // A namespace can only host a database if an operator (DB engine) is installed
-  // in it, so system namespaces like `certmanager` must be filtered out.
-  const namespacesWithEngines = useMemo(
+  const selectedProvider = watch(DbWizardFormFields.provider);
+  const selectedEngineType = providerToEngineType(
+    typeof selectedProvider === 'string' ? selectedProvider : undefined
+  );
+
+  // A namespace can only host the selected provider if its engine operator is
+  // installed there, so system namespaces like `certmanager` are filtered out.
+  // When the provider isn't recognised we keep any namespace that has an
+  // installed engine rather than guessing a type.
+  const namespacesWithEngine = useMemo(
     () =>
       dbEnginesPerNamespace
-        .filter((result) => (result.data?.length ?? 0) > 0)
+        .filter((result) =>
+          selectedEngineType
+            ? (result.data ?? []).some(
+                (engine) => engine.type === selectedEngineType
+              )
+            : (result.data?.length ?? 0) > 0
+        )
         .map((result) => result.namespace),
-    [dbEnginesPerNamespace]
+    [dbEnginesPerNamespace, selectedEngineType]
   );
 
   // Until every namespace's engines have loaded we can't tell which are empty,
@@ -104,10 +117,8 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
     dbEnginesPerNamespace.every((result) => !result.isLoading);
 
   const availableNamespaces =
-    mode === FormMode.New &&
-    enginesResolved &&
-    namespacesWithEngines.length > 0
-      ? namespacesWithEngines
+    mode === FormMode.New && enginesResolved && namespacesWithEngine.length > 0
+      ? namespacesWithEngine
       : namespaces;
 
   const defaultNamespace = availableNamespaces[0];
