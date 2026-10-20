@@ -1,5 +1,5 @@
 # Shared contract for toggleable group rules.
-# Go: pkg/uischema (Validate) reports `issues`.
+# Go: provider-runtime/uischema (Validate) reports `issues`.
 # UI: preprocessSchema renders every group with a degrade rule (all rules but
 #     toggleable-cel-unguarded) as bordered and every other toggleable group as
 #     toggleable; findUnguardedCelReferences reports toggleable-cel-unguarded.
