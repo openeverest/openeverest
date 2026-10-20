@@ -36,6 +36,10 @@ jobs:
             echo "Wrong version format provided, please use \"X.Y.Z\" for a release or \"X.Y.Z-<suffix>\" (e.g. X.Y.Z-rc1, X.Y.Z-dev) for a dev build"
             exit 1
           fi
+          if (( ${VERSION%%.*} < 2 )); then
+            echo "::error::$VERSION is not a v2 version. v1 releases use the \"Release v1\" workflow, run from v1.x."
+            exit 1
+          fi
 
       - name: Set environment variables
         run: |

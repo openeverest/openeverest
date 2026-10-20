@@ -223,6 +223,9 @@ const (
 // +kubebuilder:printcolumn:name="Instance",type="string",JSONPath=".spec.origin.instanceRef.name"
 // +kubebuilder:printcolumn:name="Storage",type="string",JSONPath=".spec.storageRef.name"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
+// +kubebuilder:selectablefield:JSONPath=".spec.classRef.name"
+// +kubebuilder:selectablefield:JSONPath=".spec.storageRef.name"
+// +kubebuilder:selectablefield:JSONPath=".spec.origin.type"
 
 // Backup is the Schema for the backups API.
 type Backup struct {

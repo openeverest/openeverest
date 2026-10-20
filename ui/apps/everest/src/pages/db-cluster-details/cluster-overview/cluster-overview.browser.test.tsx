@@ -165,25 +165,24 @@ describe('ClusterOverview layout', () => {
     mockOverview(providerCards(15));
     rerender(overview(1200));
 
-    await waitFor(() =>
-      expect(rectsById()['resources-details'].height).toBeGreaterThan(
-        before['resources-details'].height
-      )
-    );
-    const after = rectsById();
-    const growth =
-      after['resources-details'].height - before['resources-details'].height;
-    const resourcesLeft = before['resources-details'].left;
-    const resourcesTop = before['resources-details'].top;
+    // The masonry re-stacks from a ResizeObserver callback, after the card has grown.
+    await waitFor(() => {
+      const after = rectsById();
+      const growth =
+        after['resources-details'].height - before['resources-details'].height;
+      expect(growth).toBeGreaterThan(0);
+      const resourcesLeft = before['resources-details'].left;
+      const resourcesTop = before['resources-details'].top;
 
-    CARD_IDS.forEach((id) => {
-      expect(after[id].left).toBe(before[id].left);
-      const pushedDown =
-        before[id].left === resourcesLeft && before[id].top > resourcesTop;
-      expect(after[id].top).toBeCloseTo(
-        before[id].top + (pushedDown ? growth : 0),
-        0
-      );
+      CARD_IDS.forEach((id) => {
+        expect(after[id].left).toBe(before[id].left);
+        const pushedDown =
+          before[id].left === resourcesLeft && before[id].top > resourcesTop;
+        expect(after[id].top).toBeCloseTo(
+          before[id].top + (pushedDown ? growth : 0),
+          0
+        );
+      });
     });
     expect(hasOverlaps()).toBe(false);
   });
