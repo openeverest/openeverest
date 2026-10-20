@@ -21,12 +21,13 @@ import (
 	"fmt"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
 // ListBackupClasses returns backup classes filtered by RBAC permissions.
-func (h *rbacHandler) ListBackupClasses(ctx context.Context, cluster string) (*backupv1alpha1.BackupClassList, error) {
-	list, err := h.next.ListBackupClasses(ctx, cluster)
+func (h *rbacHandler) ListBackupClasses(ctx context.Context, cluster string, params *api.ListBackupClassesParams) (*backupv1alpha1.BackupClassList, error) {
+	list, err := h.next.ListBackupClasses(ctx, cluster, params)
 	if err != nil {
 		return nil, fmt.Errorf("ListBackupClasses failed: %w", err)
 	}

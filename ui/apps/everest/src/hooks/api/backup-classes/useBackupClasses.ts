@@ -17,6 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getBackupClassFn, getBackupClassesListFn } from 'api/backups';
 import {
   BackupClass,
+  BackupClassFilters,
   GetBackupClassPayload,
   ListBackupClassesPayload,
 } from 'shared-types/backups.types';
@@ -32,6 +33,18 @@ export const BACKUP_CLASSES_QUERY_KEY = 'backup-classes';
 export const getBackupClassesQueryKey = (clusterName: string) =>
   [BACKUP_CLASSES_QUERY_KEY, clusterName] as const;
 
+export const getFilteredBackupClassesQueryKey = (
+  clusterName: string,
+  filters: BackupClassFilters
+) =>
+  [
+    BACKUP_CLASSES_QUERY_KEY,
+    clusterName,
+    'filters',
+    filters.provider ?? null,
+    filters.executionMode ?? null,
+  ] as const;
+
 export const getBackupClassQueryKey = (
   clusterName: string,
   backupClassName: string
@@ -39,6 +52,7 @@ export const getBackupClassQueryKey = (
 
 export const useBackupClassesList = (
   clusterName: string,
+  filters?: BackupClassFilters,
   options?: PerconaQueryOptions<
     ListBackupClassesPayload,
     unknown,
@@ -46,10 +60,14 @@ export const useBackupClassesList = (
   >
 ) => {
   const { canRead } = useRBACPermissions('backup-classes');
+  const hasFilters =
+    filters?.provider !== undefined || filters?.executionMode !== undefined;
 
   return useQuery<ListBackupClassesPayload, unknown, BackupClass[]>({
-    queryKey: getBackupClassesQueryKey(clusterName),
-    queryFn: () => getBackupClassesListFn(clusterName),
+    queryKey: hasFilters
+      ? getFilteredBackupClassesQueryKey(clusterName, filters ?? {})
+      : getBackupClassesQueryKey(clusterName),
+    queryFn: () => getBackupClassesListFn(clusterName, filters),
     select: canRead ? ({ items = [] }) => items : () => [],
     enabled: (options?.enabled ?? true) && canRead,
     ...options,

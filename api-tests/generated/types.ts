@@ -6585,7 +6585,12 @@ export interface operations {
     };
     listBackupClasses: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Filter backup classes supporting this provider. Classes without provider restrictions are included. */
+                provider?: string;
+                /** @description Filter backup classes by execution mode. */
+                executionMode?: "ProviderManaged" | "Job";
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */

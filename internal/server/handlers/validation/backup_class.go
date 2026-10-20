@@ -19,11 +19,12 @@ import (
 	"context"
 
 	"github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 // ListBackupClasses proxies the request to the next handler.
-func (h *validateHandler) ListBackupClasses(ctx context.Context, cluster string) (*v1alpha1.BackupClassList, error) {
-	return h.next.ListBackupClasses(ctx, cluster)
+func (h *validateHandler) ListBackupClasses(ctx context.Context, cluster string, params *api.ListBackupClassesParams) (*v1alpha1.BackupClassList, error) {
+	return h.next.ListBackupClasses(ctx, cluster, params)
 }
 
 // GetBackupClass proxies the request to the next handler.

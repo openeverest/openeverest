@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import {
+  BackupClassFilters,
   BackupList,
   CreateBackupPayload,
   CreateBackupResponse,
@@ -75,9 +76,13 @@ export const getBackupsListFn = async (
   return response.data;
 };
 
-export const getBackupClassesListFn = async (clusterName: string) => {
+export const getBackupClassesListFn = async (
+  clusterName: string,
+  filters?: BackupClassFilters
+) => {
   const response = await api.get<ListBackupClassesPayload>(
-    `clusters/${clusterName}/backup-classes`
+    `clusters/${clusterName}/backup-classes`,
+    { params: filters }
   );
 
   return response.data;

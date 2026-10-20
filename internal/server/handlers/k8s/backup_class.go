@@ -18,15 +18,41 @@ package k8s
 
 import (
 	"context"
+	"slices"
 
 	"k8s.io/apimachinery/pkg/types"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 // ListBackupClasses returns list of backup classes.
-func (h *k8sHandler) ListBackupClasses(ctx context.Context, cluster string) (*backupv1alpha1.BackupClassList, error) {
-	return h.kubeConnector.ListBackupClasses(ctx)
+func (h *k8sHandler) ListBackupClasses(ctx context.Context, _ string, params *api.ListBackupClassesParams) (*backupv1alpha1.BackupClassList, error) {
+	list, err := h.kubeConnector.ListBackupClasses(ctx)
+	if err != nil || params == nil || params.Provider == nil && params.ExecutionMode == nil {
+		return list, err
+	}
+
+	list.Items = filterBackupClasses(list.Items, params)
+	return list, nil
+}
+
+func filterBackupClasses(
+	backupClasses []backupv1alpha1.BackupClass,
+	params *api.ListBackupClassesParams,
+) []backupv1alpha1.BackupClass {
+	filtered := make([]backupv1alpha1.BackupClass, 0, len(backupClasses))
+	for _, backupClass := range backupClasses {
+		if params.ExecutionMode != nil && string(backupClass.Spec.ExecutionMode) != string(*params.ExecutionMode) {
+			continue
+		}
+		if params.Provider != nil && len(backupClass.Spec.SupportedProviders) > 0 &&
+			!slices.Contains(backupClass.Spec.SupportedProviders, *params.Provider) {
+			continue
+		}
+		filtered = append(filtered, backupClass)
+	}
+	return filtered
 }
 
 // GetBackupClass returns backup class that matches the criteria.

@@ -64,8 +64,9 @@ export const OnDemandBackupModal = () => {
   // Resolve BackupClass uiSchema for the currently selected class.
   // For schema building we use the instance's default class from the list.
   const instanceClassRef = instance.spec?.backup?.classRef?.name;
+  const providerType = instance.spec?.providerRef?.name;
   const { data: backupClasses = [], isLoading: loadingClasses } =
-    useBackupClassesList(clusterName);
+    useBackupClassesList(clusterName, { provider: providerType });
   const defaultClass = useMemo(
     () => backupClasses.find((bc) => bc.metadata?.name === instanceClassRef),
     [backupClasses, instanceClassRef]

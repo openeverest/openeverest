@@ -947,9 +947,9 @@ func (_m *MockHandler) GetUserPermissions(ctx context.Context) (*api.UserPermiss
 	return r0, r1
 }
 
-// ListBackupClasses provides a mock function with given fields: ctx, cluster
-func (_m *MockHandler) ListBackupClasses(ctx context.Context, cluster string) (*v1alpha1.BackupClassList, error) {
-	ret := _m.Called(ctx, cluster)
+// ListBackupClasses provides a mock function with given fields: ctx, cluster, params
+func (_m *MockHandler) ListBackupClasses(ctx context.Context, cluster string, params *api.ListBackupClassesParams) (*v1alpha1.BackupClassList, error) {
+	ret := _m.Called(ctx, cluster, params)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListBackupClasses")
@@ -957,19 +957,19 @@ func (_m *MockHandler) ListBackupClasses(ctx context.Context, cluster string) (*
 
 	var r0 *v1alpha1.BackupClassList
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (*v1alpha1.BackupClassList, error)); ok {
-		return rf(ctx, cluster)
+	if rf, ok := ret.Get(0).(func(context.Context, string, *api.ListBackupClassesParams) (*v1alpha1.BackupClassList, error)); ok {
+		return rf(ctx, cluster, params)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) *v1alpha1.BackupClassList); ok {
-		r0 = rf(ctx, cluster)
+	if rf, ok := ret.Get(0).(func(context.Context, string, *api.ListBackupClassesParams) *v1alpha1.BackupClassList); ok {
+		r0 = rf(ctx, cluster, params)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1alpha1.BackupClassList)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, cluster)
+	if rf, ok := ret.Get(1).(func(context.Context, string, *api.ListBackupClassesParams) error); ok {
+		r1 = rf(ctx, cluster, params)
 	} else {
 		r1 = ret.Error(1)
 	}

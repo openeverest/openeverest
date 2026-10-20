@@ -34,17 +34,16 @@ export const OnDemandBackupFieldsWrapper = () => {
   const { watch, setValue } = useFormContext();
 
   const selectedClassName: string = watch(BackupFields.backupClassName);
+  const providerType = instance.spec?.providerRef?.name;
 
   const { data: backupClasses = [], isLoading: loadingClasses } =
-    useBackupClassesList(clusterName);
+    useBackupClassesList(clusterName, { provider: providerType });
 
   const selectedClass = useMemo(
     () => backupClasses.find((bc) => bc.metadata?.name === selectedClassName),
     [backupClasses, selectedClassName]
   );
 
-  // Filter classes that support this instance's provider.
-  const providerType = instance.spec?.providerRef?.name;
   const instanceClassRef = instance.spec?.backup?.classRef?.name;
   const instanceClass = backupClasses.find(
     (bc) => bc.metadata?.name === instanceClassRef
@@ -53,10 +52,6 @@ export const OnDemandBackupFieldsWrapper = () => {
     instanceClass?.spec?.executionMode === 'ProviderManaged';
 
   const availableClasses = backupClasses.filter((bc) => {
-    const supported = bc.spec?.supportedProviders;
-    if (supported && supported.length > 0 && providerType) {
-      if (!supported.includes(providerType)) return false;
-    }
     // If the instance already uses a ProviderManaged class,
     // only allow that same PM class or any Job class.
     if (
