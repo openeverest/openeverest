@@ -15,7 +15,7 @@
 // limitations under the License.
 
 import { FormGroup, MenuItem } from '@mui/material';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { AutoCompleteInput, SelectInput, TextInput } from '@percona/ui-lib';
 import { useFormContext } from 'react-hook-form';
 import { StepProps } from '../../../database-form.types.js';
@@ -24,7 +24,7 @@ import { useDatabasePageMode } from '../../../hooks/use-database-page-mode.js';
 import { StepHeader } from '../../steps-old/step-header/step-header.js';
 import { Messages } from './base-step.messages.js';
 import { useNamespacePermissionsForResource } from 'hooks/rbac';
-import { useNamespaces } from 'hooks/index.ts';
+import { useDBEnginesForNamespaces, useNamespaces } from 'hooks/index.ts';
 import { FormMode } from 'components/ui-generator/ui-generator.types.js';
 import { useDatabaseFormContext } from 'pages/database-form/database-form-context';
 import {
@@ -85,11 +85,32 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
 
   const { isLoading } = useNamespacePermissionsForResource('database-clusters');
 
-  // const filteredNamespaces = canCreate.filter((namespace) =>
-  //   dbEnginesDataWithNamespaces?.find(
-  //     (dbEngine) => dbEngine.namespace === namespace
-  //   )
-  // );
+  const { results: dbEnginesPerNamespace } = useDBEnginesForNamespaces();
+
+  // A namespace can only host a database if an operator (DB engine) is installed
+  // in it, so system namespaces like `certmanager` must be filtered out.
+  const namespacesWithEngines = useMemo(
+    () =>
+      dbEnginesPerNamespace
+        .filter((result) => (result.data?.length ?? 0) > 0)
+        .map((result) => result.namespace),
+    [dbEnginesPerNamespace]
+  );
+
+  // Until every namespace's engines have loaded we can't tell which are empty,
+  // so fall back to the full list rather than hiding options prematurely.
+  const enginesResolved =
+    dbEnginesPerNamespace.length > 0 &&
+    dbEnginesPerNamespace.every((result) => !result.isLoading);
+
+  const availableNamespaces =
+    mode === FormMode.New &&
+    enginesResolved &&
+    namespacesWithEngines.length > 0
+      ? namespacesWithEngines
+      : namespaces;
+
+  const defaultNamespace = availableNamespaces[0];
 
   // setting the dbnamespace default value
   useEffect(() => {
@@ -99,15 +120,15 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
     if (
       !k8sNamespaceTouched &&
       mode === FormMode.New &&
-      namespaces.length > 0 &&
+      defaultNamespace &&
       !isLoading
     ) {
-      setValue(DbWizardFormFields.k8sNamespace, namespaces[0], {
+      setValue(DbWizardFormFields.k8sNamespace, defaultNamespace, {
         shouldValidate: true,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, isLoading, namespaces.length]);
+  }, [mode, isLoading, defaultNamespace]);
 
   // setting the topology default value
   useEffect(() => {
@@ -158,7 +179,7 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
           name={DbWizardFormFields.k8sNamespace}
           label={Messages.labels.k8sNamespace}
           loading={isLoading}
-          options={namespaces}
+          options={availableNamespaces}
           disabled={mode === FormMode.Restore || loadingDefaultsForEdition}
           // onChange={onNamespaceChange}
           autoCompleteProps={{

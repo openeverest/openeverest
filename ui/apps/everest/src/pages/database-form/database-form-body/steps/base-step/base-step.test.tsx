@@ -32,10 +32,27 @@ import {
 } from 'pages/database-form/database-form-schema';
 import { z } from 'zod';
 
+// Mutable holder so individual tests can control which namespaces report an
+// installed DB engine without re-mocking the module.
+const { enginesResult } = vi.hoisted(() => ({
+  enginesResult: {
+    current: [] as Array<{
+      namespace: string;
+      data?: unknown[];
+      isLoading: boolean;
+    }>,
+  },
+}));
+
 vi.mock('hooks/api/namespaces/useNamespaces', () => ({
   useNamespaces: vi.fn(() => ({
     data: ['test-namespace', 'another-namespace'],
     isLoading: false,
+  })),
+  useDBEnginesForNamespaces: vi.fn(() => ({
+    results: enginesResult.current,
+    refetchAll: vi.fn(),
+    fetchingNamespaces: false,
   })),
 }));
 
@@ -113,6 +130,10 @@ const Wrapper = ({
 };
 
 describe('BaseInfoStep', () => {
+  afterEach(() => {
+    enginesResult.current = [];
+  });
+
   it('renders all required base fields on form open', async () => {
     render(
       <Wrapper>
@@ -125,6 +146,32 @@ describe('BaseInfoStep', () => {
 
     // Database name input
     expect(screen.getByTestId('text-input-db-name')).toBeInTheDocument();
+  });
+
+  it('defaults the namespace to one that has a DB engine installed', async () => {
+    // 'test-namespace' sorts first but has no engine; only 'another-namespace'
+    // has an operator, so the default must skip the empty namespace.
+    enginesResult.current = [
+      { namespace: 'test-namespace', data: [], isLoading: false },
+      { namespace: 'another-namespace', data: [{}], isLoading: false },
+    ];
+
+    render(
+      <Wrapper
+        defaultValues={{
+          ...makeDefaultValues(),
+          [DbWizardFormFields.k8sNamespace]: '',
+        }}
+      >
+        <BaseInfoStep loadingDefaultsForEdition={false} />
+      </Wrapper>
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('text-input-k8s-namespace')).toHaveValue(
+        'another-namespace'
+      )
+    );
   });
 
   it('does NOT show topology select when only one topology is available', () => {

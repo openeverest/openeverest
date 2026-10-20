@@ -33,6 +33,11 @@ vi.mock('hooks/api/namespaces/useNamespaces', () => ({
     data: ['test-namespace', 'another-namespace'],
     isLoading: false,
   })),
+  useDBEnginesForNamespaces: vi.fn(() => ({
+    results: [],
+    refetchAll: vi.fn(),
+    fetchingNamespaces: false,
+  })),
 }));
 
 vi.mock('hooks/rbac', () => ({
