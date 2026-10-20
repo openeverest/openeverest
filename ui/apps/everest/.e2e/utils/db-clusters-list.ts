@@ -20,7 +20,7 @@ import { checkError } from '@e2e/utils/generic';
 import { TIMEOUTS } from '@e2e/constants';
 import { dismissOnboarding, loginCIUser } from './user';
 
-const ensureLoggedInOnDatabasesPage = async (page: Page) => {
+export const ensureLoggedInOnDatabasesPage = async (page: Page) => {
   await page.goto('/databases');
   await page.waitForLoadState('domcontentloaded');
 
