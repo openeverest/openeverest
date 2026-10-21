@@ -55,7 +55,7 @@ flowchart TD
   CMP --> DS2["dataSource?"]
   DS2 --> PROVIDER["provider<br/>(monitoringConfigs, storageClasses)"]
   CMP --> MOD2["modes?"]
-  MOD2 --> FORM_MODE["FormMode<br/>(new, edit, restore, import🛠️)"]
+  MOD2 --> FORM_MODE["FormMode<br/>(new, edit, restore, import)"]
   CMP --> FP2["fieldParams"]
   CMP --> VAL2["validation?"]
 
@@ -65,7 +65,7 @@ flowchart TD
 
 - **`path` | `id`** — `path` (`string` | `string[]`) writes to the API; an array is a multi-path (`[0]` is the source, all entries are targets). `id` has no API binding and is used only for validation / CEL.
 - **`dataSource.provider`** — a key in the open runtime registry (`register()`), not a closed enum.
-- **`modes?`** — `{ [FormMode]: { uiType? } }`; `import` is declared in the enum but is not used by the code.
+- **`modes?`** — `{ [FormMode]: { uiType? } }`; the create wizard runs in `import` when it creates a database from an imported backup.
 
 ## Level 2 — Widget (host-rendered leaf)
 
@@ -241,4 +241,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-13
+- Last updated: 2026-10-21
