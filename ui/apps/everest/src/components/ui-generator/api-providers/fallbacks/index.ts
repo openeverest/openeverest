@@ -13,3 +13,4 @@
 // limitations under the License.
 
 export { MonitoringEmptyFallback } from './monitoring-empty-fallback';
+export { BackupStoragesEmptyFallback } from './backup-storages-empty-fallback';

@@ -15,7 +15,14 @@
 import { providerRegistry } from './registry';
 import { useMonitoringConfigsOptions } from 'hooks/api/monitoring/useMonitoringConfigsOptions';
 import { useStorageClassesOptions } from 'hooks/api/kubernetesClusters/useStorageClassesOptions';
-import { MonitoringEmptyFallback } from './fallbacks';
+import { useBackupStoragesOptions } from 'hooks/api/backup-storages/useBackupStoragesOptions';
+import { useBackupClassesOptions } from 'hooks/api/backup-classes/useBackupClassesOptions';
+import { useDbInstancesOptions } from 'hooks/api/db-instances/useDbInstancesOptions';
+import { useSecretsOptions } from 'hooks/api/secrets/useSecretsOptions';
+import {
+  BackupStoragesEmptyFallback,
+  MonitoringEmptyFallback,
+} from './fallbacks';
 
 providerRegistry.register('monitoringConfigs', {
   description: 'MonitoringConfig names in the current namespace.',
@@ -26,5 +33,32 @@ providerRegistry.register('monitoringConfigs', {
 providerRegistry.register('storageClasses', {
   description: 'StorageClass names available on the cluster.',
   useOptions: useStorageClassesOptions,
+  emptyStateFallback: null,
+});
+
+providerRegistry.register('backupStorages', {
+  description:
+    'BackupStorage (storage location) names in the current namespace.',
+  useOptions: useBackupStoragesOptions,
+  emptyStateFallback: { component: BackupStoragesEmptyFallback },
+});
+
+providerRegistry.register('backupClasses', {
+  description: 'BackupClass names available on the cluster.',
+  useOptions: useBackupClassesOptions,
+  emptyStateFallback: null,
+});
+
+// Namespace-scoped for now; cross-namespace references (e.g. a shared object
+// store Instance) would need a server-side access check on the referenced one.
+providerRegistry.register('instances', {
+  description: 'Instance names in the current namespace.',
+  useOptions: useDbInstancesOptions,
+  emptyStateFallback: null,
+});
+
+providerRegistry.register('secrets', {
+  description: 'OpenEverest-managed Secret names in the current namespace.',
+  useOptions: useSecretsOptions,
   emptyStateFallback: null,
 });
