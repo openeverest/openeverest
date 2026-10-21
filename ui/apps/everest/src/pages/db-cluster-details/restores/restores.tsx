@@ -22,7 +22,7 @@ import { Table } from '@percona/ui-lib';
 import { DATE_FORMAT } from 'consts';
 import StatusField from 'components/status-field/status-field';
 import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
-// TODO: Re-enable PITR and import jobs when data-import-jobs is migrated to v2 API.
+// TODO: Re-enable PITR data when PITR is restored.
 // import { useDbClusterPitr } from 'hooks/api/backups/useBackups';
 import {
   PG_STATUS,
@@ -46,7 +46,6 @@ import { RestoreActionButtons } from './restores-menu-actions';
 import { useClusterName } from 'hooks/api/useClusterName';
 
 function getTypeCellValue(type: string) {
-  if (type === 'import') return 'Import';
   if (type === 'pitr') return 'PITR';
   return 'Full';
 }
@@ -67,7 +66,7 @@ const Restores = () => {
     useInstanceRestores(clusterName, namespace, instanceName, {
       enabled: !!instanceName && !!namespace,
     });
-  // TODO: Re-enable v1 restores hook when PITR/import logic is restored.
+  // TODO: Re-enable v1 restores hook when PITR logic is restored.
   // const { data: restores = [], isLoading: loadingRestores } =
   //   useDbClusterRestores(namespace, dbClusterName!, {
   //     enabled: !!dbClusterName && !!namespace,
@@ -77,7 +76,7 @@ const Restores = () => {
 
   const { mutate: deleteRestore, isPending: deletingRestore } =
     useDeleteRestore(clusterName, namespace);
-  // TODO: Re-enable v1 delete restore when PITR/import logic is restored.
+  // TODO: Re-enable v1 delete restore when PITR logic is restored.
   // const { mutate: deleteRestore, isPending: deletingRestore } =
   //   useDeleteRestore(namespace);
 
@@ -123,10 +122,6 @@ const Restores = () => {
       {
         header: 'Backup Source',
         accessorKey: 'backupSource',
-        Cell: ({ cell }) =>
-          cell.row.original.type === 'import'
-            ? 'External'
-            : cell.getValue<string>(),
       },
     ];
   }, []);
@@ -162,7 +157,7 @@ const Restores = () => {
         getRowId={(row) => row.name}
         state={{ isLoading: loadingRestores }}
         tableName={`${instanceName}-restore`}
-        // TODO: Re-enable v1 dbClusterName when PITR/import logic is restored.
+        // TODO: Re-enable v1 dbClusterName when PITR logic is restored.
         // tableName={`${dbClusterName}-restore`}
         columns={columns}
         data={tableData}
