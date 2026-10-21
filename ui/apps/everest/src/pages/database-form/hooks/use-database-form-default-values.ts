@@ -13,7 +13,9 @@
 // limitations under the License.
 
 import { useDefaultValues } from 'components/ui-generator/hooks/use-default-values';
+import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import { extractInstanceValues } from 'components/ui-generator/utils/default-values/extract-instance-values';
+import { deepMerge } from 'components/ui-generator/utils/object-path/object-path';
 import {
   FormMode,
   TopologyUISchemas,
@@ -21,7 +23,9 @@ import {
 import { useDbInstance } from 'hooks/api/db-instances/useDbInstance';
 import { useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
+import { Provider } from 'shared-types/api.types';
 import { getDbWizardDefaultValues } from '../utils/get-default-values';
+import { getImportPrefill } from '../utils/import-prefill';
 import { generateShortUID } from 'utils/generateShortUID';
 import { MAX_DB_CLUSTER_NAME_LENGTH } from 'consts';
 import { extractWizardBackup } from 'pages/database-form/database-form-body/steps/backup-step';
@@ -33,7 +37,8 @@ export const useDatabasePageDefaultValues = (
   uiSchema: TopologyUISchemas,
   defaultSelectedTopology: string,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _hasBackupStep = false
+  _hasBackupStep = false,
+  provider?: Provider
 ): {
   // TODO add typescript types
   defaultValues: Record<string, unknown>;
@@ -67,11 +72,23 @@ export const useDatabasePageDefaultValues = (
 
     if (mode === FormMode.New || mode === FormMode.Import) {
       const importSource = importNavigation?.importSource;
+      const prefill = getImportPrefill(
+        importSource?.sourceMetadata,
+        provider,
+        Object.keys(uiSchema)
+      );
+      const topologyType = prefill.topology ?? defaultSelectedTopology;
+      const schemaValues = prefill.topology
+        ? getDefaultValues(uiSchema, topologyType)
+        : defaultSchemaValues;
       const dbWizardDefaultValues = getDbWizardDefaultValues(providerName);
       return {
-        ...defaultSchemaValues,
+        // spec.version names the provider's version bundle.
+        ...(prefill.version
+          ? deepMerge(schemaValues, { spec: { version: prefill.version } })
+          : schemaValues),
         ...dbWizardDefaultValues,
-        topology: { type: defaultSelectedTopology },
+        topology: { type: topologyType },
         // An import keeps the backup's namespace and class, so the new
         // instance can read the storage the backup is in.
         ...(importSource && { k8sNamespace: importSource.namespace }),
@@ -135,6 +152,7 @@ export const useDatabasePageDefaultValues = (
     defaultSelectedTopology,
     importNavigation,
     mode,
+    provider,
     sourceInstance,
     sourceNamespace,
     state?.selectedDbProvider?.metadata?.name,

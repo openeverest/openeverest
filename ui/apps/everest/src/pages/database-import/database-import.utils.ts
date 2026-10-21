@@ -63,7 +63,14 @@ export const getImportBackupRows = (backups: Backup[]): ImportBackupRow[] =>
       if (!name || !external || backup.metadata?.deletionTimestamp) {
         return [];
       }
-      return [{ name, path: external.path, completedAt: external.completedAt }];
+      return [
+        {
+          name,
+          path: external.path,
+          completedAt: external.completedAt,
+          sourceMetadata: external.sourceMetadata,
+        },
+      ];
     })
     .sort((a, b) => Date.parse(b.completedAt) - Date.parse(a.completedAt));
 

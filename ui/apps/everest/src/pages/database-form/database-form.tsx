@@ -213,7 +213,8 @@ export const DatabasePage = () => {
       mode,
       uiSchema,
       defaultTopology,
-      hasBackupStep
+      hasBackupStep,
+      providerObject
     );
   const loadingClusterValues = !defaultValues;
 

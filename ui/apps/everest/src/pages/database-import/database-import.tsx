@@ -96,7 +96,8 @@ export const DatabaseImportPage = () => {
       (p) => p.metadata?.name === values.providerName
     );
     const selectedStorageName = values.storage?.metadata?.name;
-    if (!provider || !selectedStorageName || !isBackupListed) {
+    const backup = rows.find((row) => row.name === values.backupName);
+    if (!provider || !selectedStorageName || !backup) {
       return;
     }
     navigate('/databases/new', {
@@ -108,6 +109,7 @@ export const DatabaseImportPage = () => {
           backupName: values.backupName,
           storageName: selectedStorageName,
         },
+        sourceMetadata: backup.sourceMetadata,
       }),
     });
   });

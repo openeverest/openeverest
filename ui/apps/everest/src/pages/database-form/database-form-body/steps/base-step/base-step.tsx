@@ -29,6 +29,7 @@ import { useNamespaces } from 'hooks/index.ts';
 import { FormMode } from 'components/ui-generator/ui-generator.types.js';
 import { useDatabaseFormContext } from 'pages/database-form/database-form-context';
 import { useImportNavigationState } from 'pages/database-form/hooks/use-import-navigation-state';
+import { getImportPrefill } from 'pages/database-form/utils/import-prefill';
 import {
   PresetSelectCards,
   usePresetSelectionContext,
@@ -41,7 +42,16 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
   const { data: namespaces = [] } = useNamespaces({
     refetchInterval: 10 * 1000,
   });
-  const { topologies, hasMultipleTopologies } = useDatabaseFormContext();
+  const { topologies, hasMultipleTopologies, providerObject } =
+    useDatabaseFormContext();
+  const importPrefill =
+    mode === FormMode.Import && importNavigation
+      ? getImportPrefill(
+          importNavigation.importSource.sourceMetadata,
+          providerObject,
+          topologies
+        )
+      : undefined;
   const { presetSelected, presets, isError } = usePresetSelectionContext();
   const { watch, setValue, getFieldState } = useFormContext();
 
@@ -153,8 +163,11 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
         }
       />
       {mode === FormMode.New && <PresetSelectCards />}
-      {mode === FormMode.Import && importNavigation && (
-        <ImportSourceBanner importSource={importNavigation.importSource} />
+      {importNavigation && importPrefill && (
+        <ImportSourceBanner
+          importSource={importNavigation.importSource}
+          prefill={importPrefill}
+        />
       )}
       <FormGroup sx={{ mt: 3 }}>
         <AutoCompleteInput
@@ -192,6 +205,7 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
             selectFieldProps={{
               disabled:
                 mode === FormMode.Restore ||
+                !!importPrefill?.topology ||
                 loadingDefaultsForEdition ||
                 presetSelected,
             }}

@@ -14,8 +14,9 @@
 
 import { fireEvent, render, screen } from '@testing-library/react';
 import { TestWrapper } from 'utils/test';
-import { Backup } from 'shared-types/backups.types';
+import { Backup, BackupSourceMetadata } from 'shared-types/backups.types';
 import { ImportSource } from 'pages/database-form/import-navigation-state';
+import { ImportPrefill } from 'pages/database-form/utils/import-prefill';
 import { ImportSourceBanner } from './import-source-banner';
 import { Messages } from './import-source-banner.messages';
 
@@ -29,6 +30,7 @@ const IMPORT_SOURCE: ImportSource = {
   },
 };
 const ROUTER_STATE = { importSource: IMPORT_SOURCE };
+const PATH = 'orders-db/2026-10-17T02:00:04Z';
 const BACKUP: Backup = {
   metadata: { name: 'import-abc12-1' },
   spec: {
@@ -37,7 +39,7 @@ const BACKUP: Backup = {
     origin: {
       type: 'External',
       external: {
-        path: 'orders-db/2026-10-17T02:00:04Z',
+        path: PATH,
         startedAt: '2026-10-17T02:00:00Z',
         completedAt: '2026-10-17T02:00:04Z',
       },
@@ -58,22 +60,56 @@ vi.mock('hooks/api/backups/useBackups', () => ({
 }));
 
 describe('ImportSourceBanner', () => {
-  it('names the backup by the path it was picked by and goes back to change it', () => {
+  const renderBanner = (
+    sourceMetadata?: BackupSourceMetadata,
+    prefill: ImportPrefill = {}
+  ) =>
     render(
       <TestWrapper>
-        <ImportSourceBanner importSource={IMPORT_SOURCE} />
+        <ImportSourceBanner
+          importSource={{ ...IMPORT_SOURCE, sourceMetadata }}
+          prefill={prefill}
+        />
       </TestWrapper>
     );
 
+  it('names the backup by the path it was picked by and goes back to change it', () => {
+    renderBanner();
+
     expect(
-      screen.getByText(
-        Messages.source('orders-db/2026-10-17T02:00:04Z', 's3-old')
-      )
+      screen.getByText(Messages.source(PATH, 's3-old'), { exact: false })
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByText(Messages.changeBackup));
     expect(mocks.navigate).toHaveBeenCalledWith('/databases/import', {
       state: ROUTER_STATE,
     });
+  });
+
+  it.each<[string, BackupSourceMetadata | undefined, ImportPrefill, string[]]>([
+    [
+      'a matching version',
+      { engineVersion: '8.0.12-4', topology: 'replicaSet' },
+      { version: '8.0.12', topology: 'replicaSet' },
+      [Messages.versionMatched('8.0.12')],
+    ],
+    [
+      'a version that is not available',
+      { engineVersion: '8.0.19-7' },
+      {},
+      [Messages.versionMissing('8.0.19-7'), Messages.topologyUnknown],
+    ],
+    [
+      'no recorded version',
+      undefined,
+      {},
+      [Messages.versionUnknown, Messages.topologyUnknown],
+    ],
+  ])('says what to pick for %s', (_, sourceMetadata, prefill, hints) => {
+    renderBanner(sourceMetadata, prefill);
+
+    expect(
+      screen.getByText([Messages.source(PATH, 's3-old'), ...hints].join(' '))
+    ).toBeInTheDocument();
   });
 });

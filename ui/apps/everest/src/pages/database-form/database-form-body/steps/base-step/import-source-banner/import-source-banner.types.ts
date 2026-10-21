@@ -13,7 +13,9 @@
 // limitations under the License.
 
 import { ImportSource } from 'pages/database-form/import-navigation-state';
+import { ImportPrefill } from 'pages/database-form/utils/import-prefill';
 
 export interface ImportSourceBannerProps {
   importSource: ImportSource;
+  prefill: ImportPrefill;
 }

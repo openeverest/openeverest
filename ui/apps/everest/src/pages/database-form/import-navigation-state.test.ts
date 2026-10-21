@@ -28,6 +28,11 @@ const importSource: ImportSource = {
     backupName: 'import-x7k2p-1',
     storageName: 's3-old-bucket',
   },
+  sourceMetadata: {
+    engineVersion: '8.0.12-4',
+    backupType: 'logical',
+    topology: 'replicaSet',
+  },
 };
 const provider: Provider = {
   metadata: { name: 'percona-server-mongodb' },
@@ -55,6 +60,18 @@ describe('import-navigation-state', () => {
     ).toEqual({
       type: 'Backup',
       backup: { backupRef: { name: 'import-x7k2p-1' } },
+    });
+  });
+
+  it('drops malformed source metadata but keeps the import', () => {
+    const parsed = parseImportNavigationRouteState({
+      selectedDbProvider: provider,
+      importSource: { ...importSource, sourceMetadata: { engineVersion: 8 } },
+    });
+
+    expect(parsed?.importSource).toEqual({
+      ...importSource,
+      sourceMetadata: undefined,
     });
   });
 

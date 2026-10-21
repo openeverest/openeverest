@@ -41,6 +41,9 @@ export const Messages = {
     scanning: 'Scanning…',
     completedAt: 'Completed',
     path: 'Path',
+    version: 'Version',
+    type: 'Type',
+    topology: 'Topology',
     noBackups: 'No backups found yet. Scan the storage to find them.',
   },
   scan: {

@@ -14,6 +14,13 @@
 
 import { z } from 'zod';
 import { Provider } from 'shared-types/api.types';
+import { BackupSourceMetadata } from 'shared-types/backups.types';
+
+const sourceMetadataSchema: z.ZodType<BackupSourceMetadata> = z.object({
+  engineVersion: z.string().optional(),
+  backupType: z.string().optional(),
+  topology: z.string().optional(),
+});
 
 const importSourceSchema = z.object({
   namespace: z.string().min(1),
@@ -24,6 +31,8 @@ const importSourceSchema = z.object({
     backupName: z.string().min(1),
     storageName: z.string().min(1),
   }),
+  // Only prefills the wizard, so a malformed one is dropped, not the import.
+  sourceMetadata: sourceMetadataSchema.optional().catch(undefined),
 });
 
 export type ImportSource = z.infer<typeof importSourceSchema>;

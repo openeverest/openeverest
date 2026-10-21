@@ -19,9 +19,11 @@ import { useGetBackup } from 'hooks/api/backups/useBackups';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { Messages } from './import-source-banner.messages';
 import { ImportSourceBannerProps } from './import-source-banner.types';
+import { getImportSourceAlert } from './import-source-banner.utils';
 
 export const ImportSourceBanner = ({
   importSource,
+  prefill,
 }: ImportSourceBannerProps) => {
   const { state } = useLocation();
   const navigate = useNavigate();
@@ -35,12 +37,18 @@ export const ImportSourceBanner = ({
   // The user picked the backup by its path.
   const backupLabel =
     backup?.spec.origin.external?.path ?? dataSource.backupName;
+  const { severity, message } = getImportSourceAlert(
+    backupLabel,
+    dataSource.storageName,
+    importSource.sourceMetadata,
+    prefill
+  );
 
   return (
     <Box sx={{ mt: 3 }}>
       <ActionableAlert
-        severity="info"
-        message={Messages.source(backupLabel, dataSource.storageName)}
+        severity={severity}
+        message={message}
         buttonMessage={Messages.changeBackup}
         // The import page restores its choice from the same router state.
         onClick={() => navigate('/databases/import', { state })}

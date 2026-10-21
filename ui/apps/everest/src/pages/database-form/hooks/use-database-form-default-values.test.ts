@@ -13,26 +13,42 @@
 // limitations under the License.
 
 import { renderHook } from '@testing-library/react';
-import { FormMode } from 'components/ui-generator/ui-generator.types';
-import { buildImportNavigationRouteState } from '../import-navigation-state';
+import {
+  FormMode,
+  TopologyUISchemas,
+} from 'components/ui-generator/ui-generator.types';
+import { Provider } from 'shared-types/api.types';
+import {
+  buildImportNavigationRouteState,
+  ImportSource,
+} from '../import-navigation-state';
 import { useDatabasePageDefaultValues } from './use-database-form-default-values';
 
-const ROUTER_STATE = buildImportNavigationRouteState(
-  { metadata: { name: 'psmdb' }, spec: {} },
-  {
-    namespace: 'ns-b',
-    backupClassName: 'psmdb-pbm',
-    dataSource: {
-      type: 'Backup',
-      backupName: 'import-abc12-1',
-      storageName: 's3-new',
-    },
-  }
-);
+const PROVIDER: Provider = {
+  metadata: { name: 'psmdb' },
+  spec: {
+    versions: [{ name: '7.0.18', components: { engine: '7.0.18-11' } }],
+  },
+};
+const IMPORT_SOURCE: ImportSource = {
+  namespace: 'ns-b',
+  backupClassName: 'psmdb-pbm',
+  dataSource: {
+    type: 'Backup',
+    backupName: 'import-abc12-1',
+    storageName: 's3-new',
+  },
+};
+const UI_SCHEMA: TopologyUISchemas = {
+  replicaset: { sections: {} },
+  sharded: { sections: {} },
+};
+
+const mocks = vi.hoisted(() => ({ state: undefined as unknown }));
 
 vi.mock('react-router-dom', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react-router-dom')>()),
-  useLocation: () => ({ state: ROUTER_STATE }),
+  useLocation: () => ({ state: mocks.state }),
 }));
 vi.mock('hooks/api/db-instances/useDbInstance', () => ({
   useDbInstance: () => ({ status: 'pending', isFetching: false }),
@@ -40,6 +56,7 @@ vi.mock('hooks/api/db-instances/useDbInstance', () => ({
 
 describe('useDatabasePageDefaultValues', () => {
   it('prefills an import with the namespace and class of the backup', () => {
+    mocks.state = buildImportNavigationRouteState(PROVIDER, IMPORT_SOURCE);
     const { result } = renderHook(() =>
       useDatabasePageDefaultValues(FormMode.Import, {}, 'replicaset')
     );
@@ -49,6 +66,27 @@ describe('useDatabasePageDefaultValues', () => {
       k8sNamespace: 'ns-b',
       topology: { type: 'replicaset' },
       backup: { schedules: [], classRef: { name: 'psmdb-pbm' } },
+    });
+  });
+
+  it('prefills the topology and version the backup was taken on', () => {
+    mocks.state = buildImportNavigationRouteState(PROVIDER, {
+      ...IMPORT_SOURCE,
+      sourceMetadata: { engineVersion: '7.0.18-11', topology: 'sharded' },
+    });
+    const { result } = renderHook(() =>
+      useDatabasePageDefaultValues(
+        FormMode.Import,
+        UI_SCHEMA,
+        'replicaset',
+        false,
+        PROVIDER
+      )
+    );
+
+    expect(result.current.defaultValues).toMatchObject({
+      topology: { type: 'sharded' },
+      spec: { version: '7.0.18' },
     });
   });
 });

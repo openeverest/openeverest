@@ -16,6 +16,9 @@ import { CrdsGen, HttpApi } from '@generated/api-types';
 import { Section } from 'components/ui-generator/ui-generator.types';
 
 export type Backup = CrdsGen.components['schemas']['Backup'];
+export type BackupSourceMetadata = NonNullable<
+  NonNullable<Backup['spec']['origin']['external']>['sourceMetadata']
+>;
 export type BackupClass = CrdsGen.components['schemas']['BackupClass'];
 export type BackupList = CrdsGen.components['schemas']['BackupList'];
 export type BackupClassList = CrdsGen.components['schemas']['BackupClassList'];

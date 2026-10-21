@@ -19,7 +19,7 @@ type ExternalBackupOrigin = NonNullable<Backup['spec']['origin']['external']>;
 
 export type ImportBackupRow = { name: string } & Pick<
   ExternalBackupOrigin,
-  'path' | 'completedAt'
+  'path' | 'completedAt' | 'sourceMetadata'
 >;
 
 export interface ScanTarget {

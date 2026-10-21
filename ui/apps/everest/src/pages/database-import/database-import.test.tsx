@@ -72,6 +72,11 @@ const ADDED_STORAGE: BackupStorageFormValues = {
   verifyTLS: true,
   forcePathStyle: false,
 };
+const SOURCE_METADATA = {
+  engineVersion: '8.0.12-4',
+  backupType: 'logical',
+  topology: 'replicaSet',
+};
 const externalBackup = (name: string, path: string): Backup => ({
   metadata: { name },
   spec: {
@@ -83,6 +88,7 @@ const externalBackup = (name: string, path: string): Backup => ({
         path,
         startedAt: '2026-10-01T10:00:00Z',
         completedAt: '2026-10-01T10:05:00Z',
+        sourceMetadata: SOURCE_METADATA,
       },
     },
   },
@@ -180,7 +186,7 @@ describe('DatabaseImportPage', () => {
     mocks.navigate.mockReset();
   });
 
-  it('continues to the wizard with the chosen backup', async () => {
+  it('continues to the wizard with the chosen backup and what it was taken on', async () => {
     render(page());
     expect(getContinueButton()).toBeDisabled();
 
@@ -199,6 +205,7 @@ describe('DatabaseImportPage', () => {
               backupName: 'import-abc12-1',
               storageName: 's3-old',
             },
+            sourceMetadata: SOURCE_METADATA,
           },
         },
       })
@@ -279,7 +286,10 @@ describe('DatabaseImportPage', () => {
     fireEvent.click(getContinueButton());
     await waitFor(() =>
       expect(mocks.navigate).toHaveBeenCalledWith('/databases/new', {
-        state: buildImportNavigationRouteState(PROVIDERS[0], importSource),
+        state: buildImportNavigationRouteState(PROVIDERS[0], {
+          ...importSource,
+          sourceMetadata: SOURCE_METADATA,
+        }),
       })
     );
   });

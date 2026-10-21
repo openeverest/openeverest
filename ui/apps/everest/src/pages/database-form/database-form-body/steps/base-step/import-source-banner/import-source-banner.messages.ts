@@ -14,6 +14,12 @@
 
 export const Messages = {
   source: (backup: string, storage: string) =>
-    `Creating the database from backup ${backup} in storage ${storage}. Pick the same database version and topology as the backup.`,
+    `Creating the database from backup ${backup} in storage ${storage}.`,
+  versionMatched: (version: string) =>
+    `Version ${version} is preselected because it matches the backup. Only this version is guaranteed to work.`,
+  versionMissing: (engineVersion: string) =>
+    `The backup was taken on version ${engineVersion}, which isn't available. Pick a version: only the backup's version is guaranteed to work.`,
+  versionUnknown: 'Pick the same database version as the backup.',
+  topologyUnknown: 'Pick the same topology as the backup.',
   changeBackup: 'Change backup',
 };

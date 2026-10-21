@@ -47,6 +47,22 @@ const columns: MRT_ColumnDef<ImportBackupRow>[] = [
   {
     accessorKey: 'path',
     header: Messages.backups.path,
+    size: 280,
+  },
+  {
+    accessorKey: 'sourceMetadata.engineVersion',
+    header: Messages.backups.version,
+    size: 120,
+  },
+  {
+    accessorKey: 'sourceMetadata.backupType',
+    header: Messages.backups.type,
+    size: 120,
+  },
+  {
+    accessorKey: 'sourceMetadata.topology',
+    header: Messages.backups.topology,
+    size: 120,
   },
 ];
 
