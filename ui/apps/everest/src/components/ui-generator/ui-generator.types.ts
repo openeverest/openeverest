@@ -14,6 +14,7 @@
 
 import { ComponentType, ReactNode } from 'react';
 import { Provider } from 'shared-types/api.types';
+import type { kubernetesUnit } from 'utils/k8ResourceParser';
 
 export enum FormMode {
   New = 'new',
@@ -55,11 +56,16 @@ export interface DataSource {
 
 export enum FieldType {
   Number = 'number',
+  Quantity = 'quantity',
   Select = 'select',
   Text = 'text',
   Toggle = 'toggle',
   Hidden = 'hidden',
 }
+
+// Fields whose form value is a number.
+export const isNumberLikeField = (uiType: string): boolean =>
+  uiType === FieldType.Number || uiType === FieldType.Quantity;
 
 export enum WidgetType {
   // Public marker a provider authors to place the scheduling section; the
@@ -98,6 +104,23 @@ export interface NumberFieldParams extends CommonFieldParams {
   step?: number;
   placeholder?: string;
 }
+
+// Kubernetes quantity suffix; '' is the base unit (cores, bytes).
+export type QuantityUnit = '' | kubernetesUnit;
+
+// The form holds a number in `unit`; the API gets a quantity string.
+export type QuantityFieldParams = Omit<
+  CommonFieldParams,
+  'badge' | 'badgeToApi'
+> & {
+  unit?: QuantityUnit;
+  // Shown after the input instead of `unit`, e.g. "cores".
+  unitLabel?: string;
+  step?: number;
+  placeholder?: string;
+  badge?: never;
+  badgeToApi?: never;
+};
 
 type SelectOptionsItem = { label: string; value: string };
 
@@ -148,6 +171,7 @@ export type ToggleValidation = Omit<CommonValidation, 'required'> & {
 
 export type FieldParamsMap = {
   [FieldType.Number]: NumberFieldParams;
+  [FieldType.Quantity]: QuantityFieldParams;
   [FieldType.Select]: SelectFieldParams;
   [FieldType.Text]: TextFieldParams;
   [FieldType.Toggle]: ToggleFieldParams;
@@ -198,6 +222,7 @@ export type NumberValidation = CommonValidation & {
 
 export type ValidationMap = {
   [FieldType.Number]: NumberValidation;
+  [FieldType.Quantity]: NumberValidation;
   [FieldType.Text]: TextValidation;
   [FieldType.Select]: CommonValidation;
   [FieldType.Toggle]: ToggleValidation;

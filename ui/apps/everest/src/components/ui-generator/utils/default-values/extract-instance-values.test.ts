@@ -142,7 +142,32 @@ describe('extractInstanceValues', () => {
     );
 
     expect(result).toEqual({
-      spec: { resources: { disk: '25' } },
+      spec: { resources: { disk: 25 } },
+    });
+  });
+
+  it('reads Kubernetes quantities into number fields and leaves text fields as stored', () => {
+    const numberField = (path: string, badge?: string) =>
+      makeComponent(path, {
+        uiType: FieldType.Number,
+        fieldParams: { label: path, badge },
+      });
+    const sections: Record<string, Section> = {
+      resources: {
+        components: {
+          cpu: numberField('spec.cpu'),
+          proxyCpu: numberField('spec.proxyCpu', 'cores'),
+          rawCpu: makeComponent('spec.rawCpu'),
+        },
+      },
+    };
+
+    const result = extractInstanceValues(sections, {
+      spec: { cpu: '500m', proxyCpu: '1500m', rawCpu: '500m' },
+    });
+
+    expect(result).toEqual({
+      spec: { cpu: 0.5, proxyCpu: 1.5, rawCpu: '500m' },
     });
   });
 

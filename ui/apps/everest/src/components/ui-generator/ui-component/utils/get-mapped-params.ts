@@ -15,6 +15,7 @@
 import { SelectProps, SwitchProps, TextFieldProps } from '@mui/material';
 import {
   NumberFieldParams,
+  QuantityFieldParams,
   SelectFieldParams,
   TextFieldParams,
   ToggleFieldParams,
@@ -55,6 +56,14 @@ export const getMappedParams = <K extends keyof FieldParamsMap>(
         fieldParams as NumberFieldParams,
         validation as ValidationMap[FieldType.Number] | undefined
       );
+    case 'quantity': {
+      const { unit, unitLabel, ...numberParams } =
+        fieldParams as QuantityFieldParams;
+      return mapNumberFieldParams(
+        { ...numberParams, badge: unitLabel ?? (unit || undefined) },
+        validation as ValidationMap[FieldType.Quantity] | undefined
+      );
+    }
     case 'text':
       return mapTextFieldParams(fieldParams as TextFieldParams);
     case 'select':

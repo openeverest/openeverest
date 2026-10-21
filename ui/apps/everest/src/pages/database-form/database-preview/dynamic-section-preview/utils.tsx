@@ -32,6 +32,7 @@ import {
   readWidgetTargetValues,
 } from 'components/ui-generator/utils/widget-targets';
 import { widgetSummaryRegistry } from 'pages/database-form/widget-registry';
+import { formatQuantity } from 'components/ui-generator/utils/quantity/quantity';
 import { Messages } from './dynamic-section-preview.messages';
 import { WidgetPreview } from './widget-preview';
 
@@ -114,6 +115,11 @@ export const renderComponent = (
     displayValue = value ? Messages.enabled : Messages.disabled;
   } else if (typeof value === 'object' && !Array.isArray(value)) {
     displayValue = JSON.stringify(value);
+  } else if (
+    leafComponent.uiType === FieldType.Quantity &&
+    typeof value === 'number'
+  ) {
+    displayValue = formatQuantity(value, leafComponent.fieldParams);
   } else {
     displayValue = String(value);
   }

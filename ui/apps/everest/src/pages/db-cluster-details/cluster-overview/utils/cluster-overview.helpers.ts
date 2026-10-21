@@ -17,7 +17,10 @@ import type {
   ComponentGroup,
   WidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
-import { isWidgetComponent } from 'components/ui-generator/ui-generator.types';
+import {
+  FieldType,
+  isWidgetComponent,
+} from 'components/ui-generator/ui-generator.types';
 import type {
   WidgetSummary,
   WidgetSummaryRegistry,
@@ -30,7 +33,10 @@ import {
   getComponentSourcePath,
   getComponentTargetPaths,
 } from 'components/ui-generator/utils/preprocess/normalized-component';
-import { stripBadgeFromValue } from 'components/ui-generator/utils/badge-to-api/badge-to-api';
+import {
+  readNumberFieldValue,
+  stripBadgeFromValue,
+} from 'components/ui-generator/utils/badge-to-api/badge-to-api';
 import {
   getToggleableMeta,
   isToggleableOnInInstance,
@@ -39,6 +45,10 @@ import {
   getWidgetTargets,
   readWidgetTargetValues,
 } from 'components/ui-generator/utils/widget-targets';
+import {
+  formatQuantity,
+  readQuantity,
+} from 'components/ui-generator/utils/quantity/quantity';
 import { Messages } from '../cluster-overview.messages';
 
 export type SectionField = {
@@ -66,6 +76,23 @@ const formatBadgedValue = (rawValue: unknown, badge?: string): string => {
     }
   }
   return formatDisplayValue(rawValue);
+};
+
+const formatFieldValue = (component: Component, rawValue: unknown): string => {
+  if (component.uiType === FieldType.Quantity) {
+    const amount = readQuantity(rawValue, component.fieldParams.unit ?? '');
+    return typeof amount === 'number'
+      ? formatQuantity(amount, component.fieldParams)
+      : formatDisplayValue(amount);
+  }
+  const { badge, badgeToApi } = component.fieldParams ?? {};
+  if (component.uiType !== FieldType.Number) {
+    return formatBadgedValue(rawValue, badge);
+  }
+  const value = readNumberFieldValue(rawValue, badgeToApi ? badge : undefined);
+  return typeof value === 'number' && badge
+    ? `${value}${badge}`
+    : formatDisplayValue(value);
 };
 
 export const collectSectionFields = (
@@ -138,10 +165,7 @@ export const collectSectionFields = (
     fields.push({
       label: component.fieldParams?.label ?? key,
       path,
-      value: formatBadgedValue(
-        getByPath(instance, path),
-        component.fieldParams?.badge
-      ),
+      value: formatFieldValue(component, getByPath(instance, path)),
     });
   }
 

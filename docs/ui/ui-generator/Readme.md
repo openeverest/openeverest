@@ -18,6 +18,7 @@
   - [Validation-level modes](#validation-level-modes)
 - Field Types
   - [Number Field](components/number-field.md)
+  - [Quantity Field](components/quantity-field.md)
   - [Select Field](components/select-field.md)
   - [Text Field](components/text-field.md)
   - [Toggle Field](components/toggle-field.md)
@@ -135,7 +136,7 @@ basicInfo:
 
 A **Component** represents a single form field with the following properties:
 
-- **`uiType`**: Type of UI control (`'number'`, `'select'`, `'hidden'`), or `'widget'` for a host-rendered component (see [Widget](#widget-host-rendered-component))
+- **`uiType`**: Type of UI control (`'number'`, `'quantity'`, `'select'`, `'hidden'`), or `'widget'` for a host-rendered component (see [Widget](#widget-host-rendered-component))
 - **`path`** OR **`id`**: The data path in the resulting form values (e.g., `"spec.replica.nodes"`). For widgets, defined by each widget type.
 - **`fieldParams`**: Configuration for the field (label, placeholder, defaultValue, etc.). Supports `modes` for documented per-mode overrides of shared field params
 - **`modes`** (optional): Per-mode component-level overrides (e.g. `uiType: hidden`)
