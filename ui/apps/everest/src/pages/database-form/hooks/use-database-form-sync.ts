@@ -21,12 +21,12 @@ import {
 import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import { mergeTopologyDefaults } from 'components/ui-generator/utils/default-values/merge-topology-defaults';
 import { dropOtherTopologyValues } from 'components/ui-generator/utils/topology-scope';
-import { InstancePreset } from 'shared-types/api.types';
+import { ClusterInstancePreset } from 'shared-types/api.types';
 import { usePresetFormSync } from '../preset-selection';
 import { DbWizardType } from '../database-form-schema';
 
 interface PresetSource {
-  resolvedPreset: InstancePreset | null;
+  resolvedPreset: ClusterInstancePreset | null;
   presetName: string;
   presetSelected: boolean;
   namespace: string | undefined;

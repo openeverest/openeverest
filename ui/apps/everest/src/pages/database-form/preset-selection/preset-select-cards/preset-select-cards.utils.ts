@@ -13,18 +13,18 @@
 // limitations under the License.
 
 import { CardPickerItem, flattenToSearchText } from '@percona/ui-lib';
-import { InstancePreset } from 'shared-types/api.types';
+import { ClusterInstancePreset } from 'shared-types/api.types';
 import { Messages } from './preset-select-cards.messages';
 
 const toText = (value: number | string | undefined): string | undefined =>
   value === undefined || value === null ? undefined : String(value);
 
-const getMeta = (preset: InstancePreset): string =>
+const getMeta = (preset: ClusterInstancePreset): string =>
   [preset.spec?.topology?.type, preset.spec?.version]
     .filter(Boolean)
     .join(' · ');
 
-const getResources = (preset: InstancePreset): string => {
+const getResources = (preset: ClusterInstancePreset): string => {
   const engine = preset.spec?.components?.engine;
   const limits = engine?.resources?.limits;
   const nodes = engine?.replicas;
@@ -42,7 +42,7 @@ const getResources = (preset: InstancePreset): string => {
     .join(' · ');
 };
 
-export const presetToCardItem = (preset: InstancePreset): CardPickerItem => {
+export const presetToCardItem = (preset: ClusterInstancePreset): CardPickerItem => {
   const name = preset.metadata?.name ?? '';
   const subtitle = getMeta(preset);
   const detail = getResources(preset);

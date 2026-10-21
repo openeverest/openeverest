@@ -276,8 +276,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List instance presets
-         * @description This API lists all instance presets in the specified cluster.
+         * List cluster instance presets
+         * @description This API lists all cluster instance presets in the specified cluster.
          *     Optionally filter by provider.
          */
         get: operations["listClusterInstancePresets"];
@@ -297,8 +297,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get instance preset
-         * @description This API gets the instance preset specified by the `name` in the specified `cluster`.
+         * Get cluster instance preset
+         * @description This API gets the cluster instance preset specified by the `name` in the specified `cluster`.
          */
         get: operations["getClusterInstancePreset"];
         put?: never;
@@ -317,9 +317,9 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Resolve instance preset with namespace defaults and default StorageClass of the cluster
-         * @description This API resolves the instance preset specified by the `name` in the specified `cluster`.
-         *     This endpoint is useful when creating instances from presets, as it provides a
+         * Resolve cluster instance preset with namespace defaults and default StorageClass of the cluster
+         * @description This API resolves the cluster instance preset specified by the `name` in the specified `cluster`.
+         *     This endpoint is useful when creating instances from cluster instance presets, as it provides a
          *     fully-populated preset with all namespace defaults, and default StorageClass of the cluster
          *     if it has empty StorageClass.
          */
@@ -5960,7 +5960,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description List of instance presets */
+            /** @description List of cluster instance presets */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5987,14 +5987,14 @@ export interface operations {
             path: {
                 /** @description The name of the cluster */
                 cluster: string;
-                /** @description The name of the instance preset */
+                /** @description The name of the cluster instance preset */
                 name: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Instance preset details */
+            /** @description Cluster instance preset details */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -6003,7 +6003,7 @@ export interface operations {
                     "application/json": components["schemas"]["ClusterInstancePreset"];
                 };
             };
-            /** @description Instance preset not found */
+            /** @description Cluster instance preset not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -6033,14 +6033,14 @@ export interface operations {
             path: {
                 /** @description The name of the cluster */
                 cluster: string;
-                /** @description The name of the instance preset */
+                /** @description The name of the cluster instance preset */
                 name: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Resolved instance preset with namespace defaults */
+            /** @description Resolved cluster instance preset with namespace defaults */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -6049,7 +6049,7 @@ export interface operations {
                     "application/json": components["schemas"]["ClusterInstancePreset"];
                 };
             };
-            /** @description Instance preset not found */
+            /** @description Cluster instance preset not found */
             404: {
                 headers: {
                     [name: string]: unknown;

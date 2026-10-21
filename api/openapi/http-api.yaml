@@ -380,9 +380,9 @@ paths:
     get:
       tags:
         - Preset
-      summary: List instance presets
+      summary: List cluster instance presets
       description: |
-        This API lists all instance presets in the specified cluster.
+        This API lists all cluster instance presets in the specified cluster.
         Optionally filter by provider.
       operationId: listClusterInstancePresets
       parameters:
@@ -400,7 +400,7 @@ paths:
             type: string
       responses:
         '200':
-          description: List of instance presets
+          description: List of cluster instance presets
           content:
             application/json:
               schema:
@@ -416,9 +416,9 @@ paths:
     get:
       tags:
         - Preset
-      summary: Get instance preset
+      summary: Get cluster instance preset
       description: |
-        This API gets the instance preset specified by the `name` in the specified `cluster`.
+        This API gets the cluster instance preset specified by the `name` in the specified `cluster`.
       operationId: getClusterInstancePreset
       parameters:
         - name: cluster
@@ -430,18 +430,18 @@ paths:
         - name: name
           in: path
           required: true
-          description: The name of the instance preset
+          description: The name of the cluster instance preset
           schema:
             type: string
       responses:
         '200':
-          description: Instance preset details
+          description: Cluster instance preset details
           content:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/ClusterInstancePreset'
         '404':
-          description: Instance preset not found
+          description: Cluster instance preset not found
           content:
             application/json:
               schema:
@@ -457,10 +457,10 @@ paths:
     get:
       tags:
         - Preset
-      summary: Resolve instance preset with namespace defaults and default StorageClass of the cluster
+      summary: Resolve cluster instance preset with namespace defaults and default StorageClass of the cluster
       description: |
-        This API resolves the instance preset specified by the `name` in the specified `cluster`.
-        This endpoint is useful when creating instances from presets, as it provides a
+        This API resolves the cluster instance preset specified by the `name` in the specified `cluster`.
+        This endpoint is useful when creating instances from cluster instance presets, as it provides a
         fully-populated preset with all namespace defaults, and default StorageClass of the cluster
         if it has empty StorageClass.
       operationId: resolveClusterInstancePreset
@@ -474,7 +474,7 @@ paths:
         - name: name
           in: path
           required: true
-          description: The name of the instance preset
+          description: The name of the cluster instance preset
           schema:
             type: string
         - name: namespace
@@ -485,13 +485,13 @@ paths:
             type: string
       responses:
         '200':
-          description: Resolved instance preset with namespace defaults
+          description: Resolved cluster instance preset with namespace defaults
           content:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/ClusterInstancePreset'
         '404':
-          description: Instance preset not found
+          description: Cluster instance preset not found
           content:
             application/json:
               schema:
