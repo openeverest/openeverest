@@ -33,6 +33,8 @@ export const useRBACPermissions = (
     create: false,
     delete: false,
   });
+  // Permissions start denied; this tells "denied" from "not checked yet".
+  const [isPermissionsLoading, setIsPermissionsLoading] = useState(true);
 
   const checkPermissions = useCallback(async () => {
     const multipleSpecificResources = Array.isArray(specificResources);
@@ -58,10 +60,19 @@ export const useRBACPermissions = (
   }, [resource, specificResources]);
 
   useEffect(() => {
-    checkPermissions();
+    let active = true;
+    setIsPermissionsLoading(true);
+    checkPermissions().finally(() => {
+      if (active) {
+        setIsPermissionsLoading(false);
+      }
+    });
     AuthorizerObservable.subscribe(checkPermissions);
 
-    return () => AuthorizerObservable.unsubscribe(checkPermissions);
+    return () => {
+      active = false;
+      AuthorizerObservable.unsubscribe(checkPermissions);
+    };
   }, [checkPermissions]);
 
   return {
@@ -69,6 +80,7 @@ export const useRBACPermissions = (
     canUpdate: permissions.update,
     canDelete: permissions.delete,
     canCreate: permissions.create,
+    isPermissionsLoading,
   };
 };
 
