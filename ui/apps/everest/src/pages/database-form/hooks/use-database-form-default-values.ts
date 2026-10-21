@@ -25,6 +25,7 @@ import { getDbWizardDefaultValues } from '../utils/get-default-values';
 import { generateShortUID } from 'utils/generateShortUID';
 import { MAX_DB_CLUSTER_NAME_LENGTH } from 'consts';
 import { extractWizardBackup } from 'pages/database-form/database-form-body/steps/backup-step';
+import { useImportNavigationState } from './use-import-navigation-state';
 import { useRestoreNavigationState } from './use-restore-navigation-state';
 
 export const useDatabasePageDefaultValues = (
@@ -50,6 +51,7 @@ export const useDatabasePageDefaultValues = (
   // ── Restore mode: fetch source instance ──────────────────────────────────
   const isRestore = mode === FormMode.Restore;
   const { sourceInstanceName, sourceNamespace } = useRestoreNavigationState();
+  const importNavigation = useImportNavigationState();
 
   const {
     data: sourceInstance,
@@ -63,13 +65,21 @@ export const useDatabasePageDefaultValues = (
     const providerName =
       state?.selectedDbProvider?.metadata?.name || 'unknown-provider';
 
-    if (mode === FormMode.New) {
+    if (mode === FormMode.New || mode === FormMode.Import) {
+      const importSource = importNavigation?.importSource;
       const dbWizardDefaultValues = getDbWizardDefaultValues(providerName);
       return {
         ...defaultSchemaValues,
         ...dbWizardDefaultValues,
         topology: { type: defaultSelectedTopology },
-        backup: { schedules: [], classRef: { name: '' }, pitr: {} },
+        // An import keeps the backup's namespace and class, so the new
+        // instance can read the storage the backup is in.
+        ...(importSource && { k8sNamespace: importSource.namespace }),
+        backup: {
+          schedules: [],
+          classRef: { name: importSource?.backupClassName ?? '' },
+          pitr: {},
+        },
       };
     }
 
@@ -114,7 +124,7 @@ export const useDatabasePageDefaultValues = (
       };
     }
 
-    // Fallback (edit/import modes — not yet implemented)
+    // Fallback (edit mode — not yet implemented)
     return {
       ...defaultSchemaValues,
       topology: { type: defaultSelectedTopology },
@@ -123,6 +133,7 @@ export const useDatabasePageDefaultValues = (
   }, [
     defaultSchemaValues,
     defaultSelectedTopology,
+    importNavigation,
     mode,
     sourceInstance,
     sourceNamespace,

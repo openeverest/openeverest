@@ -13,9 +13,14 @@
 // limitations under the License.
 
 import { FormMode } from 'components/ui-generator/ui-generator.types';
+import { useImportNavigationState } from './use-import-navigation-state';
 import { useRestoreNavigationState } from './use-restore-navigation-state';
 
 export const useDatabasePageMode = (): FormMode => {
   const { isRestore } = useRestoreNavigationState();
-  return isRestore ? FormMode.Restore : FormMode.New;
+  const importNavigation = useImportNavigationState();
+  if (isRestore) {
+    return FormMode.Restore;
+  }
+  return importNavigation ? FormMode.Import : FormMode.New;
 };

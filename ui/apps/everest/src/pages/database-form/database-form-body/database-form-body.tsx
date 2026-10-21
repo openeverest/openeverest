@@ -66,6 +66,7 @@ const DatabaseFormBody = ({
         )}
       <Box>
         {(mode === WizardMode.New ||
+          mode === WizardMode.Import ||
           (mode === WizardMode.Restore &&
             dbClusterRequestStatus === 'success')) &&
           currentStep &&
