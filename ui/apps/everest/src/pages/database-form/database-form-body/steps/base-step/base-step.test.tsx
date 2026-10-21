@@ -188,7 +188,7 @@ describe('BaseInfoStep', () => {
 });
 
 describe('basicInfoSchema (topology as nested object)', () => {
-  const schema = getDBWizardSchema([], false);
+  const schema = getDBWizardSchema([]);
 
   it('passes when topology is provided as a nested object { type: string }', () => {
     const result = schema.safeParse(makeDefaultValues('replica'));

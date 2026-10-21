@@ -57,9 +57,7 @@ export type RBACResource =
   | 'monitoring-configs'
   | 'secrets'
   | 'pod-scheduling-policies'
-  | 'data-importers'
   | 'load-balancer-configs'
-  | 'data-import-jobs'
   | 'enginefeatures/split-horizon-dns-configs';
 
 const constructAuthorizer = async () => {

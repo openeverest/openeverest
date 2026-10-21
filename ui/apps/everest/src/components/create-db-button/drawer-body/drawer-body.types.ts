@@ -16,6 +16,5 @@ import type { Provider } from 'shared-types/api.types';
 
 export interface DrawerBodyProps {
   providers: Provider[];
-  createFromImport: boolean;
   onClose: () => void;
 }

@@ -43,26 +43,7 @@ import { RESTORE_STATUS_TO_BASE_STATUS } from './restores.constants';
 import { useQueryClient } from '@tanstack/react-query';
 import TableActionsMenu from 'components/table-actions-menu';
 import { RestoreActionButtons } from './restores-menu-actions';
-// TODO: Re-enable when data-import-jobs endpoint is migrated to v2 API.
-// import { useDbClusterImportJobs } from 'hooks';
-// import {
-//   DataImportJob,
-//   DataImportJobs,
-// } from 'shared-types/dataImporters.types';
 import { useClusterName } from 'hooks/api/useClusterName';
-
-// TODO: Re-enable when data-import-jobs endpoint is migrated to v2 API.
-// const getImportJobsData = (imports?: DataImportJobs): Restore[] => {
-//   if (!imports?.items || !imports.items.length) return [];
-//   return imports.items.map((importItem: DataImportJob) => ({
-//     backupSource: importItem.spec.dataImporterName,
-//     endTime: importItem.status?.completedAt || '',
-//     name: importItem.metadata.name,
-//     startTime: importItem.status?.startedAt || '',
-//     state: importItem.status?.state || '',
-//     type: 'import',
-//   }));
-// };
 
 function getTypeCellValue(type: string) {
   if (type === 'import') return 'Import';
@@ -92,10 +73,6 @@ const Restores = () => {
   //     enabled: !!dbClusterName && !!namespace,
   //   });
 
-  // TODO: Re-enable when data-import-jobs endpoint is migrated to v2 API.
-  // const { data: imports } = useDbClusterImportJobs(namespace, instanceName);
-
-  // const tableData = [...restores, ...getImportJobsData(imports)];
   const tableData = restores;
 
   const { mutate: deleteRestore, isPending: deletingRestore } =
@@ -207,10 +184,6 @@ const Restores = () => {
             namespace,
             instanceName
           );
-          // TODO: Re-enable 'import' type check when data-import-jobs is migrated to v2 API.
-          // return row.original.type !== 'import' ? (
-          //   <TableActionsMenu menuItems={menuItems} />
-          // ) : null;
           return <TableActionsMenu menuItems={menuItems} />;
         }}
       />

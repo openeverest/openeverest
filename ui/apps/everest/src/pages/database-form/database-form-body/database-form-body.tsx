@@ -30,7 +30,6 @@ const DatabaseFormBody = ({
   steps,
   activeStep,
   isSubmitting,
-  disableNext,
   presetSelected,
   presetPending,
   onCancel,
@@ -83,7 +82,6 @@ const DatabaseFormBody = ({
           isValid,
         })}
         disableCancel={isSubmitting}
-        disableNext={disableNext}
         showSubmit={isLastStep || isFirstStep}
         showConfigMore={isFirstStep}
         disableConfigMore={presetSelected}

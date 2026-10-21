@@ -20,7 +20,6 @@ import {
 } from 'shared-types/dbCluster.types';
 import { api } from './api';
 import { DBClusterComponentsList } from 'shared-types/components.types';
-import { DataImportJobs } from 'shared-types/dataImporters.types';
 
 export const createDbClusterFn = async (data: DbCluster, namespace: string) => {
   const response = await api.post<DbCluster>(
@@ -114,16 +113,6 @@ export const getDBClusterComponentsListFn = async (
 ) => {
   const response = await api.get<DBClusterComponentsList>(
     `namespaces/${namespace}/database-clusters/${dbClusterName}/components`
-  );
-  return response.data;
-};
-
-export const getDbClusterImports = async (
-  namespace: string,
-  dbName: string
-) => {
-  const response = await api.get<DataImportJobs>(
-    `namespaces/${namespace}/database-clusters/${dbName}/data-import-jobs`
   );
   return response.data;
 };

@@ -45,11 +45,9 @@ import { useRestoreNavigationState } from './hooks/use-restore-navigation-state'
 import { DatabaseFormProvider } from './database-form-context';
 import { useSchema } from './hooks/use-schema';
 import { useDbValidationSchema } from './hooks/use-db-validation-schema';
-import { ImportFields } from 'components/cluster-form/import/import.types';
 import { DbWizardFormFields } from 'consts';
 import {
   BASE_STEP_ID,
-  IMPORT_STEP_ID,
   BACKUP_STEP_ID,
 } from './database-form-body/steps/constants';
 import {
@@ -62,7 +60,6 @@ import { widgetRegistry } from './widget-registry';
 import { DataSourcePrefetcher } from 'components/ui-generator/api-providers';
 import { SecretNamespaceSync } from 'components/ui-generator/secret-field';
 import { BaseInfoStep } from './database-form-body/steps/base-step/base-step';
-import { ImportStep } from './database-form-body/steps-old/import/import-step';
 import {
   BackupStep,
   BACKUP_SCHEDULES_FIELD,
@@ -203,7 +200,6 @@ export const DatabasePage = () => {
   const { uiSchema, topologies, hasMultipleTopologies, resolvedProvider } =
     useSchema();
   const defaultTopology = topologies[0] || '';
-  const hasImportStep = !!location.state?.showImport;
   const providerObject = location.state?.selectedDbProvider ?? resolvedProvider;
 
   // ── Backup classes (determines if backup step is shown)
@@ -332,14 +328,6 @@ export const DatabasePage = () => {
         ],
       },
     ];
-    if (hasImportStep) {
-      steps.push({
-        id: IMPORT_STEP_ID,
-        label: 'Import',
-        component: ImportStep,
-        fields: Object.values(ImportFields) as string[],
-      });
-    }
     if (hasBackupStep) {
       steps.push({
         id: BACKUP_STEP_ID,
@@ -349,7 +337,7 @@ export const DatabasePage = () => {
       });
     }
     return steps;
-  }, [hasImportStep, hasBackupStep]);
+  }, [hasBackupStep]);
 
   const engine = useFormEngine({
     uiSchema,
@@ -388,7 +376,6 @@ export const DatabasePage = () => {
   // Validation
   const validationSchema = useDbValidationSchema(
     dbInstancesList,
-    hasImportStep,
     engine.zodSchema
   ) as unknown as ZodType<DbWizardType>;
 
@@ -599,11 +586,6 @@ export const DatabasePage = () => {
               hasErrors={stepsWithErrors.length > 0}
               presetSelected={presetSelection.presetSelected}
               presetPending={presetSelection.presetPending}
-              disableNext={
-                hasImportStep &&
-                nav.activeStepId === IMPORT_STEP_ID &&
-                stepsWithErrors.includes(IMPORT_STEP_ID)
-              }
               onSubmit={handleSubmit(onSubmit)}
               onCancel={() => navigate('/databases')}
               handleNextStep={handleNext}

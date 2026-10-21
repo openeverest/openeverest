@@ -21,7 +21,6 @@ import {
   Drawer,
   IconButton,
   Skeleton,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
@@ -29,11 +28,9 @@ import { ArrowDropDownIcon } from '@mui/x-date-pickers/icons';
 import { useNavigate } from 'react-router-dom';
 import { useProviders } from 'hooks/api/providers';
 import { usePrefetchInstancePresets } from 'hooks/api/instance-presets';
-import type { CreateDbButtonProps } from './create-db-button.types';
 import { Messages } from './create-db-button.messages';
 import {
   buttonSx,
-  drawerBannerSx,
   drawerContainerSx,
   drawerHeaderSx,
   drawerPaperSx,
@@ -42,9 +39,7 @@ import {
 } from './create-db-button.constants';
 import { DrawerBody } from './drawer-body';
 
-export const CreateDbButton = ({
-  createFromImport = false,
-}: CreateDbButtonProps) => {
+export const CreateDbButton = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showDropdownButton, setShowDropdownButton] = useState(false);
   // TODO check how it should work with Providers
@@ -63,7 +58,6 @@ export const CreateDbButton = ({
       navigate('/databases/new', {
         state: {
           selectedDbProvider: providers[0],
-          showImport: createFromImport,
         },
       });
     }
@@ -91,18 +85,13 @@ export const CreateDbButton = ({
     };
   }, [providersLoading]);
 
-  const testIdPrefix = createFromImport ? 'import' : 'add';
-  const showTechPreviewTooltip = createFromImport && providers.length === 1;
-
   const createButton = (
     <Button
-      data-testid={`${testIdPrefix}-db-cluster-button`}
+      data-testid="add-db-cluster-button"
       size="small"
-      variant={createFromImport ? 'text' : 'contained'}
+      variant="contained"
       sx={buttonSx}
-      aria-controls={
-        drawerOpen ? `${testIdPrefix}-db-cluster-button-menu` : undefined
-      }
+      aria-controls={drawerOpen ? 'add-db-cluster-button-menu' : undefined}
       aria-haspopup={providers.length > 1 ? 'dialog' : undefined}
       aria-expanded={
         providers.length > 1 ? (drawerOpen ? 'true' : 'false') : undefined
@@ -110,7 +99,7 @@ export const CreateDbButton = ({
       onClick={handleClick}
       endIcon={providers.length > 1 && <ArrowDropDownIcon />}
     >
-      {createFromImport ? Messages.import : Messages.createDatabase}
+      {Messages.createDatabase}
     </Button>
   );
 
@@ -121,19 +110,13 @@ export const CreateDbButton = ({
   return (
     <Box>
       {showDropdownButton ? (
-        showTechPreviewTooltip ? (
-          <Tooltip title={Messages.technicalPreview} enterDelay={0}>
-            {createButton}
-          </Tooltip>
-        ) : (
-          createButton
-        )
+        createButton
       ) : (
         <Skeleton variant="rounded" sx={skeletonSx} />
       )}
       {providers.length > 1 && (
         <Drawer
-          data-testid={`${testIdPrefix}-db-cluster-button-menu`}
+          data-testid="add-db-cluster-button-menu"
           anchor="right"
           open={drawerOpen}
           onClose={closeDrawer}
@@ -143,11 +126,7 @@ export const CreateDbButton = ({
           <Box sx={drawerContainerSx}>
             <Box sx={drawerHeaderSx}>
               <Box>
-                <Typography variant="h6">
-                  {createFromImport
-                    ? Messages.importDatabase
-                    : Messages.createDatabase}
-                </Typography>
+                <Typography variant="h6">{Messages.createDatabase}</Typography>
                 <Typography variant="body2" color="text.secondary">
                   {Messages.selectProvider}
                 </Typography>
@@ -161,19 +140,7 @@ export const CreateDbButton = ({
               </IconButton>
             </Box>
 
-            {createFromImport && (
-              <Box sx={drawerBannerSx}>
-                <Typography variant="caption" color="text.secondary">
-                  {Messages.technicalPreview}
-                </Typography>
-              </Box>
-            )}
-
-            <DrawerBody
-              providers={providers}
-              createFromImport={createFromImport}
-              onClose={closeDrawer}
-            />
+            <DrawerBody providers={providers} onClose={closeDrawer} />
           </Box>
         </Drawer>
       )}
