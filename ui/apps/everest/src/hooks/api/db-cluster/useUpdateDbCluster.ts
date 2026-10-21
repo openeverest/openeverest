@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -65,7 +66,11 @@ export const useUpdateDbClusterWithConflictRetry = (
     onError: ownOnError = () => {},
     ...restMutationOptions
   } = mutationOptions || {};
-  const { name: dbClusterName, namespace } = oldDbClusterData.metadata;
+  const {
+    name: dbClusterName,
+    namespace,
+    generation: originalGeneration,
+  } = oldDbClusterData.metadata;
 
   const queryClient = useQueryClient();
   const watchStartTime = useRef<number | null>(null);
@@ -111,13 +116,23 @@ export const useUpdateDbClusterWithConflictRetry = (
             const { data: freshDbCluster } = await refetch();
 
             if (freshDbCluster) {
-              const { resourceVersion } = freshDbCluster.metadata;
+              const { generation, resourceVersion } = freshDbCluster.metadata;
 
-              resolve();
-              mutationMethods.mutate({
-                ...clusterDataToBeSent.current!,
-                metadata: { ...freshDbCluster.metadata, resourceVersion },
-              });
+              if (generation === originalGeneration) {
+                resolve();
+                mutationMethods.mutate({
+                  ...clusterDataToBeSent.current!,
+                  metadata: { ...freshDbCluster.metadata, resourceVersion },
+                });
+              } else {
+                enqueueSnackbar(
+                  'The object definition has been changed somewhere else. Please re-apply your changes.',
+                  { variant: 'error' }
+                );
+                ownOnError?.(error, vars, ctx);
+                watchStartTime.current = null;
+                resolve();
+              }
             } else {
               watchStartTime.current = null;
               ownOnError?.(error, vars, ctx);
