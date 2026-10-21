@@ -1251,6 +1251,67 @@ paths:
                 $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/namespaces/{namespace}/backups':
     x-everest-resource-name: backups
+    get:
+      tags:
+        - Backup
+      summary: List backups
+      description: |
+        This API lists all backups in the specified namespace and cluster.
+        Optionally filter by backup class, backup storage and backup origin.
+      operationId: listBackups
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the backups
+          schema:
+            type: string
+        - name: backupClass
+          in: query
+          required: false
+          description: Filter backups by backup class name
+          schema:
+            type: string
+        - name: backupStorage
+          in: query
+          required: false
+          description: Filter backups by backup storage name
+          schema:
+            type: string
+        - name: backupOrigin
+          in: query
+          required: false
+          description: Filter backups by origin type
+          schema:
+            type: string
+            enum:
+              - Instance
+              - External
+      responses:
+        '200':
+          description: List of backups
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupList'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       tags:
         - Backup

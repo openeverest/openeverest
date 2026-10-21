@@ -108,50 +108,79 @@ const checkDbTypeisVisibleInPreview = async (page: Page, dbType: DbType) => {
   return (await dbTypeLocator.allInnerTexts())?.length > 0;
 };
 
+// A click that lands while the MUI menu is still opening can be swallowed,
+// leaving the menu (and its backdrop) open over the dialog — retry until it closes.
+const pickSelectOption = async (
+  page: Page,
+  selectTestId: string,
+  option: Locator
+) => {
+  const listbox = page.getByRole('listbox');
+  await expect(async () => {
+    if (!(await listbox.isVisible())) {
+      await page.getByTestId(selectTestId).click();
+    }
+    await option.click();
+    await expect(listbox).toBeHidden({ timeout: TIMEOUTS.FiveSeconds });
+  }).toPass({ timeout: TIMEOUTS.ThirtySeconds });
+};
+
 const createScheduleFromTimeOptions = async (
   page: Page,
   timeOptions: ScheduleTimeOptions
 ) => {
   const { frequency, day, weekDay, amPm, hour, minute } = timeOptions;
-
-  await page.getByTestId('select-selected-time-button').click();
+  const option = (name: string, exact = true) =>
+    page.getByRole('option', { name, exact });
 
   switch (frequency) {
     case 'month':
-      await page.getByTestId('month-option').click();
-      await page.getByTestId('select-on-day-button').click();
-      await page.getByTestId(day).click();
-      await page.getByTestId('select-hour-button').click();
-      await page.getByRole('option', { name: hour, exact: true }).click();
-      await page.getByTestId('select-minute-button').click();
-      await page.getByRole('option', { name: minute, exact: true }).click();
-      await page.getByTestId('select-am-pm-button').click();
-      await page.getByRole('option', { name: amPm }).click();
+      await pickSelectOption(
+        page,
+        'select-selected-time-button',
+        page.getByTestId('month-option')
+      );
+      await pickSelectOption(
+        page,
+        'select-on-day-button',
+        page.getByTestId(day)
+      );
+      await pickSelectOption(page, 'select-hour-button', option(hour));
+      await pickSelectOption(page, 'select-minute-button', option(minute));
+      await pickSelectOption(page, 'select-am-pm-button', option(amPm, false));
       break;
     case 'week':
-      await page.getByTestId('week-option').click();
-      await page.getByTestId('select-week-day-button').click();
-      await page.getByText(weekDay).click();
-      await page.getByTestId('select-hour-button').click();
-      await page.getByRole('option', { name: hour, exact: true }).click();
-      await page.getByTestId('select-minute-button').click();
-      await page.getByRole('option', { name: minute, exact: true }).click();
-      await page.getByTestId('select-am-pm-button').click();
-      await page.getByRole('option', { name: amPm }).click();
+      await pickSelectOption(
+        page,
+        'select-selected-time-button',
+        page.getByTestId('week-option')
+      );
+      await pickSelectOption(
+        page,
+        'select-week-day-button',
+        page.getByText(weekDay)
+      );
+      await pickSelectOption(page, 'select-hour-button', option(hour));
+      await pickSelectOption(page, 'select-minute-button', option(minute));
+      await pickSelectOption(page, 'select-am-pm-button', option(amPm, false));
       break;
     case 'day':
-      await page.getByTestId('day-option').click();
-      await page.getByTestId('select-hour-button').click();
-      await page.getByRole('option', { name: hour, exact: true }).click();
-      await page.getByTestId('select-minute-button').click();
-      await page.getByRole('option', { name: minute, exact: true }).click();
-      await page.getByTestId('select-am-pm-button').click();
-      await page.getByRole('option', { name: amPm }).click();
+      await pickSelectOption(
+        page,
+        'select-selected-time-button',
+        page.getByTestId('day-option')
+      );
+      await pickSelectOption(page, 'select-hour-button', option(hour));
+      await pickSelectOption(page, 'select-minute-button', option(minute));
+      await pickSelectOption(page, 'select-am-pm-button', option(amPm, false));
       break;
     case 'hour':
-      await page.getByTestId('hour-option').click();
-      await page.getByTestId('select-minute-button').click();
-      await page.getByRole('option', { name: minute, exact: true }).click();
+      await pickSelectOption(
+        page,
+        'select-selected-time-button',
+        page.getByTestId('hour-option')
+      );
+      await pickSelectOption(page, 'select-minute-button', option(minute));
       break;
   }
 };

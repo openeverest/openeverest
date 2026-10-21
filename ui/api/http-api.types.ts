@@ -587,7 +587,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List backups
+         * @description This API lists all backups in the specified namespace and cluster.
+         *     Optionally filter by backup class, backup storage and backup origin.
+         */
+        get: operations["listBackups"];
         put?: never;
         /**
          * Create backup
@@ -4528,6 +4533,31 @@ export interface components {
                          */
                         path: string;
                         /**
+                         * @description SourceMetadata is engine-specific metadata that is used to make
+                         *     compatibility decisions for creating an Instance from this Backup.
+                         */
+                        sourceMetadata?: {
+                            /**
+                             * @description BackupType is the backup method recorded (e.g. "logical" or "physical"
+                             *     for PBM).
+                             */
+                            backupType?: string;
+                            /**
+                             * @description EngineVersion is the engine version recorded in the backup.
+                             *     Its granularity may be whatever the backup metadata records, so it
+                             *     may be a full version (e.g. a MongoDB server version like "8.0.12-4",
+                             *     a Percona XtraDB Cluster server version like "8.4.8-8.1") or only a
+                             *     major version (e.g. a PostgreSQL version like "18").
+                             */
+                            engineVersion?: string;
+                            /**
+                             * @description Topology names the source Instance's topology (e.g. "replicaSet" or
+                             *     "sharded" for PSMDB). Recorded only for backups taken by a
+                             *     ProviderManaged backup class.
+                             */
+                            topology?: string;
+                        };
+                        /**
                          * Format: date-time
                          * @description StartedAt is the time when the backup started.
                          */
@@ -4659,6 +4689,32 @@ export interface components {
                  *     Empty for external backups.
                  */
                 size?: string;
+                /**
+                 * @description SourceMetadata is the source Instance metadata recorded with the backup.
+                 *     For external backups this mirrors spec.origin.external.sourceMetadata;
+                 *     for Instance-origin backups the provider populates it from the engine.
+                 */
+                sourceMetadata?: {
+                    /**
+                     * @description BackupType is the backup method recorded (e.g. "logical" or "physical"
+                     *     for PBM).
+                     */
+                    backupType?: string;
+                    /**
+                     * @description EngineVersion is the engine version recorded in the backup.
+                     *     Its granularity may be whatever the backup metadata records, so it
+                     *     may be a full version (e.g. a MongoDB server version like "8.0.12-4",
+                     *     a Percona XtraDB Cluster server version like "8.4.8-8.1") or only a
+                     *     major version (e.g. a PostgreSQL version like "18").
+                     */
+                    engineVersion?: string;
+                    /**
+                     * @description Topology names the source Instance's topology (e.g. "replicaSet" or
+                     *     "sharded" for PSMDB). Recorded only for backups taken by a
+                     *     ProviderManaged backup class.
+                     */
+                    topology?: string;
+                };
                 /**
                  * Format: date-time
                  * @description StartedAt is the time when the backup started.
@@ -6795,6 +6851,56 @@ export interface operations {
             };
             /** @description Backup class not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listBackups: {
+        parameters: {
+            query?: {
+                /** @description Filter backups by backup class name */
+                backupClass?: string;
+                /** @description Filter backups by backup storage name */
+                backupStorage?: string;
+                /** @description Filter backups by origin type */
+                backupOrigin?: "Instance" | "External";
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the backups */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of backups */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupList"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

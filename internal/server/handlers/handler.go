@@ -120,6 +120,7 @@ type BackupClassHandler interface {
 
 // BackupHandler provides methods for handling operations on backups.
 type BackupHandler interface {
+	ListBackups(ctx context.Context, cluster, namespace string, params *api.ListBackupsParams) (*backupv1alpha1.BackupList, error)
 	GetBackup(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Backup, error)
 	CreateBackup(ctx context.Context, cluster string, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error)
 	DeleteBackup(ctx context.Context, cluster, namespace, name string, params *api.DeleteBackupParams) error

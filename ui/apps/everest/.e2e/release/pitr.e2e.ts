@@ -36,7 +36,11 @@ import {
   populateAdvancedConfig,
   openDbCreationForm,
 } from '@e2e/utils/db-wizard';
-import { EVEREST_CI_NAMESPACES, getBucketNamespacesMap } from '@e2e/constants';
+import {
+  EVEREST_CI_NAMESPACES,
+  getBucketNamespacesMap,
+  TIMEOUTS,
+} from '@e2e/constants';
 import {
   waitForStatus,
   waitForDelete,
@@ -723,7 +727,8 @@ test.describe.serial(
       await findRowAndClickActions(page, firstRestoreName, 'Delete');
       await expect(page.getByLabel('Delete restore')).toBeVisible();
       await page.getByTestId('confirm-dialog-delete').click();
-      await waitForDelete(page, firstRestoreName, 15000);
+      // Restore cleanup is a provider finalizer that can wait a 10s requeue.
+      await waitForDelete(page, firstRestoreName, TIMEOUTS.OneMinute);
     });
 
     test(`Create second demand backup [${db} size ${size}]`, async ({
