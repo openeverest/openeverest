@@ -60,6 +60,8 @@ type KubernetesConnector interface {
 	PatchBackupStorage(ctx context.Context, storage *backupv1alpha1.BackupStorage, patch ctrlclient.Patch, opts ...ctrlclient.PatchOption) (*backupv1alpha1.BackupStorage, error)
 	// DeleteBackupStorage deletes a backup storage.
 	DeleteBackupStorage(ctx context.Context, obj *backupv1alpha1.BackupStorage) error
+	// ListBackups returns list of backups that match the criteria.
+	ListBackups(ctx context.Context, opts ...ctrlclient.ListOption) (*backupv1alpha1.BackupList, error)
 	// GetBackup returns backup that matches the criteria.
 	GetBackup(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.Backup, error)
 	// DeleteBackup deletes backup that matches the criteria.

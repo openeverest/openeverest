@@ -1037,6 +1037,36 @@ func (_m *MockHandler) ListBackupStorages(ctx context.Context, cluster string, n
 	return r0, r1
 }
 
+// ListBackups provides a mock function with given fields: ctx, cluster, namespace, params
+func (_m *MockHandler) ListBackups(ctx context.Context, cluster string, namespace string, params *api.ListBackupsParams) (*v1alpha1.BackupList, error) {
+	ret := _m.Called(ctx, cluster, namespace, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListBackups")
+	}
+
+	var r0 *v1alpha1.BackupList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *api.ListBackupsParams) (*v1alpha1.BackupList, error)); ok {
+		return rf(ctx, cluster, namespace, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *api.ListBackupsParams) *v1alpha1.BackupList); ok {
+		r0 = rf(ctx, cluster, namespace, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1alpha1.BackupList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, *api.ListBackupsParams) error); ok {
+		r1 = rf(ctx, cluster, namespace, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ListClusters provides a mock function with given fields: ctx
 func (_m *MockHandler) ListClusters(ctx context.Context) (*api.ClusterList, error) {
 	ret := _m.Called(ctx)

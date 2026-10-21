@@ -158,6 +158,15 @@ jobs:
           kubectl -n everest get events --sort-by=.lastTimestamp | tail -50 || true
           kubectl -n provider-system logs deploy/provider-percona-xtradb-cluster --tail=200 || true
           kubectl -n provider-system logs deploy/provider-percona-xtradb-cluster-operator --tail=200 || true
+          # The 200-line tails above only cover teardown; keep full logs in the artifact.
+          DIAG=ui/apps/everest/.e2e/cluster-diagnostics
+          mkdir -p "$DIAG"
+          for r in backups.backup.openeverest.io perconaxtradbclusterbackups.pxc.percona.com perconaxtradbclusterrestores.pxc.percona.com; do
+            kubectl get "$r" -A -o wide >> "$DIAG/backups.txt" 2>&1 || true
+          done
+          kubectl get events -A --sort-by=.lastTimestamp > "$DIAG/events.txt" 2>&1 || true
+          kubectl -n provider-system logs deploy/provider-percona-xtradb-cluster > "$DIAG/provider.log" 2>&1 || true
+          kubectl -n provider-system logs deploy/provider-percona-xtradb-cluster-operator > "$DIAG/pxc-operator.log" 2>&1 || true
 
       - name: Upload Playwright report
         if: ${{ always() && steps.e2e.outcome != 'skipped' }}
@@ -167,6 +176,7 @@ jobs:
           path: |
             ui/apps/everest/.e2e/playwright-report
             ui/apps/everest/.e2e/test-results
+            ui/apps/everest/.e2e/cluster-diagnostics
           retention-days: 14
           overwrite: true
 

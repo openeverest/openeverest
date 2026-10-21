@@ -587,7 +587,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List backups
+         * @description This API lists all backups in the specified namespace and cluster.
+         *     Optionally filter by backup class, backup storage and backup origin.
+         */
+        get: operations["listBackups"];
         put?: never;
         /**
          * Create backup
@@ -6686,6 +6691,56 @@ export interface operations {
             };
             /** @description Backup class not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listBackups: {
+        parameters: {
+            query?: {
+                /** @description Filter backups by backup class name */
+                backupClass?: string;
+                /** @description Filter backups by backup storage name */
+                backupStorage?: string;
+                /** @description Filter backups by origin type */
+                backupOrigin?: "Instance" | "External";
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the backups */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of backups */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupList"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -29,6 +29,11 @@ import (
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
+// ListBackups proxies the request to the next handler.
+func (h *validateHandler) ListBackups(ctx context.Context, cluster, namespace string, params *api.ListBackupsParams) (*backupv1alpha1.BackupList, error) {
+	return h.next.ListBackups(ctx, cluster, namespace, params)
+}
+
 // GetBackup proxies the request to the next handler.
 func (h *validateHandler) GetBackup(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Backup, error) {
 	return h.next.GetBackup(ctx, cluster, namespace, name)
