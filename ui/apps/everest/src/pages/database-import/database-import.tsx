@@ -74,7 +74,7 @@ export const DatabaseImportPage = () => {
         backupClass: backupClassName,
         backupOrigin: 'External',
       },
-      { enabled: hasScanTarget }
+      { enabled: hasScanTarget, refetchOnWindowFocus: true }
     );
   const rows = useMemo(() => getImportBackupRows(backups), [backups]);
   const backupName = useWatch({

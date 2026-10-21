@@ -51,6 +51,8 @@ export const useBackupScan = ({
   );
 
   const { data: imports = [] } = useBackupImports(clusterName, namespace, {
+    // Polling pauses while the tab is hidden, so catch up when it's back.
+    refetchOnWindowFocus: true,
     refetchInterval: (query) => {
       const latest = findLatestBackupImport(
         query.state.data?.items ?? [],

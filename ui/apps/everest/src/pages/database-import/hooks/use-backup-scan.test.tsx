@@ -14,7 +14,11 @@
 
 import { ReactNode } from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  focusManager,
+  QueryClient,
+  QueryClientProvider,
+} from '@tanstack/react-query';
 import { createBackupImportFn, getBackupImportsFn } from 'api/backup-imports';
 import { getBackupImportsQueryKey } from 'hooks/api/backup-imports';
 import { getNamespaceBackupsKeyPrefix } from 'hooks/api/backups/useBackups';
@@ -57,7 +61,8 @@ const listOf = (...items: BackupImport[]): BackupImportList => ({ items });
 
 const renderScan = () => {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    // Same focus default as the app's client.
+    defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
   });
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -76,6 +81,23 @@ describe('useBackupScan', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    focusManager.setFocused(undefined);
+  });
+
+  it('reloads the scan state when the tab regains focus', async () => {
+    vi.mocked(getBackupImportsFn).mockResolvedValue(
+      listOf(backupImport('import-a', { state: 'Succeeded' }))
+    );
+    const { result } = renderScan();
+    await waitFor(() => expect(result.current.state).toBe('Succeeded'));
+    expect(getBackupImportsFn).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+
+    await waitFor(() => expect(getBackupImportsFn).toHaveBeenCalledTimes(2));
   });
 
   it("shows the target's newest scan, whoever started it", async () => {
