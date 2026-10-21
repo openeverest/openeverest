@@ -103,7 +103,7 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 			return err
 		}
 		presetSpecBase = pr.specMap
-		annotations = map[string]string{"openeverest.io/instance-preset": opts.Preset}
+		annotations = map[string]string{"openeverest.io/cluster-instance-preset": opts.Preset}
 	}
 
 	provResp, err := c.GetProviderWithResponse(ctx, opts.Cluster, opts.Provider)

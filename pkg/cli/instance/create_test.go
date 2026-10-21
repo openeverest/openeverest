@@ -803,7 +803,7 @@ func TestRun_WithPreset_Payloads(t *testing.T) {
    "metadata":{
       "name":"my-db",
       "annotations":{
-         "openeverest.io/instance-preset":"my-preset"
+         "openeverest.io/cluster-instance-preset":"my-preset"
       }
    },
    "spec":{
@@ -834,7 +834,7 @@ func TestRun_WithPreset_Payloads(t *testing.T) {
    "metadata": {
       "name": "my-db",
       "annotations": {
-         "openeverest.io/instance-preset": "my-preset"
+         "openeverest.io/cluster-instance-preset": "my-preset"
       }
    },
    "spec": {
@@ -865,7 +865,7 @@ func TestRun_WithPreset_Payloads(t *testing.T) {
    "metadata": {
       "name": "my-db",
       "annotations": {
-         "openeverest.io/instance-preset": "my-preset"
+         "openeverest.io/cluster-instance-preset": "my-preset"
       }
    },
    "spec": {
@@ -894,7 +894,7 @@ func TestRun_WithPreset_Payloads(t *testing.T) {
    "metadata": {
       "name": "my-db",
       "annotations": {
-         "openeverest.io/instance-preset": "my-preset"
+         "openeverest.io/cluster-instance-preset": "my-preset"
       }
    },
    "spec": {

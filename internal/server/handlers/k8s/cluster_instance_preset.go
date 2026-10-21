@@ -42,7 +42,7 @@ func (h *k8sHandler) ListClusterInstancePresets(ctx context.Context, _, provider
 	}
 
 	if provider != "" {
-		filtered := make([]corev1alpha1.ClusterInstancePreset, 0)
+		filtered := []corev1alpha1.ClusterInstancePreset{}
 		for _, preset := range list.Items {
 			if preset.Spec.ProviderRef.Name == provider {
 				filtered = append(filtered, preset)

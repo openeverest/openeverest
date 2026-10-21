@@ -71,7 +71,7 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 
 	var presetName string
 	if instance.GetAnnotations() != nil {
-		presetName = instance.GetAnnotations()["openeverest.io/instance-preset"]
+		presetName = instance.GetAnnotations()["openeverest.io/cluster-instance-preset"]
 	}
 
 	// If no preset is specified, require standard create permission

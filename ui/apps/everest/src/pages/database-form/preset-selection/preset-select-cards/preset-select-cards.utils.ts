@@ -42,7 +42,9 @@ const getResources = (preset: ClusterInstancePreset): string => {
     .join(' · ');
 };
 
-export const presetToCardItem = (preset: ClusterInstancePreset): CardPickerItem => {
+export const presetToCardItem = (
+  preset: ClusterInstancePreset
+): CardPickerItem => {
   const name = preset.metadata?.name ?? '';
   const subtitle = getMeta(preset);
   const detail = getResources(preset);

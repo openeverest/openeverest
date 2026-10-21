@@ -25,7 +25,9 @@ vi.mock('hooks/api/cluster-instance-presets', () => ({
   useResolveClusterInstancePreset: vi.fn(),
 }));
 
-const resolved = { spec: { version: '8.0.12' } } as unknown as ClusterInstancePreset;
+const resolved = {
+  spec: { version: '8.0.12' },
+} as unknown as ClusterInstancePreset;
 
 const mockList = (overrides = {}) =>
   vi.mocked(useClusterInstancePresets).mockReturnValue({

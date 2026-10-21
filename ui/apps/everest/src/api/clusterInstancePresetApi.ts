@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ClusterInstancePreset, ClusterInstancePresetList } from 'shared-types/api.types';
+import {
+  ClusterInstancePreset,
+  ClusterInstancePresetList,
+} from 'shared-types/api.types';
 import { api } from './api';
 
 export const getClusterInstancePresetsFn = async (

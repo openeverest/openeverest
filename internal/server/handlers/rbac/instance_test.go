@@ -497,7 +497,7 @@ func TestRBAC_Instance(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "db1",
 						Namespace:   "ns1",
-						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
+						Annotations: map[string]string{"openeverest.io/cluster-instance-preset": "standard-mysql"},
 					},
 					Spec: corev1alpha1.InstanceSpec{
 						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
@@ -515,7 +515,7 @@ func TestRBAC_Instance(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "db1",
 						Namespace:   "ns1",
-						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
+						Annotations: map[string]string{"openeverest.io/cluster-instance-preset": "standard-mysql"},
 					},
 					Spec: corev1alpha1.InstanceSpec{
 						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
@@ -554,7 +554,7 @@ func TestRBAC_Instance(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "db1",
 						Namespace:   "ns1",
-						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
+						Annotations: map[string]string{"openeverest.io/cluster-instance-preset": "standard-mysql"},
 					},
 					Spec: corev1alpha1.InstanceSpec{
 						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
@@ -594,7 +594,7 @@ func TestRBAC_Instance(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "db1",
 						Namespace:   "ns1",
-						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
+						Annotations: map[string]string{"openeverest.io/cluster-instance-preset": "standard-mysql"},
 					},
 					Spec: corev1alpha1.InstanceSpec{
 						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
@@ -615,7 +615,7 @@ func TestRBAC_Instance(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "db1",
 						Namespace:   "ns1",
-						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
+						Annotations: map[string]string{"openeverest.io/cluster-instance-preset": "standard-mysql"},
 					},
 					Spec: corev1alpha1.InstanceSpec{
 						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
