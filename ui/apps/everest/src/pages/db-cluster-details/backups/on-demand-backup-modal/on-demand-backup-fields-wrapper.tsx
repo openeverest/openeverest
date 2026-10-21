@@ -22,6 +22,7 @@ import { useFormContext } from 'react-hook-form';
 import { useParams } from 'react-router-dom';
 import { removeUnusedStorages } from '../backups.utils';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
+import { backupClassSupportsProvider } from 'utils/backup-classes';
 import BackupStoragesInput from 'components/backup-storages-input';
 import { BackupConfigFields } from 'components/backup-config-fields';
 import { BackupFields } from './on-demand-backup-modal.types';
@@ -53,9 +54,8 @@ export const OnDemandBackupFieldsWrapper = () => {
     instanceClass?.spec?.executionMode === 'ProviderManaged';
 
   const availableClasses = backupClasses.filter((bc) => {
-    const supported = bc.spec?.supportedProviders;
-    if (supported && supported.length > 0 && providerType) {
-      if (!supported.includes(providerType)) return false;
+    if (providerType && !backupClassSupportsProvider(bc, providerType)) {
+      return false;
     }
     // If the instance already uses a ProviderManaged class,
     // only allow that same PM class or any Job class.
