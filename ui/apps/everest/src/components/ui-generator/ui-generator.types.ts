@@ -59,6 +59,7 @@ export enum FieldType {
   Text = 'text',
   Toggle = 'toggle',
   Hidden = 'hidden',
+  Secret = 'secret',
 }
 
 export enum WidgetType {
@@ -122,6 +123,15 @@ export type SelectFieldParams =
 
 export type ToggleFieldParams = CommonFieldParams;
 
+export interface SecretFieldParams extends CommonFieldParams {
+  // Key of the provider's spec.secrets entry the selectable secrets belong to.
+  definition: string;
+  readOnly?: boolean;
+  createLabel?: string;
+  // A Secret is namespaced, so a cluster-wide schema can't name a default one.
+  defaultValue?: never;
+}
+
 export interface TextFieldParams extends CommonFieldParams {
   placeholder?: string;
   multiline?: boolean;
@@ -152,6 +162,7 @@ export type FieldParamsMap = {
   [FieldType.Text]: TextFieldParams;
   [FieldType.Toggle]: ToggleFieldParams;
   [FieldType.Hidden]: CommonFieldParams;
+  [FieldType.Secret]: SecretFieldParams;
 };
 
 type PathOrId =
@@ -202,6 +213,7 @@ export type ValidationMap = {
   [FieldType.Select]: CommonValidation;
   [FieldType.Toggle]: ToggleValidation;
   [FieldType.Hidden]: CommonValidation;
+  [FieldType.Secret]: CommonValidation;
 };
 
 type ComponentCommonFields = {
@@ -244,6 +256,14 @@ export type Component = FieldComponent | WidgetComponent;
 
 export const isWidgetComponent = (item: Component): item is WidgetComponent =>
   item.uiType === WIDGET_UI_TYPE;
+
+// Narrows an opaque API payload (e.g. a CRD's uiSchema) to a section.
+export const isSection = (value: unknown): value is Section =>
+  typeof value === 'object' &&
+  value !== null &&
+  'components' in value &&
+  typeof value.components === 'object' &&
+  value.components !== null;
 
 export type WidgetRendererProps = {
   // Engine-resolved RHF field key. A widget is a first-class component: it flows
@@ -309,6 +329,8 @@ export type TopologyUISchemas = {
 export type UIGeneratorProps = {
   sectionKey: string;
   sections: { [key: string]: Section };
+  // Form path the host mounts the section's own object at; schema paths stay relative to it.
+  root?: string;
   providerObject?: Provider;
   loadingDefaultsForEdition?: boolean;
   formMode?: FormMode;

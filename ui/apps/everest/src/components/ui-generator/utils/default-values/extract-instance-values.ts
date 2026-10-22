@@ -30,6 +30,7 @@ import {
   isToggleableOnInInstance,
 } from '../toggleable/toggleable';
 import { getWidgetTargets } from '../widget-targets';
+import { getSchemaDefault } from './get-schema-default';
 
 /*
  Walks schema components across all sections and extracts current values
@@ -101,8 +102,9 @@ const extractFlat = (
     }
 
     // Fallback to schema default, then type default
-    if (component.fieldParams?.defaultValue !== undefined) {
-      result[fieldId] = component.fieldParams.defaultValue;
+    const schemaDefault = getSchemaDefault(component);
+    if (schemaDefault !== undefined) {
+      result[fieldId] = schemaDefault;
     } else if (isWidgetComponent(component)) {
       // Widget components manage their own default value.
     } else {

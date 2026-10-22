@@ -12,9 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { createContext, useContext, ReactNode } from 'react';
+import { ComponentType, createContext, useContext, ReactNode } from 'react';
 import { Provider } from 'shared-types/api.types';
-import type { WidgetRegistry, FormMode } from './ui-generator.types';
+import type {
+  FormMode,
+  UIGeneratorProps,
+  WidgetRegistry,
+} from './ui-generator.types';
 
 type UiGeneratorContextValue = {
   providerObject?: Provider;
@@ -22,16 +26,14 @@ type UiGeneratorContextValue = {
   formMode?: FormMode;
   namespace?: string;
   widgetRegistry?: WidgetRegistry;
+  root?: string;
+  // The UIGenerator itself, for fields that embed a form: importing it there would be a cycle.
+  generator?: ComponentType<UIGeneratorProps>;
 };
 
 const UiGeneratorContext = createContext<UiGeneratorContextValue | null>(null);
 
-type UiGeneratorProviderProps = {
-  providerObject?: Provider;
-  loadingDefaultsForEdition?: boolean;
-  formMode?: FormMode;
-  namespace?: string;
-  widgetRegistry?: WidgetRegistry;
+type UiGeneratorProviderProps = UiGeneratorContextValue & {
   children: ReactNode;
 };
 
@@ -41,6 +43,8 @@ export const UiGeneratorProvider = ({
   formMode,
   namespace,
   widgetRegistry,
+  root,
+  generator,
   children,
 }: UiGeneratorProviderProps) => {
   return (
@@ -51,6 +55,8 @@ export const UiGeneratorProvider = ({
         formMode,
         namespace,
         widgetRegistry,
+        root,
+        generator,
       }}
     >
       {children}
@@ -68,6 +74,8 @@ export const useUiGeneratorContext = () => {
       formMode: undefined,
       namespace: undefined,
       widgetRegistry: undefined,
+      root: undefined,
+      generator: undefined,
     }
   );
 };

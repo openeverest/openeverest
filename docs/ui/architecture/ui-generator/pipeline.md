@@ -74,7 +74,8 @@ flowchart TD
 **Files:** `utils/default-values/`
 **Output:** a `defaultValues` object for `useForm`.
 
-- Collects initial values from `fieldParams.defaultValue` (create).
+- Collects initial values from `fieldParams.defaultValue` (create). A `secret` field never takes
+  one: a Secret is namespaced, while the schema is cluster-wide (`getSchemaDefault`).
 - **Topology switch** (create wizard, no preset) — `useDatabaseFormSync` drops the previous
   topology's values with `dropOtherTopologyValues` (`utils/topology-scope/`), then merges the new
   topology's defaults over the rest (`mergeTopologyDefaults`). Switching back therefore starts from
@@ -88,13 +89,19 @@ flowchart TD
 
 **Files:** `ui-generator.tsx`, `utils/component-renderer/`, `ui-component/`, `api-providers/`
 
-- **`<UIGenerator sectionKey sections providerObject formMode namespace />`** — root.
-- **`UiGeneratorProvider`** (context) — provides `provider`, `formMode`, `namespace`, and loading
-  down the tree.
+- **`<UIGenerator sectionKey sections root providerObject formMode namespace />`** — entry component.
+  - **`root`** (optional) — the form path where the host mounts the section's own object, e.g. a
+    secret's data at `stringData`. Field names and toggleable switches become `<root>.<path>`. The
+    other stages stay relative, so the host nests the section's zod schema and defaults under
+    `root`, prefixes `celDependencyGroups` with it, and postprocesses `formData[root]`.
+- **`UiGeneratorProvider`** (context) — provides `provider`, `formMode`, `namespace`, `root`, and
+  loading down the tree, plus `generator` (the UIGenerator itself) so a field that embeds a form,
+  like the secret field's create modal, renders it without depending on UIGenerator directly (a
+  circular dependency).
 - **`orderComponents(components, componentsOrder)`** — field order.
-- **`renderComponent({ item, name })`** — recursive traversal:
+- **`renderComponent({ item, name, root })`** — recursive traversal:
   - `group` / `hidden` → recurse into nested `components`;
-  - leaf → `generateFieldId(item, name)` (form field name) →
+  - leaf → `generateFieldId(item, name)` joined with `root` (form field name) →
     - has `dataSource` → `<ComponentErrorBoundary><DataSourceField><UIComponent/></DataSourceField></ComponentErrorBoundary>`
       (the wrapper loads options through `api-providers/registry` and sets a default via `useEffect`);
     - otherwise → `<ComponentErrorBoundary><UIComponent/></ComponentErrorBoundary>`.
@@ -130,6 +137,13 @@ mount and `DataSourceField` when the specific field renders. Both check the curr
 
 `DataSourcePrefetcher` skips fields of switched-off `toggleable` groups, so a disabled section
 triggers no request.
+
+### Secret fields on a namespace switch
+
+The create wizard mounts only the active step, so a `secret` field misses a namespace switch on
+the first step. `SecretNamespaceSync`, mounted next to `DataSourcePrefetcher` while no preset is
+selected, lists the definition's secrets in the new namespace and clears picks it doesn't have.
+Read-only and disabled fields keep their value.
 
 ## 5. Postprocess
 
@@ -237,6 +251,7 @@ components:
 | API provider registrations | `api-providers/providers.ts`                               |
 | DataSourceField            | `api-providers/data-source-field/data-source-field.tsx`    |
 | DataSourcePrefetcher       | `api-providers/data-source-prefetcher.tsx`                 |
+| SecretNamespaceSync        | `secret-field/secret-namespace-sync.tsx`                   |
 | Error boundary             | `component-error-boundary/component-error-boundary.tsx`    |
 | Monitoring options hook    | `hooks/api/monitoring/useMonitoringConfigsOptions.ts`      |
 | Storage classes hook       | `hooks/api/kubernetesClusters/useStorageClassesOptions.ts` |
@@ -245,4 +260,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-30
+- Last updated: 2026-10-15
