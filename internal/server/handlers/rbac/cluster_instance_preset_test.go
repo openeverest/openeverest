@@ -202,7 +202,7 @@ func TestRBAC_ClusterInstancePreset(t *testing.T) {
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
-				desc:    "wrong instance-preset",
+				desc:    "wrong cluster-instance-preset",
 				cluster: "prod",
 				name:    "small",
 				policy: newPolicy(

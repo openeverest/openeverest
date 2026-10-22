@@ -99,7 +99,7 @@ type InstanceHandler interface {
 	GetInstanceConnection(ctx context.Context, cluster, namespace, name string) (*api.InstanceConnectionDetails, error)
 }
 
-// ClusterInstancePresetHandler provides methods for handling operations on instance presets.
+// ClusterInstancePresetHandler provides methods for handling operations on cluster instance presets.
 type ClusterInstancePresetHandler interface {
 	ListClusterInstancePresets(ctx context.Context, cluster string, provider string) (*corev1alpha1.ClusterInstancePresetList, error)
 	GetClusterInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.ClusterInstancePreset, error)

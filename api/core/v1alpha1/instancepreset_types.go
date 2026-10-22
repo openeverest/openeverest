@@ -35,10 +35,10 @@ type InstancePresetStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=pre;preset
 
-// InstancePreset is a namespace-scoped, template for creating Instances
+// InstancePreset is a namespace-scoped template for creating Instances
 // within a single namespace.
 //
-// Because a InstancePreset lives in the same namespace as the Instances
+// Because an InstancePreset lives in the same namespace as the Instances
 // it produces, it may reference namespace-scoped objects (Secrets, etc.)
 // directly by name. It is used for capturing a known-good configuration,
 // including concrete local references, and reuse it to create Instances

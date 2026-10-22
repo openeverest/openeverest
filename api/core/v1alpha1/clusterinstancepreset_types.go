@@ -33,7 +33,7 @@ type ClusterInstancePresetStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,shortName=cpre;cpreset;clusterpreset
 
-// ClusterInstancePreset is a cluster-scoped, template of provider-specific
+// ClusterInstancePreset is a cluster-scoped template of provider-specific
 // defaults for creating Instances.
 //
 // It is similar to an InstancePreset. But it is cluster-scoped and it is
