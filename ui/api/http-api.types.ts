@@ -948,6 +948,22 @@ export interface components {
         Error: {
             message?: string;
         };
+        /**
+         * @description APIError exposes the `reason` and the offending `field` in addition
+         *     to the `message` for better programmatic handling of errors.
+         */
+        APIError: components["schemas"]["Error"] & {
+            /**
+             * @description Machine-readable reason for the conflict.
+             * @example AlreadyExists
+             */
+            reason: string;
+            /**
+             * @description The field path that caused the conflict.
+             * @example metadata.name
+             */
+            field?: string;
+        };
         /** @description A list of OpenEverest-managed Secrets (metadata only). */
         SecretList: {
             /** @example v1 */
@@ -1336,8 +1352,7 @@ export interface components {
             immutable?: boolean;
             /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
             kind?: string;
-            /** @description Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata */
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description stringData allows specifying non-binary secret data in string form. It is provided as a write-only input field for convenience. All keys and values are merged into the data field on write, overwriting any existing values. The stringData field is never output when reading from the API. */
             stringData?: {
                 [key: string]: string;
@@ -1361,8 +1376,7 @@ export interface components {
             immutable?: boolean;
             /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
             kind?: string;
-            /** @description Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata */
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
         };
         /** @description A list of OpenEverest-managed ConfigMaps. */
         ConfigMapList: {
@@ -4517,6 +4531,31 @@ export interface components {
                          */
                         path: string;
                         /**
+                         * @description SourceMetadata is engine-specific metadata that is used to make
+                         *     compatibility decisions for creating an Instance from this Backup.
+                         */
+                        sourceMetadata?: {
+                            /**
+                             * @description BackupType is the backup method recorded (e.g. "logical" or "physical"
+                             *     for PBM).
+                             */
+                            backupType?: string;
+                            /**
+                             * @description EngineVersion is the engine version recorded in the backup.
+                             *     Its granularity may be whatever the backup metadata records, so it
+                             *     may be a full version (e.g. a MongoDB server version like "8.0.12-4",
+                             *     a Percona XtraDB Cluster server version like "8.4.8-8.1") or only a
+                             *     major version (e.g. a PostgreSQL version like "18").
+                             */
+                            engineVersion?: string;
+                            /**
+                             * @description Topology names the source Instance's topology (e.g. "replicaSet" or
+                             *     "sharded" for PSMDB). Recorded only for backups taken by a
+                             *     ProviderManaged backup class.
+                             */
+                            topology?: string;
+                        };
+                        /**
                          * Format: date-time
                          * @description StartedAt is the time when the backup started.
                          */
@@ -4648,6 +4687,32 @@ export interface components {
                  *     Empty for external backups.
                  */
                 size?: string;
+                /**
+                 * @description SourceMetadata is the source Instance metadata recorded with the backup.
+                 *     For external backups this mirrors spec.origin.external.sourceMetadata;
+                 *     for Instance-origin backups the provider populates it from the engine.
+                 */
+                sourceMetadata?: {
+                    /**
+                     * @description BackupType is the backup method recorded (e.g. "logical" or "physical"
+                     *     for PBM).
+                     */
+                    backupType?: string;
+                    /**
+                     * @description EngineVersion is the engine version recorded in the backup.
+                     *     Its granularity may be whatever the backup metadata records, so it
+                     *     may be a full version (e.g. a MongoDB server version like "8.0.12-4",
+                     *     a Percona XtraDB Cluster server version like "8.4.8-8.1") or only a
+                     *     major version (e.g. a PostgreSQL version like "18").
+                     */
+                    engineVersion?: string;
+                    /**
+                     * @description Topology names the source Instance's topology (e.g. "replicaSet" or
+                     *     "sharded" for PSMDB). Recorded only for backups taken by a
+                     *     ProviderManaged backup class.
+                     */
+                    topology?: string;
+                };
                 /**
                  * Format: date-time
                  * @description StartedAt is the time when the backup started.
@@ -5844,6 +5909,15 @@ export interface operations {
                     "application/json": components["schemas"]["Cluster"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Cluster not found */
             404: {
                 headers: {
@@ -5945,6 +6019,15 @@ export interface operations {
                     "application/json": components["schemas"]["InstancePreset"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Instance preset not found */
             404: {
                 headers: {
@@ -5989,6 +6072,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstancePreset"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Instance preset not found */
@@ -6064,6 +6156,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Provider"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Provider not found */
@@ -6221,6 +6322,33 @@ export interface operations {
                     "application/json": components["schemas"]["Instance"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -6255,6 +6383,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Instance"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Instance not found */
@@ -6307,6 +6444,15 @@ export interface operations {
                     "application/json": components["schemas"]["Instance"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Instance not found */
             404: {
                 headers: {
@@ -6314,6 +6460,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -6367,6 +6522,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Instance not found */
             404: {
                 headers: {
@@ -6374,6 +6538,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -6419,6 +6592,15 @@ export interface operations {
                     "application/json": components["schemas"]["Instance"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Instance not found */
             404: {
                 headers: {
@@ -6426,6 +6608,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description The Content-Type is not application/merge-patch+json */
@@ -6473,6 +6664,15 @@ export interface operations {
                     "application/json": components["schemas"]["InstanceConnectionDetails"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Instance or connection details not found */
             404: {
                 headers: {
@@ -6518,8 +6718,8 @@ export interface operations {
                     "application/json": components["schemas"]["BackupList"];
                 };
             };
-            /** @description Unsuccessful operation */
-            400: {
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6563,8 +6763,8 @@ export interface operations {
                     "application/json": components["schemas"]["RestoreList"];
                 };
             };
-            /** @description Unsuccessful operation */
-            400: {
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6636,6 +6836,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BackupClass"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Backup class not found */
@@ -6736,6 +6945,33 @@ export interface operations {
                     "application/json": components["schemas"]["Backup"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -6770,6 +7006,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Backup"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Backup not found */
@@ -6832,6 +7077,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Backup not found */
             404: {
                 headers: {
@@ -6839,6 +7093,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -6923,6 +7186,33 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -6957,6 +7247,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BackupImport"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Backup import not found */
@@ -7002,6 +7301,24 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -7041,6 +7358,33 @@ export interface operations {
                     "application/json": components["schemas"]["Restore"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -7075,6 +7419,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Restore"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Restore not found */
@@ -7129,6 +7482,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Restore not found */
             404: {
                 headers: {
@@ -7136,6 +7498,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -7170,15 +7541,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BackupStorageList"];
-                };
-            };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Internal server error */
@@ -7238,6 +7600,33 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -7281,6 +7670,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BackupStorage"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Backup storage not found */
@@ -7342,6 +7740,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Backup storage not found */
             404: {
                 headers: {
@@ -7349,6 +7756,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -7392,6 +7808,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -7446,6 +7880,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Backup storage not found */
             404: {
                 headers: {
@@ -7453,6 +7896,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description The Content-Type is not application/merge-patch+json */
@@ -7496,15 +7948,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MonitoringConfigList"];
-                };
-            };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Internal server error */
@@ -7555,6 +7998,33 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -7591,8 +8061,8 @@ export interface operations {
                     "application/json": components["schemas"]["MonitoringConfig"];
                 };
             };
-            /** @description Unsuccessful operation */
-            400: {
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7652,6 +8122,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Monitoring config not found */
             404: {
                 headers: {
@@ -7659,6 +8138,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Internal server error */
@@ -7711,6 +8199,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Monitoring config not found */
             404: {
                 headers: {
@@ -7718,6 +8215,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Internal server error */
@@ -7757,15 +8263,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConfigMapList"];
-                };
-            };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Internal server error */
@@ -7816,6 +8313,33 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -7850,6 +8374,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConfigMap"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description ConfigMap not found */
@@ -7895,6 +8428,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description ConfigMap not found */
             404: {
                 headers: {
@@ -7902,6 +8444,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Internal server error */
@@ -7941,15 +8492,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SecretList"];
-                };
-            };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Internal server error */
@@ -8000,6 +8542,33 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -8034,6 +8603,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Secret"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Secret not found */
@@ -8079,6 +8657,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Secret not found */
             404: {
                 headers: {
@@ -8086,6 +8673,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Internal server error */
