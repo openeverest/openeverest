@@ -7519,6 +7519,15 @@ export interface operations {
                     "application/json": components["schemas"]["InstancePreset"];
                 };
             };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Forbidden */
             403: {
                 headers: {
@@ -7543,7 +7552,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -7641,6 +7650,15 @@ export interface operations {
                     "application/json": components["schemas"]["InstancePreset"];
                 };
             };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Forbidden */
             403: {
                 headers: {
@@ -7665,7 +7683,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -7726,7 +7744,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */

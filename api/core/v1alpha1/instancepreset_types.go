@@ -34,6 +34,7 @@ type InstancePresetStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=pre;preset
+// +kubebuilder:selectablefield:JSONPath=".spec.providerRef.name"
 
 // InstancePreset is a namespace-scoped template for creating Instances
 // within a single namespace.
@@ -65,15 +66,13 @@ type InstancePreset struct {
 
 // +kubebuilder:object:root=true
 
-// InstancePresetList contains a list of InstancePreset.
+// InstancePresetList contains a list of InstancePreset
 type InstancePresetList struct {
 	metav1.TypeMeta `json:",inline"`
-
 	metav1.ListMeta `json:"metadata,omitzero"`
-
-	Items []InstancePreset `json:"items"`
+	Items           []InstancePreset `json:"items"`
 }
 
-func init() { //nolint:gochecknoinits // required by kubebuilder
+func init() {
 	SchemeBuilder.Register(&InstancePreset{}, &InstancePresetList{})
 }
