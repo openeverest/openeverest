@@ -118,8 +118,9 @@ customConfig:
 
 **Keep in mind**
 
-- While the group is off, its fields are unset — CEL rules see them that way too. If a rule on a field **outside** the group reads one of them, check it with `has()` first:
+- While the group is off, its fields are unset — CEL rules see them that way too. If a rule on a field **outside** the group reads one of them, check it with `has()` on the exact field path first:
   `!has(spec.monitoring.interval) || spec.backup.retention >= spec.monitoring.interval`
+  Development builds warn about an unguarded reference.
 - Don't put fields that can't be changed after creation (read-only in edit mode) inside the group: turning it off would delete them.
 
 **Current limitations**

@@ -17,6 +17,7 @@ package rbac
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -26,19 +27,36 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
-// backupInstanceName returns the name of the Instance a Backup belongs to, or
-// "" if it doesn't reference one. Backups are keyed by this rather than their
-// own (usually generateName-produced) name, which nobody can write a grant for.
-func backupInstanceName(backup *backupv1alpha1.Backup) string {
-	if backup.Spec.Origin.InstanceRef == nil {
-		return ""
+// ListBackups returns only the backups the caller may read:
+//   - Instance origin: backups read on the Instance.
+//   - External origin: namespace-wide backups read and read on its BackupStorage.
+func (h *rbacHandler) ListBackups(ctx context.Context, cluster, namespace string, params *api.ListBackupsParams) (*backupv1alpha1.BackupList, error) {
+	list, err := h.next.ListBackups(ctx, cluster, namespace, params)
+	if err != nil {
+		return nil, fmt.Errorf("ListBackups failed: %w", err)
 	}
-	return backup.Spec.Origin.InstanceRef.Name
+
+	filtered := make([]backupv1alpha1.Backup, 0, len(list.Items))
+	for _, b := range list.Items {
+		if err := h.enforceReadBackup(ctx, cluster, &b); errors.Is(err, ErrInsufficientPermissions) {
+			continue
+		} else if err != nil {
+			return nil, fmt.Errorf("enforce failed: %w", err)
+		}
+
+		filtered = append(filtered, b)
+	}
+
+	list.Items = filtered
+	return list, nil
 }
 
-// GetBackup returns a backup, gated by RBAC on the instance it belongs to. A
-// backup not found and one the caller isn't authorized for both come back as
-// ErrInsufficientPermissions, so a name cannot be probed for existence.
+// GetBackup returns the backup if the caller may read it:
+//   - Instance origin: backups read on the Instance.
+//   - External origin: namespace-wide backups read and read on its BackupStorage.
+//
+// Not found and denied both return ErrInsufficientPermissions to prevent name
+// probing.
 func (h *rbacHandler) GetBackup(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Backup, error) {
 	backup, err := h.next.GetBackup(ctx, cluster, namespace, name)
 	if err != nil {
@@ -47,24 +65,45 @@ func (h *rbacHandler) GetBackup(ctx context.Context, cluster, namespace, name st
 		}
 		return nil, fmt.Errorf("GetBackup failed: %w", err)
 	}
-	object := rbac.ClusterNamespacedObjectName(cluster, namespace, backupInstanceName(backup))
-	if err := h.enforce(ctx, rbac.ResourceBackups, rbac.ActionRead, object); err != nil {
+	if err := h.enforceReadBackup(ctx, cluster, backup); err != nil {
 		return nil, err
 	}
 	return backup, nil
 }
 
-// CreateBackup creates a backup, gated by RBAC on the instance it belongs to.
+// CreateBackup creates a backup if the caller may create it:
+//   - Instance origin: backups create on the Instance.
+//   - External origin: namespace-wide backups create and its BackupStorage read.
 func (h *rbacHandler) CreateBackup(ctx context.Context, cluster string, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error) {
-	object := rbac.ClusterNamespacedObjectName(cluster, backup.GetNamespace(), backupInstanceName(backup))
-	if err := h.enforce(ctx, rbac.ResourceBackups, rbac.ActionCreate, object); err != nil {
+	namespace := backup.GetNamespace()
+	if ref := backup.Spec.Origin.InstanceRef; ref != nil {
+		object := rbac.ClusterNamespacedObjectName(cluster, namespace, ref.Name)
+		if err := h.enforce(ctx, rbac.ResourceBackups, rbac.ActionCreate, object); err != nil {
+			return nil, err
+		}
+		return h.next.CreateBackup(ctx, cluster, backup)
+	}
+	// External backups have no Instance to grant on, so they need a
+	// namespace-wide backups grant. Storage read prevents callers without
+	// access to the storage from registering backup paths in it.
+	namespaceWide := rbac.ClusterNamespacedObjectName(cluster, namespace, "*")
+	if err := h.enforce(ctx, rbac.ResourceBackups, rbac.ActionCreate, namespaceWide); err != nil {
+		return nil, err
+	}
+	storageObject := rbac.ClusterNamespacedObjectName(cluster, namespace, backup.Spec.StorageRef.Name)
+	if err := h.enforce(ctx, rbac.ResourceBackupStorages, rbac.ActionRead, storageObject); err != nil {
 		return nil, err
 	}
 	return h.next.CreateBackup(ctx, cluster, backup)
 }
 
-// DeleteBackup deletes a backup, gated by RBAC on the instance it belongs to.
-// Same not-found/denied collapsing as GetBackup.
+// DeleteBackup deletes a backup if the caller may delete it:
+//   - Instance origin: backups delete on the Instance.
+//   - External origin: namespace-wide backups delete. No storage check, since
+//     external backups are always Retain and deletion leaves the data intact.
+//
+// Not found and denied both return ErrInsufficientPermissions to prevent name
+// probing.
 func (h *rbacHandler) DeleteBackup(ctx context.Context, cluster, namespace, name string, params *api.DeleteBackupParams) error {
 	backup, err := h.next.GetBackup(ctx, cluster, namespace, name)
 	if err != nil {
@@ -73,9 +112,36 @@ func (h *rbacHandler) DeleteBackup(ctx context.Context, cluster, namespace, name
 		}
 		return fmt.Errorf("GetBackup failed: %w", err)
 	}
-	object := rbac.ClusterNamespacedObjectName(cluster, namespace, backupInstanceName(backup))
+	object := rbac.ClusterNamespacedObjectName(cluster, namespace, "*")
+	if ref := backup.Spec.Origin.InstanceRef; ref != nil {
+		object = rbac.ClusterNamespacedObjectName(cluster, namespace, ref.Name)
+	}
 	if err := h.enforce(ctx, rbac.ResourceBackups, rbac.ActionDelete, object); err != nil {
 		return err
 	}
 	return h.next.DeleteBackup(ctx, cluster, namespace, name, params)
+}
+
+// enforceReadBackup returns error if the caller may not read the backup:
+//   - Instance origin: backups read on the Instance. Backups are keyed by
+//     their Instance because their own names are usually generated and
+//     cannot be granted in advance.
+//   - External origin: namespace-wide backups read and its BackupStorage read.
+func (h *rbacHandler) enforceReadBackup(ctx context.Context, cluster string, backup *backupv1alpha1.Backup) error {
+	namespace := backup.GetNamespace()
+	// Instance backups hold the instance's own data, so the instance grant is
+	// enough; requiring storage access would hide them once it is revoked.
+	if ref := backup.Spec.Origin.InstanceRef; ref != nil {
+		object := rbac.ClusterNamespacedObjectName(cluster, namespace, ref.Name)
+		return h.enforce(ctx, rbac.ResourceBackups, rbac.ActionRead, object)
+	}
+	// External backups have no Instance to grant on, so they need a
+	// namespace-wide backups grant. Storage read hides backup paths in the
+	// storage from callers without access to it.
+	storageObject := rbac.ClusterNamespacedObjectName(cluster, namespace, backup.Spec.StorageRef.Name)
+	if err := h.enforce(ctx, rbac.ResourceBackupStorages, rbac.ActionRead, storageObject); err != nil {
+		return err
+	}
+	namespaceWide := rbac.ClusterNamespacedObjectName(cluster, namespace, "*")
+	return h.enforce(ctx, rbac.ResourceBackups, rbac.ActionRead, namespaceWide)
 }

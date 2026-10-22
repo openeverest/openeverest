@@ -59,6 +59,7 @@ import {
 } from 'components/ui-generator/form-engine';
 import { widgetRegistry } from './widget-registry';
 import { DataSourcePrefetcher } from 'components/ui-generator/api-providers';
+import { SecretNamespaceSync } from 'components/ui-generator/secret-field';
 import { BaseInfoStep } from './database-form-body/steps/base-step/base-step';
 import { ImportStep } from './database-form-body/steps-old/import/import-step';
 import {
@@ -583,6 +584,14 @@ export const DatabasePage = () => {
               sections={engine.sections}
               namespace={selectedNamespace || namespaces[0]}
             />
+            {/* Restore fixes the namespace, and a selected preset owns the values. */}
+            {mode === FormMode.New && !presetSelection.presetSelected && (
+              <SecretNamespaceSync
+                sections={engine.sections}
+                namespace={selectedNamespace || namespaces[0]}
+                provider={providerObject?.metadata?.name}
+              />
+            )}
             <DatabaseFormBody
               steps={engine.steps}
               activeStep={nav.activeStepIndex}

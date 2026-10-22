@@ -1452,5 +1452,6 @@ func ReconcileExternalBackupStatus(backup *backupv1alpha1.Backup) {
 
 	backup.Status.StartedAt = external.StartedAt.DeepCopy()
 	backup.Status.CompletedAt = external.CompletedAt.DeepCopy()
+	backup.Status.SourceMetadata = external.SourceMetadata.DeepCopy()
 	backup.Status.State = backupv1alpha1.BackupStateSucceeded
 }
