@@ -67,6 +67,7 @@ func TestRBAC_InstancePreset(t *testing.T) {
 		}
 	}
 
+	//nolint:staticcheck // test usage only
 	ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
 
 	t.Run("ListInstancePresets", func(t *testing.T) {
