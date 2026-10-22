@@ -841,7 +841,7 @@ export interface components {
             };
         };
         /**
-         * @description ClusterInstancePreset is a cluster-scoped, template of provider-specific
+         * @description ClusterInstancePreset is a cluster-scoped template of provider-specific
          *     defaults for creating Instances.
          *
          *     It is similar to an InstancePreset. But it is cluster-scoped and it is
@@ -3704,10 +3704,10 @@ export interface components {
             };
         };
         /**
-         * @description InstancePreset is a namespace-scoped, template for creating Instances
+         * @description InstancePreset is a namespace-scoped template for creating Instances
          *     within a single namespace.
          *
-         *     Because a InstancePreset lives in the same namespace as the Instances
+         *     Because an InstancePreset lives in the same namespace as the Instances
          *     it produces, it may reference namespace-scoped objects (Secrets, etc.)
          *     directly by name. It is used for capturing a known-good configuration,
          *     including concrete local references, and reuse it to create Instances

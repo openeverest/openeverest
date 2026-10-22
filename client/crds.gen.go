@@ -1646,7 +1646,7 @@ type BackupStorageList struct {
 	} `json:"metadata,omitempty"`
 }
 
-// ClusterInstancePreset ClusterInstancePreset is a cluster-scoped, template of provider-specific
+// ClusterInstancePreset ClusterInstancePreset is a cluster-scoped template of provider-specific
 // defaults for creating Instances.
 //
 // It is similar to an InstancePreset. But it is cluster-scoped and it is
@@ -4243,10 +4243,10 @@ type InstanceList struct {
 	} `json:"metadata,omitempty"`
 }
 
-// InstancePreset InstancePreset is a namespace-scoped, template for creating Instances
+// InstancePreset InstancePreset is a namespace-scoped template for creating Instances
 // within a single namespace.
 //
-// Because a InstancePreset lives in the same namespace as the Instances
+// Because an InstancePreset lives in the same namespace as the Instances
 // it produces, it may reference namespace-scoped objects (Secrets, etc.)
 // directly by name. It is used for capturing a known-good configuration,
 // including concrete local references, and reuse it to create Instances

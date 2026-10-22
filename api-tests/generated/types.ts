@@ -1514,7 +1514,7 @@ export interface components {
             uid?: string;
         };
         /**
-         * @description ClusterInstancePreset is a cluster-scoped, template of provider-specific
+         * @description ClusterInstancePreset is a cluster-scoped template of provider-specific
          *     defaults for creating Instances.
          *
          *     It is similar to an InstancePreset. But it is cluster-scoped and it is
