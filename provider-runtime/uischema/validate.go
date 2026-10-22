@@ -84,8 +84,8 @@ type Input struct {
 func Validate(in Input) []Issue {
 	var issues []Issue
 	for _, topology := range sortedKeys(in.UISchema) {
-		topologySchema, _ := asMap(in.UISchema[topology])
-		sections, ok := asMap(topologySchema["sections"])
+		topologySchema, _ := in.UISchema[topology].(map[string]any)
+		sections, ok := topologySchema["sections"].(map[string]any)
 		if !ok {
 			continue
 		}
@@ -176,20 +176,20 @@ func validateToggleables(topology string, sections map[string]any) []Issue {
 	// pathWriters counts the fields writing each path across the topology.
 	pathWriters := make(map[string]int)
 	for _, key := range sortedKeys(sections) {
-		section, _ := asMap(sections[key])
-		components, _ := asMap(section["components"])
-		for _, p := range leafPaths(components) {
+		section, _ := sections[key].(map[string]any)
+		components, _ := section["components"].(map[string]any)
+		for _, p := range getPaths(components) {
 			pathWriters[p]++
 		}
 	}
 
 	w := toggleableWalker{topology: topology, pathWriters: pathWriters}
 	for _, key := range sortedKeys(sections) {
-		section, _ := asMap(sections[key])
-		components, _ := asMap(section["components"])
+		section, _ := sections[key].(map[string]any)
+		components, _ := section["components"].(map[string]any)
 		w.walk(components, []string{key}, "")
 	}
-	return append(w.issues, unguardedCelIssues(topology, w.toggleables, w.celFields)...)
+	return append(w.issues, reportCelWithoutGuard(topology, w.toggleables, w.celFields)...)
 }
 
 // toggleableWalker collects, for one topology, degraded-group issues, working
@@ -203,9 +203,8 @@ type toggleableWalker struct {
 	celFields   []celField
 }
 
-// walk visits components under parent; parentToggleable is the key of the
-// working toggleable they sit in, or "". Containers without a `components`
-// map are skipped.
+// walk records toggleable and cel fields recursively for components under parent;
+// parentToggleable is the key of the working toggleable they sit in, or "".
 //
 // Called with parent [advanced] and parentToggleable "" on:
 //
@@ -234,81 +233,65 @@ type toggleableWalker struct {
 //	  - {key: "advanced.replicas",       parentToggleable: ""}
 func (w *toggleableWalker) walk(components map[string]any, parent []string, parentToggleable string) {
 	for _, key := range sortedKeys(components) {
-		item, _ := asMap(components[key])
-		keyPath := slices.Concat(parent, []string{key})
-		uiType, _ := item["uiType"].(string)
+		current, _ := components[key].(map[string]any)
+		currentPath := slices.Concat(parent, []string{key})
+		uiType, _ := current["uiType"].(string)
 		if uiType != uiTypeGroup && uiType != uiTypeHidden {
-			w.visitField(item, keyPath, parentToggleable)
+			w.recordCelExpressions(current, currentPath, parentToggleable)
 			continue
 		}
-		children, ok := asMap(item["components"])
+		children, ok := current["components"].(map[string]any)
 		if !ok {
 			continue
 		}
-		childParent := parentToggleable
-		if groupType, _ := item["groupType"].(string); uiType == uiTypeGroup && groupType == groupTypeToggleable {
-			childParent = w.visitToggleable(children, keyPath, parentToggleable)
+
+		childrenToggleable := parentToggleable
+		if groupType, _ := current["groupType"].(string); uiType == uiTypeGroup && groupType == groupTypeToggleable {
+			if w.recordToggleable(children, currentPath, parentToggleable != "") {
+				childrenToggleable = strings.Join(currentPath, ".")
+			}
 		}
-		w.walk(children, keyPath, childParent)
+		w.walk(children, currentPath, childrenToggleable)
 	}
 }
 
-// visitField records a field that has CEL rules; fields without any are skipped.
-//
-// With keyPath [advanced replicas] and parentToggleable "":
-//
-//	uiType: number
-//	path: spec.replicas
-//	validation:
-//	  celExpressions:
-//	    - celExpr: "spec.replicas > 0"
-//
-// appends:
-//
-//	celField{key: "advanced.replicas", parentToggleable: "", exprs: ["spec.replicas > 0"]}
-func (w *toggleableWalker) visitField(item map[string]any, keyPath []string, parentToggleable string) {
-	exprs := celExpressions(item)
+// recordCelExpressions records a field that has CEL rules; fields without any are skipped.
+func (w *toggleableWalker) recordCelExpressions(item map[string]any, currentPath []string, parentToggleable string) {
+	exprs := getCelExpressions(item)
 	if len(exprs) == 0 {
 		return
 	}
 	w.celFields = append(w.celFields, celField{
-		key:              strings.Join(keyPath, "."),
+		key:              strings.Join(currentPath, "."),
 		parentToggleable: parentToggleable,
 		exprs:            exprs,
 	})
 }
 
-// visitToggleable records a toggleable group as working or degraded, and
-// returns the parentToggleable for its children.
-//
-// With keyPath [advanced monitoring], parentToggleable "" and children:
-//
-//	url: {uiType: text, path: spec.monitoring.url}
-//
-// working: appends toggleable{key: "advanced.monitoring", paths: [spec.monitoring.url]}
-// and returns "advanced.monitoring".
-//
-// degraded (e.g. another field also writes spec.monitoring.url): appends
-// Issue{Rule: RuleToggleableOverlap, Group: "advanced.monitoring", ...} and
-// returns "" (parentToggleable unchanged).
-func (w *toggleableWalker) visitToggleable(children map[string]any, keyPath []string, parentToggleable string) string {
-	paths := leafPaths(children)
-	groupKey := strings.Join(keyPath, ".")
-	if rule, msg := degradeRule(keyPath, paths, parentToggleable != "", w.pathWriters); rule != "" {
+// recordToggleable records a toggleable group and reports whether it works as
+// one. A working group is added to toggleables; a degraded one (see
+// degradeRule) is reported as an issue instead. isToggleable is whether the group
+// sits inside a working toggleable.
+func (w *toggleableWalker) recordToggleable(children map[string]any, currentPath []string, isToggleable bool) bool {
+	paths := getPaths(children)
+	groupKey := strings.Join(currentPath, ".")
+	if rule, msg := degradeRule(currentPath, paths, isToggleable, w.pathWriters); rule != "" {
 		w.issues = append(w.issues, Issue{
 			Rule:     rule,
 			Topology: w.topology,
 			Group:    groupKey,
 			Message:  msg + degradedSuffix,
 		})
-		return parentToggleable
+		return false
 	}
 	w.toggleables = append(w.toggleables, toggleable{key: groupKey, paths: paths})
-	return groupKey
+	return true
 }
 
-// degradeRule returns the first rule that turns a toggleable group into a
-// bordered one, with its message, or "" when the group works as a toggleable.
+// degradeRule returns the first rule that makes a toggleable group into
+// degraded mode with its message. Returns "" when the group is working.
+// The check order matches resolveToggleable in the UI and decides which rule
+// is reported when several apply; keep them in sync.
 func degradeRule(keyPath, paths []string, nested bool, pathWriters map[string]int) (Rule, string) {
 	switch {
 	case slices.ContainsFunc(keyPath, isUnsafeKey):
@@ -318,13 +301,13 @@ func degradeRule(keyPath, paths []string, nested bool, pathWriters map[string]in
 	case nested:
 		return RuleToggleableNested, "is nested inside another toggleable group"
 	}
-	if overlap := firstSharedPath(paths, pathWriters); overlap != "" {
+	if overlap := pathWrittenOutside(paths, pathWriters); overlap != "" {
 		return RuleToggleableOverlap, fmt.Sprintf("shares the path %q with a field outside it; switching it off would delete that field's value", overlap)
 	}
 	return "", ""
 }
 
-// unguardedCelIssues reports CEL rules that read a path of a working toggleable
+// reportCelWithoutGuard reports CEL rules that read a path of a toggleable
 // group without has(). While the group is off its paths are absent, so such a
 // rule fails. Fields inside the group are skipped: they are off with it.
 //
@@ -340,14 +323,14 @@ func degradeRule(keyPath, paths []string, nested bool, pathWriters map[string]in
 //	    celExpressions:
 //	      - celExpr: "spec.monitoring.url != ''"                              # reported
 //	      - celExpr: "!has(spec.monitoring.url) || spec.monitoring.url != ''" # ok
-func unguardedCelIssues(topology string, toggleables []toggleable, celFields []celField) []Issue {
+func reportCelWithoutGuard(topology string, toggleables []toggleable, celFields []celField) []Issue {
 	var issues []Issue
 	for _, field := range celFields {
 		for _, group := range toggleables {
 			if group.key == field.parentToggleable {
 				continue
 			}
-			if path := firstUnguardedRef(field.exprs, group.paths); path != "" {
+			if path := getCelWithoutGuard(field.exprs, group.paths); path != "" {
 				issues = append(issues, Issue{
 					Rule:     RuleToggleableCELUnguarded,
 					Topology: topology,
@@ -369,8 +352,7 @@ var (
 	celHasCall = regexp.MustCompile(`has\(\s*(spec(?:\.\w+)+)\s*\)`)
 )
 
-// firstUnguardedRef returns a group path that some expression reads (directly
-// or below it) without a has() on that exact path, or "".
+// getCelWithoutGuard returns a path from groupPaths without a has(), or "".
 //
 // With groupPaths [spec.monitoring.url]:
 //
@@ -378,7 +360,7 @@ var (
 //	"spec.monitoring.url.size() > 0"                         -> spec.monitoring.url
 //	"!has(spec.monitoring.url) || spec.monitoring.url != ''" -> ""
 //	"original.spec.monitoring.url == ''"                     -> ""
-func firstUnguardedRef(exprs, groupPaths []string) string {
+func getCelWithoutGuard(exprs, groupPaths []string) string {
 	for _, expr := range exprs {
 		guarded := make(map[string]bool)
 		for _, m := range celHasCall.FindAllStringSubmatch(expr, -1) {
@@ -396,8 +378,8 @@ func firstUnguardedRef(exprs, groupPaths []string) string {
 	return ""
 }
 
-// celExpressions returns the CEL expressions of a field in every form mode:
-// `validation.celExpressions` and `validation.modes.<mode>.celExpressions`.
+// getCelExpressions returns the CEL expressions of a field in every form mode:
+// `validation.getCelExpressions` and `validation.modes.<mode>.getCelExpressions`.
 //
 // item is a single field:
 //
@@ -414,18 +396,18 @@ func firstUnguardedRef(exprs, groupPaths []string) string {
 // returns:
 //
 //	["spec.replicas > 0", "spec.replicas >= original.spec.replicas"]
-func celExpressions(item map[string]any) []string {
-	validation, _ := asMap(item["validation"])
-	exprs := celExprList(validation)
-	modes, _ := asMap(validation["modes"])
+func getCelExpressions(item map[string]any) []string {
+	validation, _ := item["validation"].(map[string]any)
+	exprs := getCelExprs(validation)
+	modes, _ := validation["modes"].(map[string]any)
 	for _, mode := range sortedKeys(modes) {
-		branch, _ := asMap(modes[mode])
-		exprs = append(exprs, celExprList(branch)...)
+		branch, _ := modes[mode].(map[string]any)
+		exprs = append(exprs, getCelExprs(branch)...)
 	}
 	return exprs
 }
 
-// celExprList returns the celExpr strings of a `validation` (or mode) block:
+// getCelExprs returns the celExpr strings of a `validation` (or mode) block:
 //
 //	celExpressions:
 //	  - celExpr: "spec.replicas > 0"
@@ -436,11 +418,11 @@ func celExpressions(item map[string]any) []string {
 // returns:
 //
 //	["spec.replicas > 0", "spec.replicas < 10"]
-func celExprList(validation map[string]any) []string {
+func getCelExprs(validation map[string]any) []string {
 	list, _ := validation["celExpressions"].([]any)
 	var exprs []string
 	for _, entry := range list {
-		m, _ := asMap(entry)
+		m, _ := entry.(map[string]any)
 		if expr, ok := m["celExpr"].(string); ok && expr != "" {
 			exprs = append(exprs, expr)
 		}
@@ -448,25 +430,24 @@ func celExprList(validation map[string]any) []string {
 	return exprs
 }
 
-// firstSharedPath returns a path of the group that is also written by a field
-// outside it, or "".
-func firstSharedPath(groupPaths []string, topologyUsage map[string]int) string {
-	own := make(map[string]int)
+// pathWrittenOutside returns the first path in groupPaths that a field
+// outside the group also writes, or "".
+func pathWrittenOutside(groupPaths []string, topologyPaths map[string]int) string {
+	groupPathsMap := make(map[string]int)
 	for _, p := range groupPaths {
-		own[p]++
+		groupPathsMap[p]++
 	}
 	for _, p := range groupPaths {
-		if topologyUsage[p] > own[p] {
+		if topologyPaths[p] > groupPathsMap[p] {
 			return p
 		}
 	}
 	return ""
 }
 
-// leafPaths lists the paths written by every field under components, in
-// the UI's terms: groups (and `hidden` containers) are walked, hidden fields
-// and items without a uiType write nothing, and `path` is a string or a list
-// of strings (multi-path).
+// getPaths returns the paths found in the given components. The uiType
+// `groups` and `hidden` are recursively searched if they contain
+// components.
 //
 //	url:                         # -> [spec.monitoring.url]
 //	  uiType: text
@@ -479,10 +460,10 @@ func firstSharedPath(groupPaths []string, topologyUsage map[string]int) string {
 //	  components: {...}
 //	label:                       # no uiType: nothing
 //	  path: spec.label
-func leafPaths(components map[string]any) []string {
+func getPaths(components map[string]any) []string {
 	var paths []string
 	for _, key := range sortedKeys(components) {
-		item, _ := asMap(components[key])
+		item, _ := components[key].(map[string]any)
 		uiType, ok := item["uiType"]
 		if !ok {
 			continue
@@ -490,21 +471,22 @@ func leafPaths(components map[string]any) []string {
 
 		switch uiType {
 		case uiTypeGroup, uiTypeHidden:
-			if children, ok := asMap(item["components"]); ok {
-				paths = append(paths, leafPaths(children)...)
+			if children, ok := item["components"].(map[string]any); ok {
+				paths = append(paths, getPaths(children)...)
 			}
 		default:
-			paths = append(paths, targetPaths(item["path"])...)
+			paths = append(paths, normalizePaths(item["path"])...)
 		}
 	}
 	return paths
 }
 
-// targetPaths normalizes a field's `path`, dropping empty and duplicate entries:
+// normalizePaths normalizes a field's `path` based on its type,
+// and drops empty and duplicate entries:
 //
 //	path: spec.replicas              # -> [spec.replicas]
 //	path: [spec.cpu, spec.memory]    # -> [spec.cpu, spec.memory]
-func targetPaths(path any) []string {
+func normalizePaths(path any) []string {
 	switch p := path.(type) {
 	case string:
 		if p != "" {
@@ -522,11 +504,6 @@ func targetPaths(path any) []string {
 		return out
 	}
 	return nil
-}
-
-func asMap(v any) (map[string]any, bool) {
-	m, ok := v.(map[string]any)
-	return m, ok
 }
 
 func sortedKeys[V any](m map[string]V) []string {
