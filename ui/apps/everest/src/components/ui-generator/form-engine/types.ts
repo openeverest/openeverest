@@ -46,12 +46,13 @@ export type StepDefinition = {
 };
 
 export type FormEngineConfig = {
-  // Pre-processed topology UI schema
+  // Topology UI schema preprocessed for `formMode`
   uiSchema: TopologyUISchemas;
   selectedTopology: string;
   staticSteps?: StepDefinition[];
   providerObject?: Provider;
   namespace?: string;
+  // Selects the `validation.modes` branch
   formMode?: FormMode;
   // Host-provided renderers for schema widgets
   widgetRegistry?: WidgetRegistry;
