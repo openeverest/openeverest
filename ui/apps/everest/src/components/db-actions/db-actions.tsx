@@ -128,7 +128,7 @@ export const DbActions = ({
   };
 
   const { /*canUpdate*/ canDelete } = useRBACPermissions(
-    'database-clusters',
+    'instances',
     `${dbInstance.metadata?.namespace}/${dbInstance.metadata?.name}`
   );
 

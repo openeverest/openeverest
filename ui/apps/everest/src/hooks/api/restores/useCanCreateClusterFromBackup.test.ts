@@ -33,10 +33,10 @@ describe('useCanCreateClusterFromBackup', () => {
     canReadMonitoring?: boolean;
   }) => {
     mockUseRBACPermissions.mockImplementation((resource: string) => {
-      if (resource === 'database-clusters') {
+      if (resource === 'instances') {
         return { canCreate: permissions.canCreateClusters ?? false };
       }
-      if (resource === 'database-cluster-backups') {
+      if (resource === 'backups') {
         return { canCreate: permissions.canCreateBackups ?? false };
       }
       if (resource === 'monitoring-configs') {
@@ -95,7 +95,7 @@ describe('useCanCreateClusterFromBackup', () => {
     renderHook(() => useCanCreateClusterFromBackup('team-ns', 'inst-a'));
 
     expect(mockUseRBACPermissions).toHaveBeenCalledWith(
-      'database-clusters',
+      'instances',
       'team-ns/*'
     );
   });
@@ -146,5 +146,23 @@ describe('useCanCreateClusterFromBackup', () => {
     );
 
     expect(result.current).toBe(true);
+  });
+
+  it('grants create-from-backup with a v2-only policy (instances/backups)', () => {
+    mockUseCanRestore.mockReturnValue(true);
+    mockUseRBACPermissions.mockImplementation((resource: string) => ({
+      canCreate: resource === 'instances' || resource === 'backups',
+      canRead: false,
+    }));
+
+    const { result } = renderHook(() =>
+      useCanCreateClusterFromBackup('ns-a', 'inst-a', { hasSchedules: true })
+    );
+
+    expect(result.current).toBe(true);
+    expect(mockUseRBACPermissions).toHaveBeenCalledWith(
+      'backups',
+      'ns-a/inst-a'
+    );
   });
 });

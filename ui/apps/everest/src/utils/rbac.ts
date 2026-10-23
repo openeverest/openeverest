@@ -59,7 +59,45 @@ export type RBACResource =
   | 'data-importers'
   | 'load-balancer-configs'
   | 'data-import-jobs'
-  | 'enginefeatures/split-horizon-dns-configs';
+  | 'enginefeatures/split-horizon-dns-configs'
+  | 'providers'
+  | 'plugins'
+  | 'restores'
+  | 'backup-imports'
+  | 'config-maps'
+  | 'secrets';
+
+const V2_NAMESPACED_RESOURCES: string[] = [
+  'instances',
+  'backups',
+  'backup-imports',
+  'restores',
+  'backup-storages',
+  'monitoring-configs',
+  'config-maps',
+  'secrets',
+];
+const V2_CLUSTER_RESOURCES: string[] = [
+  'namespaces',
+  'providers',
+  'backup-classes',
+  'plugins',
+];
+
+// Matches ClusterNamespacedObjectName / ClusterObjectName in pkg/rbac/rbac.go
+export const toRBACObject = (
+  resource: RBACResource,
+  object: string,
+  cluster: string
+): string => {
+  if (V2_NAMESPACED_RESOURCES.includes(resource)) {
+    return object === '*' ? '*/*/*' : `${cluster}/${object}`;
+  }
+  if (V2_CLUSTER_RESOURCES.includes(resource)) {
+    return `${cluster}/${object}`;
+  }
+  return object; // v1 resources keep the old format
+};
 
 const constructAuthorizer = async () => {
   const newAuthorizer = new Authorizer('auto', { endpoint: '/' });

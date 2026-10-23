@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { useClusterName } from 'hooks/api/useClusterName';
 import { useNamespaces } from 'hooks/api/namespaces';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -21,6 +22,7 @@ import {
   RBACAction,
   AuthorizerObservable,
   RBACResource,
+  toRBACObject,
 } from 'utils/rbac';
 
 export const useRBACPermissions = (
@@ -33,21 +35,25 @@ export const useRBACPermissions = (
     create: false,
     delete: false,
   });
+  const cluster = useClusterName();
 
   const checkPermissions = useCallback(async () => {
-    const multipleSpecificResources = Array.isArray(specificResources);
-    const canRead = await (multipleSpecificResources
-      ? canAll('read', resource, specificResources)
-      : can('read', resource, specificResources));
-    const canDelete = await (multipleSpecificResources
-      ? canAll('delete', resource, specificResources)
-      : can('delete', resource, specificResources));
-    const canUpdate = await (multipleSpecificResources
-      ? canAll('update', resource, specificResources)
-      : can('update', resource, specificResources));
-    const canCreate = await (multipleSpecificResources
-      ? canAll('create', resource, specificResources)
-      : can('create', resource, specificResources));
+    const objects = Array.isArray(specificResources)
+      ? specificResources.map((o) => toRBACObject(resource, o, cluster))
+      : toRBACObject(resource, specificResources, cluster);
+    const multiple = Array.isArray(objects);
+    const canRead = await (multiple
+      ? canAll('read', resource, objects)
+      : can('read', resource, objects));
+    const canDelete = await (multiple
+      ? canAll('delete', resource, objects)
+      : can('delete', resource, objects));
+    const canUpdate = await (multiple
+      ? canAll('update', resource, objects)
+      : can('update', resource, objects));
+    const canCreate = await (multiple
+      ? canAll('create', resource, objects)
+      : can('create', resource, objects));
 
     setPermissions({
       read: canRead,
@@ -55,7 +61,7 @@ export const useRBACPermissions = (
       delete: canDelete,
       create: canCreate,
     });
-  }, [resource, specificResources]);
+  }, [cluster, resource, specificResources]);
 
   useEffect(() => {
     checkPermissions();
@@ -88,6 +94,7 @@ export const useNamespacePermissionsForResource = (
   // already cached and the check hasn't run yet).
   const [isPermissionsLoading, setIsPermissionsLoading] = useState(true);
 
+  const cluster = useClusterName();
   const queryResult = useNamespaces();
   const { data: namespaces } = queryResult;
 
@@ -107,7 +114,11 @@ export const useNamespacePermissionsForResource = (
             can(
               action as RBACAction,
               resource,
-              `${namespace}/${specificResource}`
+              toRBACObject(
+                resource,
+                `${namespace}/${specificResource}`,
+                cluster
+              )
             ).then((canDo) => {
               if (canDo) {
                 newPermissions[action as RBACAction].push(namespace);
@@ -119,7 +130,7 @@ export const useNamespacePermissionsForResource = (
     }
     await Promise.all(permissionsPromisesArr);
     setPermissions(newPermissions);
-  }, [namespaces, resource, specificResource]);
+  }, [cluster, namespaces, resource, specificResource]);
 
   useEffect(() => {
     let active = true;
@@ -154,17 +165,21 @@ export const useRBACPermissionRoute = (
   }>
 ) => {
   const navigate = useNavigate();
+  const cluster = useClusterName();
 
   const checkPermissions = useCallback(async () => {
     for (let i = 0; i < permissions.length; i++) {
       const { action, resource, specificResources = [] } = permissions[i];
-      const allowed = await canAll(action, resource, specificResources);
+      const objects = specificResources.map((o) =>
+        toRBACObject(resource, o, cluster)
+      );
+      const allowed = await canAll(action, resource, objects);
       if (!allowed) {
         navigate('/');
         return false;
       }
     }
-  }, [navigate, permissions]);
+  }, [cluster, navigate, permissions]);
 
   useEffect(() => {
     checkPermissions();
