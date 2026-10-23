@@ -401,6 +401,7 @@ spec:
   interval: "10s"
   honorLabels: true
   scrapeTimeout: "2s"
+  path: /metrics/cadvisor
   selector: {{}}
   tlsConfig:
     insecureSkipVerify: true
@@ -409,12 +410,6 @@ spec:
   relabelConfigs:
     - action: labelmap
       regex: __meta_kubernetes_node_label_(.+)
-    - targetLabel: __address__
-      replacement: kubernetes.default.svc:443
-    - sourceLabels: [__meta_kubernetes_node_name]
-      regex: (.+)
-      targetLabel: __metrics_path__
-      replacement: /api/v1/nodes/$1/proxy/metrics/cadvisor
   metricRelabelConfigs:
     - action: labeldrop
       regex: cloud_google_com.*
