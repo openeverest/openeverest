@@ -4501,6 +4501,10 @@ type Provider struct {
 				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
 			} `json:"parametersSchema,omitempty"`
 
+			// Type Type is the Kubernetes Secret type of secrets created for this
+			// definition. The clients use it to encode input into Secret data.
+			Type *string `json:"type,omitempty"`
+
 			// UiSchema UISchema holds UI rendering hints for the secret creation form.
 			UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
 		} `json:"secrets,omitempty"`
