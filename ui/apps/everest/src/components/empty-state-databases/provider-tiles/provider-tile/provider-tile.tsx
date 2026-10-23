@@ -46,7 +46,6 @@ export const ProviderTile = ({
   name,
   label,
   meta,
-  showImport,
 }: ProviderTileProps) => {
   const [active, setActive] = useState(false);
   const prefetchPresets = usePrefetchInstancePresets();
@@ -104,10 +103,7 @@ export const ProviderTile = ({
         data-testid={`provider-tile-${name}`}
         component={Link}
         to="/databases/new"
-        state={{
-          selectedDbProvider: provider,
-          showImport,
-        }}
+        state={{ selectedDbProvider: provider }}
         sx={cardActionAreaSx}
       >
         <Box sx={cardHeaderSx}>

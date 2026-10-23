@@ -25,6 +25,7 @@ import {
   PresetSelectionContextType,
 } from 'pages/database-form/preset-selection';
 import { BaseInfoStep } from './base-step';
+import { useDatabasePageMode } from '../../../hooks/use-database-page-mode';
 import { PreviewSectionOne } from 'pages/database-form/database-preview/sections/base-step';
 import {
   getDBWizardSchema,
@@ -169,10 +170,25 @@ describe('BaseInfoStep', () => {
       )
     );
   });
+
+  it('keeps the namespace of the backup it imports', () => {
+    vi.mocked(useDatabasePageMode).mockReturnValue(WizardMode.Import);
+    try {
+      render(
+        <Wrapper>
+          <BaseInfoStep loadingDefaultsForEdition={false} />
+        </Wrapper>
+      );
+
+      expect(screen.getByTestId('text-input-k8s-namespace')).toBeDisabled();
+    } finally {
+      vi.mocked(useDatabasePageMode).mockReturnValue(WizardMode.New);
+    }
+  });
 });
 
 describe('basicInfoSchema (topology as nested object)', () => {
-  const schema = getDBWizardSchema([], false);
+  const schema = getDBWizardSchema([]);
 
   it('passes when topology is provided as a nested object { type: string }', () => {
     const result = schema.safeParse(makeDefaultValues('replica'));

@@ -14,6 +14,7 @@
 
 import { Link, Typography } from '@mui/material';
 import EmptyState from 'components/empty-state';
+import { ImportDbButton } from 'components/import-db-button';
 import { useProviders } from 'hooks/api/providers/useProviders';
 import { useExtensionCatalog } from 'hooks/api/extension-catalog';
 import { Messages } from './messages';
@@ -92,6 +93,7 @@ const EmptyStateDatabases = ({
               getProviderMeta={getProviderMeta}
             />
           )}
+          <ImportDbButton sx={{ mt: 2 }} />
         </>
       }
     />

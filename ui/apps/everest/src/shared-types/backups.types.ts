@@ -19,6 +19,15 @@ export type Backup = CrdsGen.components['schemas']['Backup'];
 export type BackupClass = CrdsGen.components['schemas']['BackupClass'];
 export type BackupList = CrdsGen.components['schemas']['BackupList'];
 export type BackupClassList = CrdsGen.components['schemas']['BackupClassList'];
+export type BackupImport = CrdsGen.components['schemas']['BackupImport'];
+export type BackupImportList =
+  CrdsGen.components['schemas']['BackupImportList'];
+export type BackupImportState = NonNullable<
+  NonNullable<BackupImport['status']>['state']
+>;
+export type BackupListFilter = NonNullable<
+  HttpApi.operations['listBackups']['parameters']['query']
+>;
 
 export type InstanceSchedule = NonNullable<
   NonNullable<

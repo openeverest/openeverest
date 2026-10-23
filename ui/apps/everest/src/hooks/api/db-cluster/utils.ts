@@ -15,7 +15,6 @@
 import { DbType } from '@percona/types';
 import { dbTypeToProxyType } from '@percona/utils';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
-import { DbWizardType } from 'pages/database-form/database-form-schema';
 import {
   DataSource,
   Proxy,
@@ -86,10 +85,8 @@ export const getProxySpec = (
 
 export const getDataSource = ({
   backupDataSource,
-  dbPayload,
 }: {
   backupDataSource?: DataSource;
-  dbPayload: DbWizardType;
 }) => {
   let dataSource = {};
   if (backupDataSource?.dbClusterBackupName) {
@@ -101,27 +98,6 @@ export const getDataSource = ({
           type: 'date',
         },
       }),
-    };
-  }
-  if ('dataImporter' in dbPayload && dbPayload.dataImporter) {
-    dataSource = {
-      ...dataSource,
-      dataImport: {
-        dataImporterName: dbPayload.dataImporter,
-        source: {
-          path: dbPayload.filePath,
-          s3: {
-            accessKeyId: dbPayload.accessKey,
-            bucket: dbPayload.bucketName,
-            credentialsSecretName: `cred-secret-${dbPayload.dbName}`,
-            endpointURL: dbPayload.endpoint,
-            region: dbPayload.region,
-            secretAccessKey: dbPayload.secretKey,
-            verifyTLS: dbPayload.verifyTlS,
-            forcePathStyle: dbPayload.forcePathStyle,
-          },
-        },
-      },
     };
   }
   return dataSource;

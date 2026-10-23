@@ -140,12 +140,11 @@ const formValuesToPayloadMapping = (
           },
         },
       }),
-      ...(backupDataSource?.dbClusterBackupName || dbPayload.dataImporter
+      ...(backupDataSource?.dbClusterBackupName
         ? {
             dataSource: {
               ...getDataSource({
                 backupDataSource: backupDataSource,
-                dbPayload: dbPayload,
               }),
             },
           }

@@ -13,4 +13,3 @@
 // limitations under the License.
 
 export { CreateDbButton } from './create-db-button';
-export type { CreateDbButtonProps } from './create-db-button.types';

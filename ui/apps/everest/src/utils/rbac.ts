@@ -48,6 +48,7 @@ export type RBACResource =
   | 'database-clusters'
   | 'backups'
   | 'backup-classes'
+  | 'backup-imports'
   | 'instances'
   | 'database-cluster-backups'
   | 'database-cluster-restores'
@@ -56,9 +57,7 @@ export type RBACResource =
   | 'monitoring-configs'
   | 'secrets'
   | 'pod-scheduling-policies'
-  | 'data-importers'
   | 'load-balancer-configs'
-  | 'data-import-jobs'
   | 'enginefeatures/split-horizon-dns-configs';
 
 const constructAuthorizer = async () => {
