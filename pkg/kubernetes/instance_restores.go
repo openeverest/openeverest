@@ -20,15 +20,16 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 // ListInstanceRestores returns restores performed for the specified instance.
+// It selects on spec.instanceRef.name (a CRD selectable field) rather than
+// the instanceName label, which the controller only stamps asynchronously.
 func (k *Kubernetes) ListInstanceRestores(ctx context.Context, namespace, instance string) (*backupv1alpha1.RestoreList, error) {
 	result := &backupv1alpha1.RestoreList{}
 	if err := k.k8sClient.List(ctx, result,
 		ctrlclient.InNamespace(namespace),
-		ctrlclient.MatchingLabels{common.InstanceNameLabel: instance},
+		ctrlclient.MatchingFields{"spec.instanceRef.name": instance},
 	); err != nil {
 		return nil, err
 	}
