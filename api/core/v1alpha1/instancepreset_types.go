@@ -34,6 +34,7 @@ type InstancePresetStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=pre;preset
+// +kubebuilder:selectablefield:JSONPath=".spec.providerRef.name"
 
 // InstancePreset is a namespace-scoped template for creating Instances
 // within a single namespace.

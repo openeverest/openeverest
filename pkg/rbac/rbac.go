@@ -70,6 +70,7 @@ const (
 	ResourceProviders              = "providers"
 	ResourceInstances              = "instances"
 	ResourceClusterInstancePresets = "cluster-instance-presets"
+	ResourceInstancePresets        = "instance-presets"
 	ResourceBackupClasses          = "backup-classes"
 	ResourceBackups                = "backups"
 	ResourceBackupImports          = "backup-imports"
@@ -102,6 +103,7 @@ var ClusterScopedResources = []string{
 // These use the 3-segment object format: cluster/namespace/name.
 var ClusterNamespacedResources = []string{
 	ResourceInstances,
+	ResourceInstancePresets,
 	ResourceBackups,
 	ResourceBackupImports,
 	ResourceRestores,

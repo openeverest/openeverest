@@ -44,6 +44,7 @@ type Handler interface {
 	PluginHandler
 	InstanceHandler
 	ClusterInstancePresetHandler
+	InstancePresetHandler
 	ClusterHandler
 	BackupClassHandler
 	BackupHandler
@@ -104,6 +105,15 @@ type ClusterInstancePresetHandler interface {
 	ListClusterInstancePresets(ctx context.Context, cluster string, provider string) (*corev1alpha1.ClusterInstancePresetList, error)
 	GetClusterInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.ClusterInstancePreset, error)
 	ResolveClusterInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.ClusterInstancePreset, error)
+}
+
+// InstancePresetHandler provides methods for handling operations on namespace-scoped instance presets.
+type InstancePresetHandler interface {
+	ListInstancePresets(ctx context.Context, cluster, namespace, provider string) (*corev1alpha1.InstancePresetList, error)
+	GetInstancePreset(ctx context.Context, cluster, namespace, name string) (*corev1alpha1.InstancePreset, error)
+	CreateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error)
+	UpdateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error)
+	DeleteInstancePreset(ctx context.Context, cluster, namespace, name string) error
 }
 
 // ClusterHandler provides methods for handling operations on clusters.
