@@ -15,8 +15,11 @@
 import { type Section, isWidgetComponent } from '../../ui-generator.types';
 import { postprocessSchemaData } from './postprocess-schema';
 import {
+  type FieldChangeInput,
+  groupFieldPathsByChange,
+} from './field-changes';
+import {
   deepClone,
-  deepMerge,
   deleteByPathAndEmptyParents,
   getByPath,
   isPlainObject,
@@ -40,37 +43,31 @@ const collectWidgetPaths = (section: Section | undefined): string[] => {
   return paths;
 };
 
-export interface MergeSectionEditParams {
+export interface MergeSectionEditParams extends FieldChangeInput {
   spec: Record<string, unknown>;
-  formData: Record<string, unknown>;
-  // Preprocessed sections of the instance's topology.
-  sections: Record<string, Section>;
   sectionKey: string;
   topology?: string;
 }
 
-// Applies one section's form values to a saved spec for a full update. The
-// merge keeps saved values, so a switched-off group's paths are deleted
-// explicitly (with parents left empty), and widget values are replaced whole.
-export const mergeSectionEdit = ({
-  spec,
-  formData,
-  sections,
-  sectionKey,
-  topology,
-}: MergeSectionEditParams): Record<string, unknown> => {
+// Applies the fields the user changed to a saved spec for a full update. An
+// untouched field keeps its saved form ("600m", not the 0.6 it reads as), a
+// switched-off group's paths are deleted explicitly (with parents left empty),
+// and widget values are replaced whole.
+export const mergeSectionEdit = (
+  params: MergeSectionEditParams
+): Record<string, unknown> => {
+  const { spec, formData, sections, sectionKey, topology } = params;
   const processed = postprocessSchemaData(
     formData,
     topology
       ? { schema: { [topology]: { sections } }, selectedTopology: topology }
       : undefined
   );
-  const updates = processed.spec;
-  const root: Record<string, unknown> = {
-    spec: isPlainObject(updates)
-      ? deepMerge(deepClone(spec), updates)
-      : deepClone(spec),
-  };
+  const root: Record<string, unknown> = { spec: deepClone(spec) };
+  groupFieldPathsByChange(params).changed.forEach((path) => {
+    const value = getByPath(processed, path);
+    if (value !== undefined) setByPath(root, path, value);
+  });
 
   getInactiveToggleablePaths(
     { [sectionKey]: sections[sectionKey] },

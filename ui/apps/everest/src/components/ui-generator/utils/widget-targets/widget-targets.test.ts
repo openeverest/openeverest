@@ -124,6 +124,10 @@ describe('podSchedulingPolicy marker targets', () => {
         sections: sectionsFor(provider),
         sectionKey: 'advanced',
         topology: 'replicaSet',
+        initialValues: {
+          [TOGGLEABLE_SWITCHES_KEY]: { 'advanced~scheduling': true },
+          spec: { components: { engine: { schedulingPolicy: { affinity } } } },
+        },
         formData: {
           [TOGGLEABLE_SWITCHES_KEY]: { 'advanced~scheduling': false },
           spec: { components: { engine: { schedulingPolicy: { affinity } } } },
