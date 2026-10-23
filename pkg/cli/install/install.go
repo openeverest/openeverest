@@ -333,7 +333,6 @@ func (o *Installer) newInstallSteps() []steps.Step {
 	return []steps.Step{
 		o.newStepInstallEverestHelmChart(),
 		o.newStepEnsureEverestAPI(),
-		o.newStepEnsureEverestMonitoring(),
 	}
 }
 

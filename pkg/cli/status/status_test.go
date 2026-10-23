@@ -407,33 +407,6 @@ func TestRun_Healthy(t *testing.T) {
 					ObservedGeneration: 1,
 				},
 			},
-			// Monitoring deployments.
-			&appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       common.VictoriaMetricsOperatorDeploymentName,
-					Namespace:  common.MonitoringNamespace,
-					Generation: 1,
-				},
-				Status: appsv1.DeploymentStatus{
-					Replicas:           1,
-					ReadyReplicas:      1,
-					UpdatedReplicas:    1,
-					ObservedGeneration: 1,
-				},
-			},
-			&appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:       common.KubeStateMetricsDeploymentName,
-					Namespace:  common.MonitoringNamespace,
-					Generation: 1,
-				},
-				Status: appsv1.DeploymentStatus{
-					Replicas:           1,
-					ReadyReplicas:      1,
-					UpdatedReplicas:    1,
-					ObservedGeneration: 1,
-				},
-			},
 			// DB namespace.
 			&corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
