@@ -519,7 +519,7 @@ func TestRBAC_Instance(t *testing.T) {
 				),
 			},
 			{
-				desc:    "has create",
+				desc:    "has create with customization",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -539,7 +539,7 @@ func TestRBAC_Instance(t *testing.T) {
 				),
 			},
 			{
-				desc:    "has create without cluster preset annotation",
+				desc:    "has create without cluster-instance-preset annotation",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -558,7 +558,7 @@ func TestRBAC_Instance(t *testing.T) {
 				),
 			},
 			{
-				desc:    "has deploy with cluster preset",
+				desc:    "has deploy with cluster-instance-preset",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -578,7 +578,7 @@ func TestRBAC_Instance(t *testing.T) {
 				),
 			},
 			{
-				desc:    "has deploy without cluster preset annotation",
+				desc:    "has deploy without cluster-instance-preset annotation",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -598,7 +598,7 @@ func TestRBAC_Instance(t *testing.T) {
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
-				desc:    "has deploy with customization on cluster preset",
+				desc:    "has deploy with customization on cluster-instance-preset",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -619,7 +619,7 @@ func TestRBAC_Instance(t *testing.T) {
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
-				desc:    "has deploy without cluster preset read permission",
+				desc:    "has deploy without cluster-instance-preset read permission",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -639,7 +639,7 @@ func TestRBAC_Instance(t *testing.T) {
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
-				desc:    "has deploy without preset annotation",
+				desc:    "has deploy without instance-preset annotation",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -659,7 +659,7 @@ func TestRBAC_Instance(t *testing.T) {
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
-				desc:    "has deploy",
+				desc:    "has deploy with instance-preset annotation",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -679,13 +679,13 @@ func TestRBAC_Instance(t *testing.T) {
 				),
 			},
 			{
-				desc:    "has deploy with customization",
+				desc:    "has deploy with customization on instance-preset",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "db1",
 						Namespace:   "ns1",
-						Annotations: map[string]string{"openeverest.io/cluster-instance-preset": "standard-mysql"},
+						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
 					},
 					Spec: corev1alpha1.InstanceSpec{
 						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
@@ -700,13 +700,13 @@ func TestRBAC_Instance(t *testing.T) {
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
-				desc:    "has deploy without preset read permission",
+				desc:    "has deploy without instance-preset read permission",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "db1",
 						Namespace:   "ns1",
-						Annotations: map[string]string{"openeverest.io/cluster-instance-preset": "standard-mysql"},
+						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
 					},
 					Spec: corev1alpha1.InstanceSpec{
 						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
