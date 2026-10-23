@@ -813,6 +813,26 @@ type Backup struct {
 				// is unique within its storage and is used for restore.
 				Path string `json:"path"`
 
+				// SourceMetadata SourceMetadata is engine-specific metadata that is used to make
+				// compatibility decisions for creating an Instance from this Backup.
+				SourceMetadata *struct {
+					// BackupType BackupType is the backup method recorded (e.g. "logical" or "physical"
+					// for PBM).
+					BackupType *string `json:"backupType,omitempty"`
+
+					// EngineVersion EngineVersion is the engine version recorded in the backup.
+					// Its granularity may be whatever the backup metadata records, so it
+					// may be a full version (e.g. a MongoDB server version like "8.0.12-4",
+					// a Percona XtraDB Cluster server version like "8.4.8-8.1") or only a
+					// major version (e.g. a PostgreSQL version like "18").
+					EngineVersion *string `json:"engineVersion,omitempty"`
+
+					// Topology Topology names the source Instance's topology (e.g. "replicaSet" or
+					// "sharded" for PSMDB). Recorded only for backups taken by a
+					// ProviderManaged backup class.
+					Topology *string `json:"topology,omitempty"`
+				} `json:"sourceMetadata,omitempty"`
+
 				// StartedAt StartedAt is the time when the backup started.
 				StartedAt time.Time `json:"startedAt"`
 			} `json:"external,omitempty"`
@@ -920,6 +940,27 @@ type Backup struct {
 		// Size Size is the size of the backup data as reported by the engine.
 		// Empty for external backups.
 		Size *string `json:"size,omitempty"`
+
+		// SourceMetadata SourceMetadata is the source Instance metadata recorded with the backup.
+		// For external backups this mirrors spec.origin.external.sourceMetadata;
+		// for Instance-origin backups the provider populates it from the engine.
+		SourceMetadata *struct {
+			// BackupType BackupType is the backup method recorded (e.g. "logical" or "physical"
+			// for PBM).
+			BackupType *string `json:"backupType,omitempty"`
+
+			// EngineVersion EngineVersion is the engine version recorded in the backup.
+			// Its granularity may be whatever the backup metadata records, so it
+			// may be a full version (e.g. a MongoDB server version like "8.0.12-4",
+			// a Percona XtraDB Cluster server version like "8.4.8-8.1") or only a
+			// major version (e.g. a PostgreSQL version like "18").
+			EngineVersion *string `json:"engineVersion,omitempty"`
+
+			// Topology Topology names the source Instance's topology (e.g. "replicaSet" or
+			// "sharded" for PSMDB). Recorded only for backups taken by a
+			// ProviderManaged backup class.
+			Topology *string `json:"topology,omitempty"`
+		} `json:"sourceMetadata,omitempty"`
 
 		// StartedAt StartedAt is the time when the backup started.
 		// For external backups this mirrors spec.origin.external.startedAt.
