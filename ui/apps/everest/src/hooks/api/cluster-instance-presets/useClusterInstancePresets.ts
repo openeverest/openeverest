@@ -14,27 +14,34 @@
 
 import { useQuery } from '@tanstack/react-query';
 import {
-  getInstancePresetsFn,
-  resolveInstancePresetFn,
-} from 'api/instancePresetApi';
+  getClusterInstancePresetsFn,
+  resolveClusterInstancePresetFn,
+} from 'api/clusterInstancePresetApi';
 import { PerconaQueryOptions } from 'shared-types/query.types';
-import { InstancePreset, InstancePresetList } from 'shared-types/api.types';
+import {
+  ClusterInstancePreset,
+  ClusterInstancePresetList,
+} from 'shared-types/api.types';
 
-export const INSTANCE_PRESETS_QUERY_KEY = 'instance-presets';
+export const CLUSTER_INSTANCE_PRESETS_QUERY_KEY = 'cluster-instance-presets';
 export const RESOLVE_INSTANCE_PRESET_QUERY_KEY = 'resolve-instance-preset';
 
-export const useInstancePresets = (
+export const useClusterInstancePresets = (
   clusterName: string,
   provider?: string,
-  options?: PerconaQueryOptions<InstancePresetList, unknown, InstancePreset[]>
+  options?: PerconaQueryOptions<
+    ClusterInstancePresetList,
+    unknown,
+    ClusterInstancePreset[]
+  >
 ) =>
-  useQuery<InstancePresetList, unknown, InstancePreset[]>({
-    queryKey: [INSTANCE_PRESETS_QUERY_KEY, clusterName, provider],
-    queryFn: () => getInstancePresetsFn(clusterName, provider),
+  useQuery<ClusterInstancePresetList, unknown, ClusterInstancePreset[]>({
+    queryKey: [CLUSTER_INSTANCE_PRESETS_QUERY_KEY, clusterName, provider],
+    queryFn: () => getClusterInstancePresetsFn(clusterName, provider),
     enabled: Boolean(clusterName) && Boolean(provider),
     ...options,
     select: (data) =>
-      (data.items ?? []).filter((preset): preset is InstancePreset =>
+      (data.items ?? []).filter((preset): preset is ClusterInstancePreset =>
         Boolean(preset)
       ),
   });
@@ -42,15 +49,20 @@ export const useInstancePresets = (
 // Resolve is a GET modelled as a query keyed on cluster+name+namespace so the
 // spec re-resolves automatically when the namespace changes and react-query
 // dedupes/cancels stale fetches (no manual race handling needed).
-export const useResolveInstancePreset = (
+export const useResolveClusterInstancePreset = (
   clusterName: string,
   name: string,
   namespace: string | undefined,
-  options?: PerconaQueryOptions<InstancePreset, unknown, InstancePreset>
+  options?: PerconaQueryOptions<
+    ClusterInstancePreset,
+    unknown,
+    ClusterInstancePreset
+  >
 ) =>
-  useQuery<InstancePreset, unknown, InstancePreset>({
+  useQuery<ClusterInstancePreset, unknown, ClusterInstancePreset>({
     queryKey: [RESOLVE_INSTANCE_PRESET_QUERY_KEY, clusterName, name, namespace],
-    queryFn: () => resolveInstancePresetFn(clusterName, name, namespace ?? ''),
+    queryFn: () =>
+      resolveClusterInstancePresetFn(clusterName, name, namespace ?? ''),
     enabled: Boolean(clusterName) && Boolean(name) && Boolean(namespace),
     // A resolved spec is stable for a given name+namespace; disable background
     // refetches so `isFetching` doesn't briefly re-block the one-click submit.

@@ -71,7 +71,7 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 
 	var presetName string
 	if instance.GetAnnotations() != nil {
-		presetName = instance.GetAnnotations()["openeverest.io/instance-preset"]
+		presetName = instance.GetAnnotations()["openeverest.io/cluster-instance-preset"]
 	}
 
 	// If no preset is specified, require standard create permission
@@ -82,9 +82,9 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 		return h.next.CreateInstance(ctx, cluster, instance)
 	}
 
-	// User must have read permission on the InstancePreset
+	// User must have read permission on the ClusterInstancePreset
 	presetObject := rbac.ClusterObjectName(cluster, presetName)
-	if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionRead, presetObject); err != nil {
+	if err := h.enforce(ctx, rbac.ResourceClusterInstancePresets, rbac.ActionRead, presetObject); err != nil {
 		return nil, err
 	}
 
@@ -153,7 +153,7 @@ func (h *rbacHandler) GetInstanceConnection(ctx context.Context, cluster, namesp
 // Returns an error if the instance has been customized beyond the preset values.
 func (h *rbacHandler) ensureInstanceMatchesPreset(ctx context.Context, cluster string, instance *corev1alpha1.Instance, presetName string) error {
 	// Fetch the preset with namespace defaults resolved
-	preset, err := h.next.ResolveInstancePreset(ctx, cluster, presetName, instance.GetNamespace())
+	preset, err := h.next.ResolveClusterInstancePreset(ctx, cluster, presetName, instance.GetNamespace())
 	if err != nil {
 		return fmt.Errorf("failed to resolve preset %s for namespace %s: %w", presetName, instance.GetNamespace(), err)
 	}

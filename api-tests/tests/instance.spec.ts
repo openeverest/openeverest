@@ -32,7 +32,7 @@ test.describe('Instance PATCH', () => {
 
   test.beforeAll(async ({request}) => {
     const resolveResponse = await request.get(
-      `/v1/clusters/${CLUSTER_NAME}/instance-presets/${PRESET_NAME}/resolve?namespace=${EVEREST_CI_NAMESPACE}`
+      `/v1/clusters/${CLUSTER_NAME}/cluster-instance-presets/${PRESET_NAME}/resolve?namespace=${EVEREST_CI_NAMESPACE}`
     );
     await checkError(resolveResponse);
     const preset = await resolveResponse.json();

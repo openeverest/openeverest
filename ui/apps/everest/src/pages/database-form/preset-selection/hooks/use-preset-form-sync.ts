@@ -20,7 +20,7 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import { extractInstanceValues } from 'components/ui-generator/utils/default-values/extract-instance-values';
-import { InstancePreset } from 'shared-types/api.types';
+import { ClusterInstancePreset } from 'shared-types/api.types';
 import { DbWizardType } from '../../database-form-schema';
 
 interface UsePresetFormSyncArgs {
@@ -28,7 +28,7 @@ interface UsePresetFormSyncArgs {
   uiSchema: TopologyUISchemas;
   defaultValues: Record<string, unknown>;
   defaultTopology: string;
-  resolvedPreset: InstancePreset | null;
+  resolvedPreset: ClusterInstancePreset | null;
   presetName: string;
   namespace: string | undefined;
   reset: UseFormReset<DbWizardType>;

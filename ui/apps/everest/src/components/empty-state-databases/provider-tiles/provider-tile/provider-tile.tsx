@@ -25,7 +25,7 @@ import {
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { Link } from 'react-router-dom';
 import type { ProviderTileProps } from './provider-tile.types';
-import { usePrefetchInstancePresets } from 'hooks/api/instance-presets';
+import { usePrefetchClusterInstancePresets } from 'hooks/api/cluster-instance-presets';
 import {
   bodyAnchorSx,
   cardActionAreaSx,
@@ -49,7 +49,7 @@ export const ProviderTile = ({
   showImport,
 }: ProviderTileProps) => {
   const [active, setActive] = useState(false);
-  const prefetchPresets = usePrefetchInstancePresets();
+  const prefetchPresets = usePrefetchClusterInstancePresets();
 
   // Render meta-derived fields only when the hub provides them — never fabricate.
   // The provider version is intentionally not shown here: it's not meaningful

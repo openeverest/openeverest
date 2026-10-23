@@ -13,4 +13,5 @@
 // limitations under the License.
 
 // Records which preset an Instance was created from (provenance).
-export const INSTANCE_PRESET_ANNOTATION = 'openeverest.io/instance-preset';
+export const INSTANCE_PRESET_ANNOTATION =
+  'openeverest.io/cluster-instance-preset';
