@@ -66,4 +66,27 @@ describe('ConnectionSection', () => {
       screen.getByText('Waiting for instance to be ready...')
     ).toBeInTheDocument();
   });
+
+  it('hides cached connection details without permission', () => {
+    renderWithContext(false, {
+      host: 'host-a, host-b',
+      port: '3306',
+      username: 'admin',
+      password: 'secret',
+      uri: 'postgresql://example-url',
+      type: 'postgresql',
+    });
+
+    expect(
+      screen.getByText('You do not have permission to view connection details.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText('host-a')).not.toBeInTheDocument();
+    expect(screen.queryByText('3306')).not.toBeInTheDocument();
+    expect(screen.queryByText('admin')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('hidden-row')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Connection URL')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Waiting for instance to be ready...')
+    ).not.toBeInTheDocument();
+  });
 });
