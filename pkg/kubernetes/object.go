@@ -19,6 +19,9 @@ package kubernetes
 import (
 	"bytes"
 	"context"
+	"errors"
+	"fmt"
+	"io"
 	"slices"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -94,7 +97,11 @@ func (k *Kubernetes) getObjects(f []byte) ([]*unstructured.Unstructured, error) 
 		objs = append(objs, &unstructured.Unstructured{Object: unstructuredMap})
 	}
 
-	return objs, nil //nolint:nilerr // the decode loop intentionally stops at the first error (typically io.EOF) and returns the objects decoded so far
+	if !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("decoding manifest: %w", err)
+	}
+
+	return objs, nil
 }
 
 // ApplyObject applies object.
