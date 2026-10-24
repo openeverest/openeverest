@@ -130,4 +130,99 @@ test.describe('Instance PATCH', () => {
       expect(response.status(), `patch ${JSON.stringify(patch)}`).toBe(400);
     }
   });
+
+  test('deletionPolicy is mutable on a live instance', async ({request}) => {
+    const patchCascade = await request.patch(instanceURL, {
+      headers: {'Content-Type': MERGE_PATCH},
+      data: {spec: {deletionPolicy: 'Cascade'}},
+    });
+    await checkError(patchCascade);
+    expect((await patchCascade.json()).spec.deletionPolicy).toBe('Cascade');
+
+    const patchOrphan = await request.patch(instanceURL, {
+      headers: {'Content-Type': MERGE_PATCH},
+      data: {spec: {deletionPolicy: 'Orphan'}},
+    });
+    await checkError(patchOrphan);
+    expect((await patchOrphan.json()).spec.deletionPolicy).toBe('Orphan');
+
+    // Restore to Cascade
+    const restore = await request.patch(instanceURL, {
+      headers: {'Content-Type': MERGE_PATCH},
+      data: {spec: {deletionPolicy: 'Cascade'}},
+    });
+    await checkError(restore);
+    expect((await restore.json()).spec.deletionPolicy).toBe('Cascade');
+  });
+});
+
+test.describe('Instance deletionPolicy immutability on terminating instance', () => {
+  const TERM_INSTANCE_NAME = 'test-instance-term-policy';
+  const termInstanceURL = `/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/instances/${TERM_INSTANCE_NAME}`;
+  const FINALIZER = 'openeverest.io/test-protection';
+
+  test.describe.configure({mode: 'serial', timeout: TIMEOUTS.OneMinute});
+
+  test.beforeAll(async ({request, cli}) => {
+    const resolveResponse = await request.get(
+      `/v1/clusters/${CLUSTER_NAME}/instance-presets/${PRESET_NAME}/resolve?namespace=${EVEREST_CI_NAMESPACE}`
+    );
+    await checkError(resolveResponse);
+    const preset = await resolveResponse.json();
+
+    const response = await request.post(
+      `/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/instances`,
+      {
+        data: {
+          metadata: {name: TERM_INSTANCE_NAME},
+          spec: {...preset.spec, deletionPolicy: 'Cascade'},
+        },
+      }
+    );
+    await checkError(response);
+
+    // Add a persistent finalizer via kubectl so deletionTimestamp is set without immediate deletion
+    const addFinalizer = await cli.exec(
+      `kubectl patch instance.core.openeverest.io ${TERM_INSTANCE_NAME} -n ${EVEREST_CI_NAMESPACE} --type=merge -p '{"metadata":{"finalizers":["${FINALIZER}"]}}'`
+    );
+    await addFinalizer.assertSuccess();
+
+    // Trigger deletion (starts terminating phase, sets deletionTimestamp)
+    const deleteResp = await request.delete(`${termInstanceURL}?deletionPolicy=Cascade`);
+    expect([200, 204]).toContain(deleteResp.status());
+  });
+
+  test.afterAll(async ({cli}) => {
+    // Clean up finalizer so the resource can be fully deleted
+    await cli.exec(
+      `kubectl patch instance.core.openeverest.io ${TERM_INSTANCE_NAME} -n ${EVEREST_CI_NAMESPACE} --type=merge -p '{"metadata":{"finalizers":[]}}'`
+    );
+  });
+
+  test('direct k8s patch of deletionPolicy after deletion begins is rejected by VAP with 422', async ({cli}) => {
+    const patchResult = await cli.execute(
+      `kubectl patch instance.core.openeverest.io ${TERM_INSTANCE_NAME} -n ${EVEREST_CI_NAMESPACE} --type=merge -p '{"spec":{"deletionPolicy":"Orphan"}}'`
+    );
+    expect(patchResult.code).not.toBe(0);
+    expect(patchResult.stderr).toContain('spec.deletionPolicy is immutable once deletion has started');
+  });
+
+  test('non-deletionPolicy patch on terminating instance is allowed', async ({cli}) => {
+    const patchResult = await cli.exec(
+      `kubectl patch instance.core.openeverest.io ${TERM_INSTANCE_NAME} -n ${EVEREST_CI_NAMESPACE} --type=merge -p '{"metadata":{"annotations":{"test-key":"allowed"}}}'`
+    );
+    await patchResult.assertSuccess();
+  });
+
+  test('repeated DELETE with conflicting deletionPolicy returns HTTP 409 Conflict', async ({request}) => {
+    const response = await request.delete(`${termInstanceURL}?deletionPolicy=Orphan`);
+    expect(response.status()).toBe(409);
+    const body = await response.json();
+    expect(body.message).toContain('already terminating with policy "Cascade"');
+  });
+
+  test('repeated DELETE with same deletionPolicy succeeds', async ({request}) => {
+    const response = await request.delete(`${termInstanceURL}?deletionPolicy=Cascade`);
+    expect([200, 204]).toContain(response.status());
+  });
 });

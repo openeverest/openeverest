@@ -1,0 +1,25 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: instance-deletion-policy-immutability
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   ["core.openeverest.io"]
+      apiVersions: ["v1alpha1"]
+      operations:  ["UPDATE"]
+      resources:   ["instances"]
+  validations:
+    - expression: "!has(oldObject.metadata.deletionTimestamp) || object.spec.deletionPolicy == oldObject.spec.deletionPolicy"
+      message: "spec.deletionPolicy is immutable once deletion has started"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: instance-deletion-policy-immutability-binding
+spec:
+  policyName: instance-deletion-policy-immutability
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector: {}
