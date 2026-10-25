@@ -4,8 +4,6 @@ resources:
 - core_v1alpha1_instance.yaml
 - backup_v1alpha1_backupclass.yaml
 - backup_v1alpha1_backup.yaml
-- monitoring_v1alpha1_monitoringconfig.yaml
-- monitoring_v1alpha1_monitoringconfig.yaml
 - backup_v1alpha1_restore.yaml
 - backup_v1alpha1_backupstorage.yaml
 - core_v1alpha1_plugin.yaml
