@@ -73,7 +73,7 @@ func newFakeClient(t *testing.T, objs ...client.Object) client.Client { //nolint
 func crdTypeConverter(t *testing.T) managedfields.TypeConverter { //nolint:ireturn // the fake client takes the interface
 	t.Helper()
 	crds := os.DirFS(filepath.Join("..", "..", "config", "crd", "bases"))
-	models := map[string]*spec.Schema{}
+	models := make(map[string]*spec.Schema)
 	for _, plural := range []string{"monitoringclasses", "monitoringdestinations", "monitoringbindings"} {
 		raw, err := fs.ReadFile(crds, "monitoring.openeverest.io_"+plural+".yaml")
 		require.NoError(t, err)

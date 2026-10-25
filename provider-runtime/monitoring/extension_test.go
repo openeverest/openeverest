@@ -63,9 +63,10 @@ func TestClaimKeepsCoreCompatibilityMatrix(t *testing.T) {
 	require.NotNil(t, accepted)
 	assert.Equal(t, metav1.ConditionTrue, accepted.Status)
 	assert.Equal(t, monitoringv1alpha1.ReasonAccepted, accepted.Reason)
-	assert.Equal(t, []monitoringv1alpha1.ProviderCompatibility{
+	wantProviders := []monitoringv1alpha1.ProviderCompatibility{
 		{Name: "percona-server-mongodb", Mode: corev1alpha1.MonitoringExecutionModeExtensionManaged},
-	}, ours.Status.Providers)
+	}
+	assert.Equal(t, wantProviders, ours.Status.Providers)
 
 	other := &monitoringv1alpha1.MonitoringClass{}
 	require.NoError(t, c.Get(ctx, client.ObjectKey{Name: "pmm"}, other))
@@ -164,13 +165,14 @@ func TestOwnedBy(t *testing.T) {
 	b := newBinding()
 	b.UID = "5f0c6a52-0d6e-4c1b-9a8e-2b8f3d1e7c44"
 
-	assert.Equal(t, metav1.OwnerReference{
+	want := metav1.OwnerReference{
 		APIVersion: "monitoring.openeverest.io/v1alpha1",
 		Kind:       "MonitoringBinding",
 		Name:       "orders-pmm-1a2b3c4d",
 		UID:        "5f0c6a52-0d6e-4c1b-9a8e-2b8f3d1e7c44",
 		Controller: new(true),
-	}, monitoring.OwnedBy(b))
+	}
+	assert.Equal(t, want, monitoring.OwnedBy(b))
 }
 
 func TestBindingPredicate(t *testing.T) {
