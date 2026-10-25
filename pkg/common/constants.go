@@ -38,7 +38,7 @@ const (
 
 	// DefaultDBNamespaceName is the name of the default DB namespace during installation.
 	DefaultDBNamespaceName = "everest"
-	// MonitoringNamespace is the namespace where monitoring configs are created.
+	// MonitoringNamespace is the namespace the Helm chart creates for monitoring components.
 	MonitoringNamespace = "everest-monitoring"
 	// PerconaEverestDeploymentName stores the name of everest API Server deployment.
 	PerconaEverestDeploymentName = "everest-server"

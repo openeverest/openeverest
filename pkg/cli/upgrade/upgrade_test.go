@@ -435,15 +435,23 @@ func TestUpgrade_checkLegacyMonitoring(t *testing.T) {
 		obj.SetName(name)
 		return obj
 	}
-	instance := func(namespace, name string, components ...string) *corev1alpha1.Instance {
+	instance := func(namespace, name, monitoringType string) *corev1alpha1.Instance {
 		in := &corev1alpha1.Instance{
 			ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
-			Spec:       corev1alpha1.InstanceSpec{Components: make(map[string]corev1alpha1.ComponentSpec)},
+			Spec: corev1alpha1.InstanceSpec{Components: map[string]corev1alpha1.ComponentSpec{
+				"engine": {Type: "mongod"},
+			}},
 		}
-		for _, c := range components {
-			in.Spec.Components[c] = corev1alpha1.ComponentSpec{Type: c}
+		if monitoringType != "" {
+			in.Spec.Components["monitoring"] = corev1alpha1.ComponentSpec{Type: monitoringType}
 		}
 		return in
+	}
+	rbacPolicy := func(policy string) *corev1.ConfigMap {
+		return &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "everest", Name: common.EverestRBACConfigMapName},
+			Data:       map[string]string{"policy.csv": policy},
+		}
 	}
 
 	tests := []struct {
@@ -452,48 +460,89 @@ func TestUpgrade_checkLegacyMonitoring(t *testing.T) {
 		monitoringConfigServed bool
 		objects                []ctrlclient.Object
 		wantInUse              []string
+		wantCommands           []string
 	}{
 		{
-			name:    "MonitoringConfig no longer served and no monitoring component",
-			objects: []ctrlclient.Object{instance("db", "mongo", "engine")},
+			name: "MonitoringConfig no longer served and no monitoring component",
+			objects: []ctrlclient.Object{
+				instance("db", "mongo", ""),
+				rbacPolicy("g, admin, role:admin\np, role:ops, monitoring-destinations, *, */*/*\n"),
+			},
 		},
 		{
 			name:                   "MonitoringConfig served but none left",
 			monitoringConfigServed: true,
-			objects:                []ctrlclient.Object{instance("db", "mongo", "engine")},
+			objects:                []ctrlclient.Object{instance("db", "mongo", "")},
+		},
+		{
+			name: "monitoring component of another type",
+			objects: []ctrlclient.Object{
+				instance("db", "mariadb", "mysqld-exporter"),
+				instance("db", "cassandra", "prometheus"),
+			},
 		},
 		{
 			name:                   "MonitoringConfig left over",
 			monitoringConfigServed: true,
 			objects: []ctrlclient.Object{
 				monitoringConfig("everest-monitoring", "pmm"),
-				instance("db", "mongo", "engine"),
+				instance("db", "mongo", ""),
 			},
-			wantInUse: []string{"MonitoringConfig everest-monitoring/pmm"},
+			wantInUse:    []string{"MonitoringConfig everest-monitoring/pmm"},
+			wantCommands: []string{"kubectl delete monitoringconfig -n everest-monitoring pmm"},
 		},
 		{
-			name: "Instance with a monitoring component",
+			name: "Instance with a pmm monitoring component",
 			objects: []ctrlclient.Object{
-				instance("db", "mongo", "engine", "monitoring"),
-				instance("db", "pg", "engine"),
+				instance("db", "mongo", "pmm"),
+				instance("db", "pg", ""),
 			},
-			wantInUse: []string{`Instance db/mongo (component "monitoring")`},
+			wantInUse: []string{`Instance db/mongo (component "monitoring" of type "pmm")`},
+			wantCommands: []string{
+				`kubectl patch instance -n db mongo --type=json -p '[{"op":"remove","path":"/spec/components/monitoring"}]'`,
+			},
 		},
 		{
-			name:                   "MonitoringConfigs and Instances with a monitoring component",
+			name: "RBAC policy granting monitoring-configs",
+			objects: []ctrlclient.Object{
+				rbacPolicy("g, admin, role:admin\n" +
+					"p, role:ops, monitoring-configs, *, */*/*\n" +
+					"p, role:ops, monitoring-destinations, read, */*/*\n" +
+					"# p, role:old, monitoring-configs, read, */*/*\n" +
+					"  p,role:dev,monitoring-configs,read,dev/*/*\n"),
+			},
+			wantInUse: []string{
+				`ConfigMap everest/everest-rbac policy line "p, role:ops, monitoring-configs, *, */*/*" (use "monitoring-destinations" instead)`,
+				`ConfigMap everest/everest-rbac policy line "p,role:dev,monitoring-configs,read,dev/*/*" (use "monitoring-destinations" instead)`,
+			},
+			wantCommands: []string{
+				`kubectl edit configmap -n everest everest-rbac  # in policy.csv, replace "monitoring-configs" with "monitoring-destinations"`,
+			},
+		},
+		{
+			name:                   "MonitoringConfigs, Instances with a pmm monitoring component and RBAC policy",
 			monitoringConfigServed: true,
 			objects: []ctrlclient.Object{
 				monitoringConfig("everest-monitoring", "pmm"),
 				monitoringConfig("db", "pmm-db"),
-				instance("db", "mongo", "engine", "monitoring"),
-				instance("other", "mysql", "engine", "monitoring"),
-				instance("db", "pg", "engine"),
+				instance("db", "mongo", "pmm"),
+				instance("other", "mysql", "pmm"),
+				instance("db", "pg", ""),
+				rbacPolicy("p, role:ops, monitoring-configs, read, */*/*\n"),
 			},
 			wantInUse: []string{
 				"MonitoringConfig everest-monitoring/pmm",
 				"MonitoringConfig db/pmm-db",
-				`Instance db/mongo (component "monitoring")`,
-				`Instance other/mysql (component "monitoring")`,
+				`Instance db/mongo (component "monitoring" of type "pmm")`,
+				`Instance other/mysql (component "monitoring" of type "pmm")`,
+				`ConfigMap everest/everest-rbac policy line "p, role:ops, monitoring-configs, read, */*/*" (use "monitoring-destinations" instead)`,
+			},
+			wantCommands: []string{
+				`kubectl patch instance -n db mongo --type=json -p '[{"op":"remove","path":"/spec/components/monitoring"}]'`,
+				`kubectl patch instance -n other mysql --type=json -p '[{"op":"remove","path":"/spec/components/monitoring"}]'`,
+				"kubectl delete monitoringconfig -n everest-monitoring pmm",
+				"kubectl delete monitoringconfig -n db pmm-db",
+				`kubectl edit configmap -n everest everest-rbac  # in policy.csv, replace "monitoring-configs" with "monitoring-destinations"`,
 			},
 		},
 	}
@@ -526,14 +575,18 @@ func TestUpgrade_checkLegacyMonitoring(t *testing.T) {
 				return
 			}
 			require.ErrorIs(t, err, ErrLegacyMonitoringInUse)
-			var listed []string
+			var listed, commands []string
 			for line := range strings.SplitSeq(err.Error(), "\n") {
 				if item, ok := strings.CutPrefix(line, "  - "); ok {
 					listed = append(listed, item)
 				}
+				if command, ok := strings.CutPrefix(line, "       "); ok {
+					commands = append(commands, command)
+				}
 			}
 			assert.ElementsMatch(t, tt.wantInUse, listed)
-			assert.Contains(t, err.Error(), "create a MonitoringDestination")
+			assert.ElementsMatch(t, tt.wantCommands, commands)
+			assert.Contains(t, err.Error(), "install a monitoring extension")
 			assert.Contains(t, err.Error(), "spec.monitoring.destinations[]")
 		})
 	}
