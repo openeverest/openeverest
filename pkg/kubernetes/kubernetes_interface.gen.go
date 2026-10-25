@@ -252,6 +252,16 @@ type KubernetesConnector interface {
 	ListMonitoringClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringClassList, error)
 	// GetMonitoringClass returns monitoring class that matches the criteria.
 	GetMonitoringClass(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringClass, error)
+	// ListMonitoringDestinations returns list of monitoring destinations that match the criteria.
+	ListMonitoringDestinations(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringDestinationList, error)
+	// GetMonitoringDestination returns a monitoring destination by name and namespace.
+	GetMonitoringDestination(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringDestination, error)
+	// CreateMonitoringDestination creates a monitoring destination.
+	CreateMonitoringDestination(ctx context.Context, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error)
+	// UpdateMonitoringDestination updates a monitoring destination.
+	UpdateMonitoringDestination(ctx context.Context, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error)
+	// DeleteMonitoringDestination deletes a monitoring destination.
+	DeleteMonitoringDestination(ctx context.Context, obj *monitoringv1alpha1.MonitoringDestination) error
 	// CreateNamespace creates the given namespace.
 	CreateNamespace(ctx context.Context, namespace *corev1.Namespace) (*corev1.Namespace, error)
 	// GetNamespace returns a namespace that matches the criteria.

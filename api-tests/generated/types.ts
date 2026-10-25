@@ -933,6 +933,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clusters/{cluster}/namespaces/{namespace}/monitoring-destinations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List monitoring destinations
+         * @description This API lists all monitoring destinations in the specified namespace and cluster.
+         */
+        get: operations["listMonitoringDestinations"];
+        put?: never;
+        /**
+         * Create monitoring destination
+         * @description This API creates a new monitoring destination in the specified namespace and cluster.
+         *     Only `metadata.name`, `metadata.generateName`, `metadata.labels`, `metadata.annotations` and `spec` are taken from the request; the namespace is the one in the path.
+         *     Credentials are never part of the payload: create the Secret through the secrets API and reference it in `spec.credentialsSecretRef`.
+         */
+        post: operations["createMonitoringDestination"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/namespaces/{namespace}/monitoring-destinations/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get monitoring destination
+         * @description This API gets the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
+         */
+        get: operations["getMonitoringDestination"];
+        /**
+         * Update monitoring destination
+         * @description This API replaces the labels, annotations and `spec` of the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
+         *     Include `metadata.resourceVersion` from the object being replaced; the update fails with 409 if the monitoring destination has changed since.
+         *     `spec.classRef` is immutable. Credentials are never part of the payload: update the Secret named by `spec.credentialsSecretRef` instead.
+         */
+        put: operations["updateMonitoringDestination"];
+        post?: never;
+        /**
+         * Delete monitoring destination
+         * @description This API deletes the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
+         *     Instances that still list it in `spec.monitoring.destinations` keep their current monitoring and report the destination as not found.
+         */
+        delete: operations["deleteMonitoringDestination"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clusters/{cluster}/namespaces/{namespace}/config-maps": {
         parameters: {
             query?: never;
@@ -7440,6 +7497,125 @@ export interface components {
                 name?: string;
             };
         };
+        /**
+         * @description MonitoringDestination is one place a namespace sends monitoring data to,
+         *     typed by a MonitoringClass. Instances send to it through
+         *     spec.monitoring.destinations[].
+         */
+        MonitoringDestination: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: components["schemas"]["ObjectMeta"];
+            /** @description MonitoringDestinationSpec defines the desired state of MonitoringDestination. */
+            spec: {
+                /**
+                 * @description ClassRef references the cluster-scoped MonitoringClass this destination
+                 *     belongs to. Immutable.
+                 */
+                classRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
+                /**
+                 * @description CredentialsSecretRef references the Secret in the same namespace that
+                 *     holds the destination credentials; its keys are described by the
+                 *     class's credentialsSchema.
+                 */
+                credentialsSecretRef?: {
+                    /** @description Name of the referenced Secret. */
+                    name: string;
+                };
+                /**
+                 * @description Parameters are validated against
+                 *     MonitoringClass.spec.destinationParametersSchema.
+                 */
+                parameters?: Record<string, never>;
+            };
+            /**
+             * @description MonitoringDestinationStatus defines the observed state of
+             *     MonitoringDestination.
+             * @default {
+             *       "conditions": [
+             *         {
+             *           "lastTransitionTime": "1970-01-01T00:00:00Z",
+             *           "message": "Waiting for controller",
+             *           "reason": "Pending",
+             *           "status": "Unknown",
+             *           "type": "Ready"
+             *         }
+             *       ]
+             *     }
+             */
+            status: {
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+                /**
+                 * @description ServerVersion is the backend server version probed by the class
+                 *     controller.
+                 */
+                serverVersion?: string;
+            };
+        };
+        /** @description MonitoringDestinationList is an object that contains the list of the existing monitoringdestinations. */
+        MonitoringDestinationList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["MonitoringDestination"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+                namespace?: string;
+            };
+        };
     };
     responses: never;
     parameters: never;
@@ -10461,6 +10637,298 @@ export interface operations {
                 };
             };
             /** @description Monitoring class not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listMonitoringDestinations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the monitoring destinations */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitoringDestinationList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createMonitoringDestination: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace where the monitoring destination will be created */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        /** @description The monitoring destination object to be created */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MonitoringDestination"];
+            };
+        };
+        responses: {
+            /** @description Successful operation */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitoringDestination"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getMonitoringDestination: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the monitoring destination */
+                namespace: string;
+                /** @description The name of the monitoring destination */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitoringDestination"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Monitoring destination not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateMonitoringDestination: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the monitoring destination */
+                namespace: string;
+                /** @description The name of the monitoring destination */
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** @description The monitoring destination object to be updated */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MonitoringDestination"];
+            };
+        };
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitoringDestination"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Monitoring destination not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteMonitoringDestination: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the monitoring destination */
+                namespace: string;
+                /** @description The name of the monitoring destination */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Monitoring destination deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Monitoring destination not found */
             404: {
                 headers: {
                     [name: string]: unknown;

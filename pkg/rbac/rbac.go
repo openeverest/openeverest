@@ -81,7 +81,8 @@ const (
 
 	// v2 monitoring resource names.
 
-	ResourceMonitoringClasses = "monitoring-classes"
+	ResourceMonitoringClasses      = "monitoring-classes"
+	ResourceMonitoringDestinations = "monitoring-destinations"
 )
 
 // GlobalResources is a list of all Everest API resources that are considered global.
@@ -116,6 +117,7 @@ var ClusterNamespacedResources = []string{
 	ResourceMonitoringConfigs,
 	ResourceConfigMaps,
 	ResourceSecrets,
+	ResourceMonitoringDestinations,
 }
 
 // IsGlobalResource returns true if the given resource is a global (non-namespaced) Everest API resource.

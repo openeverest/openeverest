@@ -2877,6 +2877,280 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/monitoring-destinations':
+    x-everest-resource-name: monitoring-destinations
+    post:
+      tags:
+        - Monitoring
+      summary: Create monitoring destination
+      description: |
+        This API creates a new monitoring destination in the specified namespace and cluster.
+        Only `metadata.name`, `metadata.generateName`, `metadata.labels`, `metadata.annotations` and `spec` are taken from the request; the namespace is the one in the path.
+        Credentials are never part of the payload: create the Secret through the secrets API and reference it in `spec.credentialsSecretRef`.
+      operationId: createMonitoringDestination
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the monitoring destination will be created
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringDestination'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        description: The monitoring destination object to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.gen.yaml#/components/schemas/MonitoringDestination'
+    get:
+      tags:
+        - Monitoring
+      summary: List monitoring destinations
+      description: |
+        This API lists all monitoring destinations in the specified namespace and cluster.
+      operationId: listMonitoringDestinations
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the monitoring destinations
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringDestinationList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/monitoring-destinations/{name}':
+    x-everest-resource-name: monitoring-destinations
+    get:
+      tags:
+        - Monitoring
+      summary: Get monitoring destination
+      description: |
+        This API gets the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: getMonitoringDestination
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the monitoring destination
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the monitoring destination
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringDestination'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Monitoring destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Monitoring
+      summary: Update monitoring destination
+      description: |
+        This API replaces the labels, annotations and `spec` of the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
+        Include `metadata.resourceVersion` from the object being replaced; the update fails with 409 if the monitoring destination has changed since.
+        `spec.classRef` is immutable. Credentials are never part of the payload: update the Secret named by `spec.credentialsSecretRef` instead.
+      operationId: updateMonitoringDestination
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the monitoring destination
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the monitoring destination
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringDestination'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Monitoring destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        description: The monitoring destination object to be updated
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.gen.yaml#/components/schemas/MonitoringDestination'
+    delete:
+      tags:
+        - Monitoring
+      summary: Delete monitoring destination
+      description: |
+        This API deletes the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
+        Instances that still list it in `spec.monitoring.destinations` keep their current monitoring and report the destination as not found.
+      operationId: deleteMonitoringDestination
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the monitoring destination
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the monitoring destination
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Monitoring destination deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Monitoring destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/namespaces/{namespace}/config-maps':
     x-everest-resource-name: config-maps
     post:
