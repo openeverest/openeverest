@@ -198,7 +198,10 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 	t.Parallel()
 
 	destination := func(namespace, name string) *monitoringv1alpha1.MonitoringDestination {
-		return &monitoringv1alpha1.MonitoringDestination{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
+		return &monitoringv1alpha1.MonitoringDestination{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+			Spec:       monitoringv1alpha1.MonitoringDestinationSpec{ClassRef: common.ObjectRef{Name: "pmm"}},
+		}
 	}
 	mockDestinations := func() *handlers.MockHandler {
 		h := &handlers.MockHandler{}
@@ -219,11 +222,12 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 		h.On("DeleteMonitoringDestination", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		return h
 	}
-	newHandler := func(t *testing.T, policy string) *rbacHandler {
+	newHandler := func(t *testing.T, policy string) (*rbacHandler, *handlers.MockHandler) {
 		t.Helper()
 		enf, err := rbac.NewEnforcer(testUserContext(rbac.User{Subject: "bob"}), newConfigMapMock(policy), zap.NewNop().Sugar())
 		require.NoError(t, err)
-		return &rbacHandler{next: mockDestinations(), log: zap.NewNop().Sugar(), enforcer: enf, userGetter: testUserGetter}
+		next := mockDestinations()
+		return &rbacHandler{next: next, log: zap.NewNop().Sugar(), enforcer: enf, userGetter: testUserGetter}, next
 	}
 	ctx := testUserContext(rbac.User{Subject: "bob"})
 
@@ -252,7 +256,8 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
 
-				list, err := newHandler(t, tc.policy).ListMonitoringDestinations(ctx, "prod", "ns1")
+				h, _ := newHandler(t, tc.policy)
+				list, err := h.ListMonitoringDestinations(ctx, "prod", "ns1")
 				require.NoError(t, err)
 
 				names := make([]string, 0, len(list.Items))
@@ -267,7 +272,11 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 	t.Run("CreateMonitoringDestination is authorised on the path namespace", func(t *testing.T) {
 		t.Parallel()
 
-		h := newHandler(t, newPolicy("p, role:test, monitoring-destinations, create, prod/ns1/*", "g, bob, role:test"))
+		h, _ := newHandler(t, newPolicy(
+			"p, role:test, monitoring-destinations, create, prod/ns1/*",
+			"p, role:test, monitoring-classes, read, prod/pmm",
+			"g, bob, role:test",
+		))
 
 		created, err := h.CreateMonitoringDestination(ctx, "prod", "ns1", destination("ns2", "pmm-prod"))
 		require.NoError(t, err)
@@ -280,7 +289,7 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 	t.Run("writes need their own verb", func(t *testing.T) {
 		t.Parallel()
 
-		h := newHandler(t, newPolicy("p, role:test, monitoring-destinations, read, prod/ns1/*", "g, bob, role:test"))
+		h, _ := newHandler(t, newPolicy("p, role:test, monitoring-destinations, read, prod/ns1/*", "g, bob, role:test"))
 
 		_, err := h.CreateMonitoringDestination(ctx, "prod", "ns1", destination("ns1", "pmm-prod"))
 		require.ErrorIs(t, err, ErrInsufficientPermissions)
@@ -293,9 +302,10 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 	t.Run("update and delete are authorised on the path name", func(t *testing.T) {
 		t.Parallel()
 
-		h := newHandler(t, newPolicy(
+		h, _ := newHandler(t, newPolicy(
 			"p, role:test, monitoring-destinations, update, prod/ns1/pmm-prod",
 			"p, role:test, monitoring-destinations, delete, prod/ns1/pmm-prod",
+			"p, role:test, monitoring-classes, read, prod/pmm",
 			"g, bob, role:test",
 		))
 
@@ -312,8 +322,9 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 	t.Run("referencing a credentials Secret needs read on it", func(t *testing.T) {
 		t.Parallel()
 
-		h := newHandler(t, newPolicy(
+		h, _ := newHandler(t, newPolicy(
 			"p, role:test, monitoring-destinations, *, prod/*/*",
+			"p, role:test, monitoring-classes, read, prod/pmm",
 			"p, role:test, secrets, read, prod/ns1/pmm-prod-credentials",
 			"g, bob, role:test",
 		))
@@ -338,11 +349,54 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 		require.ErrorIs(t, err, ErrInsufficientPermissions, "the Secret is looked up in the path namespace")
 	})
 
+	t.Run("referencing a class needs read on it", func(t *testing.T) {
+		t.Parallel()
+
+		testCases := []struct {
+			desc    string
+			grant   string
+			class   string
+			wantErr error
+		}{
+			{desc: "the class", grant: "prod/pmm", class: "pmm"},
+			{desc: "every class", grant: "prod/*", class: "pmm"},
+			{desc: "another class", grant: "prod/pmm", class: "prometheus", wantErr: ErrInsufficientPermissions},
+			{desc: "the class on another cluster", grant: "staging/pmm", class: "pmm", wantErr: ErrInsufficientPermissions},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+
+				h, next := newHandler(t, newPolicy(
+					"p, role:test, monitoring-destinations, *, prod/ns1/*",
+					"p, role:test, monitoring-classes, read, "+tc.grant,
+					"g, bob, role:test",
+				))
+				body := destination("ns1", "pmm-prod")
+				body.Spec.ClassRef.Name = tc.class
+
+				_, createErr := h.CreateMonitoringDestination(ctx, "prod", "ns1", body)
+				_, updateErr := h.UpdateMonitoringDestination(ctx, "prod", "ns1", "pmm-prod", body)
+				if tc.wantErr != nil {
+					require.ErrorIs(t, createErr, tc.wantErr)
+					require.ErrorIs(t, updateErr, tc.wantErr)
+					assert.Empty(t, next.Calls)
+					return
+				}
+				require.NoError(t, createErr)
+				require.NoError(t, updateErr)
+				next.AssertCalled(t, "CreateMonitoringDestination", mock.Anything, "prod", "ns1", body)
+				next.AssertCalled(t, "UpdateMonitoringDestination", mock.Anything, "prod", "ns1", "pmm-prod", body)
+			})
+		}
+	})
+
 	t.Run("plugin tokens only read, even with the admin role", func(t *testing.T) {
 		t.Parallel()
 
 		plugin := plugintoken.SubjectPrefix + "pmm"
-		h := newHandler(t, newPolicy("g, "+plugin+", role:admin"))
+		h, _ := newHandler(t, newPolicy("g, "+plugin+", role:admin"))
 		pluginCtx := testUserContext(rbac.User{Subject: plugin})
 
 		list, err := h.ListMonitoringDestinations(pluginCtx, "prod", "ns1")

@@ -810,6 +810,7 @@ func TestRBAC_Instance(t *testing.T) {
 			desc    string
 			verb    string
 			patch   string
+			stored  []string
 			policy  string
 			wantErr error
 		}{
@@ -880,6 +881,69 @@ func TestRBAC_Instance(t *testing.T) {
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
+				desc:   "update keeping an unreadable destination",
+				verb:   "update",
+				stored: []string{"pmm-prod"},
+				policy: newPolicy(
+					"p, role:test, instances, update, prod/ns1/db1",
+					"p, role:test, monitoring-destinations, read, prod/ns1/prometheus",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:   "update adding an unreadable destination",
+				verb:   "update",
+				stored: []string{"prometheus"},
+				policy: newPolicy(
+					"p, role:test, instances, update, prod/ns1/db1",
+					"p, role:test, monitoring-destinations, read, prod/ns1/prometheus",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:   "patch keeping an unreadable destination",
+				verb:   "patch",
+				patch:  setDestinations,
+				stored: []string{"pmm-prod"},
+				policy: newPolicy(
+					"p, role:test, instances, update, prod/ns1/db1",
+					"p, role:test, monitoring-destinations, read, prod/ns1/prometheus",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:   "patch adding an unreadable destination",
+				verb:   "patch",
+				patch:  setDestinations,
+				stored: []string{"prometheus"},
+				policy: newPolicy(
+					"p, role:test, instances, update, prod/ns1/db1",
+					"p, role:test, monitoring-destinations, read, prod/ns1/prometheus",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				// The validation handler that runs next rejects it as a bad request.
+				desc:  "patch that does not decode is left to validation",
+				verb:  "patch",
+				patch: `{"spec":{"monitoring":{"destinations":{"name":"pmm"}}}}`,
+				policy: newPolicy(
+					"p, role:test, instances, update, prod/ns1/db1",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:   "update keeping every destination needs no read",
+				verb:   "update",
+				stored: []string{"prometheus", "pmm-prod"},
+				policy: newPolicy(
+					"p, role:test, instances, update, prod/ns1/db1",
+					"g, bob, role:test",
+				),
+			},
+			{
 				desc:  "patch setting destinations with read on them",
 				verb:  "patch",
 				patch: setDestinations,
@@ -926,7 +990,21 @@ func TestRBAC_Instance(t *testing.T) {
 				t.Parallel()
 				enf, err := rbac.NewEnforcer(ctx, newConfigMapMock(tc.policy), zap.NewNop().Sugar())
 				require.NoError(t, err)
-				next := mockInstances()
+
+				stored := &corev1alpha1.Instance{ObjectMeta: metav1.ObjectMeta{Name: "db1", Namespace: "ns1"}}
+				if tc.stored != nil {
+					stored.Spec.Monitoring = &corev1alpha1.InstanceMonitoringSpec{}
+					for _, ref := range tc.stored {
+						stored.Spec.Monitoring.Destinations = append(stored.Spec.Monitoring.Destinations, corev1alpha1.InstanceMonitoringDestination{
+							Name: "stored-" + ref, DestinationRef: apicommon.MonitoringDestinationRef{Name: ref},
+						})
+					}
+				}
+				next := &handlers.MockHandler{}
+				next.On("GetInstance", mock.Anything, "prod", "ns1", "db1").Return(stored, nil)
+				next.On("CreateInstance", mock.Anything, mock.Anything, mock.Anything).Return(stored, nil)
+				next.On("UpdateInstance", mock.Anything, mock.Anything, mock.Anything).Return(stored, nil)
+				next.On("PatchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(stored, nil)
 				h := &rbacHandler{
 					next:       next,
 					log:        zap.NewNop().Sugar(),
@@ -934,22 +1012,30 @@ func TestRBAC_Instance(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				var result *corev1alpha1.Instance
+				var (
+					write string
+					args  []any
+				)
 				switch tc.verb {
 				case "create":
-					result, err = h.CreateInstance(ctx, "prod", instance.DeepCopy())
+					body := instance.DeepCopy()
+					_, err = h.CreateInstance(ctx, "prod", body)
+					write, args = "CreateInstance", []any{mock.Anything, "prod", body}
 				case "update":
-					result, err = h.UpdateInstance(ctx, "prod", instance.DeepCopy())
+					body := instance.DeepCopy()
+					_, err = h.UpdateInstance(ctx, "prod", body)
+					write, args = "UpdateInstance", []any{mock.Anything, "prod", body}
 				case "patch":
-					result, err = h.PatchInstance(ctx, "prod", "ns1", "db1", []byte(tc.patch))
+					_, err = h.PatchInstance(ctx, "prod", "ns1", "db1", []byte(tc.patch))
+					write, args = "PatchInstance", []any{mock.Anything, "prod", "ns1", "db1", []byte(tc.patch)}
 				}
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
-					assert.Empty(t, next.Calls, "a denied write must not reach the next handler")
+					next.AssertNotCalled(t, write, slices.Repeat([]any{mock.Anything}, len(args))...)
 					return
 				}
 				require.NoError(t, err)
-				assert.Equal(t, "db1", result.Name)
+				next.AssertCalled(t, write, args...)
 			})
 		}
 	})

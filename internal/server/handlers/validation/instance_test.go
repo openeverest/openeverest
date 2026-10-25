@@ -35,6 +35,7 @@ func TestValidate_PatchInstance(t *testing.T) {
 		desc    string
 		patch   string
 		wantErr bool
+		wantMsg string
 	}{
 		{
 			desc:  "spec only",
@@ -128,6 +129,28 @@ func TestValidate_PatchInstance(t *testing.T) {
 			patch:   `{"spec":{"userSecretRef":{"name":"other-secret"}}}`,
 			wantErr: true,
 		},
+		{
+			desc:  "monitoring destinations",
+			patch: `{"spec":{"monitoring":{"destinations":[{"name":"pmm","destinationRef":{"name":"pmm-prod"}}]}}}`,
+		},
+		{
+			desc:    "spec not an object",
+			patch:   `{"spec":"x"}`,
+			wantErr: true,
+			wantMsg: "spec: unexpected JSON string",
+		},
+		{
+			desc:    "monitoring destinations not a list",
+			patch:   `{"spec":{"monitoring":{"destinations":{}}}}`,
+			wantErr: true,
+			wantMsg: "spec.monitoring.destinations: unexpected JSON object",
+		},
+		{
+			desc:    "monitoring destination reference not a string",
+			patch:   `{"spec":{"monitoring":{"destinations":[{"name":"pmm","destinationRef":{"name":1}}]}}}`,
+			wantErr: true,
+			wantMsg: "spec.monitoring.destinations.0.destinationRef.name: unexpected JSON number",
+		},
 	}
 
 	ctx := context.Background()
@@ -146,6 +169,9 @@ func TestValidate_PatchInstance(t *testing.T) {
 
 			if tc.wantErr {
 				require.ErrorIs(t, err, ErrInvalidRequest)
+				if tc.wantMsg != "" {
+					require.EqualError(t, err, ErrInvalidRequest.Error()+"\n"+tc.wantMsg)
+				}
 				next.AssertNotCalled(t, "PatchInstance")
 				return
 			}

@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -67,7 +68,7 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 			return nil, err
 		}
 	}
-	if err := h.enforceReadMonitoringDestinations(ctx, cluster, instance.GetNamespace(), instance.Spec.Monitoring); err != nil {
+	if err := h.enforceReadMonitoringDestinations(ctx, cluster, instance.GetNamespace(), instance.Spec.Monitoring, nil); err != nil {
 		return nil, err
 	}
 
@@ -122,7 +123,7 @@ func (h *rbacHandler) UpdateInstance(ctx context.Context, cluster string, instan
 	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionUpdate, object); err != nil {
 		return nil, err
 	}
-	if err := h.enforceReadMonitoringDestinations(ctx, cluster, instance.GetNamespace(), instance.Spec.Monitoring); err != nil {
+	if err := h.enforceReadAddedMonitoringDestinations(ctx, cluster, instance.GetNamespace(), instance.GetName(), instance.Spec.Monitoring); err != nil {
 		return nil, err
 	}
 	return h.next.UpdateInstance(ctx, cluster, instance)
@@ -140,11 +141,12 @@ func (h *rbacHandler) PatchInstance(ctx context.Context, cluster, namespace, nam
 			Monitoring *corev1alpha1.InstanceMonitoringSpec `json:"monitoring"`
 		} `json:"spec"`
 	}
+	// A patch that does not decode cannot set destinations; the validation handler rejects it.
 	if err := json.Unmarshal(patch, &doc); err != nil {
-		return nil, fmt.Errorf("failed to decode patch: %w", err)
+		return h.next.PatchInstance(ctx, cluster, namespace, name, patch)
 	}
 	// A merge patch replaces a list wholesale, so a patch naming destinations names all of them.
-	if err := h.enforceReadMonitoringDestinations(ctx, cluster, namespace, doc.Spec.Monitoring); err != nil {
+	if err := h.enforceReadAddedMonitoringDestinations(ctx, cluster, namespace, name, doc.Spec.Monitoring); err != nil {
 		return nil, err
 	}
 	return h.next.PatchInstance(ctx, cluster, namespace, name, patch)
@@ -168,13 +170,31 @@ func (h *rbacHandler) GetInstanceConnection(ctx context.Context, cluster, namesp
 	return h.next.GetInstanceConnection(ctx, cluster, namespace, name)
 }
 
+// enforceReadAddedMonitoringDestinations requires read on the MonitoringDestinations
+// a write to an existing instance adds to the ones it already sends to.
+func (h *rbacHandler) enforceReadAddedMonitoringDestinations(ctx context.Context, cluster, namespace, name string, monitoring *corev1alpha1.InstanceMonitoringSpec) error {
+	if monitoring == nil || len(monitoring.Destinations) == 0 {
+		return nil
+	}
+	stored, err := h.next.GetInstance(ctx, cluster, namespace, name)
+	if err != nil {
+		return err
+	}
+	return h.enforceReadMonitoringDestinations(ctx, cluster, namespace, monitoring, stored.Spec.Monitoring)
+}
+
 // enforceReadMonitoringDestinations requires read on every MonitoringDestination
-// the instance sends to, since the instance's monitoring data is sent there.
-func (h *rbacHandler) enforceReadMonitoringDestinations(ctx context.Context, cluster, namespace string, monitoring *corev1alpha1.InstanceMonitoringSpec) error {
+// the instance sends to and stored does not, since the instance's monitoring data is sent there.
+func (h *rbacHandler) enforceReadMonitoringDestinations(ctx context.Context, cluster, namespace string, monitoring, stored *corev1alpha1.InstanceMonitoringSpec) error {
 	if monitoring == nil {
 		return nil
 	}
 	for _, destination := range monitoring.Destinations {
+		if stored != nil && slices.ContainsFunc(stored.Destinations, func(kept corev1alpha1.InstanceMonitoringDestination) bool {
+			return kept.DestinationRef.Name == destination.DestinationRef.Name
+		}) {
+			continue
+		}
 		object := rbac.ClusterNamespacedObjectName(cluster, namespace, destination.DestinationRef.Name)
 		if err := h.enforce(ctx, rbac.ResourceMonitoringDestinations, rbac.ActionRead, object); err != nil {
 			return err
