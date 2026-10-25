@@ -94,7 +94,7 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 						} `json:"secretRef"`
 					} `json:"credentials,omitempty"`
 					Identity *struct {
-						ClusterID *string            `json:"clusterID,omitempty"`
+						ClusterId *string            `json:"clusterId,omitempty"` //nolint:revive // mirrors the oapi-codegen field name
 						Labels    *map[string]string `json:"labels,omitempty"`
 					} `json:"identity,omitempty"`
 					Metrics *[]struct {
@@ -111,7 +111,7 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 							Number *int32  `json:"number,omitempty"`
 						} `json:"port"`
 						Scheme *client.InstanceStatusMonitoringSourcesMetricsScheme `json:"scheme,omitempty"`
-						Tls    *struct {
+						Tls    *struct {                                            //nolint:revive // mirrors the oapi-codegen field name
 							CaSecretRef *struct {
 								Key  string `json:"key"`
 								Name string `json:"name"`
@@ -314,7 +314,7 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 						} `json:"secretRef"`
 					} `json:"credentials,omitempty"`
 					Identity *struct {
-						ClusterID *string            `json:"clusterID,omitempty"`
+						ClusterId *string            `json:"clusterId,omitempty"` //nolint:revive // mirrors the oapi-codegen field name
 						Labels    *map[string]string `json:"labels,omitempty"`
 					} `json:"identity,omitempty"`
 					Metrics *[]struct {
@@ -331,7 +331,7 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 							Number *int32  `json:"number,omitempty"`
 						} `json:"port"`
 						Scheme *client.InstanceStatusMonitoringSourcesMetricsScheme `json:"scheme,omitempty"`
-						Tls    *struct {
+						Tls    *struct {                                            //nolint:revive // mirrors the oapi-codegen field name
 							CaSecretRef *struct {
 								Key  string `json:"key"`
 								Name string `json:"name"`
@@ -427,7 +427,7 @@ func minimalInst() *client.Instance {
 						} `json:"secretRef"`
 					} `json:"credentials,omitempty"`
 					Identity *struct {
-						ClusterID *string            `json:"clusterID,omitempty"`
+						ClusterId *string            `json:"clusterId,omitempty"` //nolint:revive // mirrors the oapi-codegen field name
 						Labels    *map[string]string `json:"labels,omitempty"`
 					} `json:"identity,omitempty"`
 					Metrics *[]struct {
@@ -444,7 +444,7 @@ func minimalInst() *client.Instance {
 							Number *int32  `json:"number,omitempty"`
 						} `json:"port"`
 						Scheme *client.InstanceStatusMonitoringSourcesMetricsScheme `json:"scheme,omitempty"`
-						Tls    *struct {
+						Tls    *struct {                                            //nolint:revive // mirrors the oapi-codegen field name
 							CaSecretRef *struct {
 								Key  string `json:"key"`
 								Name string `json:"name"`

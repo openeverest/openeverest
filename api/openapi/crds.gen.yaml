@@ -3672,7 +3672,7 @@ components:
                         destinations can tell Instances and clusters apart. Stamped by the
                         runtime.
                       properties:
-                        clusterID:
+                        clusterId:
                           description: ClusterID is the UID of the kube-system namespace.
                           type: string
                         labels:

@@ -2429,7 +2429,7 @@ export interface components {
                          */
                         identity?: {
                             /** @description ClusterID is the UID of the kube-system namespace. */
-                            clusterID?: string;
+                            clusterId?: string;
                             /**
                              * @description Labels are the identity labels (openeverest_instance,
                              *     openeverest_namespace, openeverest_provider, k8s_cluster_id).

@@ -3100,8 +3100,8 @@ type Instance struct {
 				// destinations can tell Instances and clusters apart. Stamped by the
 				// runtime.
 				Identity *struct {
-					// ClusterID ClusterID is the UID of the kube-system namespace.
-					ClusterID *string `json:"clusterID,omitempty"`
+					// ClusterId ClusterID is the UID of the kube-system namespace.
+					ClusterId *string `json:"clusterId,omitempty"`
 
 					// Labels Labels are the identity labels (openeverest_instance,
 					// openeverest_namespace, openeverest_provider, k8s_cluster_id).

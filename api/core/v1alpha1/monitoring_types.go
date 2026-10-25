@@ -230,7 +230,7 @@ type MonitoringSources struct {
 type MonitoringIdentity struct {
 	// ClusterID is the UID of the kube-system namespace.
 	// +optional
-	ClusterID string `json:"clusterID,omitempty"`
+	ClusterID string `json:"clusterId,omitempty"`
 	// Labels are the identity labels (openeverest_instance,
 	// openeverest_namespace, openeverest_provider, k8s_cluster_id).
 	// +optional
