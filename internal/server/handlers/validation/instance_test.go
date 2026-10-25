@@ -172,7 +172,7 @@ func TestValidate_PatchInstance(t *testing.T) {
 				if tc.wantMsg != "" {
 					require.EqualError(t, err, ErrInvalidRequest.Error()+"\n"+tc.wantMsg)
 				}
-				next.AssertNotCalled(t, "PatchInstance")
+				next.AssertNotCalled(t, "PatchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 				return
 			}
 			require.NoError(t, err)
@@ -238,7 +238,7 @@ func TestValidate_UpdateInstance(t *testing.T) {
 
 			if tc.wantErr {
 				require.ErrorIs(t, err, ErrInvalidRequest)
-				next.AssertNotCalled(t, "UpdateInstance")
+				next.AssertNotCalled(t, "UpdateInstance", mock.Anything, mock.Anything, mock.Anything)
 				return
 			}
 

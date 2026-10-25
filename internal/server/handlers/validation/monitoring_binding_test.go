@@ -68,7 +68,7 @@ func TestValidate_ListMonitoringBindings(t *testing.T) {
 
 			if tc.wantErr {
 				require.ErrorIs(t, err, ErrInvalidRequest)
-				next.AssertNotCalled(t, "ListMonitoringBindings")
+				next.AssertNotCalled(t, "ListMonitoringBindings", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 				return
 			}
 			require.NoError(t, err)
