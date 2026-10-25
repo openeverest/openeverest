@@ -122,6 +122,12 @@ var ClusterNamespacedResources = []string{
 	ResourceMonitoringBindings,
 }
 
+// isReadOnlyResource returns true if the API serves no writes for the
+// resource, so the admin role is granted only read on it.
+func isReadOnlyResource(resource string) bool {
+	return resource == ResourceMonitoringClasses || resource == ResourceMonitoringBindings
+}
+
 // IsGlobalResource returns true if the given resource is a global (non-namespaced) Everest API resource.
 func IsGlobalResource(resource string) bool {
 	return slices.Contains(GlobalResources, resource)
@@ -380,8 +386,11 @@ func loadAdminPolicy(enf casbin.IEnforcer) error {
 		resources[resource] = struct{}{}
 	}
 
-	action := ActionAll
 	for resource := range resources {
+		action := ActionAll
+		if isReadOnlyResource(resource) {
+			action = ActionRead
+		}
 		switch {
 		case IsGlobalResource(resource):
 			if _, err := enf.AddPolicy(common.EverestAdminRole, resource, action, "*"); err != nil {

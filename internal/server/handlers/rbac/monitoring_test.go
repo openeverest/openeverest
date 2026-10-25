@@ -29,6 +29,7 @@ import (
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
+	"github.com/openeverest/openeverest/v2/pkg/plugintoken"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
@@ -306,6 +307,24 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 
 		require.NoError(t, h.DeleteMonitoringDestination(ctx, "prod", "ns1", "pmm-prod"))
 		require.ErrorIs(t, h.DeleteMonitoringDestination(ctx, "prod", "ns1", "prometheus"), ErrInsufficientPermissions)
+	})
+
+	t.Run("plugin tokens only read, even with the admin role", func(t *testing.T) {
+		t.Parallel()
+
+		plugin := plugintoken.SubjectPrefix + "pmm"
+		h := newHandler(t, newPolicy("g, "+plugin+", role:admin"))
+		pluginCtx := testUserContext(rbac.User{Subject: plugin})
+
+		list, err := h.ListMonitoringDestinations(pluginCtx, "prod", "ns1")
+		require.NoError(t, err)
+		assert.Len(t, list.Items, 2)
+
+		_, err = h.CreateMonitoringDestination(pluginCtx, "prod", "ns1", destination("ns1", "pmm-prod"))
+		require.ErrorIs(t, err, ErrInsufficientPermissions)
+		_, err = h.UpdateMonitoringDestination(pluginCtx, "prod", "ns1", "pmm-prod", destination("ns1", "pmm-prod"))
+		require.ErrorIs(t, err, ErrInsufficientPermissions)
+		require.ErrorIs(t, h.DeleteMonitoringDestination(pluginCtx, "prod", "ns1", "pmm-prod"), ErrInsufficientPermissions)
 	})
 }
 
