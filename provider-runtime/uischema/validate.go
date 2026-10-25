@@ -67,6 +67,11 @@ type Input struct {
 	// UISchema maps topology name to topology
 	// (`{sections: {<key>: {components: ...}}}`), as stored in Provider.spec.uiSchema.
 	UISchema map[string]any
+	// Topologies maps topology name to its Provider.spec.topologies entry
+	// (`{components: {<name>: {supportedFields: {openAPIV3Schema: ...}}}}`).
+	// Marker widgets resolve the paths they write from it, as the UI does;
+	// when unset they write none.
+	Topologies map[string]any
 }
 
 // Validate checks a provider UI schema. Returned Issues are sorted by topology,
@@ -89,7 +94,10 @@ func Validate(in Input) []Issue {
 		if !ok {
 			continue
 		}
-		issues = append(issues, validateToggleables(topology, sections)...)
+		providerTopology, _ := in.Topologies[topology].(map[string]any)
+		providerComponents, _ := providerTopology["components"].(map[string]any)
+		paths := pathCollector{providerComponents: providerComponents}
+		issues = append(issues, validateToggleables(topology, sections, paths)...)
 	}
 	slices.SortStableFunc(issues, func(a, b Issue) int {
 		return cmp.Or(
@@ -102,10 +110,14 @@ func Validate(in Input) []Issue {
 }
 
 const (
-	uiTypeGroup         = "group"
-	uiTypeHidden        = "hidden"
-	groupTypeToggleable = "toggleable"
-	degradedSuffix      = "; the UI renders it as a bordered group"
+	uiTypeGroup  = "group"
+	uiTypeHidden = "hidden"
+	uiTypeWidget = "widget"
+
+	widgetTypePodSchedulingPolicy = "podSchedulingPolicy"
+	schedulingPolicyAffinity      = "affinity"
+	groupTypeToggleable           = "toggleable"
+	degradedSuffix                = "; the UI renders it as a bordered group"
 )
 
 // Keys name the group's form-only switch; the UI rejects anything else.
@@ -172,18 +184,18 @@ type celField struct {
 //	      validation:
 //	        celExpressions:
 //	          - celExpr: "!has(spec.monitoring.url) || spec.replicas > 1"
-func validateToggleables(topology string, sections map[string]any) []Issue {
+func validateToggleables(topology string, sections map[string]any, paths pathCollector) []Issue {
 	// pathWriters counts the fields writing each path across the topology.
 	pathWriters := make(map[string]int)
 	for _, key := range sortedKeys(sections) {
 		section, _ := sections[key].(map[string]any)
 		components, _ := section["components"].(map[string]any)
-		for _, p := range getPaths(components) {
+		for _, p := range paths.of(components) {
 			pathWriters[p]++
 		}
 	}
 
-	w := toggleableWalker{topology: topology, pathWriters: pathWriters}
+	w := toggleableWalker{topology: topology, paths: paths, pathWriters: pathWriters}
 	for _, key := range sortedKeys(sections) {
 		section, _ := sections[key].(map[string]any)
 		components, _ := section["components"].(map[string]any)
@@ -196,6 +208,7 @@ func validateToggleables(topology string, sections map[string]any) []Issue {
 // toggleables and fields with CEL rules.
 type toggleableWalker struct {
 	topology    string
+	paths       pathCollector
 	pathWriters map[string]int
 
 	issues      []Issue
@@ -273,7 +286,7 @@ func (w *toggleableWalker) recordCelExpressions(item map[string]any, currentPath
 // degradeRule) is reported as an issue instead. isToggleable is whether the group
 // sits inside a working toggleable.
 func (w *toggleableWalker) recordToggleable(children map[string]any, currentPath []string, isToggleable bool) bool {
-	paths := getPaths(children)
+	paths := w.paths.of(children)
 	groupKey := strings.Join(currentPath, ".")
 	if rule, msg := degradeRule(currentPath, paths, isToggleable, w.pathWriters); rule != "" {
 		w.issues = append(w.issues, Issue{
@@ -445,7 +458,14 @@ func pathWrittenOutside(groupPaths []string, topologyPaths map[string]int) strin
 	return ""
 }
 
-// getPaths returns the paths found in the given components. The uiType
+// pathCollector finds the API paths UI schema items write in one topology.
+// providerComponents is the topology's Provider.spec.topologies[].components,
+// from which marker widgets resolve their paths.
+type pathCollector struct {
+	providerComponents map[string]any
+}
+
+// of returns the paths found in the given components. The uiType
 // `groups` and `hidden` are recursively searched if they contain
 // components.
 //
@@ -455,12 +475,15 @@ func pathWrittenOutside(groupPaths []string, topologyPaths map[string]int) strin
 //	resources:                   # -> [spec.cpu, spec.memory]
 //	  uiType: resources
 //	  path: [spec.cpu, spec.memory]
+//	policy:                      # -> [spec.components.engine.schedulingPolicy.affinity, ...]
+//	  uiType: widget
+//	  widgetType: podSchedulingPolicy
 //	nested:                      # group: walked recursively
 //	  uiType: group
 //	  components: {...}
 //	label:                       # no uiType: nothing
 //	  path: spec.label
-func getPaths(components map[string]any) []string {
+func (c pathCollector) of(components map[string]any) []string {
 	var paths []string
 	for _, key := range sortedKeys(components) {
 		item, _ := components[key].(map[string]any)
@@ -472,13 +495,55 @@ func getPaths(components map[string]any) []string {
 		switch uiType {
 		case uiTypeGroup, uiTypeHidden:
 			if children, ok := item["components"].(map[string]any); ok {
-				paths = append(paths, getPaths(children)...)
+				paths = append(paths, c.of(children)...)
 			}
+		case uiTypeWidget:
+			paths = append(paths, c.widgetPaths(item)...)
 		default:
 			paths = append(paths, normalizePaths(item["path"])...)
 		}
 	}
 	return paths
+}
+
+// widgetPaths mirrors widgetTargetResolvers in the UI: a marker widget has no
+// `path`, it writes paths resolved from the provider. An unknown widgetType
+// writes none.
+func (c pathCollector) widgetPaths(widget map[string]any) []string {
+	if widget["widgetType"] != widgetTypePodSchedulingPolicy {
+		return nil
+	}
+	var paths []string
+	for _, name := range sortedKeys(c.providerComponents) {
+		component, _ := c.providerComponents[name].(map[string]any)
+		if supportsSchedulingPolicy(component["supportedFields"], schedulingPolicyAffinity) {
+			paths = append(paths, "spec.components."+name+".schedulingPolicy."+schedulingPolicyAffinity)
+		}
+	}
+	return paths
+}
+
+// supportsSchedulingPolicy mirrors deriveSchedulingSupport in the UI: whether
+// a component's supportedFields (`{openAPIV3Schema: ...}`) admit the policy
+// field. Unset supportedFields constrain nothing, and a schedulingPolicy
+// declared without properties admits all of its fields.
+func supportsSchedulingPolicy(supportedFields any, field string) bool {
+	if supportedFields == nil {
+		return true
+	}
+	fields, _ := supportedFields.(map[string]any)
+	schema, _ := fields["openAPIV3Schema"].(map[string]any)
+	properties, _ := schema["properties"].(map[string]any)
+	schedulingPolicy, ok := properties["schedulingPolicy"].(map[string]any)
+	if !ok {
+		return false
+	}
+	declared, ok := schedulingPolicy["properties"].(map[string]any)
+	if !ok {
+		return true
+	}
+	_, ok = declared[field]
+	return ok
 }
 
 // normalizePaths normalizes a field's `path` based on its type,
