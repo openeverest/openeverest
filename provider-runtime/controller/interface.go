@@ -430,6 +430,11 @@ type MonitoringSourcesProvider interface {
 // Context.SetMonitoringBindingResult, and RenderFailed for a binding whose
 // integration MonitoringIntegrations does not list. A binding that cannot be
 // rendered must be staged, never returned as a Sync error.
+//
+// The runtime re-runs Sync for an Instance when a destination it is bound to
+// changes, status included, and when that destination's credentials Secret
+// is created, changed or deleted, so a rotated token or a Secret created
+// after a RenderFailed is rendered without waiting for a resync.
 type MonitoringIntegrationsProvider interface {
 	// MonitoringIntegrations returns the integration names the provider
 	// renders, matching Provider.spec.monitoring.integrations.

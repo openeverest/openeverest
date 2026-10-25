@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/yaml"
 
@@ -142,6 +143,7 @@ func newMonReconcilerWith(t *testing.T, p providerAdapter, funcs interceptor.Fun
 		WithTypeConverters(monTypeConverter(t), managedfields.NewDeducedTypeConverter()).
 		WithObjects(append(objs, kubeSystem)...).
 		WithStatusSubresource(&v1alpha1.Instance{}, &monitoringv1alpha1.MonitoringBinding{}).
+		WithIndex(&monitoringv1alpha1.MonitoringDestination{}, indexDestinationCredentialsSecret, destinationCredentialsSecret).
 		Build(), funcs,
 	)
 	return &ProviderReconciler{provider: p, Client: c, apiReader: c}
@@ -959,6 +961,7 @@ func TestMonitoringWatchMapping(t *testing.T) {
 	ordersBinding := monBinding("pmm", v1alpha1.MonitoringExecutionModeProviderManaged)
 	paymentsBinding := monBinding("pmm", v1alpha1.MonitoringExecutionModeProviderManaged)
 	paymentsBinding.Name, paymentsBinding.Labels[monitoringv1alpha1.BindingInstanceLabel] = "payments-pmm-00000000", "payments"
+	paymentsBinding.Spec.InstanceRef.Name = "payments"
 	r := newMonReconciler(t, &monProvider{}, orders, payments, billing, ordersBinding, paymentsBinding)
 
 	ordersOnly := []reconcile.Request{{NamespacedName: client.ObjectKeyFromObject(orders)}}
@@ -973,4 +976,105 @@ func TestMonitoringWatchMapping(t *testing.T) {
 	assert.Empty(t, r.instancesForClass(t.Context(), &monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "prometheus"},
 	}))
+}
+
+func TestMonitoringCredentialsSecretWatch(t *testing.T) {
+	t.Parallel()
+
+	orders := monInstance("pmm")
+	billing := monInstance("vm")
+	billing.Name = "billing"
+	payments := monInstance("pmm")
+	payments.Name, payments.Spec.ProviderRef.Name = "payments", "other-provider"
+	bindingOf := func(instance, entry string) *monitoringv1alpha1.MonitoringBinding {
+		b := monBinding(entry, v1alpha1.MonitoringExecutionModeProviderManaged)
+		b.Name, b.Labels = monitoring.BindingName(instance, entry), monitoring.BindingLabels(instance, entry, entry+"-dest", entry)
+		b.Spec.InstanceRef.Name = instance
+		return b
+	}
+	destination := func(name, secret string) *monitoringv1alpha1.MonitoringDestination {
+		return &monitoringv1alpha1.MonitoringDestination{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "team-a"},
+			Spec: monitoringv1alpha1.MonitoringDestinationSpec{
+				ClassRef:             common.ObjectRef{Name: "pmm"},
+				CredentialsSecretRef: &common.SecretRef{Name: secret},
+			},
+		}
+	}
+	r := newMonReconciler(t, &monProvider{}, orders, billing, payments,
+		bindingOf("orders", "pmm"), bindingOf("billing", "vm"), bindingOf("payments", "pmm"),
+		destination("pmm-dest", "pmm-token"), destination("vm-dest", "vm-token"), destination("idle-dest", "idle-token"),
+	)
+
+	tests := []struct {
+		name      string
+		namespace string
+		secret    string
+		want      []string
+	}{
+		{name: "credentials of a destination bound by this provider and another", namespace: "team-a", secret: "pmm-token", want: []string{"orders"}},
+		{name: "credentials of another bound destination", namespace: "team-a", secret: "vm-token", want: []string{"billing"}},
+		{name: "credentials of a destination nothing is bound to", namespace: "team-a", secret: "idle-token"},
+		{name: "Secret no destination names", namespace: "team-a", secret: "orders-users"},
+		{name: "same name in another namespace", namespace: "team-b", secret: "pmm-token"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			secret := &metav1.PartialObjectMetadata{ObjectMeta: metav1.ObjectMeta{
+				Name: tt.secret, Namespace: tt.namespace, ResourceVersion: "7",
+			}}
+			secret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
+
+			var got []string
+			for _, req := range r.instancesForCredentialsSecret(t.Context(), secret) {
+				got = append(got, req.Name)
+			}
+
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestMonitoringDestinationWatch(t *testing.T) {
+	t.Parallel()
+
+	old := &monitoringv1alpha1.MonitoringDestination{
+		ObjectMeta: metav1.ObjectMeta{Name: "pmm-dest", Namespace: "team-a", Generation: 1, ResourceVersion: "10"},
+		Spec:       monitoringv1alpha1.MonitoringDestinationSpec{ClassRef: common.ObjectRef{Name: "pmm"}},
+	}
+	statusChanged := old.DeepCopy()
+	statusChanged.ResourceVersion = "11"
+	statusChanged.Status.Conditions = []metav1.Condition{{
+		Type: monitoringv1alpha1.MonitoringDestinationConditionReady, Status: metav1.ConditionTrue, Reason: "Ready",
+	}}
+	specChanged := old.DeepCopy()
+	specChanged.ResourceVersion, specChanged.Generation = "11", 2
+	statusUpdate := event.UpdateEvent{ObjectOld: old, ObjectNew: statusChanged}
+	specUpdate := event.UpdateEvent{ObjectOld: old, ObjectNew: specChanged}
+
+	tests := []struct {
+		name         string
+		provider     providerAdapter
+		wantOnStatus bool
+	}{
+		{name: "provider rendering integrations", provider: &monProvider{}, wantOnStatus: true},
+		{name: "provider publishing sources only", provider: &sourcesOnlyProvider{}, wantOnStatus: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			unbound := monInstance("pmm")
+			unbound.Name = "unbound"
+			r := newMonReconciler(t, tt.provider, monInstance("pmm"), unbound,
+				monBinding("pmm", v1alpha1.MonitoringExecutionModeProviderManaged),
+			)
+
+			assert.Equal(t, tt.wantOnStatus, r.destinationChanged().Update(statusUpdate), "status-only update")
+			assert.True(t, r.destinationChanged().Update(specUpdate), "spec update")
+			assert.Equal(t, []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: "team-a", Name: "orders"}}},
+				r.instancesForDestination(t.Context(), statusChanged), "only Instances with a binding to the destination",
+			)
+		})
+	}
 }

@@ -49,6 +49,18 @@ const (
 // maxMetricsEndpoints is the maxItems of MonitoringSources.metrics.
 const maxMetricsEndpoints = 32
 
+// indexDestinationCredentialsSecret indexes MonitoringDestinations by the
+// name of their credentials Secret.
+const indexDestinationCredentialsSecret = "spec.credentialsSecretRef.name"
+
+func destinationCredentialsSecret(obj client.Object) []string {
+	d, ok := obj.(*monitoringv1alpha1.MonitoringDestination)
+	if !ok || d.Spec.CredentialsSecretRef == nil || d.Spec.CredentialsSecretRef.Name == "" {
+		return nil
+	}
+	return []string{d.Spec.CredentialsSecretRef.Name}
+}
+
 // monitoringEnabled reports whether the provider opted into the monitoring
 // contract through either optional interface.
 func monitoringEnabled(p providerAdapter) bool {
@@ -66,7 +78,9 @@ func (r *ProviderReconciler) configuredFieldOwner() string {
 // watchMonitoringBindings re-enqueues this provider's Instances when one of
 // their bindings changes (spec or status: Accepted flips matter), and when a
 // destination or class they are bound to changes spec, since ProviderManaged
-// renderings are built from both.
+// renderings are built from both. A provider that renders integrations is
+// also re-enqueued on destination status changes and on any change of a
+// destination's credentials Secret, so a rotated or late Secret is rendered.
 func (r *ProviderReconciler) watchMonitoringBindings(b *builder.Builder) {
 	b.Watches(&monitoringv1alpha1.MonitoringBinding{},
 		handler.EnqueueRequestsFromMapFunc(r.instancesForBinding),
@@ -74,8 +88,14 @@ func (r *ProviderReconciler) watchMonitoringBindings(b *builder.Builder) {
 	)
 	b.Watches(&monitoringv1alpha1.MonitoringDestination{},
 		handler.EnqueueRequestsFromMapFunc(r.instancesForDestination),
-		builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		builder.WithPredicates(r.destinationChanged()),
 	)
+	if _, ok := r.provider.(controller.MonitoringIntegrationsProvider); ok {
+		b.WatchesMetadata(&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.instancesForCredentialsSecret),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		)
+	}
 	b.Watches(&monitoringv1alpha1.MonitoringClass{},
 		handler.EnqueueRequestsFromMapFunc(r.instancesForClass),
 		builder.WithPredicates(predicate.GenerationChangedPredicate{}),
@@ -92,11 +112,59 @@ func (r *ProviderReconciler) instancesForBinding(ctx context.Context, obj client
 	})
 }
 
+// destinationChanged passes every destination change to a provider that
+// renders integrations, and only spec changes to any other.
+func (r *ProviderReconciler) destinationChanged() predicate.Predicate { //nolint:ireturn // builder.WithPredicates takes the interface
+	if _, ok := r.provider.(controller.MonitoringIntegrationsProvider); ok {
+		return predicate.ResourceVersionChangedPredicate{}
+	}
+	return predicate.GenerationChangedPredicate{}
+}
+
 func (r *ProviderReconciler) instancesForDestination(ctx context.Context, obj client.Object) []reconcile.Request {
-	return r.instancesMatching(ctx, obj.GetNamespace(), func(in *v1alpha1.Instance) bool {
-		return in.Spec.Monitoring != nil && slices.ContainsFunc(in.Spec.Monitoring.Destinations,
-			func(d v1alpha1.InstanceMonitoringDestination) bool { return d.DestinationRef.Name == obj.GetName() },
-		)
+	return r.instancesBoundTo(ctx, obj.GetNamespace(), []string{obj.GetName()})
+}
+
+// instancesForCredentialsSecret enqueues the Instances bound to a destination
+// that keeps its credentials in the Secret.
+func (r *ProviderReconciler) instancesForCredentialsSecret(ctx context.Context, obj client.Object) []reconcile.Request {
+	destinations := &monitoringv1alpha1.MonitoringDestinationList{}
+	if err := r.List(ctx, destinations, client.InNamespace(obj.GetNamespace()),
+		client.MatchingFields{indexDestinationCredentialsSecret: obj.GetName()},
+	); err != nil {
+		log.FromContext(ctx).Error(err, "Listing monitoring destinations to enqueue failed")
+		return nil
+	}
+	names := make([]string, 0, len(destinations.Items))
+	for _, d := range destinations.Items {
+		names = append(names, d.Name)
+	}
+	return r.instancesBoundTo(ctx, obj.GetNamespace(), names)
+}
+
+// instancesBoundTo enqueues this provider's Instances in namespace that have
+// a binding to one of the destinations.
+func (r *ProviderReconciler) instancesBoundTo(ctx context.Context, namespace string, destinations []string) []reconcile.Request {
+	if len(destinations) == 0 {
+		return nil
+	}
+	bindings := &monitoringv1alpha1.MonitoringBindingList{}
+	if err := r.List(ctx, bindings, client.InNamespace(namespace)); err != nil {
+		log.FromContext(ctx).Error(err, "Listing monitoring bindings to enqueue failed")
+		return nil
+	}
+	bound := make(map[string]struct{})
+	for _, b := range bindings.Items {
+		if slices.Contains(destinations, b.Labels[monitoringv1alpha1.BindingDestinationLabel]) {
+			bound[b.Spec.InstanceRef.Name] = struct{}{}
+		}
+	}
+	if len(bound) == 0 {
+		return nil
+	}
+	return r.instancesMatching(ctx, namespace, func(in *v1alpha1.Instance) bool {
+		_, ok := bound[in.Name]
+		return ok
 	})
 }
 
