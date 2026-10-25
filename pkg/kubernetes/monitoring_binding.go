@@ -39,3 +39,8 @@ func (k *Kubernetes) GetMonitoringBinding(ctx context.Context, key ctrlclient.Ob
 	}
 	return result, nil
 }
+
+// DeleteMonitoringBindings deletes all monitoring bindings that match the criteria.
+func (k *Kubernetes) DeleteMonitoringBindings(ctx context.Context, opts ...ctrlclient.DeleteAllOfOption) error {
+	return k.k8sClient.DeleteAllOf(ctx, &monitoringv1alpha1.MonitoringBinding{}, opts...)
+}

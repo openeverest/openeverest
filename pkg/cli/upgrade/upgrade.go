@@ -24,6 +24,7 @@ import (
 	"io"
 	"os"
 	"slices"
+	"strings"
 	"time"
 
 	version "github.com/Percona-Lab/percona-version-service/versionpb"
@@ -47,6 +48,8 @@ import (
 const (
 	pollInterval = 5 * time.Second
 	pollTimeout  = 10 * time.Minute
+
+	legacyMonitoringComponent = "monitoring"
 )
 
 // inClusterConfig is read from environment variables when the upgrade
@@ -108,6 +111,7 @@ var (
 	ErrNoUpdateAvailable                      = errors.New("no update available")
 	ErrDowngradeNotAllowed                    = errors.New("downgrade not allowed")
 	ErrCannotUpgradeByMoreThanOneMinorVersion = errors.New("cannot upgrade by more than one minor version")
+	ErrLegacyMonitoringInUse                  = errors.New("legacy monitoring is still in use")
 )
 
 // NewUpgrade returns a new Upgrade struct.
@@ -454,7 +458,41 @@ func (u *Upgrade) checkRequirements(ctx context.Context, supVer *common.Supporte
 		return err
 	}
 
-	return nil
+	return u.checkLegacyMonitoring(ctx)
+}
+
+// checkLegacyMonitoring refuses the upgrade while MonitoringConfigs or Instances with a
+// "monitoring" component exist, because the new version serves neither.
+func (u *Upgrade) checkLegacyMonitoring(ctx context.Context) error {
+	configs, err := u.kubeConnector.ListLegacyMonitoringConfigs(ctx)
+	if err != nil {
+		return fmt.Errorf("could not list MonitoringConfigs: %w", err)
+	}
+	instances, err := u.kubeConnector.ListInstances(ctx)
+	if err != nil {
+		return fmt.Errorf("could not list instances: %w", err)
+	}
+
+	var inUse []string
+	for _, c := range configs.Items {
+		inUse = append(inUse, fmt.Sprintf("MonitoringConfig %s/%s", c.GetNamespace(), c.GetName()))
+	}
+	for _, in := range instances.Items {
+		if _, ok := in.Spec.Components[legacyMonitoringComponent]; ok {
+			inUse = append(inUse, fmt.Sprintf("Instance %s/%s (component %q)", in.GetNamespace(), in.GetName(), legacyMonitoringComponent))
+		}
+	}
+	if len(inUse) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%w: the new version removes MonitoringConfig and the %q Instance component, and the cluster still has:\n"+
+		"  - %s\n"+
+		"To upgrade:\n"+
+		"  1. Remove the %q component from each listed Instance and delete each listed MonitoringConfig\n"+
+		"  2. After the upgrade, create a MonitoringDestination for your monitoring server and add a "+
+		"spec.monitoring.destinations[] entry that references it to each Instance",
+		ErrLegacyMonitoringInUse, legacyMonitoringComponent, strings.Join(inUse, "\n  - "), legacyMonitoringComponent,
+	)
 }
 
 func (u *Upgrade) checkOperatorRequirements(ctx context.Context, supVer *common.SupportedVersion) error {
