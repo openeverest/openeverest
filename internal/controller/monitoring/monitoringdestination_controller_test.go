@@ -48,6 +48,8 @@ func TestDestinationReconcilerAccepted(t *testing.T) {
 	noCredentials.Spec.CredentialsSecretRef = nil
 	noURL := pmmDestination("pmm-prod")
 	noURL.Spec.Parameters = raw(`{"verifyTLS":false}`)
+	noParameters := pmmDestination("pmm-prod")
+	noParameters.Spec.Parameters = nil
 	basicAuth := newDestination("prom", "prometheus")
 	basicAuth.Spec.CredentialsSecretRef = &common.SecretRef{Name: "prom-basic-auth"}
 
@@ -90,6 +92,14 @@ func TestDestinationReconcilerAccepted(t *testing.T) {
 			wantStatus:  metav1.ConditionFalse,
 			wantReason:  monitoringv1alpha1.ReasonInvalidParameters,
 			wantMessage: `parameters rejected by the destinationParametersSchema of MonitoringClass "pmm": `,
+		},
+		{
+			name:        "no parameters although the destination schema requires one",
+			objects:     []client.Object{noParameters, newSecret("pmm-prod-credentials", map[string]string{"apiKey": "glsa_token"})},
+			destination: "pmm-prod",
+			wantStatus:  metav1.ConditionFalse,
+			wantReason:  monitoringv1alpha1.ReasonInvalidParameters,
+			wantMessage: "(root): url is required",
 		},
 		{
 			name:        "no credentials Secret referenced",

@@ -23,6 +23,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -104,7 +105,13 @@ func (r *DestinationReconciler) acceptedCondition(ctx context.Context, dst *moni
 		}
 		return reject(monitoringv1alpha1.ReasonClassNotFound, fmt.Sprintf("MonitoringClass %q not found", dst.Spec.ClassRef.Name))
 	}
-	if err := class.Spec.DestinationParametersSchema.Validate(dst.Spec.Parameters); err != nil {
+	schema := class.Spec.DestinationParametersSchema
+	params := dst.Spec.Parameters
+	// An absent payload must still satisfy the schema's required properties.
+	if params == nil && schema != nil && schema.OpenAPIV3Schema != nil {
+		params = &runtime.RawExtension{Raw: []byte("{}")}
+	}
+	if err := schema.Validate(params); err != nil {
 		return reject(monitoringv1alpha1.ReasonInvalidParameters,
 			fmt.Sprintf("parameters rejected by the destinationParametersSchema of MonitoringClass %q: %v", class.Name, err))
 	}

@@ -91,6 +91,11 @@ func TestBindingReconcilerRejectsEntry(t *testing.T) {
 	}
 	badParameters := entry("pmm", "pmm-prod")
 	badParameters.Parameters = raw(`{"replicas":3}`)
+	sized := pmmClass()
+	sized.Name = "pmm-sized"
+	sized.Spec.InstanceParametersSchema.OpenAPIV3Schema.Required = []string{"resources"}
+	sizedDestination := pmmDestination("pmm-sized")
+	sizedDestination.Spec.ClassRef.Name = sized.Name
 
 	tests := []struct {
 		name        string
@@ -148,6 +153,16 @@ func TestBindingReconcilerRejectsEntry(t *testing.T) {
 			wantReason:  monitoringv1alpha1.ReasonInvalidParameters,
 			wantMessage: `parameters rejected by the instanceParametersSchema of MonitoringClass "pmm": `,
 			wantClass:   "pmm",
+		},
+		{
+			name:        "no parameters although the instance schema requires one",
+			provider:    pxcProvider(),
+			objects:     []client.Object{sized, sizedDestination},
+			entries:     []corev1alpha1.InstanceMonitoringDestination{entry("pmm", "pmm-sized")},
+			check:       "pmm",
+			wantReason:  monitoringv1alpha1.ReasonInvalidParameters,
+			wantMessage: "(root): resources is required",
+			wantClass:   "pmm-sized",
 		},
 		{
 			name:        "provider without the integration",
@@ -394,6 +409,50 @@ func TestBindingReconcilerKeepsIntegrationWithItsExistingBinding(t *testing.T) {
 	added := findAccepted(t, getBinding(t, c, "staging").Status.Conditions)
 	assert.Equal(t, monitoringv1alpha1.ReasonIntegrationInUse, added.Reason)
 	assert.Equal(t, `integration "pmm" is already fulfilled by entry "pmm"`, added.Message)
+}
+
+func TestBindingReconcilerHeldBindingKeepsItsIntegration(t *testing.T) {
+	t.Parallel()
+	c := newFakeClient(t, pxcProvider(), pmmClass(), pmmDestination("pmm-prod"), pmmDestination("pmm-staging"),
+		newInstance(pxcProvider(), entry("pmm", "pmm-prod")))
+	reconcileInstance(t, c)
+
+	require.NoError(t, c.Delete(t.Context(), pmmDestination("pmm-prod")))
+	updateInstance(t, c, func(in *corev1alpha1.Instance) {
+		in.Spec.Monitoring.Destinations = append(in.Spec.Monitoring.Destinations, entry("staging", "pmm-staging"))
+	})
+	reconcileInstance(t, c)
+
+	held := getBinding(t, c, "pmm")
+	assert.Equal(t, corev1alpha1.MonitoringExecutionModeProviderManaged, held.Spec.ExecutionMode)
+	assert.Equal(t, monitoringv1alpha1.ReasonDestinationNotFound, findAccepted(t, held.Status.Conditions).Reason)
+	added := getBinding(t, c, "staging")
+	assert.Empty(t, added.Spec.ExecutionMode)
+	accepted := findAccepted(t, added.Status.Conditions)
+	assert.Equal(t, metav1.ConditionFalse, accepted.Status)
+	assert.Equal(t, monitoringv1alpha1.ReasonIntegrationInUse, accepted.Reason)
+	assert.Equal(t, `integration "pmm" is already fulfilled by entry "pmm"`, accepted.Message)
+}
+
+func TestBindingReconcilerResolvesOnceDestinationAppears(t *testing.T) {
+	t.Parallel()
+	c := newFakeClient(t, pxcProvider(), prometheusClass(), newInstance(pxcProvider(), entry("metrics", "prom")))
+	reconcileInstance(t, c)
+	pending := getBinding(t, c, "metrics")
+	require.Equal(t, monitoringv1alpha1.ReasonDestinationNotFound, findAccepted(t, pending.Status.Conditions).Reason)
+	require.Nil(t, pending.Spec.ClassRef)
+	require.Empty(t, pending.Spec.ExecutionMode)
+
+	require.NoError(t, c.Create(t.Context(), newDestination("prom", "prometheus")))
+	reconcileInstance(t, c)
+
+	b := getBinding(t, c, "metrics")
+	assert.Equal(t, &common.ObjectRef{Name: "prometheus"}, b.Spec.ClassRef)
+	assert.Equal(t, corev1alpha1.MonitoringExecutionModeExtensionManaged, b.Spec.ExecutionMode)
+	assert.Equal(t, rtmonitoring.BindingLabels(testInstance, "metrics", "prom", "prometheus"), b.Labels)
+	accepted := findAccepted(t, b.Status.Conditions)
+	assert.Equal(t, metav1.ConditionTrue, accepted.Status)
+	assert.Equal(t, monitoringv1alpha1.ReasonAccepted, accepted.Reason)
 }
 
 func TestBindingReconcilerFollowsEntryParameters(t *testing.T) {

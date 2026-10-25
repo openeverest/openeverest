@@ -130,10 +130,13 @@ func (r *BindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		byEntry[existing[i].Labels[monitoringv1alpha1.BindingEntryLabel]] = &existing[i]
 	}
 
-	// ProviderManaged integrations already claimed by an earlier entry.
-	usedIntegrations := map[string]string{}
+	entries := entriesByPrecedence(instanceMonitoringDestinations(in), byEntry)
+	usedIntegrations, err := r.reserveIntegrations(ctx, entries, byEntry)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	var errs []error
-	for _, entry := range entriesByPrecedence(instanceMonitoringDestinations(in), byEntry) {
+	for _, entry := range entries {
 		b := byEntry[entry.Name]
 		delete(byEntry, entry.Name)
 		if err := r.reconcileEntry(ctx, in, entry, b, usedIntegrations); err != nil {
@@ -169,6 +172,35 @@ func entriesByPrecedence(
 		}
 	}
 	return append(ordered, rest...)
+}
+
+// reserveIntegrations maps the integration of every kept ProviderManaged
+// binding to its entry, Accepted or not: a held binding keeps its agent.
+func (r *BindingReconciler) reserveIntegrations(
+	ctx context.Context,
+	entries []corev1alpha1.InstanceMonitoringDestination,
+	byEntry map[string]*monitoringv1alpha1.MonitoringBinding,
+) (map[string]string, error) {
+	used := make(map[string]string)
+	for _, entry := range entries {
+		b := byEntry[entry.Name]
+		if b == nil || b.Spec.ExecutionMode != corev1alpha1.MonitoringExecutionModeProviderManaged || b.Spec.ClassRef == nil || !matchesEntry(b, entry) {
+			continue
+		}
+		class := &monitoringv1alpha1.MonitoringClass{}
+		if err := r.Get(ctx, types.NamespacedName{Name: b.Spec.ClassRef.Name}, class); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return nil, fmt.Errorf("get MonitoringClass %q: %w", b.Spec.ClassRef.Name, err)
+		}
+		if pm := class.Spec.ProviderManaged; pm != nil {
+			if _, taken := used[pm.Integration]; !taken {
+				used[pm.Integration] = entry.Name
+			}
+		}
+	}
+	return used, nil
 }
 
 func (r *BindingReconciler) reconcileEntry(
@@ -242,14 +274,20 @@ func (r *BindingReconciler) resolve(
 			fmt.Sprintf("Provider %q not found", in.Spec.ProviderRef.Name)), nil
 	}
 
-	if err := class.Spec.InstanceParametersSchema.Validate(entry.Parameters); err != nil {
+	schema := class.Spec.InstanceParametersSchema
+	params := entry.Parameters
+	// An absent payload must still satisfy the schema's required properties.
+	if params == nil && schema != nil && schema.OpenAPIV3Schema != nil {
+		params = &runtime.RawExtension{Raw: []byte("{}")}
+	}
+	if err := schema.Validate(params); err != nil {
 		return rejection(existing, classRef, monitoringv1alpha1.ReasonInvalidParameters,
 			fmt.Sprintf("parameters rejected by the instanceParametersSchema of MonitoringClass %q: %v", class.Name, err)), nil
 	}
 
 	f := assess(provider, class, instanceComponentTypes(in, provider))
 	if f.providerManaged.ok {
-		if by, used := usedIntegrations[class.Spec.ProviderManaged.Integration]; used {
+		if by, used := usedIntegrations[class.Spec.ProviderManaged.Integration]; used && by != entry.Name {
 			f.providerManaged = verdict{
 				reason:  monitoringv1alpha1.ReasonIntegrationInUse,
 				message: fmt.Sprintf("integration %q is already fulfilled by entry %q", class.Spec.ProviderManaged.Integration, by),

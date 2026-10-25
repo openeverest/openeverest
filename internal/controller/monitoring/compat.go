@@ -118,7 +118,7 @@ func providerManaged(provider *corev1alpha1.Provider, class *monitoringv1alpha1.
 	if !ok {
 		return verdict{reason: monitoringv1alpha1.ReasonIntegrationUnsupported, message: fmt.Sprintf("Provider %q does not declare integration %q", provider.Name, pm.Integration)}
 	}
-	if integration.AgentVersions == "" || pm.AgentVersion == "" {
+	if integration.AgentVersions == "" {
 		return verdict{ok: true}
 	}
 	inRange, err := semver.ParseRange(integration.AgentVersions)
