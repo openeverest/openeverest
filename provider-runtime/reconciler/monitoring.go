@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -44,6 +45,9 @@ const (
 	identityLabelProvider  = "openeverest_provider"
 	identityLabelCluster   = "k8s_cluster_id"
 )
+
+// maxMetricsEndpoints is the maxItems of MonitoringSources.metrics.
+const maxMetricsEndpoints = 32
 
 // monitoringEnabled reports whether the provider opted into the monitoring
 // contract through either optional interface.
@@ -132,7 +136,7 @@ func (r *ProviderReconciler) reconcileMonitoring(ctx context.Context, syncCtx *c
 		return
 	}
 
-	sources := r.monitoringSources(ctx, syncCtx, in, logger)
+	sources, note := r.monitoringSources(ctx, syncCtx, in, logger)
 	in.Status.Monitoring = nil
 	if sources != nil || len(entries) > 0 {
 		in.Status.Monitoring = &v1alpha1.InstanceMonitoringStatus{Sources: sources}
@@ -145,8 +149,13 @@ func (r *ProviderReconciler) reconcileMonitoring(ctx context.Context, syncCtx *c
 	bindings, err := syncCtx.MonitoringBindings()
 	if err != nil {
 		logger.Error(err, "Listing monitoring bindings failed")
+		msg := err.Error()
+		if note != "" {
+			msg += "; " + note
+		}
 		setCondition(in, v1alpha1.ConditionMonitoringConfigured, metav1.ConditionUnknown,
-			v1alpha1.ReasonMonitoringPending, err.Error(), metav1.Now())
+			v1alpha1.ReasonMonitoringPending, msg, metav1.Now(),
+		)
 		return
 	}
 	byEntry := make(map[string]controller.ResolvedBinding, len(bindings))
@@ -166,14 +175,14 @@ func (r *ProviderReconciler) reconcileMonitoring(ctx context.Context, syncCtx *c
 		}
 		in.Status.Monitoring.Destinations = append(in.Status.Monitoring.Destinations, st)
 	}
-	setMonitoringConfigured(in, v1alpha1.ReasonMonitoringNotConfigured)
+	setMonitoringConfigured(in, v1alpha1.ReasonMonitoringNotConfigured, note)
 }
 
 // setMonitoringConfigured rolls status.monitoring.destinations up into the
 // MonitoringConfigured condition: False with falseReason when any entry is
 // False, else Unknown while any is pending, else True. The message lists
-// "entry: reason" for every entry that is not True.
-func setMonitoringConfigured(in *v1alpha1.Instance, falseReason string) {
+// "entry: reason" for every entry that is not True, followed by note.
+func setMonitoringConfigured(in *v1alpha1.Instance, falseReason, note string) {
 	var notConfigured []string
 	anyFalse := false
 	for _, d := range in.Status.Monitoring.Destinations {
@@ -183,17 +192,17 @@ func setMonitoringConfigured(in *v1alpha1.Instance, falseReason string) {
 		notConfigured = append(notConfigured, d.Name+": "+d.Reason)
 		anyFalse = anyFalse || d.Configured == metav1.ConditionFalse
 	}
+	status, reason, msg := metav1.ConditionUnknown, v1alpha1.ReasonMonitoringPending, strings.Join(notConfigured, "; ")
 	switch {
 	case len(notConfigured) == 0:
-		setCondition(in, v1alpha1.ConditionMonitoringConfigured, metav1.ConditionTrue,
-			v1alpha1.ReasonMonitoringConfigured, "All monitoring destinations are configured", metav1.Now())
+		status, reason, msg = metav1.ConditionTrue, v1alpha1.ReasonMonitoringConfigured, "All monitoring destinations are configured"
 	case anyFalse:
-		setCondition(in, v1alpha1.ConditionMonitoringConfigured, metav1.ConditionFalse,
-			falseReason, strings.Join(notConfigured, "; "), metav1.Now())
-	default:
-		setCondition(in, v1alpha1.ConditionMonitoringConfigured, metav1.ConditionUnknown,
-			v1alpha1.ReasonMonitoringPending, strings.Join(notConfigured, "; "), metav1.Now())
+		status, reason = metav1.ConditionFalse, falseReason
 	}
+	if note != "" {
+		msg += "; " + note
+	}
+	setCondition(in, v1alpha1.ConditionMonitoringConfigured, status, reason, msg, metav1.Now())
 }
 
 // reportMonitoringUnsupported fills the status for a provider that
@@ -215,15 +224,16 @@ func (r *ProviderReconciler) reportMonitoringUnsupported(in *v1alpha1.Instance, 
 			Message:    msg,
 		})
 	}
-	setMonitoringConfigured(in, v1alpha1.ReasonMonitoringIntegrationUnsupported)
+	setMonitoringConfigured(in, v1alpha1.ReasonMonitoringIntegrationUnsupported, "")
 }
 
 // monitoringSources asks the provider for its current sources and validates
-// them; a failure keeps the previously published ones.
-func (r *ProviderReconciler) monitoringSources(ctx context.Context, syncCtx *controller.Context, in *v1alpha1.Instance, logger logr.Logger) *v1alpha1.MonitoringSources {
+// them; a failure keeps the previously published ones. The note, when not
+// empty, reports the failure or the endpoints validation dropped.
+func (r *ProviderReconciler) monitoringSources(ctx context.Context, syncCtx *controller.Context, in *v1alpha1.Instance, logger logr.Logger) (*v1alpha1.MonitoringSources, string) {
 	sp, ok := r.provider.(controller.MonitoringSourcesProvider)
 	if !ok {
-		return nil
+		return nil, ""
 	}
 	var previous *v1alpha1.MonitoringSources
 	if in.Status.Monitoring != nil {
@@ -232,17 +242,20 @@ func (r *ProviderReconciler) monitoringSources(ctx context.Context, syncCtx *con
 	computed, err := sp.MonitoringSources(syncCtx)
 	if err != nil {
 		logger.Error(err, "MonitoringSources failed; keeping the published sources")
-		return previous
+		return previous, "monitoring sources not updated: " + err.Error()
 	}
 	if computed == nil {
-		return nil
+		return nil, ""
 	}
 	validated, err := r.validateSources(ctx, syncCtx, computed, logger)
 	if err != nil {
 		logger.Error(err, "Validating monitoring sources failed; keeping the published sources")
-		return previous
+		return previous, "monitoring sources not updated: " + err.Error()
 	}
-	return validated
+	if dropped := len(computed.Metrics) - len(validated.Metrics); dropped > 0 {
+		return validated, fmt.Sprintf("%d of %d metrics endpoints dropped", dropped, len(computed.Metrics))
+	}
+	return validated, ""
 }
 
 // destinationStatus summarises one binding for
@@ -263,11 +276,12 @@ func (r *ProviderReconciler) destinationStatus(ctx context.Context, syncCtx *con
 		// The provider held the live rendering; core is about to revoke Accepted.
 		st.Configured, st.Reason, st.Message = metav1.ConditionUnknown, string(monitoringv1alpha1.ReasonPending), "waiting for the destination and class to be resolved"
 	case rb.Mode() == v1alpha1.MonitoringExecutionModeProviderManaged:
-		cond := r.configureBinding(ctx, syncCtx, rb.Binding, logger)
+		cond := r.configureBinding(ctx, syncCtx, rb, logger)
 		st.Configured, st.Reason, st.Message = cond.Status, cond.Reason, cond.Message
 	default:
 		st.Configured, st.Reason, st.Message = metav1.ConditionUnknown, string(monitoringv1alpha1.ReasonPending), "waiting for the class controller"
-		if configured := meta.FindStatusCondition(rb.Binding.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionConfigured); configured != nil {
+		configured := meta.FindStatusCondition(rb.Binding.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionConfigured)
+		if configured != nil && configured.ObservedGeneration == rb.Binding.Generation {
 			st.Configured, st.Reason, st.Message = configured.Status, configured.Reason, configured.Message
 		}
 	}
@@ -275,15 +289,28 @@ func (r *ProviderReconciler) destinationStatus(ctx context.Context, syncCtx *con
 }
 
 // configureBinding writes the Configured condition of an Accepted
-// ProviderManaged binding from the Sync outcome and any staged result.
-func (r *ProviderReconciler) configureBinding(ctx context.Context, syncCtx *controller.Context, b *monitoringv1alpha1.MonitoringBinding, logger logr.Logger) metav1.Condition {
+// ProviderManaged binding from the Sync outcome and any staged result. It
+// returns the condition written, or a Pending one carrying the write error.
+func (r *ProviderReconciler) configureBinding(ctx context.Context, syncCtx *controller.Context, rb controller.ResolvedBinding, logger logr.Logger) metav1.Condition {
+	b := rb.Binding
+	ip, renders := r.provider.(controller.MonitoringIntegrationsProvider)
+	renders = renders && slices.Contains(ip.MonitoringIntegrations(), rb.Integration())
+	staged, stagedMsg, isStaged := syncCtx.MonitoringBindingResult(b.Name)
 	reason, msg := monitoringv1alpha1.ReasonConfigured, "Rendered by provider "+r.provider.Name()
-	if staged, stagedMsg, ok := syncCtx.MonitoringBindingResult(b.Name); ok {
+	switch {
+	case !renders:
+		reason, msg = monitoringv1alpha1.ReasonRenderFailed, fmt.Sprintf("provider %s does not render integration %s", r.provider.Name(), rb.Integration())
+	case isStaged:
 		reason, msg = staged, stagedMsg
 	}
 	cond := monitoring.NewCondition(b, monitoringv1alpha1.MonitoringBindingConditionConfigured, reason.Status(), string(reason), msg)
 	if err := monitoring.ApplyCondition(ctx, r.Client, b, b.Status.Conditions, r.configuredFieldOwner(), cond); err != nil {
 		logger.Error(err, "Failed to write the Configured condition", "binding", b.Name)
+		return metav1.Condition{
+			Status:  metav1.ConditionUnknown,
+			Reason:  string(monitoringv1alpha1.ReasonPending),
+			Message: "failed to write the Configured condition: " + err.Error(),
+		}
 	}
 	return cond
 }
@@ -306,7 +333,8 @@ func (r *ProviderReconciler) retainBinding(ctx context.Context, b *monitoringv1a
 }
 
 // validateSources enforces the runtime invariants on the provider-computed
-// sources and stamps the identity.
+// sources, so they always satisfy the Instance status schema, and stamps the
+// identity.
 func (r *ProviderReconciler) validateSources(ctx context.Context, syncCtx *controller.Context, computed *v1alpha1.MonitoringSources, logger logr.Logger) (*v1alpha1.MonitoringSources, error) {
 	in := syncCtx.Instance()
 	spec, err := syncCtx.ProviderSpec()
@@ -321,12 +349,34 @@ func (r *ProviderReconciler) validateSources(ctx context.Context, syncCtx *contr
 	if spec.Monitoring != nil {
 		declared = spec.Monitoring.ComponentTypes
 	}
-	profiles := map[string]bool{}
-	for _, cred := range computed.Credentials {
-		profiles[cred.Profile] = true
-	}
 
 	out := computed.DeepCopy()
+	credentials := out.Credentials
+	out.Credentials = nil
+	seen := make(map[string]bool)
+	profiles := make(map[string]bool)
+	for _, cred := range credentials {
+		if seen[cred.Profile] {
+			logger.Info("Dropping duplicate monitoring credential profile", "profile", cred.Profile)
+			continue
+		}
+		seen[cred.Profile] = true
+		secret := &metav1.PartialObjectMetadata{}
+		secret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
+		getErr := r.Get(ctx, client.ObjectKey{Namespace: in.Namespace, Name: cred.SecretRef.Name}, secret)
+		if getErr != nil && !apierrors.IsNotFound(getErr) {
+			return nil, fmt.Errorf("get credential Secret %s: %w", cred.SecretRef.Name, getErr)
+		}
+		if getErr != nil || !metav1.IsControlledBy(secret, in) {
+			logger.Info("Dropping monitoring credential whose Secret is not controlled by the Instance",
+				"profile", cred.Profile, "secret", cred.SecretRef.Name,
+			)
+			continue
+		}
+		profiles[cred.Profile] = true
+		out.Credentials = append(out.Credentials, cred)
+	}
+
 	metrics := out.Metrics
 	out.Metrics = nil
 	for _, ep := range metrics {
@@ -334,17 +384,26 @@ func (r *ProviderReconciler) validateSources(ctx context.Context, syncCtx *contr
 		if componentType == "" {
 			componentType = spec.Components[ep.Component].Type
 		}
-		_, isDeclared := declared[componentType]
+		decl, isDeclared := declared[componentType]
 		switch {
 		case !isDeclared:
 			logger.Info("Dropping metrics endpoint of an undeclared component type", "component", ep.Component, "type", componentType)
+		case decl.Metrics == v1alpha1.MetricsSourceNone:
+			logger.Info("Dropping metrics endpoint of a component type declared without metrics", "component", ep.Component, "type", componentType)
 		case ep.PodSelector[controller.InstanceLabel] != in.Name:
 			logger.Info("Dropping metrics endpoint whose pod selector lacks the Instance label", "component", ep.Component)
+		case ep.Scheme != "" && ep.Scheme != "http" && ep.Scheme != "https":
+			logger.Info("Dropping metrics endpoint with an unsupported scheme", "component", ep.Component, "scheme", ep.Scheme)
 		case ep.Auth != nil && !profiles[ep.Auth.CredentialProfile]:
 			logger.Info("Dropping metrics endpoint naming an unpublished credential profile", "component", ep.Component, "profile", ep.Auth.CredentialProfile)
 		default:
+			ep.Kind = decl.Kind
 			out.Metrics = append(out.Metrics, ep)
 		}
+	}
+	if len(out.Metrics) > maxMetricsEndpoints {
+		logger.Info("Dropping metrics endpoints beyond the limit", "limit", maxMetricsEndpoints, "dropped", len(out.Metrics)-maxMetricsEndpoints)
+		out.Metrics = out.Metrics[:maxMetricsEndpoints]
 	}
 
 	out.Identity = v1alpha1.MonitoringIdentity{

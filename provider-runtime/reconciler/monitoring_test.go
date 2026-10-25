@@ -15,11 +15,13 @@
 package reconciler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -27,15 +29,18 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/managedfields"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/yaml"
 
@@ -65,6 +70,18 @@ func (p *monProvider) MonitoringSources(*controller.Context) (*v1alpha1.Monitori
 }
 
 func (p *monProvider) MonitoringIntegrations() []string { return []string{"pmm"} }
+
+// vmagentProvider renders an integration other than pmm.
+type vmagentProvider struct{ monProvider }
+
+func (p *vmagentProvider) MonitoringIntegrations() []string { return []string{"vmagent"} }
+
+// sourcesOnlyProvider implements MonitoringSourcesProvider only.
+type sourcesOnlyProvider struct{ readyTestProvider }
+
+func (p *sourcesOnlyProvider) MonitoringSources(*controller.Context) (*v1alpha1.MonitoringSources, error) {
+	return &v1alpha1.MonitoringSources{}, nil
+}
 
 // requiredSourcesProvider records what RequiredSources answers during Sync.
 type requiredSourcesProvider struct {
@@ -108,18 +125,37 @@ func monTypeConverter(t *testing.T) managedfields.TypeConverter { //nolint:iretu
 
 func newMonReconciler(t *testing.T, p providerAdapter, objs ...client.Object) *ProviderReconciler {
 	t.Helper()
+	return newMonReconcilerWith(t, p, interceptor.Funcs{}, objs...)
+}
+
+// newMonReconcilerWith is newMonReconciler with every client call going
+// through funcs.
+func newMonReconcilerWith(t *testing.T, p providerAdapter, funcs interceptor.Funcs, objs ...client.Object) *ProviderReconciler {
+	t.Helper()
 	s := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(s))
 	require.NoError(t, v1alpha1.AddToScheme(s))
 	require.NoError(t, monitoringv1alpha1.AddToScheme(s))
 	kubeSystem := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "kube-system", UID: types.UID(monTestClusterID)}}
-	c := fake.NewClientBuilder().
+	c := interceptor.NewClient(fake.NewClientBuilder().
 		WithScheme(s).
 		WithTypeConverters(monTypeConverter(t), managedfields.NewDeducedTypeConverter()).
 		WithObjects(append(objs, kubeSystem)...).
 		WithStatusSubresource(&v1alpha1.Instance{}, &monitoringv1alpha1.MonitoringBinding{}).
-		Build()
+		Build(), funcs)
 	return &ProviderReconciler{provider: p, Client: c, apiReader: c}
+}
+
+// credentialSecret returns a Secret of "orders", controlled by the Instance
+// when controlled is true and only owned by it otherwise.
+func credentialSecret(name string, controlled bool) *corev1.Secret {
+	return &corev1.Secret{ObjectMeta: metav1.ObjectMeta{
+		Name:      name,
+		Namespace: "team-a",
+		OwnerReferences: []metav1.OwnerReference{{
+			APIVersion: "core.openeverest.io/v1alpha1", Kind: "Instance", Name: "orders", UID: monTestInstanceUID, Controller: new(controlled),
+		}},
+	}}
 }
 
 func monProviderObject() *v1alpha1.Provider {
@@ -129,12 +165,14 @@ func monProviderObject() *v1alpha1.Provider {
 			Components: map[string]v1alpha1.Component{
 				"engine":      {Type: "mysql"},
 				"proxy":       {Type: "haproxy"},
+				"router":      {Type: "mysqlrouter"},
 				"backupAgent": {Type: "xtrabackup"},
 			},
 			Monitoring: &v1alpha1.ProviderMonitoring{
 				ComponentTypes: map[string]v1alpha1.MonitoringComponentType{
-					"mysql":   {Kind: "mysql", Metrics: v1alpha1.MetricsSourceExporter, CredentialProfiles: []string{"metrics"}},
-					"haproxy": {Kind: "haproxy", Metrics: v1alpha1.MetricsSourceNative},
+					"mysql":       {Kind: "mysql", Metrics: v1alpha1.MetricsSourceExporter, CredentialProfiles: []string{"metrics"}},
+					"haproxy":     {Kind: "haproxy", Metrics: v1alpha1.MetricsSourceNative},
+					"mysqlrouter": {Kind: "mysqlrouter", Metrics: v1alpha1.MetricsSourceNone},
 				},
 			},
 		},
@@ -310,19 +348,120 @@ func TestReconcileMonitoring_NoEntries(t *testing.T) {
 	}
 }
 
-func TestReconcileMonitoring_SourcesErrorKeepsPublished(t *testing.T) {
+func TestReconcileMonitoring_SourcesNotes(t *testing.T) {
 	t.Parallel()
-	published := &v1alpha1.MonitoringSources{Credentials: []v1alpha1.MonitoringCredential{{
-		Profile: "metrics", SecretRef: common.SecretRef{Name: "orders-monitoring-metrics"},
-	}}}
-	in := monInstance()
-	in.Status.Monitoring = &v1alpha1.InstanceMonitoringStatus{Sources: published.DeepCopy()}
-	r := newMonReconciler(t, &monProvider{sourcesErr: errors.New("engine CR not readable")}, monProviderObject(), in)
+
+	engine := v1alpha1.MetricsEndpoint{
+		Component: "engine", Kind: "mysql", Port: intstr.FromInt32(9104),
+		PodSelector: map[string]string{controller.InstanceLabel: "orders"},
+	}
+	unlabelled := *engine.DeepCopy()
+	unlabelled.PodSelector = map[string]string{controller.ComponentLabel: "engine"}
+	published := &v1alpha1.MonitoringSources{
+		Identity: v1alpha1.MonitoringIdentity{ClusterID: monTestClusterID},
+		Metrics:  []v1alpha1.MetricsEndpoint{engine},
+	}
+	forbidden := apierrors.NewForbidden(schema.GroupResource{Resource: "namespaces"}, "kube-system", errors.New("RBAC: access denied"))
+	tests := []struct {
+		name        string
+		provider    *monProvider
+		funcs       interceptor.Funcs
+		wantMetrics []v1alpha1.MetricsEndpoint
+		wantMessage string
+	}{
+		{
+			name:        "MonitoringSources fails",
+			provider:    &monProvider{sourcesErr: errors.New("engine CR not readable")},
+			wantMetrics: published.Metrics,
+			wantMessage: "All monitoring destinations are configured; monitoring sources not updated: engine CR not readable",
+		},
+		{
+			name:     "the cluster ID cannot be read",
+			provider: &monProvider{sources: &v1alpha1.MonitoringSources{Metrics: []v1alpha1.MetricsEndpoint{engine, engine}}},
+			funcs: interceptor.Funcs{
+				Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+					if _, ok := obj.(*corev1.Namespace); ok {
+						return forbidden
+					}
+					return c.Get(ctx, key, obj, opts...)
+				},
+			},
+			wantMetrics: published.Metrics,
+			wantMessage: "All monitoring destinations are configured; monitoring sources not updated: get namespace kube-system: " + forbidden.Error(),
+		},
+		{
+			name:        "endpoints dropped by validation",
+			provider:    &monProvider{sources: &v1alpha1.MonitoringSources{Metrics: []v1alpha1.MetricsEndpoint{engine, unlabelled}}},
+			wantMetrics: []v1alpha1.MetricsEndpoint{engine},
+			wantMessage: "All monitoring destinations are configured; 1 of 2 metrics endpoints dropped",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			in := monInstance("pmm")
+			in.Status.Monitoring = &v1alpha1.InstanceMonitoringStatus{Sources: published.DeepCopy()}
+			r := newMonReconcilerWith(t, tc.provider, tc.funcs, monProviderObject(), in, pmmDestination(), pmmClass(),
+				monBinding("pmm", v1alpha1.MonitoringExecutionModeProviderManaged, accepted()),
+			)
+
+			got := reconcileMonitoringOf(t, r, in, nil)
+
+			require.NotNil(t, got.Status.Monitoring)
+			require.NotNil(t, got.Status.Monitoring.Sources)
+			assert.Equal(t, tc.wantMetrics, got.Status.Monitoring.Sources.Metrics)
+			c := meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionMonitoringConfigured)
+			require.NotNil(t, c)
+			assert.Equal(t, metav1.ConditionTrue, c.Status)
+			assert.Equal(t, tc.wantMessage, c.Message)
+		})
+	}
+}
+
+func TestReconcileMonitoring_BindingsUnreadable(t *testing.T) {
+	t.Parallel()
+	in := monInstance("pmm")
+	r := newMonReconcilerWith(t, &monProvider{}, interceptor.Funcs{
+		List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if _, ok := list.(*monitoringv1alpha1.MonitoringBindingList); ok {
+				return errors.New("injected")
+			}
+			return c.List(ctx, list, opts...)
+		},
+	}, monProviderObject(), in)
+
+	got := reconcileMonitoringOf(t, r, in, nil)
+
+	c := meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionMonitoringConfigured)
+	require.NotNil(t, c)
+	assert.Equal(t, metav1.ConditionUnknown, c.Status)
+	assert.Equal(t, v1alpha1.ReasonMonitoringPending, c.Reason)
+	assert.Equal(t, `list monitoring bindings for instance "orders": injected`, c.Message)
+}
+
+func TestReconcileMonitoring_ConfiguredWriteFails(t *testing.T) {
+	t.Parallel()
+	in := monInstance("pmm")
+	r := newMonReconcilerWith(t, &monProvider{}, interceptor.Funcs{
+		SubResourceApply: func(context.Context, client.Client, string, runtime.ApplyConfiguration, ...client.SubResourceApplyOption) error {
+			return errors.New("injected")
+		},
+	}, monProviderObject(), in, pmmDestination(), pmmClass(),
+		monBinding("pmm", v1alpha1.MonitoringExecutionModeProviderManaged, accepted()),
+	)
 
 	got := reconcileMonitoringOf(t, r, in, nil)
 
 	require.NotNil(t, got.Status.Monitoring)
-	assert.Equal(t, published, got.Status.Monitoring.Sources)
+	assert.Equal(t, []v1alpha1.InstanceMonitoringDestinationStatus{{
+		Name: "pmm", Mode: v1alpha1.MonitoringExecutionModeProviderManaged, Configured: metav1.ConditionUnknown, Reason: "Pending",
+		Message: "failed to write the Configured condition: apply status of MonitoringBinding team-a/" +
+			monitoring.BindingName("orders", "pmm") + ": injected",
+	}}, got.Status.Monitoring.Destinations)
+	c := meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionMonitoringConfigured)
+	require.NotNil(t, c)
+	assert.Equal(t, metav1.ConditionUnknown, c.Status)
+	assert.Equal(t, "pmm: Pending", c.Message)
 }
 
 func TestReconcileMonitoring_RollUp(t *testing.T) {
@@ -417,6 +556,14 @@ func TestReconcileMonitoring_DestinationStatus(t *testing.T) {
 	configured := func(status metav1.ConditionStatus, reason, message string) metav1.Condition {
 		return monCondition(monitoringv1alpha1.MonitoringBindingConditionConfigured, status, reason, message)
 	}
+	reportedForGeneration2 := func() *monitoringv1alpha1.MonitoringBinding {
+		b := monBinding("pmm", em, configured(metav1.ConditionTrue, "Configured", "PodMonitor orders-pmm created"))
+		b.Generation = 3
+		current := accepted()
+		current.ObservedGeneration = 3
+		b.Status.Conditions = append(b.Status.Conditions, current)
+		return b
+	}
 	type want struct {
 		status  metav1.ConditionStatus
 		reason  string
@@ -425,7 +572,9 @@ func TestReconcileMonitoring_DestinationStatus(t *testing.T) {
 	tests := []struct {
 		name               string
 		binding            *monitoringv1alpha1.MonitoringBinding
+		provider           providerAdapter
 		destinationDeleted bool
+		classDeleted       bool
 		stage              func(*controller.Context)
 		// entry is the Instance's view; configured is the binding's
 		// Configured condition afterwards, nil when it must be absent.
@@ -483,9 +632,39 @@ func TestReconcileMonitoring_DestinationStatus(t *testing.T) {
 			configured:         &want{metav1.ConditionTrue, "Configured", "Rendered by provider test-provider"},
 		},
 		{
+			name:         "ProviderManaged still accepted after its class was deleted",
+			binding:      monBinding("pmm", pm, accepted(), configured(metav1.ConditionTrue, "Configured", "Rendered by provider test-provider")),
+			classDeleted: true,
+			entry:        want{metav1.ConditionUnknown, "Pending", "waiting for the destination and class to be resolved"},
+			configured:   &want{metav1.ConditionTrue, "Configured", "Rendered by provider test-provider"},
+		},
+		{
+			name:       "ProviderManaged integration the provider does not render",
+			binding:    monBinding("pmm", pm, accepted()),
+			provider:   &vmagentProvider{},
+			entry:      want{metav1.ConditionFalse, "RenderFailed", "provider test-provider does not render integration pmm"},
+			configured: &want{metav1.ConditionFalse, "RenderFailed", "provider test-provider does not render integration pmm"},
+		},
+		{
+			name:     "ProviderManaged with a provider that renders no integration",
+			binding:  monBinding("pmm", pm, accepted()),
+			provider: &sourcesOnlyProvider{},
+			stage: func(c *controller.Context) {
+				c.SetMonitoringBindingResult(monitoring.BindingName("orders", "pmm"), monitoringv1alpha1.ReasonConfigured, "rendered")
+			},
+			entry:      want{metav1.ConditionFalse, "RenderFailed", "provider test-provider does not render integration pmm"},
+			configured: &want{metav1.ConditionFalse, "RenderFailed", "provider test-provider does not render integration pmm"},
+		},
+		{
 			name:       "ExtensionManaged configured by its class controller",
 			binding:    monBinding("pmm", em, accepted(), configured(metav1.ConditionTrue, "Configured", "PodMonitor orders-pmm created")),
 			entry:      want{metav1.ConditionTrue, "Configured", "PodMonitor orders-pmm created"},
+			configured: &want{metav1.ConditionTrue, "Configured", "PodMonitor orders-pmm created"},
+		},
+		{
+			name:       "ExtensionManaged reported for an older generation",
+			binding:    reportedForGeneration2(),
+			entry:      want{metav1.ConditionUnknown, "Pending", "waiting for the class controller"},
 			configured: &want{metav1.ConditionTrue, "Configured", "PodMonitor orders-pmm created"},
 		},
 		{
@@ -503,11 +682,18 @@ func TestReconcileMonitoring_DestinationStatus(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			in := monInstance("pmm")
-			objs := []client.Object{tc.binding, monProviderObject(), in, pmmClass()}
+			objs := []client.Object{tc.binding, monProviderObject(), in}
 			if !tc.destinationDeleted {
 				objs = append(objs, pmmDestination())
 			}
-			r := newMonReconciler(t, &monProvider{}, objs...)
+			if !tc.classDeleted {
+				objs = append(objs, pmmClass())
+			}
+			p := tc.provider
+			if p == nil {
+				p = &monProvider{}
+			}
+			r := newMonReconciler(t, p, objs...)
 
 			got := reconcileMonitoringOf(t, r, in, tc.stage)
 
@@ -559,22 +745,34 @@ func TestValidateSources(t *testing.T) {
 		PodSelector: map[string]string{controller.InstanceLabel: "orders"},
 	}
 	credentials := []v1alpha1.MonitoringCredential{{Profile: "metrics", SecretRef: common.SecretRef{Name: "orders-monitoring-metrics"}}}
+	credentialIn := func(secret string) []v1alpha1.MonitoringCredential {
+		return []v1alpha1.MonitoringCredential{{Profile: "metrics", SecretRef: common.SecretRef{Name: secret}}}
+	}
 	with := func(mutate func(*v1alpha1.MetricsEndpoint)) v1alpha1.MetricsEndpoint {
 		ep := *valid.DeepCopy()
 		mutate(&ep)
 		return ep
 	}
 	tests := []struct {
-		name        string
-		credentials []v1alpha1.MonitoringCredential
-		metrics     []v1alpha1.MetricsEndpoint
-		want        []v1alpha1.MetricsEndpoint
+		name            string
+		credentials     []v1alpha1.MonitoringCredential
+		metrics         []v1alpha1.MetricsEndpoint
+		want            []v1alpha1.MetricsEndpoint
+		wantCredentials []v1alpha1.MonitoringCredential
 	}{
 		{
-			name:        "valid endpoints are kept unchanged",
-			credentials: credentials,
-			metrics:     []v1alpha1.MetricsEndpoint{valid, proxy},
-			want:        []v1alpha1.MetricsEndpoint{valid, proxy},
+			name:            "valid endpoints are kept unchanged",
+			credentials:     credentials,
+			metrics:         []v1alpha1.MetricsEndpoint{valid, proxy},
+			want:            []v1alpha1.MetricsEndpoint{valid, proxy},
+			wantCredentials: credentials,
+		},
+		{
+			name:            "kind comes from the declared component type",
+			credentials:     credentials,
+			metrics:         []v1alpha1.MetricsEndpoint{with(func(ep *v1alpha1.MetricsEndpoint) { ep.Kind = "postgresql" })},
+			want:            []v1alpha1.MetricsEndpoint{valid},
+			wantCredentials: credentials,
 		},
 		{
 			name:        "undeclared component type",
@@ -582,12 +780,23 @@ func TestValidateSources(t *testing.T) {
 			metrics: []v1alpha1.MetricsEndpoint{valid, with(func(ep *v1alpha1.MetricsEndpoint) {
 				ep.Component, ep.Kind = "backupAgent", "xtrabackup"
 			})},
-			want: []v1alpha1.MetricsEndpoint{valid},
+			want:            []v1alpha1.MetricsEndpoint{valid},
+			wantCredentials: credentials,
 		},
 		{
-			name:        "component unknown to Instance and Provider",
+			name:        "component type declared without metrics",
 			credentials: credentials,
-			metrics:     []v1alpha1.MetricsEndpoint{with(func(ep *v1alpha1.MetricsEndpoint) { ep.Component = "sidecar" })},
+			metrics: []v1alpha1.MetricsEndpoint{valid, with(func(ep *v1alpha1.MetricsEndpoint) {
+				ep.Component, ep.Kind, ep.Auth = "router", "mysqlrouter", nil
+			})},
+			want:            []v1alpha1.MetricsEndpoint{valid},
+			wantCredentials: credentials,
+		},
+		{
+			name:            "component unknown to Instance and Provider",
+			credentials:     credentials,
+			metrics:         []v1alpha1.MetricsEndpoint{with(func(ep *v1alpha1.MetricsEndpoint) { ep.Component = "sidecar" })},
+			wantCredentials: credentials,
 		},
 		{
 			name:        "pod selector without the Instance label",
@@ -595,7 +804,8 @@ func TestValidateSources(t *testing.T) {
 			metrics: []v1alpha1.MetricsEndpoint{valid, with(func(ep *v1alpha1.MetricsEndpoint) {
 				ep.PodSelector = map[string]string{controller.ComponentLabel: "engine"}
 			})},
-			want: []v1alpha1.MetricsEndpoint{valid},
+			want:            []v1alpha1.MetricsEndpoint{valid},
+			wantCredentials: credentials,
 		},
 		{
 			name:        "pod selector naming another Instance",
@@ -603,18 +813,54 @@ func TestValidateSources(t *testing.T) {
 			metrics: []v1alpha1.MetricsEndpoint{with(func(ep *v1alpha1.MetricsEndpoint) {
 				ep.PodSelector = map[string]string{controller.InstanceLabel: "payments"}
 			})},
+			wantCredentials: credentials,
+		},
+		{
+			name:            "scheme other than http or https",
+			credentials:     credentials,
+			metrics:         []v1alpha1.MetricsEndpoint{valid, with(func(ep *v1alpha1.MetricsEndpoint) { ep.Scheme = "ftp" })},
+			want:            []v1alpha1.MetricsEndpoint{valid},
+			wantCredentials: credentials,
 		},
 		{
 			name:    "credential profile not published",
 			metrics: []v1alpha1.MetricsEndpoint{valid, proxy},
 			want:    []v1alpha1.MetricsEndpoint{proxy},
 		},
+		{
+			name:            "duplicate credential profile",
+			credentials:     append(credentialIn("orders-monitoring-metrics"), credentialIn("orders-monitoring-other")...),
+			metrics:         []v1alpha1.MetricsEndpoint{valid},
+			want:            []v1alpha1.MetricsEndpoint{valid},
+			wantCredentials: credentials,
+		},
+		{
+			name:        "credential Secret only owned, not controlled, by the Instance",
+			credentials: credentialIn("orders-shared"),
+			metrics:     []v1alpha1.MetricsEndpoint{valid, proxy},
+			want:        []v1alpha1.MetricsEndpoint{proxy},
+		},
+		{
+			name:        "credential Secret missing",
+			credentials: credentialIn("orders-missing"),
+			metrics:     []v1alpha1.MetricsEndpoint{valid, proxy},
+			want:        []v1alpha1.MetricsEndpoint{proxy},
+		},
+		{
+			name:    "more endpoints than the status holds",
+			metrics: slices.Repeat([]v1alpha1.MetricsEndpoint{proxy}, 33),
+			want:    slices.Repeat([]v1alpha1.MetricsEndpoint{proxy}, 32),
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			in := monInstance()
-			r := newMonReconciler(t, &monProvider{}, monProviderObject(), in)
+			r := newMonReconciler(t, &monProvider{}, monProviderObject(), in,
+				credentialSecret("orders-monitoring-metrics", true),
+				credentialSecret("orders-monitoring-other", true),
+				credentialSecret("orders-shared", false),
+			)
 			syncCtx := controller.NewContext(t.Context(), r.Client, in, r.provider.Name())
 			computed := &v1alpha1.MonitoringSources{
 				Identity: v1alpha1.MonitoringIdentity{
@@ -629,7 +875,7 @@ func TestValidateSources(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, tc.want, got.Metrics)
-			assert.Equal(t, tc.credentials, got.Credentials)
+			assert.Equal(t, tc.wantCredentials, got.Credentials)
 			assert.Equal(t, v1alpha1.MonitoringIdentity{
 				ClusterID: monTestClusterID,
 				Labels: map[string]string{

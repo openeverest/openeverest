@@ -432,6 +432,9 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	}
 	if needsUpdate {
 		if err := r.Patch(ctx, in, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})); err != nil {
+			if apierrors.IsConflict(err) {
+				return reconcile.Result{Requeue: true}, nil
+			}
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{Requeue: true}, nil
@@ -749,6 +752,9 @@ func (r *ProviderReconciler) handleDeletion(
 	base := in.DeepCopy()
 	controllerutil.RemoveFinalizer(in, finalizerName)
 	if err := r.Patch(ctx, in, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})); err != nil {
+		if apierrors.IsConflict(err) {
+			return reconcile.Result{Requeue: true}, nil
+		}
 		return reconcile.Result{}, err
 	}
 	// Drop breaker state so a recreated Instance with the same name does not

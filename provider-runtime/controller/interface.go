@@ -404,9 +404,13 @@ type UpgradeProvider interface {
 //	// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get
 type MonitoringSourcesProvider interface {
 	// MonitoringSources returns the endpoints that are currently serving.
-	// The runtime drops endpoints of component types the Provider does not
-	// declare, endpoints whose pod selector lacks the Instance label and
-	// endpoints naming a credential profile missing from credentials, and
+	// The runtime drops duplicate credential profiles and credentials whose
+	// Secret is not controlled by the Instance; it drops endpoints of
+	// component types the Provider does not declare or declares with
+	// metrics None, endpoints whose pod selector lacks the Instance label,
+	// endpoints with a scheme other than http or https and endpoints naming
+	// a credential profile missing from credentials, and keeps at most 32.
+	// It sets each endpoint's kind from its declared component type and
 	// overwrites identity. Returning nil clears the published sources; an
 	// error keeps the previous ones.
 	MonitoringSources(c *Context) (*corev1alpha1.MonitoringSources, error)
@@ -423,8 +427,9 @@ type MonitoringSourcesProvider interface {
 // so a live integration is held, not removed, while its requirement is
 // Unresolved. The runtime writes the bindings' Configured condition from
 // Sync success and from the results staged with
-// Context.SetMonitoringBindingResult. A binding that cannot be rendered must
-// be staged, never returned as a Sync error.
+// Context.SetMonitoringBindingResult, and RenderFailed for a binding whose
+// integration MonitoringIntegrations does not list. A binding that cannot be
+// rendered must be staged, never returned as a Sync error.
 type MonitoringIntegrationsProvider interface {
 	// MonitoringIntegrations returns the integration names the provider
 	// renders, matching Provider.spec.monitoring.integrations.

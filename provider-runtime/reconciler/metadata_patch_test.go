@@ -16,10 +16,12 @@ package reconciler
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -99,6 +101,58 @@ func TestReconcile_MetadataWritesKeepUnknownSpec(t *testing.T) {
 			assert.Equal(t, monitoringSpec, got.Spec.Monitoring)
 			assert.Equal(t, tc.wantFinalizers, got.Finalizers)
 			assert.Equal(t, "test-provider", got.Labels[controller.ProviderLabel])
+		})
+	}
+}
+
+// TestReconcile_MetadataWriteConflictRequeues checks that losing the
+// optimistic lock on a metadata write requeues instead of failing.
+func TestReconcile_MetadataWriteConflictRequeues(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   *v1alpha1.Instance
+	}{
+		{
+			name: "adding the provider label and finalizer",
+			in: readyTestInstance(func(in *v1alpha1.Instance) {
+				in.Labels = nil
+				in.Finalizers = nil
+			}),
+		},
+		{
+			name: "removing the finalizer on deletion",
+			in: readyTestInstance(func(in *v1alpha1.Instance) {
+				now := metav1.Now()
+				in.DeletionTimestamp = &now
+				in.Status.Phase = v1alpha1.InstancePhaseTerminating
+			}),
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			stored := fake.NewClientBuilder().
+				WithScheme(newTestScheme()).
+				WithObjects(tc.in).
+				WithStatusSubresource(&v1alpha1.Instance{}).
+				Build()
+			conflicting := interceptor.NewClient(stored, interceptor.Funcs{
+				Patch: func(_ context.Context, _ client.WithWatch, obj client.Object, _ client.Patch, _ ...client.PatchOption) error {
+					return apierrors.NewConflict(v1alpha1.GroupVersion.WithResource("instances").GroupResource(), obj.GetName(), errors.New("object was modified"))
+				},
+			})
+			r := &ProviderReconciler{provider: &readyTestProvider{}, Client: conflicting}
+
+			key := client.ObjectKeyFromObject(tc.in)
+			res, err := r.Reconcile(t.Context(), reconcile.Request{NamespacedName: key})
+			require.NoError(t, err)
+			assert.Equal(t, reconcile.Result{Requeue: true}, res)
+
+			got := &v1alpha1.Instance{}
+			require.NoError(t, stored.Get(t.Context(), key, got))
+			assert.Equal(t, tc.in.Finalizers, got.Finalizers, "nothing was written")
 		})
 	}
 }
