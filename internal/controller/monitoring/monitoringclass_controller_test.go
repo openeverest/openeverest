@@ -177,7 +177,8 @@ func TestClassCompatibilityMatrix(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			c := newFakeClient(t, tt.class, pxcProvider(), psmdbProvider(), kserveProvider(), pgProvider(),
-				newProvider("mariadb", map[string]string{"engine": "mariadb"}, nil))
+				newProvider("mariadb", map[string]string{"engine": "mariadb"}, nil),
+			)
 
 			class := reconcileClass(t, c, tt.class.Name)
 
@@ -211,7 +212,8 @@ func TestClassCompatibilityKeepsClassControllerCondition(t *testing.T) {
 			Reason:  monitoringv1alpha1.ReasonIntegrationUnsupported,
 			Message: `Provider "provider-kserve" does not declare integration "pmm"`,
 		},
-	}, class.Status.Providers)
+	}, class.Status.Providers,
+	)
 }
 
 func TestClassCompatibilityDropsDeletedProviders(t *testing.T) {
@@ -241,5 +243,6 @@ func TestClassCompatibilityEnqueuesEveryClass(t *testing.T) {
 		{NamespacedName: types.NamespacedName{Name: "pmm"}},
 		{NamespacedName: types.NamespacedName{Name: "prometheus"}},
 		{NamespacedName: types.NamespacedName{Name: "victoriametrics"}},
-	}, requests)
+	}, requests,
+	)
 }

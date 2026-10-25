@@ -59,7 +59,8 @@ type DestinationReconciler struct {
 // spec.credentialsSecretRef.name and sets up the controller.
 func (r *DestinationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &monitoringv1alpha1.MonitoringDestination{},
-		destinationCredentialsSecretField, destinationCredentialsSecretName); err != nil {
+		destinationCredentialsSecretField, destinationCredentialsSecretName,
+	); err != nil {
 		return fmt.Errorf("indexing monitoring destination by credentials secret: %w", err)
 	}
 	return ctrl.NewControllerManagedBy(mgr).
@@ -67,9 +68,11 @@ func (r *DestinationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&monitoringv1alpha1.MonitoringDestination{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&monitoringv1alpha1.MonitoringClass{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueDestinationsForClass),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		).
 		Watches(&corev1.Secret{},
-			handler.EnqueueRequestsFromMapFunc(r.enqueueDestinationsForSecret)).
+			handler.EnqueueRequestsFromMapFunc(r.enqueueDestinationsForSecret),
+		).
 		Complete(r)
 }
 
@@ -113,7 +116,8 @@ func (r *DestinationReconciler) acceptedCondition(ctx context.Context, dst *moni
 	}
 	if err := schema.Validate(params); err != nil {
 		return reject(monitoringv1alpha1.ReasonInvalidParameters,
-			fmt.Sprintf("parameters rejected by the destinationParametersSchema of MonitoringClass %q: %v", class.Name, err))
+			fmt.Sprintf("parameters rejected by the destinationParametersSchema of MonitoringClass %q: %v", class.Name, err),
+		)
 	}
 	missing, err := r.missingCredentials(ctx, dst, class)
 	if err != nil {
@@ -123,7 +127,8 @@ func (r *DestinationReconciler) acceptedCondition(ctx context.Context, dst *moni
 		return reject(monitoringv1alpha1.ReasonCredentialsNotFound, missing)
 	}
 	return rtmonitoring.NewCondition(dst, monitoringv1alpha1.MonitoringDestinationConditionAccepted, metav1.ConditionTrue,
-		monitoringv1alpha1.ReasonAccepted, fmt.Sprintf("valid for MonitoringClass %q", class.Name)), nil
+		monitoringv1alpha1.ReasonAccepted, fmt.Sprintf("valid for MonitoringClass %q", class.Name),
+	), nil
 }
 
 // missingCredentials describes what is missing from the destination's

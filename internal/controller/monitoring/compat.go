@@ -91,7 +91,7 @@ func providerCompatibility(provider *corev1alpha1.Provider, class *monitoringv1a
 // instanceComponentTypes returns the distinct component types of the
 // Instance's components, sorted.
 func instanceComponentTypes(in *corev1alpha1.Instance, provider *corev1alpha1.Provider) []string {
-	componentTypes := map[string]struct{}{}
+	componentTypes := make(map[string]struct{})
 	for name, comp := range in.Spec.Components {
 		t := comp.Type
 		if t == "" {

@@ -103,7 +103,7 @@ func generations() interceptor.Funcs {
 func crdTypeConverter(t *testing.T) managedfields.TypeConverter { //nolint:ireturn // the fake client takes the interface
 	t.Helper()
 	crds := os.DirFS(filepath.Join("..", "..", "..", "config", "crd", "bases"))
-	models := map[string]*spec.Schema{}
+	models := make(map[string]*spec.Schema)
 	for _, plural := range []string{"monitoringclasses", "monitoringdestinations", "monitoringbindings"} {
 		raw, err := fs.ReadFile(crds, "monitoring.openeverest.io_"+plural+".yaml")
 		require.NoError(t, err)
@@ -166,7 +166,8 @@ func pmmClass() *monitoringv1alpha1.MonitoringClass {
 			DestinationParametersSchema: objectSchema(map[string]apiextensionsv1.JSONSchemaProps{
 				"url":       {Type: "string"},
 				"verifyTLS": {Type: "boolean"},
-			}, "url"),
+			}, "url",
+			),
 			InstanceParametersSchema: objectSchema(map[string]apiextensionsv1.JSONSchemaProps{
 				"resources": {Type: "object", Properties: map[string]apiextensionsv1.JSONSchemaProps{
 					"limits":   stringMap(),
@@ -202,7 +203,7 @@ func scrapeClass(name, labelsParameter string) *monitoringv1alpha1.MonitoringCla
 				labelsParameter: stringMap(),
 				"interval":      {Type: "string"},
 			}),
-			InstanceParametersSchema: objectSchema(map[string]apiextensionsv1.JSONSchemaProps{}),
+			InstanceParametersSchema: objectSchema(make(map[string]apiextensionsv1.JSONSchemaProps)),
 		},
 	})
 }
@@ -223,7 +224,7 @@ func newProvider(name string, components map[string]string, monitoring *corev1al
 	p := &corev1alpha1.Provider{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: corev1alpha1.ProviderSpec{
-			Components: map[string]corev1alpha1.Component{},
+			Components: make(map[string]corev1alpha1.Component),
 			Monitoring: monitoring,
 		},
 	}
@@ -285,7 +286,7 @@ func pgProvider() *corev1alpha1.Provider {
 // newInstance is an Instance of provider with one component per provider
 // component, sending to entries.
 func newInstance(provider *corev1alpha1.Provider, entries ...corev1alpha1.InstanceMonitoringDestination) *corev1alpha1.Instance {
-	components := map[string]corev1alpha1.ComponentSpec{}
+	components := make(map[string]corev1alpha1.ComponentSpec)
 	for name, comp := range provider.Spec.Components {
 		components[name] = corev1alpha1.ComponentSpec{Type: comp.Type}
 	}
@@ -327,7 +328,7 @@ func pmmDestination(name string) *monitoringv1alpha1.MonitoringDestination {
 func newSecret(name string, data map[string]string) *corev1.Secret {
 	s := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNamespace},
-		Data:       map[string][]byte{},
+		Data:       make(map[string][]byte),
 	}
 	for k, v := range data {
 		s.Data[k] = []byte(v)
@@ -354,7 +355,8 @@ func getBinding(t *testing.T, c client.Client, entryName string) *monitoringv1al
 	t.Helper()
 	b := &monitoringv1alpha1.MonitoringBinding{}
 	require.NoError(t, c.Get(t.Context(),
-		types.NamespacedName{Namespace: testNamespace, Name: rtmonitoring.BindingName(testInstance, entryName)}, b))
+		types.NamespacedName{Namespace: testNamespace, Name: rtmonitoring.BindingName(testInstance, entryName)}, b,
+	))
 	return b
 }
 

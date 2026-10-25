@@ -63,7 +63,8 @@ func TestBindingReconcilerMaterialisesOneBindingPerEntry(t *testing.T) {
 		assert.Equal(t, []metav1.OwnerReference{{
 			APIVersion: "core.openeverest.io/v1alpha1", Kind: "Instance", Name: testInstance, UID: testUID,
 			Controller: new(true), BlockOwnerDeletion: new(true),
-		}}, b.OwnerReferences)
+		}}, b.OwnerReferences,
+		)
 		assert.Equal(t, common.ObjectRef{Name: testInstance}, b.Spec.InstanceRef)
 		assert.Equal(t, common.MonitoringDestinationRef{Kind: "MonitoringDestination", Name: tt.destination}, b.Spec.DestinationRef)
 		assert.Equal(t, &common.ObjectRef{Name: tt.class}, b.Spec.ClassRef)
@@ -202,7 +203,8 @@ func TestBindingReconcilerRejectsEntry(t *testing.T) {
 			objs := append([]client.Object{
 				pmmClass(), prometheusClass(), pmmDestination("pmm-prod"), newDestination("prom", "prometheus"),
 				newInstance(tt.provider, tt.entries...),
-			}, tt.objects...)
+			}, tt.objects...,
+			)
 			if !tt.noProvider {
 				objs = append(objs, tt.provider)
 			}
@@ -336,7 +338,8 @@ func TestBindingReconcilerNeverChangesModeOnItsOwn(t *testing.T) {
 	t.Run("destination recreated with another class", func(t *testing.T) {
 		t.Parallel()
 		c := newFakeClient(t, pxcProvider(), prometheusClass(), victoriaMetricsClass(),
-			newDestination("scrape", "prometheus"), newInstance(pxcProvider(), entry("metrics", "scrape")))
+			newDestination("scrape", "prometheus"), newInstance(pxcProvider(), entry("metrics", "scrape")),
+		)
 		reconcileInstance(t, c)
 
 		require.NoError(t, c.Delete(t.Context(), newDestination("scrape", "prometheus")))
@@ -361,7 +364,8 @@ func TestBindingReconcilerRecreatesBindingForChangedEntry(t *testing.T) {
 		t.Parallel()
 		c := newFakeClient(t, pxcProvider(), prometheusClass(), victoriaMetricsClass(),
 			newDestination("prom", "prometheus"), newDestination("vm", "victoriametrics"),
-			newInstance(pxcProvider(), entry("metrics", "prom")))
+			newInstance(pxcProvider(), entry("metrics", "prom")),
+		)
 		reconcileInstance(t, c)
 
 		updateInstance(t, c, func(in *corev1alpha1.Instance) {
@@ -379,7 +383,8 @@ func TestBindingReconcilerRecreatesBindingForChangedEntry(t *testing.T) {
 	t.Run("entry pinned to another mode", func(t *testing.T) {
 		t.Parallel()
 		c := newFakeClient(t, pxcProvider(), hybridPMMClass(), pmmDestination("pmm-prod"),
-			newInstance(pxcProvider(), entry("pmm", "pmm-prod")))
+			newInstance(pxcProvider(), entry("pmm", "pmm-prod")),
+		)
 		reconcileInstance(t, c)
 		require.Equal(t, corev1alpha1.MonitoringExecutionModeProviderManaged, getBinding(t, c, "pmm").Spec.ExecutionMode)
 
@@ -397,12 +402,14 @@ func TestBindingReconcilerRecreatesBindingForChangedEntry(t *testing.T) {
 func TestBindingReconcilerKeepsIntegrationWithItsExistingBinding(t *testing.T) {
 	t.Parallel()
 	c := newFakeClient(t, pxcProvider(), pmmClass(), pmmDestination("pmm-prod"), pmmDestination("pmm-staging"),
-		newInstance(pxcProvider(), entry("pmm", "pmm-prod")))
+		newInstance(pxcProvider(), entry("pmm", "pmm-prod")),
+	)
 	reconcileInstance(t, c)
 
 	updateInstance(t, c, func(in *corev1alpha1.Instance) {
 		in.Spec.Monitoring.Destinations = append([]corev1alpha1.InstanceMonitoringDestination{entry("staging", "pmm-staging")},
-			in.Spec.Monitoring.Destinations...)
+			in.Spec.Monitoring.Destinations...,
+		)
 	})
 	reconcileInstance(t, c)
 
@@ -417,7 +424,8 @@ func TestBindingReconcilerKeepsIntegrationWithItsExistingBinding(t *testing.T) {
 func TestBindingReconcilerHeldBindingKeepsItsIntegration(t *testing.T) {
 	t.Parallel()
 	c := newFakeClient(t, pxcProvider(), pmmClass(), pmmDestination("pmm-prod"), pmmDestination("pmm-staging"),
-		newInstance(pxcProvider(), entry("pmm", "pmm-prod")))
+		newInstance(pxcProvider(), entry("pmm", "pmm-prod")),
+	)
 	reconcileInstance(t, c)
 
 	require.NoError(t, c.Delete(t.Context(), pmmDestination("pmm-prod")))
@@ -462,7 +470,8 @@ func TestBindingReconcilerResolvesOnceDestinationAppears(t *testing.T) {
 func TestBindingReconcilerLeavesUnchangedBindingsAlone(t *testing.T) {
 	t.Parallel()
 	c := newFakeClient(t, pxcProvider(), prometheusClass(), newDestination("prom", "prometheus"),
-		newInstance(pxcProvider(), entry("metrics", "prom")))
+		newInstance(pxcProvider(), entry("metrics", "prom")),
+	)
 	reconcileInstance(t, c)
 	before := getBinding(t, c, "metrics")
 
@@ -575,7 +584,8 @@ func TestBindingReconcilerDeletesStaleBindings(t *testing.T) {
 		},
 	}
 	c := newFakeClient(t, pxcProvider(), pmmClass(), prometheusClass(), pmmDestination("pmm-prod"), newDestination("prom", "prometheus"),
-		newInstance(pxcProvider(), entry("pmm", "pmm-prod"), entry("metrics", "prom")), foreign)
+		newInstance(pxcProvider(), entry("pmm", "pmm-prod"), entry("metrics", "prom")), foreign,
+	)
 	reconcileInstance(t, c)
 
 	updateInstance(t, c, func(in *corev1alpha1.Instance) {

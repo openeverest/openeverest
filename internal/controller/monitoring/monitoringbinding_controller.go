@@ -84,7 +84,8 @@ type BindingReconciler struct {
 // controller.
 func (r *BindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1alpha1.Instance{},
-		instanceMonitoringDestinationField, instanceMonitoringDestinationNames); err != nil {
+		instanceMonitoringDestinationField, instanceMonitoringDestinationNames,
+	); err != nil {
 		return fmt.Errorf("indexing instance by monitoring destination: %w", err)
 	}
 	return ctrl.NewControllerManagedBy(mgr).
@@ -93,12 +94,15 @@ func (r *BindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&monitoringv1alpha1.MonitoringBinding{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&monitoringv1alpha1.MonitoringDestination{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueInstancesForDestination),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		).
 		Watches(&monitoringv1alpha1.MonitoringClass{},
-			handler.EnqueueRequestsFromMapFunc(r.enqueueInstancesForClass)).
+			handler.EnqueueRequestsFromMapFunc(r.enqueueInstancesForClass),
+		).
 		Watches(&corev1alpha1.Provider{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueInstancesForProvider),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		).
 		Complete(r)
 }
 
@@ -273,7 +277,8 @@ func (r *BindingReconciler) resolve(
 			return resolution{}, fmt.Errorf("get Provider %q: %w", in.Spec.ProviderRef.Name, err)
 		}
 		return rejection(existing, classRef, monitoringv1alpha1.ReasonProviderNotFound,
-			fmt.Sprintf("Provider %q not found", in.Spec.ProviderRef.Name)), nil
+			fmt.Sprintf("Provider %q not found", in.Spec.ProviderRef.Name),
+		), nil
 	}
 
 	schema := class.Spec.InstanceParametersSchema
@@ -284,7 +289,8 @@ func (r *BindingReconciler) resolve(
 	}
 	if err := schema.Validate(params); err != nil {
 		return rejection(existing, classRef, monitoringv1alpha1.ReasonInvalidParameters,
-			fmt.Sprintf("parameters rejected by the instanceParametersSchema of MonitoringClass %q: %v", class.Name, err)), nil
+			fmt.Sprintf("parameters rejected by the instanceParametersSchema of MonitoringClass %q: %v", class.Name, err),
+		), nil
 	}
 
 	f := assess(provider, class, instanceComponentTypes(in, provider))
@@ -329,12 +335,15 @@ func (r *BindingReconciler) resolveClass(
 			return nil, resolution{}, fmt.Errorf("get MonitoringDestination %q: %w", entry.DestinationRef.Name, err)
 		}
 		return nil, rejection(existing, nil, monitoringv1alpha1.ReasonDestinationNotFound,
-			fmt.Sprintf("MonitoringDestination %q not found", entry.DestinationRef.Name)), nil
+			fmt.Sprintf("MonitoringDestination %q not found", entry.DestinationRef.Name),
+		), nil
 	}
 	if existing != nil && existing.Spec.ClassRef != nil && existing.Spec.ClassRef.Name != dst.Spec.ClassRef.Name {
 		return nil, rejection(existing, nil, monitoringv1alpha1.ReasonIncompatible,
 			fmt.Sprintf("binding was created for MonitoringClass %q but MonitoringDestination %q now references %q",
-				existing.Spec.ClassRef.Name, dst.Name, dst.Spec.ClassRef.Name)), nil
+				existing.Spec.ClassRef.Name, dst.Name, dst.Spec.ClassRef.Name,
+			),
+		), nil
 	}
 
 	class := &monitoringv1alpha1.MonitoringClass{}
@@ -343,11 +352,13 @@ func (r *BindingReconciler) resolveClass(
 			return nil, resolution{}, fmt.Errorf("get MonitoringClass %q: %w", dst.Spec.ClassRef.Name, err)
 		}
 		return nil, rejection(existing, nil, monitoringv1alpha1.ReasonClassNotFound,
-			fmt.Sprintf("MonitoringClass %q not found", dst.Spec.ClassRef.Name)), nil
+			fmt.Sprintf("MonitoringClass %q not found", dst.Spec.ClassRef.Name),
+		), nil
 	}
 	if !rtmonitoring.ClassIsAccepted(class) {
 		return nil, rejection(existing, &common.ObjectRef{Name: class.Name}, monitoringv1alpha1.ReasonClassNotAccepted,
-			fmt.Sprintf("no controller has claimed MonitoringClass %q (controllerName %q)", class.Name, class.Spec.ControllerName)), nil
+			fmt.Sprintf("no controller has claimed MonitoringClass %q (controllerName %q)", class.Name, class.Spec.ControllerName),
+		), nil
 	}
 	return class, resolution{}, nil
 }
@@ -489,7 +500,7 @@ func (r *BindingReconciler) updateBinding(
 	for k, v := range labels {
 		if b.Labels[k] != v {
 			if b.Labels == nil {
-				b.Labels = map[string]string{}
+				b.Labels = make(map[string]string)
 			}
 			b.Labels[k] = v
 			changed = true

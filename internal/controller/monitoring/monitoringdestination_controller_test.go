@@ -154,7 +154,8 @@ func TestDestinationReconcilerAccepted(t *testing.T) {
 func TestDestinationInUseIsDeletedImmediately(t *testing.T) {
 	t.Parallel()
 	c := newFakeClient(t, pxcProvider(), prometheusClass(), newDestination("prom", "prometheus"),
-		newInstance(pxcProvider(), entry("metrics", "prom")))
+		newInstance(pxcProvider(), entry("metrics", "prom")),
+	)
 	reconcileInstance(t, c)
 	dst := reconcileDestination(t, c, "prom")
 	require.Empty(t, dst.Finalizers)
@@ -205,5 +206,6 @@ func TestDestinationReconcilerEnqueuesDestinationsOfClass(t *testing.T) {
 	assert.ElementsMatch(t, []reconcile.Request{
 		{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "prom"}},
 		{NamespacedName: types.NamespacedName{Namespace: "team-b", Name: "prom"}},
-	}, requests)
+	}, requests,
+	)
 }

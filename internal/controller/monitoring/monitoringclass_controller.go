@@ -49,7 +49,8 @@ func (r *ClassCompatibilityReconciler) SetupWithManager(mgr ctrl.Manager) error 
 		For(&monitoringv1alpha1.MonitoringClass{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&corev1alpha1.Provider{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueAllClasses),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		).
 		Complete(r)
 }
 
@@ -71,14 +72,16 @@ func (r *ClassCompatibilityReconciler) Reconcile(ctx context.Context, req ctrl.R
 
 	entries := make([]any, 0, len(providers.Items))
 	for i := range providers.Items {
-		entry, err := runtime.DefaultUnstructuredConverter.ToUnstructured(new(providerCompatibility(&providers.Items[i], class)))
+		pc := providerCompatibility(&providers.Items[i], class)
+		entry, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&pc)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("convert compatibility with Provider %q: %w", providers.Items[i].Name, err)
 		}
 		entries = append(entries, entry)
 	}
 	return ctrl.Result{}, rtmonitoring.ApplyStatus(ctx, r.Client, class, rtmonitoring.CompatibilityFieldOwner,
-		map[string]any{"providers": entries})
+		map[string]any{"providers": entries},
+	)
 }
 
 func (r *ClassCompatibilityReconciler) enqueueAllClasses(ctx context.Context, obj client.Object) []reconcile.Request {
