@@ -220,6 +220,18 @@ func pxcProvider() *corev1alpha1.Provider {
 		})
 }
 
+func psmdbProvider() *corev1alpha1.Provider {
+	return newProvider("percona-server-mongodb",
+		map[string]string{"engine": "mongod", "configServer": "mongod", "router": "mongos"},
+		&corev1alpha1.ProviderMonitoring{
+			Integrations: pmmIntegration(),
+			ComponentTypes: map[string]corev1alpha1.MonitoringComponentType{
+				"mongod": {Kind: "mongodb", Metrics: corev1alpha1.MetricsSourceExporter},
+				"mongos": {Kind: "mongodb", Metrics: corev1alpha1.MetricsSourceExporter},
+			},
+		})
+}
+
 func kserveProvider() *corev1alpha1.Provider {
 	return newProvider("provider-kserve",
 		map[string]string{"model": "llm"},

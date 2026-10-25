@@ -33,7 +33,8 @@ type verdict struct {
 }
 
 // fulfilment is how a MonitoringClass can be fulfilled for a Provider, from
-// static data only.
+// static data only. Binding acceptance and MonitoringClass.status.providers
+// are both derived from it, so they cannot disagree.
 type fulfilment struct {
 	class            *monitoringv1alpha1.MonitoringClass
 	providerManaged  verdict
@@ -69,6 +70,22 @@ func (f fulfilment) preferred() (corev1alpha1.MonitoringExecutionMode, string, s
 		reason = f.providerManaged.reason
 	}
 	return "", reason, fmt.Sprintf("providerManaged: %s; extensionManaged: %s", f.providerManaged.message, f.extensionManaged.message)
+}
+
+// providerCompatibility is the MonitoringClass.status.providers entry for
+// one Provider: every component type the Provider declares is considered.
+func providerCompatibility(provider *corev1alpha1.Provider, class *monitoringv1alpha1.MonitoringClass) monitoringv1alpha1.ProviderCompatibility {
+	var componentTypes []string
+	if provider.Spec.Monitoring != nil {
+		componentTypes = slices.Sorted(maps.Keys(provider.Spec.Monitoring.ComponentTypes))
+	}
+	f := assess(provider, class, componentTypes)
+	mode, reason, message := f.preferred()
+	pc := monitoringv1alpha1.ProviderCompatibility{Name: provider.Name, Mode: mode, Reason: reason, Message: message}
+	if mode == corev1alpha1.MonitoringExecutionModeExtensionManaged {
+		pc.Components = f.components
+	}
+	return pc
 }
 
 // instanceComponentTypes returns the distinct component types of the
