@@ -417,12 +417,14 @@ type MonitoringSourcesProvider interface {
 // operator's native integration (e.g. PMM).
 //
 // The provider renders the integration inside Sync, on the same Apply as the
-// rest of the engine CR, from the bindings of Context.MonitoringBindings()
-// whose Apply is true, and keeps the live rendering for the other
-// ProviderManaged bindings that still have an Entry. The runtime writes the
-// bindings' Configured condition from Sync success and from the results
-// staged with Context.SetMonitoringBindingResult. A binding that cannot be
-// rendered must be staged, never returned as a Sync error.
+// rest of the engine CR, from the binding of Context.MonitoringBindings()
+// whose Apply is true. Whether the integration runs at all is gated on
+// Context.RequiredSources(): req.Integrations["pmm"].Else(livePMMEnabled),
+// so a live integration is held, not removed, while its requirement is
+// Unresolved. The runtime writes the bindings' Configured condition from
+// Sync success and from the results staged with
+// Context.SetMonitoringBindingResult. A binding that cannot be rendered must
+// be staged, never returned as a Sync error.
 type MonitoringIntegrationsProvider interface {
 	// MonitoringIntegrations returns the integration names the provider
 	// renders, matching Provider.spec.monitoring.integrations.

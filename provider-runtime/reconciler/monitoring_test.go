@@ -66,6 +66,19 @@ func (p *monProvider) MonitoringSources(*controller.Context) (*v1alpha1.Monitori
 
 func (p *monProvider) MonitoringIntegrations() []string { return []string{"pmm"} }
 
+// requiredSourcesProvider records what RequiredSources answers during Sync.
+type requiredSourcesProvider struct {
+	monProvider
+
+	got controller.RequiredSources
+	err error
+}
+
+func (p *requiredSourcesProvider) Sync(c *controller.Context) error {
+	p.got, p.err = c.RequiredSources()
+	return nil
+}
+
 // monTypeConverter makes the fake client's server-side apply follow the
 // generated monitoring CRD schemas (conditions merge by type).
 func monTypeConverter(t *testing.T) managedfields.TypeConverter { //nolint:ireturn // the fake client takes the interface
@@ -659,6 +672,24 @@ func TestReconcile_PublishesMonitoringStatus(t *testing.T) {
 	c := storedConfigured(t, r, "pmm")
 	require.NotNil(t, c)
 	assert.Equal(t, metav1.ConditionTrue, c.Status)
+}
+
+func TestReconcile_RequiredSourcesIncludeRenderedIntegrations(t *testing.T) {
+	t.Parallel()
+	p := &requiredSourcesProvider{monProvider: monProvider{readyTestProvider: readyTestProvider{status: controller.Ready()}}}
+	in := monInstance("pmm")
+	r := newMonReconciler(t, p, monProviderObject(), in, pmmDestination(), pmmClass(),
+		monBinding("pmm", v1alpha1.MonitoringExecutionModeProviderManaged, accepted()),
+	)
+
+	_, err := reconcileAndGet(t, r)
+	require.NoError(t, err)
+
+	require.NoError(t, p.err)
+	assert.Equal(t, controller.RequiredSources{
+		Metrics:      controller.NotRequired,
+		Integrations: map[string]controller.Requirement{"pmm": controller.Required},
+	}, p.got, "pmm comes from MonitoringIntegrations: the Provider object declares no integration")
 }
 
 func TestMonitoringWatchMapping(t *testing.T) {

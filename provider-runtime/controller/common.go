@@ -92,6 +92,10 @@ type Context struct {
 	// SetMonitoringBindingResult; the reconciler writes them on the
 	// bindings' Configured condition after Sync.
 	monitoringResults map[string]bindingResult
+
+	// monitoringIntegrations holds the integrations the provider renders,
+	// set by the reconciler before Sync.
+	monitoringIntegrations []string
 }
 
 // NewContext creates a new Context handle (used internally by the reconciler).

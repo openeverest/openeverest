@@ -500,6 +500,9 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	}
 	syncCtx := controller.NewContext(ctx, r.Client, resolvedIn, r.provider.Name())
 	syncCtx.BlockMaintenance(r.breaker.blockedTokens(req.NamespacedName, approvedMaintenanceValue(in))...)
+	if ip, ok := r.provider.(controller.MonitoringIntegrationsProvider); ok {
+		syncCtx.SetMonitoringIntegrations(ip.MonitoringIntegrations()...)
+	}
 
 	// Passive warning for owners: flag effective component versions the
 	// installed catalog marks as deprecated, before any upgrade is attempted.

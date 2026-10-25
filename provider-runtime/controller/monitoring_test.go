@@ -35,12 +35,20 @@ const (
 	monitoringTestUID       = "7d2f4c1e-0000-4000-8000-0000000000aa"
 )
 
+// monitoringTestContext returns a Context for in whose client also holds
+// the Provider "test-provider", which declares the pmm integration.
 func monitoringTestContext(t *testing.T, in *v1alpha1.Instance, objs ...client.Object) *Context {
 	t.Helper()
 	s := runtime.NewScheme()
 	require.NoError(t, v1alpha1.AddToScheme(s))
 	require.NoError(t, monitoringv1alpha1.AddToScheme(s))
-	c := fake.NewClientBuilder().WithScheme(s).WithObjects(objs...).Build()
+	provider := &v1alpha1.Provider{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-provider"},
+		Spec: v1alpha1.ProviderSpec{Monitoring: &v1alpha1.ProviderMonitoring{
+			Integrations: map[string]v1alpha1.MonitoringIntegration{"pmm": {}},
+		}},
+	}
+	c := fake.NewClientBuilder().WithScheme(s).WithObjects(append(objs, provider)...).Build()
 	return NewContext(t.Context(), c, in, "test-provider")
 }
 
@@ -129,11 +137,17 @@ func TestRequiredSources(t *testing.T) {
 		pm = v1alpha1.MonitoringExecutionModeProviderManaged
 		em = v1alpha1.MonitoringExecutionModeExtensionManaged
 	)
+	namingDestination := func(b *monitoringv1alpha1.MonitoringBinding, destination string) *monitoringv1alpha1.MonitoringBinding {
+		b.Spec.DestinationRef.Name = destination
+		return b
+	}
 	tests := []struct {
-		name    string
-		entries []string
-		objs    []client.Object
-		want    Requirement
+		name             string
+		entries          []string
+		rendered         []string
+		objs             []client.Object
+		wantMetrics      Requirement
+		wantIntegrations map[string]Requirement
 	}{
 		{
 			name:    "a not Accepted ExtensionManaged binding whose class requires metrics",
@@ -142,7 +156,8 @@ func TestRequiredSources(t *testing.T) {
 				monitoringBinding("prometheus", em, "prometheus", metav1.ConditionFalse),
 				extensionManagedClass("prometheus", true),
 			},
-			want: Required,
+			wantMetrics:      Required,
+			wantIntegrations: map[string]Requirement{"pmm": NotRequired},
 		},
 		{
 			name:    "a metrics requirement wins over an unresolved entry",
@@ -151,16 +166,61 @@ func TestRequiredSources(t *testing.T) {
 				monitoringBinding("prometheus", em, "prometheus", metav1.ConditionTrue),
 				extensionManagedClass("prometheus", true),
 			},
-			want: Required,
+			wantMetrics:      Required,
+			wantIntegrations: map[string]Requirement{"pmm": Unresolved},
 		},
 		{
-			name:    "only a ProviderManaged binding",
+			name:    "a ProviderManaged binding to render",
 			entries: []string{"pmm"},
 			objs: []client.Object{
 				monitoringBinding("pmm", pm, "pmm", metav1.ConditionTrue),
+				pmmDestination("pmm-dest"),
 				pmmClass(),
 			},
-			want: NotRequired,
+			wantMetrics:      NotRequired,
+			wantIntegrations: map[string]Requirement{"pmm": Required},
+		},
+		{
+			name:    "an integration requirement wins over an unresolved entry",
+			entries: []string{"pmm", "prometheus"},
+			objs: []client.Object{
+				monitoringBinding("pmm", pm, "pmm", metav1.ConditionTrue),
+				pmmDestination("pmm-dest"),
+				pmmClass(),
+			},
+			wantMetrics:      Unresolved,
+			wantIntegrations: map[string]Requirement{"pmm": Required},
+		},
+		{
+			name:    "a held ProviderManaged binding",
+			entries: []string{"pmm"},
+			objs: []client.Object{
+				monitoringBinding("pmm", pm, "pmm", metav1.ConditionFalse),
+				pmmClass(),
+			},
+			wantMetrics:      NotRequired,
+			wantIntegrations: map[string]Requirement{"pmm": Unresolved},
+		},
+		{
+			name:    "a ProviderManaged binding whose class is missing",
+			entries: []string{"pmm"},
+			objs: []client.Object{
+				monitoringBinding("pmm", pm, "pmm", metav1.ConditionTrue),
+				pmmDestination("pmm-dest"),
+			},
+			wantMetrics:      NotRequired,
+			wantIntegrations: map[string]Requirement{"pmm": Unresolved},
+		},
+		{
+			name:    "a ProviderManaged binding naming another destination than its entry",
+			entries: []string{"pmm"},
+			objs: []client.Object{
+				namingDestination(monitoringBinding("pmm", pm, "pmm", metav1.ConditionTrue), "old-dest"),
+				pmmDestination("old-dest"),
+				pmmClass(),
+			},
+			wantMetrics:      NotRequired,
+			wantIntegrations: map[string]Requirement{"pmm": Unresolved},
 		},
 		{
 			name:    "an ExtensionManaged class that does not require metrics",
@@ -169,43 +229,72 @@ func TestRequiredSources(t *testing.T) {
 				monitoringBinding("logs", em, "logs", metav1.ConditionTrue),
 				extensionManagedClass("logs", false),
 			},
-			want: NotRequired,
+			wantMetrics:      NotRequired,
+			wantIntegrations: map[string]Requirement{"pmm": NotRequired},
 		},
 		{
-			name:    "an entry without a binding",
-			entries: []string{"pmm", "prometheus"},
+			name:             "a binding whose execution mode is not resolved yet",
+			entries:          []string{"prometheus"},
+			objs:             []client.Object{monitoringBinding("prometheus", "", "", metav1.ConditionFalse)},
+			wantMetrics:      Unresolved,
+			wantIntegrations: map[string]Requirement{"pmm": Unresolved},
+		},
+		{
+			name:             "an ExtensionManaged binding whose class is missing",
+			entries:          []string{"prometheus"},
+			objs:             []client.Object{monitoringBinding("prometheus", em, "prometheus", metav1.ConditionFalse)},
+			wantMetrics:      Unresolved,
+			wantIntegrations: map[string]Requirement{"pmm": NotRequired},
+		},
+		{
+			name: "bindings whose entry was removed",
 			objs: []client.Object{
+				monitoringBinding("prometheus", em, "prometheus", metav1.ConditionTrue),
+				extensionManagedClass("prometheus", true),
 				monitoringBinding("pmm", pm, "pmm", metav1.ConditionTrue),
+				pmmDestination("pmm-dest"),
 				pmmClass(),
 			},
-			want: Unresolved,
+			wantMetrics:      NotRequired,
+			wantIntegrations: map[string]Requirement{"pmm": NotRequired},
 		},
 		{
-			name:    "a binding whose execution mode is not resolved yet",
-			entries: []string{"prometheus"},
-			objs:    []client.Object{monitoringBinding("prometheus", "", "", metav1.ConditionFalse)},
-			want:    Unresolved,
+			name:             "no entries",
+			wantMetrics:      NotRequired,
+			wantIntegrations: map[string]Requirement{"pmm": NotRequired},
 		},
 		{
-			name:    "an ExtensionManaged binding whose class is missing",
-			entries: []string{"prometheus"},
-			objs:    []client.Object{monitoringBinding("prometheus", em, "prometheus", metav1.ConditionFalse)},
-			want:    Unresolved,
-		},
-		{
-			name: "no entries",
-			want: NotRequired,
+			name:             "integrations the provider renders without declaring them",
+			entries:          []string{"pending"},
+			rendered:         []string{"pmm", "otel"},
+			wantMetrics:      Unresolved,
+			wantIntegrations: map[string]Requirement{"pmm": Unresolved, "otel": Unresolved},
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			c := monitoringTestContext(t, monitoredInstance(tc.entries...), tc.objs...)
+			c.SetMonitoringIntegrations(tc.rendered...)
+
 			got, err := c.RequiredSources()
 			require.NoError(t, err)
-			assert.Equal(t, tc.want, got.Metrics)
+			assert.Equal(t, RequiredSources{Metrics: tc.wantMetrics, Integrations: tc.wantIntegrations}, got)
 		})
 	}
+}
+
+func TestRequiredSources_ProviderMissing(t *testing.T) {
+	t.Parallel()
+	s := runtime.NewScheme()
+	require.NoError(t, v1alpha1.AddToScheme(s))
+	require.NoError(t, monitoringv1alpha1.AddToScheme(s))
+	c := NewContext(t.Context(), fake.NewClientBuilder().WithScheme(s).Build(), monitoredInstance("pmm"), "test-provider")
+
+	got, err := c.RequiredSources()
+	require.Error(t, err)
+	assert.True(t, got.Integrations["pmm"].Else(true), "a provider ignoring the error keeps what is live")
+	assert.False(t, got.Metrics.Else(false), "and starts nothing")
 }
 
 func TestRequirementElse(t *testing.T) {
@@ -222,6 +311,8 @@ func TestRequirementElse(t *testing.T) {
 		{requirement: NotRequired, current: false, want: false},
 		{requirement: Unresolved, current: true, want: true},
 		{requirement: Unresolved, current: false, want: false},
+		{requirement: "", current: true, want: true},
+		{requirement: "", current: false, want: false},
 	}
 	for _, tc := range tests {
 		assert.Equal(t, tc.want, tc.requirement.Else(tc.current), "%s.Else(%t)", tc.requirement, tc.current)
@@ -283,6 +374,31 @@ func TestMonitoringBindings(t *testing.T) {
 			objs:            []client.Object{pmmDestination("pmm-dest")},
 			wantEntry:       true,
 			wantDestination: true,
+		},
+		{
+			name: "entry names another destination",
+			binding: func() *monitoringv1alpha1.MonitoringBinding {
+				b := monitoringBinding("pmm", pm, "pmm", metav1.ConditionTrue)
+				b.Spec.DestinationRef.Name = "old-dest"
+				return b
+			}(),
+			objs:            []client.Object{pmmDestination("old-dest"), pmmClass()},
+			wantEntry:       true,
+			wantDestination: true,
+			wantClass:       true,
+		},
+		{
+			name: "destination kind left to the CRD default",
+			binding: func() *monitoringv1alpha1.MonitoringBinding {
+				b := monitoringBinding("pmm", pm, "pmm", metav1.ConditionTrue)
+				b.Spec.DestinationRef.Kind = ""
+				return b
+			}(),
+			objs:            []client.Object{pmmDestination("pmm-dest"), pmmClass()},
+			wantApply:       true,
+			wantEntry:       true,
+			wantDestination: true,
+			wantClass:       true,
 		},
 		{
 			name:            "ExtensionManaged",
