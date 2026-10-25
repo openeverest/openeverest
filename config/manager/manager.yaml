@@ -74,7 +74,6 @@ spec:
         args:
           - --leader-elect
           - --health-probe-bind-address=:8081
-          - --monitoring-namespace=everest-monitoring
         image: controller:latest
         name: manager
         imagePullPolicy: IfNotPresent

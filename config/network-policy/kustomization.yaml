@@ -1,3 +1,2 @@
 resources:
-- allow-webhook-traffic.yaml
 - allow-metrics-traffic.yaml
