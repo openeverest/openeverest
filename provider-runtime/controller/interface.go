@@ -380,6 +380,53 @@ type UpgradeProvider interface {
 }
 
 // =============================================================================
+// MONITORING (Optional interfaces for the monitoring contract)
+// =============================================================================
+
+// MonitoringSourcesProvider is an optional interface a provider implements to
+// publish what an Instance exposes to monitoring (credentials and OpenMetrics
+// endpoints), which ExtensionManaged MonitoringClasses consume.
+//
+// When a provider implements MonitoringSourcesProvider or
+// MonitoringIntegrationsProvider the runtime:
+//   - watches the Instances' MonitoringBindings and the MonitoringDestinations
+//     and MonitoringClasses they reference,
+//   - writes Instance.status.monitoring and the MonitoringConfigured condition
+//     after every successful Sync,
+//   - writes the Configured condition of ProviderManaged bindings.
+//
+// The provider's RBAC must then allow get, list and watch on
+// monitoringbindings, monitoringdestinations and monitoringclasses
+// (monitoring.openeverest.io), patch on monitoringbindings/status, and get on
+// namespaces (the kube-system namespace UID identifies the cluster).
+type MonitoringSourcesProvider interface {
+	// MonitoringSources returns the endpoints that are currently serving.
+	// The runtime drops endpoints of component types the Provider does not
+	// declare, endpoints whose pod selector lacks the Instance label and
+	// endpoints naming a credential profile missing from credentials, and
+	// overwrites identity. Returning nil clears the published sources; an
+	// error keeps the previous ones.
+	MonitoringSources(c *Context) (*corev1alpha1.MonitoringSources, error)
+}
+
+// MonitoringIntegrationsProvider is an optional interface a provider
+// implements to fulfil ProviderManaged MonitoringClasses through its engine
+// operator's native integration (e.g. PMM).
+//
+// The provider renders the integration inside Sync, on the same Apply as the
+// rest of the engine CR, from the bindings of Context.MonitoringBindings()
+// whose Apply is true, and keeps the live rendering for the other
+// ProviderManaged bindings that still have an Entry. The runtime writes the
+// bindings' Configured condition from Sync success and from the results
+// staged with Context.SetMonitoringBindingResult. A binding that cannot be
+// rendered must be staged, never returned as a Sync error.
+type MonitoringIntegrationsProvider interface {
+	// MonitoringIntegrations returns the integration names the provider
+	// renders, matching Provider.spec.monitoring.integrations.
+	MonitoringIntegrations() []string
+}
+
+// =============================================================================
 // BASE PROVIDER
 // =============================================================================
 

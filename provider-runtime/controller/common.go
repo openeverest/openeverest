@@ -87,6 +87,11 @@ type Context struct {
 	// labelledComponents holds the components PodLabels was called for this
 	// pass; the reconciler counts their pods into status.components.
 	labelledComponents map[string]struct{}
+
+	// monitoringResults collects the per-binding outcomes staged with
+	// SetMonitoringBindingResult; the reconciler writes them on the
+	// bindings' Configured condition after Sync.
+	monitoringResults map[string]bindingResult
 }
 
 // NewContext creates a new Context handle (used internally by the reconciler).
