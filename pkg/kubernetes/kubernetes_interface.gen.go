@@ -230,8 +230,6 @@ type KubernetesConnector interface {
 	ListMonitoringBindings(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringBindingList, error)
 	// GetMonitoringBinding returns a monitoring binding by name and namespace.
 	GetMonitoringBinding(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringBinding, error)
-	// DeleteMonitoringBindings deletes all monitoring bindings that match the criteria.
-	DeleteMonitoringBindings(ctx context.Context, opts ...ctrlclient.DeleteAllOfOption) error
 	// CreateNamespace creates the given namespace.
 	CreateNamespace(ctx context.Context, namespace *corev1.Namespace) (*corev1.Namespace, error)
 	// GetNamespace returns a namespace that matches the criteria.

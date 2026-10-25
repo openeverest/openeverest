@@ -31,6 +31,7 @@ import (
 	goversion "github.com/hashicorp/go-version"
 	"github.com/kelseyhightower/envconfig"
 	"go.uber.org/zap"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/openeverest/openeverest/v2/pkg/cli/helm"
@@ -40,6 +41,7 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/output"
+	"github.com/openeverest/openeverest/v2/pkg/rbac"
 	. "github.com/openeverest/openeverest/v2/pkg/utils/must" //nolint:revive,staticcheck
 	cliVersion "github.com/openeverest/openeverest/v2/pkg/version"
 	versionservice "github.com/openeverest/openeverest/v2/pkg/version_service"
@@ -49,7 +51,9 @@ const (
 	pollInterval = 5 * time.Second
 	pollTimeout  = 10 * time.Minute
 
-	legacyMonitoringComponent = "monitoring"
+	legacyMonitoringComponent     = "monitoring"
+	legacyMonitoringComponentType = "pmm"
+	legacyMonitoringRBACResource  = "monitoring-configs"
 )
 
 // inClusterConfig is read from environment variables when the upgrade
@@ -461,8 +465,9 @@ func (u *Upgrade) checkRequirements(ctx context.Context, supVer *common.Supporte
 	return u.checkLegacyMonitoring(ctx)
 }
 
-// checkLegacyMonitoring refuses the upgrade while MonitoringConfigs or Instances with a
-// "monitoring" component exist, because the new version serves neither.
+// checkLegacyMonitoring refuses the upgrade while MonitoringConfigs, Instances with a "pmm"
+// monitoring component or RBAC policy lines granting "monitoring-configs" exist, because the
+// new version serves none of them.
 func (u *Upgrade) checkLegacyMonitoring(ctx context.Context) error {
 	configs, err := u.kubeConnector.ListLegacyMonitoringConfigs(ctx)
 	if err != nil {
@@ -472,27 +477,74 @@ func (u *Upgrade) checkLegacyMonitoring(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("could not list instances: %w", err)
 	}
+	rbacKey := types.NamespacedName{Namespace: u.kubeConnector.Namespace(), Name: common.EverestRBACConfigMapName}
+	policyLines, err := u.legacyMonitoringPolicyLines(ctx, rbacKey)
+	if err != nil {
+		return err
+	}
 
-	var inUse []string
+	var inUse, commands []string
+	for _, in := range instances.Items {
+		if in.Spec.Components[legacyMonitoringComponent].Type != legacyMonitoringComponentType {
+			continue
+		}
+		inUse = append(inUse, fmt.Sprintf(
+			"Instance %s/%s (component %q of type %q)",
+			in.GetNamespace(), in.GetName(), legacyMonitoringComponent, legacyMonitoringComponentType,
+		))
+		commands = append(commands, fmt.Sprintf(
+			`kubectl patch instance -n %s %s --type=json -p '[{"op":"remove","path":"/spec/components/%s"}]'`,
+			in.GetNamespace(), in.GetName(), legacyMonitoringComponent,
+		))
+	}
 	for _, c := range configs.Items {
 		inUse = append(inUse, fmt.Sprintf("MonitoringConfig %s/%s", c.GetNamespace(), c.GetName()))
+		commands = append(commands, fmt.Sprintf("kubectl delete monitoringconfig -n %s %s", c.GetNamespace(), c.GetName()))
 	}
-	for _, in := range instances.Items {
-		if _, ok := in.Spec.Components[legacyMonitoringComponent]; ok {
-			inUse = append(inUse, fmt.Sprintf("Instance %s/%s (component %q)", in.GetNamespace(), in.GetName(), legacyMonitoringComponent))
-		}
+	for _, line := range policyLines {
+		inUse = append(inUse, fmt.Sprintf("ConfigMap %s policy line %q (use %q instead)", rbacKey, line, rbac.ResourceMonitoringDestinations))
+	}
+	if len(policyLines) > 0 {
+		commands = append(commands, fmt.Sprintf(
+			"kubectl edit configmap -n %s %s  # in policy.csv, replace %q with %q",
+			rbacKey.Namespace, rbacKey.Name, legacyMonitoringRBACResource, rbac.ResourceMonitoringDestinations,
+		))
 	}
 	if len(inUse) == 0 {
 		return nil
 	}
-	return fmt.Errorf("%w: the new version removes MonitoringConfig and the %q Instance component, and the cluster still has:\n"+
+	return fmt.Errorf("%w: the new version removes MonitoringConfig, the %q Instance component of type %q "+
+		"and the %q RBAC resource, and the cluster still has:\n"+
 		"  - %s\n"+
 		"To upgrade:\n"+
-		"  1. Remove the %q component from each listed Instance and delete each listed MonitoringConfig\n"+
-		"  2. After the upgrade, create a MonitoringDestination for your monitoring server and add a "+
-		"spec.monitoring.destinations[] entry that references it to each Instance",
-		ErrLegacyMonitoringInUse, legacyMonitoringComponent, strings.Join(inUse, "\n  - "), legacyMonitoringComponent,
+		"  1. Before the upgrade, run:\n"+
+		"       %s\n"+
+		"  2. After the upgrade, install a monitoring extension (monitoring-pmm, monitoring-prometheus or "+
+		"monitoring-victoriametrics), create a MonitoringDestination of its MonitoringClass and reference it "+
+		"from spec.monitoring.destinations[] of each Instance to monitor",
+		ErrLegacyMonitoringInUse, legacyMonitoringComponent, legacyMonitoringComponentType, legacyMonitoringRBACResource,
+		strings.Join(inUse, "\n  - "), strings.Join(commands, "\n       "),
 	)
+}
+
+// legacyMonitoringPolicyLines returns the lines of the RBAC policy that grant "monitoring-configs".
+func (u *Upgrade) legacyMonitoringPolicyLines(ctx context.Context, key types.NamespacedName) ([]string, error) {
+	cm, err := u.kubeConnector.GetConfigMap(ctx, key)
+	if k8serrors.IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("could not get ConfigMap %s: %w", key, err)
+	}
+	var lines []string
+	for line := range strings.Lines(cm.Data["policy.csv"]) {
+		line = strings.TrimSpace(line)
+		fields := strings.Split(line, ",")
+		if len(fields) >= 3 && strings.TrimSpace(fields[0]) == "p" && strings.TrimSpace(fields[2]) == legacyMonitoringRBACResource {
+			lines = append(lines, line)
+		}
+	}
+	return lines, nil
 }
 
 func (u *Upgrade) checkOperatorRequirements(ctx context.Context, supVer *common.SupportedVersion) error {
