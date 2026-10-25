@@ -790,6 +790,170 @@ func TestRBAC_Instance(t *testing.T) {
 		}
 	})
 
+	t.Run("writes naming monitoring destinations", func(t *testing.T) {
+		t.Parallel()
+
+		instance := &corev1alpha1.Instance{
+			ObjectMeta: metav1.ObjectMeta{Name: "db1", Namespace: "ns1"},
+			Spec: corev1alpha1.InstanceSpec{
+				Monitoring: &corev1alpha1.InstanceMonitoringSpec{Destinations: []corev1alpha1.InstanceMonitoringDestination{
+					{Name: "pmm", DestinationRef: apicommon.MonitoringDestinationRef{Name: "pmm-prod"}},
+					{Name: "metrics", DestinationRef: apicommon.MonitoringDestinationRef{Name: "prometheus"}},
+				}},
+			},
+		}
+		const setDestinations = `{"spec":{"monitoring":{"destinations":[` +
+			`{"name":"pmm","destinationRef":{"name":"pmm-prod"}},` +
+			`{"name":"metrics","destinationRef":{"name":"prometheus"}}]}}}`
+
+		testCases := []struct {
+			desc    string
+			verb    string
+			patch   string
+			policy  string
+			wantErr error
+		}{
+			{
+				desc: "create with read on every destination",
+				verb: "create",
+				policy: newPolicy(
+					"p, role:test, instances, create, prod/ns1/db1",
+					"p, role:test, monitoring-destinations, read, prod/ns1/pmm-prod",
+					"p, role:test, monitoring-destinations, read, prod/ns1/prometheus",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc: "create with namespace-wide destination read",
+				verb: "create",
+				policy: newPolicy(
+					"p, role:test, instances, create, prod/ns1/db1",
+					"p, role:test, monitoring-destinations, read, prod/ns1/*",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc: "create without read on one destination",
+				verb: "create",
+				policy: newPolicy(
+					"p, role:test, instances, create, prod/ns1/db1",
+					"p, role:test, monitoring-destinations, read, prod/ns1/pmm-prod",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc: "create with destination read in another namespace",
+				verb: "create",
+				policy: newPolicy(
+					"p, role:test, instances, create, prod/ns1/db1",
+					"p, role:test, monitoring-destinations, read, prod/ns2/*",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc: "create with destination read but no instance create",
+				verb: "create",
+				policy: newPolicy(
+					"p, role:test, monitoring-destinations, read, prod/ns1/*",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc: "update with read on every destination",
+				verb: "update",
+				policy: newPolicy(
+					"p, role:test, instances, update, prod/ns1/db1",
+					"p, role:test, monitoring-destinations, read, prod/ns1/*",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc: "update without destination read",
+				verb: "update",
+				policy: newPolicy(
+					"p, role:test, instances, update, prod/ns1/db1",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:  "patch setting destinations with read on them",
+				verb:  "patch",
+				patch: setDestinations,
+				policy: newPolicy(
+					"p, role:test, instances, update, prod/ns1/db1",
+					"p, role:test, monitoring-destinations, read, prod/ns1/*",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:  "patch setting destinations without read on one",
+				verb:  "patch",
+				patch: setDestinations,
+				policy: newPolicy(
+					"p, role:test, instances, update, prod/ns1/db1",
+					"p, role:test, monitoring-destinations, read, prod/ns1/prometheus",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:  "patch leaving destinations untouched",
+				verb:  "patch",
+				patch: `{"spec":{"version":"8.1"}}`,
+				policy: newPolicy(
+					"p, role:test, instances, update, prod/ns1/db1",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:  "patch removing monitoring",
+				verb:  "patch",
+				patch: `{"spec":{"monitoring":null}}`,
+				policy: newPolicy(
+					"p, role:test, instances, update, prod/ns1/db1",
+					"g, bob, role:test",
+				),
+			},
+		}
+
+		ctx := testUserContext(rbac.User{Subject: "bob"})
+		for _, tc := range testCases {
+			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+				enf, err := rbac.NewEnforcer(ctx, newConfigMapMock(tc.policy), zap.NewNop().Sugar())
+				require.NoError(t, err)
+				next := mockInstances()
+				h := &rbacHandler{
+					next:       next,
+					log:        zap.NewNop().Sugar(),
+					enforcer:   enf,
+					userGetter: testUserGetter,
+				}
+
+				var result *corev1alpha1.Instance
+				switch tc.verb {
+				case "create":
+					result, err = h.CreateInstance(ctx, "prod", instance.DeepCopy())
+				case "update":
+					result, err = h.UpdateInstance(ctx, "prod", instance.DeepCopy())
+				case "patch":
+					result, err = h.PatchInstance(ctx, "prod", "ns1", "db1", []byte(tc.patch))
+				}
+				if tc.wantErr != nil {
+					require.ErrorIs(t, err, tc.wantErr)
+					assert.Empty(t, next.Calls, "a denied write must not reach the next handler")
+					return
+				}
+				require.NoError(t, err)
+				assert.Equal(t, "db1", result.Name)
+			})
+		}
+	})
+
 	t.Run("DeleteInstance", func(t *testing.T) {
 		t.Parallel()
 

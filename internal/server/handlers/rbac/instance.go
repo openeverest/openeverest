@@ -17,6 +17,7 @@ package rbac
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -65,6 +66,9 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 		if err := h.enforce(ctx, rbac.ResourceSecrets, rbac.ActionRead, object); err != nil {
 			return nil, err
 		}
+	}
+	if err := h.enforceReadMonitoringDestinations(ctx, cluster, instance.GetNamespace(), instance.Spec.Monitoring); err != nil {
+		return nil, err
 	}
 
 	object := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), instance.GetName())
@@ -118,6 +122,9 @@ func (h *rbacHandler) UpdateInstance(ctx context.Context, cluster string, instan
 	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionUpdate, object); err != nil {
 		return nil, err
 	}
+	if err := h.enforceReadMonitoringDestinations(ctx, cluster, instance.GetNamespace(), instance.Spec.Monitoring); err != nil {
+		return nil, err
+	}
 	return h.next.UpdateInstance(ctx, cluster, instance)
 }
 
@@ -126,6 +133,18 @@ func (h *rbacHandler) UpdateInstance(ctx context.Context, cluster string, instan
 func (h *rbacHandler) PatchInstance(ctx context.Context, cluster, namespace, name string, patch []byte) (*corev1alpha1.Instance, error) {
 	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
 	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionUpdate, object); err != nil {
+		return nil, err
+	}
+	var doc struct {
+		Spec struct {
+			Monitoring *corev1alpha1.InstanceMonitoringSpec `json:"monitoring"`
+		} `json:"spec"`
+	}
+	if err := json.Unmarshal(patch, &doc); err != nil {
+		return nil, fmt.Errorf("failed to decode patch: %w", err)
+	}
+	// A merge patch replaces a list wholesale, so a patch naming destinations names all of them.
+	if err := h.enforceReadMonitoringDestinations(ctx, cluster, namespace, doc.Spec.Monitoring); err != nil {
 		return nil, err
 	}
 	return h.next.PatchInstance(ctx, cluster, namespace, name, patch)
@@ -147,6 +166,21 @@ func (h *rbacHandler) GetInstanceConnection(ctx context.Context, cluster, namesp
 		return nil, err
 	}
 	return h.next.GetInstanceConnection(ctx, cluster, namespace, name)
+}
+
+// enforceReadMonitoringDestinations requires read on every MonitoringDestination
+// the instance sends to, since the instance's monitoring data is sent there.
+func (h *rbacHandler) enforceReadMonitoringDestinations(ctx context.Context, cluster, namespace string, monitoring *corev1alpha1.InstanceMonitoringSpec) error {
+	if monitoring == nil {
+		return nil
+	}
+	for _, destination := range monitoring.Destinations {
+		object := rbac.ClusterNamespacedObjectName(cluster, namespace, destination.DestinationRef.Name)
+		if err := h.enforce(ctx, rbac.ResourceMonitoringDestinations, rbac.ActionRead, object); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ensureInstanceMatchesPreset checks if an instance spec matches its referenced preset.
