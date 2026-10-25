@@ -281,8 +281,8 @@ func anyUnresolved(entries []v1alpha1.InstanceMonitoringDestination, resolved ma
 }
 
 // SetMonitoringIntegrations records the integrations the provider renders,
-// from MonitoringIntegrationsProvider (used internally by the reconciler
-// before Sync).
+// from MonitoringIntegrationsProvider. It is set by the runtime before Sync;
+// providers do not call it.
 func (c *Context) SetMonitoringIntegrations(names ...string) {
 	c.monitoringIntegrations = names
 }
