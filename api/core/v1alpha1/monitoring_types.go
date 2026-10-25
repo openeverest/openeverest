@@ -37,6 +37,13 @@ const (
 	MonitoringExecutionModeExtensionManaged MonitoringExecutionMode = "ExtensionManaged"
 )
 
+// Keys of every monitoring credential Secret listed in
+// MonitoringSources.credentials.
+const (
+	CredentialSecretKeyUsername = "username"
+	CredentialSecretKeyPassword = "password"
+)
+
 // InstanceMonitoringSpec configures where the Instance sends monitoring data.
 // It is an object so Instance-wide fields can be added without a breaking
 // change.
@@ -151,7 +158,7 @@ type MonitoringComponentType struct {
 	// Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
 	// follow OpenTelemetry db.system.name; unknown kinds are allowed.
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern=`^([a-z0-9.-]+/)?[a-z0-9-]+$`
+	// +kubebuilder:validation:Pattern=`^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
 	Kind string `json:"kind"`
 	// Metrics states how the component exposes OpenMetrics.
 	// +kubebuilder:default=None
@@ -175,7 +182,7 @@ type MonitoringSources struct {
 	// destinations can tell Instances and clusters apart. Stamped by the
 	// runtime.
 	// +optional
-	Identity MonitoringIdentity `json:"identity,omitempty"`
+	Identity MonitoringIdentity `json:"identity,omitzero"`
 	// Credentials lists the Instance-owned monitoring credential Secrets by
 	// profile.
 	// +listType=map
@@ -201,7 +208,8 @@ type MonitoringIdentity struct {
 }
 
 // MonitoringCredential references one Instance-owned monitoring credential
-// Secret. The Secret's keys are fixed: "username" and "password".
+// Secret. The Secret's keys are fixed: "username" (CredentialSecretKeyUsername)
+// and "password" (CredentialSecretKeyPassword).
 type MonitoringCredential struct {
 	// Profile names the credential profile (e.g. "metrics").
 	// +kubebuilder:validation:Required
@@ -221,9 +229,11 @@ type MetricsEndpoint struct {
 	Component string `json:"component"`
 	// Kind is the component's engine kind.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
 	Kind string `json:"kind"`
 	// PodSelector selects the pods serving the endpoint.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinProperties=1
 	PodSelector map[string]string `json:"podSelector"`
 	// Port is the container port, by name or number.
 	// +kubebuilder:validation:Required

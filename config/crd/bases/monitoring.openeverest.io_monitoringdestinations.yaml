@@ -20,10 +20,10 @@ spec:
     - jsonPath: .spec.classRef.name
       name: Class
       type: string
-    - jsonPath: .status.conditions[?(@.type=="Accepted")].status
+    - jsonPath: .status.conditions[?(@.type=="Accepted")].reason
       name: Accepted
       type: string
-    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+    - jsonPath: .status.conditions[?(@.type=="Ready")].reason
       name: Ready
       type: string
     - jsonPath: .status.serverVersion

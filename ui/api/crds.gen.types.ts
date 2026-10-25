@@ -5492,12 +5492,12 @@ export interface components {
                      *     pods. It is admin-controlled: only class writers can change what runs
                      *     next to the data volumes.
                      */
-                    agentImage?: string;
+                    agentImage: string;
                     /**
                      * @description AgentVersion is the semantic version of AgentImage, matched against
                      *     Provider.spec.monitoring.integrations.<integration>.agentVersions.
                      */
-                    agentVersion?: string;
+                    agentVersion: string;
                     /**
                      * @description Features lists what the integration delivers beyond metrics
                      *     (e.g. "queryAnalytics"), used for user-facing disclosure.
@@ -5512,10 +5512,11 @@ export interface components {
                 /** @description UI holds the hints the UI needs to present destinations of this class. */
                 ui?: {
                     /**
-                     * @description Links are substitution-only URL templates the UI renders, e.g.
-                     *     "{{ .destination.parameters.url }}/graph". Available values:
-                     *     .destination.parameters.*, .instance.name, .instance.namespace and
-                     *     .sources.identity.labels.*; substituted values are URL-escaped.
+                     * @description Links are substitution-only URL templates the UI renders, e.g. a
+                     *     Go-template-style substitution of destination.parameters.url followed
+                     *     by "/graph". Available values: .destination.parameters.*,
+                     *     .instance.name, .instance.namespace and .sources.identity.labels.*;
+                     *     substituted values are URL-escaped.
                      */
                     links?: {
                         /**

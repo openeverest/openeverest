@@ -20,7 +20,7 @@ spec:
     - jsonPath: .spec.controllerName
       name: Controller
       type: string
-    - jsonPath: .status.conditions[?(@.type=="Accepted")].status
+    - jsonPath: .status.conditions[?(@.type=="Accepted")].reason
       name: Accepted
       type: string
     - jsonPath: .metadata.creationTimestamp
@@ -58,7 +58,7 @@ spec:
                   ControllerName is the domain-prefixed name of the controller that
                   fulfils this class (e.g. "openeverest.io/monitoring-pmm"). Only that
                   controller sets the Accepted condition. Immutable.
-                maxLength: 253
+                maxLength: 128
                 minLength: 1
                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/[A-Za-z0-9/\-._~%!$&'()*+,;=:]+$
                 type: string
@@ -128,6 +128,7 @@ spec:
                         description: Kinds restricts eligibility to components of
                           these kinds (any-of).
                         items:
+                          pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
                           type: string
                         type: array
                       metrics:
@@ -159,11 +160,13 @@ spec:
                       AgentImage is the agent image the provider renders into the engine
                       pods. It is admin-controlled: only class writers can change what runs
                       next to the data volumes.
+                    minLength: 1
                     type: string
                   agentVersion:
                     description: |-
                       AgentVersion is the semantic version of AgentImage, matched against
                       Provider.spec.monitoring.integrations.<integration>.agentVersions.
+                    minLength: 1
                     type: string
                   features:
                     description: |-
@@ -184,6 +187,8 @@ spec:
                     - message: spec.providerManaged.integration is immutable
                       rule: self == oldSelf
                 required:
+                - agentImage
+                - agentVersion
                 - integration
                 type: object
               ui:
@@ -192,10 +197,11 @@ spec:
                 properties:
                   links:
                     description: |-
-                      Links are substitution-only URL templates the UI renders, e.g.
-                      "{{ .destination.parameters.url }}/graph". Available values:
-                      .destination.parameters.*, .instance.name, .instance.namespace and
-                      .sources.identity.labels.*; substituted values are URL-escaped.
+                      Links are substitution-only URL templates the UI renders, e.g. a
+                      Go-template-style substitution of destination.parameters.url followed
+                      by "/graph". Available values: .destination.parameters.*,
+                      .instance.name, .instance.namespace and .sources.identity.labels.*;
+                      substituted values are URL-escaped.
                     items:
                       description: MonitoringClassLink is one link the UI renders
                         for a destination.
@@ -205,6 +211,7 @@ spec:
                             Kinds restricts an Instance-scoped link to Instances with a component
                             of one of these engine kinds.
                           items:
+                            pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
                             type: string
                           type: array
                         name:
@@ -227,9 +234,7 @@ spec:
                       - url
                       type: object
                     type: array
-                    x-kubernetes-list-map-keys:
-                    - name
-                    x-kubernetes-list-type: map
+                    x-kubernetes-list-type: atomic
                   summaryParameter:
                     description: |-
                       SummaryParameter names the destination parameter the UI shows as the

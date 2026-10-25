@@ -41,7 +41,7 @@ type MonitoringClassSpec struct {
 	// controller sets the Accepted condition. Immutable.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:MaxLength=128
 	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/[A-Za-z0-9/\-._~%!$&'()*+,;=:]+$`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.controllerName is immutable"
 	ControllerName string `json:"controllerName"`
@@ -96,12 +96,14 @@ type ProviderManagedFulfilment struct {
 	// AgentImage is the agent image the provider renders into the engine
 	// pods. It is admin-controlled: only class writers can change what runs
 	// next to the data volumes.
-	// +optional
-	AgentImage string `json:"agentImage,omitempty"`
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	AgentImage string `json:"agentImage"`
 	// AgentVersion is the semantic version of AgentImage, matched against
 	// Provider.spec.monitoring.integrations.<integration>.agentVersions.
-	// +optional
-	AgentVersion string `json:"agentVersion,omitempty"`
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	AgentVersion string `json:"agentVersion"`
 	// Features lists what the integration delivers beyond metrics
 	// (e.g. "queryAnalytics"), used for user-facing disclosure.
 	// +optional
@@ -114,7 +116,7 @@ type ExtensionManagedFulfilment struct {
 	// Requires lists the source capabilities a component must satisfy to
 	// be eligible for this class.
 	// +optional
-	Requires SourceRequirements `json:"requires,omitempty"`
+	Requires SourceRequirements `json:"requires,omitzero"`
 	// Degrades lists the capabilities lost compared to a ProviderManaged
 	// fulfilment of the same class (e.g. "slowLogQAN").
 	// +optional
@@ -126,6 +128,7 @@ type ExtensionManagedFulfilment struct {
 // every flag holds and, if Kinds is set, its kind is in Kinds.
 type SourceRequirements struct {
 	// Kinds restricts eligibility to components of these kinds (any-of).
+	// +kubebuilder:validation:items:Pattern=`^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
 	// +optional
 	Kinds []string `json:"kinds,omitempty"`
 	// Metrics requires the component to expose OpenMetrics
@@ -157,12 +160,12 @@ type MonitoringClassUI struct {
 	// destination's address (e.g. "url").
 	// +optional
 	SummaryParameter string `json:"summaryParameter,omitempty"`
-	// Links are substitution-only URL templates the UI renders, e.g.
-	// "{{ .destination.parameters.url }}/graph". Available values:
-	// .destination.parameters.*, .instance.name, .instance.namespace and
-	// .sources.identity.labels.*; substituted values are URL-escaped.
-	// +listType=map
-	// +listMapKey=name
+	// Links are substitution-only URL templates the UI renders, e.g. a
+	// Go-template-style substitution of destination.parameters.url followed
+	// by "/graph". Available values: .destination.parameters.*,
+	// .instance.name, .instance.namespace and .sources.identity.labels.*;
+	// substituted values are URL-escaped.
+	// +listType=atomic
 	// +optional
 	Links []MonitoringClassLink `json:"links,omitempty"`
 }
@@ -192,6 +195,7 @@ type MonitoringClassLink struct {
 	Scope LinkScope `json:"scope,omitempty"`
 	// Kinds restricts an Instance-scoped link to Instances with a component
 	// of one of these engine kinds.
+	// +kubebuilder:validation:items:Pattern=`^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
 	// +optional
 	Kinds []string `json:"kinds,omitempty"`
 	// URL is the link template.
@@ -271,7 +275,7 @@ type MonitoringClassStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,shortName=mclass
 // +kubebuilder:printcolumn:name="Controller",type="string",JSONPath=".spec.controllerName"
-// +kubebuilder:printcolumn:name="Accepted",type="string",JSONPath=".status.conditions[?(@.type==\"Accepted\")].status"
+// +kubebuilder:printcolumn:name="Accepted",type="string",JSONPath=".status.conditions[?(@.type==\"Accepted\")].reason"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="a MonitoringClass name must be at most 63 characters"
 

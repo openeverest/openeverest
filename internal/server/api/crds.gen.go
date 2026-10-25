@@ -6190,11 +6190,11 @@ type MonitoringClass struct {
 			// AgentImage AgentImage is the agent image the provider renders into the engine
 			// pods. It is admin-controlled: only class writers can change what runs
 			// next to the data volumes.
-			AgentImage *string `json:"agentImage,omitempty"`
+			AgentImage string `json:"agentImage"`
 
 			// AgentVersion AgentVersion is the semantic version of AgentImage, matched against
 			// Provider.spec.monitoring.integrations.<integration>.agentVersions.
-			AgentVersion *string `json:"agentVersion,omitempty"`
+			AgentVersion string `json:"agentVersion"`
 
 			// Features Features lists what the integration delivers beyond metrics
 			// (e.g. "queryAnalytics"), used for user-facing disclosure.
@@ -6207,10 +6207,11 @@ type MonitoringClass struct {
 
 		// Ui UI holds the hints the UI needs to present destinations of this class.
 		Ui *struct {
-			// Links Links are substitution-only URL templates the UI renders, e.g.
-			// "{{ .destination.parameters.url }}/graph". Available values:
-			// .destination.parameters.*, .instance.name, .instance.namespace and
-			// .sources.identity.labels.*; substituted values are URL-escaped.
+			// Links Links are substitution-only URL templates the UI renders, e.g. a
+			// Go-template-style substitution of destination.parameters.url followed
+			// by "/graph". Available values: .destination.parameters.*,
+			// .instance.name, .instance.namespace and .sources.identity.labels.*;
+			// substituted values are URL-escaped.
 			Links *[]struct {
 				// Kinds Kinds restricts an Instance-scoped link to Instances with a component
 				// of one of these engine kinds.

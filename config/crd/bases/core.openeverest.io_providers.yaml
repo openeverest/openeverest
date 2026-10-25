@@ -148,7 +148,7 @@ spec:
                           description: |-
                             Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
                             follow OpenTelemetry db.system.name; unknown kinds are allowed.
-                          pattern: ^([a-z0-9.-]+/)?[a-z0-9-]+$
+                          pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
                           type: string
                         metrics:
                           default: None

@@ -82,8 +82,8 @@ type MonitoringDestinationStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=mdest
 // +kubebuilder:printcolumn:name="Class",type="string",JSONPath=".spec.classRef.name"
-// +kubebuilder:printcolumn:name="Accepted",type="string",JSONPath=".status.conditions[?(@.type==\"Accepted\")].status"
-// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
+// +kubebuilder:printcolumn:name="Accepted",type="string",JSONPath=".status.conditions[?(@.type==\"Accepted\")].reason"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.serverVersion"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="a MonitoringDestination name must be at most 63 characters"

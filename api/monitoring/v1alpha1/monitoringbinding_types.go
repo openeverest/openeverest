@@ -25,8 +25,9 @@ import (
 // Labels set by core on every MonitoringBinding so executors can watch by
 // class and find bindings without parsing names.
 const (
-	// BindingInstanceLabel is the Instance name.
-	BindingInstanceLabel = "openeverest.io/instance"
+	// BindingInstanceLabel is the Instance name; provider-runtime puts the
+	// same key on the Instance's pods.
+	BindingInstanceLabel = "core.openeverest.io/instance"
 	// BindingEntryLabel is the Instance.spec.monitoring.destinations[] entry name.
 	BindingEntryLabel = "monitoring.openeverest.io/entry"
 	// BindingDestinationLabel is the MonitoringDestination name.

@@ -2151,7 +2151,8 @@ spec:
                         items:
                           description: |-
                             MonitoringCredential references one Instance-owned monitoring credential
-                            Secret. The Secret's keys are fixed: "username" and "password".
+                            Secret. The Secret's keys are fixed: "username" (CredentialSecretKeyUsername)
+                            and "password" (CredentialSecretKeyPassword).
                           properties:
                             profile:
                               description: Profile names the credential profile (e.g.
@@ -2222,6 +2223,7 @@ spec:
                               type: string
                             kind:
                               description: Kind is the component's engine kind.
+                              pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
                               type: string
                             params:
                               additionalProperties:
@@ -2240,6 +2242,7 @@ spec:
                                 type: string
                               description: PodSelector selects the pods serving the
                                 endpoint.
+                              minProperties: 1
                               type: object
                             port:
                               anyOf:
