@@ -35,6 +35,7 @@ func TestReadyReasonStatus(t *testing.T) {
 		{monitoringv1alpha1.ReasonUnreachable, metav1.ConditionFalse},
 		{monitoringv1alpha1.ReasonUnauthorized, metav1.ConditionFalse},
 		{monitoringv1alpha1.ReasonUnsupportedServerVersion, metav1.ConditionFalse},
+		{monitoringv1alpha1.ReasonReadyInvalidParameters, metav1.ConditionFalse},
 		{monitoringv1alpha1.ReadyReason("SomethingNew"), metav1.ConditionFalse},
 	}
 	for _, tt := range tests {

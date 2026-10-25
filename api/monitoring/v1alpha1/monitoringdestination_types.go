@@ -57,6 +57,9 @@ const (
 	// ReasonUnsupportedServerVersion means the backend version is not
 	// supported.
 	ReasonUnsupportedServerVersion ReadyReason = "UnsupportedServerVersion"
+	// ReasonReadyInvalidParameters means the controller could not decode the
+	// destination parameters.
+	ReasonReadyInvalidParameters ReadyReason = "InvalidParameters"
 )
 
 // Status returns the condition status the reason implies; unknown reasons
@@ -67,7 +70,7 @@ func (r ReadyReason) Status() metav1.ConditionStatus {
 		return metav1.ConditionTrue
 	case ReasonReadyPending:
 		return metav1.ConditionUnknown
-	case ReasonUnreachable, ReasonUnauthorized, ReasonUnsupportedServerVersion:
+	case ReasonUnreachable, ReasonUnauthorized, ReasonUnsupportedServerVersion, ReasonReadyInvalidParameters:
 		return metav1.ConditionFalse
 	default:
 		return metav1.ConditionFalse
