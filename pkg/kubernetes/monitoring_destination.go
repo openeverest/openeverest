@@ -13,8 +13,6 @@
 // limitations under the License.
 
 // Package kubernetes ...
-//
-//nolint:dupl // per-resource client wrappers are intentionally similar
 package kubernetes
 
 import (
@@ -62,4 +60,9 @@ func (k *Kubernetes) UpdateMonitoringDestination(ctx context.Context, destinatio
 // DeleteMonitoringDestination deletes a monitoring destination.
 func (k *Kubernetes) DeleteMonitoringDestination(ctx context.Context, obj *monitoringv1alpha1.MonitoringDestination) error {
 	return k.k8sClient.Delete(ctx, obj)
+}
+
+// DeleteMonitoringDestinations deletes all monitoring destinations that match the criteria.
+func (k *Kubernetes) DeleteMonitoringDestinations(ctx context.Context, opts ...ctrlclient.DeleteAllOfOption) error {
+	return k.k8sClient.DeleteAllOf(ctx, &monitoringv1alpha1.MonitoringDestination{}, opts...)
 }

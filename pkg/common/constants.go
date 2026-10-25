@@ -57,9 +57,6 @@ const (
 	// EverestOperatorName holds the name for Everest operator.
 	EverestOperatorName = "everest-operator"
 
-	// VictoriaMetricsOperatorName holds the name for VictoriaMetrics operator.
-	VictoriaMetricsOperatorName = "victoriametrics-operator"
-
 	// EverestAccountsSecretName is the name of the secret that holds accounts.
 	EverestAccountsSecretName = "everest-accounts"
 	// EverestJWTSecretName is the name of the secret that holds JWT secret.

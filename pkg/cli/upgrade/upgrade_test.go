@@ -22,6 +22,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	version "github.com/Percona-Lab/percona-version-service/versionpb"
@@ -33,9 +34,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	versionservice "github.com/openeverest/openeverest/v2/pkg/version_service"
@@ -414,6 +420,121 @@ func TestUpgrade_checkOperatorRequirements(t *testing.T) {
 			err := u.checkOperatorRequirements(context.Background(), supVer)
 			require.Error(t, err)
 			assert.Equal(t, tt.expectedError, err.Error())
+		})
+	}
+}
+
+func TestUpgrade_checkLegacyMonitoring(t *testing.T) {
+	t.Parallel()
+
+	monitoringConfigGVK := monitoringv1alpha1.GroupVersion.WithKind("MonitoringConfig")
+	monitoringConfig := func(namespace, name string) *unstructured.Unstructured {
+		obj := &unstructured.Unstructured{}
+		obj.SetGroupVersionKind(monitoringConfigGVK)
+		obj.SetNamespace(namespace)
+		obj.SetName(name)
+		return obj
+	}
+	instance := func(namespace, name string, components ...string) *corev1alpha1.Instance {
+		in := &corev1alpha1.Instance{
+			ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+			Spec:       corev1alpha1.InstanceSpec{Components: make(map[string]corev1alpha1.ComponentSpec)},
+		}
+		for _, c := range components {
+			in.Spec.Components[c] = corev1alpha1.ComponentSpec{Type: c}
+		}
+		return in
+	}
+
+	tests := []struct {
+		name string
+		// monitoringConfigServed reports whether the cluster still serves the MonitoringConfig kind.
+		monitoringConfigServed bool
+		objects                []ctrlclient.Object
+		wantInUse              []string
+	}{
+		{
+			name:    "MonitoringConfig no longer served and no monitoring component",
+			objects: []ctrlclient.Object{instance("db", "mongo", "engine")},
+		},
+		{
+			name:                   "MonitoringConfig served but none left",
+			monitoringConfigServed: true,
+			objects:                []ctrlclient.Object{instance("db", "mongo", "engine")},
+		},
+		{
+			name:                   "MonitoringConfig left over",
+			monitoringConfigServed: true,
+			objects: []ctrlclient.Object{
+				monitoringConfig("everest-monitoring", "pmm"),
+				instance("db", "mongo", "engine"),
+			},
+			wantInUse: []string{"MonitoringConfig everest-monitoring/pmm"},
+		},
+		{
+			name: "Instance with a monitoring component",
+			objects: []ctrlclient.Object{
+				instance("db", "mongo", "engine", "monitoring"),
+				instance("db", "pg", "engine"),
+			},
+			wantInUse: []string{`Instance db/mongo (component "monitoring")`},
+		},
+		{
+			name:                   "MonitoringConfigs and Instances with a monitoring component",
+			monitoringConfigServed: true,
+			objects: []ctrlclient.Object{
+				monitoringConfig("everest-monitoring", "pmm"),
+				monitoringConfig("db", "pmm-db"),
+				instance("db", "mongo", "engine", "monitoring"),
+				instance("other", "mysql", "engine", "monitoring"),
+				instance("db", "pg", "engine"),
+			},
+			wantInUse: []string{
+				"MonitoringConfig everest-monitoring/pmm",
+				"MonitoringConfig db/pmm-db",
+				`Instance db/mongo (component "monitoring")`,
+				`Instance other/mysql (component "monitoring")`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			scheme := kubernetes.CreateScheme()
+			scheme.AddKnownTypeWithName(monitoringConfigGVK, &unstructured.Unstructured{})
+			scheme.AddKnownTypeWithName(monitoringConfigGVK.GroupVersion().WithKind("MonitoringConfigList"), &unstructured.UnstructuredList{})
+			mapper := meta.NewDefaultRESTMapper(nil)
+			if tt.monitoringConfigServed {
+				mapper.Add(monitoringConfigGVK, meta.RESTScopeNamespace)
+			}
+			client := fakeclient.NewClientBuilder().
+				WithScheme(scheme).
+				WithRESTMapper(mapper).
+				WithObjects(tt.objects...).
+				Build()
+
+			u := &Upgrade{
+				l:             zap.NewNop().Sugar(),
+				kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), "everest").WithKubernetesClient(client),
+			}
+
+			err := u.checkLegacyMonitoring(context.Background())
+			if len(tt.wantInUse) == 0 {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorIs(t, err, ErrLegacyMonitoringInUse)
+			var listed []string
+			for line := range strings.SplitSeq(err.Error(), "\n") {
+				if item, ok := strings.CutPrefix(line, "  - "); ok {
+					listed = append(listed, item)
+				}
+			}
+			assert.ElementsMatch(t, tt.wantInUse, listed)
+			assert.Contains(t, err.Error(), "create a MonitoringDestination")
+			assert.Contains(t, err.Error(), "spec.monitoring.destinations[]")
 		})
 	}
 }

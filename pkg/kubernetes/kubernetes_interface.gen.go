@@ -207,22 +207,9 @@ type KubernetesConnector interface {
 	GetEverestID(ctx context.Context) (string, error)
 	// GetClusterType tries to guess the underlying kubernetes cluster based on storage class.
 	GetClusterType(ctx context.Context) (ClusterType, error)
-	// ListMonitoringConfigs returns list of managed monitoring configs that match the criteria.
-	// This method returns a list of full objects (meta and spec).
-	ListMonitoringConfigs(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.MonitoringConfigList, error)
-	// GetMonitoringConfig returns monitoring config(full object) that matches the criteria.
-	GetMonitoringConfig(ctx context.Context, key ctrlclient.ObjectKey) (*everestv1alpha1.MonitoringConfig, error)
-	// GetMonitoringConfigMeta returns monitoring config(metadata only) that matches the criteria.
-	GetMonitoringConfigMeta(ctx context.Context, key ctrlclient.ObjectKey) (*metav1.PartialObjectMetadata, error)
-	// CreateMonitoringConfig creates monitoring config.
-	CreateMonitoringConfig(ctx context.Context, config *everestv1alpha1.MonitoringConfig) (*everestv1alpha1.MonitoringConfig, error)
-	// UpdateMonitoringConfig updates monitoring config.
-	UpdateMonitoringConfig(ctx context.Context, config *everestv1alpha1.MonitoringConfig) (*everestv1alpha1.MonitoringConfig, error)
-	// DeleteMonitoringConfig deletes monitoring config that matches the criteria.
-	DeleteMonitoringConfig(ctx context.Context, obj *everestv1alpha1.MonitoringConfig) error
-	// DeleteMonitoringConfigs deletes monitoring configs that matches the criteria.
-	// This function will wait until all configs are deleted.
-	DeleteMonitoringConfigs(ctx context.Context, opts ...ctrlclient.ListOption) error
+	// ListLegacyMonitoringConfigs returns the metadata of every MonitoringConfig in the cluster.
+	// The list is empty when the cluster no longer serves the MonitoringConfig kind.
+	ListLegacyMonitoringConfigs(ctx context.Context) (*metav1.PartialObjectMetadataList, error)
 	// ListMonitoringClasses returns list of monitoring classes that match the criteria.
 	ListMonitoringClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringClassList, error)
 	// GetMonitoringClass returns monitoring class that matches the criteria.
@@ -237,10 +224,14 @@ type KubernetesConnector interface {
 	UpdateMonitoringDestination(ctx context.Context, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error)
 	// DeleteMonitoringDestination deletes a monitoring destination.
 	DeleteMonitoringDestination(ctx context.Context, obj *monitoringv1alpha1.MonitoringDestination) error
+	// DeleteMonitoringDestinations deletes all monitoring destinations that match the criteria.
+	DeleteMonitoringDestinations(ctx context.Context, opts ...ctrlclient.DeleteAllOfOption) error
 	// ListMonitoringBindings returns list of monitoring bindings that match the criteria.
 	ListMonitoringBindings(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringBindingList, error)
 	// GetMonitoringBinding returns a monitoring binding by name and namespace.
 	GetMonitoringBinding(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringBinding, error)
+	// DeleteMonitoringBindings deletes all monitoring bindings that match the criteria.
+	DeleteMonitoringBindings(ctx context.Context, opts ...ctrlclient.DeleteAllOfOption) error
 	// CreateNamespace creates the given namespace.
 	CreateNamespace(ctx context.Context, namespace *corev1.Namespace) (*corev1.Namespace, error)
 	// GetNamespace returns a namespace that matches the criteria.
