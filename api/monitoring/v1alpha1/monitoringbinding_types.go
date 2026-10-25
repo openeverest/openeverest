@@ -161,7 +161,6 @@ type MonitoringBindingStatus struct {
 // +kubebuilder:printcolumn:name="Configured",type="string",JSONPath=".status.conditions[?(@.type==\"Configured\")].reason"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Mode",type="string",JSONPath=".spec.executionMode",priority=1
-// +kubebuilder:printcolumn:name="Revision",type="string",JSONPath=".status.appliedRevision",priority=1
 
 // MonitoringBinding records that OpenEverest has configured one Instance to
 // send monitoring data to one MonitoringDestination. Created from

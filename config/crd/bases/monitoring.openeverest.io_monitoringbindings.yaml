@@ -39,10 +39,6 @@ spec:
       name: Mode
       priority: 1
       type: string
-    - jsonPath: .status.appliedRevision
-      name: Revision
-      priority: 1
-      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:

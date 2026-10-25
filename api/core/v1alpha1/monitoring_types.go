@@ -44,6 +44,13 @@ const (
 	CredentialSecretKeyPassword = "password"
 )
 
+// MonitoringKindPattern validates every monitoring engine kind. Kubebuilder
+// markers cannot reference constants, so the Pattern markers on
+// MonitoringComponentType.Kind, MetricsEndpoint.Kind,
+// SourceRequirements.Kinds and MonitoringClassLink.Kinds must stay identical
+// to it.
+const MonitoringKindPattern = `^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
+
 // InstanceMonitoringSpec configures where the Instance sends monitoring data.
 // It is an object so Instance-wide fields can be added without a breaking
 // change.
