@@ -122,6 +122,12 @@ type InstanceSpec struct {
 	// would have no effect.
 	// +optional
 	UserSecretRef *common.SecretRef `json:"userSecretRef,omitempty"`
+
+	// Monitoring configures where this Instance sends monitoring data. Core
+	// creates one MonitoringBinding per destination; the resolved state is
+	// mirrored in status.monitoring.destinations[].
+	// +optional
+	Monitoring *InstanceMonitoringSpec `json:"monitoring,omitempty"`
 }
 
 // InstanceDeletionPolicy controls what happens to Backup and Restore CRs
@@ -568,6 +574,11 @@ type InstanceStatus struct {
 	// never go stale: an action the provider stops requesting disappears.
 	// +optional
 	PendingMaintenance []PendingMaintenanceAction `json:"pendingMaintenance,omitempty"`
+	// Monitoring is what the Instance exposes to monitoring (sources) and
+	// one read-only summary per spec.monitoring.destinations[] entry.
+	// Written only by provider-runtime.
+	// +optional
+	Monitoring *InstanceMonitoringStatus `json:"monitoring,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +optional
@@ -750,6 +761,13 @@ const (
 	// resolution or PITR wiring error).
 	ConditionBackupConfigured = "BackupConfigured"
 
+	// ConditionMonitoringConfigured aggregates status.monitoring.destinations[]:
+	// False if any entry is not Accepted or Configured=False, else Unknown if
+	// any entry is Unknown or has no binding yet, else True. Its message lists
+	// "entry: reason" for every non-True entry. Absent when spec.monitoring
+	// has no destinations.
+	ConditionMonitoringConfigured = "MonitoringConfigured"
+
 	// ConditionDataSourceReady indicates the outcome of seeding an Instance
 	// from .spec.dataSource. The condition is set only when the Instance has
 	// a DataSource configured. Status=True means the source data has been
@@ -873,6 +891,24 @@ const (
 	// ReasonBackupStorageCredentialsNotFound indicates the credentials
 	// Secret of a BackupStorage named in spec.backup.storages does not exist.
 	ReasonBackupStorageCredentialsNotFound = "BackupStorageCredentialsNotFound"
+)
+
+// Reasons for the MonitoringConfigured condition.
+const (
+	// ReasonMonitoringConfigured indicates every destination is Configured.
+	ReasonMonitoringConfigured = "MonitoringConfigured"
+
+	// ReasonMonitoringNotConfigured indicates at least one destination is
+	// not Accepted or not Configured.
+	ReasonMonitoringNotConfigured = "MonitoringNotConfigured"
+
+	// ReasonMonitoringPending indicates at least one destination has not
+	// reported yet.
+	ReasonMonitoringPending = "MonitoringPending"
+
+	// ReasonMonitoringIntegrationUnsupported indicates the provider
+	// implements no monitoring interface, so no destination can be served.
+	ReasonMonitoringIntegrationUnsupported = "MonitoringIntegrationUnsupported"
 )
 
 // Reasons for the DataSourceReady condition.

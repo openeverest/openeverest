@@ -120,6 +120,67 @@ spec:
                   DefaultVersion names the bundle in Versions used when an Instance
                   omits Spec.Version.
                 type: string
+              monitoring:
+                description: |-
+                  Monitoring is the provider's monitoring contract: the operator-native
+                  integrations it renders itself and what each component type exposes.
+                properties:
+                  componentTypes:
+                    additionalProperties:
+                      description: MonitoringComponentType declares what one component
+                        type exposes.
+                      properties:
+                        credentialProfiles:
+                          description: |-
+                            CredentialProfiles are the least-privilege users the provider can
+                            create on demand (e.g. "metrics", "queryAnalytics").
+                          items:
+                            type: string
+                          type: array
+                        features:
+                          description: |-
+                            Features are engine switches the provider can enable on demand
+                            (e.g. "queryAnalytics").
+                          items:
+                            type: string
+                          type: array
+                        kind:
+                          description: |-
+                            Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
+                            follow OpenTelemetry db.system.name; unknown kinds are allowed.
+                          pattern: ^([a-z0-9.-]+/)?[a-z0-9-]+$
+                          type: string
+                        metrics:
+                          default: None
+                          description: Metrics states how the component exposes OpenMetrics.
+                          enum:
+                          - Native
+                          - Exporter
+                          - None
+                          type: string
+                      required:
+                      - kind
+                      type: object
+                    description: |-
+                      ComponentTypes declares what each component type exposes, keyed by
+                      component type (the software), not by component name.
+                    type: object
+                  integrations:
+                    additionalProperties:
+                      description: MonitoringIntegration describes one operator-native
+                        integration.
+                      properties:
+                        agentVersions:
+                          description: |-
+                            AgentVersions is the semver range of agent versions the provider can
+                            render (e.g. ">=3.0.0 <4.0.0").
+                          type: string
+                      type: object
+                    description: |-
+                      Integrations lists the operator-native monitoring integrations the
+                      provider renders itself, keyed by integration name (e.g. "pmm").
+                    type: object
+                type: object
               parametersSchema:
                 description: |-
                   ParametersSchema declares the OpenAPI v3 schema for the instance-wide
