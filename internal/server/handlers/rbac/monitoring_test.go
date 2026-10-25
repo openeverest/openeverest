@@ -309,6 +309,35 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 		require.ErrorIs(t, h.DeleteMonitoringDestination(ctx, "prod", "ns1", "prometheus"), ErrInsufficientPermissions)
 	})
 
+	t.Run("referencing a credentials Secret needs read on it", func(t *testing.T) {
+		t.Parallel()
+
+		h := newHandler(t, newPolicy(
+			"p, role:test, monitoring-destinations, *, prod/*/*",
+			"p, role:test, secrets, read, prod/ns1/pmm-prod-credentials",
+			"g, bob, role:test",
+		))
+		withSecret := func(namespace, secret string) *monitoringv1alpha1.MonitoringDestination {
+			d := destination(namespace, "pmm-prod")
+			d.Spec.CredentialsSecretRef = &common.SecretRef{Name: secret}
+			return d
+		}
+
+		created, err := h.CreateMonitoringDestination(ctx, "prod", "ns1", withSecret("ns2", "pmm-prod-credentials"))
+		require.NoError(t, err)
+		assert.Equal(t, "pmm-prod", created.Name)
+		updated, err := h.UpdateMonitoringDestination(ctx, "prod", "ns1", "pmm-prod", withSecret("ns1", "pmm-prod-credentials"))
+		require.NoError(t, err)
+		assert.Equal(t, "pmm-prod", updated.Name)
+
+		_, err = h.CreateMonitoringDestination(ctx, "prod", "ns1", withSecret("ns1", "db1-root"))
+		require.ErrorIs(t, err, ErrInsufficientPermissions)
+		_, err = h.UpdateMonitoringDestination(ctx, "prod", "ns1", "pmm-prod", withSecret("ns1", "db1-root"))
+		require.ErrorIs(t, err, ErrInsufficientPermissions)
+		_, err = h.CreateMonitoringDestination(ctx, "prod", "ns2", withSecret("ns1", "pmm-prod-credentials"))
+		require.ErrorIs(t, err, ErrInsufficientPermissions, "the Secret is looked up in the path namespace")
+	})
+
 	t.Run("plugin tokens only read, even with the admin role", func(t *testing.T) {
 		t.Parallel()
 

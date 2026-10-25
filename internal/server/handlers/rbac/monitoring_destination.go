@@ -53,19 +53,34 @@ func (h *rbacHandler) GetMonitoringDestination(ctx context.Context, cluster, nam
 }
 
 // CreateMonitoringDestination creates a monitoring destination, gated by RBAC.
+// Referencing a credentials Secret also requires read on it, since its contents
+// are sent to the destination.
 func (h *rbacHandler) CreateMonitoringDestination(ctx context.Context, cluster, namespace string, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error) {
 	object := rbac.ClusterNamespacedObjectName(cluster, namespace, destination.GetName())
 	if err := h.enforce(ctx, rbac.ResourceMonitoringDestinations, rbac.ActionCreate, object); err != nil {
 		return nil, err
 	}
+	if ref := destination.Spec.CredentialsSecretRef; ref != nil {
+		secret := rbac.ClusterNamespacedObjectName(cluster, namespace, ref.Name)
+		if err := h.enforce(ctx, rbac.ResourceSecrets, rbac.ActionRead, secret); err != nil {
+			return nil, err
+		}
+	}
 	return h.next.CreateMonitoringDestination(ctx, cluster, namespace, destination)
 }
 
-// UpdateMonitoringDestination updates a monitoring destination, gated by RBAC.
+// UpdateMonitoringDestination updates a monitoring destination, gated by RBAC
+// like CreateMonitoringDestination.
 func (h *rbacHandler) UpdateMonitoringDestination(ctx context.Context, cluster, namespace, name string, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error) {
 	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
 	if err := h.enforce(ctx, rbac.ResourceMonitoringDestinations, rbac.ActionUpdate, object); err != nil {
 		return nil, err
+	}
+	if ref := destination.Spec.CredentialsSecretRef; ref != nil {
+		secret := rbac.ClusterNamespacedObjectName(cluster, namespace, ref.Name)
+		if err := h.enforce(ctx, rbac.ResourceSecrets, rbac.ActionRead, secret); err != nil {
+			return nil, err
+		}
 	}
 	return h.next.UpdateMonitoringDestination(ctx, cluster, namespace, name, destination)
 }

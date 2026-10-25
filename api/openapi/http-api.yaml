@@ -2886,7 +2886,7 @@ paths:
       description: |
         This API creates a new monitoring destination in the specified namespace and cluster.
         Only `metadata.name`, `metadata.generateName`, `metadata.labels`, `metadata.annotations` and `spec` are taken from the request; the namespace is the one in the path.
-        Credentials are never part of the payload: create the Secret through the secrets API and reference it in `spec.credentialsSecretRef`.
+        Credentials are never part of the payload: create the Secret through the secrets API and reference it in `spec.credentialsSecretRef`, which requires `read` on that Secret.
       operationId: createMonitoringDestination
       parameters:
         - name: cluster
@@ -3038,7 +3038,7 @@ paths:
       description: |
         This API replaces the labels, annotations and `spec` of the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
         Include `metadata.resourceVersion` from the object being replaced; the update fails with 409 if the monitoring destination has changed since.
-        `spec.classRef` is immutable. Credentials are never part of the payload: update the Secret named by `spec.credentialsSecretRef` instead.
+        `spec.classRef` is immutable. Credentials are never part of the payload: update the Secret named by `spec.credentialsSecretRef` instead. Referencing a Secret requires `read` on it.
       operationId: updateMonitoringDestination
       parameters:
         - name: cluster
