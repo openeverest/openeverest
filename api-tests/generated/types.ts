@@ -982,9 +982,52 @@ export interface paths {
         /**
          * Delete monitoring destination
          * @description This API deletes the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
-         *     Instances that still list it in `spec.monitoring.destinations` keep their current monitoring and report the destination as not found.
+         *     Instances that still list it in `spec.monitoring.destinations` keep their current monitoring and report the destination as not found;
+         *     list them first with `GET .../monitoring-bindings?destination={name}`.
          */
         delete: operations["deleteMonitoringDestination"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/namespaces/{namespace}/monitoring-bindings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List monitoring bindings
+         * @description This API lists the monitoring bindings in the specified namespace and cluster.
+         *     A binding records that one Instance sends monitoring data to one monitoring destination; it is created from `Instance.spec.monitoring.destinations` and is read-only over this API.
+         *     Only the bindings of Instances the caller may read are returned. Optionally filter by destination name.
+         */
+        get: operations["listMonitoringBindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/namespaces/{namespace}/monitoring-bindings/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get monitoring binding
+         * @description This API gets the monitoring binding specified by the `name` in the specified `namespace` and `cluster`.
+         */
+        get: operations["getMonitoringBinding"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -7616,6 +7659,139 @@ export interface components {
                 namespace?: string;
             };
         };
+        /**
+         * @description MonitoringBinding records that OpenEverest has configured one Instance to
+         *     send monitoring data to one MonitoringDestination. Created from
+         *     Instance.spec.monitoring.destinations[]; edit the Instance, not this object.
+         */
+        MonitoringBinding: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: components["schemas"]["ObjectMeta"];
+            /**
+             * @description MonitoringBindingSpec is written only by core. It is immutable except for
+             *     parameters; classRef and executionMode are set once, when the destination
+             *     and class first resolve.
+             */
+            spec: {
+                /** @description ClassRef is copied from the MonitoringDestination once it resolves. */
+                classRef?: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
+                /**
+                 * @description DestinationRef is copied from the Instance.spec.monitoring.destinations[]
+                 *     entry. Immutable.
+                 */
+                destinationRef: {
+                    /**
+                     * @description Kind of the referenced object.
+                     * @default MonitoringDestination
+                     * @enum {string}
+                     */
+                    kind: "MonitoringDestination";
+                    /**
+                     * @description Name of the referenced object. At most 63 characters, since it is also
+                     *     a label value on the MonitoringBinding.
+                     */
+                    name: string;
+                };
+                /**
+                 * @description ExecutionMode selects the executor that owns the Configured condition.
+                 *     Set once, at first successful resolution.
+                 * @enum {string}
+                 */
+                executionMode?: "ProviderManaged" | "ExtensionManaged";
+                /** @description InstanceRef references the Instance in the same namespace. Immutable. */
+                instanceRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
+                /**
+                 * @description Parameters are copied from the Instance.spec.monitoring.destinations[]
+                 *     entry.
+                 */
+                parameters?: Record<string, never>;
+            };
+            /**
+             * @description MonitoringBindingStatus is written per condition type by its owner.
+             * @default {
+             *       "conditions": [
+             *         {
+             *           "lastTransitionTime": "1970-01-01T00:00:00Z",
+             *           "message": "Waiting for executor",
+             *           "reason": "Pending",
+             *           "status": "Unknown",
+             *           "type": "Configured"
+             *         }
+             *       ]
+             *     }
+             */
+            status: {
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+            };
+        };
+        /** @description MonitoringBindingList is an object that contains the list of the existing monitoringbindings. */
+        MonitoringBindingList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["MonitoringBinding"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+                namespace?: string;
+            };
+        };
     };
     responses: never;
     parameters: never;
@@ -10930,6 +11106,97 @@ export interface operations {
             };
             /** @description Monitoring destination not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listMonitoringBindings: {
+        parameters: {
+            query?: {
+                /** @description Return only the bindings to the monitoring destination with this name */
+                destination?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the monitoring bindings */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitoringBindingList"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getMonitoringBinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the monitoring binding */
+                namespace: string;
+                /** @description The name of the monitoring binding */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitoringBinding"];
+                };
+            };
+            /** @description Forbidden, or the monitoring binding does not exist */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

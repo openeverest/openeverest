@@ -3109,7 +3109,8 @@ paths:
       summary: Delete monitoring destination
       description: |
         This API deletes the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
-        Instances that still list it in `spec.monitoring.destinations` keep their current monitoring and report the destination as not found.
+        Instances that still list it in `spec.monitoring.destinations` keep their current monitoring and report the destination as not found;
+        list them first with `GET .../monitoring-bindings?destination={name}`.
       operationId: deleteMonitoringDestination
       parameters:
         - name: cluster
@@ -3141,6 +3142,102 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: Monitoring destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/monitoring-bindings':
+    x-everest-resource-name: monitoring-bindings
+    get:
+      tags:
+        - Monitoring
+      summary: List monitoring bindings
+      description: |
+        This API lists the monitoring bindings in the specified namespace and cluster.
+        A binding records that one Instance sends monitoring data to one monitoring destination; it is created from `Instance.spec.monitoring.destinations` and is read-only over this API.
+        Only the bindings of Instances the caller may read are returned. Optionally filter by destination name.
+      operationId: listMonitoringBindings
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the monitoring bindings
+          schema:
+            type: string
+        - name: destination
+          in: query
+          required: false
+          description: Return only the bindings to the monitoring destination with this name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringBindingList'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/monitoring-bindings/{name}':
+    x-everest-resource-name: monitoring-bindings
+    get:
+      tags:
+        - Monitoring
+      summary: Get monitoring binding
+      description: |
+        This API gets the monitoring binding specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: getMonitoringBinding
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the monitoring binding
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the monitoring binding
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringBinding'
+        '403':
+          description: Forbidden, or the monitoring binding does not exist
           content:
             application/json:
               schema:

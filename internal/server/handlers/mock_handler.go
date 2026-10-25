@@ -863,6 +863,36 @@ func (_m *MockHandler) GetKubernetesClusterResources(ctx context.Context) (*api.
 	return r0, r1
 }
 
+// GetMonitoringBinding provides a mock function with given fields: ctx, cluster, namespace, name
+func (_m *MockHandler) GetMonitoringBinding(ctx context.Context, cluster string, namespace string, name string) (*monitoringv1alpha1.MonitoringBinding, error) {
+	ret := _m.Called(ctx, cluster, namespace, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMonitoringBinding")
+	}
+
+	var r0 *monitoringv1alpha1.MonitoringBinding
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) (*monitoringv1alpha1.MonitoringBinding, error)); ok {
+		return rf(ctx, cluster, namespace, name)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *monitoringv1alpha1.MonitoringBinding); ok {
+		r0 = rf(ctx, cluster, namespace, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringBinding)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = rf(ctx, cluster, namespace, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetMonitoringClass provides a mock function with given fields: ctx, cluster, name
 func (_m *MockHandler) GetMonitoringClass(ctx context.Context, cluster string, name string) (*monitoringv1alpha1.MonitoringClass, error) {
 	ret := _m.Called(ctx, cluster, name)
@@ -1456,6 +1486,36 @@ func (_m *MockHandler) ListInstances(ctx context.Context, cluster string, namesp
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
 		r1 = rf(ctx, cluster, namespace)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListMonitoringBindings provides a mock function with given fields: ctx, cluster, namespace, params
+func (_m *MockHandler) ListMonitoringBindings(ctx context.Context, cluster string, namespace string, params *api.ListMonitoringBindingsParams) (*monitoringv1alpha1.MonitoringBindingList, error) {
+	ret := _m.Called(ctx, cluster, namespace, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListMonitoringBindings")
+	}
+
+	var r0 *monitoringv1alpha1.MonitoringBindingList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *api.ListMonitoringBindingsParams) (*monitoringv1alpha1.MonitoringBindingList, error)); ok {
+		return rf(ctx, cluster, namespace, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *api.ListMonitoringBindingsParams) *monitoringv1alpha1.MonitoringBindingList); ok {
+		r0 = rf(ctx, cluster, namespace, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringBindingList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, *api.ListMonitoringBindingsParams) error); ok {
+		r1 = rf(ctx, cluster, namespace, params)
 	} else {
 		r1 = ret.Error(1)
 	}
