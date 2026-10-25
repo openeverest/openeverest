@@ -93,9 +93,10 @@ type MonitoringDestination struct {
 type MonitoringDestinationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`
-	Items           []MonitoringDestination `json:"items"`
+
+	Items []MonitoringDestination `json:"items"`
 }
 
-func init() {
+func init() { //nolint:gochecknoinits // kubebuilder scheme registration convention
 	SchemeBuilder.Register(&MonitoringDestination{}, &MonitoringDestinationList{})
 }

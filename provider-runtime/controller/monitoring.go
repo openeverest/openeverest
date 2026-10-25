@@ -198,14 +198,9 @@ func (c *Context) SetMonitoringBindingResult(bindingName string, reason monitori
 	c.monitoringResults[bindingName] = bindingResult{reason: reason, message: message}
 }
 
-// monitoringResult returns the staged result for a binding, if any.
-func (c *Context) monitoringResult(bindingName string) (reason monitoringv1alpha1.ConfiguredReason, message string, ok bool) {
-	r, ok := c.monitoringResults[bindingName]
-	return r.reason, r.message, ok
-}
-
 // MonitoringBindingResult returns the staged result for a binding, if any.
 // Used by the reconciler after Sync.
-func (c *Context) MonitoringBindingResult(bindingName string) (reason monitoringv1alpha1.ConfiguredReason, message string, ok bool) {
-	return c.monitoringResult(bindingName)
+func (c *Context) MonitoringBindingResult(bindingName string) (monitoringv1alpha1.ConfiguredReason, string, bool) {
+	r, ok := c.monitoringResults[bindingName]
+	return r.reason, r.message, ok
 }

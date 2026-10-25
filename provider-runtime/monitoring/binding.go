@@ -22,6 +22,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"maps"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -97,9 +98,7 @@ func ApplyCondition(ctx context.Context, c client.Client, obj client.Object, exi
 	}
 	status := map[string]any{"conditions": []any{raw}}
 	for _, e := range extra {
-		for k, v := range e {
-			status[k] = v
-		}
+		maps.Copy(status, e)
 	}
 	return ApplyStatus(ctx, c, obj, fieldOwner, status)
 }
@@ -111,18 +110,16 @@ func ApplyStatus(ctx context.Context, c client.Client, obj client.Object, fieldO
 	if err != nil {
 		return fmt.Errorf("resolve GVK: %w", err)
 	}
+	metadata := map[string]any{"name": obj.GetName()}
+	if ns := obj.GetNamespace(); ns != "" {
+		metadata["namespace"] = ns
+	}
 	u := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": gvk.GroupVersion().String(),
 		"kind":       gvk.Kind,
-		"metadata": map[string]any{
-			"name":      obj.GetName(),
-			"namespace": obj.GetNamespace(),
-		},
-		"status": status,
+		"metadata":   metadata,
+		"status":     status,
 	}}
-	if obj.GetNamespace() == "" {
-		delete(u.Object["metadata"].(map[string]any), "namespace")
-	}
 	if err := c.Status().Apply(ctx,
 		client.ApplyConfigurationFromUnstructured(u),
 		client.FieldOwner(fieldOwner),

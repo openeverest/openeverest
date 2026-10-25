@@ -87,6 +87,9 @@ func (r ConfiguredReason) Status() metav1.ConditionStatus {
 		return metav1.ConditionTrue
 	case ReasonPending, ReasonRetained:
 		return metav1.ConditionUnknown
+	case ReasonNotAccepted, ReasonRenderFailed, ReasonApplyFailed, ReasonAgentNotReady,
+		ReasonEndpointNotServing, ReasonServerTooOld, ReasonNotSelected:
+		return metav1.ConditionFalse
 	default:
 		return metav1.ConditionFalse
 	}
@@ -164,9 +167,10 @@ type MonitoringBinding struct {
 type MonitoringBindingList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`
-	Items           []MonitoringBinding `json:"items"`
+
+	Items []MonitoringBinding `json:"items"`
 }
 
-func init() {
+func init() { //nolint:gochecknoinits // kubebuilder scheme registration convention
 	SchemeBuilder.Register(&MonitoringBinding{}, &MonitoringBindingList{})
 }

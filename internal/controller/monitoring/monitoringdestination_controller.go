@@ -37,18 +37,19 @@ import (
 	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
 )
 
-// MonitoringDestinationReconciler owns the Accepted condition and the in-use
+// DestinationReconciler owns the Accepted condition and the in-use
 // finalizer of MonitoringDestinations. Ready is written by the class
 // controller.
-type MonitoringDestinationReconciler struct {
+type DestinationReconciler struct {
 	client.Client
+
 	Scheme *runtime.Scheme
 }
 
 // SetupWithManager registers the Instance index on
 // spec.monitoring.destinations[].destinationRef.name (shared with the binding
 // controller) and sets up the controller.
-func (r *MonitoringDestinationReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *DestinationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1alpha1.Instance{},
 		InstanceMonitoringDestinationField, instanceMonitoringDestinationNames); err != nil {
 		return fmt.Errorf("indexing instance by monitoring destination: %w", err)
@@ -71,7 +72,7 @@ func (r *MonitoringDestinationReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 // Reconcile validates the destination against its class and keeps the in-use
 // finalizer in step with the Instances that send to it.
-func (r *MonitoringDestinationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *DestinationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	dst := &monitoringv1alpha1.MonitoringDestination{}
 	if err := r.Get(ctx, req.NamespacedName, dst); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -107,7 +108,7 @@ func (r *MonitoringDestinationReconciler) Reconcile(ctx context.Context, req ctr
 	return ctrl.Result{}, nil
 }
 
-func (r *MonitoringDestinationReconciler) isInUse(ctx context.Context, dst *monitoringv1alpha1.MonitoringDestination) (bool, error) {
+func (r *DestinationReconciler) isInUse(ctx context.Context, dst *monitoringv1alpha1.MonitoringDestination) (bool, error) {
 	instances := &corev1alpha1.InstanceList{}
 	if err := r.List(ctx, instances,
 		client.InNamespace(dst.Namespace),
@@ -120,7 +121,7 @@ func (r *MonitoringDestinationReconciler) isInUse(ctx context.Context, dst *moni
 
 // acceptedCondition: class found, parameters valid against its schema, and
 // the credentials Secret carrying every key the class requires.
-func (r *MonitoringDestinationReconciler) acceptedCondition(ctx context.Context, dst *monitoringv1alpha1.MonitoringDestination) metav1.Condition {
+func (r *DestinationReconciler) acceptedCondition(ctx context.Context, dst *monitoringv1alpha1.MonitoringDestination) metav1.Condition {
 	cond := rtmonitoring.NewCondition(dst, monitoringv1alpha1.MonitoringDestinationConditionAccepted, metav1.ConditionFalse, "", "")
 	class := &monitoringv1alpha1.MonitoringClass{}
 	if err := r.Get(ctx, types.NamespacedName{Name: dst.Spec.ClassRef.Name}, class); err != nil {
@@ -161,7 +162,7 @@ func (r *MonitoringDestinationReconciler) acceptedCondition(ctx context.Context,
 	return cond
 }
 
-func (r *MonitoringDestinationReconciler) enqueueDestinationsForClass(ctx context.Context, obj client.Object) []reconcile.Request {
+func (r *DestinationReconciler) enqueueDestinationsForClass(ctx context.Context, obj client.Object) []reconcile.Request {
 	list := &monitoringv1alpha1.MonitoringDestinationList{}
 	if err := r.List(ctx, list); err != nil {
 		return nil
@@ -175,7 +176,7 @@ func (r *MonitoringDestinationReconciler) enqueueDestinationsForClass(ctx contex
 	return reqs
 }
 
-func (r *MonitoringDestinationReconciler) enqueueDestinationsForInstance(_ context.Context, obj client.Object) []reconcile.Request {
+func (r *DestinationReconciler) enqueueDestinationsForInstance(_ context.Context, obj client.Object) []reconcile.Request {
 	names := instanceMonitoringDestinationNames(obj)
 	reqs := make([]reconcile.Request, 0, len(names))
 	for _, n := range names {

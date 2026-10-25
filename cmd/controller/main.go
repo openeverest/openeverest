@@ -231,7 +231,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&monitoringcontroller.MonitoringDestinationReconciler{
+	if err := (&monitoringcontroller.DestinationReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
@@ -239,7 +239,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&monitoringcontroller.MonitoringBindingReconciler{
+	if err := (&monitoringcontroller.BindingReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {

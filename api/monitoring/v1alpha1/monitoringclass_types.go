@@ -178,9 +178,10 @@ type MonitoringClass struct {
 type MonitoringClassList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`
-	Items           []MonitoringClass `json:"items"`
+
+	Items []MonitoringClass `json:"items"`
 }
 
-func init() {
+func init() { //nolint:gochecknoinits // kubebuilder scheme registration convention
 	SchemeBuilder.Register(&MonitoringClass{}, &MonitoringClassList{})
 }

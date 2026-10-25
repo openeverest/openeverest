@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -69,7 +70,7 @@ func (r *ProviderReconciler) watchMonitoringBindings(b *builder.Builder) {
 			}
 			in := &v1alpha1.Instance{}
 			key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: instanceName}
-			if err := r.Client.Get(ctx, key, in); err != nil || in.Spec.ProviderRef.Name != r.provider.Name() {
+			if err := r.Get(ctx, key, in); err != nil || in.Spec.ProviderRef.Name != r.provider.Name() {
 				return nil
 			}
 			return []reconcile.Request{{NamespacedName: key}}
@@ -92,40 +93,11 @@ func (r *ProviderReconciler) reconcileMonitoring(ctx context.Context, syncCtx *c
 	}
 
 	if !monitoringEnabled(r.provider) {
-		in.Status.Monitoring = nil
-		if len(entries) == 0 {
-			meta.RemoveStatusCondition(&in.Status.Conditions, v1alpha1.ConditionMonitoringConfigured)
-			return
-		}
-		// The provider implements no monitoring interface, so no class can be
-		// fulfilled; say so instead of leaving the entries silently empty.
-		in.Status.Monitoring = &v1alpha1.InstanceMonitoringStatus{}
-		for _, e := range entries {
-			in.Status.Monitoring.Destinations = append(in.Status.Monitoring.Destinations, v1alpha1.InstanceMonitoringDestinationStatus{
-				Name:       e.Name,
-				Configured: metav1.ConditionFalse,
-				Reason:     v1alpha1.ReasonMonitoringIntegrationUnsupported,
-				Message:    fmt.Sprintf("provider %q does not implement the monitoring contract", r.provider.Name()),
-			})
-		}
-		setCondition(in, v1alpha1.ConditionMonitoringConfigured, metav1.ConditionFalse,
-			v1alpha1.ReasonMonitoringIntegrationUnsupported,
-			fmt.Sprintf("provider %q does not implement the monitoring contract", r.provider.Name()), metav1.Now())
+		r.reportMonitoringUnsupported(in, entries)
 		return
 	}
 
-	var sources *v1alpha1.MonitoringSources
-	if in.Status.Monitoring != nil {
-		sources = in.Status.Monitoring.Sources
-	}
-	if sp, ok := r.provider.(controller.MonitoringSourcesProvider); ok {
-		computed, err := sp.MonitoringSources(syncCtx)
-		if err != nil {
-			logger.Error(err, "MonitoringSources failed; keeping the previous status.monitoring.sources")
-		} else {
-			sources = r.validateSources(ctx, syncCtx, in, computed)
-		}
-	}
+	sources := r.monitoringSources(ctx, syncCtx, in, logger)
 	in.Status.Monitoring = nil
 	if sources != nil || len(entries) > 0 {
 		in.Status.Monitoring = &v1alpha1.InstanceMonitoringStatus{Sources: sources}
@@ -151,31 +123,10 @@ func (r *ProviderReconciler) reconcileMonitoring(ctx context.Context, syncCtx *c
 	anyFalse := false
 	for _, entry := range entries {
 		st := v1alpha1.InstanceMonitoringDestinationStatus{Name: entry.Name}
-		rb, ok := byEntry[entry.Name]
-		switch {
-		case !ok:
+		if rb, ok := byEntry[entry.Name]; ok {
+			st = r.destinationStatus(ctx, syncCtx, entry.Name, rb, logger)
+		} else {
 			st.Configured, st.Reason, st.Message = metav1.ConditionUnknown, string(monitoringv1alpha1.ReasonPending), "binding not yet materialised"
-		default:
-			st.Mode = rb.Mode()
-			accepted := meta.FindStatusCondition(rb.Binding.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionAccepted)
-			switch {
-			case accepted == nil || accepted.Status == metav1.ConditionUnknown:
-				st.Configured, st.Reason, st.Message = metav1.ConditionUnknown, string(monitoringv1alpha1.ReasonPending), "waiting for core to accept the binding"
-			case accepted.Status == metav1.ConditionFalse:
-				st.Configured, st.Reason, st.Message = metav1.ConditionFalse, accepted.Reason, accepted.Message
-				if rb.Mode() == v1alpha1.MonitoringExecutionModeProviderManaged {
-					r.retainBinding(ctx, rb.Binding, accepted, logger)
-				}
-			case rb.Mode() == v1alpha1.MonitoringExecutionModeProviderManaged:
-				cond := r.configureBinding(ctx, syncCtx, rb.Binding, logger)
-				st.Configured, st.Reason, st.Message = cond.Status, cond.Reason, cond.Message
-			default:
-				configured := meta.FindStatusCondition(rb.Binding.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionConfigured)
-				st.Configured, st.Reason, st.Message = metav1.ConditionUnknown, string(monitoringv1alpha1.ReasonPending), "waiting for the class controller"
-				if configured != nil {
-					st.Configured, st.Reason, st.Message = configured.Status, configured.Reason, configured.Message
-				}
-			}
 		}
 		if st.Configured != metav1.ConditionTrue {
 			notConfigured = append(notConfigured, entry.Name+": "+st.Reason)
@@ -185,7 +136,13 @@ func (r *ProviderReconciler) reconcileMonitoring(ctx context.Context, syncCtx *c
 		}
 		in.Status.Monitoring.Destinations = append(in.Status.Monitoring.Destinations, st)
 	}
+	setMonitoringConfigured(in, notConfigured, anyFalse)
+}
 
+// setMonitoringConfigured rolls the per-destination outcomes up into the
+// MonitoringConfigured condition: True when all are configured, False when
+// any failed, Unknown while something is still pending.
+func setMonitoringConfigured(in *v1alpha1.Instance, notConfigured []string, anyFalse bool) {
 	switch {
 	case len(notConfigured) == 0:
 		setCondition(in, v1alpha1.ConditionMonitoringConfigured, metav1.ConditionTrue,
@@ -199,9 +156,78 @@ func (r *ProviderReconciler) reconcileMonitoring(ctx context.Context, syncCtx *c
 	}
 }
 
+// reportMonitoringUnsupported fills the status for a provider that implements
+// no monitoring interface: no class can be fulfilled, so every entry says so
+// instead of staying silently empty.
+func (r *ProviderReconciler) reportMonitoringUnsupported(in *v1alpha1.Instance, entries []v1alpha1.InstanceMonitoringDestination) {
+	in.Status.Monitoring = nil
+	if len(entries) == 0 {
+		meta.RemoveStatusCondition(&in.Status.Conditions, v1alpha1.ConditionMonitoringConfigured)
+		return
+	}
+	msg := fmt.Sprintf("provider %q does not implement the monitoring contract", r.provider.Name())
+	in.Status.Monitoring = &v1alpha1.InstanceMonitoringStatus{}
+	for _, e := range entries {
+		in.Status.Monitoring.Destinations = append(in.Status.Monitoring.Destinations, v1alpha1.InstanceMonitoringDestinationStatus{
+			Name:       e.Name,
+			Configured: metav1.ConditionFalse,
+			Reason:     v1alpha1.ReasonMonitoringIntegrationUnsupported,
+			Message:    msg,
+		})
+	}
+	setCondition(in, v1alpha1.ConditionMonitoringConfigured, metav1.ConditionFalse,
+		v1alpha1.ReasonMonitoringIntegrationUnsupported, msg, metav1.Now())
+}
+
+// monitoringSources asks the provider for its current sources; a failure
+// keeps the previously published ones.
+func (r *ProviderReconciler) monitoringSources(ctx context.Context, syncCtx *controller.Context, in *v1alpha1.Instance, logger logr.Logger) *v1alpha1.MonitoringSources {
+	var sources *v1alpha1.MonitoringSources
+	if in.Status.Monitoring != nil {
+		sources = in.Status.Monitoring.Sources
+	}
+	sp, ok := r.provider.(controller.MonitoringSourcesProvider)
+	if !ok {
+		return sources
+	}
+	computed, err := sp.MonitoringSources(syncCtx)
+	if err != nil {
+		logger.Error(err, "MonitoringSources failed; keeping the previous status.monitoring.sources")
+		return sources
+	}
+	return r.validateSources(ctx, syncCtx, in, computed)
+}
+
+// destinationStatus summarises one materialised binding for
+// Instance.status.monitoring.destinations[] and, for a ProviderManaged one,
+// writes its Configured condition.
+func (r *ProviderReconciler) destinationStatus(ctx context.Context, syncCtx *controller.Context, entryName string, rb controller.ResolvedBinding, logger logr.Logger) v1alpha1.InstanceMonitoringDestinationStatus {
+	st := v1alpha1.InstanceMonitoringDestinationStatus{Name: entryName, Mode: rb.Mode()}
+	accepted := meta.FindStatusCondition(rb.Binding.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionAccepted)
+	switch {
+	case accepted == nil || accepted.Status == metav1.ConditionUnknown:
+		st.Configured, st.Reason, st.Message = metav1.ConditionUnknown, string(monitoringv1alpha1.ReasonPending), "waiting for core to accept the binding"
+	case accepted.Status == metav1.ConditionFalse:
+		st.Configured, st.Reason, st.Message = metav1.ConditionFalse, accepted.Reason, accepted.Message
+		if rb.Mode() == v1alpha1.MonitoringExecutionModeProviderManaged {
+			r.retainBinding(ctx, rb.Binding, accepted, logger)
+		}
+	case rb.Mode() == v1alpha1.MonitoringExecutionModeProviderManaged:
+		cond := r.configureBinding(ctx, syncCtx, rb.Binding, logger)
+		st.Configured, st.Reason, st.Message = cond.Status, cond.Reason, cond.Message
+	default:
+		configured := meta.FindStatusCondition(rb.Binding.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionConfigured)
+		st.Configured, st.Reason, st.Message = metav1.ConditionUnknown, string(monitoringv1alpha1.ReasonPending), "waiting for the class controller"
+		if configured != nil {
+			st.Configured, st.Reason, st.Message = configured.Status, configured.Reason, configured.Message
+		}
+	}
+	return st
+}
+
 // configureBinding writes the Configured condition of an Accepted
 // ProviderManaged binding from the Sync outcome and any staged result.
-func (r *ProviderReconciler) configureBinding(ctx context.Context, syncCtx *controller.Context, b *monitoringv1alpha1.MonitoringBinding, logger interface{ Error(error, string, ...any) }) metav1.Condition {
+func (r *ProviderReconciler) configureBinding(ctx context.Context, syncCtx *controller.Context, b *monitoringv1alpha1.MonitoringBinding, logger logr.Logger) metav1.Condition {
 	reason, msg := monitoringv1alpha1.ReasonConfigured, "rendered by provider "+r.provider.Name()
 	if staged, stagedMsg, ok := syncCtx.MonitoringBindingResult(b.Name); ok {
 		reason, msg = staged, stagedMsg
@@ -216,7 +242,7 @@ func (r *ProviderReconciler) configureBinding(ctx context.Context, syncCtx *cont
 // retainBinding reports a ProviderManaged binding that lost Accepted:
 // Retained when a rendering is live and kept, NotAccepted when nothing was
 // ever rendered. Both quote the Accepted reason.
-func (r *ProviderReconciler) retainBinding(ctx context.Context, b *monitoringv1alpha1.MonitoringBinding, accepted *metav1.Condition, logger interface{ Error(error, string, ...any) }) {
+func (r *ProviderReconciler) retainBinding(ctx context.Context, b *monitoringv1alpha1.MonitoringBinding, accepted *metav1.Condition, logger logr.Logger) {
 	prev := meta.FindStatusCondition(b.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionConfigured)
 	reason := monitoringv1alpha1.ReasonNotAccepted
 	msg := "binding is not Accepted (" + accepted.Reason + "); nothing rendered"
