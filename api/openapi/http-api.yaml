@@ -982,6 +982,7 @@ paths:
       summary: Create instance
       description: |
         This API creates a new database instance in the specified namespace and cluster.
+        Every monitoring destination listed in `spec.monitoring.destinations` requires `read` on it; otherwise the request fails with 403.
       operationId: createInstance
       parameters:
         - name: cluster
@@ -1100,6 +1101,7 @@ paths:
       description: |
         This API updates the database instance specified by the `instance` name in the specified `namespace` and `cluster`, replacing the entire resource with the new one.
         To change only specific fields, use PATCH instead.
+        Every monitoring destination added to `spec.monitoring.destinations` requires `read` on it; otherwise the request fails with 403. Destinations the instance already lists need no `read`.
       operationId: updateInstance
       parameters:
         - name: cluster
@@ -1166,6 +1168,7 @@ paths:
         This API applies Merge Patch to the database instance specified by the `instance` name in the specified `namespace` and `cluster`.
         Members absent from the patch keep their current value, and a member set to `null` is removed. A path that does not exist on the Instance is
         rejected rather than ignored. Include `metadata.resourceVersion` to make the patch conditional, which fails with 409 if the instance has changed.
+        A patch setting `spec.monitoring.destinations` replaces the whole list, and every monitoring destination it adds requires `read` on it; otherwise the request fails with 403. Destinations the instance already lists need no `read`.
       operationId: patchInstance
       parameters:
         - name: cluster
@@ -2887,6 +2890,7 @@ paths:
         This API creates a new monitoring destination in the specified namespace and cluster.
         Only `metadata.name`, `metadata.generateName`, `metadata.labels`, `metadata.annotations` and `spec` are taken from the request; the namespace is the one in the path.
         Credentials are never part of the payload: create the Secret through the secrets API and reference it in `spec.credentialsSecretRef`, which requires `read` on that Secret.
+        `spec.classRef` requires `read` on the monitoring class it names.
       operationId: createMonitoringDestination
       parameters:
         - name: cluster
@@ -3037,8 +3041,8 @@ paths:
       summary: Update monitoring destination
       description: |
         This API replaces the labels, annotations and `spec` of the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
-        Include `metadata.resourceVersion` from the object being replaced; the update fails with 409 if the monitoring destination has changed since.
-        `spec.classRef` is immutable. Credentials are never part of the payload: update the Secret named by `spec.credentialsSecretRef` instead. Referencing a Secret requires `read` on it.
+        Include `metadata.resourceVersion` from the object being replaced to make the update fail with 409 if the monitoring destination has changed since; without it, the destination is replaced whatever its current version.
+        `spec.classRef` is immutable and requires `read` on the monitoring class it names. Credentials are never part of the payload: update the Secret named by `spec.credentialsSecretRef` instead. Referencing a Secret requires `read` on it.
       operationId: updateMonitoringDestination
       parameters:
         - name: cluster
@@ -3179,9 +3183,12 @@ paths:
         - name: destination
           in: query
           required: false
-          description: Return only the bindings to the monitoring destination with this name
+          description: |
+            Return only the bindings to the monitoring destination with this name. Empty means no filter; a value that is not a valid label value is rejected with 400.
           schema:
             type: string
+            maxLength: 63
+            pattern: '^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$'
       responses:
         '200':
           description: Successful operation
@@ -3190,7 +3197,7 @@ paths:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/MonitoringBindingList'
         '400':
-          description: Unsuccessful operation
+          description: The destination filter is not a valid label value
           content:
             application/json:
               schema:

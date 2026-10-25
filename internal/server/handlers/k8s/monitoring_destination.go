@@ -61,8 +61,10 @@ func (h *k8sHandler) UpdateMonitoringDestination(ctx context.Context, _, namespa
 	if err != nil {
 		return nil, err
 	}
-	// The client's version, not the stored one, so a stale document is refused.
-	stored.ResourceVersion = destination.GetResourceVersion()
+	// The client's version, when it sends one, so a stale document is refused.
+	if rv := destination.GetResourceVersion(); rv != "" {
+		stored.ResourceVersion = rv
+	}
 	stored.Labels = destination.GetLabels()
 	stored.Annotations = withManagedAnnotations(destination.GetAnnotations(), stored.GetAnnotations())
 	stored.Spec = destination.Spec

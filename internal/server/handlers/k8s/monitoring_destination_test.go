@@ -190,6 +190,20 @@ func TestK8s_MonitoringDestinationWrites(t *testing.T) {
 		assert.JSONEq(t, `{"url":"https://pmm.example.com"}`, string(unchanged.Spec.Parameters.Raw))
 	})
 
+	t.Run("update without a resourceVersion applies to the stored version and keeps the rest", func(t *testing.T) {
+		t.Parallel()
+
+		handler := newHandler(stored())
+		_, err := handler.UpdateMonitoringDestination(context.Background(), "prod", "ns1", "pmm-prod", forged())
+		require.NoError(t, err)
+
+		updated, err := handler.kubeConnector.GetMonitoringDestination(context.Background(), types.NamespacedName{Namespace: "ns1", Name: "pmm-prod"})
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"url":"https://pmm2.example.com"}`, string(updated.Spec.Parameters.Raw))
+		assert.Equal(t, ownerRefs, updated.OwnerReferences)
+		assert.Equal(t, []string{"example.com/keep"}, updated.Finalizers)
+	})
+
 	t.Run("update of a missing destination is not found", func(t *testing.T) {
 		t.Parallel()
 
