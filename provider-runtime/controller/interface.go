@@ -395,10 +395,13 @@ type UpgradeProvider interface {
 //     after every successful Sync,
 //   - writes the Configured condition of ProviderManaged bindings.
 //
-// The provider's RBAC must then allow get, list and watch on
-// monitoringbindings, monitoringdestinations and monitoringclasses
-// (monitoring.openeverest.io), patch on monitoringbindings/status, and get on
-// namespaces (the kube-system namespace UID identifies the cluster).
+// The provider's RBAC must then grant, e.g. as these markers in its
+// internal/provider/rbac.go (the namespaces get reads the kube-system UID that
+// identifies the cluster):
+//
+//	// +kubebuilder:rbac:groups=monitoring.openeverest.io,resources=monitoringclasses;monitoringdestinations;monitoringbindings,verbs=get;list;watch
+//	// +kubebuilder:rbac:groups=monitoring.openeverest.io,resources=monitoringbindings/status,verbs=patch
+//	// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get
 type MonitoringSourcesProvider interface {
 	// MonitoringSources returns the endpoints that are currently serving.
 	// The runtime drops endpoints of component types the Provider does not

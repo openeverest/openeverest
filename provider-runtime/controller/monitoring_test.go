@@ -93,19 +93,19 @@ func monitoringBinding(entry string, mode v1alpha1.MonitoringExecutionMode, clas
 	return b
 }
 
-func monitoringDestination(name, class string) *monitoringv1alpha1.MonitoringDestination {
+func pmmDestination(name string) *monitoringv1alpha1.MonitoringDestination {
 	return &monitoringv1alpha1.MonitoringDestination{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: monitoringTestNamespace},
-		Spec:       monitoringv1alpha1.MonitoringDestinationSpec{ClassRef: common.ObjectRef{Name: class}},
+		Spec:       monitoringv1alpha1.MonitoringDestinationSpec{ClassRef: common.ObjectRef{Name: "pmm"}},
 	}
 }
 
-func providerManagedClass(name, integration string) *monitoringv1alpha1.MonitoringClass {
+func pmmClass() *monitoringv1alpha1.MonitoringClass {
 	return &monitoringv1alpha1.MonitoringClass{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
+		ObjectMeta: metav1.ObjectMeta{Name: "pmm"},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
-			ControllerName:  "openeverest.io/monitoring-" + name,
-			ProviderManaged: &monitoringv1alpha1.ProviderManagedFulfilment{Integration: integration},
+			ControllerName:  "openeverest.io/monitoring-pmm",
+			ProviderManaged: &monitoringv1alpha1.ProviderManagedFulfilment{Integration: "pmm"},
 		},
 	}
 }
@@ -158,7 +158,7 @@ func TestRequiredSources(t *testing.T) {
 			entries: []string{"pmm"},
 			objs: []client.Object{
 				monitoringBinding("pmm", pm, "pmm", metav1.ConditionTrue),
-				providerManagedClass("pmm", "pmm"),
+				pmmClass(),
 			},
 			want: NotRequired,
 		},
@@ -176,7 +176,7 @@ func TestRequiredSources(t *testing.T) {
 			entries: []string{"pmm", "prometheus"},
 			objs: []client.Object{
 				monitoringBinding("pmm", pm, "pmm", metav1.ConditionTrue),
-				providerManagedClass("pmm", "pmm"),
+				pmmClass(),
 			},
 			want: Unresolved,
 		},
@@ -244,7 +244,7 @@ func TestMonitoringBindings(t *testing.T) {
 		{
 			name:            "Accepted ProviderManaged binding with destination and class",
 			binding:         monitoringBinding("pmm", pm, "pmm", metav1.ConditionTrue),
-			objs:            []client.Object{monitoringDestination("pmm-dest", "pmm"), providerManagedClass("pmm", "pmm")},
+			objs:            []client.Object{pmmDestination("pmm-dest"), pmmClass()},
 			wantApply:       true,
 			wantEntry:       true,
 			wantDestination: true,
@@ -257,7 +257,7 @@ func TestMonitoringBindings(t *testing.T) {
 				b.Generation = 4
 				return b
 			}(),
-			objs:            []client.Object{monitoringDestination("pmm-dest", "pmm"), providerManagedClass("pmm", "pmm")},
+			objs:            []client.Object{pmmDestination("pmm-dest"), pmmClass()},
 			wantEntry:       true,
 			wantDestination: true,
 			wantClass:       true,
@@ -265,7 +265,7 @@ func TestMonitoringBindings(t *testing.T) {
 		{
 			name:            "not Accepted",
 			binding:         monitoringBinding("pmm", pm, "pmm", metav1.ConditionFalse),
-			objs:            []client.Object{monitoringDestination("pmm-dest", "pmm"), providerManagedClass("pmm", "pmm")},
+			objs:            []client.Object{pmmDestination("pmm-dest"), pmmClass()},
 			wantEntry:       true,
 			wantDestination: true,
 			wantClass:       true,
@@ -273,21 +273,21 @@ func TestMonitoringBindings(t *testing.T) {
 		{
 			name:      "destination deleted",
 			binding:   monitoringBinding("pmm", pm, "pmm", metav1.ConditionTrue),
-			objs:      []client.Object{providerManagedClass("pmm", "pmm")},
+			objs:      []client.Object{pmmClass()},
 			wantEntry: true,
 			wantClass: true,
 		},
 		{
 			name:            "class deleted",
 			binding:         monitoringBinding("pmm", pm, "pmm", metav1.ConditionTrue),
-			objs:            []client.Object{monitoringDestination("pmm-dest", "pmm")},
+			objs:            []client.Object{pmmDestination("pmm-dest")},
 			wantEntry:       true,
 			wantDestination: true,
 		},
 		{
 			name:            "ExtensionManaged",
 			binding:         monitoringBinding("pmm", v1alpha1.MonitoringExecutionModeExtensionManaged, "pmm", metav1.ConditionTrue),
-			objs:            []client.Object{monitoringDestination("pmm-dest", "pmm"), providerManagedClass("pmm", "pmm")},
+			objs:            []client.Object{pmmDestination("pmm-dest"), pmmClass()},
 			wantEntry:       true,
 			wantDestination: true,
 			wantClass:       true,
@@ -295,7 +295,7 @@ func TestMonitoringBindings(t *testing.T) {
 		{
 			name:            "entry removed from the Instance",
 			binding:         monitoringBinding("old", pm, "pmm", metav1.ConditionTrue),
-			objs:            []client.Object{monitoringDestination("old-dest", "pmm"), providerManagedClass("pmm", "pmm")},
+			objs:            []client.Object{pmmDestination("old-dest"), pmmClass()},
 			wantDestination: true,
 			wantClass:       true,
 		},

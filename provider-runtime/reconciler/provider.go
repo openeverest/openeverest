@@ -43,6 +43,7 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 	"github.com/openeverest/openeverest/v2/provider-runtime/internal/instanceprep"
 	"github.com/openeverest/openeverest/v2/provider-runtime/server"
@@ -56,12 +57,14 @@ const finalizerName = "everest.percona.com/provider-finalizer"
 
 // ProviderReconciler reconciles Instance resources using a Provider.
 type ProviderReconciler struct {
-	provider     providerAdapter
-	manager      ctrl.Manager
-	serverConfig *server.ServerConfig
-	server       *server.Server
-	breaker      maintenanceBreaker
-	pods         atomic.Value // client.Reader, set once the pod watch runs
+	provider      providerAdapter
+	manager       ctrl.Manager
+	serverConfig  *server.ServerConfig
+	server        *server.Server
+	breaker       maintenanceBreaker
+	pods          atomic.Value // client.Reader, set once the pod watch runs
+	apiReader     client.Reader
+	kubeSystemUID atomic.Value // string, the cluster identity of monitoring sources
 	client.Client
 }
 
@@ -167,6 +170,10 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		return nil, fmt.Errorf("failed to add backup v1alpha1 scheme: %w", err)
 	}
 
+	if err := monitoringv1alpha1.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("failed to add monitoring v1alpha1 scheme: %w", err)
+	}
+
 	// Register provider-specific types
 	if typesFunc := p.Types(); typesFunc != nil {
 		if err := typesFunc(scheme); err != nil {
@@ -230,6 +237,7 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		provider:     p,
 		manager:      mgr,
 		serverConfig: options.serverConfig,
+		apiReader:    mgr.GetAPIReader(),
 		Client:       mgr.GetClient(),
 	}
 
@@ -373,6 +381,10 @@ func (r *ProviderReconciler) setup() error {
 				b.Watches(wc.Object, h, opts...)
 			}
 		}
+	}
+
+	if monitoringEnabled(r.provider) {
+		r.watchMonitoringBindings(b)
 	}
 
 	c, err := b.Build(r)
@@ -599,6 +611,8 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	if effectiveBundleName != "" {
 		in.Status.Version = effectiveBundleName
 	}
+
+	r.reconcileMonitoring(ctx, syncCtx, in)
 
 	// Write connection details Secret and set the ConnectionDetailsReady condition.
 	if err := r.reconcileConnectionSecret(ctx, in, status); err != nil {
