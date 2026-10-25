@@ -72,6 +72,41 @@ func TestClaimKeepsCoreCompatibilityMatrix(t *testing.T) {
 	assert.Empty(t, other.Status.Conditions)
 }
 
+func TestClaimClass(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		controllerName string
+		wantAccepted   bool
+	}{
+		{name: "ours", controllerName: testControllerName, wantAccepted: true},
+		{name: "another controller's", controllerName: "openeverest.io/monitoring-pmm", wantAccepted: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := t.Context()
+			c := newFakeClient(t, newClass("metrics", tt.controllerName))
+			class := &monitoringv1alpha1.MonitoringClass{}
+			require.NoError(t, c.Get(ctx, client.ObjectKey{Name: "metrics"}, class))
+
+			require.NoError(t, monitoring.ClassController{Client: c, ControllerName: testControllerName}.ClaimClass(ctx, class))
+
+			require.NoError(t, c.Get(ctx, client.ObjectKey{Name: "metrics"}, class))
+			accepted := meta.FindStatusCondition(class.Status.Conditions, monitoringv1alpha1.MonitoringClassConditionAccepted)
+			if !tt.wantAccepted {
+				assert.Nil(t, accepted)
+				return
+			}
+			require.NotNil(t, accepted)
+			assert.Equal(t, metav1.ConditionTrue, accepted.Status)
+			assert.Equal(t, monitoringv1alpha1.ReasonAccepted, accepted.Reason)
+			assert.Equal(t, int64(1), accepted.ObservedGeneration)
+		})
+	}
+}
+
 func TestOwnsClass(t *testing.T) {
 	t.Parallel()
 
@@ -110,10 +145,10 @@ func TestSetDestinationReadyKeepsServerVersionAndAccepted(t *testing.T) {
 	require.NoError(t, monitoring.ApplyCondition(ctx, c, dst, dst.Status.Conditions, monitoring.MaterializerFieldOwner, accepted))
 
 	require.NoError(t, c.Get(ctx, key, dst))
-	require.NoError(t, ext.SetDestinationReady(ctx, dst, metav1.ConditionTrue, monitoringv1alpha1.ReasonReady, "", "3.8.0"))
+	require.NoError(t, ext.SetDestinationReady(ctx, dst, monitoringv1alpha1.ReasonReady, "", "3.8.0"))
 
 	require.NoError(t, c.Get(ctx, key, dst))
-	require.NoError(t, ext.SetDestinationReady(ctx, dst, metav1.ConditionFalse, monitoringv1alpha1.ReasonUnreachable, "connection refused", ""))
+	require.NoError(t, ext.SetDestinationReady(ctx, dst, monitoringv1alpha1.ReasonUnreachable, "connection refused", ""))
 
 	require.NoError(t, c.Get(ctx, key, dst))
 	assert.Equal(t, "3.8.0", dst.Status.ServerVersion)
@@ -122,6 +157,20 @@ func TestSetDestinationReadyKeepsServerVersionAndAccepted(t *testing.T) {
 	assert.Equal(t, metav1.ConditionFalse, ready.Status)
 	assert.Equal(t, "Unreachable", ready.Reason)
 	assert.True(t, meta.IsStatusConditionTrue(dst.Status.Conditions, monitoringv1alpha1.MonitoringDestinationConditionAccepted))
+}
+
+func TestOwnedBy(t *testing.T) {
+	t.Parallel()
+	b := newBinding()
+	b.UID = "5f0c6a52-0d6e-4c1b-9a8e-2b8f3d1e7c44"
+
+	assert.Equal(t, metav1.OwnerReference{
+		APIVersion: "monitoring.openeverest.io/v1alpha1",
+		Kind:       "MonitoringBinding",
+		Name:       "orders-pmm-1a2b3c4d",
+		UID:        "5f0c6a52-0d6e-4c1b-9a8e-2b8f3d1e7c44",
+		Controller: new(true),
+	}, monitoring.OwnedBy(b))
 }
 
 func TestBindingPredicate(t *testing.T) {

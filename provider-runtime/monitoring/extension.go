@@ -50,14 +50,25 @@ func (cc ClassController) Claim(ctx context.Context) ([]string, error) {
 		if class.Spec.ControllerName != cc.ControllerName {
 			continue
 		}
-		cond := NewCondition(class, monitoringv1alpha1.MonitoringClassConditionAccepted, metav1.ConditionTrue,
-			monitoringv1alpha1.ReasonAccepted, "claimed by "+cc.ControllerName)
-		if err := ApplyCondition(ctx, cc.Client, class, class.Status.Conditions, cc.ControllerName, cond); err != nil {
+		if err := cc.ClaimClass(ctx, class); err != nil {
 			return claimed, err
 		}
 		claimed = append(claimed, class.Name)
 	}
 	return claimed, nil
+}
+
+// ClaimClass sets Accepted=True on class if its controllerName is ours and
+// leaves it untouched otherwise. Call it from a MonitoringClass reconciler so
+// a failed claim is retried.
+func (cc ClassController) ClaimClass(ctx context.Context, class *monitoringv1alpha1.MonitoringClass) error {
+	if class.Spec.ControllerName != cc.ControllerName {
+		return nil
+	}
+	cond := NewCondition(class, monitoringv1alpha1.MonitoringClassConditionAccepted, metav1.ConditionTrue,
+		monitoringv1alpha1.ReasonAccepted, "claimed by "+cc.ControllerName,
+	)
+	return ApplyCondition(ctx, cc.Client, class, class.Status.Conditions, cc.ControllerName, cond)
 }
 
 // OwnsClass reports whether the named class is ours.
@@ -74,7 +85,8 @@ func (cc ClassController) OwnsClass(ctx context.Context, className string) (bool
 
 // BindingPredicate passes only ExtensionManaged bindings whose class label
 // names a class in classes; use it on the MonitoringBinding watch so the
-// extension caches and reconciles only its own bindings.
+// extension reconciles only its own bindings. It filters events only: the
+// informer still caches every binding in the cluster.
 func BindingPredicate(classes ...string) predicate.Predicate { //nolint:ireturn // controller-runtime's builder takes the interface
 	set := make(map[string]struct{}, len(classes))
 	for _, c := range classes {
@@ -115,13 +127,14 @@ func (cc ClassController) SetConfigured(ctx context.Context, b *monitoringv1alph
 
 // SetDestinationReady writes the destination's Ready condition and
 // serverVersion, the only destination status a class controller owns, in
-// one apply. An empty serverVersion keeps the last reported one.
-func (cc ClassController) SetDestinationReady(ctx context.Context, dst *monitoringv1alpha1.MonitoringDestination, status metav1.ConditionStatus, reason, message, serverVersion string) error {
-	cond := NewCondition(dst, monitoringv1alpha1.MonitoringDestinationConditionReady, status, reason, message)
+// one apply. The status is derived from the reason. An empty serverVersion
+// keeps the last reported one.
+func (cc ClassController) SetDestinationReady(ctx context.Context, dst *monitoringv1alpha1.MonitoringDestination, reason monitoringv1alpha1.ReadyReason, message, serverVersion string) error {
+	cond := NewCondition(dst, monitoringv1alpha1.MonitoringDestinationConditionReady, reason.Status(), string(reason), message)
 	if serverVersion == "" {
 		serverVersion = dst.Status.ServerVersion
 	}
-	extra := map[string]any{}
+	extra := make(map[string]any)
 	if serverVersion != "" {
 		extra["serverVersion"] = serverVersion
 	}
@@ -131,6 +144,14 @@ func (cc ClassController) SetDestinationReady(ctx context.Context, dst *monitori
 // OwnedBy returns the controller owner reference an extension puts on the
 // backend objects it creates for a binding, so removing the destination
 // entry garbage-collects them even if the extension is uninstalled.
+// BlockOwnerDeletion stays unset: it would need update permission on
+// monitoringbindings/finalizers, which extensions are not granted.
 func OwnedBy(b *monitoringv1alpha1.MonitoringBinding) metav1.OwnerReference {
-	return *metav1.NewControllerRef(b, monitoringv1alpha1.GroupVersion.WithKind("MonitoringBinding"))
+	return metav1.OwnerReference{
+		APIVersion: monitoringv1alpha1.GroupVersion.String(),
+		Kind:       "MonitoringBinding",
+		Name:       b.Name,
+		UID:        b.UID,
+		Controller: new(true),
+	}
 }

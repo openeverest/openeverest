@@ -24,6 +24,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -33,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 )
 
@@ -79,16 +81,20 @@ func BindingLabels(instance, entry, destination, class string) map[string]string
 	return l
 }
 
-// ListBindingsForInstance lists the bindings core created for an Instance.
-func ListBindingsForInstance(ctx context.Context, c client.Client, namespace, instance string) ([]monitoringv1alpha1.MonitoringBinding, error) {
+// ListBindingsForInstance lists the bindings controlled by the Instance.
+// Bindings of a deleted Instance with the same name, still awaiting garbage
+// collection, are skipped.
+func ListBindingsForInstance(ctx context.Context, c client.Client, in *corev1alpha1.Instance) ([]monitoringv1alpha1.MonitoringBinding, error) {
 	list := &monitoringv1alpha1.MonitoringBindingList{}
 	if err := c.List(ctx, list,
-		client.InNamespace(namespace),
-		client.MatchingLabels{monitoringv1alpha1.BindingInstanceLabel: instance},
+		client.InNamespace(in.Namespace),
+		client.MatchingLabels{monitoringv1alpha1.BindingInstanceLabel: in.Name},
 	); err != nil {
-		return nil, fmt.Errorf("list monitoring bindings for instance %q: %w", instance, err)
+		return nil, fmt.Errorf("list monitoring bindings for instance %q: %w", in.Name, err)
 	}
-	return list.Items, nil
+	return slices.DeleteFunc(list.Items, func(b monitoringv1alpha1.MonitoringBinding) bool {
+		return !metav1.IsControlledBy(&b, in)
+	}), nil
 }
 
 // ApplyCondition server-side-applies exactly one condition on obj's status

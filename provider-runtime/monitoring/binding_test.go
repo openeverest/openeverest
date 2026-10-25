@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/managedfields"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/kube-openapi/pkg/validation/spec"
@@ -172,6 +173,45 @@ func TestBindingLabels(t *testing.T) {
 			assert.Equal(t, tt.want, monitoring.BindingLabels("orders", "metrics", "pmm-prod", tt.class))
 		})
 	}
+}
+
+func TestListBindingsForInstance(t *testing.T) {
+	t.Parallel()
+	in := &corev1alpha1.Instance{ObjectMeta: metav1.ObjectMeta{Name: "orders", Namespace: testNamespace, UID: "uid-current"}}
+	binding := func(name, namespace, instance string, owner *metav1.OwnerReference) *monitoringv1alpha1.MonitoringBinding {
+		b := &monitoringv1alpha1.MonitoringBinding{ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels:    map[string]string{monitoringv1alpha1.BindingInstanceLabel: instance},
+		}}
+		if owner != nil {
+			b.OwnerReferences = []metav1.OwnerReference{*owner}
+		}
+		return b
+	}
+	controlledBy := func(uid types.UID) *metav1.OwnerReference {
+		return &metav1.OwnerReference{
+			APIVersion: "core.openeverest.io/v1alpha1", Kind: "Instance", Name: "orders", UID: uid, Controller: new(true),
+		}
+	}
+	c := newFakeClient(t,
+		binding("current", testNamespace, "orders", controlledBy("uid-current")),
+		binding("previous-incarnation", testNamespace, "orders", controlledBy("uid-previous")),
+		binding("not-controller", testNamespace, "orders", &metav1.OwnerReference{
+			APIVersion: "core.openeverest.io/v1alpha1", Kind: "Instance", Name: "orders", UID: "uid-current",
+		}),
+		binding("orphan", testNamespace, "orders", nil),
+		binding("other-instance", testNamespace, "invoices", controlledBy("uid-current")),
+		binding("other-namespace", "team-b", "orders", controlledBy("uid-current")),
+	)
+
+	got, err := monitoring.ListBindingsForInstance(t.Context(), c, in)
+	require.NoError(t, err)
+	names := make([]string, 0, len(got))
+	for i := range got {
+		names = append(names, got[i].Name)
+	}
+	assert.Equal(t, []string{"current"}, names)
 }
 
 func TestIsAccepted(t *testing.T) {

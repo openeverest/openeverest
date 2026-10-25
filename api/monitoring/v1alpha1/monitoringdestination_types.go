@@ -38,13 +38,41 @@ const (
 	ReasonCredentialsNotFound = "CredentialsNotFound"
 )
 
+// ReadyReason is a reason of the MonitoringDestination Ready condition. The
+// condition status is derived from the reason, see Status.
+type ReadyReason string
+
 // Reasons for the MonitoringDestination Ready condition.
 const (
-	ReasonReady                    = "Ready"
-	ReasonUnreachable              = "Unreachable"
-	ReasonUnauthorized             = "Unauthorized"
-	ReasonUnsupportedServerVersion = "UnsupportedServerVersion"
+	// ReasonReady means the backend is reachable, the credentials are valid
+	// and the server version is supported.
+	ReasonReady ReadyReason = "Ready"
+	// ReasonReadyPending means the controller has not probed the backend
+	// yet; it is the CRD default.
+	ReasonReadyPending ReadyReason = "Pending"
+	// ReasonUnreachable means the backend could not be reached.
+	ReasonUnreachable ReadyReason = "Unreachable"
+	// ReasonUnauthorized means the backend rejected the credentials.
+	ReasonUnauthorized ReadyReason = "Unauthorized"
+	// ReasonUnsupportedServerVersion means the backend version is not
+	// supported.
+	ReasonUnsupportedServerVersion ReadyReason = "UnsupportedServerVersion"
 )
+
+// Status returns the condition status the reason implies; unknown reasons
+// imply False.
+func (r ReadyReason) Status() metav1.ConditionStatus {
+	switch r {
+	case ReasonReady:
+		return metav1.ConditionTrue
+	case ReasonReadyPending:
+		return metav1.ConditionUnknown
+	case ReasonUnreachable, ReasonUnauthorized, ReasonUnsupportedServerVersion:
+		return metav1.ConditionFalse
+	default:
+		return metav1.ConditionFalse
+	}
+}
 
 // MonitoringDestinationSpec defines the desired state of MonitoringDestination.
 type MonitoringDestinationSpec struct {
