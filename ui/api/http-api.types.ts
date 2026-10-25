@@ -892,6 +892,47 @@ export interface paths {
         patch: operations["updateMonitoringConfig"];
         trace?: never;
     };
+    "/clusters/{cluster}/monitoring-classes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List monitoring classes
+         * @description This API lists all monitoring classes in the specified cluster.
+         *     Monitoring classes are installed with their extension and are read-only over this API.
+         */
+        get: operations["listMonitoringClasses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/monitoring-classes/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get monitoring class
+         * @description This API gets the monitoring class specified by the `name` in the specified `cluster`.
+         */
+        get: operations["getMonitoringClass"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clusters/{cluster}/namespaces/{namespace}/config-maps": {
         parameters: {
             query?: never;
@@ -7208,6 +7249,197 @@ export interface components {
                 namespace?: string;
             };
         };
+        /**
+         * @description MonitoringClass is one monitoring technology, claimed by the out-of-tree
+         *     controller that serves it.
+         */
+        MonitoringClass: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: components["schemas"]["ObjectMeta"];
+            /** @description MonitoringClassSpec defines the desired state of MonitoringClass. */
+            spec: {
+                /**
+                 * @description CredentialsSchema lists the keys the MonitoringDestination credentials
+                 *     Secret must carry.
+                 */
+                credentialsSchema?: {
+                    /** @description Required is the list of required Secret keys. */
+                    required?: string[];
+                };
+                /** @description Description describes the monitoring technology. */
+                description?: string;
+                /** @description DestinationParametersSchema validates MonitoringDestination.spec.parameters. */
+                destinationParametersSchema?: {
+                    /**
+                     * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                     *     parameters payload.
+                     */
+                    openAPIV3Schema?: unknown;
+                };
+                /** @description DisplayName is a human-readable name for the monitoring technology. */
+                displayName?: string;
+                /**
+                 * @description ExtensionManaged declares that the class controller wires the backend
+                 *     from the provider's monitoring contract alone
+                 *     (Instance.status.monitoring.sources).
+                 */
+                extensionManaged?: {
+                    /**
+                     * @description Requires lists the source capabilities a component must satisfy to
+                     *     be eligible for this class.
+                     */
+                    requires?: {
+                        /**
+                         * @description Metrics requires the component to expose OpenMetrics
+                         *     (metrics: Native or Exporter).
+                         */
+                        metrics?: boolean;
+                    };
+                };
+                /**
+                 * @description InstanceParametersSchema validates
+                 *     Instance.spec.monitoring.destinations[].parameters.
+                 */
+                instanceParametersSchema?: {
+                    /**
+                     * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                     *     parameters payload.
+                     */
+                    openAPIV3Schema?: unknown;
+                };
+                /**
+                 * @description ProviderManaged declares that providers whose engine operator natively
+                 *     integrates this technology render it themselves inside Sync. Matched
+                 *     against Provider.spec.monitoring.integrations.
+                 */
+                providerManaged?: {
+                    /**
+                     * @description AgentImage is the agent image the provider renders into the engine
+                     *     pods. It is admin-controlled: only class writers can change what runs
+                     *     next to the data volumes.
+                     */
+                    agentImage: string;
+                    /**
+                     * @description AgentVersion is the semantic version of AgentImage, matched against
+                     *     Provider.spec.monitoring.integrations.<integration>.agentVersions.
+                     */
+                    agentVersion: string;
+                    /**
+                     * @description Integration is the integration name providers declare in
+                     *     Provider.spec.monitoring.integrations (e.g. "pmm"). Immutable.
+                     */
+                    integration: string;
+                };
+                /**
+                 * @description UISchema holds free-form form-rendering hints consumed only by the UI,
+                 *     grouped by the form they decorate (destination, instance, credentials).
+                 */
+                uiSchema?: Record<string, never>;
+            };
+            /**
+             * @description MonitoringClassStatus defines the observed state of MonitoringClass. It
+             *     has two writers, each applying only its own fields: the claiming
+             *     controller owns the Accepted condition and core owns providers.
+             * @default {
+             *       "conditions": [
+             *         {
+             *           "lastTransitionTime": "1970-01-01T00:00:00Z",
+             *           "message": "Waiting for controller",
+             *           "reason": "Pending",
+             *           "status": "Unknown",
+             *           "type": "Accepted"
+             *         }
+             *       ]
+             *     }
+             */
+            status?: {
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+                /**
+                 * @description Providers is the compatibility of this class with every installed
+                 *     Provider.
+                 */
+                providers?: {
+                    /**
+                     * @description Disruption is the worst that enabling the class does to the pods of
+                     *     one of the Provider's Instances. Set when Mode is set.
+                     * @enum {string}
+                     */
+                    disruption?: "None" | "RollingRestart";
+                    /** @description Message is the human-readable detail for Reason. */
+                    message?: string;
+                    /**
+                     * @description Mode is the execution mode a binding of this class gets for the
+                     *     Provider's Instances. Empty when the Provider is incompatible.
+                     * @enum {string}
+                     */
+                    mode?: "ProviderManaged" | "ExtensionManaged";
+                    /** @description Name is the Provider name. */
+                    name: string;
+                    /** @description Reason explains an empty Mode. */
+                    reason?: string;
+                }[];
+            };
+        };
+        /** @description MonitoringClassList is an object that contains the list of the existing monitoringclasss. */
+        MonitoringClassList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["MonitoringClass"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+            };
+        };
     };
     responses: never;
     parameters: never;
@@ -10155,6 +10387,90 @@ export interface operations {
             };
             /** @description Internal server error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listMonitoringClasses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of monitoring classes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitoringClassList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getMonitoringClass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The name of the monitoring class */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Monitoring class details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitoringClass"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Monitoring class not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };

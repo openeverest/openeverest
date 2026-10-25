@@ -248,6 +248,10 @@ type KubernetesConnector interface {
 	//
 	// TODO Rename it to DeleteMonitoringConfig once v1 code is removed.
 	DeleteMonitoringConfigV2(ctx context.Context, obj *monitoringv1alpha1.MonitoringConfig) error
+	// ListMonitoringClasses returns list of monitoring classes that match the criteria.
+	ListMonitoringClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringClassList, error)
+	// GetMonitoringClass returns monitoring class that matches the criteria.
+	GetMonitoringClass(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringClass, error)
 	// CreateNamespace creates the given namespace.
 	CreateNamespace(ctx context.Context, namespace *corev1.Namespace) (*corev1.Namespace, error)
 	// GetNamespace returns a namespace that matches the criteria.

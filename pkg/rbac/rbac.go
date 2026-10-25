@@ -78,6 +78,10 @@ const (
 	ResourceMonitoringConfigs      = "monitoring-configs"
 	ResourceConfigMaps             = "config-maps"
 	ResourceSecrets                = "secrets"
+
+	// v2 monitoring resource names.
+
+	ResourceMonitoringClasses = "monitoring-classes"
 )
 
 // GlobalResources is a list of all Everest API resources that are considered global.
@@ -97,6 +101,7 @@ var ClusterScopedResources = []string{
 	ResourceBackupClasses,
 	ResourcePlugins,
 	ResourceClusterInstancePresets,
+	ResourceMonitoringClasses,
 }
 
 // ClusterNamespacedResources is a list of v2 resources scoped to cluster + namespace.

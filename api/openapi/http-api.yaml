@@ -2800,6 +2800,83 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/monitoring-classes':
+    x-everest-resource-name: monitoring-classes
+    get:
+      tags:
+        - Monitoring
+      summary: List monitoring classes
+      description: |
+        This API lists all monitoring classes in the specified cluster.
+        Monitoring classes are installed with their extension and are read-only over this API.
+      operationId: listMonitoringClasses
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of monitoring classes
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringClassList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/monitoring-classes/{name}':
+    x-everest-resource-name: monitoring-classes
+    get:
+      tags:
+        - Monitoring
+      summary: Get monitoring class
+      description: |
+        This API gets the monitoring class specified by the `name` in the specified `cluster`.
+      operationId: getMonitoringClass
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the monitoring class
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Monitoring class details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringClass'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Monitoring class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/namespaces/{namespace}/config-maps':
     x-everest-resource-name: config-maps
     post:

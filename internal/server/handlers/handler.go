@@ -52,6 +52,7 @@ type Handler interface {
 	RestoreHandler
 	InstanceBackupHandler
 	MonitoringConfigHandler
+	MonitoringClassHandler
 	InstanceRestoreHandler
 	ConfigMapHandler
 	SecretHandler
@@ -163,6 +164,12 @@ type MonitoringConfigHandler interface {
 	ListMonitoringConfigs(ctx context.Context, cluster, namespaces string) (*monitoringv1alpha1.MonitoringConfigList, error)
 	GetMonitoringConfig(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha1.MonitoringConfig, error)
 	DeleteMonitoringConfig(ctx context.Context, cluster, namespace, name string) error
+}
+
+// MonitoringClassHandler provides methods for handling operations on monitoring classes.
+type MonitoringClassHandler interface {
+	ListMonitoringClasses(ctx context.Context, cluster string) (*monitoringv1alpha1.MonitoringClassList, error)
+	GetMonitoringClass(ctx context.Context, cluster, name string) (*monitoringv1alpha1.MonitoringClass, error)
 }
 
 // InstanceRestoreHandler provides methods for handling operations on instance restores.

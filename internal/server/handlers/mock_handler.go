@@ -815,6 +815,36 @@ func (_m *MockHandler) GetKubernetesClusterResources(ctx context.Context) (*api.
 	return r0, r1
 }
 
+// GetMonitoringClass provides a mock function with given fields: ctx, cluster, name
+func (_m *MockHandler) GetMonitoringClass(ctx context.Context, cluster string, name string) (*monitoringv1alpha1.MonitoringClass, error) {
+	ret := _m.Called(ctx, cluster, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMonitoringClass")
+	}
+
+	var r0 *monitoringv1alpha1.MonitoringClass
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*monitoringv1alpha1.MonitoringClass, error)); ok {
+		return rf(ctx, cluster, name)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *monitoringv1alpha1.MonitoringClass); ok {
+		r0 = rf(ctx, cluster, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringClass)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, cluster, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetMonitoringConfig provides a mock function with given fields: ctx, cluster, namespace, name
 func (_m *MockHandler) GetMonitoringConfig(ctx context.Context, cluster string, namespace string, name string) (*monitoringv1alpha1.MonitoringConfig, error) {
 	ret := _m.Called(ctx, cluster, namespace, name)
@@ -1348,6 +1378,36 @@ func (_m *MockHandler) ListInstances(ctx context.Context, cluster string, namesp
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
 		r1 = rf(ctx, cluster, namespace)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListMonitoringClasses provides a mock function with given fields: ctx, cluster
+func (_m *MockHandler) ListMonitoringClasses(ctx context.Context, cluster string) (*monitoringv1alpha1.MonitoringClassList, error) {
+	ret := _m.Called(ctx, cluster)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListMonitoringClasses")
+	}
+
+	var r0 *monitoringv1alpha1.MonitoringClassList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*monitoringv1alpha1.MonitoringClassList, error)); ok {
+		return rf(ctx, cluster)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *monitoringv1alpha1.MonitoringClassList); ok {
+		r0 = rf(ctx, cluster)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringClassList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, cluster)
 	} else {
 		r1 = ret.Error(1)
 	}
