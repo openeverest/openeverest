@@ -403,8 +403,10 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return r.handleDeletion(ctx, inCtx, in, logger)
 	}
 
-	// Ensure provider label and finalizer are present
+	// Ensure provider label and finalizer are present. A merge patch, unlike
+	// Update, cannot erase spec fields this binary's types do not know.
 	var needsUpdate bool
+	base := in.DeepCopy()
 	if in.Labels == nil {
 		in.Labels = make(map[string]string)
 	}
@@ -417,7 +419,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		needsUpdate = true
 	}
 	if needsUpdate {
-		if err := r.Client.Update(ctx, in); err != nil {
+		if err := r.Patch(ctx, in, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})); err != nil {
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{Requeue: true}, nil
@@ -727,8 +729,9 @@ func (r *ProviderReconciler) handleDeletion(
 	}
 
 	// Remove finalizer
+	base := in.DeepCopy()
 	controllerutil.RemoveFinalizer(in, finalizerName)
-	if err := r.Client.Update(ctx, in); err != nil {
+	if err := r.Patch(ctx, in, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})); err != nil {
 		return reconcile.Result{}, err
 	}
 	// Drop breaker state so a recreated Instance with the same name does not
