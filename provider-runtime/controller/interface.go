@@ -21,6 +21,7 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -38,8 +39,10 @@ type ProviderInterface interface {
 	// Types returns the scheme builder for registering provider-specific CRDs.
 	Types() func(*runtime.Scheme) error
 
-	// Validate checks if the Instance spec is valid.
-	Validate(c *Context) error
+	// Validate checks the Instance alone, without reading the cluster. The
+	// runtime calls it before every Sync, once the Instance matches the
+	// topologies, components, versions and schemas its Provider declares.
+	Validate(in ValidationInput) ValidationResult
 
 	// Sync ensures all required resources exist and are configured.
 	Sync(c *Context) error
@@ -49,6 +52,33 @@ type ProviderInterface interface {
 
 	// Cleanup handles deletion (called when deletion timestamp is set).
 	Cleanup(c *Context) error
+}
+
+// ValidationInput is everything Validate may read.
+type ValidationInput struct {
+	// Instance is the Instance as written by the user, before the runtime
+	// resolves its version bundle.
+	Instance *corev1alpha1.Instance
+	// Old is the previous Instance on an update at admission, and nil
+	// otherwise, so rules about transitions return nothing when it is nil.
+	Old *corev1alpha1.Instance
+	// Provider is the Provider the Instance names.
+	Provider *corev1alpha1.Provider
+}
+
+// ValidationResult is what Validate returns. Errors carry Instance field
+// paths, for example spec.components[configServer].replicas.
+type ValidationResult struct {
+	Errors   field.ErrorList
+	Warnings []string
+}
+
+// ReferenceValidator is an optional interface for rules about the contents of
+// other objects, such as the keys of the user Secret or the origin of the
+// source Backup. The runtime calls ValidateReferences after Validate passes and
+// before Sync. Whether a referent exists is checked by the runtime, not here.
+type ReferenceValidator interface {
+	ValidateReferences(c *Context) error
 }
 
 // =============================================================================

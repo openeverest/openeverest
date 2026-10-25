@@ -43,12 +43,19 @@ Implement the `ProviderInterface` to create a provider:
 type ProviderInterface interface {
     Name() string
 	Types() func(*runtime.Scheme) error
-	Validate(c *Context) error
+	Validate(in ValidationInput) ValidationResult
 	Sync(c *Context) error
 	Status(c *Context) (Status, error)
 	Cleanup(c *Context) error
 }
 ```
+
+`Validate` is pure: it gets the Instance and its Provider, no client, and
+returns every error with its field path. The runtime calls it before every
+`Sync`, after checking the Instance against the topologies, components,
+versions, parameter schemas and `supportedFields` the Provider declares. Rules
+about another object's contents, such as the keys of the user Secret, go in the
+optional `ReferenceValidator.ValidateReferences(c *Context) error`.
 
 Use `BaseProvider` to inherit default implementations:
 
@@ -67,7 +74,7 @@ func NewMyProvider() *MyProvider {
 }
 
 // Implement required methods
-func (p *MyProvider) Validate(c *controller.Context) error { ... }
+func (p *MyProvider) Validate(in controller.ValidationInput) controller.ValidationResult { ... }
 func (p *MyProvider) Sync(c *controller.Context) error { ... }
 func (p *MyProvider) Status(c *controller.Context) (controller.Status, error) { ... }
 func (p *MyProvider) Cleanup(c *controller.Context) error { ... }
