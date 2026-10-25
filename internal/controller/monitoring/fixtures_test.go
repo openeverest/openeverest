@@ -15,6 +15,7 @@
 package monitoring
 
 import (
+	"context"
 	"encoding/json"
 	"io/fs"
 	"os"
@@ -25,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,6 +37,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/yaml"
 
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
@@ -64,9 +67,34 @@ func newFakeClient(t *testing.T, objs ...client.Object) client.Client { //nolint
 			&monitoringv1alpha1.MonitoringDestination{},
 			&monitoringv1alpha1.MonitoringBinding{},
 		).
-		WithIndex(&corev1alpha1.Instance{}, InstanceMonitoringDestinationField, instanceMonitoringDestinationNames).
+		WithIndex(&corev1alpha1.Instance{}, instanceMonitoringDestinationField, instanceMonitoringDestinationNames).
 		WithIndex(&monitoringv1alpha1.MonitoringDestination{}, destinationCredentialsSecretField, destinationCredentialsSecretName).
+		WithInterceptorFuncs(generations()).
 		Build()
+}
+
+// generations sets metadata.generation the way the API server does, which
+// the fake client does not: 1 on create, +1 on every binding spec change.
+func generations() interceptor.Funcs {
+	return interceptor.Funcs{
+		Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+			obj.SetGeneration(1)
+			return c.Create(ctx, obj, opts...)
+		},
+		Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+			if b, ok := obj.(*monitoringv1alpha1.MonitoringBinding); ok {
+				stored := &monitoringv1alpha1.MonitoringBinding{}
+				if err := c.Get(ctx, client.ObjectKeyFromObject(b), stored); err != nil {
+					return err
+				}
+				b.Generation = stored.Generation
+				if !equality.Semantic.DeepEqual(stored.Spec, b.Spec) {
+					b.Generation++
+				}
+			}
+			return c.Update(ctx, obj, opts...)
+		},
+	}
 }
 
 // crdTypeConverter makes the fake client's server-side apply follow the

@@ -20,7 +20,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
@@ -212,7 +215,7 @@ func TestBindingReconcilerRejectsEntry(t *testing.T) {
 			assert.Equal(t, metav1.ConditionFalse, accepted.Status)
 			assert.Equal(t, tt.wantReason, accepted.Reason)
 			assert.Contains(t, accepted.Message, tt.wantMessage)
-			assert.Equal(t, b.Generation, accepted.ObservedGeneration)
+			assert.Equal(t, int64(1), accepted.ObservedGeneration)
 			assert.Empty(t, b.Spec.ExecutionMode)
 			if tt.wantClass == "" {
 				assert.Nil(t, b.Spec.ClassRef)
@@ -453,6 +456,79 @@ func TestBindingReconcilerResolvesOnceDestinationAppears(t *testing.T) {
 	accepted := findAccepted(t, b.Status.Conditions)
 	assert.Equal(t, metav1.ConditionTrue, accepted.Status)
 	assert.Equal(t, monitoringv1alpha1.ReasonAccepted, accepted.Reason)
+	assert.Equal(t, int64(2), accepted.ObservedGeneration)
+}
+
+func TestBindingReconcilerLeavesUnchangedBindingsAlone(t *testing.T) {
+	t.Parallel()
+	c := newFakeClient(t, pxcProvider(), prometheusClass(), newDestination("prom", "prometheus"),
+		newInstance(pxcProvider(), entry("metrics", "prom")))
+	reconcileInstance(t, c)
+	before := getBinding(t, c, "metrics")
+
+	reconcileInstance(t, c)
+
+	assert.Equal(t, before.ResourceVersion, getBinding(t, c, "metrics").ResourceVersion)
+}
+
+func TestBindingReconcilerEnqueuesInstances(t *testing.T) {
+	t.Parallel()
+	instance := func(namespace, name string, provider *corev1alpha1.Provider, entries ...corev1alpha1.InstanceMonitoringDestination) *corev1alpha1.Instance {
+		in := newInstance(provider, entries...)
+		in.Namespace, in.Name = namespace, name
+		return in
+	}
+	teamB := newDestination("prom", "prometheus")
+	teamB.Namespace = "team-b"
+	idle := instance(testNamespace, "idle", pxcProvider())
+	idle.Spec.Monitoring = nil
+	r := &BindingReconciler{Client: newFakeClient(t,
+		newDestination("prom", "prometheus"), pmmDestination("pmm-prod"), teamB,
+		instance(testNamespace, "orders", pxcProvider(), entry("metrics", "prom")),
+		instance(testNamespace, "billing", pxcProvider(), entry("pmm", "pmm-prod")),
+		instance("team-b", "orders", psmdbProvider(), entry("metrics", "prom")),
+		idle,
+	)}
+	request := func(namespace, name string) reconcile.Request {
+		return reconcile.Request{NamespacedName: types.NamespacedName{Namespace: namespace, Name: name}}
+	}
+
+	tests := []struct {
+		name   string
+		mapper handler.MapFunc
+		obj    client.Object
+		want   []reconcile.Request
+	}{
+		{
+			name:   "class: Instances sending to its destinations in every namespace",
+			mapper: r.enqueueInstancesForClass,
+			obj:    prometheusClass(),
+			want:   []reconcile.Request{request(testNamespace, "orders"), request("team-b", "orders")},
+		},
+		{
+			name:   "class: only Instances sending to its own destinations",
+			mapper: r.enqueueInstancesForClass,
+			obj:    pmmClass(),
+			want:   []reconcile.Request{request(testNamespace, "billing")},
+		},
+		{
+			name:   "provider: its Instances that have monitoring entries",
+			mapper: r.enqueueInstancesForProvider,
+			obj:    pxcProvider(),
+			want:   []reconcile.Request{request(testNamespace, "orders"), request(testNamespace, "billing")},
+		},
+		{
+			name:   "provider: no Instances",
+			mapper: r.enqueueInstancesForProvider,
+			obj:    kserveProvider(),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.ElementsMatch(t, tt.want, tt.mapper(t.Context(), tt.obj))
+		})
+	}
 }
 
 func TestBindingReconcilerFollowsEntryParameters(t *testing.T) {
@@ -486,7 +562,7 @@ func TestBindingReconcilerFollowsEntryParameters(t *testing.T) {
 	assert.JSONEq(t, `{"resources":{"limits":{"memory":"512Mi"}}}`, string(b.Spec.Parameters.Raw))
 	accepted := findAccepted(t, b.Status.Conditions)
 	assert.Equal(t, metav1.ConditionTrue, accepted.Status)
-	assert.Equal(t, int64(3), accepted.ObservedGeneration)
+	assert.Equal(t, int64(4), accepted.ObservedGeneration)
 }
 
 func TestBindingReconcilerDeletesStaleBindings(t *testing.T) {

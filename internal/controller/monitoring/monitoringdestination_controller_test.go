@@ -193,3 +193,17 @@ func TestDestinationReconcilerEnqueuesDestinationsUsingSecret(t *testing.T) {
 
 	assert.Equal(t, []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "pmm-prod"}}}, requests)
 }
+
+func TestDestinationReconcilerEnqueuesDestinationsOfClass(t *testing.T) {
+	t.Parallel()
+	teamB := newDestination("prom", "prometheus")
+	teamB.Namespace = "team-b"
+	c := newFakeClient(t, newDestination("prom", "prometheus"), teamB, pmmDestination("pmm-prod"))
+
+	requests := (&DestinationReconciler{Client: c}).enqueueDestinationsForClass(t.Context(), prometheusClass())
+
+	assert.ElementsMatch(t, []reconcile.Request{
+		{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "prom"}},
+		{NamespacedName: types.NamespacedName{Namespace: "team-b", Name: "prom"}},
+	}, requests)
+}

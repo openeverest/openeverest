@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,14 +41,14 @@ import (
 	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
 )
 
-// InstanceMonitoringDestinationField indexes Instances by every
+// instanceMonitoringDestinationField indexes Instances by every
 // spec.monitoring.destinations[].destinationRef.name.
-const InstanceMonitoringDestinationField = ".spec.monitoring.destinations.destinationRef.name"
+const instanceMonitoringDestinationField = ".spec.monitoring.destinations.destinationRef.name"
 
 const destinationKind = "MonitoringDestination"
 
 // instanceMonitoringDestinationNames is the extractor for
-// InstanceMonitoringDestinationField.
+// instanceMonitoringDestinationField.
 func instanceMonitoringDestinationNames(obj client.Object) []string {
 	in, ok := obj.(*corev1alpha1.Instance)
 	if !ok {
@@ -83,13 +84,13 @@ type BindingReconciler struct {
 // controller.
 func (r *BindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1alpha1.Instance{},
-		InstanceMonitoringDestinationField, instanceMonitoringDestinationNames); err != nil {
+		instanceMonitoringDestinationField, instanceMonitoringDestinationNames); err != nil {
 		return fmt.Errorf("indexing instance by monitoring destination: %w", err)
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("MonitoringBinding").
 		For(&corev1alpha1.Instance{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Owns(&monitoringv1alpha1.MonitoringBinding{}).
+		Owns(&monitoringv1alpha1.MonitoringBinding{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&monitoringv1alpha1.MonitoringDestination{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueInstancesForDestination),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{})).
@@ -106,6 +107,7 @@ func (r *BindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups=monitoring.openeverest.io,resources=monitoringdestinations,verbs=get;list;watch
 // +kubebuilder:rbac:groups=monitoring.openeverest.io,resources=monitoringclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core.openeverest.io,resources=instances,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core.openeverest.io,resources=instances/finalizers,verbs=update
 // +kubebuilder:rbac:groups=core.openeverest.io,resources=providers,verbs=get;list;watch
 
 // Reconcile materialises the bindings of one Instance.
@@ -424,6 +426,11 @@ func (r *BindingReconciler) materialise(
 
 	cond := res.accepted
 	cond.ObservedGeneration = b.Generation
+	if prev := meta.FindStatusCondition(b.Status.Conditions, cond.Type); prev != nil &&
+		prev.Status == cond.Status && prev.Reason == cond.Reason && prev.Message == cond.Message &&
+		prev.ObservedGeneration == cond.ObservedGeneration {
+		return nil
+	}
 	return rtmonitoring.ApplyCondition(ctx, r.Client, b, b.Status.Conditions, rtmonitoring.MaterializerFieldOwner, cond)
 }
 
@@ -511,7 +518,7 @@ func (r *BindingReconciler) enqueueInstancesForDestination(ctx context.Context, 
 	instances := &corev1alpha1.InstanceList{}
 	if err := r.List(ctx, instances,
 		client.InNamespace(obj.GetNamespace()),
-		client.MatchingFieldsSelector{Selector: fields.OneTermEqualSelector(InstanceMonitoringDestinationField, obj.GetName())},
+		client.MatchingFieldsSelector{Selector: fields.OneTermEqualSelector(instanceMonitoringDestinationField, obj.GetName())},
 	); err != nil {
 		log.FromContext(ctx).Error(err, "List Instances for MonitoringDestination", "destination", obj.GetName())
 		return nil

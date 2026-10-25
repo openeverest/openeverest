@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
@@ -42,6 +43,16 @@ func reconcileClass(t *testing.T, c client.Client, name string) *monitoringv1alp
 func TestClassCompatibilityMatrix(t *testing.T) {
 	t.Parallel()
 
+	oldAgent := pmmClass()
+	oldAgent.Spec.ProviderManaged.AgentVersion = "2.44.0"
+	outOfRange := func(provider string) monitoringv1alpha1.ProviderCompatibility {
+		return monitoringv1alpha1.ProviderCompatibility{
+			Name:    provider,
+			Reason:  monitoringv1alpha1.ReasonIncompatible,
+			Message: `MonitoringClass "pmm" agentVersion 2.44.0 is outside the range ">=3.0.0 <4.0.0" Provider "` + provider + `" supports`,
+		}
+	}
+
 	tests := []struct {
 		name  string
 		class *monitoringv1alpha1.MonitoringClass
@@ -51,6 +62,11 @@ func TestClassCompatibilityMatrix(t *testing.T) {
 			name:  "ProviderManaged class",
 			class: pmmClass(),
 			want: []monitoringv1alpha1.ProviderCompatibility{
+				{
+					Name:    "mariadb",
+					Reason:  monitoringv1alpha1.ReasonIntegrationUnsupported,
+					Message: `Provider "mariadb" declares no monitoring contract`,
+				},
 				{Name: "percona-postgresql", Mode: corev1alpha1.MonitoringExecutionModeProviderManaged},
 				{Name: "percona-server-mongodb", Mode: corev1alpha1.MonitoringExecutionModeProviderManaged},
 				{Name: "percona-xtradb-cluster", Mode: corev1alpha1.MonitoringExecutionModeProviderManaged},
@@ -62,9 +78,33 @@ func TestClassCompatibilityMatrix(t *testing.T) {
 			},
 		},
 		{
+			name:  "ProviderManaged class with an agent outside the providers' range",
+			class: oldAgent,
+			want: []monitoringv1alpha1.ProviderCompatibility{
+				{
+					Name:    "mariadb",
+					Reason:  monitoringv1alpha1.ReasonIntegrationUnsupported,
+					Message: `Provider "mariadb" declares no monitoring contract`,
+				},
+				outOfRange("percona-postgresql"),
+				outOfRange("percona-server-mongodb"),
+				outOfRange("percona-xtradb-cluster"),
+				{
+					Name:    "provider-kserve",
+					Reason:  monitoringv1alpha1.ReasonIntegrationUnsupported,
+					Message: `Provider "provider-kserve" does not declare integration "pmm"`,
+				},
+			},
+		},
+		{
 			name:  "ExtensionManaged class",
 			class: prometheusClass(),
 			want: []monitoringv1alpha1.ProviderCompatibility{
+				{
+					Name:    "mariadb",
+					Reason:  monitoringv1alpha1.ReasonIncompatible,
+					Message: `Provider "mariadb" declares no monitoring contract`,
+				},
 				{
 					Name:    "percona-postgresql",
 					Reason:  monitoringv1alpha1.ReasonIncompatible,
@@ -104,6 +144,11 @@ func TestClassCompatibilityMatrix(t *testing.T) {
 			}(),
 			want: []monitoringv1alpha1.ProviderCompatibility{
 				{
+					Name:    "mariadb",
+					Reason:  monitoringv1alpha1.ReasonIncompatible,
+					Message: `Provider "mariadb" declares no monitoring contract`,
+				},
+				{
 					Name:    "percona-postgresql",
 					Reason:  monitoringv1alpha1.ReasonIncompatible,
 					Message: `no component satisfies the requirements of MonitoringClass "prometheus"`,
@@ -131,7 +176,8 @@ func TestClassCompatibilityMatrix(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			c := newFakeClient(t, tt.class, pxcProvider(), psmdbProvider(), kserveProvider(), pgProvider())
+			c := newFakeClient(t, tt.class, pxcProvider(), psmdbProvider(), kserveProvider(), pgProvider(),
+				newProvider("mariadb", map[string]string{"engine": "mariadb"}, nil))
 
 			class := reconcileClass(t, c, tt.class.Name)
 
@@ -183,4 +229,17 @@ func TestClassCompatibilityDropsDeletedProviders(t *testing.T) {
 	class = reconcileClass(t, c, "prometheus")
 	assert.Empty(t, class.Status.Providers)
 	assert.Equal(t, metav1.ConditionTrue, findAccepted(t, class.Status.Conditions).Status)
+}
+
+func TestClassCompatibilityEnqueuesEveryClass(t *testing.T) {
+	t.Parallel()
+	c := newFakeClient(t, pmmClass(), prometheusClass(), victoriaMetricsClass())
+
+	requests := (&ClassCompatibilityReconciler{Client: c}).enqueueAllClasses(t.Context(), pxcProvider())
+
+	assert.ElementsMatch(t, []reconcile.Request{
+		{NamespacedName: types.NamespacedName{Name: "pmm"}},
+		{NamespacedName: types.NamespacedName{Name: "prometheus"}},
+		{NamespacedName: types.NamespacedName{Name: "victoriametrics"}},
+	}, requests)
 }

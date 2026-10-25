@@ -90,6 +90,12 @@ rules:
   - list
   - watch
 - apiGroups:
+  - core.openeverest.io
+  resources:
+  - instances/finalizers
+  verbs:
+  - update
+- apiGroups:
   - extensions.openeverest.io
   resources:
   - installedextensions
