@@ -1,0 +1,16 @@
+apiVersion: core.openeverest.io/v1alpha1
+kind: Instance
+metadata:
+  name: orders
+spec:
+  providerRef:
+    name: sharded-db
+  topology:
+    type: sharded
+    parameters:
+      numShards: 2
+  components:
+    engine:
+      replicas: 3
+    configServer:
+      replicas: 1
