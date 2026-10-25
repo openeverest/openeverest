@@ -51,6 +51,10 @@ import (
 
 const finalizerName = "everest.percona.com/provider-finalizer"
 
+// conflictRequeue gives the cache time to catch up with the write that won
+// the optimistic lock.
+const conflictRequeue = time.Second
+
 // =============================================================================
 // PROVIDER RECONCILER - Works with both Interface and Builder providers
 // =============================================================================
@@ -433,7 +437,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	if needsUpdate {
 		if err := r.Patch(ctx, in, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})); err != nil {
 			if apierrors.IsConflict(err) {
-				return reconcile.Result{Requeue: true}, nil
+				return reconcile.Result{RequeueAfter: conflictRequeue}, nil
 			}
 			return reconcile.Result{}, err
 		}
@@ -753,7 +757,7 @@ func (r *ProviderReconciler) handleDeletion(
 	controllerutil.RemoveFinalizer(in, finalizerName)
 	if err := r.Patch(ctx, in, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})); err != nil {
 		if apierrors.IsConflict(err) {
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{RequeueAfter: conflictRequeue}, nil
 		}
 		return reconcile.Result{}, err
 	}

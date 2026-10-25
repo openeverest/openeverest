@@ -101,7 +101,7 @@ func (p *requiredSourcesProvider) Sync(c *controller.Context) error {
 func monTypeConverter(t *testing.T) managedfields.TypeConverter { //nolint:ireturn // the fake client takes the interface
 	t.Helper()
 	crds := os.DirFS(filepath.Join("..", "..", "config", "crd", "bases"))
-	models := map[string]*spec.Schema{}
+	models := make(map[string]*spec.Schema)
 	for _, plural := range []string{"monitoringclasses", "monitoringdestinations", "monitoringbindings"} {
 		raw, err := fs.ReadFile(crds, "monitoring.openeverest.io_"+plural+".yaml")
 		require.NoError(t, err)
@@ -142,7 +142,8 @@ func newMonReconcilerWith(t *testing.T, p providerAdapter, funcs interceptor.Fun
 		WithTypeConverters(monTypeConverter(t), managedfields.NewDeducedTypeConverter()).
 		WithObjects(append(objs, kubeSystem)...).
 		WithStatusSubresource(&v1alpha1.Instance{}, &monitoringv1alpha1.MonitoringBinding{}).
-		Build(), funcs)
+		Build(), funcs,
+	)
 	return &ProviderReconciler{provider: p, Client: c, apiReader: c}
 }
 
@@ -284,7 +285,8 @@ func TestReconcileMonitoring_ProviderWithoutContract(t *testing.T) {
 		assert.Equal(t, []v1alpha1.InstanceMonitoringDestinationStatus{
 			{Name: "pmm", Configured: metav1.ConditionFalse, Reason: "IntegrationUnsupported", Message: msg},
 			{Name: "prometheus", Configured: metav1.ConditionFalse, Reason: "IntegrationUnsupported", Message: msg},
-		}, got.Status.Monitoring.Destinations)
+		}, got.Status.Monitoring.Destinations,
+		)
 		c := meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionMonitoringConfigured)
 		require.NotNil(t, c)
 		assert.Equal(t, metav1.ConditionFalse, c.Status)
@@ -428,7 +430,8 @@ func TestReconcileMonitoring_BindingsUnreadable(t *testing.T) {
 			}
 			return c.List(ctx, list, opts...)
 		},
-	}, monProviderObject(), in)
+	}, monProviderObject(), in,
+	)
 
 	got := reconcileMonitoringOf(t, r, in, nil)
 
@@ -457,7 +460,8 @@ func TestReconcileMonitoring_ConfiguredWriteFails(t *testing.T) {
 		Name: "pmm", Mode: v1alpha1.MonitoringExecutionModeProviderManaged, Configured: metav1.ConditionUnknown, Reason: "Pending",
 		Message: "failed to write the Configured condition: apply status of MonitoringBinding team-a/" +
 			monitoring.BindingName("orders", "pmm") + ": injected",
-	}}, got.Status.Monitoring.Destinations)
+	}}, got.Status.Monitoring.Destinations,
+	)
 	c := meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionMonitoringConfigured)
 	require.NotNil(t, c)
 	assert.Equal(t, metav1.ConditionUnknown, c.Status)
@@ -550,7 +554,8 @@ func TestReconcileMonitoring_DestinationStatus(t *testing.T) {
 		em = v1alpha1.MonitoringExecutionModeExtensionManaged
 	)
 	notAccepted := monCondition(monitoringv1alpha1.MonitoringBindingConditionAccepted, metav1.ConditionFalse,
-		monitoringv1alpha1.ReasonDestinationNotFound, "MonitoringDestination pmm-dest not found")
+		monitoringv1alpha1.ReasonDestinationNotFound, "MonitoringDestination pmm-dest not found",
+	)
 	staleAccepted := accepted()
 	staleAccepted.ObservedGeneration = 1
 	configured := func(status metav1.ConditionStatus, reason, message string) metav1.Condition {
@@ -701,7 +706,8 @@ func TestReconcileMonitoring_DestinationStatus(t *testing.T) {
 			assert.Equal(t, []v1alpha1.InstanceMonitoringDestinationStatus{{
 				Name: "pmm", Mode: tc.binding.Spec.ExecutionMode,
 				Configured: tc.entry.status, Reason: tc.entry.reason, Message: tc.entry.message,
-			}}, got.Status.Monitoring.Destinations)
+			}}, got.Status.Monitoring.Destinations,
+			)
 
 			c := storedConfigured(t, r, "pmm")
 			if tc.configured == nil {
@@ -884,7 +890,8 @@ func TestValidateSources(t *testing.T) {
 					"openeverest_provider":  "test-provider",
 					"k8s_cluster_id":        monTestClusterID,
 				},
-			}, got.Identity)
+			}, got.Identity,
+			)
 		})
 	}
 }
@@ -901,7 +908,8 @@ func TestReconcile_PublishesMonitoringStatus(t *testing.T) {
 	}
 	in := monInstance("pmm")
 	r := newMonReconciler(t, p, monProviderObject(), in, pmmDestination(), pmmClass(),
-		monBinding("pmm", v1alpha1.MonitoringExecutionModeProviderManaged, accepted()))
+		monBinding("pmm", v1alpha1.MonitoringExecutionModeProviderManaged, accepted()),
+	)
 
 	got, err := reconcileAndGet(t, r)
 	require.NoError(t, err)
@@ -913,7 +921,8 @@ func TestReconcile_PublishesMonitoringStatus(t *testing.T) {
 	assert.Equal(t, []v1alpha1.InstanceMonitoringDestinationStatus{{
 		Name: "pmm", Mode: v1alpha1.MonitoringExecutionModeProviderManaged, Configured: metav1.ConditionTrue,
 		Reason: "Configured", Message: "Rendered by provider test-provider",
-	}}, got.Status.Monitoring.Destinations)
+	}}, got.Status.Monitoring.Destinations,
+	)
 	assert.True(t, meta.IsStatusConditionTrue(got.Status.Conditions, v1alpha1.ConditionMonitoringConfigured))
 	c := storedConfigured(t, r, "pmm")
 	require.NotNil(t, c)
@@ -935,7 +944,8 @@ func TestReconcile_RequiredSourcesIncludeRenderedIntegrations(t *testing.T) {
 	assert.Equal(t, controller.RequiredSources{
 		Metrics:      controller.NotRequired,
 		Integrations: map[string]controller.Requirement{"pmm": controller.Required},
-	}, p.got, "pmm comes from MonitoringIntegrations: the Provider object declares no integration")
+	}, p.got, "pmm comes from MonitoringIntegrations: the Provider object declares no integration",
+	)
 }
 
 func TestMonitoringWatchMapping(t *testing.T) {

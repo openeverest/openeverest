@@ -95,7 +95,8 @@ func (r *ProviderReconciler) instancesForBinding(ctx context.Context, obj client
 func (r *ProviderReconciler) instancesForDestination(ctx context.Context, obj client.Object) []reconcile.Request {
 	return r.instancesMatching(ctx, obj.GetNamespace(), func(in *v1alpha1.Instance) bool {
 		return in.Spec.Monitoring != nil && slices.ContainsFunc(in.Spec.Monitoring.Destinations,
-			func(d v1alpha1.InstanceMonitoringDestination) bool { return d.DestinationRef.Name == obj.GetName() })
+			func(d v1alpha1.InstanceMonitoringDestination) bool { return d.DestinationRef.Name == obj.GetName() },
+		)
 	})
 }
 
@@ -105,7 +106,7 @@ func (r *ProviderReconciler) instancesForClass(ctx context.Context, obj client.O
 		log.FromContext(ctx).Error(err, "Listing monitoring bindings to enqueue failed")
 		return nil
 	}
-	bound := map[client.ObjectKey]struct{}{}
+	bound := make(map[client.ObjectKey]struct{})
 	for _, b := range bindings.Items {
 		bound[client.ObjectKey{Namespace: b.Namespace, Name: b.Labels[monitoringv1alpha1.BindingInstanceLabel]}] = struct{}{}
 	}
@@ -345,16 +346,31 @@ func (r *ProviderReconciler) validateSources(ctx context.Context, syncCtx *contr
 	if err != nil {
 		return nil, err
 	}
-	var declared map[string]v1alpha1.MonitoringComponentType
-	if spec.Monitoring != nil {
-		declared = spec.Monitoring.ComponentTypes
-	}
 
 	out := computed.DeepCopy()
-	credentials := out.Credentials
-	out.Credentials = nil
+	out.Credentials, err = r.controlledCredentials(ctx, in, out.Credentials, logger)
+	if err != nil {
+		return nil, err
+	}
+	out.Metrics = validMetrics(in, spec, out.Credentials, out.Metrics, logger)
+
+	out.Identity = v1alpha1.MonitoringIdentity{
+		ClusterID: clusterID,
+		Labels: map[string]string{
+			identityLabelInstance:  in.Name,
+			identityLabelNamespace: in.Namespace,
+			identityLabelProvider:  r.provider.Name(),
+			identityLabelCluster:   clusterID,
+		},
+	}
+	return out, nil
+}
+
+// controlledCredentials drops duplicate profiles and credentials whose
+// Secret is not controlled by the Instance.
+func (r *ProviderReconciler) controlledCredentials(ctx context.Context, in *v1alpha1.Instance, credentials []v1alpha1.MonitoringCredential, logger logr.Logger) ([]v1alpha1.MonitoringCredential, error) {
+	var out []v1alpha1.MonitoringCredential
 	seen := make(map[string]bool)
-	profiles := make(map[string]bool)
 	for _, cred := range credentials {
 		if seen[cred.Profile] {
 			logger.Info("Dropping duplicate monitoring credential profile", "profile", cred.Profile)
@@ -373,12 +389,25 @@ func (r *ProviderReconciler) validateSources(ctx context.Context, syncCtx *contr
 			)
 			continue
 		}
+		out = append(out, cred)
+	}
+	return out, nil
+}
+
+// validMetrics drops the endpoints the Provider declaration or the Instance
+// status schema rejects, sets each kind from its declared component type and
+// keeps at most maxMetricsEndpoints.
+func validMetrics(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, credentials []v1alpha1.MonitoringCredential, metrics []v1alpha1.MetricsEndpoint, logger logr.Logger) []v1alpha1.MetricsEndpoint {
+	var declared map[string]v1alpha1.MonitoringComponentType
+	if spec.Monitoring != nil {
+		declared = spec.Monitoring.ComponentTypes
+	}
+	profiles := make(map[string]bool, len(credentials))
+	for _, cred := range credentials {
 		profiles[cred.Profile] = true
-		out.Credentials = append(out.Credentials, cred)
 	}
 
-	metrics := out.Metrics
-	out.Metrics = nil
+	var out []v1alpha1.MetricsEndpoint
 	for _, ep := range metrics {
 		componentType := in.Spec.Components[ep.Component].Type
 		if componentType == "" {
@@ -398,24 +427,14 @@ func (r *ProviderReconciler) validateSources(ctx context.Context, syncCtx *contr
 			logger.Info("Dropping metrics endpoint naming an unpublished credential profile", "component", ep.Component, "profile", ep.Auth.CredentialProfile)
 		default:
 			ep.Kind = decl.Kind
-			out.Metrics = append(out.Metrics, ep)
+			out = append(out, ep)
 		}
 	}
-	if len(out.Metrics) > maxMetricsEndpoints {
-		logger.Info("Dropping metrics endpoints beyond the limit", "limit", maxMetricsEndpoints, "dropped", len(out.Metrics)-maxMetricsEndpoints)
-		out.Metrics = out.Metrics[:maxMetricsEndpoints]
+	if len(out) > maxMetricsEndpoints {
+		logger.Info("Dropping metrics endpoints beyond the limit", "limit", maxMetricsEndpoints, "dropped", len(out)-maxMetricsEndpoints)
+		out = out[:maxMetricsEndpoints]
 	}
-
-	out.Identity = v1alpha1.MonitoringIdentity{
-		ClusterID: clusterID,
-		Labels: map[string]string{
-			identityLabelInstance:  in.Name,
-			identityLabelNamespace: in.Namespace,
-			identityLabelProvider:  r.provider.Name(),
-			identityLabelCluster:   clusterID,
-		},
-	}
-	return out, nil
+	return out
 }
 
 // clusterID returns the UID of the kube-system namespace. It is read once,

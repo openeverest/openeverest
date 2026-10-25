@@ -189,6 +189,80 @@ func (c *Context) RequiredSources() (RequiredSources, error) {
 	if err != nil {
 		return RequiredSources{}, err
 	}
+	var entries []v1alpha1.InstanceMonitoringDestination
+	if c.in.Spec.Monitoring != nil {
+		entries = c.in.Spec.Monitoring.Destinations
+	}
+	return RequiredSources{
+		Metrics:      metricsRequirement(bindings, entries),
+		Integrations: integrationRequirements(c.knownIntegrations(spec), bindings, entries),
+	}, nil
+}
+
+func metricsRequirement(bindings []ResolvedBinding, entries []v1alpha1.InstanceMonitoringDestination) Requirement {
+	resolved := make(map[string]bool)
+	for _, rb := range bindings {
+		if rb.Entry == nil {
+			continue
+		}
+		switch rb.Mode() {
+		case v1alpha1.MonitoringExecutionModeProviderManaged:
+			resolved[rb.Entry.Name] = true
+		case v1alpha1.MonitoringExecutionModeExtensionManaged:
+			if rb.Class == nil {
+				continue
+			}
+			resolved[rb.Entry.Name] = true
+			if em := rb.Class.Spec.ExtensionManaged; em != nil && em.Requires.Metrics {
+				return Required
+			}
+		}
+	}
+	if anyUnresolved(entries, resolved) {
+		return Unresolved
+	}
+	return NotRequired
+}
+
+func integrationRequirements(integrations map[string]Requirement, bindings []ResolvedBinding, entries []v1alpha1.InstanceMonitoringDestination) map[string]Requirement {
+	resolved := make(map[string]bool)
+	for _, rb := range bindings {
+		if rb.Entry == nil {
+			continue
+		}
+		switch rb.Mode() {
+		case v1alpha1.MonitoringExecutionModeExtensionManaged:
+			resolved[rb.Entry.Name] = true
+		case v1alpha1.MonitoringExecutionModeProviderManaged:
+			if rb.Class == nil {
+				continue
+			}
+			resolved[rb.Entry.Name] = true
+			name := rb.Integration()
+			current, declared := integrations[name]
+			switch {
+			case !declared:
+			case rb.Apply:
+				integrations[name] = Required
+			case current != Required:
+				integrations[name] = Unresolved
+			}
+		}
+	}
+	if !anyUnresolved(entries, resolved) {
+		return integrations
+	}
+	for name, r := range integrations {
+		if r != Required {
+			integrations[name] = Unresolved
+		}
+	}
+	return integrations
+}
+
+// knownIntegrations returns the integrations the Provider declares or the
+// provider renders, all NotRequired.
+func (c *Context) knownIntegrations(spec *v1alpha1.ProviderSpec) map[string]Requirement {
 	integrations := make(map[string]Requirement)
 	if spec.Monitoring != nil {
 		for name := range spec.Monitoring.Integrations {
@@ -198,66 +272,12 @@ func (c *Context) RequiredSources() (RequiredSources, error) {
 	for _, name := range c.monitoringIntegrations {
 		integrations[name] = NotRequired
 	}
+	return integrations
+}
 
-	metricsResolved := make(map[string]bool)
-	integrationsResolved := make(map[string]bool)
-	metrics := false
-	for _, rb := range bindings {
-		if rb.Entry == nil {
-			continue
-		}
-		switch rb.Mode() {
-		case v1alpha1.MonitoringExecutionModeProviderManaged:
-			metricsResolved[rb.Entry.Name] = true
-			if rb.Class == nil {
-				continue
-			}
-			integrationsResolved[rb.Entry.Name] = true
-			name := rb.Integration()
-			current, declared := integrations[name]
-			if !declared {
-				continue
-			}
-			switch {
-			case rb.Apply:
-				integrations[name] = Required
-			case current != Required:
-				integrations[name] = Unresolved
-			}
-		case v1alpha1.MonitoringExecutionModeExtensionManaged:
-			integrationsResolved[rb.Entry.Name] = true
-			if rb.Class == nil {
-				continue
-			}
-			metricsResolved[rb.Entry.Name] = true
-			if em := rb.Class.Spec.ExtensionManaged; em != nil && em.Requires.Metrics {
-				metrics = true
-			}
-		}
-	}
-
-	var entries []v1alpha1.InstanceMonitoringDestination
-	if c.in.Spec.Monitoring != nil {
-		entries = c.in.Spec.Monitoring.Destinations
-	}
-	unresolved := func(resolved map[string]bool) bool {
-		return slices.ContainsFunc(entries, func(e v1alpha1.InstanceMonitoringDestination) bool { return !resolved[e.Name] })
-	}
-	req := RequiredSources{Metrics: NotRequired, Integrations: integrations}
-	switch {
-	case metrics:
-		req.Metrics = Required
-	case unresolved(metricsResolved):
-		req.Metrics = Unresolved
-	}
-	if unresolved(integrationsResolved) {
-		for name, r := range integrations {
-			if r != Required {
-				integrations[name] = Unresolved
-			}
-		}
-	}
-	return req, nil
+// anyUnresolved reports whether an entry has no binding in resolved.
+func anyUnresolved(entries []v1alpha1.InstanceMonitoringDestination, resolved map[string]bool) bool {
+	return slices.ContainsFunc(entries, func(e v1alpha1.InstanceMonitoringDestination) bool { return !resolved[e.Name] })
 }
 
 // SetMonitoringIntegrations records the integrations the provider renders,

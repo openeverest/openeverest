@@ -64,7 +64,8 @@ func TestReconcile_MetadataWritesKeepUnknownSpec(t *testing.T) {
 			name: "removing the finalizer on deletion",
 			in: readyTestInstance(func(in *v1alpha1.Instance) {
 				in.Finalizers = []string{finalizerName, "example.com/keep"}
-				in.DeletionTimestamp = new(metav1.Now())
+				now := metav1.Now()
+				in.DeletionTimestamp = &now
 				in.Spec.Monitoring = monitoringSpec.DeepCopy()
 				in.Status.Phase = v1alpha1.InstancePhaseTerminating
 			}),
@@ -148,7 +149,7 @@ func TestReconcile_MetadataWriteConflictRequeues(t *testing.T) {
 			key := client.ObjectKeyFromObject(tc.in)
 			res, err := r.Reconcile(t.Context(), reconcile.Request{NamespacedName: key})
 			require.NoError(t, err)
-			assert.Equal(t, reconcile.Result{Requeue: true}, res)
+			assert.Equal(t, reconcile.Result{RequeueAfter: conflictRequeue}, res)
 
 			got := &v1alpha1.Instance{}
 			require.NoError(t, stored.Get(t.Context(), key, got))
