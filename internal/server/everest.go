@@ -705,10 +705,9 @@ func trimStrictDecodingError(fullText string) string {
 }
 
 func trimWebhookErrorText(fullText string) string {
-	monitoringWebhookPrefix := `admission webhook "vmonitoringconfig-v1alpha1.everest.percona.com" denied the request: `
 	loadBalancerConfigWebhookPrefix := `admission webhook "vloadbalancerconfig-v1alpha1.everest.percona.com" denied the request: `
 	dbcWebhookPrefix := `admission webhook "vdatabasecluster-v1alpha1.everest.percona.com" denied the request: `
-	return strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(fullText, loadBalancerConfigWebhookPrefix), monitoringWebhookPrefix), dbcWebhookPrefix)
+	return strings.TrimPrefix(strings.TrimPrefix(fullText, loadBalancerConfigWebhookPrefix), dbcWebhookPrefix)
 }
 
 // createSessionManagerClient creates a k8s client for a session manager.

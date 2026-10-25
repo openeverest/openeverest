@@ -1394,12 +1394,11 @@ func hasInstanceStorage(b *v1alpha1.InstanceBackupSpec, name string) bool {
 //
 // Example usage in a watch handler:
 //
-//	func enqueueMonitoringConfig(providerName string) func(ctx context.Context, obj client.Object) []reconcile.Request {
+//	func enqueueForSecret(providerName string) func(ctx context.Context, obj client.Object) []reconcile.Request {
 //	    return func(ctx context.Context, obj client.Object) []reconcile.Request {
-//	        mc := obj.(*monitoringv1alpha1.MonitoringConfig)
 //	        requests, err := controller.RequestsForInstancesMatching(ctx, client, providerName,
-//	            client.InNamespace(mc.GetNamespace()),
-//	            client.MatchingFields{monitoringConfigPath: mc.GetName()},
+//	            client.InNamespace(obj.GetNamespace()),
+//	            client.MatchingFields{secretRefPath: obj.GetName()},
 //	        )
 //	        if err != nil {
 //	            return []reconcile.Request{}

@@ -1,5 +1,5 @@
 p, role:admin, namespaces, read, *
 p, role:admin, clusters, *, *
-p, role:admin, monitoring-configs, *, */*
-p, role:notexists, monitoring-configs, *, */*
+p, role:admin, monitoring-destinations, *, */*
+p, role:notexists, monitoring-destinations, *, */*
 g, admin, role:admin

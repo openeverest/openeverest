@@ -223,31 +223,6 @@ type KubernetesConnector interface {
 	// DeleteMonitoringConfigs deletes monitoring configs that matches the criteria.
 	// This function will wait until all configs are deleted.
 	DeleteMonitoringConfigs(ctx context.Context, opts ...ctrlclient.ListOption) error
-	// ListMonitoringConfigsV2 returns list of managed monitoring configs that match the criteria.
-	// This method returns a list of full objects (meta and spec).
-	//
-	// TODO Rename it to ListMonitoringConfigs once v1 code is removed.
-	ListMonitoringConfigsV2(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringConfigList, error)
-	// GetMonitoringConfigV2 returns monitoring config(full object) that matches the criteria.
-	//
-	// TODO Rename it to GetMonitoringConfig once v1 code is removed.
-	GetMonitoringConfigV2(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringConfig, error)
-	// GetMonitoringConfigMetaV2 returns monitoring config(metadata only) that matches the criteria.
-	//
-	// TODO Rename it to GetMonitoringConfigMeta once v1 code is removed.
-	GetMonitoringConfigMetaV2(ctx context.Context, key ctrlclient.ObjectKey) (*metav1.PartialObjectMetadata, error)
-	// CreateMonitoringConfigV2 creates monitoring config.
-	//
-	// TODO Rename it to CreateMonitoringConfig once v1 code is removed.
-	CreateMonitoringConfigV2(ctx context.Context, config *monitoringv1alpha1.MonitoringConfig) (*monitoringv1alpha1.MonitoringConfig, error)
-	// UpdateMonitoringConfigV2 updates monitoring config.
-	//
-	// TODO Rename it to UpdateMonitoringConfig once v1 code is removed.
-	UpdateMonitoringConfigV2(ctx context.Context, config *monitoringv1alpha1.MonitoringConfig) (*monitoringv1alpha1.MonitoringConfig, error)
-	// DeleteMonitoringConfigV2 deletes monitoring config that matches the criteria.
-	//
-	// TODO Rename it to DeleteMonitoringConfig once v1 code is removed.
-	DeleteMonitoringConfigV2(ctx context.Context, obj *monitoringv1alpha1.MonitoringConfig) error
 	// ListMonitoringClasses returns list of monitoring classes that match the criteria.
 	ListMonitoringClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringClassList, error)
 	// GetMonitoringClass returns monitoring class that matches the criteria.
