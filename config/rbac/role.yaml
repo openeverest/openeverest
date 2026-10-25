@@ -133,6 +133,7 @@ rules:
   - monitoring.openeverest.io
   resources:
   - monitoringbindings/status
+  - monitoringdestinations/status
   verbs:
   - patch
 - apiGroups:

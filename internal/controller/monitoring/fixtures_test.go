@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -64,6 +65,7 @@ func newFakeClient(t *testing.T, objs ...client.Object) client.Client { //nolint
 			&monitoringv1alpha1.MonitoringBinding{},
 		).
 		WithIndex(&corev1alpha1.Instance{}, InstanceMonitoringDestinationField, instanceMonitoringDestinationNames).
+		WithIndex(&monitoringv1alpha1.MonitoringDestination{}, destinationCredentialsSecretField, destinationCredentialsSecretName).
 		Build()
 }
 
@@ -280,6 +282,17 @@ func pmmDestination(name string) *monitoringv1alpha1.MonitoringDestination {
 	dst.Spec.CredentialsSecretRef = &common.SecretRef{Name: name + "-credentials"}
 	dst.Spec.Parameters = raw(`{"url":"https://pmm.example.com"}`)
 	return dst
+}
+
+func newSecret(name string, data map[string]string) *corev1.Secret {
+	s := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNamespace},
+		Data:       map[string][]byte{},
+	}
+	for k, v := range data {
+		s.Data[k] = []byte(v)
+	}
+	return s
 }
 
 func reconcileInstance(t *testing.T, c client.Client) {
