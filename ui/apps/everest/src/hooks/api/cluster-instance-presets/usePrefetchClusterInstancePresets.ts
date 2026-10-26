@@ -14,14 +14,14 @@
 
 import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { getInstancePresetsFn } from 'api/instancePresetApi';
+import { getClusterInstancePresetsFn } from 'api/clusterInstancePresetApi';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { Provider } from 'shared-types/api.types';
-import { INSTANCE_PRESETS_QUERY_KEY } from './useInstancePresets';
+import { CLUSTER_INSTANCE_PRESETS_QUERY_KEY } from './useClusterInstancePresets';
 
 // Warms the presets cache on navigation intent (e.g. hovering a provider tile)
 // so the create-instance form can render its final layout without a reflow.
-export const usePrefetchInstancePresets = () => {
+export const usePrefetchClusterInstancePresets = () => {
   const queryClient = useQueryClient();
   const clusterName = useClusterName();
 
@@ -32,8 +32,8 @@ export const usePrefetchInstancePresets = () => {
         return;
       }
       queryClient.prefetchQuery({
-        queryKey: [INSTANCE_PRESETS_QUERY_KEY, clusterName, name],
-        queryFn: () => getInstancePresetsFn(clusterName, name),
+        queryKey: [CLUSTER_INSTANCE_PRESETS_QUERY_KEY, clusterName, name],
+        queryFn: () => getClusterInstancePresetsFn(clusterName, name),
       });
     },
     [queryClient, clusterName]

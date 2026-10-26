@@ -216,6 +216,23 @@ The form runs in one of four modes:
 | `restore` | Creating a database from a backup of another database            |
 | `import`  | Creating a database from a backup imported from a backup storage |
 
+### Component-level modes
+
+Use a component's `modes` to hide it in a mode with `uiType: hidden`. A hidden field isn't
+rendered or validated in that mode, and in `restore` it doesn't take the source instance's value.
+
+```yaml
+userSecret:
+  uiType: secret
+  path: spec.userSecretRef.name
+  fieldParams:
+    label: Database users
+    definition: user
+  modes:
+    restore:
+      uiType: hidden
+```
+
 ### FieldParams-level modes
 
 Use `fieldParams.modes` when the override belongs to the field presentation layer.

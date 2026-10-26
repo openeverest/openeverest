@@ -13,9 +13,9 @@
 // limitations under the License.
 
 import { buildCreateInstanceSpec } from 'hooks/api/db-instances/useCreateDbInstance';
-import { InstancePreset } from 'shared-types/api.types';
+import { ClusterInstancePreset } from 'shared-types/api.types';
 import { buildPresetCreateArgs } from './preset-selection.utils';
-import { INSTANCE_PRESET_ANNOTATION } from './preset-selection.constants';
+import { CLUSTER_INSTANCE_PRESET_ANNOTATION } from './preset-selection.constants';
 
 const resolvedPreset = {
   spec: {
@@ -23,7 +23,7 @@ const resolvedPreset = {
     topology: { type: 'replicaSet' },
     components: { engine: { replicas: 3 } },
   },
-} as unknown as InstancePreset;
+} as unknown as ClusterInstancePreset;
 
 describe('buildPresetCreateArgs', () => {
   it('sends the resolved preset spec verbatim (same reference)', () => {
@@ -48,7 +48,7 @@ describe('buildPresetCreateArgs', () => {
     });
 
     expect(args.annotations).toEqual({
-      [INSTANCE_PRESET_ANNOTATION]: 'psmdb-replicaset',
+      [CLUSTER_INSTANCE_PRESET_ANNOTATION]: 'psmdb-replicaset',
     });
   });
 

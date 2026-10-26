@@ -36,7 +36,7 @@ test.describe('Instance Preset tests', () => {
 
   test('list instance presets', async ({request}) => {
     const response = await request.get(
-      `/v1/clusters/${CLUSTER_NAME}/instance-presets`
+      `/v1/clusters/${CLUSTER_NAME}/cluster-instance-presets`
     );
 
     await checkError(response);
@@ -51,7 +51,7 @@ test.describe('Instance Preset tests', () => {
 
   test('get specific instance preset', async ({request}) => {
     const response = await request.get(
-      `/v1/clusters/${CLUSTER_NAME}/instance-presets/${PRESET_NAME}`
+      `/v1/clusters/${CLUSTER_NAME}/cluster-instance-presets/${PRESET_NAME}`
     );
 
     await checkError(response);
@@ -71,7 +71,7 @@ test.describe('Instance Preset tests', () => {
     await test.step('create instance from preset', async () => {
       // First, resolve the preset to get the complete instance spec
       const resolveResponse = await request.get(
-        `/v1/clusters/${CLUSTER_NAME}/instance-presets/${PRESET_NAME}/resolve?namespace=${EVEREST_CI_NAMESPACE}`
+        `/v1/clusters/${CLUSTER_NAME}/cluster-instance-presets/${PRESET_NAME}/resolve?namespace=${EVEREST_CI_NAMESPACE}`
       );
 
       await checkError(resolveResponse);
@@ -92,7 +92,7 @@ test.describe('Instance Preset tests', () => {
         metadata: {
           name: INSTANCE_NAME,
           annotations: {
-            'openeverest.io/instance-preset': PRESET_NAME,
+            'openeverest.io/cluster-instance-preset': PRESET_NAME,
           },
         },
         spec: preset.spec,
