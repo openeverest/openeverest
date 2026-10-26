@@ -12,9 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { renderHook } from '@testing-library/react';
+import { ComponentType } from 'react';
+import { render, renderHook, screen } from '@testing-library/react';
+import { FormProvider, useForm } from 'react-hook-form';
+import { TestWrapper } from 'utils/test';
 import { FieldType, FormMode, TopologyUISchemas } from '../ui-generator.types';
 import { preprocessSchema } from '../utils/preprocess/preprocess-schema';
+import { StepProps } from './types';
 import { useFormEngine } from './use-form-engine';
 
 const SCHEMA: TopologyUISchemas = {
@@ -28,10 +32,25 @@ const SCHEMA: TopologyUISchemas = {
             fieldParams: { label: 'Users' },
             validation: { modes: { [FormMode.Import]: { required: true } } },
           },
+          nodes: {
+            uiType: FieldType.Number,
+            path: 'spec.replicas',
+            fieldParams: { label: 'Nodes' },
+            validation: { modes: { [FormMode.Import]: { min: 5 } } },
+          },
         },
       },
     },
   },
+};
+
+const StepHarness = ({ Step }: { Step: ComponentType<StepProps> }) => {
+  const methods = useForm();
+  return (
+    <FormProvider {...methods}>
+      <Step />
+    </FormProvider>
+  );
 };
 
 describe('useFormEngine', () => {
@@ -45,5 +64,25 @@ describe('useFormEngine', () => {
     );
 
     expect(result.current.zodSchema.safeParse({}).success).toBe(valid);
+  });
+
+  // Fields such as the secret picker hand the mode on to the forms they open.
+  it('renders its steps in its form mode', () => {
+    const uiSchema = preprocessSchema(SCHEMA, undefined, FormMode.Import);
+    const { result } = renderHook(() =>
+      useFormEngine({
+        uiSchema,
+        selectedTopology: 'single',
+        formMode: FormMode.Import,
+      })
+    );
+
+    render(
+      <TestWrapper>
+        <StepHarness Step={result.current.steps[0].component} />
+      </TestWrapper>
+    );
+
+    expect(screen.getByLabelText('Nodes')).toHaveAttribute('min', '5');
   });
 });

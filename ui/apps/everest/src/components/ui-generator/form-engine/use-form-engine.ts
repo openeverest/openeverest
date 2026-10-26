@@ -79,6 +79,7 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
             sections,
             providerObject,
             loadingDefaultsForEdition,
+            formMode,
             namespace,
             widgetRegistry,
           });
@@ -97,6 +98,7 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
       sections,
       sectionFieldMap,
       providerObject,
+      formMode,
       namespace,
       widgetRegistry,
     ]
