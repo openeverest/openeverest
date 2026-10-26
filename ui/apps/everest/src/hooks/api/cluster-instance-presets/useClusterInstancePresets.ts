@@ -24,7 +24,8 @@ import {
 } from 'shared-types/api.types';
 
 export const CLUSTER_INSTANCE_PRESETS_QUERY_KEY = 'cluster-instance-presets';
-export const RESOLVE_INSTANCE_PRESET_QUERY_KEY = 'resolve-instance-preset';
+export const RESOLVE_CLUSTER_INSTANCE_PRESET_QUERY_KEY =
+  'resolve-cluster-instance-preset';
 
 export const useClusterInstancePresets = (
   clusterName: string,
@@ -60,7 +61,12 @@ export const useResolveClusterInstancePreset = (
   >
 ) =>
   useQuery<ClusterInstancePreset, unknown, ClusterInstancePreset>({
-    queryKey: [RESOLVE_INSTANCE_PRESET_QUERY_KEY, clusterName, name, namespace],
+    queryKey: [
+      RESOLVE_CLUSTER_INSTANCE_PRESET_QUERY_KEY,
+      clusterName,
+      name,
+      namespace,
+    ],
     queryFn: () =>
       resolveClusterInstancePresetFn(clusterName, name, namespace ?? ''),
     enabled: Boolean(clusterName) && Boolean(name) && Boolean(namespace),
