@@ -78,7 +78,7 @@
     "react-hook-form": "^7.47.0",
     "react-router-dom": "^6.24.0",
     "semver": "^7.6.2",
-    "zod": "^3.22.4"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@percona/eslint-config-react": "workspace:*",
