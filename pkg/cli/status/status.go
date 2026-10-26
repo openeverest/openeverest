@@ -124,9 +124,6 @@ func (s *Status) Run(ctx context.Context) error {
 	// Check OLM components.
 	s.checkOLMComponents(ctx, result)
 
-	// Check monitoring components.
-	s.checkMonitoringComponents(ctx, result)
-
 	// Check database operators.
 	s.checkDatabaseOperators(ctx, result)
 
@@ -175,21 +172,6 @@ func (s *Status) checkOLMComponents(ctx context.Context, result *OverallStatus) 
 
 	for _, depl := range depls.Items {
 		cs := s.checkDeployment(ctx, depl.GetName(), depl.GetNamespace())
-		result.Components = append(result.Components, cs)
-		if !cs.Ready {
-			result.Healthy = false
-		}
-	}
-}
-
-func (s *Status) checkMonitoringComponents(ctx context.Context, result *OverallStatus) {
-	monitoringDeployments := []string{
-		common.VictoriaMetricsOperatorDeploymentName,
-		common.KubeStateMetricsDeploymentName,
-	}
-
-	for _, name := range monitoringDeployments {
-		cs := s.checkDeployment(ctx, name, common.MonitoringNamespace)
 		result.Components = append(result.Components, cs)
 		if !cs.Ready {
 			result.Healthy = false
