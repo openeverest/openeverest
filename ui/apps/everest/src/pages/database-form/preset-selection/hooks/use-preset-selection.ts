@@ -14,9 +14,9 @@
 
 import { useMemo } from 'react';
 import {
-  useInstancePresets,
-  useResolveInstancePreset,
-} from 'hooks/api/instance-presets';
+  useClusterInstancePresets,
+  useResolveClusterInstancePreset,
+} from 'hooks/api/cluster-instance-presets';
 import { PresetSelectionContextType } from '../preset-selection-context';
 import { Messages } from '../preset-selection.messages';
 
@@ -33,7 +33,7 @@ export const usePresetSelection = (
     data: presets = [],
     isLoading: isLoadingPresets,
     isError,
-  } = useInstancePresets(clusterName, provider);
+  } = useClusterInstancePresets(clusterName, provider);
 
   // Re-resolves automatically when presetName or namespace changes (query key);
   // react-query dedupes/cancels stale fetches.
@@ -41,7 +41,7 @@ export const usePresetSelection = (
     data: resolved,
     isFetching: isResolving,
     isError: hasResolveError,
-  } = useResolveInstancePreset(clusterName, presetName, namespace);
+  } = useResolveClusterInstancePreset(clusterName, presetName, namespace);
 
   const resolvedPreset = resolved ?? null;
   const resolveError = hasResolveError ? Messages.resolveError : null;

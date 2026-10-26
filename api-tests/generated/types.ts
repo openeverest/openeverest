@@ -268,7 +268,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/clusters/{cluster}/instance-presets": {
+    "/clusters/{cluster}/cluster-instance-presets": {
         parameters: {
             query?: never;
             header?: never;
@@ -276,11 +276,11 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List instance presets
-         * @description This API lists all instance presets in the specified cluster.
+         * List cluster instance presets
+         * @description This API lists all cluster instance presets in the specified cluster.
          *     Optionally filter by provider.
          */
-        get: operations["listInstancePresets"];
+        get: operations["listClusterInstancePresets"];
         put?: never;
         post?: never;
         delete?: never;
@@ -289,7 +289,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/clusters/{cluster}/instance-presets/{name}": {
+    "/clusters/{cluster}/cluster-instance-presets/{name}": {
         parameters: {
             query?: never;
             header?: never;
@@ -297,10 +297,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get instance preset
-         * @description This API gets the instance preset specified by the `name` in the specified `cluster`.
+         * Get cluster instance preset
+         * @description This API gets the cluster instance preset specified by the `name` in the specified `cluster`.
          */
-        get: operations["getInstancePreset"];
+        get: operations["getClusterInstancePreset"];
         put?: never;
         post?: never;
         delete?: never;
@@ -309,7 +309,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/clusters/{cluster}/instance-presets/{name}/resolve": {
+    "/clusters/{cluster}/cluster-instance-presets/{name}/resolve": {
         parameters: {
             query?: never;
             header?: never;
@@ -317,13 +317,13 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Resolve instance preset with namespace defaults and default StorageClass of the cluster
-         * @description This API resolves the instance preset specified by the `name` in the specified `cluster`.
-         *     This endpoint is useful when creating instances from presets, as it provides a
+         * Resolve cluster instance preset with namespace defaults and default StorageClass of the cluster
+         * @description This API resolves the cluster instance preset specified by the `name` in the specified `cluster`.
+         *     This endpoint is useful when creating instances from cluster instance presets, as it provides a
          *     fully-populated preset with all namespace defaults, and default StorageClass of the cluster
          *     if it has empty StorageClass.
          */
-        get: operations["resolveInstancePreset"];
+        get: operations["resolveClusterInstancePreset"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1513,8 +1513,15 @@ export interface components {
             /** @description UID is the unique in time and space value for this object. Populated by the system. Read-only. */
             uid?: string;
         };
-        /** @description InstancePreset is the Schema for the instancepresets API */
-        InstancePreset: {
+        /**
+         * @description ClusterInstancePreset is a cluster-scoped template of provider-specific
+         *     defaults for creating Instances.
+         *
+         *     It is similar to an InstancePreset. But it is cluster-scoped and it is
+         *     used to create Instances in any namespace. Therefore it must not embed
+         *     any namespace-scoped reference.
+         */
+        ClusterInstancePreset: {
             /**
              * @description APIVersion defines the versioned schema of this representation of an object.
              *     Servers should convert recognized schemas to the latest internal value, and
@@ -1531,7 +1538,7 @@ export interface components {
              */
             kind?: string;
             metadata?: components["schemas"]["ObjectMeta"];
-            /** @description spec defines the desired state of InstancePreset */
+            /** @description spec defines the desired state of ClusterInstancePreset */
             spec: {
                 /**
                  * @description Backup configures the backup feature for this Instance. When enabled,
@@ -2737,7 +2744,7 @@ export interface components {
                  */
                 version?: string;
             };
-            /** @description status defines the observed state of InstancePreset */
+            /** @description status defines the observed state of ClusterInstancePreset */
             status?: {
                 conditions?: {
                     /**
@@ -2776,11 +2783,11 @@ export interface components {
                 }[];
             };
         };
-        /** @description InstancePresetList is an object that contains the list of the existing instancepresets. */
-        InstancePresetList: {
+        /** @description ClusterInstancePresetList is an object that contains the list of the existing clusterinstancepresets. */
+        ClusterInstancePresetList: {
             /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
             apiVersion?: string;
-            items?: components["schemas"]["InstancePreset"][];
+            items?: components["schemas"]["ClusterInstancePreset"][];
             /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
             kind?: string;
             metadata?: {
@@ -5961,7 +5968,7 @@ export interface operations {
             };
         };
     };
-    listInstancePresets: {
+    listClusterInstancePresets: {
         parameters: {
             query?: {
                 /** @description Filter presets by provider name */
@@ -5976,13 +5983,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description List of instance presets */
+            /** @description List of cluster instance presets */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InstancePresetList"];
+                    "application/json": components["schemas"]["ClusterInstancePresetList"];
                 };
             };
             /** @description Error */
@@ -5996,27 +6003,27 @@ export interface operations {
             };
         };
     };
-    getInstancePreset: {
+    getClusterInstancePreset: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 /** @description The name of the cluster */
                 cluster: string;
-                /** @description The name of the instance preset */
+                /** @description The name of the cluster instance preset */
                 name: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Instance preset details */
+            /** @description Cluster instance preset details */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InstancePreset"];
+                    "application/json": components["schemas"]["ClusterInstancePreset"];
                 };
             };
             /** @description Forbidden */
@@ -6028,7 +6035,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Instance preset not found */
+            /** @description Cluster instance preset not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -6048,7 +6055,7 @@ export interface operations {
             };
         };
     };
-    resolveInstancePreset: {
+    resolveClusterInstancePreset: {
         parameters: {
             query: {
                 /** @description The namespace for which to resolve default values */
@@ -6058,20 +6065,20 @@ export interface operations {
             path: {
                 /** @description The name of the cluster */
                 cluster: string;
-                /** @description The name of the instance preset */
+                /** @description The name of the cluster instance preset */
                 name: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Resolved instance preset with namespace defaults */
+            /** @description Resolved cluster instance preset with namespace defaults */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InstancePreset"];
+                    "application/json": components["schemas"]["ClusterInstancePreset"];
                 };
             };
             /** @description Forbidden */
@@ -6083,7 +6090,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Instance preset not found */
+            /** @description Cluster instance preset not found */
             404: {
                 headers: {
                     [name: string]: unknown;

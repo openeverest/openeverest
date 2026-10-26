@@ -384,10 +384,10 @@ type KubernetesConnector interface {
 	UpdateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
 	// PatchInstance patches instance using the provided patch.
 	PatchInstance(ctx context.Context, instance *v1alpha1.Instance, patch ctrlclient.Patch, opts ...ctrlclient.PatchOption) (*v1alpha1.Instance, error)
-	// ListInstancePresets returns list of instance presets that match the criteria.
-	ListInstancePresets(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.InstancePresetList, error)
-	// GetInstancePreset returns instance preset that matches the criteria.
-	GetInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.InstancePreset, error)
+	// ListClusterInstancePresets returns list of cluster instance presets that match the criteria.
+	ListClusterInstancePresets(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.ClusterInstancePresetList, error)
+	// GetClusterInstancePreset returns a cluster instance preset that matches the criteria.
+	GetClusterInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.ClusterInstancePreset, error)
 	// WatchBackups returns a watch.Interface that streams
 	// Backup events across all namespaces.
 	WatchBackups(ctx context.Context) (watch.Interface, error)
