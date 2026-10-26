@@ -1134,17 +1134,6 @@ func TestRun_WithInstancePreset_Errors(t *testing.T) {
 			},
 			wantErr: `preset "missing-preset" not found in namespace "prod"`,
 		},
-		{
-			name: "both preset kinds",
-			opts: CreateOptions{
-				Name:          "my-db",
-				Namespace:     "prod",
-				Cluster:       "main",
-				Preset:        "a",
-				ClusterPreset: "b",
-			},
-			wantErr: "--preset cannot be combined with --clusterpreset",
-		},
 	}
 
 	for _, tc := range testCases {

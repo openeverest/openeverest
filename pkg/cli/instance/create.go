@@ -80,9 +80,6 @@ func NewInstanceCreator(cfg Config, l *zap.SugaredLogger) *InstanceCreator {
 }
 
 func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath string) error {
-	if opts.Preset != "" && opts.ClusterPreset != "" {
-		return fmt.Errorf("--preset cannot be combined with --clusterpreset")
-	}
 	usesPreset := opts.Preset != "" || opts.ClusterPreset != ""
 	if opts.Provider == "" && !usesPreset {
 		return fmt.Errorf("--provider is required when --preset or --clusterpreset is not given")
