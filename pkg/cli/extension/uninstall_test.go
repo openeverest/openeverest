@@ -104,6 +104,47 @@ func TestUninstall_NoInstalledExtension(t *testing.T) {
 	assert.True(t, apierrors.IsNotFound(err), "Plugin should be gone, got %v", err)
 }
 
+func TestUninstall_KeepsInstalledExtensionNotOwnedByPlugin(t *testing.T) {
+	t.Parallel()
+
+	const name = "shared-name"
+
+	providerIE := &extensionsv1alpha1.InstalledExtension{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: extensionsv1alpha1.InstalledExtensionSpec{
+			Type: extensionsv1alpha1.InstalledExtensionTypeProvider,
+			Provider: &extensionsv1alpha1.ProviderInstall{
+				ProviderRef: common.ObjectRef{Name: name},
+			},
+		},
+	}
+
+	otherPluginIE := testInstalledExtension(name)
+	otherPluginIE.Spec.Plugin.PluginRef.Name = "another-plugin"
+
+	cases := map[string]*extensionsv1alpha1.InstalledExtension{
+		"provider install":        providerIE,
+		"plugin install of other": otherPluginIE,
+		"plugin install, no ref":  {ObjectMeta: metav1.ObjectMeta{Name: name}, Spec: extensionsv1alpha1.InstalledExtensionSpec{Type: extensionsv1alpha1.InstalledExtensionTypePlugin}},
+	}
+
+	for desc, ie := range cases {
+		t.Run(desc, func(t *testing.T) {
+			t.Parallel()
+
+			pu := newUninstaller(t, name, testPlugin(name), ie.DeepCopy())
+
+			require.NoError(t, pu.Run(context.Background()))
+
+			_, err := pu.kubeClient.GetPlugin(context.Background(), ctrlclient.ObjectKey{Name: name})
+			assert.True(t, apierrors.IsNotFound(err), "Plugin should be gone, got %v", err)
+
+			_, err = pu.kubeClient.GetInstalledExtension(context.Background(), ctrlclient.ObjectKey{Name: name})
+			assert.NoError(t, err, "InstalledExtension owned by something else must be kept")
+		})
+	}
+}
+
 func TestUninstall_MissingPlugin(t *testing.T) {
 	t.Parallel()
 
