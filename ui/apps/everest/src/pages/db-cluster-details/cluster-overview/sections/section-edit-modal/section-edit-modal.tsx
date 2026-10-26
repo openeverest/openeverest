@@ -21,11 +21,10 @@ import { buildSectionZodSchema } from 'components/ui-generator/utils/schema-buil
 import { extractInstanceValues } from 'components/ui-generator/utils/default-values/extract-instance-values';
 import { applyModeOverrides } from 'components/ui-generator/utils/preprocess/apply-mode-overrides';
 import { mergeSectionEdit } from 'components/ui-generator/utils/postprocess/merge-section-edit';
-import { deepClone } from 'components/ui-generator/utils/object-path/object-path';
 import {
-  extractBadgeMappingsFromSections,
-  stripBadgesFromData,
-} from 'components/ui-generator/utils/badge-to-api/badge-to-api';
+  deepClone,
+  deepMerge,
+} from 'components/ui-generator/utils/object-path/object-path';
 import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/useUpdateDbInstance';
 import { useKubernetesClusterInfo } from 'hooks/api/kubernetesClusters/useKubernetesClusterInfo';
 import type { Instance } from 'shared-types/api.types';
@@ -54,16 +53,18 @@ const SectionEditModal = ({
   }, [sections, instance, clusterInfo]);
 
   const section = editSections[sectionKey];
+  const instanceData = instance as unknown as Record<string, unknown>;
 
-  // Strip badge suffixes (e.g. "25Gi" → 25) from the original instance so that
-  // CEL numeric comparisons like `size >= original.size` work correctly.
-  const originalDataForCel = useMemo(() => {
-    const badgeMappings = extractBadgeMappingsFromSections(editSections);
-    return stripBadgesFromData(
-      instance as unknown as Record<string, unknown>,
-      badgeMappings
-    );
-  }, [editSections, instance]);
+  const defaultValues = useMemo(
+    () => extractInstanceValues(editSections, instanceData, FormMode.Edit),
+    [editSections, instanceData]
+  );
+
+  // CEL compares form values with `original`, so both must be read the same way ("10Gi" → 10).
+  const originalDataForCel = useMemo(
+    () => deepMerge(instanceData, defaultValues),
+    [instanceData, defaultValues]
+  );
 
   const { schema: zodSchema, celDependencyGroups } = useMemo(
     () =>
@@ -72,16 +73,6 @@ const SectionEditModal = ({
         originalData: originalDataForCel,
       }),
     [sectionKey, editSections, originalDataForCel]
-  );
-
-  const defaultValues = useMemo(
-    () =>
-      extractInstanceValues(
-        editSections,
-        instance as unknown as Record<string, unknown>,
-        FormMode.Edit
-      ),
-    [editSections, instance]
   );
 
   const { mutate } = useUpdateDbInstanceWithConflictRetry(instance, {
@@ -103,6 +94,7 @@ const SectionEditModal = ({
     updatedInstance.spec = mergeSectionEdit({
       spec: updatedInstance.spec as unknown as Record<string, unknown>,
       formData,
+      initialValues: defaultValues,
       sections,
       sectionKey,
       topology: instance?.spec?.topology?.type,

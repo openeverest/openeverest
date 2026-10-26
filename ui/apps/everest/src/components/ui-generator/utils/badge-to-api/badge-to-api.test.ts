@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest';
 import {
   extractBadgeMappings,
   applyBadgesToFormData,
+  readNumberFieldValue,
   stripBadgeFromValue,
 } from './badge-to-api';
 import { FieldType, TopologyUISchemas } from '../../ui-generator.types';
@@ -142,5 +143,22 @@ describe('stripBadgeFromValue', () => {
 
   it('returns non-string values unchanged', () => {
     expect(stripBadgeFromValue(16, 'Gi')).toBe(16);
+  });
+});
+
+describe('readNumberFieldValue', () => {
+  it('reads a normalised quantity back as a number', () => {
+    // The API returns "500m" for a CPU limit the form sent as 0.5.
+    expect(readNumberFieldValue('500m')).toBe(0.5);
+    expect(readNumberFieldValue('644245094400m', 'Gi')).toBe(0.6);
+  });
+
+  it('does not read a value in the base unit when the API unit is unknown', () => {
+    expect(readNumberFieldValue('500M', 'GB')).toBe('500M');
+  });
+
+  it('leaves non-quantity values as they are', () => {
+    expect(readNumberFieldValue('16kg', 'Gi')).toBe('16kg');
+    expect(readNumberFieldValue(3)).toBe(3);
   });
 });

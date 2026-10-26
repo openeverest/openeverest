@@ -36,6 +36,7 @@ import DatabaseFormSideDrawer from './database-form-side-drawer';
 import { useInstancesForNamespaces, useNamespaces } from 'hooks';
 
 import { FormMode } from 'components/ui-generator/ui-generator.types';
+import { keepUntouchedSourceValues } from 'components/ui-generator/utils/postprocess/field-changes';
 import { ZodType } from 'zod';
 import { useDatabasePageDefaultValues } from './hooks/use-database-form-default-values';
 import { useDatabasePageMode } from './hooks/use-database-page-mode';
@@ -209,7 +210,7 @@ export const DatabasePage = () => {
   const hasBackupStep = backupClasses.length > 0;
 
   // ── Page-level defaults (merges schema defaults + wizard-specific ones)
-  const { defaultValues, dbClusterRequestStatus } =
+  const { defaultValues, dbClusterData, dbClusterRequestStatus } =
     useDatabasePageDefaultValues(
       mode,
       uiSchema,
@@ -465,7 +466,15 @@ export const DatabasePage = () => {
       return;
     }
 
-    const postProcessedData = engine.postprocess(data);
+    const processedData = engine.postprocess(data);
+    const postProcessedData =
+      mode === FormMode.Restore
+        ? keepUntouchedSourceValues(processedData, dbClusterData, {
+            sections: engine.sections,
+            formData: data,
+            initialValues: defaultValues,
+          })
+        : processedData;
 
     // Transform flat backup schedules into nested storages structure
     const formData = postProcessedData;

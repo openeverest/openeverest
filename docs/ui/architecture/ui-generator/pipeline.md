@@ -165,6 +165,13 @@ Read-only and disabled fields keep their value.
   - **`getInactiveToggleablePaths`** — returns the `childPaths` of switched-off toggleable groups;
     they are deleted together with the form-only `toggleable-switches` key.
   - **`removeEmptyFieldValues`** — strip `undefined` / `null` / `""`.
+- **`groupFieldPathsByChange`** (`field-changes.ts`) — splits field paths into changed and
+  untouched against the values the form opened with. Reading can change a value's form
+  (`"500m"` → `0.5`), so an untouched field is sent in its stored form: restore uses
+  `keepUntouchedSourceValues` with the source instance, the section edit modal writes only the
+  changed paths (`mergeSectionEdit`). The two differ on purpose: restore builds a new instance
+  from the form, so starting from the source would carry over fields the form doesn't show; the
+  edit modal sends a full update of the saved instance, so it has to keep them.
 
 **Principle:** the mapping source is the same `_normalized` computed in preprocess.
 
@@ -175,12 +182,13 @@ flowchart TD
   OVERVIEW["Overview page"] --> EDITABLE["isSectionEditable(section, Edit)"]
   EDITABLE --> MODAL["SectionEditModal"]
   MODAL --> MODE["applyModeOverrides(sections, Edit)"]
-  MODE --> ZOD_EDIT["buildSectionZodSchema(sectionKey, editSections,<br/>{ formMode: Edit, originalData: instance })"]
   MODE --> VALUES["extractInstanceValues(editSections, instance)"]
+  VALUES --> ORIGINAL["originalData = deepMerge(instance, values)"]
+  ORIGINAL --> ZOD_EDIT["buildSectionZodSchema(sectionKey, editSections,<br/>{ formMode: Edit, originalData })"]
   ZOD_EDIT --> FORM["FormDialog + UIGenerator"]
   VALUES --> FORM
   FORM --> SUBMIT["submit"]
-  SUBMIT --> MERGE["mergeSectionEdit:<br/>postprocessSchemaData → deepMerge into spec<br/>→ delete switched-off toggleable paths<br/>(and parents left empty)"]
+  SUBMIT --> MERGE["mergeSectionEdit(spec, formData, initialValues = values):<br/>postprocessSchemaData → write fields that differ from initialValues<br/>→ delete switched-off toggleable paths<br/>(and parents left empty)"]
   MERGE --> UPDATE["useUpdateDbInstanceWithConflictRetry"]
 ```
 
@@ -188,9 +196,15 @@ The edit modal reuses the same `UIGenerator` but validates only the target secti
 `buildSectionZodSchema`; other fields pass through `.passthrough()`, while CEL dependencies are
 collected from all sections.
 
-The update replaces the whole instance and `deepMerge` keeps keys missing from the form, so
-`mergeSectionEdit` deletes the paths of switched-off toggleable groups explicitly, with parents
-left empty.
+CEL's `original` is the instance with the form's own values laid over it, so a field reads the
+same on both sides of a comparison (`"10Gi"` → `10`, `"500m"` → `0.5`). Reading it separately
+left the form with numbers and `original` with strings, and cel-js throws on that mix.
+
+The update replaces the whole instance, so `mergeSectionEdit` starts from the saved spec and writes
+only the fields whose form value differs from the value the form opened with. An untouched field
+keeps its saved form: a CPU stored as `"600m"` reads as `0.6` but is not sent back as `0.6`. A
+field cleared by the user is not written either, so its saved value stays (#3266). The paths of
+switched-off toggleable groups are deleted explicitly, with parents left empty.
 
 ## Cross-cutting principles
 
@@ -250,6 +264,7 @@ components:
 | Toggleable groups          | `utils/toggleable/toggleable.ts`                           |
 | Toggleable validation      | `utils/schema-builder/apply-toggleable-validation.ts`      |
 | Section edit merge         | `utils/postprocess/merge-section-edit.ts`                  |
+| Changed / untouched fields | `utils/postprocess/field-changes.ts`                       |
 | Topology scope             | `utils/topology-scope/topology-scope.ts`                   |
 | Object path                | `utils/object-path/object-path.ts`                         |
 | API provider registry      | `api-providers/registry.ts`                                |
@@ -265,4 +280,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-15
+- Last updated: 2026-10-22
