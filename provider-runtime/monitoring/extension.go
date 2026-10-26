@@ -27,60 +27,47 @@ import (
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 )
 
-// ClassController is the handle a monitoring extension uses to claim its
-// classes and report on bindings and destinations. ControllerName is both the
-// value matched against MonitoringClass.spec.controllerName and the field
-// owner of everything the extension writes.
+// ClassController is the handle a monitoring extension uses to claim the
+// MonitoringClass it serves and report on its bindings and destinations.
 type ClassController struct {
-	Client         client.Client
-	ControllerName string
+	Client client.Client
+	// FieldOwner is the server-side-apply field manager of every status write
+	// this controller makes (class Accepted, destination Ready, binding
+	// Configured).
+	FieldOwner string
+	// ClassName is the MonitoringClass this controller serves.
+	ClassName string
 }
 
-// Claim sets Accepted=True on every MonitoringClass whose controllerName is
-// ours and returns their names. Classes owned by other controllers are left
-// untouched.
-func (cc ClassController) Claim(ctx context.Context) ([]string, error) {
-	classes := &monitoringv1alpha1.MonitoringClassList{}
-	if err := cc.Client.List(ctx, classes); err != nil {
-		return nil, fmt.Errorf("list MonitoringClasses: %w", err)
-	}
-	var claimed []string
-	for i := range classes.Items {
-		class := &classes.Items[i]
-		if class.Spec.ControllerName != cc.ControllerName {
-			continue
+// Claim gets the class named ClassName and claims it. A missing class is not
+// an error: there is nothing to claim yet.
+func (cc ClassController) Claim(ctx context.Context) error {
+	class := &monitoringv1alpha1.MonitoringClass{}
+	if err := cc.Client.Get(ctx, client.ObjectKey{Name: cc.ClassName}, class); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
 		}
-		if err := cc.ClaimClass(ctx, class); err != nil {
-			return claimed, err
-		}
-		claimed = append(claimed, class.Name)
+		return fmt.Errorf("get MonitoringClass %q: %w", cc.ClassName, err)
 	}
-	return claimed, nil
+	return cc.ClaimClass(ctx, class)
 }
 
-// ClaimClass sets Accepted=True on class if its controllerName is ours and
-// leaves it untouched otherwise. Call it from a MonitoringClass reconciler so
-// a failed claim is retried.
+// ClaimClass sets Accepted=True, observed at the class generation, on class
+// if it is the one named ClassName and leaves any other class untouched. Call
+// it from a MonitoringClass reconciler so a failed claim is retried.
 func (cc ClassController) ClaimClass(ctx context.Context, class *monitoringv1alpha1.MonitoringClass) error {
-	if class.Spec.ControllerName != cc.ControllerName {
+	if !cc.OwnsClass(class) {
 		return nil
 	}
 	cond := NewCondition(class, monitoringv1alpha1.MonitoringClassConditionAccepted, metav1.ConditionTrue,
-		monitoringv1alpha1.ReasonAccepted, "claimed by "+cc.ControllerName,
+		monitoringv1alpha1.ReasonAccepted, "claimed by "+cc.FieldOwner,
 	)
-	return ApplyCondition(ctx, cc.Client, class, class.Status.Conditions, cc.ControllerName, cond)
+	return ApplyCondition(ctx, cc.Client, class, class.Status.Conditions, cc.FieldOwner, cond)
 }
 
-// OwnsClass reports whether the named class is ours.
-func (cc ClassController) OwnsClass(ctx context.Context, className string) (bool, error) {
-	class := &monitoringv1alpha1.MonitoringClass{}
-	if err := cc.Client.Get(ctx, client.ObjectKey{Name: className}, class); err != nil {
-		if apierrors.IsNotFound(err) {
-			return false, nil
-		}
-		return false, fmt.Errorf("get MonitoringClass %q: %w", className, err)
-	}
-	return class.Spec.ControllerName == cc.ControllerName, nil
+// OwnsClass reports whether class is the one this controller serves.
+func (cc ClassController) OwnsClass(class *monitoringv1alpha1.MonitoringClass) bool {
+	return class.Name == cc.ClassName
 }
 
 // BindingPredicate passes only ExtensionManaged bindings whose class label
@@ -122,7 +109,7 @@ func (cc ClassController) Resolve(ctx context.Context, b *monitoringv1alpha1.Mon
 // the reason.
 func (cc ClassController) SetConfigured(ctx context.Context, b *monitoringv1alpha1.MonitoringBinding, reason monitoringv1alpha1.ConfiguredReason, message string) error {
 	cond := NewCondition(b, monitoringv1alpha1.MonitoringBindingConditionConfigured, reason.Status(), string(reason), message)
-	return ApplyCondition(ctx, cc.Client, b, b.Status.Conditions, cc.ControllerName, cond)
+	return ApplyCondition(ctx, cc.Client, b, b.Status.Conditions, cc.FieldOwner, cond)
 }
 
 // SetDestinationReady writes the destination's Ready condition and
@@ -138,7 +125,7 @@ func (cc ClassController) SetDestinationReady(ctx context.Context, dst *monitori
 	if serverVersion != "" {
 		extra["serverVersion"] = serverVersion
 	}
-	return ApplyCondition(ctx, cc.Client, dst, dst.Status.Conditions, cc.ControllerName, cond, extra)
+	return ApplyCondition(ctx, cc.Client, dst, dst.Status.Conditions, cc.FieldOwner, cond, extra)
 }
 
 // OwnedBy returns the controller owner reference an extension puts on the

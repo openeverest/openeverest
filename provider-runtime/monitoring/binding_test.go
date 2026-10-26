@@ -58,6 +58,7 @@ func newFakeClient(t *testing.T, objs ...client.Object) client.Client { //nolint
 	return fake.NewClientBuilder().
 		WithScheme(newScheme(t)).
 		WithTypeConverters(crdTypeConverter(t), managedfields.NewDeducedTypeConverter()).
+		WithReturnManagedFields().
 		WithObjects(objs...).
 		WithStatusSubresource(
 			&monitoringv1alpha1.MonitoringClass{},
@@ -290,7 +291,7 @@ func TestApplyConditionKeepsOtherWritersConditions(t *testing.T) {
 	require.NoError(t, monitoring.ApplyCondition(ctx, c, b, b.Status.Conditions, monitoring.MaterializerFieldOwner, accepted))
 
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(b), b))
-	ext := monitoring.ClassController{Client: c, ControllerName: "openeverest.io/monitoring-test"}
+	ext := monitoring.ClassController{Client: c, FieldOwner: "openeverest.io/monitoring-test"}
 	require.NoError(t, ext.SetConfigured(ctx, b, monitoringv1alpha1.ReasonRenderFailed, "bad url"))
 
 	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(b), b))
