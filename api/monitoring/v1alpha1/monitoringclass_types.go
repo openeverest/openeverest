@@ -24,9 +24,9 @@ import (
 
 // Condition types for MonitoringClass.
 const (
-	// MonitoringClassConditionAccepted is set by the controller named in
-	// spec.controllerName once it has claimed the class. It defaults to
-	// Unknown so a class nobody claims is visibly unusable.
+	// MonitoringClassConditionAccepted is set by the controller serving the
+	// class once it has claimed it. It defaults to Unknown so a class nobody
+	// claims is visibly unusable.
 	MonitoringClassConditionAccepted = "Accepted"
 )
 
@@ -36,15 +36,6 @@ const (
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.providerManaged) || has(self.providerManaged)",message="spec.providerManaged cannot be removed once set"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.extensionManaged) || has(self.extensionManaged)",message="spec.extensionManaged cannot be removed once set"
 type MonitoringClassSpec struct {
-	// ControllerName is the domain-prefixed name of the controller that
-	// fulfils this class (e.g. "openeverest.io/monitoring-pmm"). Only that
-	// controller sets the Accepted condition. Immutable.
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=128
-	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/[A-Za-z0-9/\-._~%!$&'()*+,;=:]+$`
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.controllerName is immutable"
-	ControllerName string `json:"controllerName"`
 	// DisplayName is a human-readable name for the monitoring technology.
 	// +optional
 	DisplayName string `json:"displayName,omitempty"`
@@ -72,9 +63,6 @@ type MonitoringClassSpec struct {
 	// Secret must carry.
 	// +optional
 	CredentialsSchema *CredentialsSchema `json:"credentialsSchema,omitempty"`
-	// UI holds the hints the UI needs to present destinations of this class.
-	// +optional
-	UI *MonitoringClassUI `json:"ui,omitempty"`
 	// UISchema holds free-form form-rendering hints consumed only by the UI,
 	// grouped by the form they decorate (destination, instance, credentials).
 	// +optional
@@ -104,10 +92,6 @@ type ProviderManagedFulfilment struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	AgentVersion string `json:"agentVersion"`
-	// Features lists what the integration delivers beyond metrics
-	// (e.g. "queryAnalytics"), used for user-facing disclosure.
-	// +optional
-	Features []string `json:"features,omitempty"`
 }
 
 // ExtensionManagedFulfilment describes what a provider must expose for the
@@ -117,32 +101,16 @@ type ExtensionManagedFulfilment struct {
 	// be eligible for this class.
 	// +optional
 	Requires SourceRequirements `json:"requires,omitzero"`
-	// Degrades lists the capabilities lost compared to a ProviderManaged
-	// fulfilment of the same class (e.g. "slowLogQAN").
-	// +optional
-	Degrades []string `json:"degrades,omitempty"`
 }
 
 // SourceRequirements is matched against
 // Provider.spec.monitoring.componentTypes.<type>: a component is eligible when
-// every flag holds and, if Kinds is set, its kind is in Kinds.
+// every flag holds.
 type SourceRequirements struct {
-	// Kinds restricts eligibility to components of these kinds (any-of).
-	// +kubebuilder:validation:items:Pattern=`^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
-	// +optional
-	Kinds []string `json:"kinds,omitempty"`
 	// Metrics requires the component to expose OpenMetrics
 	// (metrics: Native or Exporter).
 	// +optional
 	Metrics bool `json:"metrics,omitempty"`
-	// CredentialProfiles requires the component to offer these credential
-	// profiles (all-of).
-	// +optional
-	CredentialProfiles []string `json:"credentialProfiles,omitempty"`
-	// Features requires the component to offer these engine features
-	// (all-of).
-	// +optional
-	Features []string `json:"features,omitempty"`
 }
 
 // CredentialsSchema lists the keys a MonitoringDestination credentials Secret
@@ -151,57 +119,6 @@ type CredentialsSchema struct {
 	// Required is the list of required Secret keys.
 	// +optional
 	Required []string `json:"required,omitempty"`
-}
-
-// MonitoringClassUI holds the hints the UI needs to present destinations of
-// this class.
-type MonitoringClassUI struct {
-	// SummaryParameter names the destination parameter the UI shows as the
-	// destination's address (e.g. "url").
-	// +optional
-	SummaryParameter string `json:"summaryParameter,omitempty"`
-	// Links are substitution-only URL templates the UI renders, e.g. a
-	// Go-template-style substitution of destination.parameters.url followed
-	// by "/graph". Available values: .destination.parameters.*,
-	// .instance.name, .instance.namespace and .sources.identity.labels.*;
-	// substituted values are URL-escaped.
-	// +listType=atomic
-	// +optional
-	Links []MonitoringClassLink `json:"links,omitempty"`
-}
-
-// LinkScope says where the UI shows a MonitoringClassLink.
-//
-// +kubebuilder:validation:Enum=Destination;Instance
-type LinkScope string
-
-const (
-	// LinkScopeDestination shows the link on the destination.
-	LinkScopeDestination LinkScope = "Destination"
-	// LinkScopeInstance shows the link on the page of every Instance that
-	// sends to the destination.
-	LinkScopeInstance LinkScope = "Instance"
-)
-
-// MonitoringClassLink is one link the UI renders for a destination.
-type MonitoringClassLink struct {
-	// Name is the link text.
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
-	// Scope says where the link is shown.
-	// +kubebuilder:default=Destination
-	// +optional
-	Scope LinkScope `json:"scope,omitempty"`
-	// Kinds restricts an Instance-scoped link to Instances with a component
-	// of one of these engine kinds.
-	// +kubebuilder:validation:items:Pattern=`^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
-	// +optional
-	Kinds []string `json:"kinds,omitempty"`
-	// URL is the link template.
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	URL string `json:"url"`
 }
 
 // Disruption is what enabling a class does to the pods of a component.
@@ -274,13 +191,12 @@ type MonitoringClassStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,shortName=mclass
-// +kubebuilder:printcolumn:name="Controller",type="string",JSONPath=".spec.controllerName"
 // +kubebuilder:printcolumn:name="Accepted",type="string",JSONPath=".status.conditions[?(@.type==\"Accepted\")].reason"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="a MonitoringClass name must be at most 63 characters"
 
 // MonitoringClass is one monitoring technology, claimed by the out-of-tree
-// controller named in spec.controllerName.
+// controller that serves it.
 type MonitoringClass struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional

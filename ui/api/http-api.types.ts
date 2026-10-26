@@ -4320,16 +4320,6 @@ export interface components {
                     componentTypes?: {
                         [key: string]: {
                             /**
-                             * @description CredentialProfiles are the least-privilege users the provider can
-                             *     create on demand (e.g. "metrics", "queryAnalytics").
-                             */
-                            credentialProfiles?: string[];
-                            /**
-                             * @description Features are engine switches the provider can enable on demand
-                             *     (e.g. "queryAnalytics").
-                             */
-                            features?: string[];
-                            /**
                              * @description Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
                              *     follow OpenTelemetry db.system.name; unknown kinds are allowed.
                              */

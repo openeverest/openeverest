@@ -17,9 +17,6 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.controllerName
-      name: Controller
-      type: string
     - jsonPath: .status.conditions[?(@.type=="Accepted")].reason
       name: Accepted
       type: string
@@ -31,7 +28,7 @@ spec:
       openAPIV3Schema:
         description: |-
           MonitoringClass is one monitoring technology, claimed by the out-of-tree
-          controller named in spec.controllerName.
+          controller that serves it.
         properties:
           apiVersion:
             description: |-
@@ -53,18 +50,6 @@ spec:
           spec:
             description: MonitoringClassSpec defines the desired state of MonitoringClass.
             properties:
-              controllerName:
-                description: |-
-                  ControllerName is the domain-prefixed name of the controller that
-                  fulfils this class (e.g. "openeverest.io/monitoring-pmm"). Only that
-                  controller sets the Accepted condition. Immutable.
-                maxLength: 128
-                minLength: 1
-                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/[A-Za-z0-9/\-._~%!$&'()*+,;=:]+$
-                type: string
-                x-kubernetes-validations:
-                - message: spec.controllerName is immutable
-                  rule: self == oldSelf
               credentialsSchema:
                 description: |-
                   CredentialsSchema lists the keys the MonitoringDestination credentials
@@ -98,39 +83,11 @@ spec:
                   from the provider's monitoring contract alone
                   (Instance.status.monitoring.sources).
                 properties:
-                  degrades:
-                    description: |-
-                      Degrades lists the capabilities lost compared to a ProviderManaged
-                      fulfilment of the same class (e.g. "slowLogQAN").
-                    items:
-                      type: string
-                    type: array
                   requires:
                     description: |-
                       Requires lists the source capabilities a component must satisfy to
                       be eligible for this class.
                     properties:
-                      credentialProfiles:
-                        description: |-
-                          CredentialProfiles requires the component to offer these credential
-                          profiles (all-of).
-                        items:
-                          type: string
-                        type: array
-                      features:
-                        description: |-
-                          Features requires the component to offer these engine features
-                          (all-of).
-                        items:
-                          type: string
-                        type: array
-                      kinds:
-                        description: Kinds restricts eligibility to components of
-                          these kinds (any-of).
-                        items:
-                          pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
-                          type: string
-                        type: array
                       metrics:
                         description: |-
                           Metrics requires the component to expose OpenMetrics
@@ -168,13 +125,6 @@ spec:
                       Provider.spec.monitoring.integrations.<integration>.agentVersions.
                     minLength: 1
                     type: string
-                  features:
-                    description: |-
-                      Features lists what the integration delivers beyond metrics
-                      (e.g. "queryAnalytics"), used for user-facing disclosure.
-                    items:
-                      type: string
-                    type: array
                   integration:
                     description: |-
                       Integration is the integration name providers declare in
@@ -191,64 +141,12 @@ spec:
                 - agentVersion
                 - integration
                 type: object
-              ui:
-                description: UI holds the hints the UI needs to present destinations
-                  of this class.
-                properties:
-                  links:
-                    description: |-
-                      Links are substitution-only URL templates the UI renders, e.g. a
-                      Go-template-style substitution of destination.parameters.url followed
-                      by "/graph". Available values: .destination.parameters.*,
-                      .instance.name, .instance.namespace and .sources.identity.labels.*;
-                      substituted values are URL-escaped.
-                    items:
-                      description: MonitoringClassLink is one link the UI renders
-                        for a destination.
-                      properties:
-                        kinds:
-                          description: |-
-                            Kinds restricts an Instance-scoped link to Instances with a component
-                            of one of these engine kinds.
-                          items:
-                            pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
-                            type: string
-                          type: array
-                        name:
-                          description: Name is the link text.
-                          minLength: 1
-                          type: string
-                        scope:
-                          default: Destination
-                          description: Scope says where the link is shown.
-                          enum:
-                          - Destination
-                          - Instance
-                          type: string
-                        url:
-                          description: URL is the link template.
-                          minLength: 1
-                          type: string
-                      required:
-                      - name
-                      - url
-                      type: object
-                    type: array
-                    x-kubernetes-list-type: atomic
-                  summaryParameter:
-                    description: |-
-                      SummaryParameter names the destination parameter the UI shows as the
-                      destination's address (e.g. "url").
-                    type: string
-                type: object
               uiSchema:
                 description: |-
                   UISchema holds free-form form-rendering hints consumed only by the UI,
                   grouped by the form they decorate (destination, instance, credentials).
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
-            required:
-            - controllerName
             type: object
             x-kubernetes-validations:
             - message: a MonitoringClass must declare at least one fulfilment block

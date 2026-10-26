@@ -46,8 +46,7 @@ const (
 
 // MonitoringKindPattern validates every monitoring engine kind. Kubebuilder
 // markers cannot reference constants, so the Pattern markers on
-// MonitoringComponentType.Kind, MetricsEndpoint.Kind,
-// SourceRequirements.Kinds and MonitoringClassLink.Kinds must stay identical
+// MonitoringComponentType.Kind and MetricsEndpoint.Kind must stay identical
 // to it.
 const MonitoringKindPattern = `^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
 
@@ -171,14 +170,6 @@ type MonitoringComponentType struct {
 	// +kubebuilder:default=None
 	// +optional
 	Metrics MetricsSource `json:"metrics,omitempty"`
-	// CredentialProfiles are the least-privilege users the provider can
-	// create on demand (e.g. "metrics", "queryAnalytics").
-	// +optional
-	CredentialProfiles []string `json:"credentialProfiles,omitempty"`
-	// Features are engine switches the provider can enable on demand
-	// (e.g. "queryAnalytics").
-	// +optional
-	Features []string `json:"features,omitempty"`
 }
 
 // MonitoringSources is the per-Instance publication of the monitoring

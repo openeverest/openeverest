@@ -130,20 +130,6 @@ spec:
                       description: MonitoringComponentType declares what one component
                         type exposes.
                       properties:
-                        credentialProfiles:
-                          description: |-
-                            CredentialProfiles are the least-privilege users the provider can
-                            create on demand (e.g. "metrics", "queryAnalytics").
-                          items:
-                            type: string
-                          type: array
-                        features:
-                          description: |-
-                            Features are engine switches the provider can enable on demand
-                            (e.g. "queryAnalytics").
-                          items:
-                            type: string
-                          type: array
                         kind:
                           description: |-
                             Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values

@@ -145,10 +145,6 @@ type MonitoringBindingStatus struct {
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	// AppliedRevision is the hash of the rendered content last applied by a
-	// ProviderManaged executor. Reporting only.
-	// +optional
-	AppliedRevision string `json:"appliedRevision,omitempty"`
 }
 
 // +kubebuilder:object:root=true

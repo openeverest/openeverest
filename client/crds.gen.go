@@ -897,24 +897,6 @@ func (e MonitoringBindingStatusConditionsStatus) Valid() bool {
 	}
 }
 
-// Defines values for MonitoringClassSpecUiLinksScope.
-const (
-	MonitoringClassSpecUiLinksScopeDestination MonitoringClassSpecUiLinksScope = "Destination"
-	MonitoringClassSpecUiLinksScopeInstance    MonitoringClassSpecUiLinksScope = "Instance"
-)
-
-// Valid indicates whether the value is a known member of the MonitoringClassSpecUiLinksScope enum.
-func (e MonitoringClassSpecUiLinksScope) Valid() bool {
-	switch e {
-	case MonitoringClassSpecUiLinksScopeDestination:
-		return true
-	case MonitoringClassSpecUiLinksScopeInstance:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for MonitoringClassStatusConditionsStatus.
 const (
 	MonitoringClassStatusConditionsStatusFalse   MonitoringClassStatusConditionsStatus = "False"
@@ -6041,10 +6023,7 @@ type MonitoringBinding struct {
 
 	// Status MonitoringBindingStatus is written per condition type by its owner.
 	Status *struct {
-		// AppliedRevision AppliedRevision is the hash of the rendered content last applied by a
-		// ProviderManaged executor. Reporting only.
-		AppliedRevision *string `json:"appliedRevision,omitempty"`
-		Conditions      *[]struct {
+		Conditions *[]struct {
 			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
 			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
 			LastTransitionTime time.Time `json:"lastTransitionTime"`
@@ -6102,7 +6081,7 @@ type MonitoringBindingList struct {
 }
 
 // MonitoringClass MonitoringClass is one monitoring technology, claimed by the out-of-tree
-// controller named in spec.controllerName.
+// controller that serves it.
 type MonitoringClass struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
 	// Servers should convert recognized schemas to the latest internal value, and
@@ -6122,11 +6101,6 @@ type MonitoringClass struct {
 
 	// Spec MonitoringClassSpec defines the desired state of MonitoringClass.
 	Spec struct {
-		// ControllerName ControllerName is the domain-prefixed name of the controller that
-		// fulfils this class (e.g. "openeverest.io/monitoring-pmm"). Only that
-		// controller sets the Accepted condition. Immutable.
-		ControllerName string `json:"controllerName"`
-
 		// CredentialsSchema CredentialsSchema lists the keys the MonitoringDestination credentials
 		// Secret must carry.
 		CredentialsSchema *struct {
@@ -6151,24 +6125,9 @@ type MonitoringClass struct {
 		// from the provider's monitoring contract alone
 		// (Instance.status.monitoring.sources).
 		ExtensionManaged *struct {
-			// Degrades Degrades lists the capabilities lost compared to a ProviderManaged
-			// fulfilment of the same class (e.g. "slowLogQAN").
-			Degrades *[]string `json:"degrades,omitempty"`
-
 			// Requires Requires lists the source capabilities a component must satisfy to
 			// be eligible for this class.
 			Requires *struct {
-				// CredentialProfiles CredentialProfiles requires the component to offer these credential
-				// profiles (all-of).
-				CredentialProfiles *[]string `json:"credentialProfiles,omitempty"`
-
-				// Features Features requires the component to offer these engine features
-				// (all-of).
-				Features *[]string `json:"features,omitempty"`
-
-				// Kinds Kinds restricts eligibility to components of these kinds (any-of).
-				Kinds *[]string `json:"kinds,omitempty"`
-
 				// Metrics Metrics requires the component to expose OpenMetrics
 				// (metrics: Native or Exporter).
 				Metrics *bool `json:"metrics,omitempty"`
@@ -6196,41 +6155,10 @@ type MonitoringClass struct {
 			// Provider.spec.monitoring.integrations.<integration>.agentVersions.
 			AgentVersion string `json:"agentVersion"`
 
-			// Features Features lists what the integration delivers beyond metrics
-			// (e.g. "queryAnalytics"), used for user-facing disclosure.
-			Features *[]string `json:"features,omitempty"`
-
 			// Integration Integration is the integration name providers declare in
 			// Provider.spec.monitoring.integrations (e.g. "pmm"). Immutable.
 			Integration string `json:"integration"`
 		} `json:"providerManaged,omitempty"`
-
-		// Ui UI holds the hints the UI needs to present destinations of this class.
-		Ui *struct {
-			// Links Links are substitution-only URL templates the UI renders, e.g. a
-			// Go-template-style substitution of destination.parameters.url followed
-			// by "/graph". Available values: .destination.parameters.*,
-			// .instance.name, .instance.namespace and .sources.identity.labels.*;
-			// substituted values are URL-escaped.
-			Links *[]struct {
-				// Kinds Kinds restricts an Instance-scoped link to Instances with a component
-				// of one of these engine kinds.
-				Kinds *[]string `json:"kinds,omitempty"`
-
-				// Name Name is the link text.
-				Name string `json:"name"`
-
-				// Scope Scope says where the link is shown.
-				Scope *MonitoringClassSpecUiLinksScope `json:"scope,omitempty"`
-
-				// Url URL is the link template.
-				Url string `json:"url"`
-			} `json:"links,omitempty"`
-
-			// SummaryParameter SummaryParameter names the destination parameter the UI shows as the
-			// destination's address (e.g. "url").
-			SummaryParameter *string `json:"summaryParameter,omitempty"`
-		} `json:"ui,omitempty"`
 
 		// UiSchema UISchema holds free-form form-rendering hints consumed only by the UI,
 		// grouped by the form they decorate (destination, instance, credentials).
@@ -6301,9 +6229,6 @@ type MonitoringClass struct {
 		} `json:"providers,omitempty"`
 	} `json:"status,omitempty"`
 }
-
-// MonitoringClassSpecUiLinksScope Scope says where the link is shown.
-type MonitoringClassSpecUiLinksScope string
 
 // MonitoringClassStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type MonitoringClassStatusConditionsStatus string
@@ -6781,14 +6706,6 @@ type Provider struct {
 			// ComponentTypes ComponentTypes declares what each component type exposes, keyed by
 			// component type (the software), not by component name.
 			ComponentTypes *map[string]struct {
-				// CredentialProfiles CredentialProfiles are the least-privilege users the provider can
-				// create on demand (e.g. "metrics", "queryAnalytics").
-				CredentialProfiles *[]string `json:"credentialProfiles,omitempty"`
-
-				// Features Features are engine switches the provider can enable on demand
-				// (e.g. "queryAnalytics").
-				Features *[]string `json:"features,omitempty"`
-
 				// Kind Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
 				// follow OpenTelemetry db.system.name; unknown kinds are allowed.
 				Kind string `json:"kind"`

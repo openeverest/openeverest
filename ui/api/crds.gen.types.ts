@@ -5330,11 +5330,6 @@ export interface components {
              *     }
              */
             status?: {
-                /**
-                 * @description AppliedRevision is the hash of the rendered content last applied by a
-                 *     ProviderManaged executor. Reporting only.
-                 */
-                appliedRevision?: string;
                 conditions?: {
                     /**
                      * Format: date-time
@@ -5388,7 +5383,7 @@ export interface components {
         };
         /**
          * @description MonitoringClass is one monitoring technology, claimed by the out-of-tree
-         *     controller named in spec.controllerName.
+         *     controller that serves it.
          */
         MonitoringClass: {
             /**
@@ -5409,12 +5404,6 @@ export interface components {
             metadata?: components["schemas"]["ObjectMeta"];
             /** @description MonitoringClassSpec defines the desired state of MonitoringClass. */
             spec: {
-                /**
-                 * @description ControllerName is the domain-prefixed name of the controller that
-                 *     fulfils this class (e.g. "openeverest.io/monitoring-pmm"). Only that
-                 *     controller sets the Accepted condition. Immutable.
-                 */
-                controllerName: string;
                 /**
                  * @description CredentialsSchema lists the keys the MonitoringDestination credentials
                  *     Secret must carry.
@@ -5442,27 +5431,10 @@ export interface components {
                  */
                 extensionManaged?: {
                     /**
-                     * @description Degrades lists the capabilities lost compared to a ProviderManaged
-                     *     fulfilment of the same class (e.g. "slowLogQAN").
-                     */
-                    degrades?: string[];
-                    /**
                      * @description Requires lists the source capabilities a component must satisfy to
                      *     be eligible for this class.
                      */
                     requires?: {
-                        /**
-                         * @description CredentialProfiles requires the component to offer these credential
-                         *     profiles (all-of).
-                         */
-                        credentialProfiles?: string[];
-                        /**
-                         * @description Features requires the component to offer these engine features
-                         *     (all-of).
-                         */
-                        features?: string[];
-                        /** @description Kinds restricts eligibility to components of these kinds (any-of). */
-                        kinds?: string[];
                         /**
                          * @description Metrics requires the component to expose OpenMetrics
                          *     (metrics: Native or Exporter).
@@ -5499,47 +5471,10 @@ export interface components {
                      */
                     agentVersion: string;
                     /**
-                     * @description Features lists what the integration delivers beyond metrics
-                     *     (e.g. "queryAnalytics"), used for user-facing disclosure.
-                     */
-                    features?: string[];
-                    /**
                      * @description Integration is the integration name providers declare in
                      *     Provider.spec.monitoring.integrations (e.g. "pmm"). Immutable.
                      */
                     integration: string;
-                };
-                /** @description UI holds the hints the UI needs to present destinations of this class. */
-                ui?: {
-                    /**
-                     * @description Links are substitution-only URL templates the UI renders, e.g. a
-                     *     Go-template-style substitution of destination.parameters.url followed
-                     *     by "/graph". Available values: .destination.parameters.*,
-                     *     .instance.name, .instance.namespace and .sources.identity.labels.*;
-                     *     substituted values are URL-escaped.
-                     */
-                    links?: {
-                        /**
-                         * @description Kinds restricts an Instance-scoped link to Instances with a component
-                         *     of one of these engine kinds.
-                         */
-                        kinds?: string[];
-                        /** @description Name is the link text. */
-                        name: string;
-                        /**
-                         * @description Scope says where the link is shown.
-                         * @default Destination
-                         * @enum {string}
-                         */
-                        scope?: "Destination" | "Instance";
-                        /** @description URL is the link template. */
-                        url: string;
-                    }[];
-                    /**
-                     * @description SummaryParameter names the destination parameter the UI shows as the
-                     *     destination's address (e.g. "url").
-                     */
-                    summaryParameter?: string;
                 };
                 /**
                  * @description UISchema holds free-form form-rendering hints consumed only by the UI,
@@ -6185,16 +6120,6 @@ export interface components {
                      */
                     componentTypes?: {
                         [key: string]: {
-                            /**
-                             * @description CredentialProfiles are the least-privilege users the provider can
-                             *     create on demand (e.g. "metrics", "queryAnalytics").
-                             */
-                            credentialProfiles?: string[];
-                            /**
-                             * @description Features are engine switches the provider can enable on demand
-                             *     (e.g. "queryAnalytics").
-                             */
-                            features?: string[];
                             /**
                              * @description Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
                              *     follow OpenTelemetry db.system.name; unknown kinds are allowed.

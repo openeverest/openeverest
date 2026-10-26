@@ -163,11 +163,6 @@ spec:
             description: MonitoringBindingStatus is written per condition type by
               its owner.
             properties:
-              appliedRevision:
-                description: |-
-                  AppliedRevision is the hash of the rendered content last applied by a
-                  ProviderManaged executor. Reporting only.
-                type: string
               conditions:
                 items:
                   description: Condition contains details for one aspect of the current
