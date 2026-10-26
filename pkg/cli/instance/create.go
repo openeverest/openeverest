@@ -100,21 +100,28 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 		presetSpecBase map[string]any
 		annotations    map[string]string
 	)
-	if usesPreset {
-		var pr *presetResult
-		if opts.ClusterPreset != "" {
-			pr, err = ic.resolveClusterInstancePreset(ctx, c, opts.ClusterPreset, opts.Cluster, opts.Namespace)
-		} else {
-			pr, err = ic.resolveInstancePreset(ctx, c, opts.Preset, opts.Cluster, opts.Namespace)
-		}
+
+	var pr *presetResult
+	if opts.ClusterPreset != "" {
+		pr, err = ic.resolveClusterInstancePreset(ctx, c, opts.ClusterPreset, opts.Cluster, opts.Namespace)
 		if err != nil {
 			return err
 		}
-		if err := applyPresetDefaults(pr.name, &opts, pr); err != nil {
+		annotations = map[string]string{common.ClusterInstancePresetAnnotation: opts.ClusterPreset}
+	} else if opts.Preset != "" {
+		pr, err = ic.getInstancePreset(ctx, c, opts.Preset, opts.Cluster, opts.Namespace)
+		if err != nil {
 			return err
 		}
+		annotations = map[string]string{common.InstancePresetAnnotation: opts.Preset}
+	}
+
+	if pr != nil {
+		if err := applyPresetDefaults(&opts, pr); err != nil {
+			return err
+		}
+
 		presetSpecBase = pr.specMap
-		annotations = map[string]string{pr.annotation: pr.name}
 	}
 
 	provResp, err := c.GetProviderWithResponse(ctx, opts.Cluster, opts.Provider)
@@ -281,13 +288,18 @@ func writeInstanceJSON(inst *client.Instance) error {
 
 // applyPresetDefaults copies provider/version/topology from the preset into opts,
 // validating that an explicit --provider matches the preset's provider.
-func applyPresetDefaults(preset string, opts *CreateOptions, pr *presetResult) error {
+func applyPresetDefaults(opts *CreateOptions, pr *presetResult) error {
+	presetName := opts.Preset
+	if presetName == "" {
+		presetName = opts.ClusterPreset
+	}
+
 	if pr.provider != "" && opts.Provider != "" && pr.provider != opts.Provider {
-		return fmt.Errorf("--provider %q does not match preset %q provider %q", opts.Provider, preset, pr.provider)
+		return fmt.Errorf("--provider %q does not match preset %q provider %q", opts.Provider, presetName, pr.provider)
 	}
 	if opts.Provider == "" {
 		if pr.provider == "" {
-			return fmt.Errorf("preset %q does not specify a provider; use --provider to set one", preset)
+			return fmt.Errorf("preset %q does not specify a provider; use --provider to set one", presetName)
 		}
 		opts.Provider = pr.provider
 	}
@@ -301,31 +313,29 @@ func applyPresetDefaults(preset string, opts *CreateOptions, pr *presetResult) e
 }
 
 type presetResult struct {
-	annotation string // records the preset on the created Instance
-	name       string
-	specMap    map[string]any
-	provider   string
-	version    string
-	topology   string
+	specMap  map[string]any
+	provider string
+	version  string
+	topology string
 }
 
-// resolveInstancePreset fetches the namespace-scoped InstancePreset as stored;
-// the server compares deploy-only creates against the same object.
-func (ic *InstanceCreator) resolveInstancePreset(ctx context.Context, c *client.ClientWithResponses, preset, cluster, namespace string) (*presetResult, error) {
+// getInstancePreset fetches the namespace-scoped InstancePreset.
+func (ic *InstanceCreator) getInstancePreset(ctx context.Context, c *client.ClientWithResponses, preset, cluster, namespace string) (*presetResult, error) {
 	resp, err := c.GetInstancePresetWithResponse(ctx, cluster, namespace, preset)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get preset %q: %w", preset, err)
+		return nil, fmt.Errorf("failed to get instance preset %q: %w", preset, err)
 	}
 	if resp.StatusCode() == http.StatusNotFound {
-		return nil, fmt.Errorf("preset %q not found in namespace %q of cluster %q", preset, namespace, cluster)
+		return nil, fmt.Errorf("instance preset %q not found in namespace %q of cluster %q", preset, namespace, cluster)
 	}
 	if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response getting preset %q: %s", preset, resp.Status())
+		return nil, fmt.Errorf("unexpected response getting instance preset %q: %s", preset, resp.Status())
 	}
 
 	spec := resp.JSON200.Spec
-	pr := &presetResult{annotation: "openeverest.io/instance-preset", name: preset}
-	pr.provider = spec.ProviderRef.Name
+	pr := &presetResult{
+		provider: spec.ProviderRef.Name,
+	}
 	if spec.Version != nil {
 		pr.version = *spec.Version
 	}
@@ -338,8 +348,8 @@ func (ic *InstanceCreator) resolveInstancePreset(ctx context.Context, c *client.
 	return pr, nil
 }
 
-// resolveClusterInstancePreset fetches the ClusterInstancePreset with namespace
-// defaults filled in; the server compares deploy-only creates against it.
+// resolveClusterInstancePreset fetches the resolved ClusterInstancePreset,
+// which has defaults applied.
 func (ic *InstanceCreator) resolveClusterInstancePreset(ctx context.Context, c *client.ClientWithResponses, preset, cluster, namespace string) (*presetResult, error) {
 	resp, err := c.ResolveClusterInstancePresetWithResponse(
 		ctx,
@@ -358,8 +368,9 @@ func (ic *InstanceCreator) resolveClusterInstancePreset(ctx context.Context, c *
 	}
 
 	spec := resp.JSON200.Spec
-	pr := &presetResult{annotation: common.ClusterInstancePresetAnnotation, name: preset}
-	pr.provider = spec.ProviderRef.Name
+	pr := &presetResult{
+		provider: spec.ProviderRef.Name,
+	}
 	if spec.Version != nil {
 		pr.version = *spec.Version
 	}

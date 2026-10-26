@@ -48,7 +48,7 @@ to override any Instance spec field using dot-notation paths rooted at the spec
 		Example: `  # Minimal: server defaults for all components
   everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb
 
-  # Bootstrap from an InstancePreset (provider inferred; version/topology/components from preset)
+  # Bootstrap from a namespace-scoped InstancePreset (provider inferred; version/topology/components from preset)
   everestctl instance create --name my-mongo --namespace everest --preset mongodb-production
 
   # Bootstrap from a cluster-wide ClusterInstancePreset
@@ -101,7 +101,7 @@ func init() {
 	createCmd.Flags().StringVar(&createOpts.ClusterPreset, cli.FlagInstanceClusterPreset, "", "ClusterInstancePreset to bootstrap from; --provider is inferred from the preset when omitted; cannot be used with --preset")
 	createCmd.MarkFlagsMutuallyExclusive(cli.FlagInstancePreset, cli.FlagInstanceClusterPreset)
 	createCmd.Flags().StringVar(&createOpts.Cluster, cli.FlagInstanceCluster, "main", "Cluster name")
-	createCmd.Flags().StringVar(&createOpts.Version, cli.FlagInstanceVersion, "", "Provider version bundle to use (default: taken from the preset if one is given, otherwise provider's default)")
+	createCmd.Flags().StringVar(&createOpts.Version, cli.FlagInstanceVersion, "", "Provider version bundle to use (default: taken from the preset if --preset or --clusterpreset is given, otherwise provider's default)")
 	createCmd.Flags().StringVar(&createOpts.Topology, cli.FlagInstanceTopology, "", "Topology name; cannot be used with --preset or --clusterpreset (default: provider's first topology)")
 	createCmd.Flags().StringVar(&createOpts.Context, cli.FlagInstanceContext, "", "Context to use (default: current context)")
 	createCmd.Flags().StringVarP(&createOpts.ValuesFile, cli.FlagInstanceFile, "f", "", "Path to a YAML file with component overrides (--set takes precedence)")

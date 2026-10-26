@@ -744,13 +744,6 @@ func TestRun_UnknownContext(t *testing.T) {
 
 // ---- preset Run tests -------------------------------------------------------
 
-// newRunServerWithPreset extends newRunServer to also serve the ClusterInstancePreset
-// resolve endpoint at /v1/clusters/main/cluster-instance-presets/{name}/resolve.
-func newRunServerWithPreset(t *testing.T, providerHandler, createHandler, presetHandler http.HandlerFunc) *httptest.Server {
-	t.Helper()
-	return newRunServerWithPresets(t, providerHandler, createHandler, presetHandler, okPresetHandler)
-}
-
 // newRunServerWithPresets serves both preset kinds: clusterPresetHandler for
 // ClusterInstancePreset resolve and presetHandler for InstancePreset get.
 func newRunServerWithPresets(t *testing.T, providerHandler, createHandler, clusterPresetHandler, presetHandler http.HandlerFunc) *httptest.Server {
@@ -788,9 +781,9 @@ func okProviderHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-// TestRun_WithPreset_Payloads checks the full JSON payload submitted to the
+// TestRun_WithClusterInstancePreset_Payloads checks the full JSON payload submitted to the
 // create endpoint for various preset + override combinations.
-func TestRun_WithPreset_Payloads(t *testing.T) {
+func TestRun_WithClusterInstancePreset_Payloads(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -929,13 +922,16 @@ func TestRun_WithPreset_Payloads(t *testing.T) {
 				got     []byte
 				readErr error
 			)
-			srv := newRunServerWithPreset(t, okProviderHandler,
+			srv := newRunServerWithPresets(t, okProviderHandler,
 				func(w http.ResponseWriter, r *http.Request) {
 					got, readErr = io.ReadAll(r.Body)
 					assert.NoError(t, readErr)
 					respondCreated(w)
 				},
 				okPresetHandler,
+				func(_ http.ResponseWriter, _ *http.Request) {
+					t.Error("instance preset endpoint must not be called for --clusterpreset")
+				},
 			)
 			defer srv.Close()
 
@@ -949,8 +945,8 @@ func TestRun_WithPreset_Payloads(t *testing.T) {
 	}
 }
 
-// TestRun_WithPreset_Errors checks that invalid preset usage returns the right errors.
-func TestRun_WithPreset_Errors(t *testing.T) {
+// TestRun_WithClusterInstancePreset_Errors checks that invalid preset usage returns the right errors.
+func TestRun_WithClusterInstancePreset_Errors(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -1012,7 +1008,7 @@ func TestRun_WithPreset_Errors(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			srv := newRunServerWithPreset(t, okProviderHandler,
+			srv := newRunServerWithPresets(t, okProviderHandler,
 				func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusCreated) },
 				func(w http.ResponseWriter, _ *http.Request) {
 					if tc.presetStatus != 0 && tc.presetStatus != http.StatusOK {
@@ -1020,6 +1016,9 @@ func TestRun_WithPreset_Errors(t *testing.T) {
 						return
 					}
 					okPresetHandler(w, nil)
+				},
+				func(_ http.ResponseWriter, _ *http.Request) {
+					t.Error("instance preset endpoint must not be called for --clusterpreset")
 				},
 			)
 			defer srv.Close()
@@ -1033,15 +1032,18 @@ func TestRun_WithPreset_Errors(t *testing.T) {
 	}
 }
 
-func TestRun_WithPreset_ResolvePassesNamespace(t *testing.T) {
+func TestRun_WithClusterInstancePreset_ResolvePassesNamespace(t *testing.T) {
 	t.Parallel()
 
 	var capturedURL string
-	srv := newRunServerWithPreset(t, okProviderHandler,
+	srv := newRunServerWithPresets(t, okProviderHandler,
 		func(w http.ResponseWriter, _ *http.Request) { respondCreated(w) },
 		func(w http.ResponseWriter, r *http.Request) {
 			capturedURL = r.URL.String()
 			okPresetHandler(w, r)
+		},
+		func(_ http.ResponseWriter, _ *http.Request) {
+			t.Error("instance preset endpoint must not be called for --clusterpreset")
 		},
 	)
 	defer srv.Close()
@@ -1061,8 +1063,6 @@ func TestRun_WithPreset_ResolvePassesNamespace(t *testing.T) {
 	assert.Contains(t, capturedURL, "/v1/clusters/main/cluster-instance-presets/my-preset/resolve?namespace=prod")
 }
 
-// TestRun_WithInstancePreset checks --preset reads the InstancePreset from the
-// target namespace and stamps the namespace-preset annotation.
 func TestRun_WithInstancePreset(t *testing.T) {
 	t.Parallel()
 
@@ -1073,7 +1073,9 @@ func TestRun_WithInstancePreset(t *testing.T) {
 	srv := newRunServerWithPresets(
 		t, okProviderHandler,
 		func(w http.ResponseWriter, r *http.Request) {
-			got, _ = io.ReadAll(r.Body)
+			var err error
+			got, err = io.ReadAll(r.Body)
+			assert.NoError(t, err)
 			respondCreated(w)
 		},
 		func(_ http.ResponseWriter, _ *http.Request) {
@@ -1084,7 +1086,7 @@ func TestRun_WithInstancePreset(t *testing.T) {
 			okPresetHandler(w, r)
 		},
 	)
-	defer srv.Close()
+	t.Cleanup(srv.Close)
 
 	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
 	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
@@ -1118,24 +1120,35 @@ func TestRun_WithInstancePreset_Errors(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
-		desc    string
+		name    string
 		opts    CreateOptions
 		wantErr string
 	}{
 		{
-			desc:    "not found",
-			opts:    CreateOptions{Name: "my-db", Namespace: "prod", Cluster: "main", Preset: "missing-preset"},
+			name: "not found",
+			opts: CreateOptions{
+				Name:      "my-db",
+				Namespace: "prod",
+				Cluster:   "main",
+				Preset:    "missing-preset",
+			},
 			wantErr: `preset "missing-preset" not found in namespace "prod"`,
 		},
 		{
-			desc:    "both preset kinds",
-			opts:    CreateOptions{Name: "my-db", Namespace: "prod", Cluster: "main", Preset: "a", ClusterPreset: "b"},
+			name: "both preset kinds",
+			opts: CreateOptions{
+				Name:          "my-db",
+				Namespace:     "prod",
+				Cluster:       "main",
+				Preset:        "a",
+				ClusterPreset: "b",
+			},
 			wantErr: "--preset cannot be combined with --clusterpreset",
 		},
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.desc, func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			srv := newRunServerWithPresets(
@@ -1144,7 +1157,7 @@ func TestRun_WithInstancePreset_Errors(t *testing.T) {
 				okPresetHandler,
 				func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) },
 			)
-			defer srv.Close()
+			t.Cleanup(srv.Close)
 
 			cfgPath := filepath.Join(t.TempDir(), "config.yaml")
 			require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
