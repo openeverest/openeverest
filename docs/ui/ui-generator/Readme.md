@@ -210,7 +210,7 @@ for UI that plain fields can't describe. See [Widgets](widgets.md) for the suppo
 ### Component-level modes
 
 Use a component's `modes` to hide it in a mode with `uiType: hidden`. A hidden field isn't
-rendered or validated in that mode, and in `restore` it doesn't take the source database's value.
+rendered or validated in that mode, and in `restore` it doesn't take the source instance's value.
 
 ```yaml
 userSecret:
