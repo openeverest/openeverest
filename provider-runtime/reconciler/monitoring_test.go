@@ -173,7 +173,7 @@ func monProviderObject() *v1alpha1.Provider {
 			},
 			Monitoring: &v1alpha1.ProviderMonitoring{
 				ComponentTypes: map[string]v1alpha1.MonitoringComponentType{
-					"mysql":       {Kind: "mysql", Metrics: v1alpha1.MetricsSourceExporter, CredentialProfiles: []string{"metrics"}},
+					"mysql":       {Kind: "mysql", Metrics: v1alpha1.MetricsSourceExporter},
 					"haproxy":     {Kind: "haproxy", Metrics: v1alpha1.MetricsSourceNative},
 					"mysqlrouter": {Kind: "mysqlrouter", Metrics: v1alpha1.MetricsSourceNone},
 				},
@@ -235,7 +235,6 @@ func pmmClass() *monitoringv1alpha1.MonitoringClass {
 	return &monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "pmm"},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
-			ControllerName:  "openeverest.io/monitoring-pmm",
 			ProviderManaged: &monitoringv1alpha1.ProviderManagedFulfilment{Integration: "pmm"},
 		},
 	}
