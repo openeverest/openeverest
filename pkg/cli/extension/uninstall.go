@@ -22,6 +22,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 	cliutils "github.com/openeverest/openeverest/v2/pkg/cli/utils"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
@@ -82,9 +83,10 @@ func (pu *PluginUninstaller) Run(ctx context.Context) error {
 	return nil
 }
 
-// deleteInstalledExtension removes the InstalledExtension named after the
-// plugin. A missing one is not an error: the Plugin may have been created
-// without going through install.
+// deleteInstalledExtension removes the InstalledExtension install recorded for
+// the plugin. A missing one is not an error: the Plugin may have been created
+// without going through install. One that is not a plugin install pointing at
+// this plugin is left alone.
 func (pu *PluginUninstaller) deleteInstalledExtension(ctx context.Context) error {
 	ie, err := pu.kubeClient.GetInstalledExtension(ctx, ctrlclient.ObjectKey{Name: pu.cfg.Name})
 	if err != nil {
@@ -92,6 +94,14 @@ func (pu *PluginUninstaller) deleteInstalledExtension(ctx context.Context) error
 			return nil
 		}
 		return fmt.Errorf("cannot read InstalledExtension %q: %w", pu.cfg.Name, err)
+	}
+
+	// InstalledExtension names are cluster-wide and shared with providers, so a
+	// same-named object may belong to something else. Only remove the one that
+	// records this plugin's install.
+	if ie.Spec.Type != extensionsv1alpha1.InstalledExtensionTypePlugin ||
+		ie.Spec.Plugin == nil || ie.Spec.Plugin.PluginRef.Name != pu.cfg.Name {
+		return nil
 	}
 
 	if err := pu.kubeClient.DeleteInstalledExtension(ctx, ie); err != nil && !apierrors.IsNotFound(err) {
