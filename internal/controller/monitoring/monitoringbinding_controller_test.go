@@ -89,7 +89,6 @@ func TestBindingReconcilerRejectsEntry(t *testing.T) {
 	unclaimed := &monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "otel"},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
-			ControllerName:   "openeverest.io/monitoring-otel",
 			ExtensionManaged: &monitoringv1alpha1.ExtensionManagedFulfilment{},
 		},
 	}
@@ -136,7 +135,7 @@ func TestBindingReconcilerRejectsEntry(t *testing.T) {
 			entries:     []corev1alpha1.InstanceMonitoringDestination{entry("traces", "otel")},
 			check:       "traces",
 			wantReason:  monitoringv1alpha1.ReasonClassNotAccepted,
-			wantMessage: `no controller has claimed MonitoringClass "otel" (controllerName "openeverest.io/monitoring-otel")`,
+			wantMessage: `no controller has claimed MonitoringClass "otel"`,
 			wantClass:   "otel",
 		},
 		{

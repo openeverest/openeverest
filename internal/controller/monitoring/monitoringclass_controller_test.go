@@ -135,43 +135,6 @@ func TestClassCompatibilityMatrix(t *testing.T) {
 				},
 			},
 		},
-		{
-			name: "ExtensionManaged class restricted to kinds",
-			class: func() *monitoringv1alpha1.MonitoringClass {
-				class := prometheusClass()
-				class.Spec.ExtensionManaged.Requires.Kinds = []string{"mysql", "postgresql"}
-				return class
-			}(),
-			want: []monitoringv1alpha1.ProviderCompatibility{
-				{
-					Name:    "mariadb",
-					Reason:  monitoringv1alpha1.ReasonIncompatible,
-					Message: `Provider "mariadb" declares no monitoring contract`,
-				},
-				{
-					Name:    "percona-postgresql",
-					Reason:  monitoringv1alpha1.ReasonIncompatible,
-					Message: `no component satisfies the requirements of MonitoringClass "prometheus"`,
-				},
-				{
-					Name:    "percona-server-mongodb",
-					Reason:  monitoringv1alpha1.ReasonIncompatible,
-					Message: `no component satisfies the requirements of MonitoringClass "prometheus"`,
-				},
-				{
-					Name: "percona-xtradb-cluster",
-					Mode: corev1alpha1.MonitoringExecutionModeExtensionManaged,
-					Components: []monitoringv1alpha1.ComponentCompatibility{
-						{Type: "pxc", Metrics: corev1alpha1.MetricsSourceExporter, Disruption: monitoringv1alpha1.DisruptionRollingRestart},
-					},
-				},
-				{
-					Name:    "provider-kserve",
-					Reason:  monitoringv1alpha1.ReasonIncompatible,
-					Message: `no component satisfies the requirements of MonitoringClass "prometheus"`,
-				},
-			},
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -192,12 +155,10 @@ func TestClassCompatibilityKeepsClassControllerCondition(t *testing.T) {
 	unclaimed := pmmClass()
 	unclaimed.Status = monitoringv1alpha1.MonitoringClassStatus{}
 	c := newFakeClient(t, unclaimed, pxcProvider())
-	pmmController := rtmonitoring.ClassController{Client: c, ControllerName: "openeverest.io/monitoring-pmm"}
+	pmmController := rtmonitoring.ClassController{Client: c, FieldOwner: "openeverest.io/monitoring-pmm", ClassName: "pmm"}
 
 	reconcileClass(t, c, "pmm")
-	claimedNames, err := pmmController.Claim(t.Context())
-	require.NoError(t, err)
-	require.Equal(t, []string{"pmm"}, claimedNames)
+	require.NoError(t, pmmController.Claim(t.Context()))
 
 	require.NoError(t, c.Create(t.Context(), kserveProvider()))
 	class := reconcileClass(t, c, "pmm")

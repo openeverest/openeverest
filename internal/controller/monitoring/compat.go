@@ -163,26 +163,10 @@ func extensionManaged(provider *corev1alpha1.Provider, class *monitoringv1alpha1
 	return verdict{ok: true}, components
 }
 
-// componentEligible: every requirement holds and, if kinds are listed, the
-// component's kind is one of them.
+// componentEligible: the component exposes metrics if the class requires
+// them.
 func componentEligible(ct corev1alpha1.MonitoringComponentType, req monitoringv1alpha1.SourceRequirements) bool {
-	if len(req.Kinds) > 0 && !slices.Contains(req.Kinds, ct.Kind) {
-		return false
-	}
-	if req.Metrics && (ct.Metrics == "" || ct.Metrics == corev1alpha1.MetricsSourceNone) {
-		return false
-	}
-	for _, p := range req.CredentialProfiles {
-		if !slices.Contains(ct.CredentialProfiles, p) {
-			return false
-		}
-	}
-	for _, feature := range req.Features {
-		if !slices.Contains(ct.Features, feature) {
-			return false
-		}
-	}
-	return true
+	return !req.Metrics || (ct.Metrics != "" && ct.Metrics != corev1alpha1.MetricsSourceNone)
 }
 
 // disruption is what binding the class does to a component's pods: an

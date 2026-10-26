@@ -357,7 +357,7 @@ func (r *BindingReconciler) resolveClass(
 	}
 	if !rtmonitoring.ClassIsAccepted(class) {
 		return nil, rejection(existing, &common.ObjectRef{Name: class.Name}, monitoringv1alpha1.ReasonClassNotAccepted,
-			fmt.Sprintf("no controller has claimed MonitoringClass %q (controllerName %q)", class.Name, class.Spec.ControllerName),
+			fmt.Sprintf("no controller has claimed MonitoringClass %q", class.Name),
 		), nil
 	}
 	return class, resolution{}, nil

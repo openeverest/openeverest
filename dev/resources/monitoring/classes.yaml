@@ -7,14 +7,12 @@ kind: MonitoringClass
 metadata:
   name: pmm
 spec:
-  controllerName: openeverest.io/monitoring-pmm
   displayName: Percona Monitoring and Management
   description: Operator-native PMM integration rendered by the provider (metrics and query analytics).
   providerManaged:
     integration: pmm
     agentImage: percona/pmm-client:3.8.0
     agentVersion: 3.8.0
-    features: [queryAnalytics]
   destinationParametersSchema:
     openAPIV3Schema:
       type: object
@@ -44,18 +42,12 @@ spec:
                 type: string
   credentialsSchema:
     required: [apiKey]
-  ui:
-    summaryParameter: url
-    links:
-      - name: Open in PMM
-        url: "{{ .destination.parameters.url }}"
 ---
 apiVersion: monitoring.openeverest.io/v1alpha1
 kind: MonitoringClass
 metadata:
   name: prometheus
 spec:
-  controllerName: openeverest.io/monitoring-prometheus
   displayName: Prometheus (Prometheus Operator)
   description: Creates a PodMonitor per metrics endpoint of every bound Instance.
   extensionManaged:
@@ -83,7 +75,6 @@ kind: MonitoringClass
 metadata:
   name: victoriametrics
 spec:
-  controllerName: openeverest.io/monitoring-victoriametrics
   displayName: VictoriaMetrics (VictoriaMetrics Operator)
   description: Creates a VMPodScrape per metrics endpoint of every bound Instance.
   extensionManaged:

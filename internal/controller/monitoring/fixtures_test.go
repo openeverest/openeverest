@@ -156,12 +156,10 @@ func pmmClass() *monitoringv1alpha1.MonitoringClass {
 	return claimed(&monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "pmm"},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
-			ControllerName: "openeverest.io/monitoring-pmm",
 			ProviderManaged: &monitoringv1alpha1.ProviderManagedFulfilment{
 				Integration:  "pmm",
 				AgentImage:   "percona/pmm-client:3.8.0",
 				AgentVersion: "3.8.0",
-				Features:     []string{"queryAnalytics"},
 			},
 			DestinationParametersSchema: objectSchema(map[string]apiextensionsv1.JSONSchemaProps{
 				"url":       {Type: "string"},
@@ -195,7 +193,6 @@ func scrapeClass(name, labelsParameter string) *monitoringv1alpha1.MonitoringCla
 	return claimed(&monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
-			ControllerName: "openeverest.io/monitoring-" + name,
 			ExtensionManaged: &monitoringv1alpha1.ExtensionManagedFulfilment{
 				Requires: monitoringv1alpha1.SourceRequirements{Metrics: true},
 			},
@@ -240,10 +237,7 @@ func pxcProvider() *corev1alpha1.Provider {
 		&corev1alpha1.ProviderMonitoring{
 			Integrations: pmmIntegration(),
 			ComponentTypes: map[string]corev1alpha1.MonitoringComponentType{
-				"pxc": {
-					Kind: "mysql", Metrics: corev1alpha1.MetricsSourceExporter,
-					CredentialProfiles: []string{"metrics", "queryAnalytics"}, Features: []string{"queryAnalytics"},
-				},
+				"pxc":     {Kind: "mysql", Metrics: corev1alpha1.MetricsSourceExporter},
 				"haproxy": {Kind: "haproxy", Metrics: corev1alpha1.MetricsSourceNative},
 			},
 		})
