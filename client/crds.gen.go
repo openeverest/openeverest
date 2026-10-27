@@ -918,39 +918,18 @@ func (e MonitoringClassStatusConditionsStatus) Valid() bool {
 	}
 }
 
-// Defines values for MonitoringClassStatusProvidersComponentsDisruption.
+// Defines values for MonitoringClassStatusProvidersDisruption.
 const (
-	MonitoringClassStatusProvidersComponentsDisruptionNone           MonitoringClassStatusProvidersComponentsDisruption = "None"
-	MonitoringClassStatusProvidersComponentsDisruptionRollingRestart MonitoringClassStatusProvidersComponentsDisruption = "RollingRestart"
+	MonitoringClassStatusProvidersDisruptionNone           MonitoringClassStatusProvidersDisruption = "None"
+	MonitoringClassStatusProvidersDisruptionRollingRestart MonitoringClassStatusProvidersDisruption = "RollingRestart"
 )
 
-// Valid indicates whether the value is a known member of the MonitoringClassStatusProvidersComponentsDisruption enum.
-func (e MonitoringClassStatusProvidersComponentsDisruption) Valid() bool {
+// Valid indicates whether the value is a known member of the MonitoringClassStatusProvidersDisruption enum.
+func (e MonitoringClassStatusProvidersDisruption) Valid() bool {
 	switch e {
-	case MonitoringClassStatusProvidersComponentsDisruptionNone:
+	case MonitoringClassStatusProvidersDisruptionNone:
 		return true
-	case MonitoringClassStatusProvidersComponentsDisruptionRollingRestart:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for MonitoringClassStatusProvidersComponentsMetrics.
-const (
-	MonitoringClassStatusProvidersComponentsMetricsExporter MonitoringClassStatusProvidersComponentsMetrics = "Exporter"
-	MonitoringClassStatusProvidersComponentsMetricsNative   MonitoringClassStatusProvidersComponentsMetrics = "Native"
-	MonitoringClassStatusProvidersComponentsMetricsNone     MonitoringClassStatusProvidersComponentsMetrics = "None"
-)
-
-// Valid indicates whether the value is a known member of the MonitoringClassStatusProvidersComponentsMetrics enum.
-func (e MonitoringClassStatusProvidersComponentsMetrics) Valid() bool {
-	switch e {
-	case MonitoringClassStatusProvidersComponentsMetricsExporter:
-		return true
-	case MonitoringClassStatusProvidersComponentsMetricsNative:
-		return true
-	case MonitoringClassStatusProvidersComponentsMetricsNone:
+	case MonitoringClassStatusProvidersDisruptionRollingRestart:
 		return true
 	default:
 		return false
@@ -6200,19 +6179,9 @@ type MonitoringClass struct {
 		// Providers Providers is the compatibility of this class with every installed
 		// Provider.
 		Providers *[]struct {
-			// Components Components lists, for ExtensionManaged, what each eligible component
-			// type exposes.
-			Components *[]struct {
-				// Disruption Disruption is what enabling the class does to the component's pods.
-				Disruption *MonitoringClassStatusProvidersComponentsDisruption `json:"disruption,omitempty"`
-
-				// Metrics Metrics states how the component exposes OpenMetrics.
-				Metrics *MonitoringClassStatusProvidersComponentsMetrics `json:"metrics,omitempty"`
-
-				// Type Type is the component type, a key of
-				// Provider.spec.monitoring.componentTypes.
-				Type string `json:"type"`
-			} `json:"components,omitempty"`
+			// Disruption Disruption is the worst that enabling the class does to the pods of
+			// one of the Provider's Instances. Set when Mode is set.
+			Disruption *MonitoringClassStatusProvidersDisruption `json:"disruption,omitempty"`
 
 			// Message Message is the human-readable detail for Reason.
 			Message *string `json:"message,omitempty"`
@@ -6233,11 +6202,9 @@ type MonitoringClass struct {
 // MonitoringClassStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type MonitoringClassStatusConditionsStatus string
 
-// MonitoringClassStatusProvidersComponentsDisruption Disruption is what enabling the class does to the component's pods.
-type MonitoringClassStatusProvidersComponentsDisruption string
-
-// MonitoringClassStatusProvidersComponentsMetrics Metrics states how the component exposes OpenMetrics.
-type MonitoringClassStatusProvidersComponentsMetrics string
+// MonitoringClassStatusProvidersDisruption Disruption is the worst that enabling the class does to the pods of
+// one of the Provider's Instances. Set when Mode is set.
+type MonitoringClassStatusProvidersDisruption string
 
 // MonitoringClassStatusProvidersMode Mode is the execution mode a binding of this class gets for the
 // Provider's Instances. Empty when the Provider is incompatible.

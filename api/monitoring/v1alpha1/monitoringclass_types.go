@@ -121,7 +121,7 @@ type CredentialsSchema struct {
 	Required []string `json:"required,omitempty"`
 }
 
-// Disruption is what enabling a class does to the pods of a component.
+// Disruption is what enabling a class does to the pods of an Instance.
 //
 // +kubebuilder:validation:Enum=None;RollingRestart
 type Disruption string
@@ -143,33 +143,16 @@ type ProviderCompatibility struct {
 	// Provider's Instances. Empty when the Provider is incompatible.
 	// +optional
 	Mode corev1alpha1.MonitoringExecutionMode `json:"mode,omitempty"`
-	// Components lists, for ExtensionManaged, what each eligible component
-	// type exposes.
-	// +listType=map
-	// +listMapKey=type
+	// Disruption is the worst that enabling the class does to the pods of
+	// one of the Provider's Instances. Set when Mode is set.
 	// +optional
-	Components []ComponentCompatibility `json:"components,omitempty"`
+	Disruption Disruption `json:"disruption,omitempty"`
 	// Reason explains an empty Mode.
 	// +optional
 	Reason string `json:"reason,omitempty"`
 	// Message is the human-readable detail for Reason.
 	// +optional
 	Message string `json:"message,omitempty"`
-}
-
-// ComponentCompatibility is what one component type exposes to an
-// ExtensionManaged class.
-type ComponentCompatibility struct {
-	// Type is the component type, a key of
-	// Provider.spec.monitoring.componentTypes.
-	// +kubebuilder:validation:Required
-	Type string `json:"type"`
-	// Metrics states how the component exposes OpenMetrics.
-	// +optional
-	Metrics corev1alpha1.MetricsSource `json:"metrics,omitempty"`
-	// Disruption is what enabling the class does to the component's pods.
-	// +optional
-	Disruption Disruption `json:"disruption,omitempty"`
 }
 
 // MonitoringClassStatus defines the observed state of MonitoringClass. It

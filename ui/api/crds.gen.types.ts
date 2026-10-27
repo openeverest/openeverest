@@ -5540,26 +5540,11 @@ export interface components {
                  */
                 providers?: {
                     /**
-                     * @description Components lists, for ExtensionManaged, what each eligible component
-                     *     type exposes.
+                     * @description Disruption is the worst that enabling the class does to the pods of
+                     *     one of the Provider's Instances. Set when Mode is set.
+                     * @enum {string}
                      */
-                    components?: {
-                        /**
-                         * @description Disruption is what enabling the class does to the component's pods.
-                         * @enum {string}
-                         */
-                        disruption?: "None" | "RollingRestart";
-                        /**
-                         * @description Metrics states how the component exposes OpenMetrics.
-                         * @enum {string}
-                         */
-                        metrics?: "Native" | "Exporter" | "None";
-                        /**
-                         * @description Type is the component type, a key of
-                         *     Provider.spec.monitoring.componentTypes.
-                         */
-                        type: string;
-                    }[];
+                    disruption?: "None" | "RollingRestart";
                     /** @description Message is the human-readable detail for Reason. */
                     message?: string;
                     /**

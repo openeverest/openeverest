@@ -8314,41 +8314,14 @@ components:
                   ProviderCompatibility is the class's compatibility with one Provider,
                   computed by core from Provider.spec.monitoring.
                 properties:
-                  components:
+                  disruption:
                     description: |-
-                      Components lists, for ExtensionManaged, what each eligible component
-                      type exposes.
-                    items:
-                      description: |-
-                        ComponentCompatibility is what one component type exposes to an
-                        ExtensionManaged class.
-                      properties:
-                        disruption:
-                          description: Disruption is what enabling the class does
-                            to the component's pods.
-                          enum:
-                          - None
-                          - RollingRestart
-                          type: string
-                        metrics:
-                          description: Metrics states how the component exposes OpenMetrics.
-                          enum:
-                          - Native
-                          - Exporter
-                          - None
-                          type: string
-                        type:
-                          description: |-
-                            Type is the component type, a key of
-                            Provider.spec.monitoring.componentTypes.
-                          type: string
-                      required:
-                      - type
-                      type: object
-                    type: array
-                    x-kubernetes-list-map-keys:
-                    - type
-                    x-kubernetes-list-type: map
+                      Disruption is the worst that enabling the class does to the pods of
+                      one of the Provider's Instances. Set when Mode is set.
+                    enum:
+                    - None
+                    - RollingRestart
+                    type: string
                   message:
                     description: Message is the human-readable detail for Reason.
                     type: string
