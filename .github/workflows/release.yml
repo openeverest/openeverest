@@ -166,7 +166,7 @@ jobs:
           version: 9.4.0
 
       - name: Everest UI - run with Node 20
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 20.x
           cache: "pnpm"
@@ -248,7 +248,7 @@ jobs:
           push-to-registry: true
 
       - name: Everest - generate SBOM
-        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           image: ${{ env.IMAGE_PREFIX }}/${{ env.EVEREST_SERVER_DEV_IMAGE_NAME }}@${{ steps.everest_push.outputs.digest }}
           format: spdx-json
@@ -273,7 +273,7 @@ jobs:
 
       - name: Everest - generate source SBOM
         if: matrix.arch == 'amd64'
-        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
           format: spdx-json
           output-file: everest-source-sbom.spdx.json
