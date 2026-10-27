@@ -21,8 +21,8 @@ import (
 )
 
 // ListMonitoringDestinations proxies the request to the next handler.
-func (h *validateHandler) ListMonitoringDestinations(ctx context.Context, cluster, namespace string) (*monitoringv1alpha1.MonitoringDestinationList, error) {
-	return h.next.ListMonitoringDestinations(ctx, cluster, namespace)
+func (h *validateHandler) ListMonitoringDestinations(ctx context.Context, cluster, namespace, class string) (*monitoringv1alpha1.MonitoringDestinationList, error) {
+	return h.next.ListMonitoringDestinations(ctx, cluster, namespace, class)
 }
 
 // GetMonitoringDestination proxies the request to the next handler.

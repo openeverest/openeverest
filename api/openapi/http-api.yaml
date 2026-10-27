@@ -2962,6 +2962,7 @@ paths:
       summary: List monitoring destinations
       description: |
         This API lists all monitoring destinations in the specified namespace and cluster.
+        Optionally filter by monitoring class: only the destinations whose `spec.classRef.name` is that class are returned.
       operationId: listMonitoringDestinations
       parameters:
         - name: cluster
@@ -2974,6 +2975,12 @@ paths:
           in: path
           required: true
           description: The namespace of the monitoring destinations
+          schema:
+            type: string
+        - name: class
+          in: query
+          required: false
+          description: Return only the monitoring destinations of the monitoring class with this name
           schema:
             type: string
       responses:

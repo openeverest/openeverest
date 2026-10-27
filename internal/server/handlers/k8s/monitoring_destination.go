@@ -17,6 +17,7 @@ package k8s
 import (
 	"context"
 	"maps"
+	"slices"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -26,9 +27,19 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/events"
 )
 
-// ListMonitoringDestinations returns list of monitoring destinations in a namespace.
-func (h *k8sHandler) ListMonitoringDestinations(ctx context.Context, _, namespace string) (*monitoringv1alpha1.MonitoringDestinationList, error) {
-	return h.kubeConnector.ListMonitoringDestinations(ctx, ctrlclient.InNamespace(namespace))
+// ListMonitoringDestinations returns the monitoring destinations in a namespace, only those of class when it is set.
+func (h *k8sHandler) ListMonitoringDestinations(ctx context.Context, _, namespace, class string) (*monitoringv1alpha1.MonitoringDestinationList, error) {
+	list, err := h.kubeConnector.ListMonitoringDestinations(ctx, ctrlclient.InNamespace(namespace))
+	if err != nil {
+		return nil, err
+	}
+	if class == "" {
+		return list, nil
+	}
+	list.Items = slices.DeleteFunc(list.Items, func(d monitoringv1alpha1.MonitoringDestination) bool {
+		return d.Spec.ClassRef.Name != class
+	})
+	return list, nil
 }
 
 // GetMonitoringDestination returns a monitoring destination by name and namespace.

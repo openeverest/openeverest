@@ -947,6 +947,7 @@ export interface paths {
         /**
          * List monitoring destinations
          * @description This API lists all monitoring destinations in the specified namespace and cluster.
+         *     Optionally filter by monitoring class: only the destinations whose `spec.classRef.name` is that class are returned.
          */
         get: operations["listMonitoringDestinations"];
         put?: never;
@@ -10842,7 +10843,10 @@ export interface operations {
     };
     listMonitoringDestinations: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return only the monitoring destinations of the monitoring class with this name */
+                class?: string;
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */

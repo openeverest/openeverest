@@ -24,8 +24,8 @@ import (
 )
 
 // ListMonitoringDestinations returns monitoring destinations filtered by RBAC permissions.
-func (h *rbacHandler) ListMonitoringDestinations(ctx context.Context, cluster, namespace string) (*monitoringv1alpha1.MonitoringDestinationList, error) {
-	list, err := h.next.ListMonitoringDestinations(ctx, cluster, namespace)
+func (h *rbacHandler) ListMonitoringDestinations(ctx context.Context, cluster, namespace, class string) (*monitoringv1alpha1.MonitoringDestinationList, error) {
+	list, err := h.next.ListMonitoringDestinations(ctx, cluster, namespace, class)
 	if err != nil {
 		return nil, fmt.Errorf("ListMonitoringDestinations failed: %w", err)
 	}

@@ -1583,9 +1583,9 @@ func (_m *MockHandler) ListMonitoringConfigs(ctx context.Context, cluster string
 	return r0, r1
 }
 
-// ListMonitoringDestinations provides a mock function with given fields: ctx, cluster, namespace
-func (_m *MockHandler) ListMonitoringDestinations(ctx context.Context, cluster string, namespace string) (*monitoringv1alpha1.MonitoringDestinationList, error) {
-	ret := _m.Called(ctx, cluster, namespace)
+// ListMonitoringDestinations provides a mock function with given fields: ctx, cluster, namespace, class
+func (_m *MockHandler) ListMonitoringDestinations(ctx context.Context, cluster string, namespace string, class string) (*monitoringv1alpha1.MonitoringDestinationList, error) {
+	ret := _m.Called(ctx, cluster, namespace, class)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListMonitoringDestinations")
@@ -1593,19 +1593,19 @@ func (_m *MockHandler) ListMonitoringDestinations(ctx context.Context, cluster s
 
 	var r0 *monitoringv1alpha1.MonitoringDestinationList
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*monitoringv1alpha1.MonitoringDestinationList, error)); ok {
-		return rf(ctx, cluster, namespace)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) (*monitoringv1alpha1.MonitoringDestinationList, error)); ok {
+		return rf(ctx, cluster, namespace, class)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) *monitoringv1alpha1.MonitoringDestinationList); ok {
-		r0 = rf(ctx, cluster, namespace)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *monitoringv1alpha1.MonitoringDestinationList); ok {
+		r0 = rf(ctx, cluster, namespace, class)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringDestinationList)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
-		r1 = rf(ctx, cluster, namespace)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = rf(ctx, cluster, namespace, class)
 	} else {
 		r1 = ret.Error(1)
 	}

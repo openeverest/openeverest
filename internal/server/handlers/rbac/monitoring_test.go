@@ -206,7 +206,7 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 	}
 	mockDestinations := func() *handlers.MockHandler {
 		h := &handlers.MockHandler{}
-		h.On("ListMonitoringDestinations", mock.Anything, mock.Anything, mock.Anything).Return(
+		h.On("ListMonitoringDestinations", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 			&monitoringv1alpha1.MonitoringDestinationList{Items: []monitoringv1alpha1.MonitoringDestination{
 				*destination("ns1", "pmm-prod"),
 				*destination("ns1", "prometheus"),
@@ -259,7 +259,7 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 				t.Parallel()
 
 				h, _ := newHandler(t, tc.policy)
-				list, err := h.ListMonitoringDestinations(ctx, "prod", "ns1")
+				list, err := h.ListMonitoringDestinations(ctx, "prod", "ns1", "")
 				require.NoError(t, err)
 
 				names := make([]string, 0, len(list.Items))
@@ -450,7 +450,7 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 		h, _ := newHandler(t, newPolicy("g, "+plugin+", role:admin"))
 		pluginCtx := testUserContext(rbac.User{Subject: plugin})
 
-		list, err := h.ListMonitoringDestinations(pluginCtx, "prod", "ns1")
+		list, err := h.ListMonitoringDestinations(pluginCtx, "prod", "ns1", "")
 		require.NoError(t, err)
 		assert.Len(t, list.Items, 2)
 

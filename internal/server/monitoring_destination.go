@@ -19,14 +19,16 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/AlekSi/pointer"
 	"github.com/labstack/echo/v4"
 
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
-// ListMonitoringDestinations lists all monitoring destinations in a namespace.
-func (e *EverestServer) ListMonitoringDestinations(c echo.Context, cluster, namespace string) error {
-	result, err := e.handler.ListMonitoringDestinations(c.Request().Context(), cluster, namespace)
+// ListMonitoringDestinations lists the monitoring destinations in a namespace, optionally those of one class.
+func (e *EverestServer) ListMonitoringDestinations(c echo.Context, cluster, namespace string, params api.ListMonitoringDestinationsParams) error {
+	result, err := e.handler.ListMonitoringDestinations(c.Request().Context(), cluster, namespace, pointer.GetString(params.Class))
 	if err != nil {
 		e.l.Errorf("ListMonitoringDestinations failed: %v", err)
 		return err

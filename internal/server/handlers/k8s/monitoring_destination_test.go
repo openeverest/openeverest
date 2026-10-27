@@ -223,3 +223,47 @@ func TestK8s_MonitoringDestinationWrites(t *testing.T) {
 		assert.True(t, k8serrors.IsNotFound(err), "want not found, got %v", err)
 	})
 }
+
+func TestK8s_ListMonitoringDestinations_ClassFilter(t *testing.T) {
+	t.Parallel()
+
+	destination := func(namespace, name, class string) ctrlclient.Object {
+		return &monitoringv1alpha1.MonitoringDestination{
+			ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+			Spec:       monitoringv1alpha1.MonitoringDestinationSpec{ClassRef: common.ObjectRef{Name: class}},
+		}
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(kubernetes.CreateScheme()).WithObjects(
+		destination("ns1", "pmm-prod", "pmm"),
+		destination("ns1", "pmm-staging", "pmm"),
+		destination("ns1", "prom", "prometheus"),
+		destination("ns2", "pmm-other", "pmm"),
+	).Build()
+	h := &k8sHandler{
+		kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), "ns1").WithKubernetesClient(fakeClient),
+		log:           zap.NewNop().Sugar(),
+	}
+
+	tests := map[string]struct {
+		class string
+		want  []string
+	}{
+		"no filter returns the namespace":   {class: "", want: []string{"pmm-prod", "pmm-staging", "prom"}},
+		"class with several destinations":   {class: "pmm", want: []string{"pmm-prod", "pmm-staging"}},
+		"class with one destination":        {class: "prometheus", want: []string{"prom"}},
+		"class with no destination matches": {class: "victoriametrics", want: []string{}},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			list, err := h.ListMonitoringDestinations(context.Background(), "prod", "ns1", tc.class)
+			require.NoError(t, err)
+			got := make([]string, 0, len(list.Items))
+			for _, d := range list.Items {
+				got = append(got, d.Name)
+			}
+			assert.ElementsMatch(t, tc.want, got)
+		})
+	}
+}
