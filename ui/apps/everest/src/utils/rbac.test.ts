@@ -31,7 +31,7 @@ describe('toRBACObject', () => {
   it('namespaced v2 -> cluster/namespace/name', () => {
     expect(toRBACObject('instances', 'ns1/*', 'main')).toBe('main/ns1/*');
     expect(toRBACObject('backups', 'ns1/db1', 'main')).toBe('main/ns1/db1');
-    expect(toRBACObject('instances', '*', 'main')).toBe('*/*/*');
+    expect(toRBACObject('instances', '*', 'main')).toBe('main/*/*');
   });
 
   it('cluster-scoped v2 -> cluster/name', () => {

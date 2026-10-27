@@ -38,22 +38,16 @@ export const useRBACPermissions = (
   const cluster = useClusterName();
 
   const checkPermissions = useCallback(async () => {
-    const objects = Array.isArray(specificResources)
-      ? specificResources.map((o) => toRBACObject(resource, o, cluster))
-      : toRBACObject(resource, specificResources, cluster);
-    const multiple = Array.isArray(objects);
-    const canRead = await (multiple
-      ? canAll('read', resource, objects)
-      : can('read', resource, objects));
-    const canDelete = await (multiple
-      ? canAll('delete', resource, objects)
-      : can('delete', resource, objects));
-    const canUpdate = await (multiple
-      ? canAll('update', resource, objects)
-      : can('update', resource, objects));
-    const canCreate = await (multiple
-      ? canAll('create', resource, objects)
-      : can('create', resource, objects));
+    const objects = (
+      Array.isArray(specificResources) ? specificResources : [specificResources]
+    ).map((o) => toRBACObject(resource, o, cluster));
+    const check = (action: RBACAction) => canAll(action, resource, objects);
+    const [canRead, canUpdate, canDelete, canCreate] = await Promise.all([
+      check('read'),
+      check('update'),
+      check('delete'),
+      check('create'),
+    ]);
 
     setPermissions({
       read: canRead,

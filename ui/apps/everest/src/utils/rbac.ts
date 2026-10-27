@@ -14,6 +14,7 @@
 
 import { getRBACPolicies, RBACPolicies } from 'api/policies';
 import { Authorizer } from 'casbin.js';
+import type { HttpApi } from '@generated/api-types';
 
 let authorizer: Authorizer | null = null;
 let username: string = '';
@@ -64,25 +65,49 @@ export type RBACResource =
   | 'plugins'
   | 'restores'
   | 'backup-imports'
-  | 'config-maps'
-  | 'secrets';
+  | 'config-maps';
 
-const V2_NAMESPACED_RESOURCES: string[] = [
-  'instances',
-  'backups',
-  'backup-imports',
-  'restores',
-  'backup-storages',
-  'monitoring-configs',
-  'config-maps',
-  'secrets',
-];
-const V2_CLUSTER_RESOURCES: string[] = [
-  'namespaces',
-  'providers',
-  'backup-classes',
-  'plugins',
-];
+type FirstSegment<P extends string> = P extends `${infer Head}/${string}`
+  ? Head
+  : P;
+type ApiResourceUnder<
+  Prefix extends string,
+  Path = keyof HttpApi.paths,
+> = Path extends `${Prefix}/${infer Rest}` ? FirstSegment<Rest> : never;
+
+type RBACObjectFormat<R extends RBACResource> =
+  R extends ApiResourceUnder<'/clusters/{cluster}/namespaces/{namespace}'>
+    ? 'cluster-namespaced'
+    : R extends ApiResourceUnder<'/clusters/{cluster}'>
+      ? 'cluster-scoped'
+      : 'as-is';
+
+// The scope follows the resource's API path, so a misclassified or missing
+// resource is a type error.
+const RBAC_OBJECT_FORMATS: { [R in RBACResource]: RBACObjectFormat<R> } = {
+  namespaces: 'cluster-scoped',
+  providers: 'cluster-scoped',
+  plugins: 'cluster-scoped',
+  'backup-classes': 'cluster-scoped',
+  instances: 'cluster-namespaced',
+  backups: 'cluster-namespaced',
+  'backup-imports': 'cluster-namespaced',
+  restores: 'cluster-namespaced',
+  'backup-storages': 'cluster-namespaced',
+  'monitoring-configs': 'cluster-namespaced',
+  'config-maps': 'cluster-namespaced',
+  secrets: 'cluster-namespaced',
+  'database-engines': 'as-is',
+  'database-clusters': 'as-is',
+  'database-cluster-backups': 'as-is',
+  'database-cluster-restores': 'as-is',
+  'database-cluster-credentials': 'as-is',
+  'pod-scheduling-policies': 'as-is',
+  'data-importers': 'as-is',
+  'load-balancer-configs': 'as-is',
+  'data-import-jobs': 'as-is',
+  'enginefeatures/split-horizon-dns-configs': 'as-is',
+};
 
 // Matches ClusterNamespacedObjectName / ClusterObjectName in pkg/rbac/rbac.go
 export const toRBACObject = (
@@ -90,13 +115,14 @@ export const toRBACObject = (
   object: string,
   cluster: string
 ): string => {
-  if (V2_NAMESPACED_RESOURCES.includes(resource)) {
-    return object === '*' ? '*/*/*' : `${cluster}/${object}`;
+  switch (RBAC_OBJECT_FORMATS[resource]) {
+    case 'cluster-namespaced':
+      return object === '*' ? `${cluster}/*/*` : `${cluster}/${object}`;
+    case 'cluster-scoped':
+      return `${cluster}/${object}`;
+    default:
+      return object;
   }
-  if (V2_CLUSTER_RESOURCES.includes(resource)) {
-    return `${cluster}/${object}`;
-  }
-  return object; // v1 resources keep the old format
 };
 
 const constructAuthorizer = async () => {

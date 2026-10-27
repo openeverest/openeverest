@@ -26,9 +26,8 @@ export const RestoreActionButtons = (
   namespace: string,
   instanceName: string
 ) => {
-  // TODO RBAC: update resource name when v2 RBAC policies are finalized
   const { canDelete } = useRBACPermissions(
-    'database-cluster-restores',
+    'restores',
     `${namespace}/${instanceName}`
   );
 

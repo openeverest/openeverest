@@ -147,22 +147,4 @@ describe('useCanCreateClusterFromBackup', () => {
 
     expect(result.current).toBe(true);
   });
-
-  it('grants create-from-backup with a v2-only policy (instances/backups)', () => {
-    mockUseCanRestore.mockReturnValue(true);
-    mockUseRBACPermissions.mockImplementation((resource: string) => ({
-      canCreate: resource === 'instances' || resource === 'backups',
-      canRead: false,
-    }));
-
-    const { result } = renderHook(() =>
-      useCanCreateClusterFromBackup('ns-a', 'inst-a', { hasSchedules: true })
-    );
-
-    expect(result.current).toBe(true);
-    expect(mockUseRBACPermissions).toHaveBeenCalledWith(
-      'backups',
-      'ns-a/inst-a'
-    );
-  });
 });

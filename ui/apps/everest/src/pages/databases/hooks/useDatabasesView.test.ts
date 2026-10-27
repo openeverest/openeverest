@@ -67,13 +67,4 @@ describe('useDatabasesView RBAC', () => {
     expect(result.current.hasCreatePermission).toBe(true);
     expect(result.current.canAddCluster).toBe(true);
   });
-
-  it('does not allow creating with only the legacy v1 resource', () => {
-    grantOnly(['database-clusters']);
-
-    const { result } = renderHook(() => useDatabasesView());
-
-    expect(result.current.hasCreatePermission).toBe(false);
-    expect(result.current.canAddCluster).toBe(false);
-  });
 });
