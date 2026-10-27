@@ -67,9 +67,9 @@ func TestClassCompatibilityMatrix(t *testing.T) {
 					Reason:  monitoringv1alpha1.ReasonIntegrationUnsupported,
 					Message: `Provider "mariadb" declares no monitoring contract`,
 				},
-				{Name: "percona-postgresql", Mode: corev1alpha1.MonitoringExecutionModeProviderManaged},
-				{Name: "percona-server-mongodb", Mode: corev1alpha1.MonitoringExecutionModeProviderManaged},
-				{Name: "percona-xtradb-cluster", Mode: corev1alpha1.MonitoringExecutionModeProviderManaged},
+				{Name: "percona-postgresql", Mode: corev1alpha1.MonitoringExecutionModeProviderManaged, Disruption: monitoringv1alpha1.DisruptionRollingRestart},
+				{Name: "percona-server-mongodb", Mode: corev1alpha1.MonitoringExecutionModeProviderManaged, Disruption: monitoringv1alpha1.DisruptionRollingRestart},
+				{Name: "percona-xtradb-cluster", Mode: corev1alpha1.MonitoringExecutionModeProviderManaged, Disruption: monitoringv1alpha1.DisruptionRollingRestart},
 				{
 					Name:    "provider-kserve",
 					Reason:  monitoringv1alpha1.ReasonIntegrationUnsupported,
@@ -110,29 +110,11 @@ func TestClassCompatibilityMatrix(t *testing.T) {
 					Reason:  monitoringv1alpha1.ReasonIncompatible,
 					Message: `no component satisfies the requirements of MonitoringClass "prometheus"`,
 				},
-				{
-					Name: "percona-server-mongodb",
-					Mode: corev1alpha1.MonitoringExecutionModeExtensionManaged,
-					Components: []monitoringv1alpha1.ComponentCompatibility{
-						{Type: "mongod", Metrics: corev1alpha1.MetricsSourceExporter, Disruption: monitoringv1alpha1.DisruptionRollingRestart},
-						{Type: "mongos", Metrics: corev1alpha1.MetricsSourceExporter, Disruption: monitoringv1alpha1.DisruptionRollingRestart},
-					},
-				},
-				{
-					Name: "percona-xtradb-cluster",
-					Mode: corev1alpha1.MonitoringExecutionModeExtensionManaged,
-					Components: []monitoringv1alpha1.ComponentCompatibility{
-						{Type: "haproxy", Metrics: corev1alpha1.MetricsSourceNative, Disruption: monitoringv1alpha1.DisruptionNone},
-						{Type: "pxc", Metrics: corev1alpha1.MetricsSourceExporter, Disruption: monitoringv1alpha1.DisruptionRollingRestart},
-					},
-				},
-				{
-					Name: "provider-kserve",
-					Mode: corev1alpha1.MonitoringExecutionModeExtensionManaged,
-					Components: []monitoringv1alpha1.ComponentCompatibility{
-						{Type: "llm", Metrics: corev1alpha1.MetricsSourceNative, Disruption: monitoringv1alpha1.DisruptionNone},
-					},
-				},
+				// mongod and mongos both run an exporter sidecar.
+				{Name: "percona-server-mongodb", Mode: corev1alpha1.MonitoringExecutionModeExtensionManaged, Disruption: monitoringv1alpha1.DisruptionRollingRestart},
+				// haproxy is native, pxc needs an exporter: the worst case wins.
+				{Name: "percona-xtradb-cluster", Mode: corev1alpha1.MonitoringExecutionModeExtensionManaged, Disruption: monitoringv1alpha1.DisruptionRollingRestart},
+				{Name: "provider-kserve", Mode: corev1alpha1.MonitoringExecutionModeExtensionManaged, Disruption: monitoringv1alpha1.DisruptionNone},
 			},
 		},
 	}
@@ -167,7 +149,7 @@ func TestClassCompatibilityKeepsClassControllerCondition(t *testing.T) {
 	assert.Equal(t, metav1.ConditionTrue, accepted.Status)
 	assert.Equal(t, "claimed by openeverest.io/monitoring-pmm", accepted.Message)
 	assert.Equal(t, []monitoringv1alpha1.ProviderCompatibility{
-		{Name: "percona-xtradb-cluster", Mode: corev1alpha1.MonitoringExecutionModeProviderManaged},
+		{Name: "percona-xtradb-cluster", Mode: corev1alpha1.MonitoringExecutionModeProviderManaged, Disruption: monitoringv1alpha1.DisruptionRollingRestart},
 		{
 			Name:    "provider-kserve",
 			Reason:  monitoringv1alpha1.ReasonIntegrationUnsupported,

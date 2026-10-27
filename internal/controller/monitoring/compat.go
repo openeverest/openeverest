@@ -39,15 +39,16 @@ type fulfilment struct {
 	class            *monitoringv1alpha1.MonitoringClass
 	providerManaged  verdict
 	extensionManaged verdict
-	// components are the eligible component types, sorted by type.
-	components []monitoringv1alpha1.ComponentCompatibility
+	// extensionDisruption is the worst disruption over the eligible
+	// component types.
+	extensionDisruption monitoringv1alpha1.Disruption
 }
 
 // assess evaluates class for provider. Only componentTypes are considered
 // for ExtensionManaged.
 func assess(provider *corev1alpha1.Provider, class *monitoringv1alpha1.MonitoringClass, componentTypes []string) fulfilment {
 	f := fulfilment{class: class, providerManaged: providerManaged(provider, class)}
-	f.extensionManaged, f.components = extensionManaged(provider, class, componentTypes)
+	f.extensionManaged, f.extensionDisruption = extensionManaged(provider, class, componentTypes)
 	return f
 }
 
@@ -82,8 +83,12 @@ func providerCompatibility(provider *corev1alpha1.Provider, class *monitoringv1a
 	f := assess(provider, class, componentTypes)
 	mode, reason, message := f.preferred()
 	pc := monitoringv1alpha1.ProviderCompatibility{Name: provider.Name, Mode: mode, Reason: reason, Message: message}
-	if mode == corev1alpha1.MonitoringExecutionModeExtensionManaged {
-		pc.Components = f.components
+	switch mode {
+	case corev1alpha1.MonitoringExecutionModeProviderManaged:
+		// A native integration is an agent the operator injects into the pods.
+		pc.Disruption = monitoringv1alpha1.DisruptionRollingRestart
+	case corev1alpha1.MonitoringExecutionModeExtensionManaged:
+		pc.Disruption = f.extensionDisruption
 	}
 	return pc
 }
@@ -136,31 +141,32 @@ func providerManaged(provider *corev1alpha1.Provider, class *monitoringv1alpha1.
 }
 
 // extensionManaged: at least one of componentTypes is eligible for the
-// class's extensionManaged block.
-func extensionManaged(provider *corev1alpha1.Provider, class *monitoringv1alpha1.MonitoringClass, componentTypes []string) (verdict, []monitoringv1alpha1.ComponentCompatibility) {
+// class's extensionManaged block. The disruption is the worst over the
+// eligible types.
+func extensionManaged(provider *corev1alpha1.Provider, class *monitoringv1alpha1.MonitoringClass, componentTypes []string) (verdict, monitoringv1alpha1.Disruption) {
 	em := class.Spec.ExtensionManaged
 	if em == nil {
-		return verdict{reason: monitoringv1alpha1.ReasonIncompatible, message: fmt.Sprintf("MonitoringClass %q declares no extensionManaged block", class.Name)}, nil
+		return verdict{reason: monitoringv1alpha1.ReasonIncompatible, message: fmt.Sprintf("MonitoringClass %q declares no extensionManaged block", class.Name)}, ""
 	}
 	if provider.Spec.Monitoring == nil {
-		return verdict{reason: monitoringv1alpha1.ReasonIncompatible, message: fmt.Sprintf("Provider %q declares no monitoring contract", provider.Name)}, nil
+		return verdict{reason: monitoringv1alpha1.ReasonIncompatible, message: fmt.Sprintf("Provider %q declares no monitoring contract", provider.Name)}, ""
 	}
-	var components []monitoringv1alpha1.ComponentCompatibility
+	eligible := false
+	worst := monitoringv1alpha1.DisruptionNone
 	for _, t := range componentTypes {
 		ct, ok := provider.Spec.Monitoring.ComponentTypes[t]
 		if !ok || !componentEligible(ct, em.Requires) {
 			continue
 		}
-		components = append(components, monitoringv1alpha1.ComponentCompatibility{
-			Type:       t,
-			Metrics:    ct.Metrics,
-			Disruption: disruption(ct, em.Requires),
-		})
+		eligible = true
+		if disruption(ct, em.Requires) == monitoringv1alpha1.DisruptionRollingRestart {
+			worst = monitoringv1alpha1.DisruptionRollingRestart
+		}
 	}
-	if len(components) == 0 {
-		return verdict{reason: monitoringv1alpha1.ReasonIncompatible, message: fmt.Sprintf("no component satisfies the requirements of MonitoringClass %q", class.Name)}, nil
+	if !eligible {
+		return verdict{reason: monitoringv1alpha1.ReasonIncompatible, message: fmt.Sprintf("no component satisfies the requirements of MonitoringClass %q", class.Name)}, ""
 	}
-	return verdict{ok: true}, components
+	return verdict{ok: true}, worst
 }
 
 // componentEligible: the component exposes metrics if the class requires
