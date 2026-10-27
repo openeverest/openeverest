@@ -15,7 +15,7 @@
 import { buildCreateInstanceSpec } from 'hooks/api/db-instances/useCreateDbInstance';
 import { ClusterInstancePreset } from 'shared-types/api.types';
 import { buildPresetCreateArgs } from './preset-selection.utils';
-import { INSTANCE_PRESET_ANNOTATION } from './preset-selection.constants';
+import { CLUSTER_INSTANCE_PRESET_ANNOTATION } from './preset-selection.constants';
 
 const resolvedPreset = {
   spec: {
@@ -48,7 +48,7 @@ describe('buildPresetCreateArgs', () => {
     });
 
     expect(args.annotations).toEqual({
-      [INSTANCE_PRESET_ANNOTATION]: 'psmdb-replicaset',
+      [CLUSTER_INSTANCE_PRESET_ANNOTATION]: 'psmdb-replicaset',
     });
   });
 

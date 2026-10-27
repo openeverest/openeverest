@@ -470,22 +470,12 @@ func TestRBAC_Instance(t *testing.T) {
 		}
 	})
 
-	t.Run("CreateInstance with Preset", func(t *testing.T) {
+	t.Run("CreateInstance with ClusterInstancePreset", func(t *testing.T) {
 		t.Parallel()
 
-		testClusterPreset := &corev1alpha1.ClusterInstancePreset{
-			ObjectMeta: metav1.ObjectMeta{Name: "cluster-mysql"},
-			Spec: corev1alpha1.ClusterInstancePresetSpec{
-				InstanceSpec: corev1alpha1.InstanceSpec{
-					ProviderRef: apicommon.ObjectRef{Name: "mysql"},
-					Version:     "8.0",
-				},
-			},
-		}
-
-		testPreset := &corev1alpha1.InstancePreset{
+		testPreset := &corev1alpha1.ClusterInstancePreset{
 			ObjectMeta: metav1.ObjectMeta{Name: "standard-mysql"},
-			Spec: corev1alpha1.InstancePresetSpec{
+			Spec: corev1alpha1.ClusterInstancePresetSpec{
 				InstanceSpec: corev1alpha1.InstanceSpec{
 					ProviderRef: apicommon.ObjectRef{Name: "mysql"},
 					Version:     "8.0",
@@ -519,7 +509,7 @@ func TestRBAC_Instance(t *testing.T) {
 				),
 			},
 			{
-				desc:    "has create with customization",
+				desc:    "has create",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -539,7 +529,7 @@ func TestRBAC_Instance(t *testing.T) {
 				),
 			},
 			{
-				desc:    "has create without cluster-instance-preset annotation",
+				desc:    "has create without preset annotation",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -558,7 +548,7 @@ func TestRBAC_Instance(t *testing.T) {
 				),
 			},
 			{
-				desc:    "has deploy with cluster-instance-preset",
+				desc:    "has deploy",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -578,7 +568,7 @@ func TestRBAC_Instance(t *testing.T) {
 				),
 			},
 			{
-				desc:    "has deploy without cluster-instance-preset annotation",
+				desc:    "has deploy without preset annotation",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -598,13 +588,13 @@ func TestRBAC_Instance(t *testing.T) {
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
-				desc:    "has deploy with customization on cluster-instance-preset",
+				desc:    "has deploy with customization",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "db1",
 						Namespace:   "ns1",
-						Annotations: map[string]string{"openeverest.io/cluster-instance-preset": "cluster-mysql"},
+						Annotations: map[string]string{"openeverest.io/cluster-instance-preset": "standard-mysql"},
 					},
 					Spec: corev1alpha1.InstanceSpec{
 						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
@@ -619,94 +609,13 @@ func TestRBAC_Instance(t *testing.T) {
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
-				desc:    "has deploy without cluster-instance-preset read permission",
+				desc:    "has deploy without preset read permission",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "db1",
 						Namespace:   "ns1",
-						Annotations: map[string]string{"openeverest.io/cluster-instance-preset": "cluster-mysql"},
-					},
-					Spec: corev1alpha1.InstanceSpec{
-						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
-						Version:     "8.0", // Matches preset exactly
-					},
-				},
-				policy: newPolicy(
-					"p, role:developer, instances, deploy, prod/ns1/*",
-					"g, bob, role:developer",
-				),
-				wantErr: ErrInsufficientPermissions,
-			},
-			{
-				desc:    "has deploy without instance-preset annotation",
-				cluster: "prod",
-				instance: &corev1alpha1.Instance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "db1",
-						Namespace: "ns1",
-					},
-					Spec: corev1alpha1.InstanceSpec{
-						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
-						Version:     "8.0", // Matches preset exactly
-					},
-				},
-				policy: newPolicy(
-					"p, role:developer, instances, deploy, prod/ns1/*",
-					"p, role:developer, instance-presets, read, prod/*/*",
-					"g, bob, role:developer",
-				),
-				wantErr: ErrInsufficientPermissions,
-			},
-			{
-				desc:    "has deploy with instance-preset annotation",
-				cluster: "prod",
-				instance: &corev1alpha1.Instance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:        "db1",
-						Namespace:   "ns1",
-						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
-					},
-					Spec: corev1alpha1.InstanceSpec{
-						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
-						Version:     "8.0", // Matches preset exactly
-					},
-				},
-				policy: newPolicy(
-					"p, role:developer, instances, deploy, prod/ns1/*",
-					"p, role:developer, instance-presets, read, prod/*/*",
-					"g, bob, role:developer",
-				),
-			},
-			{
-				desc:    "has deploy with customization on instance-preset",
-				cluster: "prod",
-				instance: &corev1alpha1.Instance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:        "db1",
-						Namespace:   "ns1",
-						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
-					},
-					Spec: corev1alpha1.InstanceSpec{
-						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
-						Version:     "9.0", // Different from preset!
-					},
-				},
-				policy: newPolicy(
-					"p, role:developer, instances, deploy, prod/ns1/*",
-					"p, role:developer, instance-presets, read, prod/*/*",
-					"g, bob, role:developer",
-				),
-				wantErr: ErrInsufficientPermissions,
-			},
-			{
-				desc:    "has deploy without instance-preset read permission",
-				cluster: "prod",
-				instance: &corev1alpha1.Instance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:        "db1",
-						Namespace:   "ns1",
-						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
+						Annotations: map[string]string{"openeverest.io/cluster-instance-preset": "standard-mysql"},
 					},
 					Spec: corev1alpha1.InstanceSpec{
 						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
@@ -731,11 +640,201 @@ func TestRBAC_Instance(t *testing.T) {
 
 				next := &handlers.MockHandler{}
 				next.On("CreateInstance", mock.Anything, mock.Anything, mock.Anything).Return(tc.instance, nil)
-				next.On("GetInstancePreset", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(testPreset, nil)
+				next.On("GetPreset", mock.Anything, mock.Anything, mock.Anything).Return(testPreset, nil)
 				next.On("ResolveClusterInstancePreset", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-					Return(testClusterPreset, nil)
-				next.On("GetClusterInstancePreset", mock.Anything, mock.Anything, mock.Anything).
-					Return(testClusterPreset, nil)
+					Return(testPreset, nil)
+
+				h := &rbacHandler{
+					next:       next,
+					log:        zap.NewNop().Sugar(),
+					enforcer:   enf,
+					userGetter: testUserGetter,
+				}
+
+				result, err := h.CreateInstance(ctx, tc.cluster, tc.instance)
+				if tc.wantErr != nil {
+					require.ErrorIs(t, err, tc.wantErr)
+
+					return
+				}
+
+				require.NoError(t, err)
+				assert.Equal(t, tc.instance.Name, result.Name)
+			})
+		}
+	})
+
+	t.Run("CreateInstance with InstancePreset", func(t *testing.T) {
+		t.Parallel()
+
+		testPreset := &corev1alpha1.InstancePreset{
+			ObjectMeta: metav1.ObjectMeta{Name: "standard-mysql"},
+			Spec: corev1alpha1.InstancePresetSpec{
+				InstanceSpec: corev1alpha1.InstanceSpec{
+					ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+					Version:     "8.0",
+				},
+			},
+		}
+
+		testCases := []struct {
+			desc     string
+			cluster  string
+			instance *corev1alpha1.Instance
+			policy   string
+			wantErr  error
+		}{
+			{
+				desc:    "admin",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "db1",
+						Namespace:   "ns1",
+						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "9.0", // Different from preset!
+					},
+				},
+				policy: newPolicy(
+					"g, bob, role:admin",
+				),
+			},
+			{
+				desc:    "has create",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "db1",
+						Namespace:   "ns1",
+						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "9.0", // Different from preset!
+					},
+				},
+				policy: newPolicy(
+					"p, role:developer, instances, create, prod/ns1/*",
+					"p, role:developer, instance-presets, read, prod/*/*",
+					"g, bob, role:developer",
+				),
+			},
+			{
+				desc:    "has create without preset annotation",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "db1",
+						Namespace: "ns1",
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "9.0",
+					},
+				},
+				policy: newPolicy(
+					"p, role:developer, instances, create, prod/ns1/*",
+					"p, role:developer, instance-presets, read, prod/*/*",
+					"g, bob, role:developer",
+				),
+			},
+			{
+				desc:    "has deploy",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "db1",
+						Namespace:   "ns1",
+						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "8.0", // Matches preset exactly
+					},
+				},
+				policy: newPolicy(
+					"p, role:developer, instances, deploy, prod/ns1/*",
+					"p, role:developer, instance-presets, read, prod/*/*",
+					"g, bob, role:developer",
+				),
+			},
+			{
+				desc:    "has deploy without preset annotation",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "db1",
+						Namespace: "ns1",
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "8.0", // Matches preset exactly
+					},
+				},
+				policy: newPolicy(
+					"p, role:developer, instances, deploy, prod/ns1/*",
+					"p, role:developer, instance-presets, read, prod/*/*",
+					"g, bob, role:developer",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "has deploy with customization",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "db1",
+						Namespace:   "ns1",
+						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "9.0", // Different from preset!
+					},
+				},
+				policy: newPolicy(
+					"p, role:developer, instances, deploy, prod/ns1/*",
+					"p, role:developer, instance-presets, read, prod/*/*",
+					"g, bob, role:developer",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "has deploy without preset read permission",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "db1",
+						Namespace:   "ns1",
+						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "8.0", // Matches preset exactly
+					},
+				},
+				policy: newPolicy(
+					"p, role:developer, instances, deploy, prod/ns1/*",
+					"g, bob, role:developer",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+		}
+
+		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"}) //nolint:staticcheck // for testing only
+		for _, tc := range testCases {
+			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+				k8sMock := newConfigMapMock(tc.policy)
+				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
+				require.NoError(t, err)
+
+				next := &handlers.MockHandler{}
+				next.On("CreateInstance", mock.Anything, mock.Anything, mock.Anything).Return(tc.instance, nil)
+				next.On("GetInstancePreset", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(testPreset, nil)
 
 				h := &rbacHandler{
 					next:       next,

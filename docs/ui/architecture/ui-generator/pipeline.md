@@ -22,7 +22,7 @@ flowchart TD
 **Files:** `utils/preprocess/`
 **Input:** raw `TopologyUISchemas` + `Provider` object. **Output:** normalized sections.
 
-- **`preprocessSchema(schema, provider)`** — for each component:
+- **`preprocessSchema(schema, provider, formMode?)`** — for each component:
   - **`withNormalizedPathMeta`** → `_normalized.sourcePath` / `targetPaths` (parses `path` — a string
     or an array for multi-path). This is the only place paths are parsed.
   - **`resolveSelectOptions`** — `optionsPath` → static `options[]` (reads the array from the Provider
@@ -42,7 +42,9 @@ flowchart TD
   - The Go validator `provider-runtime/uischema` applies the same toggleable rules to provider schemas;
     `provider-runtime/uischema/testdata/toggleable.yaml` is the case set both are tested against.
 - **`applyModeOverrides(sections, formMode)`** (`apply-mode-overrides.ts`) — applies `modes` overrides
-  for the current `FormMode`.
+  for the current `FormMode`. `preprocessSchema` runs it last when given a `formMode`: the create
+  wizard (`useSchema`) passes its mode, so defaults, validation, render and postprocess all see the
+  same fields. The section edit modal calls it directly.
 
 **Principle:** after this stage the tree is ready — nothing parses paths again.
 
@@ -51,7 +53,8 @@ flowchart TD
 **Files:** `utils/schema-builder/`
 **Input:** normalized sections. **Output:** `z.ZodTypeAny` for `zodResolver` (react-hook-form).
 
-- **`buildZodSchema(schema, topology, options?)`** — full wizard.
+- **`buildZodSchema(schema, topology, options?)`** — full wizard. `useUiGenerator` passes the
+  wizard's `formMode`, which selects the `validation.modes` branch.
 - **`buildSectionZodSchema(sectionKey, sections, options?)`** — section edit modal: rules are built
   only for the target section, the root uses `.passthrough()`, but **CEL is collected from all
   sections** (cross-field rules).
@@ -85,8 +88,10 @@ flowchart TD
   topology's values with `dropOtherTopologyValues` (`utils/topology-scope/`), then merges the new
   topology's defaults over the rest (`mergeTopologyDefaults`). Switching back therefore starts from
   defaults, not stale values.
-- **`extractInstanceValues`** — in edit/restore, reads values **only from the instance** (by
-  `sourcePath`), **without** schema defaults (so edit doesn't inject defaults).
+- **`extractInstanceValues`** — reads values from the instance (by `sourcePath`). In edit it uses
+  **only** the instance, so edit doesn't inject defaults; in restore and for a preset it falls back
+  to schema defaults. A field hidden in the mode has no `sourcePath`, so restore doesn't copy its
+  value from the source.
 - **Toggleable switches** — `false` on create; when values come from an instance or preset, on
   if any of the group's `childPaths` has a value.
 
@@ -265,4 +270,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-15
+- Last updated: 2026-10-23

@@ -19,6 +19,7 @@ import { useLocation } from 'react-router-dom';
 import { useDbInstance } from 'hooks/api/db-instances/useDbInstance';
 import { useProviders } from 'hooks/api/providers/useProviders';
 import { Provider } from 'shared-types/api.types';
+import { useDatabasePageMode } from './use-database-page-mode';
 import { useRestoreNavigationState } from './use-restore-navigation-state';
 
 export const useSchema = (): {
@@ -29,6 +30,7 @@ export const useSchema = (): {
 } => {
   const { state } = useLocation();
   const selectedDbProvider = state?.selectedDbProvider as Provider | undefined;
+  const mode = useDatabasePageMode();
 
   // Restore mode: resolve provider from the source instance
   const { sourceInstanceName, sourceNamespace, isRestore } =
@@ -56,13 +58,15 @@ export const useSchema = (): {
     );
   }, [selectedDbProvider, sourceInstance?.spec?.providerRef?.name, providers]);
 
+  // Every wizard stage reads the schema resolved for the page's mode.
   const uiSchema = useMemo(
     () =>
       preprocessSchema(
         resolvedProvider?.spec?.uiSchema || {},
-        resolvedProvider
+        resolvedProvider,
+        mode
       ),
-    [resolvedProvider]
+    [resolvedProvider, mode]
   );
 
   const topologies = useMemo(
