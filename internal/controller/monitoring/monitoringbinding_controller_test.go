@@ -232,10 +232,6 @@ func TestBindingReconcilerRejectsEntry(t *testing.T) {
 func TestBindingReconcilerSelectsMode(t *testing.T) {
 	t.Parallel()
 
-	pinned := func(e corev1alpha1.InstanceMonitoringDestination, mode corev1alpha1.MonitoringExecutionMode) corev1alpha1.InstanceMonitoringDestination {
-		e.ExecutionMode = mode
-		return e
-	}
 	oldAgent := pmmClass()
 	oldAgent.Spec.ProviderManaged.AgentVersion = "2.44.0"
 
@@ -258,29 +254,12 @@ func TestBindingReconcilerSelectsMode(t *testing.T) {
 			wantMode:    corev1alpha1.MonitoringExecutionModeProviderManaged,
 		},
 		{
-			name:        "an ExtensionManaged pin wins over ProviderManaged",
-			provider:    pxcProvider(),
-			class:       hybridPMMClass(),
-			destination: pmmDestination("pmm-prod"),
-			entry:       pinned(entry("pmm", "pmm-prod"), corev1alpha1.MonitoringExecutionModeExtensionManaged),
-			wantMode:    corev1alpha1.MonitoringExecutionModeExtensionManaged,
-		},
-		{
 			name:        "ExtensionManaged when the provider lacks the integration",
 			provider:    kserveProvider(),
 			class:       hybridPMMClass(),
 			destination: pmmDestination("pmm-prod"),
 			entry:       entry("pmm", "pmm-prod"),
 			wantMode:    corev1alpha1.MonitoringExecutionModeExtensionManaged,
-		},
-		{
-			name:        "a ProviderManaged pin on a class without the block",
-			provider:    pxcProvider(),
-			class:       prometheusClass(),
-			destination: newDestination("prom", "prometheus"),
-			entry:       pinned(entry("metrics", "prom"), corev1alpha1.MonitoringExecutionModeProviderManaged),
-			wantReason:  monitoringv1alpha1.ReasonIncompatible,
-			wantMessage: `MonitoringClass "prometheus" declares no providerManaged block`,
 		},
 		{
 			name:        "agent version outside the provider's range",
@@ -334,6 +313,26 @@ func TestBindingReconcilerNeverChangesModeOnItsOwn(t *testing.T) {
 		assert.Equal(t, metav1.ConditionTrue, findAccepted(t, b.Status.Conditions).Status)
 	})
 
+	t.Run("the recorded mode becoming infeasible", func(t *testing.T) {
+		t.Parallel()
+		provider := pxcProvider()
+		c := newFakeClient(t, provider, hybridPMMClass(), pmmDestination("pmm-prod"), newInstance(provider, entry("pmm", "pmm-prod")))
+		reconcileInstance(t, c)
+		require.Equal(t, corev1alpha1.MonitoringExecutionModeProviderManaged, getBinding(t, c, "pmm").Spec.ExecutionMode)
+
+		require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(provider), provider))
+		provider.Spec.Monitoring.Integrations = nil
+		require.NoError(t, c.Update(t.Context(), provider))
+		reconcileInstance(t, c)
+
+		b := getBinding(t, c, "pmm")
+		assert.Equal(t, corev1alpha1.MonitoringExecutionModeProviderManaged, b.Spec.ExecutionMode)
+		accepted := findAccepted(t, b.Status.Conditions)
+		assert.Equal(t, metav1.ConditionFalse, accepted.Status)
+		assert.Equal(t, monitoringv1alpha1.ReasonIntegrationUnsupported, accepted.Reason)
+		assert.Equal(t, `Provider "percona-xtradb-cluster" does not declare integration "pmm"`, accepted.Message)
+	})
+
 	t.Run("destination recreated with another class", func(t *testing.T) {
 		t.Parallel()
 		c := newFakeClient(t, pxcProvider(), prometheusClass(), victoriaMetricsClass(),
@@ -376,24 +375,6 @@ func TestBindingReconcilerRecreatesBindingForChangedEntry(t *testing.T) {
 		assert.Equal(t, common.MonitoringDestinationRef{Kind: "MonitoringDestination", Name: "vm"}, b.Spec.DestinationRef)
 		assert.Equal(t, &common.ObjectRef{Name: "victoriametrics"}, b.Spec.ClassRef)
 		assert.Equal(t, rtmonitoring.BindingLabels(testInstance, "metrics", "vm", "victoriametrics"), b.Labels)
-		assert.Equal(t, metav1.ConditionTrue, findAccepted(t, b.Status.Conditions).Status)
-	})
-
-	t.Run("entry pinned to another mode", func(t *testing.T) {
-		t.Parallel()
-		c := newFakeClient(t, pxcProvider(), hybridPMMClass(), pmmDestination("pmm-prod"),
-			newInstance(pxcProvider(), entry("pmm", "pmm-prod")),
-		)
-		reconcileInstance(t, c)
-		require.Equal(t, corev1alpha1.MonitoringExecutionModeProviderManaged, getBinding(t, c, "pmm").Spec.ExecutionMode)
-
-		updateInstance(t, c, func(in *corev1alpha1.Instance) {
-			in.Spec.Monitoring.Destinations[0].ExecutionMode = corev1alpha1.MonitoringExecutionModeExtensionManaged
-		})
-		reconcileInstance(t, c)
-
-		b := getBinding(t, c, "pmm")
-		assert.Equal(t, corev1alpha1.MonitoringExecutionModeExtensionManaged, b.Spec.ExecutionMode)
 		assert.Equal(t, metav1.ConditionTrue, findAccepted(t, b.Status.Conditions).Status)
 	})
 }

@@ -231,13 +231,10 @@ func (r *BindingReconciler) reconcileEntry(
 }
 
 // matchesEntry reports whether b still serves entry. A binding's
-// destinationRef and executionMode are immutable, so an entry that points
-// elsewhere or pins another mode gets a new binding.
+// destinationRef is immutable, so an entry that points elsewhere gets a new
+// binding.
 func matchesEntry(b *monitoringv1alpha1.MonitoringBinding, entry corev1alpha1.InstanceMonitoringDestination) bool {
-	if b.Spec.DestinationRef != destinationRefOf(entry) {
-		return false
-	}
-	return entry.ExecutionMode == "" || b.Spec.ExecutionMode == "" || entry.ExecutionMode == b.Spec.ExecutionMode
+	return b.Spec.DestinationRef == destinationRefOf(entry)
 }
 
 func destinationRefOf(entry corev1alpha1.InstanceMonitoringDestination) common.MonitoringDestinationRef {
@@ -302,7 +299,7 @@ func (r *BindingReconciler) resolve(
 			}
 		}
 	}
-	mode, reason, msg := resolveMode(f, entry, existing)
+	mode, reason, msg := resolveMode(f, existing)
 	if reason != "" {
 		return rejection(existing, classRef, reason, msg), nil
 	}
@@ -382,19 +379,17 @@ func rejection(existing *monitoringv1alpha1.MonitoringBinding, classRef *common.
 	return res
 }
 
-// resolveMode picks the execution mode: the mode recorded on the binding or
-// pinned on the entry wins and is re-checked for feasibility; otherwise
-// ProviderManaged is preferred over ExtensionManaged.
+// resolveMode picks the execution mode: the mode recorded on the existing
+// binding wins and is re-checked for feasibility; otherwise ProviderManaged
+// is preferred over ExtensionManaged.
 func resolveMode(
 	f fulfilment,
-	entry corev1alpha1.InstanceMonitoringDestination,
 	existing *monitoringv1alpha1.MonitoringBinding,
 ) (corev1alpha1.MonitoringExecutionMode, string, string) {
-	want := entry.ExecutionMode
-	if existing != nil && existing.Spec.ExecutionMode != "" {
-		want = existing.Spec.ExecutionMode
+	if existing == nil {
+		return f.preferred()
 	}
-	switch want {
+	switch want := existing.Spec.ExecutionMode; want {
 	case corev1alpha1.MonitoringExecutionModeProviderManaged:
 		if !f.providerManaged.ok {
 			return "", f.providerManaged.reason, f.providerManaged.message
