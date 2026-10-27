@@ -1777,15 +1777,6 @@ spec:
                           - name
                           type: object
                           x-kubernetes-map-type: atomic
-                        executionMode:
-                          description: |-
-                            ExecutionMode pins who renders the binding. When unset the mode is
-                            resolved once when the binding is created and never changes on its own;
-                            changing the pin recreates the binding.
-                          enum:
-                          - ProviderManaged
-                          - ExtensionManaged
-                          type: string
                         name:
                           description: |-
                             Name identifies the entry within the Instance; it is the key of

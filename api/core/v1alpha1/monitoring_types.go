@@ -78,11 +78,6 @@ type InstanceMonitoringDestination struct {
 	// namespace.
 	// +kubebuilder:validation:Required
 	DestinationRef common.MonitoringDestinationRef `json:"destinationRef"`
-	// ExecutionMode pins who renders the binding. When unset the mode is
-	// resolved once when the binding is created and never changes on its own;
-	// changing the pin recreates the binding.
-	// +optional
-	ExecutionMode MonitoringExecutionMode `json:"executionMode,omitempty"`
 	// Parameters are validated against the class's instanceParametersSchema.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields

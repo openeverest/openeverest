@@ -324,24 +324,6 @@ func (e ClusterInstancePresetSpecMonitoringDestinationsDestinationRefKind) Valid
 	}
 }
 
-// Defines values for ClusterInstancePresetSpecMonitoringDestinationsExecutionMode.
-const (
-	ClusterInstancePresetSpecMonitoringDestinationsExecutionModeExtensionManaged ClusterInstancePresetSpecMonitoringDestinationsExecutionMode = "ExtensionManaged"
-	ClusterInstancePresetSpecMonitoringDestinationsExecutionModeProviderManaged  ClusterInstancePresetSpecMonitoringDestinationsExecutionMode = "ProviderManaged"
-)
-
-// Valid indicates whether the value is a known member of the ClusterInstancePresetSpecMonitoringDestinationsExecutionMode enum.
-func (e ClusterInstancePresetSpecMonitoringDestinationsExecutionMode) Valid() bool {
-	switch e {
-	case ClusterInstancePresetSpecMonitoringDestinationsExecutionModeExtensionManaged:
-		return true
-	case ClusterInstancePresetSpecMonitoringDestinationsExecutionModeProviderManaged:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ClusterInstancePresetStatusConditionsStatus.
 const (
 	ClusterInstancePresetStatusConditionsStatusFalse   ClusterInstancePresetStatusConditionsStatus = "False"
@@ -531,24 +513,6 @@ const (
 func (e InstanceSpecMonitoringDestinationsDestinationRefKind) Valid() bool {
 	switch e {
 	case InstanceSpecMonitoringDestinationsDestinationRefKindMonitoringDestination:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for InstanceSpecMonitoringDestinationsExecutionMode.
-const (
-	InstanceSpecMonitoringDestinationsExecutionModeExtensionManaged InstanceSpecMonitoringDestinationsExecutionMode = "ExtensionManaged"
-	InstanceSpecMonitoringDestinationsExecutionModeProviderManaged  InstanceSpecMonitoringDestinationsExecutionMode = "ProviderManaged"
-)
-
-// Valid indicates whether the value is a known member of the InstanceSpecMonitoringDestinationsExecutionMode enum.
-func (e InstanceSpecMonitoringDestinationsExecutionMode) Valid() bool {
-	switch e {
-	case InstanceSpecMonitoringDestinationsExecutionModeExtensionManaged:
-		return true
-	case InstanceSpecMonitoringDestinationsExecutionModeProviderManaged:
 		return true
 	default:
 		return false
@@ -798,24 +762,6 @@ const (
 func (e InstancePresetSpecMonitoringDestinationsDestinationRefKind) Valid() bool {
 	switch e {
 	case InstancePresetSpecMonitoringDestinationsDestinationRefKindMonitoringDestination:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for InstancePresetSpecMonitoringDestinationsExecutionMode.
-const (
-	InstancePresetSpecMonitoringDestinationsExecutionModeExtensionManaged InstancePresetSpecMonitoringDestinationsExecutionMode = "ExtensionManaged"
-	InstancePresetSpecMonitoringDestinationsExecutionModeProviderManaged  InstancePresetSpecMonitoringDestinationsExecutionMode = "ProviderManaged"
-)
-
-// Valid indicates whether the value is a known member of the InstancePresetSpecMonitoringDestinationsExecutionMode enum.
-func (e InstancePresetSpecMonitoringDestinationsExecutionMode) Valid() bool {
-	switch e {
-	case InstancePresetSpecMonitoringDestinationsExecutionModeExtensionManaged:
-		return true
-	case InstancePresetSpecMonitoringDestinationsExecutionModeProviderManaged:
 		return true
 	default:
 		return false
@@ -2941,11 +2887,6 @@ type ClusterInstancePreset struct {
 					Name string `json:"name"`
 				} `json:"destinationRef"`
 
-				// ExecutionMode ExecutionMode pins who renders the binding. When unset the mode is
-				// resolved once when the binding is created and never changes on its own;
-				// changing the pin recreates the binding.
-				ExecutionMode *ClusterInstancePresetSpecMonitoringDestinationsExecutionMode `json:"executionMode,omitempty"`
-
 				// Name Name identifies the entry within the Instance; it is the key of
 				// status.monitoring.destinations[] and part of the MonitoringBinding name.
 				Name string `json:"name"`
@@ -3108,11 +3049,6 @@ type ClusterInstancePresetSpecMaintenanceAutoApproveUpTo string
 
 // ClusterInstancePresetSpecMonitoringDestinationsDestinationRefKind Kind of the referenced object.
 type ClusterInstancePresetSpecMonitoringDestinationsDestinationRefKind string
-
-// ClusterInstancePresetSpecMonitoringDestinationsExecutionMode ExecutionMode pins who renders the binding. When unset the mode is
-// resolved once when the binding is created and never changes on its own;
-// changing the pin recreates the binding.
-type ClusterInstancePresetSpecMonitoringDestinationsExecutionMode string
 
 // ClusterInstancePresetStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type ClusterInstancePresetStatusConditionsStatus string
@@ -4278,11 +4214,6 @@ type Instance struct {
 					Name string `json:"name"`
 				} `json:"destinationRef"`
 
-				// ExecutionMode ExecutionMode pins who renders the binding. When unset the mode is
-				// resolved once when the binding is created and never changes on its own;
-				// changing the pin recreates the binding.
-				ExecutionMode *InstanceSpecMonitoringDestinationsExecutionMode `json:"executionMode,omitempty"`
-
 				// Name Name identifies the entry within the Instance; it is the key of
 				// status.monitoring.destinations[] and part of the MonitoringBinding name.
 				Name string `json:"name"`
@@ -4661,11 +4592,6 @@ type InstanceSpecMaintenanceAutoApproveUpTo string
 
 // InstanceSpecMonitoringDestinationsDestinationRefKind Kind of the referenced object.
 type InstanceSpecMonitoringDestinationsDestinationRefKind string
-
-// InstanceSpecMonitoringDestinationsExecutionMode ExecutionMode pins who renders the binding. When unset the mode is
-// resolved once when the binding is created and never changes on its own;
-// changing the pin recreates the binding.
-type InstanceSpecMonitoringDestinationsExecutionMode string
 
 // InstanceStatusBackupStoragesPitrState State summarises whether a trustworthy window exists.
 type InstanceStatusBackupStoragesPitrState string
@@ -5751,11 +5677,6 @@ type InstancePreset struct {
 					Name string `json:"name"`
 				} `json:"destinationRef"`
 
-				// ExecutionMode ExecutionMode pins who renders the binding. When unset the mode is
-				// resolved once when the binding is created and never changes on its own;
-				// changing the pin recreates the binding.
-				ExecutionMode *InstancePresetSpecMonitoringDestinationsExecutionMode `json:"executionMode,omitempty"`
-
 				// Name Name identifies the entry within the Instance; it is the key of
 				// status.monitoring.destinations[] and part of the MonitoringBinding name.
 				Name string `json:"name"`
@@ -5918,11 +5839,6 @@ type InstancePresetSpecMaintenanceAutoApproveUpTo string
 
 // InstancePresetSpecMonitoringDestinationsDestinationRefKind Kind of the referenced object.
 type InstancePresetSpecMonitoringDestinationsDestinationRefKind string
-
-// InstancePresetSpecMonitoringDestinationsExecutionMode ExecutionMode pins who renders the binding. When unset the mode is
-// resolved once when the binding is created and never changes on its own;
-// changing the pin recreates the binding.
-type InstancePresetSpecMonitoringDestinationsExecutionMode string
 
 // InstancePresetStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstancePresetStatusConditionsStatus string

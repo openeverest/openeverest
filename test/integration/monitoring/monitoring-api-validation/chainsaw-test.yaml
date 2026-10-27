@@ -269,7 +269,7 @@ spec:
               - {name: d5, destinationRef: {name: dest-5}}
               - {name: d6, destinationRef: {name: dest-6}}
               - {name: d7, destinationRef: {name: dest-7}}
-              - {name: d8, destinationRef: {name: dest-8}, executionMode: ExtensionManaged}
+              - {name: d8, destinationRef: {name: dest-8}}
           EOF
         check:
           ($error): ~

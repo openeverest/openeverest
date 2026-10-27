@@ -2774,13 +2774,6 @@ export interface components {
                             name: string;
                         };
                         /**
-                         * @description ExecutionMode pins who renders the binding. When unset the mode is
-                         *     resolved once when the binding is created and never changes on its own;
-                         *     changing the pin recreates the binding.
-                         * @enum {string}
-                         */
-                        executionMode?: "ProviderManaged" | "ExtensionManaged";
-                        /**
                          * @description Name identifies the entry within the Instance; it is the key of
                          *     status.monitoring.destinations[] and part of the MonitoringBinding name.
                          */
@@ -4105,13 +4098,6 @@ export interface components {
                              */
                             name: string;
                         };
-                        /**
-                         * @description ExecutionMode pins who renders the binding. When unset the mode is
-                         *     resolved once when the binding is created and never changes on its own;
-                         *     changing the pin recreates the binding.
-                         * @enum {string}
-                         */
-                        executionMode?: "ProviderManaged" | "ExtensionManaged";
                         /**
                          * @description Name identifies the entry within the Instance; it is the key of
                          *     status.monitoring.destinations[] and part of the MonitoringBinding name.
@@ -5706,13 +5692,6 @@ export interface components {
                              */
                             name: string;
                         };
-                        /**
-                         * @description ExecutionMode pins who renders the binding. When unset the mode is
-                         *     resolved once when the binding is created and never changes on its own;
-                         *     changing the pin recreates the binding.
-                         * @enum {string}
-                         */
-                        executionMode?: "ProviderManaged" | "ExtensionManaged";
                         /**
                          * @description Name identifies the entry within the Instance; it is the key of
                          *     status.monitoring.destinations[] and part of the MonitoringBinding name.
