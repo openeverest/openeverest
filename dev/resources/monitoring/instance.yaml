@@ -1,0 +1,35 @@
+# A PXC Instance sending to PMM (ProviderManaged, rendered by the provider)
+# and to Prometheus (ExtensionManaged, wired by the class controller). Core
+# creates one MonitoringBinding per entry:
+#   kubectl -n my-special-place get monitoringbindings -o wide
+apiVersion: core.openeverest.io/v1alpha1
+kind: Instance
+metadata:
+  name: pxc-monitored
+  namespace: my-special-place
+spec:
+  providerRef:
+    name: percona-xtradb-cluster
+  components:
+    engine:
+      type: pxc
+      replicas: 1
+      resources:
+        requests: {cpu: 250m, memory: 1Gi}
+        limits: {memory: 2Gi}
+      storage:
+        size: 3Gi
+    proxy:
+      type: haproxy
+      replicas: 1
+  monitoring:
+    destinations:
+      - name: pmm
+        destinationRef: {name: pmm-dev}
+        # Validated against the class's instanceParametersSchema.
+        parameters:
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {memory: 512Mi}
+      - name: prometheus
+        destinationRef: {name: prometheus-dev}
