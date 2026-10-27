@@ -16,15 +16,32 @@ package k8s
 
 import (
 	"context"
+	"slices"
 
 	"k8s.io/apimachinery/pkg/types"
 
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 )
 
-// ListMonitoringClasses returns list of monitoring classes.
-func (h *k8sHandler) ListMonitoringClasses(ctx context.Context, _ string) (*monitoringv1alpha1.MonitoringClassList, error) {
-	return h.kubeConnector.ListMonitoringClasses(ctx)
+// ListMonitoringClasses returns the monitoring classes, only those compatible with provider when it is set.
+func (h *k8sHandler) ListMonitoringClasses(ctx context.Context, _, provider string) (*monitoringv1alpha1.MonitoringClassList, error) {
+	list, err := h.kubeConnector.ListMonitoringClasses(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if provider == "" {
+		return list, nil
+	}
+	filtered := make([]monitoringv1alpha1.MonitoringClass, 0, len(list.Items))
+	for _, class := range list.Items {
+		if slices.ContainsFunc(class.Status.Providers, func(p monitoringv1alpha1.ProviderCompatibility) bool {
+			return p.Name == provider && p.Mode != ""
+		}) {
+			filtered = append(filtered, class)
+		}
+	}
+	list.Items = filtered
+	return list, nil
 }
 
 // GetMonitoringClass returns monitoring class that matches the criteria.

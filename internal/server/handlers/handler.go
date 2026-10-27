@@ -170,7 +170,7 @@ type MonitoringConfigHandler interface {
 
 // MonitoringClassHandler provides methods for handling operations on monitoring classes.
 type MonitoringClassHandler interface {
-	ListMonitoringClasses(ctx context.Context, cluster string) (*monitoringv1alpha1.MonitoringClassList, error)
+	ListMonitoringClasses(ctx context.Context, cluster, provider string) (*monitoringv1alpha1.MonitoringClassList, error)
 	GetMonitoringClass(ctx context.Context, cluster, name string) (*monitoringv1alpha1.MonitoringClass, error)
 }
 

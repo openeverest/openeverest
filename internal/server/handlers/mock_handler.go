@@ -1523,9 +1523,9 @@ func (_m *MockHandler) ListMonitoringBindings(ctx context.Context, cluster strin
 	return r0, r1
 }
 
-// ListMonitoringClasses provides a mock function with given fields: ctx, cluster
-func (_m *MockHandler) ListMonitoringClasses(ctx context.Context, cluster string) (*monitoringv1alpha1.MonitoringClassList, error) {
-	ret := _m.Called(ctx, cluster)
+// ListMonitoringClasses provides a mock function with given fields: ctx, cluster, provider
+func (_m *MockHandler) ListMonitoringClasses(ctx context.Context, cluster string, provider string) (*monitoringv1alpha1.MonitoringClassList, error) {
+	ret := _m.Called(ctx, cluster, provider)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListMonitoringClasses")
@@ -1533,19 +1533,19 @@ func (_m *MockHandler) ListMonitoringClasses(ctx context.Context, cluster string
 
 	var r0 *monitoringv1alpha1.MonitoringClassList
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (*monitoringv1alpha1.MonitoringClassList, error)); ok {
-		return rf(ctx, cluster)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*monitoringv1alpha1.MonitoringClassList, error)); ok {
+		return rf(ctx, cluster, provider)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) *monitoringv1alpha1.MonitoringClassList); ok {
-		r0 = rf(ctx, cluster)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *monitoringv1alpha1.MonitoringClassList); ok {
+		r0 = rf(ctx, cluster, provider)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringClassList)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, cluster)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, cluster, provider)
 	} else {
 		r1 = ret.Error(1)
 	}

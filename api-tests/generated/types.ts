@@ -906,6 +906,7 @@ export interface paths {
          * List monitoring classes
          * @description This API lists all monitoring classes in the specified cluster.
          *     Monitoring classes are installed with their extension and are read-only over this API.
+         *     Optionally filter by provider: only the classes whose `status.providers` entry for that provider carries a `mode` are returned, so the result is what an Instance of that provider can use.
          */
         get: operations["listMonitoringClasses"];
         put?: never;
@@ -10754,7 +10755,10 @@ export interface operations {
     };
     listMonitoringClasses: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return only the monitoring classes compatible with the provider with this name, as published in `status.providers` */
+                provider?: string;
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */

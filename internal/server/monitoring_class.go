@@ -17,12 +17,15 @@ package server
 import (
 	"net/http"
 
+	"github.com/AlekSi/pointer"
 	"github.com/labstack/echo/v4"
+
+	"github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
-// ListMonitoringClasses lists all monitoring classes in the cluster.
-func (e *EverestServer) ListMonitoringClasses(c echo.Context, cluster string) error {
-	result, err := e.handler.ListMonitoringClasses(c.Request().Context(), cluster)
+// ListMonitoringClasses lists the monitoring classes in the cluster, optionally those compatible with a provider.
+func (e *EverestServer) ListMonitoringClasses(c echo.Context, cluster string, params api.ListMonitoringClassesParams) error {
+	result, err := e.handler.ListMonitoringClasses(c.Request().Context(), cluster, pointer.GetString(params.Provider))
 	if err != nil {
 		e.l.Errorf("ListMonitoringClasses failed: %v", err)
 		return err

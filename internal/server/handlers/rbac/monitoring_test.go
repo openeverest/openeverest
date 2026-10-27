@@ -490,7 +490,7 @@ func TestRBAC_MonitoringClasses(t *testing.T) {
 			t.Parallel()
 
 			next := &handlers.MockHandler{}
-			next.On("ListMonitoringClasses", mock.Anything, mock.Anything).Return(
+			next.On("ListMonitoringClasses", mock.Anything, mock.Anything, mock.Anything).Return(
 				&monitoringv1alpha1.MonitoringClassList{Items: []monitoringv1alpha1.MonitoringClass{
 					{ObjectMeta: metav1.ObjectMeta{Name: "pmm"}},
 					{ObjectMeta: metav1.ObjectMeta{Name: "prometheus"}},
@@ -505,7 +505,7 @@ func TestRBAC_MonitoringClasses(t *testing.T) {
 			require.NoError(t, err)
 			h := &rbacHandler{next: next, log: zap.NewNop().Sugar(), enforcer: enf, userGetter: testUserGetter}
 
-			list, err := h.ListMonitoringClasses(ctx, "prod")
+			list, err := h.ListMonitoringClasses(ctx, "prod", "")
 			require.NoError(t, err)
 			names := make([]string, 0, len(list.Items))
 			for _, c := range list.Items {

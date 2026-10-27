@@ -21,8 +21,8 @@ import (
 )
 
 // ListMonitoringClasses proxies the request to the next handler.
-func (h *validateHandler) ListMonitoringClasses(ctx context.Context, cluster string) (*monitoringv1alpha1.MonitoringClassList, error) {
-	return h.next.ListMonitoringClasses(ctx, cluster)
+func (h *validateHandler) ListMonitoringClasses(ctx context.Context, cluster, provider string) (*monitoringv1alpha1.MonitoringClassList, error) {
+	return h.next.ListMonitoringClasses(ctx, cluster, provider)
 }
 
 // GetMonitoringClass proxies the request to the next handler.

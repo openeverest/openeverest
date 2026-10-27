@@ -13,8 +13,6 @@
 // limitations under the License.
 
 // Package rbac provides the RBAC handler.
-//
-//nolint:dupl // per-resource RBAC filters are intentionally similar
 package rbac
 
 import (
@@ -27,8 +25,8 @@ import (
 )
 
 // ListMonitoringClasses returns monitoring classes filtered by RBAC permissions.
-func (h *rbacHandler) ListMonitoringClasses(ctx context.Context, cluster string) (*monitoringv1alpha1.MonitoringClassList, error) {
-	list, err := h.next.ListMonitoringClasses(ctx, cluster)
+func (h *rbacHandler) ListMonitoringClasses(ctx context.Context, cluster, provider string) (*monitoringv1alpha1.MonitoringClassList, error) {
+	list, err := h.next.ListMonitoringClasses(ctx, cluster, provider)
 	if err != nil {
 		return nil, fmt.Errorf("ListMonitoringClasses failed: %w", err)
 	}
