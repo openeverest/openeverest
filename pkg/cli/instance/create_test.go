@@ -745,7 +745,7 @@ func TestRun_UnknownContext(t *testing.T) {
 // ---- preset Run tests -------------------------------------------------------
 
 // newRunServerWithPresets serves both preset kinds: clusterPresetHandler for
-// ClusterInstancePreset resolve and presetHandler for InstancePreset get.
+// ClusterInstancePreset get and presetHandler for InstancePreset get.
 func newRunServerWithPresets(t *testing.T, providerHandler, createHandler, clusterPresetHandler, presetHandler http.HandlerFunc) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
@@ -1032,7 +1032,7 @@ func TestRun_WithClusterInstancePreset_Errors(t *testing.T) {
 	}
 }
 
-func TestRun_WithClusterInstancePreset_ResolvePassesNamespace(t *testing.T) {
+func TestRun_WithClusterInstancePreset(t *testing.T) {
 	t.Parallel()
 
 	var capturedURL string
@@ -1060,7 +1060,7 @@ func TestRun_WithClusterInstancePreset_ResolvePassesNamespace(t *testing.T) {
 		ClusterPreset: "my-preset",
 	}, cfgPath))
 
-	assert.Contains(t, capturedURL, "/v1/clusters/main/cluster-instance-presets/my-preset/resolve?namespace=prod")
+	assert.Contains(t, capturedURL, "/v1/clusters/main/cluster-instance-presets/my-preset")
 }
 
 func TestRun_WithInstancePreset(t *testing.T) {
