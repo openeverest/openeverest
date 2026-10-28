@@ -15,7 +15,8 @@
 import { useRBACPermissions } from 'hooks/rbac';
 
 // Mirrors the server's CreateRestore check: restores are keyed by the target
-// instance, and an in-place restore reads that instance's own backups.
+// instance, and an in-place restore reads that instance's own backups. It keeps
+// the instance's own credentials, unlike a clone (useCanCreateClusterFromBackup).
 export const useCanRestore = (namespace: string, instanceName: string) => {
   const { canCreate } = useRBACPermissions(
     'restores',
