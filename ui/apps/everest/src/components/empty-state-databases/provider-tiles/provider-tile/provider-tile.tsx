@@ -12,34 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useState } from 'react';
-import {
-  Avatar,
-  Box,
-  Card,
-  CardActionArea,
-  CardContent,
-  Chip,
-  Typography,
-} from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { Link } from 'react-router-dom';
-import type { ProviderTileProps } from './provider-tile.types';
 import { usePrefetchClusterInstancePresets } from 'hooks/api/cluster-instance-presets';
-import {
-  bodyAnchorSx,
-  cardActionAreaSx,
-  cardContentSx,
-  cardFooterEndSx,
-  cardHeaderSx,
-  cardSx,
-  categoriesRowSx,
-  descriptionFullSx,
-  descriptionSx,
-  expandedSx,
-  headerAvatarSx,
-  headerChipSx,
-} from '../provider-tiles.constants';
+import type { ProviderTileProps } from './provider-tile.types';
+import { ProviderTileCard } from '../provider-tile-card';
 
 export const ProviderTile = ({
   provider,
@@ -48,99 +24,19 @@ export const ProviderTile = ({
   meta,
   showImport,
 }: ProviderTileProps) => {
-  const [active, setActive] = useState(false);
   const prefetchPresets = usePrefetchClusterInstancePresets();
 
-  // Render meta-derived fields only when the hub provides them — never fabricate.
-  // The provider version is intentionally not shown here: it's not meaningful
-  // to users and only adds confusion (see issue #3051).
-  const { description, maturity } = meta ?? {};
-  const categories = meta?.categories?.slice(0, 2) ?? [];
-
-  const renderTail = (expanded: boolean) => (
-    <>
-      <CardContent sx={cardContentSx}>
-        <Typography variant="sectionHeading" noWrap>
-          {label}
-        </Typography>
-        {description && (
-          <Typography
-            variant="body2"
-            sx={expanded ? descriptionFullSx : descriptionSx}
-          >
-            {description}
-          </Typography>
-        )}
-        {categories.length > 0 && (
-          <Box sx={categoriesRowSx}>
-            {categories.map((category) => (
-              <Chip key={category} label={category} size="xs" />
-            ))}
-          </Box>
-        )}
-      </CardContent>
-      <Box sx={cardFooterEndSx}>
-        <ArrowForwardIcon fontSize="small" aria-hidden="true" />
-      </Box>
-    </>
-  );
-
   return (
-    <Card
-      elevation={0}
-      sx={cardSx}
-      onMouseEnter={() => {
-        setActive(true);
-        prefetchPresets(provider);
+    <ProviderTileCard
+      testId={`provider-tile-${name}`}
+      label={label}
+      meta={meta}
+      link={{
+        to: '/databases/new',
+        state: { selectedDbProvider: provider, showImport },
       }}
-      onMouseLeave={() => setActive(false)}
-      onFocus={() => {
-        setActive(true);
-        prefetchPresets(provider);
-      }}
-      onBlur={() => setActive(false)}
-    >
-      <CardActionArea
-        data-testid={`provider-tile-${name}`}
-        component={Link}
-        to="/databases/new"
-        state={{
-          selectedDbProvider: provider,
-          showImport,
-        }}
-        sx={cardActionAreaSx}
-      >
-        <Box sx={cardHeaderSx}>
-          <Avatar
-            src={meta?.icon}
-            variant="rounded"
-            sx={{
-              ...headerAvatarSx,
-              bgcolor: meta?.icon ? 'transparent' : 'action.selected',
-            }}
-          >
-            {label.charAt(0)}
-          </Avatar>
-          {maturity && (
-            <Chip
-              label={maturity}
-              size="xs"
-              variant="outlined"
-              sx={headerChipSx}
-            />
-          )}
-        </Box>
-        <Box sx={bodyAnchorSx}>
-          {renderTail(false)}
-          {/* Extension overlay, revealed on hover/focus. aria-hidden: the real
-              tail already conveys the content. */}
-          {active && (
-            <Box sx={expandedSx} aria-hidden="true">
-              {renderTail(true)}
-            </Box>
-          )}
-        </Box>
-      </CardActionArea>
-    </Card>
+      footer={<ArrowForwardIcon fontSize="small" aria-hidden="true" />}
+      onActivate={() => prefetchPresets(provider)}
+    />
   );
 };

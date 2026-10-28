@@ -16,7 +16,12 @@ export const Messages = {
   createFirstResource: 'Create your first resource',
   pickProvider: 'Pick a provider to get started.',
   noPermissions: 'You lack permission to create a resource.',
-  noProvidersTitle: 'No providers installed',
   noProvidersBody:
-    'There are no providers installed yet. Install a provider first to create storage, database or AI service.',
+    'No providers are installed yet. Install one to create databases, storage or AI services.',
+  howToInstall: 'How to install',
+  browseHub: 'Browse Extension Hub',
+  moreProviders: (count: number) =>
+    `+${count} more ${count === 1 ? 'provider' : 'providers'}`,
+  autoRefreshHint:
+    'This page updates automatically once a provider is installed.',
 };

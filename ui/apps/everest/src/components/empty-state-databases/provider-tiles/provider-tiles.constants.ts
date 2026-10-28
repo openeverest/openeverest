@@ -33,19 +33,51 @@ export const cardSx: SxProps<Theme> = {
   position: 'relative',
   display: 'flex',
   flexDirection: 'column',
-  borderRadius: (theme) => `${theme.shape.borderRadius}px`,
-  border: '1px solid',
   // Let the hover extension grow past the card bottom.
   overflow: 'visible',
-  borderColor: (theme) => theme.palette.dividers?.divider,
-  backgroundColor: (theme) => theme.palette.surfaces?.elevation1,
-  transition: (theme) =>
-    theme.transitions.create(['border-color', 'box-shadow'], {
-      duration: theme.transitions.duration.shorter,
-    }),
-  '&:hover': {
-    borderColor: (theme) => theme.palette.dividers?.dividerStrong,
-    boxShadow: 1,
+  '&.provider-tile-installed': {
+    borderRadius: (theme) => `${theme.shape.borderRadius}px`,
+    border: '1px solid',
+    borderColor: (theme) => theme.palette.dividers?.divider,
+    backgroundColor: (theme) => theme.palette.surfaces?.elevation1,
+    transition: (theme) =>
+      theme.transitions.create(['border-color', 'box-shadow'], {
+        duration: theme.transitions.duration.shorter,
+      }),
+    '&:hover': {
+      borderColor: (theme) => theme.palette.dividers?.dividerStrong,
+      boxShadow: 1,
+    },
+  },
+  // Placeholder look for a provider that can be installed but isn't yet.
+  // Layered on the theme's `dashed` Card variant: the header strip and hover
+  // extension follow the dashed outline, and the icon stays desaturated until
+  // the tile is hovered or focused.
+  '&.provider-tile-available': {
+    '& .provider-tile-header': {
+      backgroundColor: 'transparent',
+      borderBottomStyle: 'dashed',
+    },
+    '& .provider-tile-expanded': {
+      backgroundColor: (theme) => theme.palette.surfaces?.elevation0,
+      borderStyle: 'dashed',
+      borderTopStyle: 'none',
+    },
+    '& .provider-tile-footer': {
+      borderTopStyle: 'dashed',
+    },
+    '& .MuiAvatar-root': {
+      filter: 'grayscale(1)',
+      opacity: 0.6,
+      transition: (theme) =>
+        theme.transitions.create(['filter', 'opacity'], {
+          duration: theme.transitions.duration.shorter,
+        }),
+    },
+    '&:hover .MuiAvatar-root, &:focus-within .MuiAvatar-root': {
+      filter: 'none',
+      opacity: 1,
+    },
   },
 };
 
@@ -167,7 +199,6 @@ export const cardFooterEndSx: SxProps<Theme> = {
   gap: 1,
   py: 1.25,
   px: 2,
-  // Only the forward arrow lives here now; keep it right-aligned.
   justifyContent: 'flex-end',
   borderTop: '1px solid',
   borderColor: (theme: Theme) => theme.palette.dividers?.divider,
