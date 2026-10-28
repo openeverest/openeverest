@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -146,7 +147,10 @@ export const getLastBackupStatus = (
   const lastBackup = filteredBackups[filteredBackups.length - 1];
 
   if (!lastBackup) {
-    return Messages.lastBackup.inactive;
+    if (!schedules.length) {
+      return Messages.lastBackup.inactive;
+    }
+    return Messages.lastBackup.scheduled;
   }
 
   if (lastBackup.state === BackupStatus.IN_PROGRESS) {
