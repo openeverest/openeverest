@@ -33,124 +33,132 @@ import (
 func TestRBAC_InstancePreset(t *testing.T) {
 	t.Parallel()
 
+	preset := func(name string) *corev1alpha1.InstancePreset {
+		return &corev1alpha1.InstancePreset{ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: name}}
+	}
+
 	mockInstancePresets := func() *handlers.MockHandler {
 		h := &handlers.MockHandler{}
-		h.On("ListInstancePresets", mock.Anything, mock.Anything, mock.Anything).Return(
+		h.On("ListInstancePresets", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 			&corev1alpha1.InstancePresetList{
 				Items: []corev1alpha1.InstancePreset{
-					{ObjectMeta: metav1.ObjectMeta{Name: "small"}},
-					{ObjectMeta: metav1.ObjectMeta{Name: "medium"}},
-					{ObjectMeta: metav1.ObjectMeta{Name: "large"}},
+					*preset("small"),
+					*preset("medium"),
+					*preset("large"),
 				},
 			}, nil,
 		)
-		h.On("GetInstancePreset", mock.Anything, mock.Anything, mock.Anything).Return(
-			&corev1alpha1.InstancePreset{ObjectMeta: metav1.ObjectMeta{Name: "small"}},
-			nil,
-		)
-		h.On("ResolveInstancePreset", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
-			&corev1alpha1.InstancePreset{ObjectMeta: metav1.ObjectMeta{Name: "small"}},
-			nil,
-		)
+		h.On("GetInstancePreset", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(preset("small"), nil)
+		h.On("CreateInstancePreset", mock.Anything, mock.Anything, mock.Anything).Return(preset("small"), nil)
+		h.On("UpdateInstancePreset", mock.Anything, mock.Anything, mock.Anything).Return(preset("small"), nil)
+		h.On("DeleteInstancePreset", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		return h
 	}
+
+	newHandler := func(t *testing.T, ctx context.Context, policy string) *rbacHandler {
+		t.Helper()
+		enf, err := rbac.NewEnforcer(ctx, newConfigMapMock(policy), zap.NewNop().Sugar())
+		require.NoError(t, err)
+		return &rbacHandler{
+			next:       mockInstancePresets(),
+			log:        zap.NewNop().Sugar(),
+			enforcer:   enf,
+			userGetter: testUserGetter,
+		}
+	}
+
+	//nolint:staticcheck // test usage only
+	ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
 
 	t.Run("ListInstancePresets", func(t *testing.T) {
 		t.Parallel()
 
 		testCases := []struct {
-			desc    string
-			cluster string
-			policy  string
-			assert  func(list *corev1alpha1.InstancePresetList) bool
+			desc   string
+			policy string
+			want   []string
 		}{
 			{
-				desc:    "admin",
-				cluster: "prod",
-				policy: newPolicy(
-					"g, bob, role:admin",
-				),
-				assert: func(list *corev1alpha1.InstancePresetList) bool {
-					return len(list.Items) == 3
-				},
+				desc:   "admin",
+				policy: newPolicy("g, bob, role:admin"),
+				want:   []string{"small", "medium", "large"},
 			},
 			{
-				desc:    "all instance-presets on cluster with wildcard",
-				cluster: "prod",
+				desc: "all presets in namespace",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, prod/*",
+					"p, role:test, instance-presets, read, prod/default/*",
 					"g, bob, role:test",
 				),
-				assert: func(list *corev1alpha1.InstancePresetList) bool {
-					return len(list.Items) == 3
-				},
+				want: []string{"small", "medium", "large"},
 			},
 			{
-				desc:    "specific instance-preset on cluster",
-				cluster: "prod",
+				desc: "specific preset",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, prod/small",
+					"p, role:test, instance-presets, read, prod/default/small",
 					"g, bob, role:test",
 				),
-				assert: func(list *corev1alpha1.InstancePresetList) bool {
-					return len(list.Items) == 1 && list.Items[0].Name == "small"
-				},
+				want: []string{"small"},
 			},
 			{
-				desc:    "wrong cluster",
-				cluster: "prod",
+				desc: "create only",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, staging/*",
+					"p, role:test, instance-presets, create, prod/default/*",
 					"g, bob, role:test",
 				),
-				assert: func(list *corev1alpha1.InstancePresetList) bool {
-					return len(list.Items) == 0
-				},
+				want: []string{},
 			},
 			{
-				desc:    "no permissions",
-				cluster: "prod",
+				desc: "update only",
 				policy: newPolicy(
+					"p, role:test, instance-presets, update, prod/default/*",
 					"g, bob, role:test",
 				),
-				assert: func(list *corev1alpha1.InstancePresetList) bool {
-					return len(list.Items) == 0
-				},
+				want: []string{},
 			},
 			{
-				desc:    "all clusters all instance-presets wildcard",
-				cluster: "prod",
+				desc: "delete only",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, */*",
+					"p, role:test, instance-presets, delete, prod/default/*",
 					"g, bob, role:test",
 				),
-				assert: func(list *corev1alpha1.InstancePresetList) bool {
-					return len(list.Items) == 3
-				},
+				want: []string{},
+			},
+			{
+				desc: "wrong namespace",
+				policy: newPolicy(
+					"p, role:test, instance-presets, read, prod/other/*",
+					"g, bob, role:test",
+				),
+				want: []string{},
+			},
+			{
+				desc: "wrong cluster",
+				policy: newPolicy(
+					"p, role:test, instance-presets, read, staging/default/*",
+					"g, bob, role:test",
+				),
+				want: []string{},
+			},
+			{
+				desc:   "no permissions",
+				policy: newPolicy("g, bob, role:test"),
+				want:   []string{},
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
-				k8sMock := newConfigMapMock(tc.policy)
-				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
-				require.NoError(t, err)
-				next := mockInstancePresets()
+				h := newHandler(t, ctx, tc.policy)
 
-				h := &rbacHandler{
-					next:       next,
-					log:        zap.NewNop().Sugar(),
-					enforcer:   enf,
-					userGetter: testUserGetter,
+				list, err := h.ListInstancePresets(ctx, "prod", "default", "")
+				require.NoError(t, err)
+
+				names := make([]string, 0, len(list.Items))
+				for _, item := range list.Items {
+					names = append(names, item.Name)
 				}
-
-				list, err := h.ListInstancePresets(ctx, tc.cluster, "")
-				require.NoError(t, err)
-				assert.Condition(t, func() bool {
-					return tc.assert(list)
-				})
+				assert.Equal(t, tc.want, names)
 			})
 		}
 	})
@@ -160,208 +168,377 @@ func TestRBAC_InstancePreset(t *testing.T) {
 
 		testCases := []struct {
 			desc    string
-			cluster string
-			name    string
 			policy  string
 			wantErr error
 		}{
 			{
-				desc:    "admin",
-				cluster: "prod",
-				name:    "small",
-				policy: newPolicy(
-					"g, bob, role:admin",
-				),
+				desc:   "admin",
+				policy: newPolicy("g, bob, role:admin"),
 			},
 			{
-				desc:    "exact match",
-				cluster: "prod",
-				name:    "small",
+				desc: "all actions",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, prod/small",
+					"p, role:test, instance-presets, *, prod/default/small",
 					"g, bob, role:test",
 				),
 			},
 			{
-				desc:    "wildcard on cluster",
-				cluster: "prod",
-				name:    "small",
+				desc: "exact match",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, prod/*",
+					"p, role:test, instance-presets, read, prod/default/small",
 					"g, bob, role:test",
 				),
 			},
 			{
-				desc:    "wrong cluster",
-				cluster: "prod",
-				name:    "small",
+				desc: "wildcard in namespace",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, staging/small",
+					"p, role:test, instance-presets, read, prod/default/*",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc: "create only",
+				policy: newPolicy(
+					"p, role:test, instance-presets, create, prod/default/*",
 					"g, bob, role:test",
 				),
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
-				desc:    "wrong instance-preset",
-				cluster: "prod",
-				name:    "small",
+				desc: "update only",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, prod/medium",
+					"p, role:test, instance-presets, update, prod/default/*",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc: "delete only",
+				policy: newPolicy(
+					"p, role:test, instance-presets, delete, prod/default/*",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc: "wrong preset",
+				policy: newPolicy(
+					"p, role:test, instance-presets, read, prod/default/medium",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc: "wrong namespace",
+				policy: newPolicy(
+					"p, role:test, instance-presets, read, prod/other/small",
 					"g, bob, role:test",
 				),
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
 				desc:    "no permissions",
-				cluster: "prod",
-				name:    "small",
-				policy: newPolicy(
-					"g, bob, role:test",
-				),
+				policy:  newPolicy("g, bob, role:test"),
 				wantErr: ErrInsufficientPermissions,
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
-				k8sMock := newConfigMapMock(tc.policy)
-				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
-				require.NoError(t, err)
-				next := mockInstancePresets()
+				h := newHandler(t, ctx, tc.policy)
 
-				h := &rbacHandler{
-					next:       next,
-					log:        zap.NewNop().Sugar(),
-					enforcer:   enf,
-					userGetter: testUserGetter,
-				}
-
-				result, err := h.GetInstancePreset(ctx, tc.cluster, tc.name)
+				_, err := h.GetInstancePreset(ctx, "prod", "default", "small")
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
-				} else {
-					require.NoError(t, err)
-					assert.Equal(t, "small", result.Name)
+					return
 				}
+				require.NoError(t, err)
 			})
 		}
 	})
 
-	t.Run("ResolveInstancePreset", func(t *testing.T) {
+	t.Run("CreateInstancePreset", func(t *testing.T) {
 		t.Parallel()
 
 		testCases := []struct {
-			desc      string
-			cluster   string
-			name      string
-			namespace string
-			policy    string
-			wantErr   error
+			desc    string
+			policy  string
+			wantErr error
 		}{
 			{
-				desc:      "admin",
-				cluster:   "prod",
-				name:      "small",
-				namespace: "default",
-				policy: newPolicy(
-					"g, bob, role:admin",
-				),
+				desc:   "admin",
+				policy: newPolicy("g, bob, role:admin"),
 			},
 			{
-				desc:      "exact match with namespace access",
-				cluster:   "prod",
-				name:      "small",
-				namespace: "default",
+				desc: "all actions",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, prod/small",
-					"p, role:test, namespaces, read, prod/default",
+					"p, role:test, instance-presets, *, prod/default/small",
 					"g, bob, role:test",
 				),
 			},
 			{
-				desc:      "wildcard on cluster and namespace",
-				cluster:   "prod",
-				name:      "small",
-				namespace: "default",
+				desc: "exact match",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, prod/*",
-					"p, role:test, namespaces, read, prod/*",
+					"p, role:test, instance-presets, create, prod/default/small",
 					"g, bob, role:test",
 				),
 			},
 			{
-				desc:      "no instance-preset access",
-				cluster:   "prod",
-				name:      "small",
-				namespace: "default",
+				desc: "wildcard in namespace",
 				policy: newPolicy(
-					"p, role:test, namespaces, read, prod/default",
+					"p, role:test, instance-presets, create, prod/default/*",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc: "read only",
+				policy: newPolicy(
+					"p, role:test, instance-presets, read, prod/default/*",
 					"g, bob, role:test",
 				),
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
-				desc:      "no namespace access",
-				cluster:   "prod",
-				name:      "small",
-				namespace: "default",
+				desc: "update only",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, prod/small",
+					"p, role:test, instance-presets, update, prod/default/*",
 					"g, bob, role:test",
 				),
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
-				desc:      "wrong cluster for instance-preset",
-				cluster:   "prod",
-				name:      "small",
-				namespace: "default",
+				desc: "delete only",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, staging/small",
-					"p, role:test, namespaces, read, prod/default",
+					"p, role:test, instance-presets, delete, prod/default/*",
 					"g, bob, role:test",
 				),
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
-				desc:      "wrong cluster for namespace",
-				cluster:   "prod",
-				name:      "small",
-				namespace: "default",
+				desc: "wrong preset",
 				policy: newPolicy(
-					"p, role:test, instance-presets, read, prod/small",
-					"p, role:test, namespaces, read, staging/default",
+					"p, role:test, instance-presets, create, prod/default/medium",
 					"g, bob, role:test",
 				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc: "wrong namespace",
+				policy: newPolicy(
+					"p, role:test, instance-presets, create, prod/other/small",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "no permissions",
+				policy:  newPolicy("g, bob, role:test"),
 				wantErr: ErrInsufficientPermissions,
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
-				k8sMock := newConfigMapMock(tc.policy)
-				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
-				require.NoError(t, err)
-				next := mockInstancePresets()
+				h := newHandler(t, ctx, tc.policy)
 
-				h := &rbacHandler{
-					next:       next,
-					log:        zap.NewNop().Sugar(),
-					enforcer:   enf,
-					userGetter: testUserGetter,
-				}
-
-				result, err := h.ResolveInstancePreset(ctx, tc.cluster, tc.name, tc.namespace)
+				_, err := h.CreateInstancePreset(ctx, "prod", preset("small"))
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
-				} else {
-					require.NoError(t, err)
-					assert.Equal(t, "small", result.Name)
+					return
 				}
+				require.NoError(t, err)
+			})
+		}
+	})
+
+	t.Run("UpdateInstancePreset", func(t *testing.T) {
+		t.Parallel()
+
+		testCases := []struct {
+			desc    string
+			policy  string
+			wantErr error
+		}{
+			{
+				desc:   "admin",
+				policy: newPolicy("g, bob, role:admin"),
+			},
+			{
+				desc: "all actions",
+				policy: newPolicy(
+					"p, role:test, instance-presets, *, prod/default/small",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc: "exact match",
+				policy: newPolicy(
+					"p, role:test, instance-presets, update, prod/default/small",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc: "wildcard in namespace",
+				policy: newPolicy(
+					"p, role:test, instance-presets, update, prod/default/*",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc: "read only",
+				policy: newPolicy(
+					"p, role:test, instance-presets, read, prod/default/*",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc: "create only",
+				policy: newPolicy(
+					"p, role:test, instance-presets, create, prod/default/*",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc: "delete only",
+				policy: newPolicy(
+					"p, role:test, instance-presets, delete, prod/default/*",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc: "wrong preset",
+				policy: newPolicy(
+					"p, role:test, instance-presets, update, prod/default/medium",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc: "wrong namespace",
+				policy: newPolicy(
+					"p, role:test, instance-presets, update, prod/other/small",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "no permissions",
+				policy:  newPolicy("g, bob, role:test"),
+				wantErr: ErrInsufficientPermissions,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+				h := newHandler(t, ctx, tc.policy)
+
+				_, err := h.UpdateInstancePreset(ctx, "prod", preset("small"))
+				if tc.wantErr != nil {
+					require.ErrorIs(t, err, tc.wantErr)
+					return
+				}
+				require.NoError(t, err)
+			})
+		}
+	})
+
+	t.Run("DeleteInstancePreset", func(t *testing.T) {
+		t.Parallel()
+
+		testCases := []struct {
+			desc    string
+			policy  string
+			wantErr error
+		}{
+			{
+				desc:   "admin",
+				policy: newPolicy("g, bob, role:admin"),
+			},
+			{
+				desc: "all actions",
+				policy: newPolicy(
+					"p, role:test, instance-presets, *, prod/default/small",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc: "exact match",
+				policy: newPolicy(
+					"p, role:test, instance-presets, delete, prod/default/small",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc: "wildcard in namespace",
+				policy: newPolicy(
+					"p, role:test, instance-presets, delete, prod/default/*",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc: "read only",
+				policy: newPolicy(
+					"p, role:test, instance-presets, read, prod/default/*",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc: "create only",
+				policy: newPolicy(
+					"p, role:test, instance-presets, create, prod/default/*",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc: "update only",
+				policy: newPolicy(
+					"p, role:test, instance-presets, update, prod/default/*",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc: "wrong preset",
+				policy: newPolicy(
+					"p, role:test, instance-presets, delete, prod/default/medium",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc: "wrong namespace",
+				policy: newPolicy(
+					"p, role:test, instance-presets, delete, prod/other/small",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "no permissions",
+				policy:  newPolicy("g, bob, role:test"),
+				wantErr: ErrInsufficientPermissions,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+				h := newHandler(t, ctx, tc.policy)
+
+				err := h.DeleteInstancePreset(ctx, "prod", "default", "small")
+				if tc.wantErr != nil {
+					require.ErrorIs(t, err, tc.wantErr)
+					return
+				}
+				require.NoError(t, err)
 			})
 		}
 	})

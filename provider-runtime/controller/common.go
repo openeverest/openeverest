@@ -87,6 +87,15 @@ type Context struct {
 	// labelledComponents holds the components PodLabels was called for this
 	// pass; the reconciler counts their pods into status.components.
 	labelledComponents map[string]struct{}
+
+	// monitoringResults collects the per-binding outcomes staged with
+	// SetMonitoringBindingResult; the reconciler writes them on the
+	// bindings' Configured condition after Sync.
+	monitoringResults map[string]bindingResult
+
+	// monitoringIntegrations holds the integrations the provider renders,
+	// set by the reconciler before Sync.
+	monitoringIntegrations []string
 }
 
 // NewContext creates a new Context handle (used internally by the reconciler).
@@ -1452,5 +1461,6 @@ func ReconcileExternalBackupStatus(backup *backupv1alpha1.Backup) {
 
 	backup.Status.StartedAt = external.StartedAt.DeepCopy()
 	backup.Status.CompletedAt = external.CompletedAt.DeepCopy()
+	backup.Status.SourceMetadata = external.SourceMetadata.DeepCopy()
 	backup.Status.State = backupv1alpha1.BackupStateSucceeded
 }

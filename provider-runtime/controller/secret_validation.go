@@ -60,6 +60,15 @@ func ValidateSecretSchema(secret *corev1.Secret, providerSpec *corev1alpha1.Prov
 		return fmt.Errorf("secret definition %q does not exist: %w", secretDefinition, ErrSecretSchemaValidation)
 	}
 
+	if secretType(secret.Type) != secretType(secretDef.Type) {
+		return fmt.Errorf("secret type %q does not match definition %q type %q: %w",
+			secretType(secret.Type),
+			secretDefinition,
+			secretType(secretDef.Type),
+			ErrSecretSchemaValidation,
+		)
+	}
+
 	// ParametersSchema is optional; if not defined, no validation is performed.
 	if secretDef.ParametersSchema == nil {
 		return nil
@@ -79,6 +88,14 @@ func ValidateSecretSchema(secret *corev1.Secret, providerSpec *corev1alpha1.Prov
 	}
 
 	return nil
+}
+
+// secretType returns t, treating empty as Opaque the way Kubernetes does.
+func secretType(t corev1.SecretType) corev1.SecretType {
+	if t == "" {
+		return corev1.SecretTypeOpaque
+	}
+	return t
 }
 
 // extractSecretData extracts and merges data and stringData from a Kubernetes Secret.

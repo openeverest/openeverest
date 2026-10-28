@@ -26,7 +26,86 @@ import (
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 )
+
+func TestValidate_CreateInstance(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		desc        string
+		annotations map[string]string
+		wantErr     error
+	}{
+		{
+			desc: "no annotations",
+		},
+		{
+			desc: "only instance preset",
+			annotations: map[string]string{
+				common.InstancePresetAnnotation: "standard-mysql",
+			},
+		},
+		{
+			desc: "only cluster instance preset",
+			annotations: map[string]string{
+				common.ClusterInstancePresetAnnotation: "cluster-mysql",
+			},
+		},
+		{
+			desc: "both annotations empty",
+			annotations: map[string]string{
+				common.InstancePresetAnnotation:        "",
+				common.ClusterInstancePresetAnnotation: "",
+			},
+		},
+		{
+			desc: "cluster preset set, instance preset empty",
+			annotations: map[string]string{
+				common.InstancePresetAnnotation:        "",
+				common.ClusterInstancePresetAnnotation: "cluster-mysql",
+			},
+		},
+		{
+			desc: "both presets set",
+			annotations: map[string]string{
+				common.InstancePresetAnnotation:        "standard-mysql",
+				common.ClusterInstancePresetAnnotation: "cluster-mysql",
+			},
+			wantErr: ErrInvalidRequest,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			instance := &corev1alpha1.Instance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "db1",
+					Namespace:   "ns1",
+					Annotations: tc.annotations,
+				},
+			}
+
+			next := &handlers.MockHandler{}
+			next.On("CreateInstance", mock.Anything, mock.Anything, mock.Anything).Return(instance, nil)
+
+			h := &validateHandler{next: next}
+
+			result, err := h.CreateInstance(context.Background(), "prod", instance)
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, "db1", result.Name)
+			next.AssertCalled(t, "CreateInstance", mock.Anything, "prod", instance)
+		})
+	}
+}
 
 func TestValidate_PatchInstance(t *testing.T) {
 	t.Parallel()
@@ -35,6 +114,7 @@ func TestValidate_PatchInstance(t *testing.T) {
 		desc    string
 		patch   string
 		wantErr bool
+		wantMsg string
 	}{
 		{
 			desc:  "spec only",
@@ -128,6 +208,28 @@ func TestValidate_PatchInstance(t *testing.T) {
 			patch:   `{"spec":{"userSecretRef":{"name":"other-secret"}}}`,
 			wantErr: true,
 		},
+		{
+			desc:  "monitoring destinations",
+			patch: `{"spec":{"monitoring":{"destinations":[{"name":"pmm","destinationRef":{"name":"pmm-prod"}}]}}}`,
+		},
+		{
+			desc:    "spec not an object",
+			patch:   `{"spec":"x"}`,
+			wantErr: true,
+			wantMsg: "spec: unexpected JSON string",
+		},
+		{
+			desc:    "monitoring destinations not a list",
+			patch:   `{"spec":{"monitoring":{"destinations":{}}}}`,
+			wantErr: true,
+			wantMsg: "spec.monitoring.destinations: unexpected JSON object",
+		},
+		{
+			desc:    "monitoring destination reference not a string",
+			patch:   `{"spec":{"monitoring":{"destinations":[{"name":"pmm","destinationRef":{"name":1}}]}}}`,
+			wantErr: true,
+			wantMsg: "spec.monitoring.destinations.0.destinationRef.name: unexpected JSON number",
+		},
 	}
 
 	ctx := context.Background()
@@ -146,7 +248,10 @@ func TestValidate_PatchInstance(t *testing.T) {
 
 			if tc.wantErr {
 				require.ErrorIs(t, err, ErrInvalidRequest)
-				next.AssertNotCalled(t, "PatchInstance")
+				if tc.wantMsg != "" {
+					require.EqualError(t, err, ErrInvalidRequest.Error()+"\n"+tc.wantMsg)
+				}
+				next.AssertNotCalled(t, "PatchInstance", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 				return
 			}
 			require.NoError(t, err)
@@ -212,7 +317,7 @@ func TestValidate_UpdateInstance(t *testing.T) {
 
 			if tc.wantErr {
 				require.ErrorIs(t, err, ErrInvalidRequest)
-				next.AssertNotCalled(t, "UpdateInstance")
+				next.AssertNotCalled(t, "UpdateInstance", mock.Anything, mock.Anything, mock.Anything)
 				return
 			}
 

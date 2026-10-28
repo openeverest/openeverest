@@ -16,7 +16,8 @@ package rbac
 
 import "github.com/openeverest/openeverest/v2/pkg/plugintoken"
 
-// spec001Resources are the resources managed by spec-001 Provider plugins.
+// spec001Resources are the resources managed by spec-001 Provider plugins,
+// plus the monitoring resources, which only users and core configure.
 // Daemon plugin tokens are unconditionally denied write access to these.
 var spec001Resources = map[string]struct{}{
 	ResourceDatabaseClusters:           {},
@@ -26,6 +27,9 @@ var spec001Resources = map[string]struct{}{
 	ResourceDatabaseEngines:            {},
 	ResourceBackupStorages:             {},
 	ResourceMonitoringInstances:        {},
+	ResourceMonitoringClasses:          {},
+	ResourceMonitoringDestinations:     {},
+	ResourceMonitoringBindings:         {},
 }
 
 // writeActions are the actions that constitute a write operation.
@@ -37,8 +41,8 @@ var writeActions = map[string]struct{}{
 }
 
 // IsPluginWriteDenied returns true if the given subject is a plugin daemon
-// token and the requested action+resource combination would write to a
-// spec-001 managed resource.
+// token and the requested action+resource combination would write to one of
+// spec001Resources.
 func IsPluginWriteDenied(subject, resource, action string) bool {
 	if !plugintoken.IsSubjectPluginToken(subject) {
 		return false

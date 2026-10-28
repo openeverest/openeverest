@@ -36,38 +36,89 @@ import (
 func TestRBAC_Backup(t *testing.T) {
 	t.Parallel()
 
-	backupFixture := func() *backupv1alpha1.Backup {
+	instanceBackupFixture := func() *backupv1alpha1.Backup {
 		return &backupv1alpha1.Backup{
 			ObjectMeta: metav1.ObjectMeta{Name: "backup-1", Namespace: "ns1"},
 			Spec: backupv1alpha1.BackupSpec{
+				StorageRef: objectref.ObjectRef{Name: "storage-a"},
 				Origin: backupv1alpha1.BackupOrigin{
 					Type:        backupv1alpha1.BackupOriginTypeInstance,
 					InstanceRef: &objectref.ObjectRef{Name: "instance-1"},
 				},
+				ClassRef: objectref.ObjectRef{Name: "pbm"},
 			},
 		}
 	}
 
-	mockBackups := func() *handlers.MockHandler {
+	externalBackupFixture := func() *backupv1alpha1.Backup {
+		return &backupv1alpha1.Backup{
+			ObjectMeta: metav1.ObjectMeta{Name: "backup-external", Namespace: "ns1"},
+			Spec: backupv1alpha1.BackupSpec{
+				StorageRef: objectref.ObjectRef{Name: "storage-a"},
+				Origin: backupv1alpha1.BackupOrigin{
+					Type:     backupv1alpha1.BackupOriginTypeExternal,
+					External: &backupv1alpha1.BackupOriginExternal{Path: "path/to/backup"},
+				},
+				ClassRef: objectref.ObjectRef{Name: "pbm"},
+			},
+		}
+	}
+
+	mockBackups := func(backup *backupv1alpha1.Backup) *handlers.MockHandler {
 		h := &handlers.MockHandler{}
 		h.On("GetBackup", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
-			backupFixture(), nil,
+			backup, nil,
 		)
 		h.On("CreateBackup", mock.Anything, mock.Anything, mock.Anything).Return(
-			backupFixture(), nil,
+			backup, nil,
 		)
 		h.On("DeleteBackup", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		return h
 	}
 
-	t.Run("GetBackup", func(t *testing.T) {
+	t.Run("ListBackups", func(t *testing.T) {
 		t.Parallel()
 
+		backupList := &backupv1alpha1.BackupList{
+			Items: []backupv1alpha1.Backup{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backup-1", Namespace: "ns1"},
+					Spec: backupv1alpha1.BackupSpec{
+						StorageRef: objectref.ObjectRef{Name: "storage-a"},
+						Origin: backupv1alpha1.BackupOrigin{
+							Type:        backupv1alpha1.BackupOriginTypeInstance,
+							InstanceRef: &objectref.ObjectRef{Name: "instance-1"},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backup-2", Namespace: "ns1"},
+					Spec: backupv1alpha1.BackupSpec{
+						StorageRef: objectref.ObjectRef{Name: "storage-b"},
+						Origin: backupv1alpha1.BackupOrigin{
+							Type:        backupv1alpha1.BackupOriginTypeInstance,
+							InstanceRef: &objectref.ObjectRef{Name: "instance-2"},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "backup-external", Namespace: "ns1"},
+					Spec: backupv1alpha1.BackupSpec{
+						StorageRef: objectref.ObjectRef{Name: "storage-a"},
+						Origin: backupv1alpha1.BackupOrigin{
+							Type:     backupv1alpha1.BackupOriginTypeExternal,
+							External: &backupv1alpha1.BackupOriginExternal{Path: "path/to/backup"},
+						},
+					},
+				},
+			},
+		}
+
 		testCases := []struct {
-			desc    string
-			cluster string
-			policy  string
-			wantErr error
+			desc        string
+			cluster     string
+			policy      string
+			wantBackups []string
 		}{
 			{
 				desc:    "admin",
@@ -75,18 +126,208 @@ func TestRBAC_Backup(t *testing.T) {
 				policy: newPolicy(
 					"g, bob, role:admin",
 				),
+				wantBackups: []string{"backup-1", "backup-2", "backup-external"},
+			},
+			{
+				desc:    "namespace wildcard on backups and storages",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backups, read, prod/ns1/*",
+					"p, role:test, backup-storages, read, prod/ns1/*",
+					"g, bob, role:test",
+				),
+				wantBackups: []string{"backup-1", "backup-2", "backup-external"},
+			},
+			{
+				desc:    "backups access shows only instance backups",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backups, read, prod/ns1/*",
+					"g, bob, role:test",
+				),
+				wantBackups: []string{"backup-1", "backup-2"},
+			},
+			{
+				desc:    "storage access alone shows no external backups",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backup-storages, read, prod/ns1/storage-a",
+					"g, bob, role:test",
+				),
+				wantBackups: []string{},
+			},
+			{
+				desc:    "namespace-wide backups and specific storage",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backups, read, prod/ns1/*",
+					"p, role:test, backup-storages, read, prod/ns1/storage-a",
+					"g, bob, role:test",
+				),
+				wantBackups: []string{"backup-1", "backup-2", "backup-external"},
+			},
+			{
+				desc:    "specific instance and storage",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backups, read, prod/ns1/instance-1",
+					"p, role:test, backup-storages, read, prod/ns1/storage-a",
+					"g, bob, role:test",
+				),
+				wantBackups: []string{"backup-1"},
+			},
+			{
+				desc:    "instance backup does not need storage access",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backups, read, prod/ns1/instance-2",
+					"g, bob, role:test",
+				),
+				wantBackups: []string{"backup-2"},
+			},
+			{
+				desc:    "external backup in other storage",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backup-storages, read, prod/ns1/storage-b",
+					"g, bob, role:test",
+				),
+				wantBackups: []string{},
+			},
+			{
+				desc:    "wrong namespace",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backups, read, prod/ns2/*",
+					"p, role:test, backup-storages, read, prod/ns2/*",
+					"g, bob, role:test",
+				),
+				wantBackups: []string{},
+			},
+			{
+				desc:    "wrong cluster",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backups, read, staging/ns1/*",
+					"p, role:test, backup-storages, read, staging/ns1/*",
+					"g, bob, role:test",
+				),
+				wantBackups: []string{},
+			},
+			{
+				desc:    "no permissions",
+				cluster: "prod",
+				policy: newPolicy(
+					"g, bob, role:test",
+				),
+				wantBackups: []string{},
+			},
+		}
+
+		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"}) //nolint:staticcheck // test only
+		for _, tc := range testCases {
+			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+				k8sMock := newConfigMapMock(tc.policy)
+				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
+				require.NoError(t, err)
+
+				next := &handlers.MockHandler{}
+				next.On("ListBackups", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+					backupList.DeepCopy(), nil,
+				)
+
+				h := &rbacHandler{
+					next:       next,
+					log:        zap.NewNop().Sugar(),
+					enforcer:   enf,
+					userGetter: testUserGetter,
+				}
+
+				result, err := h.ListBackups(ctx, tc.cluster, "ns1", nil)
+				require.NoError(t, err)
+
+				names := make([]string, 0, len(result.Items))
+				for _, b := range result.Items {
+					names = append(names, b.Name)
+				}
+				assert.Equal(t, tc.wantBackups, names)
+			})
+		}
+	})
+
+	t.Run("GetBackup", func(t *testing.T) {
+		t.Parallel()
+
+		testCases := []struct {
+			desc    string
+			cluster string
+			backup  *backupv1alpha1.Backup
+			policy  string
+			wantErr error
+		}{
+			{
+				desc:    "admin",
+				cluster: "prod",
+				backup:  instanceBackupFixture(),
+				policy: newPolicy(
+					"g, bob, role:admin",
+				),
 			},
 			{
 				desc:    "exact match",
 				cluster: "prod",
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"p, role:test, backups, read, prod/ns1/instance-1",
 					"g, bob, role:test",
 				),
 			},
 			{
+				desc:    "external: namespace-wide backups and storage",
+				cluster: "prod",
+				backup:  externalBackupFixture(),
+				policy: newPolicy(
+					"p, role:test, backups, read, prod/ns1/*",
+					"p, role:test, backup-storages, read, prod/ns1/storage-a",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:    "external: no namespace-wide backups access",
+				cluster: "prod",
+				backup:  externalBackupFixture(),
+				policy: newPolicy(
+					"p, role:test, backup-storages, read, prod/ns1/storage-a",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "external: no storage access",
+				cluster: "prod",
+				backup:  externalBackupFixture(),
+				policy: newPolicy(
+					"p, role:test, backups, read, prod/ns1/*",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "external: instance grant and storage",
+				cluster: "prod",
+				backup:  externalBackupFixture(),
+				policy: newPolicy(
+					"p, role:test, backups, read, prod/ns1/instance-1",
+					"p, role:test, backup-storages, read, prod/ns1/storage-a",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
 				desc:    "namespace wildcard",
 				cluster: "prod",
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"p, role:test, backups, read, prod/ns1/*",
 					"g, bob, role:test",
@@ -95,6 +336,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "wrong cluster",
 				cluster: "prod",
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"p, role:test, backups, read, staging/ns1/instance-1",
 					"g, bob, role:test",
@@ -104,6 +346,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "no permissions",
 				cluster: "prod",
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"g, bob, role:test",
 				),
@@ -118,7 +361,7 @@ func TestRBAC_Backup(t *testing.T) {
 				k8sMock := newConfigMapMock(tc.policy)
 				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
 				require.NoError(t, err)
-				next := mockBackups()
+				next := mockBackups(tc.backup)
 
 				h := &rbacHandler{
 					next:       next,
@@ -127,12 +370,12 @@ func TestRBAC_Backup(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				result, err := h.GetBackup(ctx, tc.cluster, "ns1", "backup-1")
+				result, err := h.GetBackup(ctx, tc.cluster, "ns1", tc.backup.Name)
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
 				} else {
 					require.NoError(t, err)
-					assert.Equal(t, "backup-1", result.Name)
+					assert.Equal(t, tc.backup.Name, result.Name)
 				}
 			})
 		}
@@ -144,35 +387,119 @@ func TestRBAC_Backup(t *testing.T) {
 		testCases := []struct {
 			desc    string
 			cluster string
+			backup  *backupv1alpha1.Backup
 			policy  string
 			wantErr error
 		}{
 			{
 				desc:    "admin",
 				cluster: "prod",
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"g, bob, role:admin",
 				),
 			},
 			{
-				desc:    "has create permission",
+				desc:    "external: namespace-wide create, storage and class",
 				cluster: "prod",
+				backup:  externalBackupFixture(),
+				policy: newPolicy(
+					"p, role:test, backups, create, prod/ns1/*",
+					"p, role:test, backup-storages, read, prod/ns1/storage-a",
+					"p, role:test, backup-classes, read, prod/pbm",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:    "external: no class access",
+				cluster: "prod",
+				backup:  externalBackupFixture(),
+				policy: newPolicy(
+					"p, role:test, backups, create, prod/ns1/*",
+					"p, role:test, backup-storages, read, prod/ns1/storage-a",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "external: no storage access",
+				cluster: "prod",
+				backup:  externalBackupFixture(),
+				policy: newPolicy(
+					"p, role:test, backups, create, prod/ns1/*",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "external: storage without create",
+				cluster: "prod",
+				backup:  externalBackupFixture(),
+				policy: newPolicy(
+					"p, role:test, backup-storages, read, prod/ns1/storage-a",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "external: instance grant and storage",
+				cluster: "prod",
+				backup:  externalBackupFixture(),
 				policy: newPolicy(
 					"p, role:test, backups, create, prod/ns1/instance-1",
+					"p, role:test, backup-storages, read, prod/ns1/storage-a",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "instance backup has create permission",
+				cluster: "prod",
+				backup:  instanceBackupFixture(),
+				policy: newPolicy(
+					"p, role:test, backups, create, prod/ns1/instance-1",
+					"p, role:test, backup-storages, read, prod/ns1/storage-a",
+					"p, role:test, backup-classes, read, prod/pbm",
 					"g, bob, role:test",
 				),
 			},
 			{
 				desc:    "namespace wildcard",
 				cluster: "prod",
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"p, role:test, backups, create, prod/ns1/*",
+					"p, role:test, backup-storages, read, prod/ns1/*",
+					"p, role:test, backup-classes, read, prod/*",
 					"g, bob, role:test",
 				),
 			},
 			{
+				desc:    "cannot read the target storage",
+				cluster: "prod",
+				backup:  instanceBackupFixture(),
+				policy: newPolicy(
+					"p, role:test, backups, create, prod/ns1/instance-1",
+					"p, role:test, backup-classes, read, prod/pbm",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "cannot read the backup class",
+				cluster: "prod",
+				backup:  instanceBackupFixture(),
+				policy: newPolicy(
+					"p, role:test, backups, create, prod/ns1/instance-1",
+					"p, role:test, backup-storages, read, prod/ns1/storage-a",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
 				desc:    "has read but not create",
 				cluster: "prod",
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"p, role:test, backups, read, prod/ns1/instance-1",
 					"g, bob, role:test",
@@ -182,6 +509,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "no permissions",
 				cluster: "prod",
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"g, bob, role:test",
 				),
@@ -196,7 +524,7 @@ func TestRBAC_Backup(t *testing.T) {
 				k8sMock := newConfigMapMock(tc.policy)
 				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
 				require.NoError(t, err)
-				next := mockBackups()
+				next := mockBackups(tc.backup)
 
 				h := &rbacHandler{
 					next:       next,
@@ -205,13 +533,12 @@ func TestRBAC_Backup(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				backup := backupFixture()
-				result, err := h.CreateBackup(ctx, tc.cluster, backup)
+				result, err := h.CreateBackup(ctx, tc.cluster, tc.backup)
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
 				} else {
 					require.NoError(t, err)
-					assert.Equal(t, "backup-1", result.Name)
+					assert.Equal(t, tc.backup.Name, result.Name)
 				}
 			})
 		}
@@ -223,19 +550,41 @@ func TestRBAC_Backup(t *testing.T) {
 		testCases := []struct {
 			desc    string
 			cluster string
+			backup  *backupv1alpha1.Backup
 			policy  string
 			wantErr error
 		}{
 			{
 				desc:    "admin",
 				cluster: "prod",
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"g, bob, role:admin",
 				),
 			},
 			{
+				desc:    "external: namespace-wide delete",
+				cluster: "prod",
+				backup:  externalBackupFixture(),
+				policy: newPolicy(
+					"p, role:test, backups, delete, prod/ns1/*",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:    "external: instance grant",
+				cluster: "prod",
+				backup:  externalBackupFixture(),
+				policy: newPolicy(
+					"p, role:test, backups, delete, prod/ns1/instance-1",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
 				desc:    "has delete permission",
 				cluster: "prod",
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"p, role:test, backups, delete, prod/ns1/instance-1",
 					"g, bob, role:test",
@@ -244,6 +593,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "has read but not delete",
 				cluster: "prod",
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"p, role:test, backups, read, prod/ns1/instance-1",
 					"g, bob, role:test",
@@ -253,6 +603,7 @@ func TestRBAC_Backup(t *testing.T) {
 			{
 				desc:    "no permissions",
 				cluster: "prod",
+				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"g, bob, role:test",
 				),
@@ -267,7 +618,7 @@ func TestRBAC_Backup(t *testing.T) {
 				k8sMock := newConfigMapMock(tc.policy)
 				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
 				require.NoError(t, err)
-				next := mockBackups()
+				next := mockBackups(tc.backup)
 
 				h := &rbacHandler{
 					next:       next,
@@ -276,7 +627,7 @@ func TestRBAC_Backup(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				err = h.DeleteBackup(ctx, tc.cluster, "ns1", "backup-1", nil)
+				err = h.DeleteBackup(ctx, tc.cluster, "ns1", tc.backup.Name, nil)
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
 				} else {

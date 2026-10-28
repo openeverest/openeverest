@@ -32,11 +32,11 @@ export const useCanCreateClusterFromBackup = (
   const { hasSchedules = false, monitoringEnabled = false } = options;
   const canRestore = useCanRestore(namespace, instanceName);
   const { canCreate: canCreateClusters } = useRBACPermissions(
-    'database-clusters',
+    'instances',
     `${namespace}/*`
   );
   const { canCreate: canCreateBackups } = useRBACPermissions(
-    'database-cluster-backups',
+    'backups',
     `${namespace}/${instanceName}`
   );
   const { canRead: canReadMonitoring } = useRBACPermissions(

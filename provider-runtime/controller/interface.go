@@ -380,6 +380,68 @@ type UpgradeProvider interface {
 }
 
 // =============================================================================
+// MONITORING (Optional interfaces for the monitoring contract)
+// =============================================================================
+
+// MonitoringSourcesProvider is an optional interface a provider implements to
+// publish what an Instance exposes to monitoring (credentials and OpenMetrics
+// endpoints), which ExtensionManaged MonitoringClasses consume.
+//
+// When a provider implements MonitoringSourcesProvider or
+// MonitoringIntegrationsProvider the runtime:
+//   - watches the Instances' MonitoringBindings and the MonitoringDestinations
+//     and MonitoringClasses they reference,
+//   - writes Instance.status.monitoring and the MonitoringConfigured condition
+//     after every successful Sync,
+//   - writes the Configured condition of ProviderManaged bindings.
+//
+// The provider's RBAC must then grant, e.g. as these markers in its
+// internal/provider/rbac.go (the namespaces get reads the kube-system UID that
+// identifies the cluster):
+//
+//	// +kubebuilder:rbac:groups=monitoring.openeverest.io,resources=monitoringclasses;monitoringdestinations;monitoringbindings,verbs=get;list;watch
+//	// +kubebuilder:rbac:groups=monitoring.openeverest.io,resources=monitoringbindings/status,verbs=patch
+//	// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get
+type MonitoringSourcesProvider interface {
+	// MonitoringSources returns the endpoints that are currently serving.
+	// The runtime drops duplicate credential profiles and credentials whose
+	// Secret is not controlled by the Instance; it drops endpoints of
+	// component types the Provider does not declare or declares with
+	// metrics None, endpoints whose pod selector lacks the Instance label,
+	// endpoints with a scheme other than http or https and endpoints naming
+	// a credential profile missing from credentials, and keeps at most 32.
+	// It sets each endpoint's kind from its declared component type and
+	// overwrites identity. Returning nil clears the published sources; an
+	// error keeps the previous ones.
+	MonitoringSources(c *Context) (*corev1alpha1.MonitoringSources, error)
+}
+
+// MonitoringIntegrationsProvider is an optional interface a provider
+// implements to fulfil ProviderManaged MonitoringClasses through its engine
+// operator's native integration (e.g. PMM).
+//
+// The provider renders the integration inside Sync, on the same Apply as the
+// rest of the engine CR, from the binding of Context.MonitoringBindings()
+// whose Apply is true. Whether the integration runs at all is gated on
+// Context.RequiredSources(): req.Integrations["pmm"].Else(livePMMEnabled),
+// so a live integration is held, not removed, while its requirement is
+// Unresolved. The runtime writes the bindings' Configured condition from
+// Sync success and from the results staged with
+// Context.SetMonitoringBindingResult, and RenderFailed for a binding whose
+// integration MonitoringIntegrations does not list. A binding that cannot be
+// rendered must be staged, never returned as a Sync error.
+//
+// The runtime re-runs Sync for an Instance when a destination it is bound to
+// changes, status included, and when that destination's credentials Secret
+// is created, changed or deleted, so a rotated token or a Secret created
+// after a RenderFailed is rendered without waiting for a resync.
+type MonitoringIntegrationsProvider interface {
+	// MonitoringIntegrations returns the integration names the provider
+	// renders, matching Provider.spec.monitoring.integrations.
+	MonitoringIntegrations() []string
+}
+
+// =============================================================================
 // BASE PROVIDER
 // =============================================================================
 

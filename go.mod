@@ -18,6 +18,7 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/getkin/kin-openapi v0.149.0
+	github.com/go-logr/logr v1.4.4
 	github.com/go-logr/zapr v1.3.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/go-cmp v0.7.0
@@ -30,7 +31,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/oapi-codegen/echo-middleware v1.1.0
 	github.com/oapi-codegen/runtime v1.7.0
-	github.com/openeverest/helm-charts/charts/everest v0.0.0-20261011191832-a226dcf6b233
+	github.com/openeverest/helm-charts/charts/everest v0.0.0-20261028040606-971d3342cdbe
 	github.com/operator-framework/api v0.45.0
 	github.com/percona/everest-operator v0.6.0-dev1.0.20260429065444-70caa52c384a
 	github.com/rodaine/table v1.4.0
@@ -180,7 +181,6 @@ require (
 	github.com/go-fed/httpsig v1.1.0 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
-	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/analysis v0.25.0 // indirect
 	github.com/go-openapi/errors v0.22.7 // indirect

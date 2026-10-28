@@ -21,7 +21,7 @@ import {
   TopologyUISchemas,
 } from 'components/ui-generator/ui-generator.types';
 import { getByPath } from 'components/ui-generator/utils/object-path/object-path';
-import { InstancePreset } from 'shared-types/api.types';
+import { ClusterInstancePreset } from 'shared-types/api.types';
 import { DbWizardType } from '../../database-form-schema';
 import { usePresetFormSync } from './use-preset-form-sync';
 
@@ -58,7 +58,7 @@ const uiSchema = {
   },
 } as unknown as TopologyUISchemas;
 
-const resolvedPreset: InstancePreset = {
+const resolvedPreset: ClusterInstancePreset = {
   spec: {
     version: '8.0.12',
     topology: { type: 'replicaSet' },
@@ -69,7 +69,7 @@ const resolvedPreset: InstancePreset = {
       },
     },
   },
-} as unknown as InstancePreset;
+} as unknown as ClusterInstancePreset;
 
 const CPU_PATH = 'spec.components.engine.resources.limits.cpu';
 const SC_PATH = 'spec.components.engine.storage.storageClass';
@@ -79,7 +79,7 @@ interface HookArgs {
   mode?: FormMode;
   presetName?: string;
   namespace?: string;
-  preset?: InstancePreset | null;
+  preset?: ClusterInstancePreset | null;
 }
 
 const setup = (args: HookArgs = {}) => {

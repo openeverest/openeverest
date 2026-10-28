@@ -18,6 +18,7 @@
   - [Validation-level modes](#validation-level-modes)
 - Field Types
   - [Number Field](components/number-field.md)
+  - [Secret Field](components/secret-field.md)
   - [Select Field](components/select-field.md)
   - [Text Field](components/text-field.md)
   - [Toggle Field](components/toggle-field.md)
@@ -206,6 +207,23 @@ for UI that plain fields can't describe. See [Widgets](widgets.md) for the suppo
 
 ## Mode-Aware Overrides
 
+### Component-level modes
+
+Use a component's `modes` to hide it in a mode with `uiType: hidden`. A hidden field isn't
+rendered or validated in that mode, and in `restore` it doesn't take the source instance's value.
+
+```yaml
+userSecret:
+  uiType: secret
+  path: spec.userSecretRef.name
+  fieldParams:
+    label: Database users
+    definition: user
+  modes:
+    restore:
+      uiType: hidden
+```
+
 ### FieldParams-level modes
 
 Use `fieldParams.modes` when the override belongs to the field presentation layer.
@@ -252,12 +270,17 @@ For [widgets](widgets.md), where the data lives is defined by each widget type.
 
 ### Path scoping
 
-A component's `path` is its form-field name and write target verbatim. Declare it
-**relative to the section's root** — the object the consumer merges the section into
-(e.g. a single storage's `pitr`) — and spell the real sub-structure, so the schema alone
-says where the value lands. The consumer only supplies the root; it never injects keys.
+A component's `path` is its write target, **relative to the section's root** — the object the
+schema describes. Spell the real sub-structure below that root, so the schema alone says where the
+value lands. The host supplies the root (the form field is `<root>.<path>`) and never injects keys
+between the root and the path.
 
-- ✅ `path: parameters.timeBetweenUploads` → `<root>.parameters.timeBetweenUploads`
+| Schema              | Root                 | Example `path`                    |
+| ------------------- | -------------------- | --------------------------------- |
+| Topology            | the Instance         | `spec.components.engine.replicas` |
+| Backup class `pitr` | one storage's `pitr` | `parameters.timeBetweenUploads`   |
+| Secret definition   | the secret's data    | `MONGODB_USER`                    |
+
 - ❌ `path: spec.backup.storages[].pitr.parameters.timeBetweenUploads`
 
 No absolute paths and no array segments (`[]`): an empty `[]` has no index to bind to, and

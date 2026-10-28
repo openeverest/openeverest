@@ -17,13 +17,19 @@ package rbac
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
+	"slices"
 
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/google/go-cmp/cmp"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	valhandler "github.com/openeverest/openeverest/v2/internal/server/handlers/validation"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
@@ -58,40 +64,18 @@ func (h *rbacHandler) GetInstance(ctx context.Context, cluster, namespace, name 
 
 // CreateInstance creates an instance, gated by RBAC.
 func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
-	// If the instance references a user secret, ensure the user has read
-	// permission on that secret to prevent privilege escalation.
-	if userSecret := instance.Spec.UserSecretRef; userSecret != nil {
-		object := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), userSecret.Name)
-		if err := h.enforce(ctx, rbac.ResourceSecrets, rbac.ActionRead, object); err != nil {
-			return nil, err
-		}
+	if err := h.enforceReadMonitoringDestinations(ctx, cluster, instance.GetNamespace(), instance.Spec.Monitoring, nil); err != nil {
+		return nil, err
 	}
 
 	object := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), instance.GetName())
 
-	var presetName string
-	if instance.GetAnnotations() != nil {
-		presetName = instance.GetAnnotations()["openeverest.io/instance-preset"]
-	}
-
-	// If no preset is specified, require standard create permission
-	if presetName == "" {
-		if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionCreate, object); err != nil {
+	// If user has create permission on Instance, allow any customization
+	err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionCreate, object)
+	if err == nil {
+		if err := h.ensureInstanceReferencesAuthorized(ctx, cluster, nil, instance); err != nil {
 			return nil, err
 		}
-		return h.next.CreateInstance(ctx, cluster, instance)
-	}
-
-	// User must have read permission on the InstancePreset
-	presetObject := rbac.ClusterObjectName(cluster, presetName)
-	if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionRead, presetObject); err != nil {
-		return nil, err
-	}
-
-	var err error
-
-	// If user has create permission on Instance, allow any customization
-	if err = h.enforce(ctx, rbac.ResourceInstances, rbac.ActionCreate, object); err == nil {
 		return h.next.CreateInstance(ctx, cluster, instance)
 	}
 
@@ -104,9 +88,44 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 		return nil, err
 	}
 
-	// User has deploy but not create, check instance matches preset exactly
-	if err := h.ensureInstanceMatchesPreset(ctx, cluster, instance, presetName); err != nil {
+	// The preset vouches for the references it pins, but not for the user
+	// secret: whose credentials to seed is the requester's own choice.
+	if err = h.ensureUserSecretReadable(ctx, cluster, nil, instance); err != nil {
 		return nil, err
+	}
+
+	var instancePreset, clusterInstancePreset string
+	if annotations := instance.GetAnnotations(); annotations != nil {
+		instancePreset = annotations[common.InstancePresetAnnotation]
+		clusterInstancePreset = annotations[common.ClusterInstancePresetAnnotation]
+	}
+
+	switch {
+	case instancePreset != "":
+		// User must have read permission on the InstancePreset
+		presetObj := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), instancePreset)
+		if err = h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionRead, presetObj); err != nil {
+			return nil, err
+		}
+
+		// User has deploy permission, check instance matches preset exactly
+		if err = h.ensureMatchesInstancePreset(ctx, cluster, instance, instancePreset); err != nil {
+			return nil, err
+		}
+	case clusterInstancePreset != "":
+		// User must have read permission on the ClusterInstancePreset
+		clusterPresetObj := rbac.ClusterObjectName(cluster, clusterInstancePreset)
+		if err = h.enforce(ctx, rbac.ResourceClusterInstancePresets, rbac.ActionRead, clusterPresetObj); err != nil {
+			return nil, err
+		}
+
+		// User has deploy permission, check instance matches preset exactly
+		if err = h.ensureMatchesClusterInstancePreset(ctx, cluster, instance, clusterInstancePreset); err != nil {
+			return nil, err
+		}
+	default:
+		// no preset specified
+		return nil, ErrInsufficientPermissions
 	}
 
 	return h.next.CreateInstance(ctx, cluster, instance)
@@ -118,17 +137,82 @@ func (h *rbacHandler) UpdateInstance(ctx context.Context, cluster string, instan
 	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionUpdate, object); err != nil {
 		return nil, err
 	}
+	current, err := h.next.GetInstance(ctx, cluster, instance.GetNamespace(), instance.GetName())
+	if err != nil {
+		return nil, err
+	}
+	if err := h.enforceReadMonitoringDestinations(ctx, cluster, instance.GetNamespace(), instance.Spec.Monitoring, current.Spec.Monitoring); err != nil {
+		return nil, err
+	}
+	if err := h.ensureInstanceReferencesAuthorized(ctx, cluster, current, instance); err != nil {
+		return nil, err
+	}
+	// Pin the write to the version the checks ran against, so a reference
+	// added concurrently can't ride in unchecked. A caller-supplied version is
+	// left alone: the API server rejects it if it is not the one checked here.
+	if instance.GetResourceVersion() == "" {
+		instance.SetResourceVersion(current.GetResourceVersion())
+	}
 	return h.next.UpdateInstance(ctx, cluster, instance)
 }
 
 // PatchInstance patches an instance, gated by RBAC. A patch is authorised as an
-// update on the instance rather than as a permission of its own.
+// update on the instance rather than as a permission of its own. The patch is
+// merged onto the stored instance first, so references it introduces get the
+// same checks as an update.
 func (h *rbacHandler) PatchInstance(ctx context.Context, cluster, namespace, name string, patch []byte) (*corev1alpha1.Instance, error) {
 	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
 	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionUpdate, object); err != nil {
 		return nil, err
 	}
+	current, err := h.next.GetInstance(ctx, cluster, namespace, name)
+	if err != nil {
+		return nil, err
+	}
+	patched, err := mergePatchInstance(current, patch)
+	if err != nil {
+		return nil, err
+	}
+	if err := h.enforceReadMonitoringDestinations(ctx, cluster, namespace, patched.Spec.Monitoring, current.Spec.Monitoring); err != nil {
+		return nil, err
+	}
+	if err := h.ensureInstanceReferencesAuthorized(ctx, cluster, current, patched); err != nil {
+		return nil, err
+	}
+	// Same pin as UpdateInstance. patched carries the caller's version if the
+	// patch named one, and the stored one otherwise.
+	pin, err := json.Marshal(map[string]any{"metadata": map[string]any{"resourceVersion": patched.GetResourceVersion()}})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal resource version: %w", err)
+	}
+	if patch, err = jsonpatch.MergePatch(patch, pin); err != nil {
+		return nil, fmt.Errorf("failed to pin resource version: %w", err)
+	}
 	return h.next.PatchInstance(ctx, cluster, namespace, name, patch)
+}
+
+// mergePatchInstance returns the instance a JSON merge patch would produce.
+func mergePatchInstance(current *corev1alpha1.Instance, patch []byte) (*corev1alpha1.Instance, error) {
+	// RBAC runs before validation, so reject what validateMergePatch would:
+	// MergePatch returns a non-object patch unchanged, and a null one decodes
+	// to an empty Instance that passes every check.
+	var doc map[string]any
+	if err := json.Unmarshal(patch, &doc); err != nil || doc == nil {
+		return nil, errors.Join(valhandler.ErrInvalidRequest, errors.New("patch must be a JSON object"))
+	}
+	original, err := json.Marshal(current)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal instance: %w", err)
+	}
+	merged, err := jsonpatch.MergePatch(original, patch)
+	if err != nil {
+		return nil, errors.Join(valhandler.ErrInvalidRequest, err)
+	}
+	patched := &corev1alpha1.Instance{}
+	if err := json.Unmarshal(merged, patched); err != nil {
+		return nil, errors.Join(valhandler.ErrInvalidRequest, err)
+	}
+	return patched, nil
 }
 
 // DeleteInstance deletes an instance, gated by RBAC.
@@ -149,11 +233,47 @@ func (h *rbacHandler) GetInstanceConnection(ctx context.Context, cluster, namesp
 	return h.next.GetInstanceConnection(ctx, cluster, namespace, name)
 }
 
-// ensureInstanceMatchesPreset checks if an instance spec matches its referenced preset.
+// enforceReadMonitoringDestinations requires read on every MonitoringDestination
+// the instance sends to and stored does not, since the instance's monitoring data is sent there.
+func (h *rbacHandler) enforceReadMonitoringDestinations(ctx context.Context, cluster, namespace string, monitoring, stored *corev1alpha1.InstanceMonitoringSpec) error {
+	if monitoring == nil {
+		return nil
+	}
+	for _, destination := range monitoring.Destinations {
+		if stored != nil && slices.ContainsFunc(stored.Destinations, func(kept corev1alpha1.InstanceMonitoringDestination) bool {
+			return kept.DestinationRef.Name == destination.DestinationRef.Name
+		}) {
+			continue
+		}
+		object := rbac.ClusterNamespacedObjectName(cluster, namespace, destination.DestinationRef.Name)
+		if err := h.enforce(ctx, rbac.ResourceMonitoringDestinations, rbac.ActionRead, object); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ensureMatchesInstancePreset checks if an instance spec matches its referenced instance preset.
 // Returns an error if the instance has been customized beyond the preset values.
-func (h *rbacHandler) ensureInstanceMatchesPreset(ctx context.Context, cluster string, instance *corev1alpha1.Instance, presetName string) error {
+func (h *rbacHandler) ensureMatchesInstancePreset(ctx context.Context, cluster string, instance *corev1alpha1.Instance, presetName string) error {
+	preset, err := h.next.GetInstancePreset(ctx, cluster, instance.GetNamespace(), presetName)
+	if err != nil {
+		return fmt.Errorf("failed to get preset %s: %w", presetName, err)
+	}
+
+	if diff := cmp.Diff(preset.Spec.InstanceSpec, instance.Spec); diff != "" {
+		h.log.Warnf("Instance spec customization detected for preset %s: %s", presetName, diff)
+		return ErrInsufficientPermissions
+	}
+
+	return nil
+}
+
+// ensureMatchesClusterInstancePreset checks if an instance spec matches its referenced cluster instance preset.
+// Returns an error if the instance has been customized beyond the preset values.
+func (h *rbacHandler) ensureMatchesClusterInstancePreset(ctx context.Context, cluster string, instance *corev1alpha1.Instance, presetName string) error {
 	// Fetch the preset with namespace defaults resolved
-	preset, err := h.next.ResolveInstancePreset(ctx, cluster, presetName, instance.GetNamespace())
+	preset, err := h.next.ResolveClusterInstancePreset(ctx, cluster, presetName, instance.GetNamespace())
 	if err != nil {
 		return fmt.Errorf("failed to resolve preset %s for namespace %s: %w", presetName, instance.GetNamespace(), err)
 	}
@@ -165,4 +285,107 @@ func (h *rbacHandler) ensureInstanceMatchesPreset(ctx context.Context, cluster s
 	}
 
 	return nil
+}
+
+// ensureInstanceReferencesAuthorized checks the caller may use every resource the instance points at.
+// On update, current is the stored instance and only references the request adds or changes are checked,
+// so losing a grant on an untouched reference doesn't lock the caller out of editing unrelated fields.
+func (h *rbacHandler) ensureInstanceReferencesAuthorized(ctx context.Context, cluster string, current, instance *corev1alpha1.Instance) error {
+	if current == nil {
+		current = &corev1alpha1.Instance{}
+	}
+	if name := instance.Spec.ProviderRef.Name; name != current.Spec.ProviderRef.Name {
+		if err := h.enforce(ctx, rbac.ResourceProviders, rbac.ActionRead, rbac.ClusterObjectName(cluster, name)); err != nil {
+			return err
+		}
+	}
+	if err := h.ensureUserSecretReadable(ctx, cluster, current, instance); err != nil {
+		return err
+	}
+	if err := h.ensureInstanceBackupAuthorized(ctx, cluster, current.Spec.Backup, instance); err != nil {
+		return err
+	}
+	if dataSource := instance.Spec.DataSource; dataSource != nil && !reflect.DeepEqual(dataSource, current.Spec.DataSource) {
+		object := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), instance.GetName())
+		if err := h.enforce(ctx, rbac.ResourceRestores, rbac.ActionCreate, object); err != nil {
+			return err
+		}
+		if err := h.ensureDataSourceReadable(ctx, cluster, instance.GetNamespace(), instance.GetName(), *dataSource); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ensureUserSecretReadable checks the caller may read a user secret the
+// instance newly references, so they cannot seed it with credentials they
+// could not otherwise see.
+func (h *rbacHandler) ensureUserSecretReadable(ctx context.Context, cluster string, current, instance *corev1alpha1.Instance) error {
+	secret := instance.Spec.UserSecretRef
+	if secret == nil {
+		return nil
+	}
+	if current != nil && current.Spec.UserSecretRef != nil && current.Spec.UserSecretRef.Name == secret.Name {
+		return nil
+	}
+	object := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), secret.Name)
+	return h.enforce(ctx, rbac.ResourceSecrets, rbac.ActionRead, object)
+}
+
+// ensureInstanceBackupAuthorized checks the backup class and storages the
+// instance newly references, and that the caller may create backups of it
+// when it adds or changes a schedule or PITR.
+func (h *rbacHandler) ensureInstanceBackupAuthorized(
+	ctx context.Context,
+	cluster string,
+	current *corev1alpha1.InstanceBackupSpec,
+	instance *corev1alpha1.Instance,
+) error {
+	backup := instance.Spec.Backup
+	if backup == nil {
+		return nil
+	}
+	if current == nil {
+		current = &corev1alpha1.InstanceBackupSpec{}
+	}
+	if name := backup.ClassRef.Name; name != current.ClassRef.Name {
+		if err := h.enforce(ctx, rbac.ResourceBackupClasses, rbac.ActionRead, rbac.ClusterObjectName(cluster, name)); err != nil {
+			return err
+		}
+	}
+
+	currentStorages := make(map[string]corev1alpha1.InstanceBackupStorage, len(current.Storages))
+	for _, storage := range current.Storages {
+		currentStorages[storage.StorageRef.Name] = storage
+	}
+	schedulesChanged := false
+	for _, storage := range backup.Storages {
+		currentStorage, referenced := currentStorages[storage.StorageRef.Name]
+		if !referenced {
+			object := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), storage.StorageRef.Name)
+			if err := h.enforce(ctx, rbac.ResourceBackupStorages, rbac.ActionRead, object); err != nil {
+				return err
+			}
+		}
+		// Enabling backups turns on schedules that are already defined.
+		if startsBackups(storage, currentStorage, backup.Enabled && !current.Enabled) {
+			schedulesChanged = true
+		}
+	}
+	if !schedulesChanged {
+		return nil
+	}
+	object := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), instance.GetName())
+	return h.enforce(ctx, rbac.ResourceBackups, rbac.ActionCreate, object)
+}
+
+// startsBackups reports whether storage adds, changes or switches on a
+// schedule or PITR, compared with what current had for the same storage.
+func startsBackups(storage, current corev1alpha1.InstanceBackupStorage, enabling bool) bool {
+	if len(storage.Schedules) == 0 && storage.PITR == nil {
+		return false
+	}
+	return enabling ||
+		!reflect.DeepEqual(storage.Schedules, current.Schedules) ||
+		!reflect.DeepEqual(storage.PITR, current.PITR)
 }

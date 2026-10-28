@@ -340,6 +340,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Cluster'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Cluster not found
           content:
@@ -375,14 +381,153 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NamespaceList'
-  '/clusters/{cluster}/instance-presets':
+  '/clusters/{cluster}/cluster-instance-presets':
+    x-everest-resource-name: cluster-instance-presets
+    get:
+      tags:
+        - Preset
+      summary: List cluster instance presets
+      description: |
+        This API lists all cluster instance presets in the specified cluster.
+        Optionally filter by provider.
+      operationId: listClusterInstancePresets
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: provider
+          in: query
+          required: false
+          description: Filter presets by provider name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of cluster instance presets
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/ClusterInstancePresetList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/cluster-instance-presets/{name}':
+    x-everest-resource-name: cluster-instance-presets
+    get:
+      tags:
+        - Preset
+      summary: Get cluster instance preset
+      description: |
+        This API gets the cluster instance preset specified by the `name` in the specified `cluster`.
+      operationId: getClusterInstancePreset
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the cluster instance preset
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cluster instance preset details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/ClusterInstancePreset'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Cluster instance preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/cluster-instance-presets/{name}/resolve':
+    x-everest-resource-name: cluster-instance-presets
+    get:
+      tags:
+        - Preset
+      summary: Resolve cluster instance preset with namespace defaults and default StorageClass of the cluster
+      description: |
+        This API resolves the cluster instance preset specified by the `name` in the specified `cluster`.
+        This endpoint is useful when creating instances from cluster instance presets, as it provides a
+        fully-populated preset with all namespace defaults, and default StorageClass of the cluster
+        if it has empty StorageClass.
+      operationId: resolveClusterInstancePreset
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the cluster instance preset
+          schema:
+            type: string
+        - name: namespace
+          in: query
+          required: true
+          description: The namespace for which to resolve default values
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resolved cluster instance preset with namespace defaults
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/ClusterInstancePreset'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Cluster instance preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/instance-presets':
     x-everest-resource-name: instance-presets
     get:
       tags:
         - Preset
       summary: List instance presets
       description: |
-        This API lists all instance presets in the specified cluster.
+        This API lists all instance presets in the specified namespace and cluster.
         Optionally filter by provider.
       operationId: listInstancePresets
       parameters:
@@ -390,6 +535,12 @@ paths:
           in: path
           required: true
           description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where instance presets are located
           schema:
             type: string
         - name: provider
@@ -411,20 +562,90 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  '/clusters/{cluster}/instance-presets/{name}':
+    post:
+      tags:
+        - Preset
+      summary: Create instance preset
+      description: |
+        This API creates a new instance preset in the specified namespace and cluster.
+      operationId: createInstancePreset
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the instance preset will be created
+          schema:
+            type: string
+      requestBody:
+        description: The instance preset object to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+      responses:
+        '201':
+          description: Instance preset created successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/instance-presets/{name}':
     x-everest-resource-name: instance-presets
     get:
       tags:
         - Preset
       summary: Get instance preset
       description: |
-        This API gets the instance preset specified by the `name` in the specified `cluster`.
+        This API gets the instance preset specified by the `name` in the specified `namespace` and `cluster`.
       operationId: getInstancePreset
       parameters:
         - name: cluster
           in: path
           required: true
           description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the instance preset is located
           schema:
             type: string
         - name: name
@@ -440,6 +661,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance preset not found
           content:
@@ -452,23 +679,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  '/clusters/{cluster}/instance-presets/{name}/resolve':
-    x-everest-resource-name: instance-presets
-    get:
+    put:
       tags:
         - Preset
-      summary: Resolve instance preset with namespace defaults and default StorageClass of the cluster
+      summary: Update instance preset
       description: |
-        This API resolves the instance preset specified by the `name` in the specified `cluster`.
-        This endpoint is useful when creating instances from presets, as it provides a
-        fully-populated preset with all namespace defaults, and default StorageClass of the cluster
-        if it has empty StorageClass.
-      operationId: resolveInstancePreset
+        This API updates the instance preset specified by the `name` in the specified `namespace` and `cluster`,
+        replacing the entire resource with the new one.
+      operationId: updateInstancePreset
       parameters:
         - name: cluster
           in: path
           required: true
           description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the instance preset is located
           schema:
             type: string
         - name: name
@@ -477,25 +706,97 @@ paths:
           description: The name of the instance preset
           schema:
             type: string
-        - name: namespace
-          in: query
-          required: true
-          description: The namespace for which to resolve default values
-          schema:
-            type: string
+      requestBody:
+        description: The instance preset object to be updated
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
       responses:
         '200':
-          description: Resolved instance preset with namespace defaults
+          description: Instance preset updated successfully
           content:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance preset not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Preset
+      summary: Delete instance preset
+      description: |
+        This API deletes the instance preset specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: deleteInstancePreset
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the instance preset is located
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the instance preset
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Instance preset deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Instance preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -560,6 +861,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Provider'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Provider not found
           content:
@@ -675,6 +982,7 @@ paths:
       summary: Create instance
       description: |
         This API creates a new database instance in the specified namespace and cluster.
+        Every monitoring destination listed in `spec.monitoring.destinations` requires `read` on it; otherwise the request fails with 403.
       operationId: createInstance
       parameters:
         - name: cluster
@@ -709,6 +1017,24 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -750,6 +1076,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance not found
           content:
@@ -769,6 +1101,7 @@ paths:
       description: |
         This API updates the database instance specified by the `instance` name in the specified `namespace` and `cluster`, replacing the entire resource with the new one.
         To change only specific fields, use PATCH instead.
+        Every monitoring destination added to `spec.monitoring.destinations` requires `read` on it; otherwise the request fails with 403. Destinations the instance already lists need no `read`.
       operationId: updateInstance
       parameters:
         - name: cluster
@@ -803,12 +1136,24 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -823,6 +1168,7 @@ paths:
         This API applies Merge Patch to the database instance specified by the `instance` name in the specified `namespace` and `cluster`.
         Members absent from the patch keep their current value, and a member set to `null` is removed. A path that does not exist on the Instance is
         rejected rather than ignored. Include `metadata.resourceVersion` to make the patch conditional, which fails with 409 if the instance has changed.
+        A patch setting `spec.monitoring.destinations` replaces the whole list, and every monitoring destination it adds requires `read` on it; otherwise the request fails with 403. Destinations the instance already lists need no `read`.
       operationId: patchInstance
       parameters:
         - name: cluster
@@ -859,12 +1205,24 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '415':
           description: The Content-Type is not application/merge-patch+json
           content:
@@ -925,12 +1283,24 @@ paths:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
         '204':
           description: Instance deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -975,6 +1345,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/InstanceConnectionDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance or connection details not found
           content:
@@ -1023,8 +1399,8 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/BackupList'
-        '400':
-          description: Unsuccessful operation
+        '403':
+          description: Forbidden
           content:
             application/json:
               schema:
@@ -1071,8 +1447,8 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/RestoreList'
-        '400':
-          description: Unsuccessful operation
+        '403':
+          description: Forbidden
           content:
             application/json:
               schema:
@@ -1141,6 +1517,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/BackupClass'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup class not found
           content:
@@ -1155,6 +1537,67 @@ paths:
                 $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/namespaces/{namespace}/backups':
     x-everest-resource-name: backups
+    get:
+      tags:
+        - Backup
+      summary: List backups
+      description: |
+        This API lists all backups in the specified namespace and cluster.
+        Optionally filter by backup class, backup storage and backup origin.
+      operationId: listBackups
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the backups
+          schema:
+            type: string
+        - name: backupClass
+          in: query
+          required: false
+          description: Filter backups by backup class name
+          schema:
+            type: string
+        - name: backupStorage
+          in: query
+          required: false
+          description: Filter backups by backup storage name
+          schema:
+            type: string
+        - name: backupOrigin
+          in: query
+          required: false
+          description: Filter backups by origin type
+          schema:
+            type: string
+            enum:
+              - Instance
+              - External
+      responses:
+        '200':
+          description: List of backups
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupList'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       tags:
         - Backup
@@ -1189,6 +1632,24 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Backup'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1230,6 +1691,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Backup'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup not found
           content:
@@ -1290,12 +1757,24 @@ paths:
                 $ref: 'crds.gen.yaml#/components/schemas/Backup'
         '204':
           description: Backup deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1379,6 +1858,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1420,6 +1917,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/BackupImport'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup import not found
           content:
@@ -1461,6 +1964,18 @@ paths:
       responses:
         '204':
           description: Backup import deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1503,6 +2018,24 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Restore'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1544,6 +2077,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Restore'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Restore not found
           content:
@@ -1591,12 +2130,24 @@ paths:
                 $ref: 'crds.gen.yaml#/components/schemas/Restore'
         '204':
           description: Restore deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Restore not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1638,6 +2189,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -1684,12 +2253,6 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/BackupStorageList'
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
           content:
@@ -1737,6 +2300,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/BackupStorage'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup storage not found
           content:
@@ -1791,12 +2360,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup storage not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '415':
           description: The Content-Type is not application/merge-patch+json
           content:
@@ -1857,12 +2438,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup storage not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1911,6 +2504,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1956,6 +2561,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -1995,12 +2618,6 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfigList'
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
           content:
@@ -2041,8 +2658,8 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfig'
-        '400':
-          description: Unsuccessful operation
+        '403':
+          description: Forbidden
           content:
             application/json:
               schema:
@@ -2097,12 +2714,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Monitoring config not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -2150,14 +2779,492 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Monitoring config not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/monitoring-classes':
+    x-everest-resource-name: monitoring-classes
+    get:
+      tags:
+        - Monitoring
+      summary: List monitoring classes
+      description: |
+        This API lists all monitoring classes in the specified cluster.
+        Monitoring classes are installed with their extension and are read-only over this API.
+        Optionally filter by provider: only the classes whose `status.providers` entry for that provider carries a `mode` are returned, so the result is what an Instance of that provider can use.
+      operationId: listMonitoringClasses
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: provider
+          in: query
+          required: false
+          description: Return only the monitoring classes compatible with the provider with this name, as published in `status.providers`
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of monitoring classes
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringClassList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/monitoring-classes/{name}':
+    x-everest-resource-name: monitoring-classes
+    get:
+      tags:
+        - Monitoring
+      summary: Get monitoring class
+      description: |
+        This API gets the monitoring class specified by the `name` in the specified `cluster`.
+      operationId: getMonitoringClass
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the monitoring class
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Monitoring class details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringClass'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Monitoring class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/monitoring-destinations':
+    x-everest-resource-name: monitoring-destinations
+    post:
+      tags:
+        - Monitoring
+      summary: Create monitoring destination
+      description: |
+        This API creates a new monitoring destination in the specified namespace and cluster.
+        Only `metadata.name`, `metadata.generateName`, `metadata.labels`, `metadata.annotations` and `spec` are taken from the request; the namespace is the one in the path.
+        Credentials are never part of the payload: create the Secret through the secrets API and reference it in `spec.credentialsSecretRef`, which requires `read` on that Secret.
+        `spec.classRef` requires `read` on the monitoring class it names.
+      operationId: createMonitoringDestination
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the monitoring destination will be created
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringDestination'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        description: The monitoring destination object to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.gen.yaml#/components/schemas/MonitoringDestination'
+    get:
+      tags:
+        - Monitoring
+      summary: List monitoring destinations
+      description: |
+        This API lists all monitoring destinations in the specified namespace and cluster.
+        Optionally filter by monitoring class: only the destinations whose `spec.classRef.name` is that class are returned.
+      operationId: listMonitoringDestinations
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the monitoring destinations
+          schema:
+            type: string
+        - name: class
+          in: query
+          required: false
+          description: Return only the monitoring destinations of the monitoring class with this name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringDestinationList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/monitoring-destinations/{name}':
+    x-everest-resource-name: monitoring-destinations
+    get:
+      tags:
+        - Monitoring
+      summary: Get monitoring destination
+      description: |
+        This API gets the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: getMonitoringDestination
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the monitoring destination
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the monitoring destination
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringDestination'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Monitoring destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Monitoring
+      summary: Update monitoring destination
+      description: |
+        This API replaces the labels, annotations and `spec` of the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
+        Include `metadata.resourceVersion` from the object being replaced to make the update fail with 409 if the monitoring destination has changed since; without it, the destination is replaced whatever its current version.
+        `spec.classRef` is immutable and requires `read` on the monitoring class it names. Credentials are never part of the payload: update the Secret named by `spec.credentialsSecretRef` instead. Referencing a Secret requires `read` on it.
+      operationId: updateMonitoringDestination
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the monitoring destination
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the monitoring destination
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringDestination'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Monitoring destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        description: The monitoring destination object to be updated
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.gen.yaml#/components/schemas/MonitoringDestination'
+    delete:
+      tags:
+        - Monitoring
+      summary: Delete monitoring destination
+      description: |
+        This API deletes the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
+        Instances that still list it in `spec.monitoring.destinations` keep their current monitoring and report the destination as not found;
+        list them first with `GET .../monitoring-bindings?destination={name}`.
+      operationId: deleteMonitoringDestination
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the monitoring destination
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the monitoring destination
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Monitoring destination deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Monitoring destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/monitoring-bindings':
+    x-everest-resource-name: monitoring-bindings
+    get:
+      tags:
+        - Monitoring
+      summary: List monitoring bindings
+      description: |
+        This API lists the monitoring bindings in the specified namespace and cluster.
+        A binding records that one Instance sends monitoring data to one monitoring destination; it is created from `Instance.spec.monitoring.destinations` and is read-only over this API.
+        Only the bindings of Instances the caller may read are returned. Optionally filter by destination name.
+      operationId: listMonitoringBindings
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the monitoring bindings
+          schema:
+            type: string
+        - name: destination
+          in: query
+          required: false
+          description: |
+            Return only the bindings to the monitoring destination with this name. Empty means no filter; a value that is not a valid label value is rejected with 400.
+          schema:
+            type: string
+            maxLength: 63
+            pattern: '^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringBindingList'
+        '400':
+          description: The destination filter is not a valid label value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/monitoring-bindings/{name}':
+    x-everest-resource-name: monitoring-bindings
+    get:
+      tags:
+        - Monitoring
+      summary: Get monitoring binding
+      description: |
+        This API gets the monitoring binding specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: getMonitoringBinding
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the monitoring binding
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the monitoring binding
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringBinding'
+        '403':
+          description: Forbidden, or the monitoring binding does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
           content:
             application/json:
               schema:
@@ -2205,6 +3312,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -2251,12 +3376,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConfigMapList'
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
           content:
@@ -2298,6 +3417,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConfigMap'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: ConfigMap not found
           content:
@@ -2339,12 +3464,24 @@ paths:
       responses:
         '204':
           description: ConfigMap deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: ConfigMap not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -2394,6 +3531,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -2441,12 +3596,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SecretList'
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
           content:
@@ -2489,6 +3638,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Secret'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Secret not found
           content:
@@ -2530,12 +3685,24 @@ paths:
       responses:
         '204':
           description: Secret deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Secret not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -2554,6 +3721,24 @@ components:
       properties:
         message:
           type: string
+    APIError:
+      description: |
+        APIError exposes the `reason` and the offending `field` in addition
+        to the `message` for better programmatic handling of errors.
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - type: object
+          properties:
+            reason:
+              type: string
+              description: Machine-readable reason for the conflict.
+              example: AlreadyExists
+            field:
+              type: string
+              description: The field path that caused the conflict.
+              example: metadata.name
+          required:
+            - reason
     SecretList:
       type: object
       description: A list of OpenEverest-managed Secrets (metadata only).
@@ -3285,8 +4470,7 @@ components:
           description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
         metadata:
-          description: 'Standard object''s metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata'
-          type: object
+          $ref: 'crds.gen.yaml#/components/schemas/ObjectMeta'
         stringData:
           description: stringData allows specifying non-binary secret data in string form. It is provided as a write-only input field for convenience. All keys and values are merged into the data field on write, overwriting any existing values. The stringData field is never output when reading from the API.
           type: object
@@ -3321,8 +4505,7 @@ components:
           description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
         metadata:
-          description: 'Standard object''s metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata'
-          type: object
+          $ref: 'crds.gen.yaml#/components/schemas/ObjectMeta'
 
     ConfigMapList:
       type: object

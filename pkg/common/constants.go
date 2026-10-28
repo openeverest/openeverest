@@ -51,10 +51,6 @@ const (
 	PerconaEverestOperatorDeploymentName = "everest-operator"
 	// EverestContainerNameInDeployment is the name of the Everest container in the deployment.
 	EverestContainerNameInDeployment = "everest"
-	// VictoriaMetricsOperatorDeploymentName stores the name of VictoriaMetrics operator deployment.
-	VictoriaMetricsOperatorDeploymentName = "vm-operator"
-	// KubeStateMetricsDeploymentName stores the name of kube-state-metrics deployment.
-	KubeStateMetricsDeploymentName = "kube-state-metrics"
 	// PerconaEverestCRDLabel is the label used to identify Everest CRDs.
 	PerconaEverestCRDLabel = "everest.percona.com/crd"
 
@@ -114,6 +110,11 @@ const (
 	OpenEverestProviderLabel = "openeverest.io/provider"
 	// OpenEverestDefinitionLabel identifies the Secret or ConfigMap definition for filtering.
 	OpenEverestDefinitionLabel = "openeverest.io/definition"
+
+	// InstancePresetAnnotation is the annotation key for the InstancePreset that an Instance was created from.
+	InstancePresetAnnotation = "openeverest.io/instance-preset"
+	// ClusterInstancePresetAnnotation is the annotation key for the ClusterInstancePreset that an Instance was created from.
+	ClusterInstancePresetAnnotation = "openeverest.io/cluster-instance-preset"
 )
 
 // InitialPasswordWarningMessage is the message that is shown to the user after the installation/upgrade,

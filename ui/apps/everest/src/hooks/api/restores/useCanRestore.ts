@@ -18,7 +18,7 @@ import { useRBACPermissions } from 'hooks/rbac';
 // target's credentials (the restored database must be usable afterwards).
 export const useCanRestore = (namespace: string, instanceName: string) => {
   const { canCreate } = useRBACPermissions(
-    'database-cluster-restores',
+    'restores',
     `${namespace}/${instanceName}`
   );
   const { canRead: canReadCredentials } = useRBACPermissions(

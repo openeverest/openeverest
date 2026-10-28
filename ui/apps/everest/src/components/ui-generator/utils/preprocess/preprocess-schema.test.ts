@@ -17,8 +17,10 @@ import {
   Component,
   DataSource,
   FieldType,
+  FormMode,
   TopologyUISchemas,
 } from '../../ui-generator.types';
+import { extractInstanceValues } from '../default-values/extract-instance-values';
 import { preprocessSchema } from './preprocess-schema';
 
 // Suppress console.warn from dev-time validation when using test providers
@@ -94,5 +96,40 @@ describe('preprocessSchema', () => {
 
     expect(comp.uiType).toBe(FieldType.Select);
     expect(comp.dataSource).toEqual(dataSource);
+  });
+
+  it('applies the form mode, so restore leaves out the source value of a field hidden in it', () => {
+    const schema: TopologyUISchemas = {
+      single: {
+        sections: {
+          base: {
+            components: {
+              users: {
+                uiType: FieldType.Text,
+                path: 'spec.userSecretRef.name',
+                fieldParams: { label: 'Users' },
+                modes: { [FormMode.Restore]: { uiType: 'hidden' } },
+              },
+              replicas: {
+                uiType: FieldType.Number,
+                path: 'spec.replicas',
+                fieldParams: { label: 'Replicas' },
+              },
+            },
+          },
+        },
+      },
+    };
+    const source = { spec: { userSecretRef: { name: 'users' }, replicas: 3 } };
+
+    const { sections } = preprocessSchema(
+      schema,
+      undefined,
+      FormMode.Restore
+    ).single;
+    const values = extractInstanceValues(sections, source, FormMode.Restore);
+
+    expect(values).toHaveProperty('spec.replicas', 3);
+    expect(values).not.toHaveProperty('spec.userSecretRef.name', 'users');
   });
 });
