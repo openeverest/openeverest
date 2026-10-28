@@ -12,44 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Box, Button, Divider, Stack, Typography, Link } from '@mui/material';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { Card, EverestMainIcon, TextInput } from '@percona/ui-lib';
+import { useContext, useEffect } from 'react';
+import { Stack } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
+import { Navigate } from 'react-router-dom';
+import { EverestHorizontalIcon } from '@percona/ui-lib';
 import { AuthContext } from 'contexts/auth';
 import { SSO_LOGIN_ERROR_KEY } from 'contexts/auth/auth.utils';
-import { useContext, useEffect } from 'react';
-import { enqueueSnackbar } from 'notistack';
-import { FormProvider, SubmitHandler, useForm } from 'react-hook-form';
-import { Navigate } from 'react-router-dom';
-import { LoginFormType, loginSchema } from './Login.constants';
+import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
+import { LoginBrandPanel } from './login-brand-panel/login-brand-panel';
+import { LoginForm } from './login-form/login-form';
 import { Messages } from './Login.messages';
-import { HiddenInput } from 'components/hidden-input';
-
-const LoginLinkButton = ({
-  icon,
-  text,
-  href,
-}: {
-  icon: React.ReactNode;
-  text: string;
-  href: string;
-}) => {
-  return (
-    <Link target="_blank" rel="noopener noreferrer" href={href}>
-      <Button startIcon={icon}>{text}</Button>
-    </Link>
-  );
-};
 
 const Login = () => {
-  const methods = useForm<LoginFormType>({
-    mode: 'onChange',
-    defaultValues: { username: '', password: '' },
-    resolver: zodResolver(loginSchema),
-  });
-  const { login, authStatus, redirectRoute, isSsoEnabled } =
-    useContext(AuthContext);
+  const { authStatus, redirectRoute } = useContext(AuthContext);
+  const { isMobile } = useActiveBreakpoint();
 
   useEffect(() => {
     // Surface an SSO sign-in failure that redirected back here from
@@ -60,17 +37,6 @@ const Login = () => {
     }
   }, []);
 
-  const handleLogin: SubmitHandler<LoginFormType> = ({
-    username,
-    password,
-  }) => {
-    login('manual', { username, password });
-  };
-
-  const handleSsoLogin = () => {
-    login('sso');
-  };
-
   if (authStatus === 'unknown') {
     return <></>;
   }
@@ -80,155 +46,30 @@ const Login = () => {
   }
 
   return (
-    <Stack
-      sx={{
-        flexDirection: 'row',
-        height: '100vh',
-      }}
-    >
+    <Stack direction="row" sx={{ minHeight: '100dvh' }}>
+      {!isMobile && <LoginBrandPanel />}
       <Stack
         sx={{
-          py: 16,
-          px: 5,
-          width: '35%',
-        }}
-      >
-        <EverestMainIcon sx={{ fontSize: '110px', mb: 3 }} />
-        <Typography
-          variant="h4"
-          sx={{
-            mb: 3,
-          }}
-        >
-          {Messages.welcome}
-        </Typography>
-        <Typography>{Messages.intro}</Typography>
-        <Stack sx={{ mt: 'auto', pt: 4, alignItems: 'flex-start' }}>
-          <LoginLinkButton
-            icon={<ArrowForwardIcon />}
-            text="Join Community"
-            href="https://openeverest.io/#community"
-          />
-          <LoginLinkButton
-            icon={<ArrowForwardIcon />}
-            text="View on GitHub"
-            href="https://github.com/openeverest/openeverest"
-          />
-          <LoginLinkButton
-            icon={<ArrowForwardIcon />}
-            text="Documentation"
-            href="https://openeverest.io/documentation/current/"
-          />
-          <LoginLinkButton
-            icon={<ArrowForwardIcon />}
-            text="Commercial Support"
-            href="https://openeverest.io/support"
-          />
-        </Stack>
-      </Stack>
-      <Box
-        sx={{
-          width: '65%',
-          display: 'flex',
+          flex: 1,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundImage: "url('static/login_bg.svg')",
-          backgroundRepeat: 'no-repeat',
-          backgroundSize: 'cover',
+          px: 3,
+          pt: 6,
+          // On mobile, bias the content slightly above the optical center
+          pb: { xs: '12dvh', sm: 6 },
+          bgcolor: 'background.default',
         }}
       >
-        <Card
-          dataTestId="foo"
-          sx={{
-            width: '400px',
-            py: 1,
-            px: 3,
-          }}
-          content={
-            <Stack
-              sx={{
-                alignItems: 'center',
-              }}
-            >
-              <Typography
-                variant="h6"
-                sx={{
-                  mb: 3,
-                }}
-              >
-                {Messages.login}
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{
-                  mb: 2,
-                }}
-              >
-                {Messages.insertCredentials}
-              </Typography>
-              <FormProvider {...methods}>
-                <form onSubmit={methods.handleSubmit(handleLogin)}>
-                  <TextInput
-                    isRequired
-                    textFieldProps={{
-                      type: 'text',
-                      autoFocus: true,
-                      label: Messages.username,
-                      fullWidth: true,
-                      sx: { mb: 2 },
-                      disabled: authStatus === 'loggingIn',
-                    }}
-                    name="username"
-                  />
-                  <HiddenInput
-                    name="password"
-                    textFieldProps={{
-                      label: Messages.password,
-                      fullWidth: true,
-                      sx: { mb: 2 },
-                      disabled: authStatus === 'loggingIn',
-                    }}
-                  />
-                  <Button
-                    onClick={methods.handleSubmit(handleLogin)}
-                    type="submit"
-                    disabled={
-                      authStatus === 'loggingIn' ||
-                      methods.formState.isSubmitting ||
-                      !methods.formState.isValid
-                    }
-                    data-testid="login-button"
-                    variant="contained"
-                    fullWidth
-                    sx={{
-                      mb: 1,
-                      fontSize: '13px',
-                    }}
-                  >
-                    {Messages.login}
-                  </Button>
-                </form>
-                {isSsoEnabled && (
-                  <>
-                    <Divider flexItem sx={{ mb: 1, fontSize: '12px' }}>
-                      OR
-                    </Divider>
-                    <Button
-                      variant="outlined"
-                      fullWidth
-                      disabled={authStatus === 'loggingIn'}
-                      sx={{ fontSize: '13px' }}
-                      onClick={handleSsoLogin}
-                    >
-                      Log in with SSO
-                    </Button>
-                  </>
-                )}
-              </FormProvider>
-            </Stack>
-          }
-        />
-      </Box>
+        <Stack sx={{ width: '100%', maxWidth: 360 }}>
+          {isMobile && (
+            <EverestHorizontalIcon
+              data-testid="login-mobile-logo"
+              sx={{ height: 48, width: 'auto', alignSelf: 'center', mb: 5 }}
+            />
+          )}
+          <LoginForm />
+        </Stack>
+      </Stack>
     </Stack>
   );
 };
