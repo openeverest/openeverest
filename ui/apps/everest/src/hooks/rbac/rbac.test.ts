@@ -70,4 +70,25 @@ describe('RBAC hooks with v2 policies', () => {
 
     await waitFor(() => expect(result.current.canRead).toBe(true));
   });
+
+  it('does not grant read-connection with read', async () => {
+    await grant(['instances', 'read', 'main/ns1/db1']);
+
+    const { result } = renderHook(() =>
+      useRBACPermissions('instances', 'ns1/db1')
+    );
+
+    await waitFor(() => expect(result.current.canRead).toBe(true));
+    expect(result.current.canReadConnection).toBe(false);
+  });
+
+  it('grants read-connection with the * action', async () => {
+    await grant(['instances', '*', 'main/ns1/db1']);
+
+    const { result } = renderHook(() =>
+      useRBACPermissions('instances', 'ns1/db1')
+    );
+
+    await waitFor(() => expect(result.current.canReadConnection).toBe(true));
+  });
 });

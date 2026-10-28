@@ -51,7 +51,6 @@ export type RBACResource =
   | 'backups'
   | 'backup-classes'
   | 'instances'
-  | 'database-cluster-credentials'
   | 'backup-storages'
   | 'monitoring-configs'
   | 'secrets'
@@ -96,7 +95,6 @@ const RBAC_OBJECT_FORMATS: { [R in RBACResource]: RBACObjectFormat<R> } = {
   secrets: 'cluster-namespaced',
   'database-engines': 'as-is',
   'database-clusters': 'as-is',
-  'database-cluster-credentials': 'as-is',
   'pod-scheduling-policies': 'as-is',
   'load-balancer-configs': 'as-is',
   'enginefeatures/split-horizon-dns-configs': 'as-is',
