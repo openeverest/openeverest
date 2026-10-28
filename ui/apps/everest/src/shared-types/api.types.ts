@@ -25,7 +25,6 @@ export type MonitoringConfigCreateParams =
 export type MonitoringConfigUpdateParams =
   HttpApi.components['schemas']['MonitoringConfigUpdateParams'];
 export type GetInstances = CrdsGen.components['schemas']['InstanceList'];
-export type SecretList = HttpApi.components['schemas']['SecretList'];
 export type Instance = CrdsGen.components['schemas']['Instance'];
 export type InstanceConnectionDetails =
   CrdsGen.components['schemas']['InstanceConnectionDetails'];
