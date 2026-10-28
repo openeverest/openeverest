@@ -100,7 +100,7 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 
 	var pr *presetResult
 	if opts.ClusterPreset != "" {
-		pr, err = ic.getClusterInstancePreset(ctx, c, opts.ClusterPreset, opts.Cluster, opts.Namespace)
+		pr, err = ic.getClusterInstancePreset(ctx, c, opts.ClusterPreset, opts.Cluster)
 		if err != nil {
 			return err
 		}
@@ -346,7 +346,7 @@ func (ic *InstanceCreator) getInstancePreset(ctx context.Context, c *client.Clie
 }
 
 // getClusterInstancePreset fetches cluster-scope ClusterInstancePreset.
-func (ic *InstanceCreator) getClusterInstancePreset(ctx context.Context, c *client.ClientWithResponses, preset, cluster, namespace string) (*presetResult, error) {
+func (ic *InstanceCreator) getClusterInstancePreset(ctx context.Context, c *client.ClientWithResponses, preset, cluster string) (*presetResult, error) {
 	resp, err := c.GetClusterInstancePresetWithResponse(
 		ctx,
 		cluster,
