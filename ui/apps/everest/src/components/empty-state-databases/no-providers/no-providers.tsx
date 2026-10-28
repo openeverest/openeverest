@@ -86,9 +86,6 @@ export const NoProviders = ({ catalogProviders }: NoProvidersProps) => {
           {Messages.browseHub}
         </Button>
       )}
-      <Typography variant="caption" color="text.secondary" sx={{ mt: 2 }}>
-        {Messages.autoRefreshHint}
-      </Typography>
     </>
   );
 };

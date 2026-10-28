@@ -22,6 +22,4 @@ export const Messages = {
   browseHub: 'Browse Extension Hub',
   moreProviders: (count: number) =>
     `+${count} more ${count === 1 ? 'provider' : 'providers'}`,
-  autoRefreshHint:
-    'This page updates automatically once a provider is installed.',
 };
