@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import React from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { TruncatedText } from '@percona/ui-lib';
 import { NavItemProps } from './NavItem.types';
 
 export const NavItem = ({
@@ -67,7 +68,10 @@ export const NavItem = ({
             )}
           </ListItemIcon>
 
-          <ListItemText primary={text} />
+          <ListItemText
+            disableTypography
+            primary={<TruncatedText text={text} />}
+          />
         </ListItemButton>
       ) : (
         <Box
