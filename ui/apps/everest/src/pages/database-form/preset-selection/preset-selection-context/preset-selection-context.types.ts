@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { InstancePreset } from 'shared-types/api.types';
+import { ClusterInstancePreset } from 'shared-types/api.types';
 
 export interface PresetSelectionContextType {
-  presets: InstancePreset[];
+  presets: ClusterInstancePreset[];
   isLoadingPresets: boolean;
   isError: boolean;
   presetName: string;
-  resolvedPreset: InstancePreset | null;
+  resolvedPreset: ClusterInstancePreset | null;
   isResolving: boolean;
   resolveError: string | null;
   presetSelected: boolean;

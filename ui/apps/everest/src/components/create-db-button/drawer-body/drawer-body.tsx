@@ -19,7 +19,7 @@ import {
   resolveProviderDisplay,
 } from 'components/provider-identity';
 import { useExtensionCatalog } from 'hooks/api/extension-catalog';
-import { usePrefetchInstancePresets } from 'hooks/api/instance-presets';
+import { usePrefetchClusterInstancePresets } from 'hooks/api/cluster-instance-presets';
 import type { DrawerBodyProps } from './drawer-body.types';
 import { listSx, rowSx } from './drawer-body.constants';
 
@@ -29,7 +29,7 @@ export const DrawerBody = ({
   onClose,
 }: DrawerBodyProps) => {
   const { getProviderMeta } = useExtensionCatalog();
-  const prefetchPresets = usePrefetchInstancePresets();
+  const prefetchPresets = usePrefetchClusterInstancePresets();
   const testIdPrefix = createFromImport ? 'import' : 'add';
 
   return (
