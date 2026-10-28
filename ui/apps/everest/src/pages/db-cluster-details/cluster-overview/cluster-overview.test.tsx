@@ -159,6 +159,22 @@ describe('ClusterOverview', () => {
     );
   });
 
+  it('shows the instance status message while credentials are unavailable', () => {
+    renderOverview('my-ns', 'my-test-db', {
+      instance: {
+        ...mockInstance,
+        status: {
+          phase: 'Initializing',
+          message: 'Waiting for pods to become ready',
+        },
+      },
+    });
+
+    expect(
+      screen.getByText('Waiting for pods to become ready')
+    ).toBeInTheDocument();
+  });
+
   it('renders schema-driven card title only once', () => {
     vi.mocked(useProviders).mockReturnValue({
       data: [

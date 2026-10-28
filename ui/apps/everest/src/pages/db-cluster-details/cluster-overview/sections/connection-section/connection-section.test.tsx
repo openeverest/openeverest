@@ -15,7 +15,18 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { DbInstanceContext } from 'pages/db-cluster-details/dbCluster.context';
+import type { Instance } from 'shared-types/api.types';
 import ConnectionSection from './connection-section';
+import { ConnectionSectionMessages } from './messages';
+
+const baseInstance: Instance = {
+  apiVersion: 'core.openeverest.io/v1alpha1',
+  kind: 'Instance',
+  metadata: {},
+  spec: {
+    providerRef: { name: 'test-provider' },
+  },
+};
 
 const renderWithContext = (
   canReadCredentials: boolean,
@@ -26,12 +37,13 @@ const renderWithContext = (
     password?: string;
     uri?: string;
     type?: string;
-  }
+  },
+  instance?: Instance
 ) =>
   render(
     <DbInstanceContext.Provider
       value={{
-        instance: undefined,
+        instance,
         isLoading: false,
         instanceDeleted: false,
         canReadCredentials,
@@ -57,13 +69,26 @@ describe('ConnectionSection', () => {
     expect(screen.getByText('admin')).toBeInTheDocument();
     expect(screen.getByTestId('hidden-row')).toBeInTheDocument();
     expect(screen.getByLabelText('Connection URL')).toBeInTheDocument();
+    expect(screen.queryByText('Status')).not.toBeInTheDocument();
   });
 
-  it('shows waiting message without credentials', () => {
-    renderWithContext(true, undefined);
+  it('shows the instance status message when credentials are missing', () => {
+    renderWithContext(true, undefined, {
+      ...baseInstance,
+      status: { message: 'Provisioning the database' },
+    });
+
+    expect(screen.getByText('Provisioning the database')).toBeInTheDocument();
+    expect(
+      screen.queryByText(ConnectionSectionMessages.waitingForInstance)
+    ).not.toBeInTheDocument();
+  });
+
+  it('falls back to the waiting message when the instance has no status message', () => {
+    renderWithContext(true, undefined, baseInstance);
 
     expect(
-      screen.getByText('Waiting for instance to be ready...')
+      screen.getByText(ConnectionSectionMessages.waitingForInstance)
     ).toBeInTheDocument();
   });
 });

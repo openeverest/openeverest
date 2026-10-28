@@ -31,7 +31,7 @@ const ConnectionSection = ({
   credentials,
   loading,
 }: ConnectionSectionProps) => {
-  const { canReadCredentials } = useContext(DbInstanceContext);
+  const { canReadCredentials, instance } = useContext(DbInstanceContext);
   const [showUrl, setShowUrl] = useState(false);
 
   return (
@@ -107,7 +107,10 @@ const ConnectionSection = ({
       ) : (
         <OverviewSectionRow
           label={Messages.fields.status}
-          content={ConnectionSectionMessages.waitingForInstance}
+          content={
+            instance?.status?.message ??
+            ConnectionSectionMessages.waitingForInstance
+          }
         />
       )}
     </OverviewSection>

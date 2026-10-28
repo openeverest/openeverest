@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,12 +20,17 @@ import {
   deleteDbClusterFn,
   getDbClusterAPI,
 } from '@e2e/utils/db-cluster';
-import { EVEREST_CI_NAMESPACES, TIMEOUTS } from '@e2e/constants';
+import {
+  EVEREST_CI_CLUSTER,
+  EVEREST_CI_NAMESPACES,
+  TIMEOUTS,
+} from '@e2e/constants';
 import { findDbAndClickRow } from '@e2e/utils/db-clusters-list';
 import { goToUrl, limitedSuffixedName } from '@e2e/utils/generic';
 import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 
 const dbClusterName = 'pr-db-ovw';
+const waitingForInstance = 'Waiting for instance to be ready...';
 
 // TODO  dbVersion: '8.0.36-28.1' was added in later tests versions to beforeAll functions, need to be checked why and do we need return it,
 test.describe.parallel('DB cluster overview', async () => {
@@ -32,7 +38,7 @@ test.describe.parallel('DB cluster overview', async () => {
     await goToUrl(page, '/databases');
   });
 
-  test('Overview information', async ({ page }) => {
+  test('Overview information', async ({ page, request }) => {
     await findDbAndClickRow(page, dbClusterName);
 
     await expect(
@@ -70,6 +76,51 @@ test.describe.parallel('DB cluster overview', async () => {
     await expect(
       page.getByTestId('connection-details-overview-section')
     ).toBeVisible();
+
+    const token = await getCITokenFromLocalStorage();
+    const namespace = EVEREST_CI_NAMESPACES.EVEREST_UI;
+    const authHeaders = { Authorization: `Bearer ${token}` };
+
+    await expect(async () => {
+      const [instanceResponse, connectionResponse] = await Promise.all([
+        request.get(
+          `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/instances/${dbClusterName}`,
+          { headers: authHeaders }
+        ),
+        request.get(
+          `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/instances/${dbClusterName}/connection`,
+          { headers: authHeaders }
+        ),
+      ]);
+
+      expect(instanceResponse.ok()).toBeTruthy();
+      const instance = await instanceResponse.json();
+      const statusMessage = instance?.status?.message ?? waitingForInstance;
+      const connectionSection = page.getByTestId(
+        'connection-details-overview-section'
+      );
+
+      if (connectionResponse.ok()) {
+        const credentials = await connectionResponse.json();
+        const host = String(credentials.host ?? '')
+          .split(',')[0]
+          .trim();
+        await expect(
+          connectionSection.getByTestId('host-overview-section-row')
+        ).toContainText(host);
+        await expect(
+          connectionSection.getByTestId('status-overview-section-row')
+        ).toHaveCount(0);
+        return;
+      }
+
+      await expect(
+        connectionSection.getByTestId('status-overview-section-row')
+      ).toContainText(statusMessage);
+    }).toPass({
+      intervals: [1000],
+      timeout: TIMEOUTS.ThirtySeconds,
+    });
 
     await expect(page.getByTestId('monitoring-overview-section')).toBeVisible();
 
