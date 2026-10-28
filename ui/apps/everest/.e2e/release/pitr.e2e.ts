@@ -376,7 +376,11 @@ test.describe.serial(
       });
 
       await test.step('Check db list and status', async () => {
-        await page.goto('/databases');
+        // The wizard navigates to the list once the create request succeeds;
+        // navigating ourselves would abort the in-flight request.
+        await page.waitForURL('**/databases', {
+          timeout: TIMEOUTS.ThirtySeconds,
+        });
         try {
           await waitForStatus(page, clusterName, 'Provisioning', 30000);
         } catch {

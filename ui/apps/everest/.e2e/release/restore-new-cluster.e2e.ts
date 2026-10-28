@@ -34,7 +34,7 @@ import {
   fillScheduleModalForm,
   ScheduleTimeOptions,
 } from '@e2e/pr/db-cluster/db-wizard/db-wizard-utils';
-import { EVEREST_CI_NAMESPACES } from '@e2e/constants';
+import { EVEREST_CI_NAMESPACES, TIMEOUTS } from '@e2e/constants';
 import {
   waitForStatus,
   waitForDelete,
@@ -212,7 +212,11 @@ function getNextScheduleMinute(incrementMinutes: number): string {
         });
 
         await test.step('Check db list and status', async () => {
-          await page.goto('/databases');
+          // The wizard navigates to the list once the create request succeeds;
+          // navigating ourselves would abort the in-flight request.
+          await page.waitForURL('**/databases', {
+            timeout: TIMEOUTS.ThirtySeconds,
+          });
           if (db !== 'postgresql' && db !== 'pxc') {
             await waitForStatus(page, clusterName, 'Initializing', 15000);
           }
