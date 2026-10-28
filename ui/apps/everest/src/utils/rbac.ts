@@ -50,16 +50,12 @@ export type RBACResource =
   | 'backups'
   | 'backup-classes'
   | 'instances'
-  | 'database-cluster-backups'
-  | 'database-cluster-restores'
   | 'database-cluster-credentials'
   | 'backup-storages'
   | 'monitoring-configs'
   | 'secrets'
   | 'pod-scheduling-policies'
-  | 'data-importers'
   | 'load-balancer-configs'
-  | 'data-import-jobs'
   | 'enginefeatures/split-horizon-dns-configs'
   | 'providers'
   | 'plugins'
@@ -99,13 +95,9 @@ const RBAC_OBJECT_FORMATS: { [R in RBACResource]: RBACObjectFormat<R> } = {
   secrets: 'cluster-namespaced',
   'database-engines': 'as-is',
   'database-clusters': 'as-is',
-  'database-cluster-backups': 'as-is',
-  'database-cluster-restores': 'as-is',
   'database-cluster-credentials': 'as-is',
   'pod-scheduling-policies': 'as-is',
-  'data-importers': 'as-is',
   'load-balancer-configs': 'as-is',
-  'data-import-jobs': 'as-is',
   'enginefeatures/split-horizon-dns-configs': 'as-is',
 };
 

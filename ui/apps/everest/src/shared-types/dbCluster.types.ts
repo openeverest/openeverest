@@ -201,11 +201,3 @@ export type GetDbClusterPayload = {
   kind: 'DatabaseCluster';
   metadata: DbClusterMetadata;
 };
-
-export type ClusterCredentials = {
-  username: string;
-  password: string;
-  connectionUrl?: string;
-};
-
-export type GetDbClusterCredentialsPayload = ClusterCredentials;
