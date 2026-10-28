@@ -23,6 +23,7 @@ import {
   EXTENSION_HUB_WEBSITE_URL,
   HUB_PROVIDERS_SUB_PATH,
   SPOTLIGHT_LIMIT,
+  SPOTLIGHT_PREFERRED_PROVIDERS,
 } from './no-providers.constants';
 import { buildHubLink, pickSpotlightProviders } from './no-providers.utils';
 import { AvailableProviderTile } from './available-provider-tile';
@@ -39,7 +40,12 @@ export const NoProviders = ({ catalogProviders }: NoProvidersProps) => {
     (plugin) => plugin.name === PLUGIN_HUB_NAME
   );
   const spotlight = useMemo(
-    () => pickSpotlightProviders(catalogProviders, SPOTLIGHT_LIMIT),
+    () =>
+      pickSpotlightProviders(
+        catalogProviders,
+        SPOTLIGHT_LIMIT,
+        SPOTLIGHT_PREFERRED_PROVIDERS
+      ),
     [catalogProviders]
   );
 

@@ -30,25 +30,36 @@ const MATURITY_RANK: Record<ExtensionMaturity, number> = {
 const maturityRank = (provider: ResolvedExtensionMeta) =>
   MATURITY_RANK[provider.maturity ?? 'alpha'];
 
-// Picks a few catalog providers to suggest on an empty install. The hub has no
-// popularity signal, so trust is used instead: verified first, then maturity,
-// then catalog order. One provider per primary category is taken first so the
-// suggestions show the breadth of the platform (database, storage, AI, ...)
-// rather than several flavours of the same thing.
+// Picks a few catalog providers to suggest on an empty install. Curated
+// `preferredNames` come first, in the given order, when the catalog offers
+// them. Remaining slots are ranked by trust, since the hub has no popularity
+// signal: verified first, then maturity, then catalog order. One provider per
+// primary category is taken first so the suggestions show the breadth of the
+// platform (database, storage, AI, ...) rather than several flavours of the
+// same thing.
 export const pickSpotlightProviders = (
   providers: ResolvedExtensionMeta[],
-  limit: number
+  limit: number,
+  preferredNames: string[] = []
 ): ResolvedExtensionMeta[] => {
-  const ranked = providers
-    .filter((provider) => provider.maturity !== 'deprecated')
+  const eligible = providers.filter(
+    (provider) => provider.maturity !== 'deprecated'
+  );
+  const preferred = preferredNames.flatMap(
+    (name) => eligible.find((provider) => provider.name === name) ?? []
+  );
+  const ranked = eligible
+    .filter((provider) => !preferred.includes(provider))
     .sort(
       (a, b) =>
         Number(Boolean(b.verified)) - Number(Boolean(a.verified)) ||
         maturityRank(a) - maturityRank(b)
     );
 
-  const picked: ResolvedExtensionMeta[] = [];
-  const coveredCategories = new Set<string>();
+  const picked: ResolvedExtensionMeta[] = [...preferred];
+  const coveredCategories = new Set(
+    preferred.flatMap((provider) => provider.categories?.[0] ?? [])
+  );
   for (const provider of ranked) {
     const category = provider.categories?.[0];
     if (category && coveredCategories.has(category)) {

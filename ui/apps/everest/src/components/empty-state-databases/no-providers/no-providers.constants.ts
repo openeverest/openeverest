@@ -18,6 +18,11 @@ import type { SxProps, Theme } from '@mui/material';
 // empty state previews the provider grid without turning into a catalog.
 export const SPOTLIGHT_LIMIT = 2;
 
+// Hub extension names suggested first, in this order. Curated here until the
+// hub publishes a featured/popularity signal; missing entries are skipped and
+// their slots filled by ranking the rest of the catalog.
+export const SPOTLIGHT_PREFERRED_PROVIDERS = ['percona-postgresql', 'valkey'];
+
 export const EXTENSION_HUB_WEBSITE_URL = 'https://openeverest.io/extensions/';
 
 // Sub-paths handed to the plugin-hub UI through the plugin route

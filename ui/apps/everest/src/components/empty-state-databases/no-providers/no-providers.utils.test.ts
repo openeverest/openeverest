@@ -83,6 +83,29 @@ describe('pickSpotlightProviders', () => {
     expect(names(picked)).toEqual(['new']);
   });
 
+  it('puts available preferred providers first, in the given order', () => {
+    const picked = pickSpotlightProviders(
+      [
+        provider('mysql', { verified: true }),
+        provider('object-store', { categories: ['storage'] }),
+        provider('valkey'),
+        provider('postgres'),
+      ],
+      3,
+      ['postgres', 'missing', 'valkey']
+    );
+    expect(names(picked)).toEqual(['postgres', 'valkey', 'object-store']);
+  });
+
+  it('fills slots of preferred providers the catalog lacks', () => {
+    const picked = pickSpotlightProviders(
+      [provider('mysql'), provider('valkey')],
+      2,
+      ['postgres', 'valkey']
+    );
+    expect(names(picked)).toEqual(['valkey', 'mysql']);
+  });
+
   it('does not reorder the caller array', () => {
     const providers = [provider('a'), provider('b', { verified: true })];
     pickSpotlightProviders(providers, 2);
