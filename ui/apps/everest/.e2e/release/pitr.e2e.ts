@@ -362,9 +362,7 @@ test.describe.serial(
       // (openeverest/provider-percona-xtradb-cluster#46). Restore monitoring
       // coverage here once core and the UI support MonitoringDestination.
       await test.step('Populate proxy', async () => {
-        await expect(
-          page.getByRole('heading', { name: 'Proxy' })
-        ).toBeVisible();
+        await expect(page.getByTestId('step-header')).toHaveText('Proxy');
         await moveForward(page);
       });
 

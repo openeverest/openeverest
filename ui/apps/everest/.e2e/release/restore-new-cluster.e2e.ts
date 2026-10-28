@@ -193,9 +193,7 @@ function getNextScheduleMinute(incrementMinutes: number): string {
             // MonitoringDestination (openeverest/provider-percona-xtradb-cluster#46),
             // so the wizard goes straight to Proxy. Restore monitoring coverage
             // once core and the UI support MonitoringDestination.
-            await expect(
-              page.getByRole('heading', { name: 'Proxy' })
-            ).toBeVisible();
+            await expect(page.getByTestId('step-header')).toHaveText('Proxy');
             await moveForward(page);
           }
         });
