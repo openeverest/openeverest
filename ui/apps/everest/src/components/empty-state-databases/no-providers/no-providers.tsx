@@ -18,7 +18,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { PLUGIN_HUB_NAME } from 'api/extension-catalog';
 import { usePlugins } from 'contexts/plugins';
 import { Messages } from '../messages';
-import { gridSx } from '../provider-tiles/provider-tiles.constants';
+import { gridSx } from 'components/empty-state-databases/provider-tiles/provider-tiles.constants';
 import {
   EXTENSION_HUB_WEBSITE_URL,
   HUB_PROVIDERS_SUB_PATH,

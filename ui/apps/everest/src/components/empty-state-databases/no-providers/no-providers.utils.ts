@@ -17,7 +17,7 @@ import type {
   ExtensionMaturity,
   ResolvedExtensionMeta,
 } from 'shared-types/extension-catalog.types';
-import type { TileLink } from '../provider-tiles/tile-action-area';
+import type { TileLink } from 'components/empty-state-databases/provider-tiles/tile-action-area';
 import { EXTENSION_HUB_WEBSITE_URL } from './no-providers.constants';
 
 const MATURITY_RANK: Record<ExtensionMaturity, number> = {

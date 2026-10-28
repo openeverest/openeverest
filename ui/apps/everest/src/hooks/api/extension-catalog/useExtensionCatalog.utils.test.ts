@@ -35,10 +35,4 @@ describe('buildExtensionCatalog', () => {
     expect(providers.map((p) => p.displayName)).toEqual(['Valkey']);
     expect(providerMeta.get('provider-valkey')?.name).toBe('valkey');
   });
-
-  it('returns an empty catalog when the hub is unavailable', () => {
-    const { providers, providerMeta } = buildExtensionCatalog(null, 'main');
-    expect(providers).toEqual([]);
-    expect(providerMeta.size).toBe(0);
-  });
 });

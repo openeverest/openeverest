@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { TileLink } from '../../provider-tiles/tile-action-area';
+import type { TileLink } from 'components/empty-state-databases/provider-tiles/tile-action-area';
 
 export interface BrowseHubTileProps {
   // Catalog providers not already shown as tiles.

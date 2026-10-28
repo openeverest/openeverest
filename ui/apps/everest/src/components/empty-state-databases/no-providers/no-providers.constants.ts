@@ -31,7 +31,6 @@ export const HUB_PROVIDERS_SUB_PATH = 'providers';
 
 export const browseTileContentSx: SxProps<Theme> = {
   height: '100%',
-  minHeight: 160,
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -41,13 +40,8 @@ export const browseTileContentSx: SxProps<Theme> = {
   textAlign: 'center',
 };
 
-export const browseTileActionSx: SxProps<Theme> = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 0.5,
-};
-
-export const installHintSx: SxProps<Theme> = {
+// Text followed by a trailing icon, e.g. "How to install →".
+export const inlineIconLabelSx: SxProps<Theme> = {
   display: 'flex',
   alignItems: 'center',
   gap: 0.5,

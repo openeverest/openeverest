@@ -14,12 +14,12 @@
 
 import { Card, Typography } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { cardSx } from '../../provider-tiles/provider-tiles.constants';
-import { TileActionArea } from '../../provider-tiles/tile-action-area';
-import { Messages } from '../../messages';
+import { cardSx } from 'components/empty-state-databases/provider-tiles/provider-tiles.constants';
+import { TileActionArea } from 'components/empty-state-databases/provider-tiles/tile-action-area';
+import { Messages } from 'components/empty-state-databases/messages';
 import {
-  browseTileActionSx,
   browseTileContentSx,
+  inlineIconLabelSx,
 } from '../no-providers.constants';
 import type { BrowseHubTileProps } from './browse-hub-tile.types';
 
@@ -39,7 +39,7 @@ export const BrowseHubTile = ({ moreCount, link }: BrowseHubTileProps) => (
         component="span"
         variant="body2"
         color="primary"
-        sx={browseTileActionSx}
+        sx={inlineIconLabelSx}
       >
         {Messages.browseHub}
         <ArrowForwardIcon fontSize="small" aria-hidden="true" />

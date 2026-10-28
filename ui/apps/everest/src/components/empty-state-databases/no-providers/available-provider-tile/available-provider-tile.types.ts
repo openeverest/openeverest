@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import type { ResolvedExtensionMeta } from 'shared-types/extension-catalog.types';
-import type { TileLink } from '../../provider-tiles/tile-action-area';
+import type { TileLink } from 'components/empty-state-databases/provider-tiles/tile-action-area';
 
 export interface AvailableProviderTileProps {
   meta: ResolvedExtensionMeta;

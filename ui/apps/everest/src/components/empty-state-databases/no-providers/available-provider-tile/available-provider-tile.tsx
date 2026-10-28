@@ -14,9 +14,9 @@
 
 import { Box } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import { ProviderTileCard } from '../../provider-tiles/provider-tile-card';
-import { Messages } from '../../messages';
-import { installHintSx } from '../no-providers.constants';
+import { ProviderTileCard } from 'components/empty-state-databases/provider-tiles/provider-tile-card';
+import { Messages } from 'components/empty-state-databases/messages';
+import { inlineIconLabelSx } from '../no-providers.constants';
 import type { AvailableProviderTileProps } from './available-provider-tile.types';
 
 export const AvailableProviderTile = ({
@@ -30,7 +30,7 @@ export const AvailableProviderTile = ({
     meta={meta}
     link={link}
     footer={
-      <Box component="span" sx={installHintSx}>
+      <Box component="span" sx={inlineIconLabelSx}>
         {Messages.howToInstall}
         <ArrowForwardIcon fontSize="small" aria-hidden="true" />
       </Box>

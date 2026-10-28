@@ -36,7 +36,6 @@ export const cardSx: SxProps<Theme> = {
   // Let the hover extension grow past the card bottom.
   overflow: 'visible',
   '&.provider-tile-installed': {
-    borderRadius: (theme) => `${theme.shape.borderRadius}px`,
     border: '1px solid',
     borderColor: (theme) => theme.palette.dividers?.divider,
     backgroundColor: (theme) => theme.palette.surfaces?.elevation1,
