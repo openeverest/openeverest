@@ -843,6 +843,24 @@ func (e MonitoringBindingStatusConditionsStatus) Valid() bool {
 	}
 }
 
+// Defines values for MonitoringClassSpecUrlPolicy.
+const (
+	MonitoringClassSpecUrlPolicyOptional MonitoringClassSpecUrlPolicy = "Optional"
+	MonitoringClassSpecUrlPolicyRequired MonitoringClassSpecUrlPolicy = "Required"
+)
+
+// Valid indicates whether the value is a known member of the MonitoringClassSpecUrlPolicy enum.
+func (e MonitoringClassSpecUrlPolicy) Valid() bool {
+	switch e {
+	case MonitoringClassSpecUrlPolicyOptional:
+		return true
+	case MonitoringClassSpecUrlPolicyRequired:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MonitoringClassStatusConditionsStatus.
 const (
 	MonitoringClassStatusConditionsStatusFalse   MonitoringClassStatusConditionsStatus = "False"
@@ -4452,24 +4470,20 @@ type Instance struct {
 
 					// Tls TLS describes how to verify an https endpoint.
 					Tls *struct {
-						// Ca CA selects the Secret key in the Instance's namespace holding the CA
-						// bundle.
+						// Ca CA is the PEM bundle the server certificate is verified against,
+						// instead of the system trust store.
 						Ca *struct {
-							// Key The key of the secret to select from.  Must be a valid secret key.
-							Key string `json:"key"`
+							// SecretKeyRef SecretKeyRef selects the Secret key holding the PEM bundle.
+							SecretKeyRef *struct {
+								// Key Key within the Secret.
+								Key string `json:"key"`
 
-							// Name Name of the referent.
-							// This field is effectively required, but due to backwards compatibility is
-							// allowed to be empty. Instances of this type with an empty value here are
-							// almost certainly wrong.
-							// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-							Name *string `json:"name,omitempty"`
-
-							// Optional Specify whether the Secret or its key must be defined
-							Optional *bool `json:"optional,omitempty"`
+								// Name Name of the referenced Secret.
+								Name string `json:"name"`
+							} `json:"secretKeyRef,omitempty"`
 						} `json:"ca,omitempty"`
 
-						// InsecureSkipVerify InsecureSkipVerify disables verification.
+						// InsecureSkipVerify InsecureSkipVerify disables verification of the server certificate.
 						InsecureSkipVerify *bool `json:"insecureSkipVerify,omitempty"`
 
 						// ServerName ServerName overrides the expected server name.
@@ -5996,12 +6010,23 @@ type MonitoringClass struct {
 
 	// Spec MonitoringClassSpec defines the desired state of MonitoringClass.
 	Spec struct {
-		// CredentialsSchema CredentialsSchema lists the keys the MonitoringDestination credentials
-		// Secret must carry.
-		CredentialsSchema *struct {
-			// Required Required is the list of required Secret keys.
-			Required *[]string `json:"required,omitempty"`
-		} `json:"credentialsSchema,omitempty"`
+		// AuthModes AuthModes lists the authentication methods a MonitoringDestination of
+		// this class can use. A mode the class defines is Secret-backed and lists
+		// its credentials keys; WorkloadIdentity and Anonymous are reserved by
+		// core and take no Secret.
+		AuthModes []struct {
+			// Credentials Credentials lists the keys the credentials Secret must or may carry.
+			Credentials *struct {
+				// Optional Optional keys are read when present.
+				Optional *[]string `json:"optional,omitempty"`
+
+				// Required Required keys must be present and non-empty.
+				Required []string `json:"required"`
+			} `json:"credentials,omitempty"`
+
+			// Name Name identifies the mode, in PascalCase (e.g. AccessKey, BasicAuth).
+			Name string `json:"name"`
+		} `json:"authModes"`
 
 		// Description Description describes the monitoring technology.
 		Description *string `json:"description,omitempty"`
@@ -6056,8 +6081,12 @@ type MonitoringClass struct {
 		} `json:"providerManaged,omitempty"`
 
 		// UiSchema UISchema holds free-form form-rendering hints consumed only by the UI,
-		// grouped by the form they decorate (destination, instance, credentials).
+		// grouped by the form they decorate (destination, instance, and
+		// credentials keyed by authentication mode).
 		UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
+
+		// UrlPolicy URLPolicy says whether MonitoringDestination.spec.url must be set.
+		UrlPolicy *MonitoringClassSpecUrlPolicy `json:"urlPolicy,omitempty"`
 	} `json:"spec"`
 
 	// Status MonitoringClassStatus defines the observed state of MonitoringClass. It
@@ -6114,6 +6143,9 @@ type MonitoringClass struct {
 		} `json:"providers,omitempty"`
 	} `json:"status,omitempty"`
 }
+
+// MonitoringClassSpecUrlPolicy URLPolicy says whether MonitoringDestination.spec.url must be set.
+type MonitoringClassSpecUrlPolicy string
 
 // MonitoringClassStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type MonitoringClassStatusConditionsStatus string
@@ -6241,6 +6273,21 @@ type MonitoringDestination struct {
 
 	// Spec MonitoringDestinationSpec defines the desired state of MonitoringDestination.
 	Spec struct {
+		// Authentication Authentication names one of the class's authModes and, for every mode
+		// but WorkloadIdentity and Anonymous, the Secret in the same namespace
+		// holding that mode's credentials keys.
+		Authentication struct {
+			// CredentialsSecretRef CredentialsSecretRef references the Secret in the same namespace that
+			// holds the credentials keys of the mode.
+			CredentialsSecretRef *struct {
+				// Name Name of the referenced Secret.
+				Name string `json:"name"`
+			} `json:"credentialsSecretRef,omitempty"`
+
+			// Mode Mode names one of the class's authModes.
+			Mode string `json:"mode"`
+		} `json:"authentication"`
+
 		// ClassRef ClassRef references the cluster-scoped MonitoringClass this destination
 		// belongs to. Immutable.
 		ClassRef struct {
@@ -6248,17 +6295,32 @@ type MonitoringDestination struct {
 			Name string `json:"name"`
 		} `json:"classRef"`
 
-		// CredentialsSecretRef CredentialsSecretRef references the Secret in the same namespace that
-		// holds the destination credentials; its keys are described by the
-		// class's credentialsSchema.
-		CredentialsSecretRef *struct {
-			// Name Name of the referenced Secret.
-			Name string `json:"name"`
-		} `json:"credentialsSecretRef,omitempty"`
-
 		// Parameters Parameters are validated against
 		// MonitoringClass.spec.destinationParametersSchema.
 		Parameters *map[string]interface{} `json:"parameters,omitempty"`
+
+		// Tls TLS is how the backend's certificate is verified.
+		Tls *struct {
+			// Ca CA is the PEM bundle the server certificate is verified against,
+			// instead of the system trust store.
+			Ca *struct {
+				// SecretKeyRef SecretKeyRef selects the Secret key holding the PEM bundle.
+				SecretKeyRef *struct {
+					// Key Key within the Secret.
+					Key string `json:"key"`
+
+					// Name Name of the referenced Secret.
+					Name string `json:"name"`
+				} `json:"secretKeyRef,omitempty"`
+			} `json:"ca,omitempty"`
+
+			// InsecureSkipVerify InsecureSkipVerify disables verification of the server certificate.
+			InsecureSkipVerify *bool `json:"insecureSkipVerify,omitempty"`
+		} `json:"tls,omitempty"`
+
+		// Url URL is the address of the backend. Required when the class's urlPolicy
+		// is Required.
+		Url *string `json:"url,omitempty"`
 	} `json:"spec"`
 
 	// Status MonitoringDestinationStatus defines the observed state of
@@ -6603,6 +6665,11 @@ type Provider struct {
 				// AgentVersions AgentVersions is the semver range of agent versions the provider can
 				// render (e.g. ">=3.0.0 <4.0.0").
 				AgentVersions *string `json:"agentVersions,omitempty"`
+
+				// AuthModes AuthModes lists the authentication modes of the integration's
+				// MonitoringClass the provider can render. A destination whose mode is
+				// not listed is not bound.
+				AuthModes *[]string `json:"authModes,omitempty"`
 			} `json:"integrations,omitempty"`
 		} `json:"monitoring,omitempty"`
 

@@ -15,7 +15,15 @@
 package monitoring
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,14 +52,15 @@ func reconcileDestination(t *testing.T, c client.Client, name string) *monitorin
 func TestDestinationReconcilerAccepted(t *testing.T) {
 	t.Parallel()
 
-	noCredentials := pmmDestination("pmm-prod")
-	noCredentials.Spec.CredentialsSecretRef = nil
+	token := newSecret("pmm-prod-credentials", map[string]string{"token": "glsa_token"})
 	noURL := pmmDestination("pmm-prod")
-	noURL.Spec.Parameters = raw(`{"verifyTLS":false}`)
-	noParameters := pmmDestination("pmm-prod")
-	noParameters.Spec.Parameters = nil
+	noURL.Spec.URL = ""
+	unknownParameter := newDestination("prom", "prometheus")
+	unknownParameter.Spec.Parameters = raw(`{"url":"https://prometheus.example.com"}`)
 	basicAuth := newDestination("prom", "prometheus")
-	basicAuth.Spec.CredentialsSecretRef = &common.SecretRef{Name: "prom-basic-auth"}
+	basicAuth.Spec.Authentication = common.Authentication{Mode: "BasicAuth", CredentialsSecretRef: &common.SecretRef{Name: "prom-basic-auth"}}
+	withCA := pmmDestination("pmm-prod")
+	withCA.Spec.TLS = &common.TLSConfig{CA: &common.CABundleSource{SecretKeyRef: &common.SecretKeyRef{Name: "corp-ca", Key: "ca.crt"}}}
 
 	tests := []struct {
 		name        string
@@ -63,14 +72,14 @@ func TestDestinationReconcilerAccepted(t *testing.T) {
 	}{
 		{
 			name:        "class requirements met",
-			objects:     []client.Object{pmmDestination("pmm-prod"), newSecret("pmm-prod-credentials", map[string]string{"apiKey": "glsa_token"})},
+			objects:     []client.Object{pmmDestination("pmm-prod"), token},
 			destination: "pmm-prod",
 			wantStatus:  metav1.ConditionTrue,
 			wantReason:  monitoringv1alpha1.ReasonAccepted,
 			wantMessage: `valid for MonitoringClass "pmm"`,
 		},
 		{
-			name:        "class requiring no credentials",
+			name:        "anonymous mode needs no Secret",
 			objects:     []client.Object{newDestination("prom", "prometheus")},
 			destination: "prom",
 			wantStatus:  metav1.ConditionTrue,
@@ -86,28 +95,28 @@ func TestDestinationReconcilerAccepted(t *testing.T) {
 			wantMessage: `MonitoringClass "datadog" not found`,
 		},
 		{
+			name:        "url missing although the class requires one",
+			objects:     []client.Object{noURL, token},
+			destination: "pmm-prod",
+			wantStatus:  metav1.ConditionFalse,
+			wantReason:  monitoringv1alpha1.ReasonURLRequired,
+			wantMessage: `MonitoringClass "pmm" requires spec.url`,
+		},
+		{
 			name:        "parameters rejected by the destination schema",
-			objects:     []client.Object{noURL, newSecret("pmm-prod-credentials", map[string]string{"apiKey": "glsa_token"})},
-			destination: "pmm-prod",
+			objects:     []client.Object{unknownParameter},
+			destination: "prom",
 			wantStatus:  metav1.ConditionFalse,
 			wantReason:  monitoringv1alpha1.ReasonInvalidParameters,
-			wantMessage: `parameters rejected by the destinationParametersSchema of MonitoringClass "pmm": `,
+			wantMessage: `parameters rejected by the destinationParametersSchema of MonitoringClass "prometheus": `,
 		},
 		{
-			name:        "no parameters although the destination schema requires one",
-			objects:     []client.Object{noParameters, newSecret("pmm-prod-credentials", map[string]string{"apiKey": "glsa_token"})},
-			destination: "pmm-prod",
+			name:        "mode the class does not define",
+			objects:     []client.Object{basicAuth, newSecret("prom-basic-auth", map[string]string{"username": "u", "password": "p"})},
+			destination: "prom",
 			wantStatus:  metav1.ConditionFalse,
-			wantReason:  monitoringv1alpha1.ReasonInvalidParameters,
-			wantMessage: "(root): url is required",
-		},
-		{
-			name:        "no credentials Secret referenced",
-			objects:     []client.Object{noCredentials},
-			destination: "pmm-prod",
-			wantStatus:  metav1.ConditionFalse,
-			wantReason:  monitoringv1alpha1.ReasonCredentialsNotFound,
-			wantMessage: `MonitoringClass "pmm" requires credentialsSecretRef with keys apiKey`,
+			wantReason:  monitoringv1alpha1.ReasonAuthModeUnsupported,
+			wantMessage: `MonitoringClass "prometheus" has no authentication mode "BasicAuth"; it supports Anonymous`,
 		},
 		{
 			name:        "credentials Secret missing",
@@ -118,20 +127,36 @@ func TestDestinationReconcilerAccepted(t *testing.T) {
 			wantMessage: `credentials Secret "pmm-prod-credentials" not found`,
 		},
 		{
-			name:        "credentials Secret without a required key",
-			objects:     []client.Object{pmmDestination("pmm-prod"), newSecret("pmm-prod-credentials", map[string]string{"token": "glsa_token"})},
+			name:        "credentials Secret without a key the mode requires",
+			objects:     []client.Object{pmmDestination("pmm-prod"), newSecret("pmm-prod-credentials", map[string]string{"apiKey": "glsa_token"})},
 			destination: "pmm-prod",
 			wantStatus:  metav1.ConditionFalse,
 			wantReason:  monitoringv1alpha1.ReasonCredentialsNotFound,
-			wantMessage: `credentials Secret "pmm-prod-credentials" is missing key "apiKey"`,
+			wantMessage: `credentials Secret "pmm-prod-credentials": missing key "token" required by authentication mode "ServiceAccountToken"`,
 		},
 		{
-			name:        "referenced Secret missing although the class requires no keys",
-			objects:     []client.Object{basicAuth},
-			destination: "prom",
+			name:        "CA bundle in a Secret",
+			objects:     []client.Object{withCA, token, newSecret("corp-ca", map[string]string{"ca.crt": testCAPEM(t)})},
+			destination: "pmm-prod",
+			wantStatus:  metav1.ConditionTrue,
+			wantReason:  monitoringv1alpha1.ReasonAccepted,
+			wantMessage: `valid for MonitoringClass "pmm"`,
+		},
+		{
+			name:        "CA Secret missing",
+			objects:     []client.Object{withCA, token},
+			destination: "pmm-prod",
 			wantStatus:  metav1.ConditionFalse,
-			wantReason:  monitoringv1alpha1.ReasonCredentialsNotFound,
-			wantMessage: `credentials Secret "prom-basic-auth" not found`,
+			wantReason:  monitoringv1alpha1.ReasonInvalidCABundle,
+			wantMessage: `CA Secret "corp-ca" not found`,
+		},
+		{
+			name:        "CA key is not a PEM bundle",
+			objects:     []client.Object{withCA, token, newSecret("corp-ca", map[string]string{"ca.crt": "not a certificate"})},
+			destination: "pmm-prod",
+			wantStatus:  metav1.ConditionFalse,
+			wantReason:  monitoringv1alpha1.ReasonInvalidCABundle,
+			wantMessage: `CA Secret "corp-ca" key "ca.crt": no PEM certificate found`,
 		},
 	}
 	for _, tt := range tests {
@@ -180,19 +205,26 @@ func TestDestinationReconcilerEnqueuesDestinationsUsingSecret(t *testing.T) {
 	t.Parallel()
 	withSecret := func(dst *monitoringv1alpha1.MonitoringDestination, namespace, secret string) *monitoringv1alpha1.MonitoringDestination {
 		dst.Namespace = namespace
-		dst.Spec.CredentialsSecretRef = &common.SecretRef{Name: secret}
+		dst.Spec.Authentication.CredentialsSecretRef = &common.SecretRef{Name: secret}
 		return dst
 	}
+	withCA := newDestination("pmm-ca", "pmm")
+	withCA.Spec.Authentication.CredentialsSecretRef = &common.SecretRef{Name: "pmm-ca-token"}
+	withCA.Spec.TLS = &common.TLSConfig{CA: &common.CABundleSource{SecretKeyRef: &common.SecretKeyRef{Name: "pmm-token", Key: "ca.crt"}}}
 	c := newFakeClient(t,
 		withSecret(newDestination("pmm-prod", "pmm"), testNamespace, "pmm-token"),
 		withSecret(newDestination("pmm-staging", "pmm"), testNamespace, "pmm-staging-token"),
 		withSecret(newDestination("pmm-prod", "pmm"), "team-b", "pmm-token"),
+		withCA,
 		newDestination("prom", "prometheus"),
 	)
 
 	requests := (&DestinationReconciler{Client: c}).enqueueDestinationsForSecret(t.Context(), newSecret("pmm-token", nil))
 
-	assert.Equal(t, []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "pmm-prod"}}}, requests)
+	assert.ElementsMatch(t, []reconcile.Request{
+		{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "pmm-prod"}},
+		{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "pmm-ca"}},
+	}, requests)
 }
 
 func TestDestinationReconcilerEnqueuesDestinationsOfClass(t *testing.T) {
@@ -208,4 +240,23 @@ func TestDestinationReconcilerEnqueuesDestinationsOfClass(t *testing.T) {
 		{NamespacedName: types.NamespacedName{Namespace: "team-b", Name: "prom"}},
 	}, requests,
 	)
+}
+
+func testCAPEM(t *testing.T) string {
+	t.Helper()
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	tmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "test-ca"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	require.NoError(t, err)
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
 }

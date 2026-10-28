@@ -9,7 +9,7 @@ spec:
     try:
     - script:
         content: |
-          kubectl create --dry-run=server -o jsonpath='{.status.conditions[?(@.type=="Accepted")].status}/{.status.conditions[?(@.type=="Accepted")].reason}' -f - <<'EOF'
+          kubectl create --dry-run=server -o jsonpath='{.status.conditions[?(@.type=="Accepted")].status}/{.status.conditions[?(@.type=="Accepted")].reason}/{.spec.urlPolicy}' -f - <<'EOF'
           apiVersion: monitoring.openeverest.io/v1alpha1
           kind: MonitoringClass
           metadata:
@@ -18,10 +18,12 @@ spec:
             extensionManaged:
               requires:
                 metrics: true
+            authModes:
+            - name: Anonymous
           EOF
         check:
           ($error): ~
-          ($stdout): Unknown/Pending
+          ($stdout): Unknown/Pending/Optional
     - script:
         content: |
           kubectl create --dry-run=server -f - <<'EOF'
@@ -29,7 +31,9 @@ spec:
           kind: MonitoringClass
           metadata:
             name: mon-api-cel-no-block
-          spec: {}
+          spec:
+            authModes:
+            - name: Anonymous
           EOF
         check:
           ($error != null): true
@@ -45,6 +49,8 @@ spec:
             providerManaged:
               integration: pmm
               agentVersion: ""
+            authModes:
+            - name: Anonymous
           EOF
         check:
           ($error != null): true
@@ -59,10 +65,65 @@ spec:
             name: mon-api-cel-a-class-name-that-is-longer-than-sixty-three-characters
           spec:
             extensionManaged: {}
+            authModes:
+            - name: Anonymous
           EOF
         check:
           ($error != null): true
           (contains($stderr, 'a MonitoringClass name must be at most 63 characters')): true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringClass
+          metadata:
+            name: mon-api-cel-no-modes
+          spec:
+            extensionManaged: {}
+          EOF
+        check:
+          ($error != null): true
+          "(contains($stderr, 'spec.authModes: Required value'))": true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringClass
+          metadata:
+            name: mon-api-cel-modes
+          spec:
+            extensionManaged: {}
+            authModes:
+            - name: Anonymous
+              credentials: {required: [token]}
+            - name: BasicAuth
+            - name: bearer-token
+              credentials: {required: [token]}
+          EOF
+        check:
+          ($error != null): true
+          "(contains($stderr, 'spec.authModes[0]: Invalid value'))": true
+          "(contains($stderr, 'spec.authModes[1]: Invalid value'))": true
+          (contains($stderr, 'WorkloadIdentity and Anonymous take no credentials; every other mode must declare its credentials keys')): true
+          (contains($stderr, 'spec.authModes[2].name in body should match')): true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringClass
+          metadata:
+            name: mon-api-cel-duplicate-modes
+          spec:
+            extensionManaged: {}
+            urlPolicy: Always
+            authModes:
+            - name: Anonymous
+            - name: Anonymous
+          EOF
+        check:
+          ($error != null): true
+          "(contains($stderr, 'spec.authModes[1]: Duplicate value'))": true
+          "(contains($stderr, 'spec.urlPolicy: Unsupported value'))": true
 
   - name: class-immutability
     try:
@@ -76,6 +137,8 @@ spec:
             extensionManaged:
               requires:
                 metrics: true
+            authModes:
+            - name: Anonymous
     - script:
         content: |
           kubectl patch monitoringclass mon-api-cel-class --type=json --dry-run=server \
@@ -117,6 +180,7 @@ spec:
             name: pmm-defaults
           spec:
             classRef: {name: pmm}
+            authentication: {mode: Anonymous}
           EOF
         check:
           ($error): ~
@@ -130,6 +194,7 @@ spec:
             name: a-destination-name-that-is-longer-than-sixty-three-characters-xyz
           spec:
             classRef: {name: pmm}
+            authentication: {mode: Anonymous}
           EOF
         check:
           ($error != null): true
@@ -143,8 +208,11 @@ spec:
           spec:
             classRef:
               name: pmm
-            parameters:
-              url: https://pmm.example.com
+            url: https://pmm.example.com
+            authentication:
+              mode: ServiceAccountToken
+              credentialsSecretRef:
+                name: pmm-token
     - script:
         content: |
           kubectl patch monitoringdestination pmm-prod -n "$NAMESPACE" --type=merge --dry-run=server \
@@ -155,7 +223,129 @@ spec:
     - script:
         content: |
           kubectl patch monitoringdestination pmm-prod -n "$NAMESPACE" --type=merge --dry-run=server \
-            -p '{"spec":{"parameters":{"url":"https://pmm-2.example.com"},"credentialsSecretRef":{"name":"pmm-token"}}}'
+            -p '{"spec":{"url":"https://pmm-2.example.com","authentication":{"credentialsSecretRef":{"name":"pmm-token-2"}},"tls":{"ca":{"secretKeyRef":{"name":"corp-ca","key":"ca.crt"}}}}}'
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: no-authentication
+          spec:
+            classRef: {name: pmm}
+          EOF
+        check:
+          ($error != null): true
+          "(contains($stderr, 'spec.authentication: Required value'))": true
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: token-without-secret
+          spec:
+            classRef: {name: pmm}
+            authentication: {mode: ServiceAccountToken}
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'credentialsSecretRef is required for every mode except WorkloadIdentity and Anonymous, which take none')): true
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: anonymous-with-secret
+          spec:
+            classRef: {name: prometheus}
+            authentication: {mode: Anonymous, credentialsSecretRef: {name: db1-conn}}
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'credentialsSecretRef is required for every mode except WorkloadIdentity and Anonymous, which take none')): true
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: url-with-user
+          spec:
+            classRef: {name: pmm}
+            url: https://admin:secret@pmm.example.com
+            authentication: {mode: Anonymous}
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'url must be an absolute http or https URL without user information')): true
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: url-not-http
+          spec:
+            classRef: {name: pmm}
+            url: ftp://pmm.example.com
+            authentication: {mode: Anonymous}
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'url must be an absolute http or https URL without user information')): true
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: tls-over-http
+          spec:
+            classRef: {name: pmm}
+            url: http://pmm.example.com
+            authentication: {mode: Anonymous}
+            tls: {insecureSkipVerify: true}
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'tls applies to https URLs only')): true
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: ca-and-skip
+          spec:
+            classRef: {name: pmm}
+            url: https://pmm.example.com
+            authentication: {mode: Anonymous}
+            tls:
+              ca: {secretKeyRef: {name: corp-ca, key: ca.crt}}
+              insecureSkipVerify: true
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'ca and insecureSkipVerify are mutually exclusive')): true
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: empty-ca
+          spec:
+            classRef: {name: pmm}
+            url: https://pmm.example.com
+            authentication: {mode: Anonymous}
+            tls:
+              ca: {}
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.tls.ca in body should have at least 1 properties')): true
 
   - name: binding
     try:
@@ -379,6 +569,13 @@ spec:
           (contains($stderr, 'monitoring.sources.metrics[0].podSelector in body should have at least 1 properties')): true
     - script:
         content: |
+          kubectl patch instance sources -n "$NAMESPACE" --subresource=status --type=merge --dry-run=server \
+            -p '{"status":{"monitoring":{"sources":{"metrics":[{"component":"engine","kind":"mysql","podSelector":{"app":"x"},"port":"metrics","scheme":"https","tls":{"ca":{"secretKeyRef":{"name":"orders-ca","key":"ca.crt"}},"insecureSkipVerify":true}}]}}}}'
+        check:
+          ($error != null): true
+          (contains($stderr, 'ca and insecureSkipVerify are mutually exclusive')): true
+    - script:
+        content: |
           kubectl create --dry-run=server -f - <<'EOF'
           apiVersion: core.openeverest.io/v1alpha1
           kind: Provider
@@ -386,6 +583,8 @@ spec:
             name: mon-api-cel-provider
           spec:
             monitoring:
+              integrations:
+                pmm: {authModes: [ServiceAccountToken, api-key]}
               componentTypes:
                 engine: {kind: microsoft.sql_server, metrics: Exporter}
                 proxy: {kind: Bad Kind}
@@ -394,3 +593,4 @@ spec:
           ($error != null): true
           (contains($stderr, 'spec.monitoring.componentTypes.proxy.kind in body should match')): true
           (contains($stderr, 'componentTypes.engine.kind')): false
+          (contains($stderr, 'spec.monitoring.integrations.pmm.authModes[1] in body should match')): true

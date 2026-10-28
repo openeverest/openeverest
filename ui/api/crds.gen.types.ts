@@ -3791,25 +3791,19 @@ export interface components {
                             /** @description TLS describes how to verify an https endpoint. */
                             tls?: {
                                 /**
-                                 * @description CA selects the Secret key in the Instance's namespace holding the CA
-                                 *     bundle.
+                                 * @description CA is the PEM bundle the server certificate is verified against,
+                                 *     instead of the system trust store.
                                  */
                                 ca?: {
-                                    /** @description The key of the secret to select from.  Must be a valid secret key. */
-                                    key: string;
-                                    /**
-                                     * @description Name of the referent.
-                                     *     This field is effectively required, but due to backwards compatibility is
-                                     *     allowed to be empty. Instances of this type with an empty value here are
-                                     *     almost certainly wrong.
-                                     *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                     * @default
-                                     */
-                                    name?: string;
-                                    /** @description Specify whether the Secret or its key must be defined */
-                                    optional?: boolean;
+                                    /** @description SecretKeyRef selects the Secret key holding the PEM bundle. */
+                                    secretKeyRef?: {
+                                        /** @description Key within the Secret. */
+                                        key: string;
+                                        /** @description Name of the referenced Secret. */
+                                        name: string;
+                                    };
                                 };
-                                /** @description InsecureSkipVerify disables verification. */
+                                /** @description InsecureSkipVerify disables verification of the server certificate. */
                                 insecureSkipVerify?: boolean;
                                 /** @description ServerName overrides the expected server name. */
                                 serverName?: string;
@@ -5384,13 +5378,22 @@ export interface components {
             /** @description MonitoringClassSpec defines the desired state of MonitoringClass. */
             spec: {
                 /**
-                 * @description CredentialsSchema lists the keys the MonitoringDestination credentials
-                 *     Secret must carry.
+                 * @description AuthModes lists the authentication methods a MonitoringDestination of
+                 *     this class can use. A mode the class defines is Secret-backed and lists
+                 *     its credentials keys; WorkloadIdentity and Anonymous are reserved by
+                 *     core and take no Secret.
                  */
-                credentialsSchema?: {
-                    /** @description Required is the list of required Secret keys. */
-                    required?: string[];
-                };
+                authModes: {
+                    /** @description Credentials lists the keys the credentials Secret must or may carry. */
+                    credentials?: {
+                        /** @description Optional keys are read when present. */
+                        optional?: string[];
+                        /** @description Required keys must be present and non-empty. */
+                        required: string[];
+                    };
+                    /** @description Name identifies the mode, in PascalCase (e.g. AccessKey, BasicAuth). */
+                    name: string;
+                }[];
                 /** @description Description describes the monitoring technology. */
                 description?: string;
                 /** @description DestinationParametersSchema validates MonitoringDestination.spec.parameters. */
@@ -5457,9 +5460,16 @@ export interface components {
                 };
                 /**
                  * @description UISchema holds free-form form-rendering hints consumed only by the UI,
-                 *     grouped by the form they decorate (destination, instance, credentials).
+                 *     grouped by the form they decorate (destination, instance, and
+                 *     credentials keyed by authentication mode).
                  */
                 uiSchema?: Record<string, never>;
+                /**
+                 * @description URLPolicy says whether MonitoringDestination.spec.url must be set.
+                 * @default Optional
+                 * @enum {string}
+                 */
+                urlPolicy?: "Required" | "Optional";
             };
             /**
              * @description MonitoringClassStatus defines the observed state of MonitoringClass. It
@@ -5663,6 +5673,23 @@ export interface components {
             /** @description MonitoringDestinationSpec defines the desired state of MonitoringDestination. */
             spec: {
                 /**
+                 * @description Authentication names one of the class's authModes and, for every mode
+                 *     but WorkloadIdentity and Anonymous, the Secret in the same namespace
+                 *     holding that mode's credentials keys.
+                 */
+                authentication: {
+                    /**
+                     * @description CredentialsSecretRef references the Secret in the same namespace that
+                     *     holds the credentials keys of the mode.
+                     */
+                    credentialsSecretRef?: {
+                        /** @description Name of the referenced Secret. */
+                        name: string;
+                    };
+                    /** @description Mode names one of the class's authModes. */
+                    mode: string;
+                };
+                /**
                  * @description ClassRef references the cluster-scoped MonitoringClass this destination
                  *     belongs to. Immutable.
                  */
@@ -5671,19 +5698,33 @@ export interface components {
                     name: string;
                 };
                 /**
-                 * @description CredentialsSecretRef references the Secret in the same namespace that
-                 *     holds the destination credentials; its keys are described by the
-                 *     class's credentialsSchema.
-                 */
-                credentialsSecretRef?: {
-                    /** @description Name of the referenced Secret. */
-                    name: string;
-                };
-                /**
                  * @description Parameters are validated against
                  *     MonitoringClass.spec.destinationParametersSchema.
                  */
                 parameters?: Record<string, never>;
+                /** @description TLS is how the backend's certificate is verified. */
+                tls?: {
+                    /**
+                     * @description CA is the PEM bundle the server certificate is verified against,
+                     *     instead of the system trust store.
+                     */
+                    ca?: {
+                        /** @description SecretKeyRef selects the Secret key holding the PEM bundle. */
+                        secretKeyRef?: {
+                            /** @description Key within the Secret. */
+                            key: string;
+                            /** @description Name of the referenced Secret. */
+                            name: string;
+                        };
+                    };
+                    /** @description InsecureSkipVerify disables verification of the server certificate. */
+                    insecureSkipVerify?: boolean;
+                };
+                /**
+                 * @description URL is the address of the backend. Required when the class's urlPolicy
+                 *     is Required.
+                 */
+                url?: string;
             };
             /**
              * @description MonitoringDestinationStatus defines the observed state of
@@ -6108,6 +6149,12 @@ export interface components {
                              *     render (e.g. ">=3.0.0 <4.0.0").
                              */
                             agentVersions?: string;
+                            /**
+                             * @description AuthModes lists the authentication modes of the integration's
+                             *     MonitoringClass the provider can render. A destination whose mode is
+                             *     not listed is not bound.
+                             */
+                            authModes?: string[];
                         };
                     };
                 };

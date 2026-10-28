@@ -50,17 +50,62 @@ spec:
           spec:
             description: MonitoringClassSpec defines the desired state of MonitoringClass.
             properties:
-              credentialsSchema:
+              authModes:
                 description: |-
-                  CredentialsSchema lists the keys the MonitoringDestination credentials
-                  Secret must carry.
-                properties:
-                  required:
-                    description: Required is the list of required Secret keys.
-                    items:
+                  AuthModes lists the authentication methods a MonitoringDestination of
+                  this class can use. A mode the class defines is Secret-backed and lists
+                  its credentials keys; WorkloadIdentity and Anonymous are reserved by
+                  core and take no Secret.
+                items:
+                  description: |-
+                    AuthMode is one authentication method a class supports. A mode the class
+                    defines lists the credentials Secret keys it needs; the reserved modes
+                    (WorkloadIdentity, Anonymous) list none.
+                  properties:
+                    credentials:
+                      description: Credentials lists the keys the credentials Secret
+                        must or may carry.
+                      properties:
+                        optional:
+                          description: Optional keys are read when present.
+                          items:
+                            maxLength: 253
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          maxItems: 16
+                          type: array
+                          x-kubernetes-list-type: set
+                        required:
+                          description: Required keys must be present and non-empty.
+                          items:
+                            maxLength: 253
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          maxItems: 16
+                          minItems: 1
+                          type: array
+                          x-kubernetes-list-type: set
+                      required:
+                      - required
+                      type: object
+                    name:
+                      description: Name identifies the mode, in PascalCase (e.g. AccessKey,
+                        BasicAuth).
+                      pattern: ^[A-Z][A-Za-z0-9]{0,62}$
                       type: string
-                    type: array
-                type: object
+                  required:
+                  - name
+                  type: object
+                  x-kubernetes-validations:
+                  - message: WorkloadIdentity and Anonymous take no credentials; every
+                      other mode must declare its credentials keys
+                    rule: (self.name in ['WorkloadIdentity', 'Anonymous']) != has(self.credentials)
+                maxItems: 16
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               description:
                 description: Description describes the monitoring technology.
                 type: string
@@ -144,9 +189,20 @@ spec:
               uiSchema:
                 description: |-
                   UISchema holds free-form form-rendering hints consumed only by the UI,
-                  grouped by the form they decorate (destination, instance, credentials).
+                  grouped by the form they decorate (destination, instance, and
+                  credentials keyed by authentication mode).
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
+              urlPolicy:
+                default: Optional
+                description: URLPolicy says whether MonitoringDestination.spec.url
+                  must be set.
+                enum:
+                - Required
+                - Optional
+                type: string
+            required:
+            - authModes
             type: object
             x-kubernetes-validations:
             - message: a MonitoringClass must declare at least one fulfilment block

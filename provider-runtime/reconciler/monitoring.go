@@ -49,16 +49,16 @@ const (
 // maxMetricsEndpoints is the maxItems of MonitoringSources.metrics.
 const maxMetricsEndpoints = 32
 
-// indexDestinationCredentialsSecret indexes MonitoringDestinations by the
-// name of their credentials Secret.
-const indexDestinationCredentialsSecret = "spec.credentialsSecretRef.name"
+// indexDestinationSecrets indexes MonitoringDestinations by the name of
+// every Secret they reference.
+const indexDestinationSecrets = "spec.secretNames"
 
-func destinationCredentialsSecret(obj client.Object) []string {
+func destinationSecrets(obj client.Object) []string {
 	d, ok := obj.(*monitoringv1alpha1.MonitoringDestination)
-	if !ok || d.Spec.CredentialsSecretRef == nil || d.Spec.CredentialsSecretRef.Name == "" {
+	if !ok {
 		return nil
 	}
-	return []string{d.Spec.CredentialsSecretRef.Name}
+	return d.Spec.SecretNames()
 }
 
 // monitoringEnabled reports whether the provider opted into the monitoring
@@ -80,7 +80,7 @@ func (r *ProviderReconciler) configuredFieldOwner() string {
 // destination or class they are bound to changes spec, since ProviderManaged
 // renderings are built from both. A provider that renders integrations is
 // also re-enqueued on destination status changes and on any change of a
-// destination's credentials Secret, so a rotated or late Secret is rendered.
+// Secret a destination references, so a rotated or late Secret is rendered.
 func (r *ProviderReconciler) watchMonitoringBindings(b *builder.Builder) {
 	b.Watches(&monitoringv1alpha1.MonitoringBinding{},
 		handler.EnqueueRequestsFromMapFunc(r.instancesForBinding),
@@ -92,7 +92,7 @@ func (r *ProviderReconciler) watchMonitoringBindings(b *builder.Builder) {
 	)
 	if _, ok := r.provider.(controller.MonitoringIntegrationsProvider); ok {
 		b.WatchesMetadata(&corev1.Secret{},
-			handler.EnqueueRequestsFromMapFunc(r.instancesForCredentialsSecret),
+			handler.EnqueueRequestsFromMapFunc(r.instancesForDestinationSecret),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		)
 	}
@@ -125,12 +125,12 @@ func (r *ProviderReconciler) instancesForDestination(ctx context.Context, obj cl
 	return r.instancesBoundTo(ctx, obj.GetNamespace(), []string{obj.GetName()})
 }
 
-// instancesForCredentialsSecret enqueues the Instances bound to a destination
-// that keeps its credentials in the Secret.
-func (r *ProviderReconciler) instancesForCredentialsSecret(ctx context.Context, obj client.Object) []reconcile.Request {
+// instancesForDestinationSecret enqueues the Instances bound to a destination
+// that references the Secret.
+func (r *ProviderReconciler) instancesForDestinationSecret(ctx context.Context, obj client.Object) []reconcile.Request {
 	destinations := &monitoringv1alpha1.MonitoringDestinationList{}
 	if err := r.List(ctx, destinations, client.InNamespace(obj.GetNamespace()),
-		client.MatchingFields{indexDestinationCredentialsSecret: obj.GetName()},
+		client.MatchingFields{indexDestinationSecrets: obj.GetName()},
 	); err != nil {
 		log.FromContext(ctx).Error(err, "Listing monitoring destinations to enqueue failed")
 		return nil

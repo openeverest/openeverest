@@ -33,20 +33,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
 )
 
-// destinationCredentialsSecretField indexes MonitoringDestinations by
-// spec.credentialsSecretRef.name.
-const destinationCredentialsSecretField = ".spec.credentialsSecretRef.name" //nolint:gosec // field index path, not a credential
+// destinationSecretsField indexes MonitoringDestinations by the name of every
+// Secret they reference.
+const destinationSecretsField = ".spec.secretNames"
 
-func destinationCredentialsSecretName(obj client.Object) []string {
+func destinationSecretNames(obj client.Object) []string {
 	dst, ok := obj.(*monitoringv1alpha1.MonitoringDestination)
-	if !ok || dst.Spec.CredentialsSecretRef == nil {
+	if !ok {
 		return nil
 	}
-	return []string{dst.Spec.CredentialsSecretRef.Name}
+	return dst.Spec.SecretNames()
 }
 
 // DestinationReconciler owns the Accepted condition of MonitoringDestinations.
@@ -55,13 +56,13 @@ type DestinationReconciler struct {
 	client.Client
 }
 
-// SetupWithManager registers the MonitoringDestination index on
-// spec.credentialsSecretRef.name and sets up the controller.
+// SetupWithManager registers the MonitoringDestination index on the Secrets
+// it references and sets up the controller.
 func (r *DestinationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &monitoringv1alpha1.MonitoringDestination{},
-		destinationCredentialsSecretField, destinationCredentialsSecretName,
+		destinationSecretsField, destinationSecretNames,
 	); err != nil {
-		return fmt.Errorf("indexing monitoring destination by credentials secret: %w", err)
+		return fmt.Errorf("indexing monitoring destination by secret: %w", err)
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("MonitoringDestination").
@@ -94,8 +95,9 @@ func (r *DestinationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return ctrl.Result{}, rtmonitoring.ApplyCondition(ctx, r.Client, dst, dst.Status.Conditions, rtmonitoring.MaterializerFieldOwner, cond)
 }
 
-// acceptedCondition: class found, parameters valid against its schema, and
-// the credentials Secret present with every key the class requires.
+// acceptedCondition: class found, url set if the class requires one,
+// parameters valid against its schema, authentication mode defined by the
+// class with every credentials key present, and the CA bundle parseable.
 func (r *DestinationReconciler) acceptedCondition(ctx context.Context, dst *monitoringv1alpha1.MonitoringDestination) (metav1.Condition, error) {
 	reject := func(reason, msg string) (metav1.Condition, error) {
 		return rtmonitoring.NewCondition(dst, monitoringv1alpha1.MonitoringDestinationConditionAccepted, metav1.ConditionFalse, reason, msg), nil
@@ -108,6 +110,9 @@ func (r *DestinationReconciler) acceptedCondition(ctx context.Context, dst *moni
 		}
 		return reject(monitoringv1alpha1.ReasonClassNotFound, fmt.Sprintf("MonitoringClass %q not found", dst.Spec.ClassRef.Name))
 	}
+	if class.Spec.URLPolicy == monitoringv1alpha1.URLPolicyRequired && dst.Spec.URL == "" {
+		return reject(monitoringv1alpha1.ReasonURLRequired, fmt.Sprintf("MonitoringClass %q requires spec.url", class.Name))
+	}
 	schema := class.Spec.DestinationParametersSchema
 	params := dst.Spec.Parameters
 	// An absent payload must still satisfy the schema's required properties.
@@ -119,35 +124,36 @@ func (r *DestinationReconciler) acceptedCondition(ctx context.Context, dst *moni
 			fmt.Sprintf("parameters rejected by the destinationParametersSchema of MonitoringClass %q: %v", class.Name, err),
 		)
 	}
-	missing, err := r.missingCredentials(ctx, dst, class)
+	mode := class.Spec.FindAuthMode(dst.Spec.Authentication.Mode)
+	if mode == nil {
+		return reject(monitoringv1alpha1.ReasonAuthModeUnsupported, fmt.Sprintf("MonitoringClass %q has no authentication mode %q; it supports %s",
+			class.Name, dst.Spec.Authentication.Mode, strings.Join(class.Spec.AuthModeNames(), ", "),
+		))
+	}
+	msg, err := r.credentialsProblem(ctx, dst, mode)
 	if err != nil {
 		return metav1.Condition{}, err
 	}
-	if missing != "" {
-		return reject(monitoringv1alpha1.ReasonCredentialsNotFound, missing)
+	if msg != "" {
+		return reject(monitoringv1alpha1.ReasonCredentialsNotFound, msg)
+	}
+	if msg, err = r.caBundleProblem(ctx, dst); err != nil {
+		return metav1.Condition{}, err
+	}
+	if msg != "" {
+		return reject(monitoringv1alpha1.ReasonInvalidCABundle, msg)
 	}
 	return rtmonitoring.NewCondition(dst, monitoringv1alpha1.MonitoringDestinationConditionAccepted, metav1.ConditionTrue,
 		monitoringv1alpha1.ReasonAccepted, fmt.Sprintf("valid for MonitoringClass %q", class.Name),
 	), nil
 }
 
-// missingCredentials describes what is missing from the destination's
-// credentials, or returns "" when nothing is.
-func (r *DestinationReconciler) missingCredentials(
-	ctx context.Context,
-	dst *monitoringv1alpha1.MonitoringDestination,
-	class *monitoringv1alpha1.MonitoringClass,
-) (string, error) {
-	var required []string
-	if class.Spec.CredentialsSchema != nil {
-		required = class.Spec.CredentialsSchema.Required
-	}
-	ref := dst.Spec.CredentialsSecretRef
+// credentialsProblem describes what is missing from the destination's
+// credentials Secret for mode, or returns "" when nothing is.
+func (r *DestinationReconciler) credentialsProblem(ctx context.Context, dst *monitoringv1alpha1.MonitoringDestination, mode *common.AuthMode) (string, error) {
+	ref := dst.Spec.Authentication.CredentialsSecretRef
 	if ref == nil {
-		if len(required) == 0 {
-			return "", nil
-		}
-		return fmt.Sprintf("MonitoringClass %q requires credentialsSecretRef with keys %s", class.Name, strings.Join(required, ", ")), nil
+		return "", nil
 	}
 	secret := &corev1.Secret{}
 	if err := r.Get(ctx, types.NamespacedName{Namespace: dst.Namespace, Name: ref.Name}, secret); err != nil {
@@ -156,10 +162,28 @@ func (r *DestinationReconciler) missingCredentials(
 		}
 		return fmt.Sprintf("credentials Secret %q not found", ref.Name), nil
 	}
-	for _, key := range required {
-		if len(secret.Data[key]) == 0 {
-			return fmt.Sprintf("credentials Secret %q is missing key %q", ref.Name, key), nil
+	if err := mode.ValidateCredentials(secret.Data); err != nil {
+		return fmt.Sprintf("credentials Secret %q: %v", ref.Name, err), nil
+	}
+	return "", nil
+}
+
+// caBundleProblem describes what is wrong with the destination's CA bundle,
+// or returns "" when nothing is.
+func (r *DestinationReconciler) caBundleProblem(ctx context.Context, dst *monitoringv1alpha1.MonitoringDestination) (string, error) {
+	if dst.Spec.TLS == nil || dst.Spec.TLS.CA == nil || dst.Spec.TLS.CA.SecretKeyRef == nil {
+		return "", nil
+	}
+	ref := dst.Spec.TLS.CA.SecretKeyRef
+	secret := &corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: dst.Namespace, Name: ref.Name}, secret); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return "", fmt.Errorf("get CA Secret %q: %w", ref.Name, err)
 		}
+		return fmt.Sprintf("CA Secret %q not found", ref.Name), nil
+	}
+	if _, err := common.ParseCABundle(secret.Data[ref.Key]); err != nil {
+		return fmt.Sprintf("CA Secret %q key %q: %v", ref.Name, ref.Key, err), nil
 	}
 	return "", nil
 }
@@ -183,7 +207,7 @@ func (r *DestinationReconciler) enqueueDestinationsForSecret(ctx context.Context
 	list := &monitoringv1alpha1.MonitoringDestinationList{}
 	if err := r.List(ctx, list,
 		client.InNamespace(obj.GetNamespace()),
-		client.MatchingFieldsSelector{Selector: fields.OneTermEqualSelector(destinationCredentialsSecretField, obj.GetName())},
+		client.MatchingFieldsSelector{Selector: fields.OneTermEqualSelector(destinationSecretsField, obj.GetName())},
 	); err != nil {
 		log.FromContext(ctx).Error(err, "List MonitoringDestinations for Secret", "secret", obj.GetName())
 		return nil

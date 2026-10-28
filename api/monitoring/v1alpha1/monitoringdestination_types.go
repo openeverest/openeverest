@@ -15,6 +15,8 @@
 package v1alpha1
 
 import (
+	"slices"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -33,9 +35,12 @@ const (
 )
 
 // Reasons for the MonitoringDestination Accepted condition, besides
-// ReasonAccepted, ReasonClassNotFound and ReasonInvalidParameters.
+// ReasonAccepted, ReasonClassNotFound, ReasonInvalidParameters and
+// ReasonAuthModeUnsupported.
 const (
 	ReasonCredentialsNotFound = "CredentialsNotFound"
+	ReasonInvalidCABundle     = "InvalidCABundle"
+	ReasonURLRequired         = "URLRequired"
 )
 
 // ReadyReason is a reason of the MonitoringDestination Ready condition. The
@@ -78,22 +83,45 @@ func (r ReadyReason) Status() metav1.ConditionStatus {
 }
 
 // MonitoringDestinationSpec defines the desired state of MonitoringDestination.
+//
+// +kubebuilder:validation:XValidation:rule="!(has(self.url) && self.url.startsWith('http://') && has(self.tls))",message="tls applies to https URLs only"
 type MonitoringDestinationSpec struct {
 	// ClassRef references the cluster-scoped MonitoringClass this destination
 	// belongs to. Immutable.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.classRef is immutable"
 	ClassRef common.ObjectRef `json:"classRef"`
-	// CredentialsSecretRef references the Secret in the same namespace that
-	// holds the destination credentials; its keys are described by the
-	// class's credentialsSchema.
+	// URL is the address of the backend. Required when the class's urlPolicy
+	// is Required.
 	// +optional
-	CredentialsSecretRef *common.SecretRef `json:"credentialsSecretRef,omitempty"`
+	// +kubebuilder:validation:MaxLength=2048
+	// +kubebuilder:validation:XValidation:rule="self.matches('^https?://[^/?#@]+([/?#].*)?$')",message="url must be an absolute http or https URL without user information"
+	URL string `json:"url,omitempty"`
+	// Authentication names one of the class's authModes and, for every mode
+	// but WorkloadIdentity and Anonymous, the Secret in the same namespace
+	// holding that mode's credentials keys.
+	// +kubebuilder:validation:Required
+	Authentication common.Authentication `json:"authentication"`
+	// TLS is how the backend's certificate is verified.
+	// +optional
+	TLS *common.TLSConfig `json:"tls,omitempty"`
 	// Parameters are validated against
 	// MonitoringClass.spec.destinationParametersSchema.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
+}
+
+// SecretNames returns the names of the Secrets the destination references.
+func (s *MonitoringDestinationSpec) SecretNames() []string {
+	var names []string
+	if ref := s.Authentication.CredentialsSecretRef; ref != nil {
+		names = append(names, ref.Name)
+	}
+	if s.TLS != nil && s.TLS.CA != nil && s.TLS.CA.SecretKeyRef != nil && !slices.Contains(names, s.TLS.CA.SecretKeyRef.Name) {
+		names = append(names, s.TLS.CA.SecretKeyRef.Name)
+	}
+	return names
 }
 
 // MonitoringDestinationStatus defines the observed state of
@@ -113,6 +141,8 @@ type MonitoringDestinationStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=mdest
 // +kubebuilder:printcolumn:name="Class",type="string",JSONPath=".spec.classRef.name"
+// +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".spec.url"
+// +kubebuilder:printcolumn:name="Auth",type="string",JSONPath=".spec.authentication.mode"
 // +kubebuilder:printcolumn:name="Accepted",type="string",JSONPath=".status.conditions[?(@.type==\"Accepted\")].reason"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.serverVersion"

@@ -13,17 +13,10 @@ spec:
     integration: pmm
     agentImage: percona/pmm-client:3.8.0
     agentVersion: 3.8.0
-  destinationParametersSchema:
-    openAPIV3Schema:
-      type: object
-      required: [url]
-      properties:
-        url:
-          type: string
-          description: PMM Server URL, e.g. https://pmm.example.com
-        verifyTLS:
-          type: boolean
-          description: Verify the PMM Server TLS certificate (default true).
+  urlPolicy: Required
+  authModes:
+    - name: ServiceAccountToken
+      credentials: {required: [token]}
   instanceParametersSchema:
     openAPIV3Schema:
       type: object
@@ -40,8 +33,6 @@ spec:
               type: object
               additionalProperties:
                 type: string
-  credentialsSchema:
-    required: [apiKey]
 ---
 apiVersion: monitoring.openeverest.io/v1alpha1
 kind: MonitoringClass
@@ -53,6 +44,8 @@ spec:
   extensionManaged:
     requires:
       metrics: true
+  authModes:
+    - name: Anonymous
   destinationParametersSchema:
     openAPIV3Schema:
       type: object
@@ -80,6 +73,8 @@ spec:
   extensionManaged:
     requires:
       metrics: true
+  authModes:
+    - name: Anonymous
   destinationParametersSchema:
     openAPIV3Schema:
       type: object

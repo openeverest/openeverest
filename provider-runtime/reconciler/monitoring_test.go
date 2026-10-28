@@ -143,7 +143,7 @@ func newMonReconcilerWith(t *testing.T, p providerAdapter, funcs interceptor.Fun
 		WithTypeConverters(monTypeConverter(t), managedfields.NewDeducedTypeConverter()).
 		WithObjects(append(objs, kubeSystem)...).
 		WithStatusSubresource(&v1alpha1.Instance{}, &monitoringv1alpha1.MonitoringBinding{}).
-		WithIndex(&monitoringv1alpha1.MonitoringDestination{}, indexDestinationCredentialsSecret, destinationCredentialsSecret).
+		WithIndex(&monitoringv1alpha1.MonitoringDestination{}, indexDestinationSecrets, destinationSecrets).
 		Build(), funcs,
 	)
 	return &ProviderReconciler{provider: p, Client: c, apiReader: c}
@@ -741,7 +741,7 @@ func TestValidateSources(t *testing.T) {
 		Path:        "/probe",
 		Scheme:      "https",
 		TLS: &v1alpha1.MetricsEndpointTLS{
-			CA:         &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "orders-ca"}, Key: "ca.crt"},
+			TLSConfig:  common.TLSConfig{CA: &common.CABundleSource{SecretKeyRef: &common.SecretKeyRef{Name: "orders-ca", Key: "ca.crt"}}},
 			ServerName: "orders-engine",
 		},
 		Auth:   &v1alpha1.MetricsEndpointAuth{CredentialProfile: "metrics"},
@@ -995,8 +995,8 @@ func TestMonitoringCredentialsSecretWatch(t *testing.T) {
 		return &monitoringv1alpha1.MonitoringDestination{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "team-a"},
 			Spec: monitoringv1alpha1.MonitoringDestinationSpec{
-				ClassRef:             common.ObjectRef{Name: "pmm"},
-				CredentialsSecretRef: &common.SecretRef{Name: secret},
+				ClassRef:       common.ObjectRef{Name: "pmm"},
+				Authentication: common.Authentication{Mode: "ServiceAccountToken", CredentialsSecretRef: &common.SecretRef{Name: secret}},
 			},
 		}
 	}
@@ -1026,7 +1026,7 @@ func TestMonitoringCredentialsSecretWatch(t *testing.T) {
 			secret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
 
 			var got []string
-			for _, req := range r.instancesForCredentialsSecret(t.Context(), secret) {
+			for _, req := range r.instancesForDestinationSecret(t.Context(), secret) {
 				got = append(got, req.Name)
 			}
 

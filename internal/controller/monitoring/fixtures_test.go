@@ -68,7 +68,7 @@ func newFakeClient(t *testing.T, objs ...client.Object) client.Client { //nolint
 			&monitoringv1alpha1.MonitoringBinding{},
 		).
 		WithIndex(&corev1alpha1.Instance{}, instanceMonitoringDestinationField, instanceMonitoringDestinationNames).
-		WithIndex(&monitoringv1alpha1.MonitoringDestination{}, destinationCredentialsSecretField, destinationCredentialsSecretName).
+		WithIndex(&monitoringv1alpha1.MonitoringDestination{}, destinationSecretsField, destinationSecretNames).
 		WithInterceptorFuncs(generations()).
 		Build()
 }
@@ -161,18 +161,14 @@ func pmmClass() *monitoringv1alpha1.MonitoringClass {
 				AgentImage:   "percona/pmm-client:3.8.0",
 				AgentVersion: "3.8.0",
 			},
-			DestinationParametersSchema: objectSchema(map[string]apiextensionsv1.JSONSchemaProps{
-				"url":       {Type: "string"},
-				"verifyTLS": {Type: "boolean"},
-			}, "url",
-			),
 			InstanceParametersSchema: objectSchema(map[string]apiextensionsv1.JSONSchemaProps{
 				"resources": {Type: "object", Properties: map[string]apiextensionsv1.JSONSchemaProps{
 					"limits":   stringMap(),
 					"requests": stringMap(),
 				}},
 			}),
-			CredentialsSchema: &monitoringv1alpha1.CredentialsSchema{Required: []string{"apiKey"}},
+			AuthModes: []common.AuthMode{{Name: "ServiceAccountToken", Credentials: &common.CredentialKeys{Required: []string{"token"}}}},
+			URLPolicy: monitoringv1alpha1.URLPolicyRequired,
 		},
 	})
 }
@@ -201,6 +197,7 @@ func scrapeClass(name, labelsParameter string) *monitoringv1alpha1.MonitoringCla
 				"interval":      {Type: "string"},
 			}),
 			InstanceParametersSchema: objectSchema(make(map[string]apiextensionsv1.JSONSchemaProps)),
+			AuthModes:                []common.AuthMode{{Name: common.AuthModeAnonymous}},
 		},
 	})
 }
@@ -214,7 +211,7 @@ func victoriaMetricsClass() *monitoringv1alpha1.MonitoringClass {
 }
 
 func pmmIntegration() map[string]corev1alpha1.MonitoringIntegration {
-	return map[string]corev1alpha1.MonitoringIntegration{"pmm": {AgentVersions: ">=3.0.0 <4.0.0"}}
+	return map[string]corev1alpha1.MonitoringIntegration{"pmm": {AgentVersions: ">=3.0.0 <4.0.0", AuthModes: []string{"ServiceAccountToken"}}}
 }
 
 func newProvider(name string, components map[string]string, monitoring *corev1alpha1.ProviderMonitoring) *corev1alpha1.Provider {
@@ -308,14 +305,17 @@ func raw(js string) *runtime.RawExtension {
 func newDestination(name, class string) *monitoringv1alpha1.MonitoringDestination {
 	return &monitoringv1alpha1.MonitoringDestination{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: testNamespace, Generation: 2},
-		Spec:       monitoringv1alpha1.MonitoringDestinationSpec{ClassRef: common.ObjectRef{Name: class}},
+		Spec: monitoringv1alpha1.MonitoringDestinationSpec{
+			ClassRef:       common.ObjectRef{Name: class},
+			Authentication: common.Authentication{Mode: common.AuthModeAnonymous},
+		},
 	}
 }
 
 func pmmDestination(name string) *monitoringv1alpha1.MonitoringDestination {
 	dst := newDestination(name, "pmm")
-	dst.Spec.CredentialsSecretRef = &common.SecretRef{Name: name + "-credentials"}
-	dst.Spec.Parameters = raw(`{"url":"https://pmm.example.com"}`)
+	dst.Spec.URL = "https://pmm.example.com"
+	dst.Spec.Authentication = common.Authentication{Mode: "ServiceAccountToken", CredentialsSecretRef: &common.SecretRef{Name: name + "-credentials"}}
 	return dst
 }
 
