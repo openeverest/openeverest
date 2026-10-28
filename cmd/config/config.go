@@ -19,7 +19,9 @@ package config
 
 import (
 	"crypto/aes"
+	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/kelseyhightower/envconfig"
 )
@@ -66,6 +68,22 @@ type EverestConfig struct {
 	TLSCertsPath string `envconfig:"TLS_CERTS_PATH"`
 }
 
+// validateTelemetryInterval parses s as a time.Duration and rejects
+// non-positive values. An empty string is allowed (telemetry will not run).
+func validateTelemetryInterval(s string) error {
+	if s == "" {
+		return nil
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil {
+		return fmt.Errorf("invalid TELEMETRY_INTERVAL %q: %w", s, err)
+	}
+	if d <= 0 {
+		return fmt.Errorf("TELEMETRY_INTERVAL must be greater than 0, got %q", s)
+	}
+	return nil
+}
+
 // ParseConfig parses env vars and fills EverestConfig.
 func ParseConfig() (*EverestConfig, error) {
 	c := &EverestConfig{}
@@ -79,6 +97,10 @@ func ParseConfig() (*EverestConfig, error) {
 	}
 	if c.TelemetryInterval == "" {
 		c.TelemetryInterval = TelemetryInterval
+	}
+
+	if err := validateTelemetryInterval(c.TelemetryInterval); err != nil {
+		return nil, err
 	}
 
 	if c.TLSCertsPath != "" {
