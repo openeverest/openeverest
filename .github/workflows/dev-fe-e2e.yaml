@@ -9,7 +9,7 @@ permissions:
 jobs:
   e2e:
     timeout-minutes: 60
-    runs-on: cncf-ubuntu-16-64-x86
+    runs-on: cncf-ubuntu-4-16-x86
     env:
       PMM_HELM_VER: "1.3.21"
     steps:

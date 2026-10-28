@@ -128,7 +128,7 @@ jobs:
     needs: prepare
     if: needs.prepare.outputs.workflows == 'true'
     timeout-minutes: 10
-    runs-on: cncf-ubuntu-8-32-x86
+    runs-on: cncf-ubuntu-4-16-x86
     steps:
       - name: Check out code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -173,7 +173,7 @@ jobs:
     needs: prepare
     if: needs.prepare.outputs.backend == 'true'
     timeout-minutes: 30
-    runs-on: cncf-ubuntu-8-32-x86
+    runs-on: cncf-ubuntu-4-16-x86
     steps:
       - name: Check out code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -212,7 +212,7 @@ jobs:
     needs: prepare
     if: needs.prepare.outputs.backend == 'true'
     timeout-minutes: 15
-    runs-on: cncf-ubuntu-8-32-x86
+    runs-on: cncf-ubuntu-4-16-x86
     permissions:
       contents: read
       pull-requests: write
@@ -515,7 +515,7 @@ jobs:
     # OpenAPI spec, and only these jobs compile it.
     if: needs.prepare.outputs.frontend == 'true' || needs.prepare.outputs.backend == 'true'
     timeout-minutes: 20
-    runs-on: cncf-ubuntu-8-32-x86
+    runs-on: cncf-ubuntu-4-16-x86
     defaults:
       run:
         working-directory: ui
@@ -545,7 +545,7 @@ jobs:
     needs: prepare
     if: needs.prepare.outputs.frontend == 'true'
     timeout-minutes: 20
-    runs-on: cncf-ubuntu-8-32-x86
+    runs-on: cncf-ubuntu-4-16-x86
     defaults:
       run:
         working-directory: ui
@@ -585,7 +585,7 @@ jobs:
     # Headers are enforced incrementally, on the files each PR touches.
     if: ${{ github.event_name == 'pull_request' }}
     timeout-minutes: 10
-    runs-on: cncf-ubuntu-8-32-x86
+    runs-on: cncf-ubuntu-4-16-x86
     steps:
       # Head sha (not the merge ref): the check runs on the files exactly as the
       # contributor wrote them, including for pull requests from forks.
@@ -644,7 +644,7 @@ jobs:
     # not always(): a cancelled run must not report a failed gate.
     if: ${{ !cancelled() }}
     timeout-minutes: 5
-    runs-on: cncf-ubuntu-8-32-x86
+    runs-on: cncf-ubuntu-4-16-x86
     steps:
       - name: Verify job results
         env:

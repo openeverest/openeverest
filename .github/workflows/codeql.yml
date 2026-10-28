@@ -32,7 +32,7 @@ jobs:
   analyze:
     name: Analyze
     timeout-minutes: 30
-    runs-on: cncf-ubuntu-8-32-x86
+    runs-on: cncf-ubuntu-4-16-x86
     permissions:
       actions: read
       contents: read
