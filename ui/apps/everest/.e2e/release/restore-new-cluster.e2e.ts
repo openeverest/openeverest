@@ -357,7 +357,7 @@ function getNextScheduleMinute(incrementMinutes: number): string {
           await page.getByTestId('db-wizard-submit-button').click();
         });
 
-        await test.step('Check restored DB list and status', async () => {
+        await test.step('TC-04: Submit new DB creation and check lifecycle progression', async () => {
           if (db !== 'postgresql') {
             await waitForStatus(
               page,
@@ -368,15 +368,12 @@ function getNextScheduleMinute(incrementMinutes: number): string {
           }
           await waitForStatus(page, restoredClusterName, 'Restoring', 660000);
           await waitForStatus(page, restoredClusterName, 'Up', 2400000);
+
+          // Verify source DB remains unaffected and in healthy Up state
+          await waitForStatus(page, clusterName, 'Up', 15000);
         });
 
-        await test.step(`Delete primary database cluster`, async () => {
-          await deleteDbCluster(page, clusterName);
-          await waitForStatus(page, clusterName, 'Deleting', 15000);
-          await waitForDelete(page, clusterName, 240000);
-        });
-
-        await test.step(`Verify data after restore on the new database`, async () => {
+        await test.step(`TC-05: Data integrity on cloned DB`, async () => {
           const result = await queryTestDB(restoredClusterName, namespace);
 
           switch (db) {
@@ -399,21 +396,27 @@ function getNextScheduleMinute(incrementMinutes: number): string {
           }
         });
 
-        await test.step(`Verify and Delete Restore History for the restored database`, async () => {
+        await test.step(`TC-06 & TC-07: Restore history record for clone flow and deletion`, async () => {
           // TODO: Remove the if statement after fix for https://perconadev.atlassian.net/browse/EVEREST-1012
           if (db === 'postgresql') {
             return;
           }
           await gotoDbClusterRestores(page, restoredClusterName);
-          await test.step('Verify restore history exists', async () => {
+          await test.step('TC-06: Verify restore history record exists with correct status', async () => {
             await expect(page.getByTestId('status')).toHaveText('Succeeded');
           });
-          await test.step('Delete the restore entry', async () => {
+          await test.step('TC-07: Delete restore history record', async () => {
             await findRowAndClickActions(page, restoredClusterName, 'Delete');
             await expect(page.getByLabel('Delete restore')).toBeVisible();
             await page.getByTestId('confirm-dialog-delete').click();
             await waitForDelete(page, restoredClusterName, 15000);
           });
+        });
+
+        await test.step(`Delete primary database cluster`, async () => {
+          await deleteDbCluster(page, clusterName);
+          await waitForStatus(page, clusterName, 'Deleting', 15000);
+          await waitForDelete(page, clusterName, 240000);
         });
       });
 
