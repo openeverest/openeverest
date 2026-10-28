@@ -138,7 +138,7 @@ export default defineConfig({
         'backup-storage',
         'config-map',
         'instance',
-        'instance-preset',
+        'cluster-instance-preset',
         'kubernetes',
         'monitoring-config-v2',
         'secrets',
@@ -234,11 +234,11 @@ export default defineConfig({
         }
       },
     },
-    // instance-preset tests
+    // cluster-instance-preset tests
     {
-      name: 'instance-preset',
+      name: 'cluster-instance-preset',
       testDir: 'tests',
-      testMatch: /instance-preset\.spec\.ts/,
+      testMatch: /cluster-instance-preset\.spec\.ts/,
       dependencies: ['global:auth:ci:setup'],
       use: {
         extraHTTPHeaders: {

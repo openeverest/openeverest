@@ -95,7 +95,7 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 		annotations    map[string]string
 	)
 	if opts.Preset != "" {
-		pr, err := ic.resolvePreset(ctx, c, opts.Preset, opts.Cluster, opts.Namespace)
+		pr, err := ic.resolveClusterPreset(ctx, c, opts.Preset, opts.Cluster, opts.Namespace)
 		if err != nil {
 			return err
 		}
@@ -103,7 +103,7 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 			return err
 		}
 		presetSpecBase = pr.specMap
-		annotations = map[string]string{"openeverest.io/instance-preset": opts.Preset}
+		annotations = map[string]string{"openeverest.io/cluster-instance-preset": opts.Preset}
 	}
 
 	provResp, err := c.GetProviderWithResponse(ctx, opts.Cluster, opts.Provider)
@@ -296,12 +296,12 @@ type presetResult struct {
 	topology string
 }
 
-func (ic *InstanceCreator) resolvePreset(ctx context.Context, c *client.ClientWithResponses, preset, cluster, namespace string) (*presetResult, error) {
-	resp, err := c.ResolveInstancePresetWithResponse(
+func (ic *InstanceCreator) resolveClusterPreset(ctx context.Context, c *client.ClientWithResponses, preset, cluster, namespace string) (*presetResult, error) {
+	resp, err := c.ResolveClusterInstancePresetWithResponse(
 		ctx,
 		cluster,
 		preset,
-		&client.ResolveInstancePresetParams{Namespace: namespace},
+		&client.ResolveClusterInstancePresetParams{Namespace: namespace},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve preset %q: %w", preset, err)

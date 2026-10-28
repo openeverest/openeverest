@@ -17,8 +17,10 @@ package rbac
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -66,12 +68,15 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 			return nil, err
 		}
 	}
+	if err := h.enforceReadMonitoringDestinations(ctx, cluster, instance.GetNamespace(), instance.Spec.Monitoring, nil); err != nil {
+		return nil, err
+	}
 
 	object := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), instance.GetName())
 
 	var presetName string
 	if instance.GetAnnotations() != nil {
-		presetName = instance.GetAnnotations()["openeverest.io/instance-preset"]
+		presetName = instance.GetAnnotations()["openeverest.io/cluster-instance-preset"]
 	}
 
 	// If no preset is specified, require standard create permission
@@ -82,9 +87,9 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 		return h.next.CreateInstance(ctx, cluster, instance)
 	}
 
-	// User must have read permission on the InstancePreset
+	// User must have read permission on the ClusterInstancePreset
 	presetObject := rbac.ClusterObjectName(cluster, presetName)
-	if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionRead, presetObject); err != nil {
+	if err := h.enforce(ctx, rbac.ResourceClusterInstancePresets, rbac.ActionRead, presetObject); err != nil {
 		return nil, err
 	}
 
@@ -118,6 +123,9 @@ func (h *rbacHandler) UpdateInstance(ctx context.Context, cluster string, instan
 	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionUpdate, object); err != nil {
 		return nil, err
 	}
+	if err := h.enforceReadAddedMonitoringDestinations(ctx, cluster, instance.GetNamespace(), instance.GetName(), instance.Spec.Monitoring); err != nil {
+		return nil, err
+	}
 	return h.next.UpdateInstance(ctx, cluster, instance)
 }
 
@@ -126,6 +134,19 @@ func (h *rbacHandler) UpdateInstance(ctx context.Context, cluster string, instan
 func (h *rbacHandler) PatchInstance(ctx context.Context, cluster, namespace, name string, patch []byte) (*corev1alpha1.Instance, error) {
 	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
 	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionUpdate, object); err != nil {
+		return nil, err
+	}
+	var doc struct {
+		Spec struct {
+			Monitoring *corev1alpha1.InstanceMonitoringSpec `json:"monitoring"`
+		} `json:"spec"`
+	}
+	// A patch that does not decode cannot set destinations; the validation handler rejects it.
+	if err := json.Unmarshal(patch, &doc); err != nil {
+		return h.next.PatchInstance(ctx, cluster, namespace, name, patch)
+	}
+	// A merge patch replaces a list wholesale, so a patch naming destinations names all of them.
+	if err := h.enforceReadAddedMonitoringDestinations(ctx, cluster, namespace, name, doc.Spec.Monitoring); err != nil {
 		return nil, err
 	}
 	return h.next.PatchInstance(ctx, cluster, namespace, name, patch)
@@ -149,11 +170,44 @@ func (h *rbacHandler) GetInstanceConnection(ctx context.Context, cluster, namesp
 	return h.next.GetInstanceConnection(ctx, cluster, namespace, name)
 }
 
+// enforceReadAddedMonitoringDestinations requires read on the MonitoringDestinations
+// a write to an existing instance adds to the ones it already sends to.
+func (h *rbacHandler) enforceReadAddedMonitoringDestinations(ctx context.Context, cluster, namespace, name string, monitoring *corev1alpha1.InstanceMonitoringSpec) error {
+	if monitoring == nil || len(monitoring.Destinations) == 0 {
+		return nil
+	}
+	stored, err := h.next.GetInstance(ctx, cluster, namespace, name)
+	if err != nil {
+		return err
+	}
+	return h.enforceReadMonitoringDestinations(ctx, cluster, namespace, monitoring, stored.Spec.Monitoring)
+}
+
+// enforceReadMonitoringDestinations requires read on every MonitoringDestination
+// the instance sends to and stored does not, since the instance's monitoring data is sent there.
+func (h *rbacHandler) enforceReadMonitoringDestinations(ctx context.Context, cluster, namespace string, monitoring, stored *corev1alpha1.InstanceMonitoringSpec) error {
+	if monitoring == nil {
+		return nil
+	}
+	for _, destination := range monitoring.Destinations {
+		if stored != nil && slices.ContainsFunc(stored.Destinations, func(kept corev1alpha1.InstanceMonitoringDestination) bool {
+			return kept.DestinationRef.Name == destination.DestinationRef.Name
+		}) {
+			continue
+		}
+		object := rbac.ClusterNamespacedObjectName(cluster, namespace, destination.DestinationRef.Name)
+		if err := h.enforce(ctx, rbac.ResourceMonitoringDestinations, rbac.ActionRead, object); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ensureInstanceMatchesPreset checks if an instance spec matches its referenced preset.
 // Returns an error if the instance has been customized beyond the preset values.
 func (h *rbacHandler) ensureInstanceMatchesPreset(ctx context.Context, cluster string, instance *corev1alpha1.Instance, presetName string) error {
 	// Fetch the preset with namespace defaults resolved
-	preset, err := h.next.ResolveInstancePreset(ctx, cluster, presetName, instance.GetNamespace())
+	preset, err := h.next.ResolveClusterInstancePreset(ctx, cluster, presetName, instance.GetNamespace())
 	if err != nil {
 		return fmt.Errorf("failed to resolve preset %s for namespace %s: %w", presetName, instance.GetNamespace(), err)
 	}

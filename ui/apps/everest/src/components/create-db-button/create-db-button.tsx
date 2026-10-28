@@ -28,7 +28,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { ArrowDropDownIcon } from '@mui/x-date-pickers/icons';
 import { useNavigate } from 'react-router-dom';
 import { useProviders } from 'hooks/api/providers';
-import { usePrefetchInstancePresets } from 'hooks/api/instance-presets';
+import { usePrefetchClusterInstancePresets } from 'hooks/api/cluster-instance-presets';
 import type { CreateDbButtonProps } from './create-db-button.types';
 import { Messages } from './create-db-button.messages';
 import {
@@ -52,7 +52,7 @@ export const CreateDbButton = ({
 
   const { data: providers = [], isLoading: providersLoading } = useProviders();
   const navigate = useNavigate();
-  const prefetchPresets = usePrefetchInstancePresets();
+  const prefetchPresets = usePrefetchClusterInstancePresets();
 
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     if (providers.length > 1) {

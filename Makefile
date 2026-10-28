@@ -143,9 +143,7 @@ copyright-run:
 .PHONY: charts
 HELM=go tool helm
 charts:        ## Install Helm dependency charts for Everest CLI.
-	$(HELM) repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	$(HELM) repo add openeverest https://openeverest.github.io/helm-charts/
-	$(HELM) repo add vm https://victoriametrics.github.io/helm-charts
 	$(HELM) repo update
 
 ##@ Build

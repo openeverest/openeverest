@@ -157,6 +157,12 @@ validation:
 3. **`inheritShared: false`**: base rules are completely ignored; only the mode branch is used.
 4. If no mode branch exists for the current mode, only base rules apply.
 
+### Disabled Fields
+
+A field that is disabled, always or in the current mode (`fieldParams.modes.<mode>.disabled`), skips its own rules, including its `celExpressions`: the user can't change its value. Rules on other fields still read its value.
+
+So put a rule that links two fields on the one the user can edit. For example, if `version` is disabled in `restore`, a rule on `replicas` that reads `spec.version` still runs there, and its error shows under `replicas`.
+
 ### CEL Evaluation Context
 
 CEL expressions have access to the following variables:

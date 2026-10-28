@@ -13,35 +13,37 @@
 // limitations under the License.
 
 import { renderHook } from '@testing-library/react';
-import { InstancePreset } from 'shared-types/api.types';
+import { ClusterInstancePreset } from 'shared-types/api.types';
 import {
-  useInstancePresets,
-  useResolveInstancePreset,
-} from 'hooks/api/instance-presets';
+  useClusterInstancePresets,
+  useResolveClusterInstancePreset,
+} from 'hooks/api/cluster-instance-presets';
 import { usePresetSelection } from './use-preset-selection';
 
-vi.mock('hooks/api/instance-presets', () => ({
-  useInstancePresets: vi.fn(),
-  useResolveInstancePreset: vi.fn(),
+vi.mock('hooks/api/cluster-instance-presets', () => ({
+  useClusterInstancePresets: vi.fn(),
+  useResolveClusterInstancePreset: vi.fn(),
 }));
 
-const resolved = { spec: { version: '8.0.12' } } as unknown as InstancePreset;
+const resolved = {
+  spec: { version: '8.0.12' },
+} as unknown as ClusterInstancePreset;
 
 const mockList = (overrides = {}) =>
-  vi.mocked(useInstancePresets).mockReturnValue({
+  vi.mocked(useClusterInstancePresets).mockReturnValue({
     data: [],
     isLoading: false,
     isError: false,
     ...overrides,
-  } as unknown as ReturnType<typeof useInstancePresets>);
+  } as unknown as ReturnType<typeof useClusterInstancePresets>);
 
 const mockResolve = (overrides = {}) =>
-  vi.mocked(useResolveInstancePreset).mockReturnValue({
+  vi.mocked(useResolveClusterInstancePreset).mockReturnValue({
     data: undefined,
     isFetching: false,
     isError: false,
     ...overrides,
-  } as unknown as ReturnType<typeof useResolveInstancePreset>);
+  } as unknown as ReturnType<typeof useResolveClusterInstancePreset>);
 
 describe('usePresetSelection', () => {
   beforeEach(() => {

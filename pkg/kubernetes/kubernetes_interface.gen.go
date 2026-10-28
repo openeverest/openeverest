@@ -248,6 +248,24 @@ type KubernetesConnector interface {
 	//
 	// TODO Rename it to DeleteMonitoringConfig once v1 code is removed.
 	DeleteMonitoringConfigV2(ctx context.Context, obj *monitoringv1alpha1.MonitoringConfig) error
+	// ListMonitoringClasses returns list of monitoring classes that match the criteria.
+	ListMonitoringClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringClassList, error)
+	// GetMonitoringClass returns monitoring class that matches the criteria.
+	GetMonitoringClass(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringClass, error)
+	// ListMonitoringDestinations returns list of monitoring destinations that match the criteria.
+	ListMonitoringDestinations(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringDestinationList, error)
+	// GetMonitoringDestination returns a monitoring destination by name and namespace.
+	GetMonitoringDestination(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringDestination, error)
+	// CreateMonitoringDestination creates a monitoring destination.
+	CreateMonitoringDestination(ctx context.Context, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error)
+	// UpdateMonitoringDestination updates a monitoring destination.
+	UpdateMonitoringDestination(ctx context.Context, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error)
+	// DeleteMonitoringDestination deletes a monitoring destination.
+	DeleteMonitoringDestination(ctx context.Context, obj *monitoringv1alpha1.MonitoringDestination) error
+	// ListMonitoringBindings returns list of monitoring bindings that match the criteria.
+	ListMonitoringBindings(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringBindingList, error)
+	// GetMonitoringBinding returns a monitoring binding by name and namespace.
+	GetMonitoringBinding(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringBinding, error)
 	// CreateNamespace creates the given namespace.
 	CreateNamespace(ctx context.Context, namespace *corev1.Namespace) (*corev1.Namespace, error)
 	// GetNamespace returns a namespace that matches the criteria.
@@ -384,10 +402,20 @@ type KubernetesConnector interface {
 	UpdateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
 	// PatchInstance patches instance using the provided patch.
 	PatchInstance(ctx context.Context, instance *v1alpha1.Instance, patch ctrlclient.Patch, opts ...ctrlclient.PatchOption) (*v1alpha1.Instance, error)
-	// ListInstancePresets returns list of instance presets that match the criteria.
+	// ListClusterInstancePresets returns list of cluster instance presets that match the criteria.
+	ListClusterInstancePresets(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.ClusterInstancePresetList, error)
+	// GetClusterInstancePreset returns a cluster instance preset that matches the criteria.
+	GetClusterInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.ClusterInstancePreset, error)
+	// ListInstancePresets returns list of namespace-scoped instance presets that match the criteria.
 	ListInstancePresets(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.InstancePresetList, error)
-	// GetInstancePreset returns instance preset that matches the criteria.
+	// GetInstancePreset returns a namespace-scoped instance preset that matches the criteria.
 	GetInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.InstancePreset, error)
+	// CreateInstancePreset creates a namespace-scoped instance preset.
+	CreateInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) (*v1alpha1.InstancePreset, error)
+	// UpdateInstancePreset updates a namespace-scoped instance preset.
+	UpdateInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) (*v1alpha1.InstancePreset, error)
+	// DeleteInstancePreset deletes a namespace-scoped instance preset.
+	DeleteInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) error
 	// WatchBackups returns a watch.Interface that streams
 	// Backup events across all namespaces.
 	WatchBackups(ctx context.Context) (watch.Interface, error)

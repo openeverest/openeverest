@@ -117,6 +117,11 @@ Copy file dev/config.yaml.example to dev/config.yaml and:
 - Set the needed DB namespaces that will be created automatically.
 - (Mostly for FE devs) If you want to disable the Tilt frontend build, save time and avoid FE rebuilds (and, therefore, BE rebuilds), keeping the dev flow of using Vite, set `enableFrontendBuild: false`
 - Set `enablePluginHub: false` to skip deploying the OpenEverest Plugin Hub.
+- Set `enableMonitoringStack: true` to also self-install the VictoriaMetrics operator
+  and kube-state-metrics in the dev cluster (off by default), so Everest's
+  MonitoringConfig/VMAgent flow has something to scrape. This mirrors the manual
+  setup documented in `percona-helm-charts/charts/pmm/README.md` for real PMM users,
+  since the `everest` chart no longer bundles this stack.
 
 3. (Optional) If you want to debug the Everest Server remotely, set the following environment variable in .env file or in the terminal:
 ```sh

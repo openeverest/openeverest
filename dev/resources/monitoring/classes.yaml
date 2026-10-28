@@ -1,0 +1,98 @@
+# MonitoringClasses as the monitoring-pmm, monitoring-prometheus and
+# monitoring-victoriametrics extension charts install them. A class is only
+# usable (Accepted=True) once its extension controller runs and claims it;
+# core fills status.providers with the per-Provider compatibility.
+apiVersion: monitoring.openeverest.io/v1alpha1
+kind: MonitoringClass
+metadata:
+  name: pmm
+spec:
+  displayName: Percona Monitoring and Management
+  description: Operator-native PMM integration rendered by the provider (metrics and query analytics).
+  providerManaged:
+    integration: pmm
+    agentImage: percona/pmm-client:3.8.0
+    agentVersion: 3.8.0
+  destinationParametersSchema:
+    openAPIV3Schema:
+      type: object
+      required: [url]
+      properties:
+        url:
+          type: string
+          description: PMM Server URL, e.g. https://pmm.example.com
+        verifyTLS:
+          type: boolean
+          description: Verify the PMM Server TLS certificate (default true).
+  instanceParametersSchema:
+    openAPIV3Schema:
+      type: object
+      properties:
+        resources:
+          type: object
+          description: Resource requirements of the pmm-client container.
+          properties:
+            limits:
+              type: object
+              additionalProperties:
+                type: string
+            requests:
+              type: object
+              additionalProperties:
+                type: string
+  credentialsSchema:
+    required: [apiKey]
+---
+apiVersion: monitoring.openeverest.io/v1alpha1
+kind: MonitoringClass
+metadata:
+  name: prometheus
+spec:
+  displayName: Prometheus (Prometheus Operator)
+  description: Creates a PodMonitor per metrics endpoint of every bound Instance.
+  extensionManaged:
+    requires:
+      metrics: true
+  destinationParametersSchema:
+    openAPIV3Schema:
+      type: object
+      properties:
+        podMonitorLabels:
+          type: object
+          description: Labels put on the generated PodMonitors so the target Prometheus selects them.
+          additionalProperties:
+            type: string
+        interval:
+          type: string
+          description: Scrape interval (Prometheus duration, e.g. 30s).
+  instanceParametersSchema:
+    openAPIV3Schema:
+      type: object
+      properties: {}
+---
+apiVersion: monitoring.openeverest.io/v1alpha1
+kind: MonitoringClass
+metadata:
+  name: victoriametrics
+spec:
+  displayName: VictoriaMetrics (VictoriaMetrics Operator)
+  description: Creates a VMPodScrape per metrics endpoint of every bound Instance.
+  extensionManaged:
+    requires:
+      metrics: true
+  destinationParametersSchema:
+    openAPIV3Schema:
+      type: object
+      properties:
+        vmPodScrapeLabels:
+          type: object
+          description: Labels put on the generated VMPodScrapes so the target VMAgent selects them.
+          additionalProperties:
+            type: string
+        interval:
+          type: string
+          description: Scrape interval (duration, e.g. 30s).
+  instanceParametersSchema:
+    openAPIV3Schema:
+      type: object
+      properties: {}

@@ -14,7 +14,7 @@
 
 import { render, screen } from '@testing-library/react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { InstancePreset } from 'shared-types/api.types';
+import { ClusterInstancePreset } from 'shared-types/api.types';
 import { TestWrapper } from 'utils/test';
 import { PresetSelectCards } from './preset-select-cards';
 import {
@@ -34,7 +34,7 @@ const baseContext: PresetSelectionContextType = {
   presetPending: false,
 };
 
-const preset: InstancePreset = {
+const preset: ClusterInstancePreset = {
   metadata: { name: 'psmdb-x' },
   spec: {
     providerRef: { name: 'percona-server-mongodb' },

@@ -18,7 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// InstancePresetSpec defines the desired state of InstancePreset
+// InstancePresetSpec defines the desired state of InstancePreset.
 type InstancePresetSpec struct {
 	InstanceSpec `json:",inline"`
 }
@@ -33,9 +33,21 @@ type InstancePresetStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:scope=Cluster,shortName=pre;preset
+// +kubebuilder:resource:shortName=pre;preset
+// +kubebuilder:selectablefield:JSONPath=".spec.providerRef.name"
 
-// InstancePreset is the Schema for the instancepresets API
+// InstancePreset is a namespace-scoped template for creating Instances
+// within a single namespace.
+//
+// Because an InstancePreset lives in the same namespace as the Instances
+// it produces, it may reference namespace-scoped objects (Secrets, etc.)
+// directly by name. It is used for capturing a known-good configuration,
+// including concrete local references, and reuse it to create Instances
+// in that namespace.
+//
+// It is similar to a ClusterInstancePreset, however it is scoped to a single
+// namespace and can therefore only be used to create Instances within that
+// same namespace.
 type InstancePreset struct {
 	metav1.TypeMeta `json:",inline"`
 

@@ -66,17 +66,24 @@ const (
 
 	// v2 multi-cluster resource names.
 
-	ResourceClusters          = "clusters"
-	ResourceProviders         = "providers"
-	ResourceInstances         = "instances"
-	ResourceInstancePresets   = "instance-presets"
-	ResourceBackupClasses     = "backup-classes"
-	ResourceBackups           = "backups"
-	ResourceBackupImports     = "backup-imports"
-	ResourceRestores          = "restores"
-	ResourceMonitoringConfigs = "monitoring-configs"
-	ResourceConfigMaps        = "config-maps"
-	ResourceSecrets           = "secrets"
+	ResourceClusters               = "clusters"
+	ResourceProviders              = "providers"
+	ResourceInstances              = "instances"
+	ResourceClusterInstancePresets = "cluster-instance-presets"
+	ResourceInstancePresets        = "instance-presets"
+	ResourceBackupClasses          = "backup-classes"
+	ResourceBackups                = "backups"
+	ResourceBackupImports          = "backup-imports"
+	ResourceRestores               = "restores"
+	ResourceMonitoringConfigs      = "monitoring-configs"
+	ResourceConfigMaps             = "config-maps"
+	ResourceSecrets                = "secrets"
+
+	// v2 monitoring resource names.
+
+	ResourceMonitoringClasses      = "monitoring-classes"
+	ResourceMonitoringDestinations = "monitoring-destinations"
+	ResourceMonitoringBindings     = "monitoring-bindings"
 )
 
 // GlobalResources is a list of all Everest API resources that are considered global.
@@ -95,12 +102,15 @@ var ClusterScopedResources = []string{
 	ResourceProviders,
 	ResourceBackupClasses,
 	ResourcePlugins,
+	ResourceClusterInstancePresets,
+	ResourceMonitoringClasses,
 }
 
 // ClusterNamespacedResources is a list of v2 resources scoped to cluster + namespace.
 // These use the 3-segment object format: cluster/namespace/name.
 var ClusterNamespacedResources = []string{
 	ResourceInstances,
+	ResourceInstancePresets,
 	ResourceBackups,
 	ResourceBackupImports,
 	ResourceRestores,
@@ -108,6 +118,14 @@ var ClusterNamespacedResources = []string{
 	ResourceMonitoringConfigs,
 	ResourceConfigMaps,
 	ResourceSecrets,
+	ResourceMonitoringDestinations,
+	ResourceMonitoringBindings,
+}
+
+// isReadOnlyResource returns true if the API serves no writes for the
+// resource, so the admin role is granted only read on it.
+func isReadOnlyResource(resource string) bool {
+	return resource == ResourceMonitoringClasses || resource == ResourceMonitoringBindings
 }
 
 // IsGlobalResource returns true if the given resource is a global (non-namespaced) Everest API resource.
@@ -368,8 +386,11 @@ func loadAdminPolicy(enf casbin.IEnforcer) error {
 		resources[resource] = struct{}{}
 	}
 
-	action := ActionAll
 	for resource := range resources {
+		action := ActionAll
+		if isReadOnlyResource(resource) {
+			action = ActionRead
+		}
 		switch {
 		case IsGlobalResource(resource):
 			if _, err := enf.AddPolicy(common.EverestAdminRole, resource, action, "*"); err != nil {

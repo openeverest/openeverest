@@ -33,10 +33,10 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
-func newTestPreset(components map[string]corev1alpha1.ComponentSpec) *corev1alpha1.InstancePreset {
-	return &corev1alpha1.InstancePreset{
+func newTestPreset(components map[string]corev1alpha1.ComponentSpec) *corev1alpha1.ClusterInstancePreset {
+	return &corev1alpha1.ClusterInstancePreset{
 		ObjectMeta: metav1.ObjectMeta{Name: "test"},
-		Spec: corev1alpha1.InstancePresetSpec{
+		Spec: corev1alpha1.ClusterInstancePresetSpec{
 			InstanceSpec: corev1alpha1.InstanceSpec{Components: components},
 		},
 	}
@@ -93,8 +93,8 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		input    *corev1alpha1.InstancePreset
-		expected *corev1alpha1.InstancePreset
+		input    *corev1alpha1.ClusterInstancePreset
+		expected *corev1alpha1.ClusterInstancePreset
 	}{
 		{
 			name:     "nil components",
