@@ -23,6 +23,7 @@ import (
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 // ListInstances proxies the request to the next handler.
@@ -35,9 +36,19 @@ func (h *validateHandler) GetInstance(ctx context.Context, cluster, namespace, n
 	return h.next.GetInstance(ctx, cluster, namespace, name)
 }
 
-// CreateInstance proxies the request to the next handler.
+// CreateInstance validates annotations, then proxies to the next handler.
 func (h *validateHandler) CreateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
-	// Add validation here if needed in the future
+	annotations := instance.GetAnnotations()
+	if annotations[common.InstancePresetAnnotation] != "" &&
+		annotations[common.ClusterInstancePresetAnnotation] != "" {
+		return nil, errors.Join(
+			ErrInvalidRequest,
+			fmt.Errorf("only one of %s and %s annotations may be set",
+				common.InstancePresetAnnotation,
+				common.ClusterInstancePresetAnnotation,
+			),
+		)
+	}
 	return h.next.CreateInstance(ctx, cluster, instance)
 }
 
