@@ -34,7 +34,6 @@ import {
   descriptionSx,
   expandedSx,
   headerAvatarSx,
-  headerChipSx,
 } from '../provider-tiles.constants';
 import { TileActionArea } from '../tile-action-area';
 
@@ -51,9 +50,9 @@ export const ProviderTileCard = ({
   const isAvailable = variant === 'available';
 
   // Render meta-derived fields only when the hub provides them — never fabricate.
-  // The provider version is intentionally not shown here: it's not meaningful
-  // to users and only adds confusion (see issue #3051).
-  const { description, maturity } = meta ?? {};
+  // Provider version (issue #3051) and maturity are intentionally not shown:
+  // they aren't meaningful when picking a provider and only add noise.
+  const description = meta?.description;
   const categories = meta?.categories?.slice(0, 2) ?? [];
 
   const activate = () => {
@@ -102,14 +101,6 @@ export const ProviderTileCard = ({
         >
           {label.charAt(0)}
         </Avatar>
-        {maturity && (
-          <Chip
-            label={maturity}
-            size="xs"
-            variant="outlined"
-            sx={headerChipSx}
-          />
-        )}
       </Box>
       <Box sx={bodyAnchorSx}>
         {renderTail(false)}

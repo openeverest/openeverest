@@ -94,7 +94,6 @@ export const cardActionAreaSx: SxProps<Theme> = {
 
 // Icon strip on `elevation2` — one step darker than the elevation0 page.
 export const cardHeaderSx: SxProps<Theme> = {
-  position: 'relative',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -113,12 +112,6 @@ export const headerAvatarSx: SxProps<Theme> = {
   height: 48,
   textTransform: 'uppercase',
   color: (theme) => theme.palette.text.primary,
-};
-
-export const headerChipSx: SxProps<Theme> = {
-  position: 'absolute',
-  top: (theme) => theme.spacing(1),
-  right: (theme) => theme.spacing(1),
 };
 
 export const cardContentSx: SxProps<Theme> = {
