@@ -31,14 +31,15 @@ const ConnectionSection = ({
   credentials,
   loading,
 }: ConnectionSectionProps) => {
-  const { canReadCredentials } = useContext(DbInstanceContext);
+  const { canReadCredentials, isCredentialsPermissionLoading } =
+    useContext(DbInstanceContext);
   const [showUrl, setShowUrl] = useState(false);
 
   return (
     <OverviewSection
       dataTestId="connection-details"
       title={Messages.titles.connectionDetails}
-      loading={loading}
+      loading={loading || isCredentialsPermissionLoading}
     >
       {canReadCredentials && credentials ? (
         <>

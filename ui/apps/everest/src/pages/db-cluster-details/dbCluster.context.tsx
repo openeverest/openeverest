@@ -21,7 +21,7 @@ import {
   getDbInstanceQueryKey,
   useDbInstance,
 } from 'hooks/api/db-instances';
-import { useRBACPermissions } from 'hooks/rbac';
+import { useRBACAction } from 'hooks/rbac';
 import { DbInstanceContextProps } from './dbCluster.context.types';
 import { Instance } from 'shared-types/api.types';
 
@@ -31,6 +31,7 @@ export const DbInstanceContext = createContext<DbInstanceContextProps>({
   instanceDeleted: false,
   //   canReadBackups: false,
   canReadCredentials: false,
+  isCredentialsPermissionLoading: false,
   //   canUpdateDb: false,
   //   temporarilyIncreaseInterval: () => {},
   //   queryResult: {} as QueryObserverResult<DbCluster, unknown>,
@@ -69,7 +70,11 @@ export const DbInstanceContextProvider = ({
   //   }, timeoutTime);
   // };
 
-  const { canReadConnection: canReadCredentials } = useRBACPermissions(
+  const {
+    isAllowed: canReadCredentials,
+    isPermissionsLoading: isCredentialsPermissionLoading,
+  } = useRBACAction(
+    'read-connection',
     'instances',
     `${namespace}/${instanceName}`
   );
@@ -109,6 +114,7 @@ export const DbInstanceContextProvider = ({
         // canReadBackups,
         // canUpdateDb,
         canReadCredentials,
+        isCredentialsPermissionLoading,
         // temporarilyIncreaseInterval,
         // queryResult,
       }}

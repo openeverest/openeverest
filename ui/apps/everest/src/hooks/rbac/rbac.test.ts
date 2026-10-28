@@ -18,7 +18,11 @@ import {
   initializeAuthorizerFetchLoop,
   stopAuthorizerFetchLoop,
 } from 'utils/rbac';
-import { useNamespacePermissionsForResource, useRBACPermissions } from './rbac';
+import {
+  useNamespacePermissionsForResource,
+  useRBACAction,
+  useRBACPermissions,
+} from './rbac';
 
 const mockGetRBACPolicies = vi.fn();
 
@@ -75,20 +79,22 @@ describe('RBAC hooks with v2 policies', () => {
     await grant(['instances', 'read', 'main/ns1/db1']);
 
     const { result } = renderHook(() =>
-      useRBACPermissions('instances', 'ns1/db1')
+      useRBACAction('read-connection', 'instances', 'ns1/db1')
     );
 
-    await waitFor(() => expect(result.current.canRead).toBe(true));
-    expect(result.current.canReadConnection).toBe(false);
+    await waitFor(() =>
+      expect(result.current.isPermissionsLoading).toBe(false)
+    );
+    expect(result.current.isAllowed).toBe(false);
   });
 
   it('grants read-connection with the * action', async () => {
     await grant(['instances', '*', 'main/ns1/db1']);
 
     const { result } = renderHook(() =>
-      useRBACPermissions('instances', 'ns1/db1')
+      useRBACAction('read-connection', 'instances', 'ns1/db1')
     );
 
-    await waitFor(() => expect(result.current.canReadConnection).toBe(true));
+    await waitFor(() => expect(result.current.isAllowed).toBe(true));
   });
 });
