@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { DataSourceField } from './data-source-field';
 import type { ComponentWithDataSource } from './data-source-field.types';
@@ -47,6 +48,13 @@ const makeItem = (): ComponentWithDataSource => ({
 });
 
 describe('DataSourceField', () => {
+  beforeEach(() => {
+    mockRegistryGet.mockReturnValue({
+      emptyStateFallback: null,
+      autoSelect: true,
+    });
+  });
+
   it('sets form value to first option when options arrive and field is empty', async () => {
     mockUseProviderOptions.mockReturnValue({
       options: [
@@ -216,6 +224,83 @@ describe('DataSourceField', () => {
     });
   });
 
+  describe('with autoSelect disabled', () => {
+    const storageOptions = {
+      options: [
+        { label: 'bucket-a', value: 'bucket-a' },
+        { label: 'bucket-b', value: 'bucket-b' },
+      ],
+      isLoading: false,
+      error: null,
+      isEmpty: false,
+    };
+
+    beforeEach(() => {
+      mockUseProviderOptions.mockReturnValue(storageOptions);
+      mockRegistryGet.mockReturnValue({
+        emptyStateFallback: null,
+        autoSelect: false,
+      });
+    });
+
+    it('keeps an empty value empty across a remount', async () => {
+      let getValues: (name: string) => unknown = () => undefined;
+      let setMounted: (mounted: boolean) => void = () => {};
+
+      const Harness = () => {
+        const methods = useForm({
+          defaultValues: { spec: { storageClass: '' } },
+        });
+        const [mounted, setMountedState] = useState(true);
+        getValues = methods.getValues;
+        setMounted = setMountedState;
+        return (
+          <FormProvider {...methods}>
+            {mounted && (
+              <DataSourceField item={makeItem()} name="spec.storageClass">
+                {() => <div />}
+              </DataSourceField>
+            )}
+          </FormProvider>
+        );
+      };
+
+      render(<Harness />);
+      act(() => setMounted(false));
+      act(() => setMounted(true));
+
+      await waitFor(() => {
+        expect(mockUseProviderOptions).toHaveBeenCalled();
+      });
+      expect(getValues('spec.storageClass')).toBe('');
+    });
+
+    it('keeps a value that is missing from the options', async () => {
+      let getValues: (name: string) => unknown = () => undefined;
+
+      const Harness = () => {
+        const methods = useForm({
+          defaultValues: { spec: { storageClass: 'deleted-bucket' } },
+        });
+        getValues = methods.getValues;
+        return (
+          <FormProvider {...methods}>
+            <DataSourceField item={makeItem()} name="spec.storageClass">
+              {() => <div />}
+            </DataSourceField>
+          </FormProvider>
+        );
+      };
+
+      render(<Harness />);
+
+      await waitFor(() => {
+        expect(mockUseProviderOptions).toHaveBeenCalled();
+      });
+      expect(getValues('spec.storageClass')).toBe('deleted-bucket');
+    });
+  });
+
   describe('empty state fallback', () => {
     const FallbackStub = ({ namespace }: { namespace: string }) => (
       <div data-testid="fallback">Fallback for {namespace}</div>
@@ -230,6 +315,7 @@ describe('DataSourceField', () => {
       });
       mockRegistryGet.mockReturnValue({
         emptyStateFallback: { component: FallbackStub },
+        autoSelect: true,
       });
 
       const Harness = () => {
@@ -258,7 +344,10 @@ describe('DataSourceField', () => {
         error: null,
         isEmpty: true,
       });
-      mockRegistryGet.mockReturnValue({ emptyStateFallback: null });
+      mockRegistryGet.mockReturnValue({
+        emptyStateFallback: null,
+        autoSelect: true,
+      });
 
       const Harness = () => {
         const methods = useForm({
@@ -288,6 +377,7 @@ describe('DataSourceField', () => {
       });
       mockRegistryGet.mockReturnValue({
         emptyStateFallback: { component: FallbackStub },
+        autoSelect: true,
       });
 
       const Harness = () => {
@@ -318,6 +408,7 @@ describe('DataSourceField', () => {
       });
       mockRegistryGet.mockReturnValue({
         emptyStateFallback: { component: FallbackStub },
+        autoSelect: true,
       });
 
       const Harness = () => {

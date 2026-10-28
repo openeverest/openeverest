@@ -23,7 +23,7 @@ storageClass:
     label: Storage class
 ```
 
-That's it. Options load automatically, first option is selected by default, and loading/error states are handled.
+That's it. Options load automatically, the first option is selected by default (for providers with auto-select, see [Field Behavior](#field-behavior)), and loading/error states are handled.
 
 ## Schema Reference
 
@@ -56,20 +56,23 @@ A `dataSource` field is still a regular `select` — the only difference is that
 
 ## Available Providers
 
-| Key                 | Returns                                     | Scoped to         | Empty State Fallback           |
-| ------------------- | ------------------------------------------- | ----------------- | ------------------------------ |
-| `monitoringConfigs` | MonitoringConfig resource names             | cluster/namespace | ActionableAlert + create modal |
-| `storageClasses`    | StorageClass names available on the cluster | cluster           | None (not user-creatable)      |
-| `backupStorages`    | BackupStorage (storage location) names      | cluster/namespace | ActionableAlert + create modal |
+| Key                 | Returns                                     | Scoped to         | Empty State Fallback           | Auto-select |
+| ------------------- | ------------------------------------------- | ----------------- | ------------------------------ | ----------- |
+| `monitoringConfigs` | MonitoringConfig resource names             | cluster/namespace | ActionableAlert + create modal | yes         |
+| `storageClasses`    | StorageClass names available on the cluster | cluster           | None (not user-creatable)      | yes         |
+| `backupStorages`    | BackupStorage (storage location) names      | cluster/namespace | ActionableAlert + create modal | no          |
 
 ## Field Behavior
 
-| State          | Field    | Text                       | Fallback                                                     |
-| -------------- | -------- | -------------------------- | ------------------------------------------------------------ |
-| Loading        | disabled | Loading...                 | not shown                                                    |
-| Fetch failed   | disabled | Failed to load options     | not shown                                                    |
-| No options     | hidden   | —                          | shown instead of select if provider has `emptyStateFallback` |
-| Options loaded | enabled  | first option auto-selected | not shown                                                    |
+| State                               | Field    | Value                                                   | Fallback                                                     |
+| ----------------------------------- | -------- | ------------------------------------------------------- | ------------------------------------------------------------ |
+| Loading                             | disabled | unchanged; helper text "Loading..."                     | not shown                                                    |
+| Fetch failed                        | disabled | unchanged; helper text "Failed to load options"         | not shown                                                    |
+| No options                          | hidden   | —                                                       | shown instead of select if provider has `emptyStateFallback` |
+| Options loaded, `autoSelect: true`  | enabled  | empty or unknown value replaced with the first option   | not shown                                                    |
+| Options loaded, `autoSelect: false` | enabled  | kept as is — empty stays empty, unknown values are kept | not shown                                                    |
+
+Providers with `autoSelect: true` fill an empty field with the first option and replace a value that is no longer in the list. This happens on form mount (via `DataSourcePrefetcher`, even for steps the user hasn't opened) and whenever the field remounts. Providers for optional references, where an empty value is a meaningful choice (e.g. a storage location that falls back to the provider's bundled store), register `autoSelect: false`. Use `displayEmpty: true` on such fields so the user can pick "None".
 
 When a provider registers an `emptyStateFallback`, `DataSourceField` renders the fallback component **instead of** the select field whenever options are empty. The select is not shown at all — the fallback completely replaces it. This is used for resources that can be user-created (e.g. monitoring endpoints). Providers for non-creatable resources (e.g. StorageClasses) register `emptyStateFallback: null`, in which case the select is rendered normally with a "No options available" helper text.
 
@@ -89,6 +92,9 @@ When a provider registers an `emptyStateFallback`, `DataSourceField` renders the
      // Use { component: XxxEmptyFallback } for user-creatable resources,
      // or null for resources that cannot be created by the user.
      emptyStateFallback: { component: XxxEmptyFallback },
+     // true: preselect the first option and replace unknown values.
+     // false: for optional references where an empty value is a valid choice.
+     autoSelect: true,
    });
    ```
 

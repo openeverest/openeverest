@@ -19,8 +19,11 @@ type OptionValue = { value: string };
 
 export const getReconciledDataSourceValue = (
   current: unknown,
-  options: OptionValue[]
+  options: OptionValue[],
+  autoSelect: boolean
 ): string | null => {
+  if (!autoSelect) return null;
+
   const validValues = options.map((o) => o.value);
   const currentStr = typeof current === 'string' ? current : '';
 

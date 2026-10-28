@@ -114,7 +114,7 @@ flowchart TD
   REG["1. Registry<br/>api-providers/registry.ts<br/>register(key, entry)<br/>useProviderOptions(key, params)"]
   PROVIDERS["2. Provider registrations<br/>api-providers/providers.ts<br/>monitoringConfigs<br/>storageClasses<br/>backupStorages"]
   RUNTIME["3. Runtime"]
-  PREFETCH["DataSourcePrefetcher<br/>prefetches options per provider<br/>sets defaults on form mount"]
+  PREFETCH["DataSourcePrefetcher<br/>prefetches options per provider<br/>sets defaults on form mount<br/>(autoSelect providers only)"]
   FIELD["DataSourceField<br/>wraps one select<br/>patches fieldParams.options<br/>handles loading/error/empty states"]
 
   PROVIDERS --> REG

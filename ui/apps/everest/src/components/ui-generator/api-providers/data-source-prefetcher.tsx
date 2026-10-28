@@ -16,7 +16,7 @@ import { useEffect, useMemo } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import type { Component, ComponentGroup, Section } from '../ui-generator.types';
 import { hasDataSource } from './data-source-field';
-import { useProviderOptions } from './registry';
+import { providerRegistry, useProviderOptions } from './registry';
 import { ComponentErrorBoundary } from '../component-error-boundary';
 import { getComponentSourcePath } from '../utils/preprocess/normalized-component';
 import {
@@ -93,18 +93,23 @@ const PrefetchItem = ({
     cluster,
   });
   const { getValues, setValue } = useFormContext();
+  const autoSelect = !!providerRegistry.get(provider)?.autoSelect;
 
   useEffect(() => {
     if (isLoading) return;
 
     for (const path of fieldPaths) {
-      const nextValue = getReconciledDataSourceValue(getValues(path), options);
+      const nextValue = getReconciledDataSourceValue(
+        getValues(path),
+        options,
+        autoSelect
+      );
 
       if (nextValue !== null) {
         setValue(path, nextValue, { shouldValidate: true });
       }
     }
-  }, [isLoading, options, fieldPaths, getValues, setValue]);
+  }, [isLoading, options, fieldPaths, autoSelect, getValues, setValue]);
 
   return null;
 };
