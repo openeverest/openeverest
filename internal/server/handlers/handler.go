@@ -52,6 +52,9 @@ type Handler interface {
 	RestoreHandler
 	InstanceBackupHandler
 	MonitoringConfigHandler
+	MonitoringClassHandler
+	MonitoringDestinationHandler
+	MonitoringBindingHandler
 	InstanceRestoreHandler
 	ConfigMapHandler
 	SecretHandler
@@ -163,6 +166,28 @@ type MonitoringConfigHandler interface {
 	ListMonitoringConfigs(ctx context.Context, cluster, namespaces string) (*monitoringv1alpha1.MonitoringConfigList, error)
 	GetMonitoringConfig(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha1.MonitoringConfig, error)
 	DeleteMonitoringConfig(ctx context.Context, cluster, namespace, name string) error
+}
+
+// MonitoringClassHandler provides methods for handling operations on monitoring classes.
+type MonitoringClassHandler interface {
+	ListMonitoringClasses(ctx context.Context, cluster, provider string) (*monitoringv1alpha1.MonitoringClassList, error)
+	GetMonitoringClass(ctx context.Context, cluster, name string) (*monitoringv1alpha1.MonitoringClass, error)
+}
+
+// MonitoringDestinationHandler provides methods for handling operations on monitoring destinations.
+// The namespace, and the name on update, come from the request path, never from the object.
+type MonitoringDestinationHandler interface {
+	ListMonitoringDestinations(ctx context.Context, cluster, namespace, class string) (*monitoringv1alpha1.MonitoringDestinationList, error)
+	GetMonitoringDestination(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha1.MonitoringDestination, error)
+	CreateMonitoringDestination(ctx context.Context, cluster, namespace string, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error)
+	UpdateMonitoringDestination(ctx context.Context, cluster, namespace, name string, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error)
+	DeleteMonitoringDestination(ctx context.Context, cluster, namespace, name string) error
+}
+
+// MonitoringBindingHandler provides methods for handling operations on monitoring bindings.
+type MonitoringBindingHandler interface {
+	ListMonitoringBindings(ctx context.Context, cluster, namespace string, params *api.ListMonitoringBindingsParams) (*monitoringv1alpha1.MonitoringBindingList, error)
+	GetMonitoringBinding(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha1.MonitoringBinding, error)
 }
 
 // InstanceRestoreHandler provides methods for handling operations on instance restores.

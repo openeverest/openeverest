@@ -248,6 +248,24 @@ type KubernetesConnector interface {
 	//
 	// TODO Rename it to DeleteMonitoringConfig once v1 code is removed.
 	DeleteMonitoringConfigV2(ctx context.Context, obj *monitoringv1alpha1.MonitoringConfig) error
+	// ListMonitoringClasses returns list of monitoring classes that match the criteria.
+	ListMonitoringClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringClassList, error)
+	// GetMonitoringClass returns monitoring class that matches the criteria.
+	GetMonitoringClass(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringClass, error)
+	// ListMonitoringDestinations returns list of monitoring destinations that match the criteria.
+	ListMonitoringDestinations(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringDestinationList, error)
+	// GetMonitoringDestination returns a monitoring destination by name and namespace.
+	GetMonitoringDestination(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringDestination, error)
+	// CreateMonitoringDestination creates a monitoring destination.
+	CreateMonitoringDestination(ctx context.Context, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error)
+	// UpdateMonitoringDestination updates a monitoring destination.
+	UpdateMonitoringDestination(ctx context.Context, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error)
+	// DeleteMonitoringDestination deletes a monitoring destination.
+	DeleteMonitoringDestination(ctx context.Context, obj *monitoringv1alpha1.MonitoringDestination) error
+	// ListMonitoringBindings returns list of monitoring bindings that match the criteria.
+	ListMonitoringBindings(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringBindingList, error)
+	// GetMonitoringBinding returns a monitoring binding by name and namespace.
+	GetMonitoringBinding(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringBinding, error)
 	// CreateNamespace creates the given namespace.
 	CreateNamespace(ctx context.Context, namespace *corev1.Namespace) (*corev1.Namespace, error)
 	// GetNamespace returns a namespace that matches the criteria.

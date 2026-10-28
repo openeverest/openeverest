@@ -17,6 +17,7 @@ package validation
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -72,7 +73,8 @@ func (h *validateHandler) UpdateInstance(ctx context.Context, cluster string, in
 	return h.next.UpdateInstance(ctx, cluster, instance)
 }
 
-// PatchInstance rejects a patch naming a member the caller may not write, then proxies to the next handler.
+// PatchInstance rejects a patch naming a member the caller may not write, or a
+// spec.monitoring of the wrong shape, then proxies to the next handler.
 func (h *validateHandler) PatchInstance(ctx context.Context, cluster, namespace, name string, patch []byte) (*corev1alpha1.Instance, error) {
 	doc, err := validateMergePatch(patch)
 	if err != nil {
@@ -87,6 +89,19 @@ func (h *validateHandler) PatchInstance(ctx context.Context, cluster, namespace,
 				errors.New("spec.userSecretRef may not be patched"),
 			)
 		}
+	}
+	// The RBAC handler reads spec.monitoring with this shape and leaves a patch it cannot decode to be refused here.
+	var typed struct {
+		Spec struct {
+			Monitoring *corev1alpha1.InstanceMonitoringSpec `json:"monitoring"`
+		} `json:"spec"`
+	}
+	if err := json.Unmarshal(patch, &typed); err != nil {
+		var typeErr *json.UnmarshalTypeError
+		if !errors.As(err, &typeErr) {
+			return nil, errors.Join(ErrInvalidRequest, errors.New("spec.monitoring is malformed"))
+		}
+		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("%s: unexpected JSON %s", typeErr.Field, typeErr.Value))
 	}
 	return h.next.PatchInstance(ctx, cluster, namespace, name, patch)
 }
