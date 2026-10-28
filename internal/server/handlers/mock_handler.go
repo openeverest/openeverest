@@ -233,6 +233,36 @@ func (_m *MockHandler) CreateMonitoringConfig(ctx context.Context, cluster strin
 	return r0, r1
 }
 
+// CreateMonitoringDestination provides a mock function with given fields: ctx, cluster, namespace, destination
+func (_m *MockHandler) CreateMonitoringDestination(ctx context.Context, cluster string, namespace string, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error) {
+	ret := _m.Called(ctx, cluster, namespace, destination)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateMonitoringDestination")
+	}
+
+	var r0 *monitoringv1alpha1.MonitoringDestination
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error)); ok {
+		return rf(ctx, cluster, namespace, destination)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *monitoringv1alpha1.MonitoringDestination) *monitoringv1alpha1.MonitoringDestination); ok {
+		r0 = rf(ctx, cluster, namespace, destination)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringDestination)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, *monitoringv1alpha1.MonitoringDestination) error); ok {
+		r1 = rf(ctx, cluster, namespace, destination)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CreateRestore provides a mock function with given fields: ctx, cluster, restore
 func (_m *MockHandler) CreateRestore(ctx context.Context, cluster string, restore *v1alpha1.Restore) (*v1alpha1.Restore, error) {
 	ret := _m.Called(ctx, cluster, restore)
@@ -407,6 +437,24 @@ func (_m *MockHandler) DeleteMonitoringConfig(ctx context.Context, cluster strin
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteMonitoringConfig")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) error); ok {
+		r0 = rf(ctx, cluster, namespace, name)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// DeleteMonitoringDestination provides a mock function with given fields: ctx, cluster, namespace, name
+func (_m *MockHandler) DeleteMonitoringDestination(ctx context.Context, cluster string, namespace string, name string) error {
+	ret := _m.Called(ctx, cluster, namespace, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteMonitoringDestination")
 	}
 
 	var r0 error
@@ -815,6 +863,66 @@ func (_m *MockHandler) GetKubernetesClusterResources(ctx context.Context) (*api.
 	return r0, r1
 }
 
+// GetMonitoringBinding provides a mock function with given fields: ctx, cluster, namespace, name
+func (_m *MockHandler) GetMonitoringBinding(ctx context.Context, cluster string, namespace string, name string) (*monitoringv1alpha1.MonitoringBinding, error) {
+	ret := _m.Called(ctx, cluster, namespace, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMonitoringBinding")
+	}
+
+	var r0 *monitoringv1alpha1.MonitoringBinding
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) (*monitoringv1alpha1.MonitoringBinding, error)); ok {
+		return rf(ctx, cluster, namespace, name)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *monitoringv1alpha1.MonitoringBinding); ok {
+		r0 = rf(ctx, cluster, namespace, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringBinding)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = rf(ctx, cluster, namespace, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetMonitoringClass provides a mock function with given fields: ctx, cluster, name
+func (_m *MockHandler) GetMonitoringClass(ctx context.Context, cluster string, name string) (*monitoringv1alpha1.MonitoringClass, error) {
+	ret := _m.Called(ctx, cluster, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMonitoringClass")
+	}
+
+	var r0 *monitoringv1alpha1.MonitoringClass
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*monitoringv1alpha1.MonitoringClass, error)); ok {
+		return rf(ctx, cluster, name)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *monitoringv1alpha1.MonitoringClass); ok {
+		r0 = rf(ctx, cluster, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringClass)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, cluster, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetMonitoringConfig provides a mock function with given fields: ctx, cluster, namespace, name
 func (_m *MockHandler) GetMonitoringConfig(ctx context.Context, cluster string, namespace string, name string) (*monitoringv1alpha1.MonitoringConfig, error) {
 	ret := _m.Called(ctx, cluster, namespace, name)
@@ -833,6 +941,36 @@ func (_m *MockHandler) GetMonitoringConfig(ctx context.Context, cluster string, 
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringConfig)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = rf(ctx, cluster, namespace, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetMonitoringDestination provides a mock function with given fields: ctx, cluster, namespace, name
+func (_m *MockHandler) GetMonitoringDestination(ctx context.Context, cluster string, namespace string, name string) (*monitoringv1alpha1.MonitoringDestination, error) {
+	ret := _m.Called(ctx, cluster, namespace, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMonitoringDestination")
+	}
+
+	var r0 *monitoringv1alpha1.MonitoringDestination
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) (*monitoringv1alpha1.MonitoringDestination, error)); ok {
+		return rf(ctx, cluster, namespace, name)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *monitoringv1alpha1.MonitoringDestination); ok {
+		r0 = rf(ctx, cluster, namespace, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringDestination)
 		}
 	}
 
@@ -1355,6 +1493,66 @@ func (_m *MockHandler) ListInstances(ctx context.Context, cluster string, namesp
 	return r0, r1
 }
 
+// ListMonitoringBindings provides a mock function with given fields: ctx, cluster, namespace, params
+func (_m *MockHandler) ListMonitoringBindings(ctx context.Context, cluster string, namespace string, params *api.ListMonitoringBindingsParams) (*monitoringv1alpha1.MonitoringBindingList, error) {
+	ret := _m.Called(ctx, cluster, namespace, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListMonitoringBindings")
+	}
+
+	var r0 *monitoringv1alpha1.MonitoringBindingList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *api.ListMonitoringBindingsParams) (*monitoringv1alpha1.MonitoringBindingList, error)); ok {
+		return rf(ctx, cluster, namespace, params)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *api.ListMonitoringBindingsParams) *monitoringv1alpha1.MonitoringBindingList); ok {
+		r0 = rf(ctx, cluster, namespace, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringBindingList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, *api.ListMonitoringBindingsParams) error); ok {
+		r1 = rf(ctx, cluster, namespace, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListMonitoringClasses provides a mock function with given fields: ctx, cluster, provider
+func (_m *MockHandler) ListMonitoringClasses(ctx context.Context, cluster string, provider string) (*monitoringv1alpha1.MonitoringClassList, error) {
+	ret := _m.Called(ctx, cluster, provider)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListMonitoringClasses")
+	}
+
+	var r0 *monitoringv1alpha1.MonitoringClassList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*monitoringv1alpha1.MonitoringClassList, error)); ok {
+		return rf(ctx, cluster, provider)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *monitoringv1alpha1.MonitoringClassList); ok {
+		r0 = rf(ctx, cluster, provider)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringClassList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, cluster, provider)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ListMonitoringConfigs provides a mock function with given fields: ctx, cluster, namespaces
 func (_m *MockHandler) ListMonitoringConfigs(ctx context.Context, cluster string, namespaces string) (*monitoringv1alpha1.MonitoringConfigList, error) {
 	ret := _m.Called(ctx, cluster, namespaces)
@@ -1378,6 +1576,36 @@ func (_m *MockHandler) ListMonitoringConfigs(ctx context.Context, cluster string
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
 		r1 = rf(ctx, cluster, namespaces)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListMonitoringDestinations provides a mock function with given fields: ctx, cluster, namespace, class
+func (_m *MockHandler) ListMonitoringDestinations(ctx context.Context, cluster string, namespace string, class string) (*monitoringv1alpha1.MonitoringDestinationList, error) {
+	ret := _m.Called(ctx, cluster, namespace, class)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListMonitoringDestinations")
+	}
+
+	var r0 *monitoringv1alpha1.MonitoringDestinationList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) (*monitoringv1alpha1.MonitoringDestinationList, error)); ok {
+		return rf(ctx, cluster, namespace, class)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *monitoringv1alpha1.MonitoringDestinationList); ok {
+		r0 = rf(ctx, cluster, namespace, class)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringDestinationList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
+		r1 = rf(ctx, cluster, namespace, class)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1713,6 +1941,36 @@ func (_m *MockHandler) UpdateMonitoringConfig(ctx context.Context, cluster strin
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, *api.MonitoringConfigUpdateParams) error); ok {
 		r1 = rf(ctx, cluster, namespace, name, req)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UpdateMonitoringDestination provides a mock function with given fields: ctx, cluster, namespace, name, destination
+func (_m *MockHandler) UpdateMonitoringDestination(ctx context.Context, cluster string, namespace string, name string, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error) {
+	ret := _m.Called(ctx, cluster, namespace, name, destination)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateMonitoringDestination")
+	}
+
+	var r0 *monitoringv1alpha1.MonitoringDestination
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error)); ok {
+		return rf(ctx, cluster, namespace, name, destination)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, *monitoringv1alpha1.MonitoringDestination) *monitoringv1alpha1.MonitoringDestination); ok {
+		r0 = rf(ctx, cluster, namespace, name, destination)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*monitoringv1alpha1.MonitoringDestination)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, *monitoringv1alpha1.MonitoringDestination) error); ok {
+		r1 = rf(ctx, cluster, namespace, name, destination)
 	} else {
 		r1 = ret.Error(1)
 	}

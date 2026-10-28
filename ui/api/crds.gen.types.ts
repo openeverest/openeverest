@@ -2019,6 +2019,43 @@ export interface components {
                     autoApproveUpTo?: "NonDisruptive" | "RollingRestart" | "Downtime";
                 };
                 /**
+                 * @description Monitoring configures where this Instance sends monitoring data. Core
+                 *     creates one MonitoringBinding per destination; the resolved state is
+                 *     mirrored in status.monitoring.destinations[].
+                 */
+                monitoring?: {
+                    /**
+                     * @description Destinations lists the MonitoringDestinations this Instance sends to.
+                     *     Core creates one MonitoringBinding per entry.
+                     */
+                    destinations?: {
+                        /**
+                         * @description DestinationRef references the MonitoringDestination in the Instance's
+                         *     namespace.
+                         */
+                        destinationRef: {
+                            /**
+                             * @description Kind of the referenced object.
+                             * @default MonitoringDestination
+                             * @enum {string}
+                             */
+                            kind?: "MonitoringDestination";
+                            /**
+                             * @description Name of the referenced object. At most 63 characters, since it is also
+                             *     a label value on the MonitoringBinding.
+                             */
+                            name: string;
+                        };
+                        /**
+                         * @description Name identifies the entry within the Instance; it is the key of
+                         *     status.monitoring.destinations[] and part of the MonitoringBinding name.
+                         */
+                        name: string;
+                        /** @description Parameters are validated against the class's instanceParametersSchema. */
+                        parameters?: Record<string, never>;
+                    }[];
+                };
+                /**
                  * @description Parameters contains structured parameters that apply to the Instance
                  *     as a whole, complementing the topology- and component-scoped
                  *     parameters. The payload is validated against the referenced Provider's
@@ -3446,6 +3483,43 @@ export interface components {
                     autoApproveUpTo?: "NonDisruptive" | "RollingRestart" | "Downtime";
                 };
                 /**
+                 * @description Monitoring configures where this Instance sends monitoring data. Core
+                 *     creates one MonitoringBinding per destination; the resolved state is
+                 *     mirrored in status.monitoring.destinations[].
+                 */
+                monitoring?: {
+                    /**
+                     * @description Destinations lists the MonitoringDestinations this Instance sends to.
+                     *     Core creates one MonitoringBinding per entry.
+                     */
+                    destinations?: {
+                        /**
+                         * @description DestinationRef references the MonitoringDestination in the Instance's
+                         *     namespace.
+                         */
+                        destinationRef: {
+                            /**
+                             * @description Kind of the referenced object.
+                             * @default MonitoringDestination
+                             * @enum {string}
+                             */
+                            kind?: "MonitoringDestination";
+                            /**
+                             * @description Name of the referenced object. At most 63 characters, since it is also
+                             *     a label value on the MonitoringBinding.
+                             */
+                            name: string;
+                        };
+                        /**
+                         * @description Name identifies the entry within the Instance; it is the key of
+                         *     status.monitoring.destinations[] and part of the MonitoringBinding name.
+                         */
+                        name: string;
+                        /** @description Parameters are validated against the class's instanceParametersSchema. */
+                        parameters?: Record<string, never>;
+                    }[];
+                };
+                /**
                  * @description Parameters contains structured parameters that apply to the Instance
                  *     as a whole, complementing the topology- and component-scoped
                  *     parameters. The payload is validated against the referenced Provider's
@@ -3620,6 +3694,129 @@ export interface components {
                 };
                 /** @description Message is a custom user-facing message describing the current state of the instance. */
                 message?: string;
+                /**
+                 * @description Monitoring is what the Instance exposes to monitoring (sources) and
+                 *     one read-only summary per spec.monitoring.destinations[] entry.
+                 *     Written only by provider-runtime.
+                 */
+                monitoring?: {
+                    /** @description Destinations has one entry per spec.monitoring.destinations[] entry. */
+                    destinations?: {
+                        /**
+                         * @description Configured mirrors the binding's Configured condition; False when the
+                         *     binding is not Accepted, Unknown while it is missing or pending.
+                         */
+                        configured?: string;
+                        /** @description Message is the human-readable detail for Configured. */
+                        message?: string;
+                        /**
+                         * @description Mode is the resolved execution mode.
+                         * @enum {string}
+                         */
+                        mode?: "ProviderManaged" | "ExtensionManaged";
+                        /** @description Name matches spec.monitoring.destinations[].name. */
+                        name: string;
+                        /** @description Reason is the machine-readable reason for Configured. */
+                        reason?: string;
+                    }[];
+                    /**
+                     * @description Sources is the per-Instance publication of the provider's monitoring
+                     *     contract, consumed by ExtensionManaged class controllers.
+                     */
+                    sources?: {
+                        /**
+                         * @description Credentials lists the Instance-owned monitoring credential Secrets by
+                         *     profile.
+                         */
+                        credentials?: {
+                            /** @description Profile names the credential profile (e.g. "metrics"). */
+                            profile: string;
+                            /**
+                             * @description SecretRef references the Secret in the Instance's namespace holding
+                             *     the "username" and "password" keys.
+                             */
+                            secretRef: {
+                                /** @description Name of the referenced Secret. */
+                                name: string;
+                            };
+                        }[];
+                        /**
+                         * @description Identity carries the labels every monitoring class must attach so
+                         *     destinations can tell Instances and clusters apart. Stamped by the
+                         *     runtime.
+                         */
+                        identity?: {
+                            /** @description ClusterID is the UID of the kube-system namespace. */
+                            clusterId?: string;
+                            /**
+                             * @description Labels are the identity labels (openeverest_instance,
+                             *     openeverest_namespace, openeverest_provider, k8s_cluster_id).
+                             */
+                            labels?: {
+                                [key: string]: string;
+                            };
+                        };
+                        /** @description Metrics lists the OpenMetrics endpoints that are currently serving. */
+                        metrics?: {
+                            /** @description Auth names the credential profile the scraper must authenticate with. */
+                            auth?: {
+                                /** @description CredentialProfile matches MonitoringSources.credentials[].profile. */
+                                credentialProfile: string;
+                            };
+                            /** @description Component is the Instance component name (e.g. "engine", "proxy"). */
+                            component: string;
+                            /** @description Kind is the component's engine kind. */
+                            kind: string;
+                            /** @description Params are extra scrape query parameters (e.g. target for /probe). */
+                            params?: {
+                                [key: string]: string[];
+                            };
+                            /**
+                             * @description Path is the HTTP path.
+                             * @default /metrics
+                             */
+                            path?: string;
+                            /** @description PodSelector selects the pods serving the endpoint. */
+                            podSelector: {
+                                [key: string]: string;
+                            };
+                            /** @description Port is the container port, by name or number. */
+                            port: number | string;
+                            /**
+                             * @description Scheme is "http" or "https".
+                             * @default http
+                             * @enum {string}
+                             */
+                            scheme?: "http" | "https";
+                            /** @description TLS describes how to verify an https endpoint. */
+                            tls?: {
+                                /**
+                                 * @description CA selects the Secret key in the Instance's namespace holding the CA
+                                 *     bundle.
+                                 */
+                                ca?: {
+                                    /** @description The key of the secret to select from.  Must be a valid secret key. */
+                                    key: string;
+                                    /**
+                                     * @description Name of the referent.
+                                     *     This field is effectively required, but due to backwards compatibility is
+                                     *     allowed to be empty. Instances of this type with an empty value here are
+                                     *     almost certainly wrong.
+                                     *     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                     * @default
+                                     */
+                                    name?: string;
+                                    /** @description Specify whether the Secret or its key must be defined */
+                                    optional?: boolean;
+                                };
+                                /** @description InsecureSkipVerify disables verification. */
+                                insecureSkipVerify?: boolean;
+                                /** @description ServerName overrides the expected server name. */
+                                serverName?: string;
+                            };
+                        }[];
+                    };
+                };
                 /**
                  * Format: int64
                  * @description ObservedGeneration is the metadata.generation the provider-runtime last
@@ -4888,6 +5085,43 @@ export interface components {
                     autoApproveUpTo?: "NonDisruptive" | "RollingRestart" | "Downtime";
                 };
                 /**
+                 * @description Monitoring configures where this Instance sends monitoring data. Core
+                 *     creates one MonitoringBinding per destination; the resolved state is
+                 *     mirrored in status.monitoring.destinations[].
+                 */
+                monitoring?: {
+                    /**
+                     * @description Destinations lists the MonitoringDestinations this Instance sends to.
+                     *     Core creates one MonitoringBinding per entry.
+                     */
+                    destinations?: {
+                        /**
+                         * @description DestinationRef references the MonitoringDestination in the Instance's
+                         *     namespace.
+                         */
+                        destinationRef: {
+                            /**
+                             * @description Kind of the referenced object.
+                             * @default MonitoringDestination
+                             * @enum {string}
+                             */
+                            kind?: "MonitoringDestination";
+                            /**
+                             * @description Name of the referenced object. At most 63 characters, since it is also
+                             *     a label value on the MonitoringBinding.
+                             */
+                            name: string;
+                        };
+                        /**
+                         * @description Name identifies the entry within the Instance; it is the key of
+                         *     status.monitoring.destinations[] and part of the MonitoringBinding name.
+                         */
+                        name: string;
+                        /** @description Parameters are validated against the class's instanceParametersSchema. */
+                        parameters?: Record<string, never>;
+                    }[];
+                };
+                /**
                  * @description Parameters contains structured parameters that apply to the Instance
                  *     as a whole, complementing the topology- and component-scoped
                  *     parameters. The payload is validated against the referenced Provider's
@@ -4993,6 +5227,330 @@ export interface components {
                 namespace?: string;
             };
         };
+        /**
+         * @description MonitoringBinding records that OpenEverest has configured one Instance to
+         *     send monitoring data to one MonitoringDestination. Created from
+         *     Instance.spec.monitoring.destinations[]; edit the Instance, not this object.
+         */
+        MonitoringBinding: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: components["schemas"]["ObjectMeta"];
+            /**
+             * @description MonitoringBindingSpec is written only by core. It is immutable except for
+             *     parameters; classRef and executionMode are set once, when the destination
+             *     and class first resolve.
+             */
+            spec: {
+                /** @description ClassRef is copied from the MonitoringDestination once it resolves. */
+                classRef?: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
+                /**
+                 * @description DestinationRef is copied from the Instance.spec.monitoring.destinations[]
+                 *     entry. Immutable.
+                 */
+                destinationRef: {
+                    /**
+                     * @description Kind of the referenced object.
+                     * @default MonitoringDestination
+                     * @enum {string}
+                     */
+                    kind?: "MonitoringDestination";
+                    /**
+                     * @description Name of the referenced object. At most 63 characters, since it is also
+                     *     a label value on the MonitoringBinding.
+                     */
+                    name: string;
+                };
+                /**
+                 * @description ExecutionMode selects the executor that owns the Configured condition.
+                 *     Set once, at first successful resolution.
+                 * @enum {string}
+                 */
+                executionMode?: "ProviderManaged" | "ExtensionManaged";
+                /** @description InstanceRef references the Instance in the same namespace. Immutable. */
+                instanceRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
+                /**
+                 * @description Parameters are copied from the Instance.spec.monitoring.destinations[]
+                 *     entry.
+                 */
+                parameters?: Record<string, never>;
+            };
+            /**
+             * @description MonitoringBindingStatus is written per condition type by its owner.
+             * @default {
+             *       "conditions": [
+             *         {
+             *           "lastTransitionTime": "1970-01-01T00:00:00Z",
+             *           "message": "Waiting for executor",
+             *           "reason": "Pending",
+             *           "status": "Unknown",
+             *           "type": "Configured"
+             *         }
+             *       ]
+             *     }
+             */
+            status?: {
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+            };
+        };
+        /** @description MonitoringBindingList is an object that contains the list of the existing monitoringbindings. */
+        MonitoringBindingList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["MonitoringBinding"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+                namespace?: string;
+            };
+        };
+        /**
+         * @description MonitoringClass is one monitoring technology, claimed by the out-of-tree
+         *     controller that serves it.
+         */
+        MonitoringClass: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: components["schemas"]["ObjectMeta"];
+            /** @description MonitoringClassSpec defines the desired state of MonitoringClass. */
+            spec: {
+                /**
+                 * @description CredentialsSchema lists the keys the MonitoringDestination credentials
+                 *     Secret must carry.
+                 */
+                credentialsSchema?: {
+                    /** @description Required is the list of required Secret keys. */
+                    required?: string[];
+                };
+                /** @description Description describes the monitoring technology. */
+                description?: string;
+                /** @description DestinationParametersSchema validates MonitoringDestination.spec.parameters. */
+                destinationParametersSchema?: {
+                    /**
+                     * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                     *     parameters payload.
+                     */
+                    openAPIV3Schema?: unknown;
+                };
+                /** @description DisplayName is a human-readable name for the monitoring technology. */
+                displayName?: string;
+                /**
+                 * @description ExtensionManaged declares that the class controller wires the backend
+                 *     from the provider's monitoring contract alone
+                 *     (Instance.status.monitoring.sources).
+                 */
+                extensionManaged?: {
+                    /**
+                     * @description Requires lists the source capabilities a component must satisfy to
+                     *     be eligible for this class.
+                     */
+                    requires?: {
+                        /**
+                         * @description Metrics requires the component to expose OpenMetrics
+                         *     (metrics: Native or Exporter).
+                         */
+                        metrics?: boolean;
+                    };
+                };
+                /**
+                 * @description InstanceParametersSchema validates
+                 *     Instance.spec.monitoring.destinations[].parameters.
+                 */
+                instanceParametersSchema?: {
+                    /**
+                     * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                     *     parameters payload.
+                     */
+                    openAPIV3Schema?: unknown;
+                };
+                /**
+                 * @description ProviderManaged declares that providers whose engine operator natively
+                 *     integrates this technology render it themselves inside Sync. Matched
+                 *     against Provider.spec.monitoring.integrations.
+                 */
+                providerManaged?: {
+                    /**
+                     * @description AgentImage is the agent image the provider renders into the engine
+                     *     pods. It is admin-controlled: only class writers can change what runs
+                     *     next to the data volumes.
+                     */
+                    agentImage: string;
+                    /**
+                     * @description AgentVersion is the semantic version of AgentImage, matched against
+                     *     Provider.spec.monitoring.integrations.<integration>.agentVersions.
+                     */
+                    agentVersion: string;
+                    /**
+                     * @description Integration is the integration name providers declare in
+                     *     Provider.spec.monitoring.integrations (e.g. "pmm"). Immutable.
+                     */
+                    integration: string;
+                };
+                /**
+                 * @description UISchema holds free-form form-rendering hints consumed only by the UI,
+                 *     grouped by the form they decorate (destination, instance, credentials).
+                 */
+                uiSchema?: Record<string, never>;
+            };
+            /**
+             * @description MonitoringClassStatus defines the observed state of MonitoringClass. It
+             *     has two writers, each applying only its own fields: the claiming
+             *     controller owns the Accepted condition and core owns providers.
+             * @default {
+             *       "conditions": [
+             *         {
+             *           "lastTransitionTime": "1970-01-01T00:00:00Z",
+             *           "message": "Waiting for controller",
+             *           "reason": "Pending",
+             *           "status": "Unknown",
+             *           "type": "Accepted"
+             *         }
+             *       ]
+             *     }
+             */
+            status?: {
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+                /**
+                 * @description Providers is the compatibility of this class with every installed
+                 *     Provider.
+                 */
+                providers?: {
+                    /**
+                     * @description Disruption is the worst that enabling the class does to the pods of
+                     *     one of the Provider's Instances. Set when Mode is set.
+                     * @enum {string}
+                     */
+                    disruption?: "None" | "RollingRestart";
+                    /** @description Message is the human-readable detail for Reason. */
+                    message?: string;
+                    /**
+                     * @description Mode is the execution mode a binding of this class gets for the
+                     *     Provider's Instances. Empty when the Provider is incompatible.
+                     * @enum {string}
+                     */
+                    mode?: "ProviderManaged" | "ExtensionManaged";
+                    /** @description Name is the Provider name. */
+                    name: string;
+                    /** @description Reason explains an empty Mode. */
+                    reason?: string;
+                }[];
+            };
+        };
+        /** @description MonitoringClassList is an object that contains the list of the existing monitoringclasss. */
+        MonitoringClassList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["MonitoringClass"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+            };
+        };
         /** @description MonitoringConfig is the Schema for the monitoringconfigs API. */
         MonitoringConfig: {
             /**
@@ -5071,6 +5629,125 @@ export interface components {
             /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
             apiVersion?: string;
             items?: components["schemas"]["MonitoringConfig"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+                namespace?: string;
+            };
+        };
+        /**
+         * @description MonitoringDestination is one place a namespace sends monitoring data to,
+         *     typed by a MonitoringClass. Instances send to it through
+         *     spec.monitoring.destinations[].
+         */
+        MonitoringDestination: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: components["schemas"]["ObjectMeta"];
+            /** @description MonitoringDestinationSpec defines the desired state of MonitoringDestination. */
+            spec: {
+                /**
+                 * @description ClassRef references the cluster-scoped MonitoringClass this destination
+                 *     belongs to. Immutable.
+                 */
+                classRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
+                /**
+                 * @description CredentialsSecretRef references the Secret in the same namespace that
+                 *     holds the destination credentials; its keys are described by the
+                 *     class's credentialsSchema.
+                 */
+                credentialsSecretRef?: {
+                    /** @description Name of the referenced Secret. */
+                    name: string;
+                };
+                /**
+                 * @description Parameters are validated against
+                 *     MonitoringClass.spec.destinationParametersSchema.
+                 */
+                parameters?: Record<string, never>;
+            };
+            /**
+             * @description MonitoringDestinationStatus defines the observed state of
+             *     MonitoringDestination.
+             * @default {
+             *       "conditions": [
+             *         {
+             *           "lastTransitionTime": "1970-01-01T00:00:00Z",
+             *           "message": "Waiting for controller",
+             *           "reason": "Pending",
+             *           "status": "Unknown",
+             *           "type": "Ready"
+             *         }
+             *       ]
+             *     }
+             */
+            status?: {
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+                /**
+                 * @description ServerVersion is the backend server version probed by the class
+                 *     controller.
+                 */
+                serverVersion?: string;
+            };
+        };
+        /** @description MonitoringDestinationList is an object that contains the list of the existing monitoringdestinations. */
+        MonitoringDestinationList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["MonitoringDestination"][];
             /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
             kind?: string;
             metadata?: {
@@ -5396,6 +6073,44 @@ export interface components {
                  *     omits Spec.Version.
                  */
                 defaultVersion?: string;
+                /**
+                 * @description Monitoring is the provider's monitoring contract: the operator-native
+                 *     integrations it renders itself and what each component type exposes.
+                 */
+                monitoring?: {
+                    /**
+                     * @description ComponentTypes declares what each component type exposes, keyed by
+                     *     component type (the software), not by component name.
+                     */
+                    componentTypes?: {
+                        [key: string]: {
+                            /**
+                             * @description Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
+                             *     follow OpenTelemetry db.system.name; unknown kinds are allowed.
+                             */
+                            kind: string;
+                            /**
+                             * @description Metrics states how the component exposes OpenMetrics.
+                             * @default None
+                             * @enum {string}
+                             */
+                            metrics?: "Native" | "Exporter" | "None";
+                        };
+                    };
+                    /**
+                     * @description Integrations lists the operator-native monitoring integrations the
+                     *     provider renders itself, keyed by integration name (e.g. "pmm").
+                     */
+                    integrations?: {
+                        [key: string]: {
+                            /**
+                             * @description AgentVersions is the semver range of agent versions the provider can
+                             *     render (e.g. ">=3.0.0 <4.0.0").
+                             */
+                            agentVersions?: string;
+                        };
+                    };
+                };
                 /**
                  * @description ParametersSchema declares the OpenAPI v3 schema for the instance-wide
                  *     parameters payload (Instance.spec.parameters).

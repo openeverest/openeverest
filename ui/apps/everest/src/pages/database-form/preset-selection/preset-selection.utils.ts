@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { ClusterInstancePreset } from 'shared-types/api.types';
-import { INSTANCE_PRESET_ANNOTATION } from './preset-selection.constants';
+import { CLUSTER_INSTANCE_PRESET_ANNOTATION } from './preset-selection.constants';
 
 interface BuildPresetCreateArgsInput {
   resolvedPreset: ClusterInstancePreset;
@@ -51,5 +51,5 @@ export const buildPresetCreateArgs = ({
     k8sNamespace,
     spec: resolvedPreset.spec,
   },
-  annotations: { [INSTANCE_PRESET_ANNOTATION]: presetName },
+  annotations: { [CLUSTER_INSTANCE_PRESET_ANNOTATION]: presetName },
 });

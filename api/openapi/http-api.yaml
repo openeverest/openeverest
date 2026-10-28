@@ -982,6 +982,7 @@ paths:
       summary: Create instance
       description: |
         This API creates a new database instance in the specified namespace and cluster.
+        Every monitoring destination listed in `spec.monitoring.destinations` requires `read` on it; otherwise the request fails with 403.
       operationId: createInstance
       parameters:
         - name: cluster
@@ -1100,6 +1101,7 @@ paths:
       description: |
         This API updates the database instance specified by the `instance` name in the specified `namespace` and `cluster`, replacing the entire resource with the new one.
         To change only specific fields, use PATCH instead.
+        Every monitoring destination added to `spec.monitoring.destinations` requires `read` on it; otherwise the request fails with 403. Destinations the instance already lists need no `read`.
       operationId: updateInstance
       parameters:
         - name: cluster
@@ -1166,6 +1168,7 @@ paths:
         This API applies Merge Patch to the database instance specified by the `instance` name in the specified `namespace` and `cluster`.
         Members absent from the patch keep their current value, and a member set to `null` is removed. A path that does not exist on the Instance is
         rejected rather than ignored. Include `metadata.resourceVersion` to make the patch conditional, which fails with 409 if the instance has changed.
+        A patch setting `spec.monitoring.destinations` replaces the whole list, and every monitoring destination it adds requires `read` on it; otherwise the request fails with 403. Destinations the instance already lists need no `read`.
       operationId: patchInstance
       parameters:
         - name: cluster
@@ -2796,6 +2799,472 @@ paths:
                 $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/monitoring-classes':
+    x-everest-resource-name: monitoring-classes
+    get:
+      tags:
+        - Monitoring
+      summary: List monitoring classes
+      description: |
+        This API lists all monitoring classes in the specified cluster.
+        Monitoring classes are installed with their extension and are read-only over this API.
+        Optionally filter by provider: only the classes whose `status.providers` entry for that provider carries a `mode` are returned, so the result is what an Instance of that provider can use.
+      operationId: listMonitoringClasses
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: provider
+          in: query
+          required: false
+          description: Return only the monitoring classes compatible with the provider with this name, as published in `status.providers`
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of monitoring classes
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringClassList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/monitoring-classes/{name}':
+    x-everest-resource-name: monitoring-classes
+    get:
+      tags:
+        - Monitoring
+      summary: Get monitoring class
+      description: |
+        This API gets the monitoring class specified by the `name` in the specified `cluster`.
+      operationId: getMonitoringClass
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the monitoring class
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Monitoring class details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringClass'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Monitoring class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/monitoring-destinations':
+    x-everest-resource-name: monitoring-destinations
+    post:
+      tags:
+        - Monitoring
+      summary: Create monitoring destination
+      description: |
+        This API creates a new monitoring destination in the specified namespace and cluster.
+        Only `metadata.name`, `metadata.generateName`, `metadata.labels`, `metadata.annotations` and `spec` are taken from the request; the namespace is the one in the path.
+        Credentials are never part of the payload: create the Secret through the secrets API and reference it in `spec.credentialsSecretRef`, which requires `read` on that Secret.
+        `spec.classRef` requires `read` on the monitoring class it names.
+      operationId: createMonitoringDestination
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the monitoring destination will be created
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringDestination'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        description: The monitoring destination object to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.gen.yaml#/components/schemas/MonitoringDestination'
+    get:
+      tags:
+        - Monitoring
+      summary: List monitoring destinations
+      description: |
+        This API lists all monitoring destinations in the specified namespace and cluster.
+        Optionally filter by monitoring class: only the destinations whose `spec.classRef.name` is that class are returned.
+      operationId: listMonitoringDestinations
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the monitoring destinations
+          schema:
+            type: string
+        - name: class
+          in: query
+          required: false
+          description: Return only the monitoring destinations of the monitoring class with this name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringDestinationList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/monitoring-destinations/{name}':
+    x-everest-resource-name: monitoring-destinations
+    get:
+      tags:
+        - Monitoring
+      summary: Get monitoring destination
+      description: |
+        This API gets the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: getMonitoringDestination
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the monitoring destination
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the monitoring destination
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringDestination'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Monitoring destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Monitoring
+      summary: Update monitoring destination
+      description: |
+        This API replaces the labels, annotations and `spec` of the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
+        Include `metadata.resourceVersion` from the object being replaced to make the update fail with 409 if the monitoring destination has changed since; without it, the destination is replaced whatever its current version.
+        `spec.classRef` is immutable and requires `read` on the monitoring class it names. Credentials are never part of the payload: update the Secret named by `spec.credentialsSecretRef` instead. Referencing a Secret requires `read` on it.
+      operationId: updateMonitoringDestination
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the monitoring destination
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the monitoring destination
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringDestination'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Monitoring destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        description: The monitoring destination object to be updated
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.gen.yaml#/components/schemas/MonitoringDestination'
+    delete:
+      tags:
+        - Monitoring
+      summary: Delete monitoring destination
+      description: |
+        This API deletes the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
+        Instances that still list it in `spec.monitoring.destinations` keep their current monitoring and report the destination as not found;
+        list them first with `GET .../monitoring-bindings?destination={name}`.
+      operationId: deleteMonitoringDestination
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the monitoring destination
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the monitoring destination
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Monitoring destination deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Monitoring destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/monitoring-bindings':
+    x-everest-resource-name: monitoring-bindings
+    get:
+      tags:
+        - Monitoring
+      summary: List monitoring bindings
+      description: |
+        This API lists the monitoring bindings in the specified namespace and cluster.
+        A binding records that one Instance sends monitoring data to one monitoring destination; it is created from `Instance.spec.monitoring.destinations` and is read-only over this API.
+        Only the bindings of Instances the caller may read are returned. Optionally filter by destination name.
+      operationId: listMonitoringBindings
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the monitoring bindings
+          schema:
+            type: string
+        - name: destination
+          in: query
+          required: false
+          description: |
+            Return only the bindings to the monitoring destination with this name. Empty means no filter; a value that is not a valid label value is rejected with 400.
+          schema:
+            type: string
+            maxLength: 63
+            pattern: '^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringBindingList'
+        '400':
+          description: The destination filter is not a valid label value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/monitoring-bindings/{name}':
+    x-everest-resource-name: monitoring-bindings
+    get:
+      tags:
+        - Monitoring
+      summary: Get monitoring binding
+      description: |
+        This API gets the monitoring binding specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: getMonitoringBinding
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the monitoring binding
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the monitoring binding
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/MonitoringBinding'
+        '403':
+          description: Forbidden, or the monitoring binding does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
           content:
             application/json:
               schema:

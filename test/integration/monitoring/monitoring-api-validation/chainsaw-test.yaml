@@ -1,0 +1,396 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: monitoring-api-validation
+spec:
+  steps:
+  - name: class-schema
+    try:
+    - script:
+        content: |
+          kubectl create --dry-run=server -o jsonpath='{.status.conditions[?(@.type=="Accepted")].status}/{.status.conditions[?(@.type=="Accepted")].reason}' -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringClass
+          metadata:
+            name: mon-api-cel-defaults
+          spec:
+            extensionManaged:
+              requires:
+                metrics: true
+          EOF
+        check:
+          ($error): ~
+          ($stdout): Unknown/Pending
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringClass
+          metadata:
+            name: mon-api-cel-no-block
+          spec: {}
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'at least one fulfilment block')): true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringClass
+          metadata:
+            name: mon-api-cel-no-agent
+          spec:
+            providerManaged:
+              integration: pmm
+              agentVersion: ""
+          EOF
+        check:
+          ($error != null): true
+          "(contains($stderr, 'spec.providerManaged.agentImage: Required value'))": true
+          (contains($stderr, 'spec.providerManaged.agentVersion in body should be at least 1 chars long')): true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringClass
+          metadata:
+            name: mon-api-cel-a-class-name-that-is-longer-than-sixty-three-characters
+          spec:
+            extensionManaged: {}
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'a MonitoringClass name must be at most 63 characters')): true
+
+  - name: class-immutability
+    try:
+    - apply:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringClass
+          metadata:
+            name: mon-api-cel-class
+          spec:
+            extensionManaged:
+              requires:
+                metrics: true
+    - script:
+        content: |
+          kubectl patch monitoringclass mon-api-cel-class --type=json --dry-run=server \
+            -p '[{"op":"remove","path":"/spec/extensionManaged"}]'
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.extensionManaged cannot be removed once set')): true
+    - script:
+        content: |
+          kubectl patch monitoringclass mon-api-cel-class --type=merge \
+            -p '{"spec":{"providerManaged":{"integration":"pmm","agentImage":"percona/pmm-client:3.4.1","agentVersion":"3.4.1"}}}'
+    - script:
+        content: |
+          kubectl patch monitoringclass mon-api-cel-class --type=json --dry-run=server \
+            -p '[{"op":"remove","path":"/spec/providerManaged"}]'
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.providerManaged cannot be removed once set')): true
+    - script:
+        content: |
+          kubectl patch monitoringclass mon-api-cel-class --type=merge --dry-run=server \
+            -p '{"spec":{"providerManaged":{"integration":"pmm-next"}}}'
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.providerManaged.integration is immutable')): true
+    - script:
+        content: |
+          kubectl patch monitoringclass mon-api-cel-class --type=merge --dry-run=server \
+            -p '{"spec":{"providerManaged":{"agentImage":"percona/pmm-client:3.5.0","agentVersion":"3.5.0"}}}'
+
+  - name: destination
+    try:
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}/{.status.conditions[?(@.type=="Ready")].reason}' -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: pmm-defaults
+          spec:
+            classRef: {name: pmm}
+          EOF
+        check:
+          ($error): ~
+          ($stdout): Unknown/Pending
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: a-destination-name-that-is-longer-than-sixty-three-characters-xyz
+          spec:
+            classRef: {name: pmm}
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'a MonitoringDestination name must be at most 63 characters')): true
+    - apply:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: pmm-prod
+          spec:
+            classRef:
+              name: pmm
+            parameters:
+              url: https://pmm.example.com
+    - script:
+        content: |
+          kubectl patch monitoringdestination pmm-prod -n "$NAMESPACE" --type=merge --dry-run=server \
+            -p '{"spec":{"classRef":{"name":"prometheus"}}}'
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.classRef is immutable')): true
+    - script:
+        content: |
+          kubectl patch monitoringdestination pmm-prod -n "$NAMESPACE" --type=merge --dry-run=server \
+            -p '{"spec":{"parameters":{"url":"https://pmm-2.example.com"},"credentialsSecretRef":{"name":"pmm-token"}}}'
+
+  - name: binding
+    try:
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -o jsonpath='{.spec.destinationRef.kind}/{.status.conditions[?(@.type=="Configured")].status}/{.status.conditions[?(@.type=="Configured")].reason}' -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringBinding
+          metadata:
+            name: orders-defaults
+          spec:
+            instanceRef: {name: orders}
+            destinationRef: {name: pmm-prod}
+          EOF
+        check:
+          ($error): ~
+          ($stdout): MonitoringDestination/Unknown/Pending
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringBinding
+          metadata:
+            name: orders-cluster-destination
+          spec:
+            instanceRef: {name: orders}
+            destinationRef: {kind: ClusterMonitoringDestination, name: pmm-prod}
+          EOF
+        check:
+          ($error != null): true
+          "(contains($stderr, 'spec.destinationRef.kind: Unsupported value'))": true
+    - apply:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringBinding
+          metadata:
+            name: orders-pmm
+          spec:
+            instanceRef:
+              name: orders
+            destinationRef:
+              name: pmm-prod
+    - script:
+        content: |
+          kubectl patch monitoringbinding orders-pmm -n "$NAMESPACE" --type=merge --dry-run=server \
+            -p '{"spec":{"instanceRef":{"name":"invoices"}}}'
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.instanceRef is immutable')): true
+    - script:
+        content: |
+          kubectl patch monitoringbinding orders-pmm -n "$NAMESPACE" --type=merge --dry-run=server \
+            -p '{"spec":{"destinationRef":{"name":"pmm-staging"}}}'
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.destinationRef is immutable')): true
+    - script:
+        content: |
+          kubectl patch monitoringbinding orders-pmm -n "$NAMESPACE" --type=merge \
+            -p '{"spec":{"classRef":{"name":"pmm"},"executionMode":"ProviderManaged"}}'
+    - script:
+        content: |
+          kubectl patch monitoringbinding orders-pmm -n "$NAMESPACE" --type=merge --dry-run=server \
+            -p '{"spec":{"classRef":{"name":"prometheus"}}}'
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.classRef is immutable once set')): true
+    - script:
+        content: |
+          kubectl patch monitoringbinding orders-pmm -n "$NAMESPACE" --type=json --dry-run=server \
+            -p '[{"op":"remove","path":"/spec/classRef"}]'
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.classRef is immutable once set')): true
+    - script:
+        content: |
+          kubectl patch monitoringbinding orders-pmm -n "$NAMESPACE" --type=merge --dry-run=server \
+            -p '{"spec":{"executionMode":"ExtensionManaged"}}'
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.executionMode is immutable once set')): true
+    - script:
+        content: |
+          kubectl patch monitoringbinding orders-pmm -n "$NAMESPACE" --type=json --dry-run=server \
+            -p '[{"op":"remove","path":"/spec/executionMode"}]'
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.executionMode is immutable once set')): true
+    - script:
+        content: |
+          kubectl patch monitoringbinding orders-pmm -n "$NAMESPACE" --type=merge --dry-run=server \
+            -p '{"spec":{"parameters":{"resources":{"limits":{"memory":"256Mi"}}}}}'
+
+  - name: instance-spec
+    try:
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -o jsonpath='{.spec.monitoring.destinations[*].destinationRef.kind}' -f - <<'EOF'
+          apiVersion: core.openeverest.io/v1alpha1
+          kind: Instance
+          metadata:
+            name: eight-destinations
+          spec:
+            providerRef: {name: test-provider}
+            monitoring:
+              destinations:
+              - {name: d1, destinationRef: {name: dest-1}}
+              - {name: d2, destinationRef: {name: dest-2}}
+              - {name: d3, destinationRef: {name: dest-3}}
+              - {name: d4, destinationRef: {name: dest-4}}
+              - {name: d5, destinationRef: {name: dest-5}}
+              - {name: d6, destinationRef: {name: dest-6}}
+              - {name: d7, destinationRef: {name: dest-7}}
+              - {name: d8, destinationRef: {name: dest-8}}
+          EOF
+        check:
+          ($error): ~
+          ($stdout): MonitoringDestination MonitoringDestination MonitoringDestination MonitoringDestination MonitoringDestination MonitoringDestination MonitoringDestination MonitoringDestination
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+          apiVersion: core.openeverest.io/v1alpha1
+          kind: Instance
+          metadata:
+            name: nine-destinations
+          spec:
+            providerRef: {name: test-provider}
+            monitoring:
+              destinations:
+              - {name: d1, destinationRef: {name: dest-1}}
+              - {name: d2, destinationRef: {name: dest-2}}
+              - {name: d3, destinationRef: {name: dest-3}}
+              - {name: d4, destinationRef: {name: dest-4}}
+              - {name: d5, destinationRef: {name: dest-5}}
+              - {name: d6, destinationRef: {name: dest-6}}
+              - {name: d7, destinationRef: {name: dest-7}}
+              - {name: d8, destinationRef: {name: dest-8}}
+              - {name: d9, destinationRef: {name: dest-9}}
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'must have at most 8 items')): true
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+          apiVersion: core.openeverest.io/v1alpha1
+          kind: Instance
+          metadata:
+            name: same-destination-twice
+          spec:
+            providerRef: {name: test-provider}
+            monitoring:
+              destinations:
+              - {name: pmm, destinationRef: {name: pmm-prod}}
+              - {name: pmm-again, destinationRef: {name: pmm-prod}}
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'each MonitoringDestination may be listed at most once')): true
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+          apiVersion: core.openeverest.io/v1alpha1
+          kind: Instance
+          metadata:
+            name: same-entry-twice
+          spec:
+            providerRef: {name: test-provider}
+            monitoring:
+              destinations:
+              - {name: pmm, destinationRef: {name: pmm-prod}}
+              - {name: pmm, destinationRef: {name: pmm-staging}}
+          EOF
+        check:
+          ($error != null): true
+          "(contains($stderr, 'spec.monitoring.destinations[1]: Duplicate value'))": true
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+          apiVersion: core.openeverest.io/v1alpha1
+          kind: Instance
+          metadata:
+            name: bad-names
+          spec:
+            providerRef: {name: test-provider}
+            monitoring:
+              destinations:
+              - {name: PMM, destinationRef: {name: Pmm_Prod}}
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.monitoring.destinations[0].name in body should match')): true
+          (contains($stderr, 'spec.monitoring.destinations[0].destinationRef.name in body should match')): true
+
+  - name: instance-sources
+    try:
+    - apply:
+        resource:
+          apiVersion: core.openeverest.io/v1alpha1
+          kind: Instance
+          metadata:
+            name: sources
+          spec:
+            providerRef:
+              name: test-provider
+    - script:
+        content: |
+          kubectl patch instance sources -n "$NAMESPACE" --subresource=status --type=merge --dry-run=server \
+            -o jsonpath='{.status.monitoring.sources.metrics[0].path} {.status.monitoring.sources.metrics[0].scheme}' \
+            -p '{"status":{"monitoring":{"sources":{"metrics":[{"component":"engine","kind":"microsoft.sql_server","podSelector":{"core.openeverest.io/instance":"sources"},"port":"metrics"}]}}}}'
+        check:
+          ($error): ~
+          ($stdout): /metrics http
+    - script:
+        content: |
+          kubectl patch instance sources -n "$NAMESPACE" --subresource=status --type=merge --dry-run=server \
+            -p '{"status":{"monitoring":{"sources":{"metrics":[{"component":"engine","kind":"Bad Kind","podSelector":{},"port":9104}]}}}}'
+        check:
+          ($error != null): true
+          (contains($stderr, 'monitoring.sources.metrics[0].kind in body should match')): true
+          (contains($stderr, 'monitoring.sources.metrics[0].podSelector in body should have at least 1 properties')): true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'EOF'
+          apiVersion: core.openeverest.io/v1alpha1
+          kind: Provider
+          metadata:
+            name: mon-api-cel-provider
+          spec:
+            monitoring:
+              componentTypes:
+                engine: {kind: microsoft.sql_server, metrics: Exporter}
+                proxy: {kind: Bad Kind}
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.monitoring.componentTypes.proxy.kind in body should match')): true
+          (contains($stderr, 'componentTypes.engine.kind')): false

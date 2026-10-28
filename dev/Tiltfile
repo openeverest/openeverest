@@ -13,6 +13,7 @@ config_yaml=read_yaml('config.yaml')
 
 # Load local Envfile with env vars
 load('ext://dotenv', 'dotenv')
+load('ext://helm_remote', 'helm_remote')
 
 local_env_file='{0}/.env'.format(config.main_dir)
 
@@ -21,6 +22,12 @@ print('Frontend Build enabled: {0}'.format(enable_frontend))
 
 enable_plugin_hub = config_yaml.get('enablePluginHub', True)
 print('Plugin Hub enabled: {0}'.format(enable_plugin_hub))
+
+# Set to true to self-install the VictoriaMetrics operator + kube-state-metrics
+# in the dev cluster (opt-in, since the 'everest' chart no longer bundles them;
+# see percona-helm-charts/charts/pmm/README.md for the equivalent manual setup).
+enable_monitoring_stack = config_yaml.get('enableMonitoringStack', False)
+print('Monitoring stack enabled: {0}'.format(enable_monitoring_stack))
 
 if os.path.exists(local_env_file):
     print ('Loading local .env file={0}'.format(local_env_file))
@@ -199,10 +206,7 @@ fi'''.format(
 everest_helm_set = [
     'telemetry=false',
     'upgrade.preflightChecks=false',
-    'createMonitoringResources=false',
-    'monitoring.crds.enabled=true',
-    'monitoring.crds.plain=false',
-    'monitoring.namespaceOverride={0}'.format(EVEREST_MONITORING_NAMESPACE),
+    'monitoringNamespace={0}'.format(EVEREST_MONITORING_NAMESPACE),
     'server.initialAdminPassword={0}'.format(UI_ADMIN_PASSWORD),
 ]
 if not enable_plugin_hub:
@@ -270,71 +274,212 @@ k8s_yaml(everest_yaml)
 #################################
 ####### Monitoring stack ########
 #################################
+# The 'everest' Helm chart no longer bundles the VictoriaMetrics operator or
+# kube-state-metrics; Everest's MonitoringConfig controller only requires the
+# VMAgent CRD to be present in the cluster. For local dev parity with the old
+# bundled behavior (and as a live example of the manual setup documented in
+# percona-helm-charts/charts/pmm/README.md for real PMM users), install the
+# upstream charts here and recreate the cluster-scrape resources.
 
-k8s_resource(
-  objects=[
-    '{0}:namespace'.format(EVEREST_MONITORING_NAMESPACE)
-  ],
-  new_name='everest-monitoring-namespace',
-)
-k8s_resource(
-    workload='kube-state-metrics',
-    objects=[
-        'kube-state-metrics:serviceaccount:{0}'.format(EVEREST_MONITORING_NAMESPACE),
-        'kube-state-metrics:clusterrole',
-        'kube-state-metrics:clusterrolebinding',
-        'customresource-config-ksm:configmap'
-    ],
-    resource_deps = [
-      'everest-monitoring-namespace',
-      'helm-deps',
-    ],
-    new_name='kube-state-metrics-deploy',
-    labels=["everest-monitoring"]
-)
-k8s_resource(
-    objects = [
-        'vlogs.operator.victoriametrics.com:customresourcedefinition',
-        'vmagents.operator.victoriametrics.com:customresourcedefinition',
-        'vmalertmanagerconfigs.operator.victoriametrics.com:customresourcedefinition',
-        'vmalertmanagers.operator.victoriametrics.com:customresourcedefinition',
-        'vmalerts.operator.victoriametrics.com:customresourcedefinition',
-        'vmauths.operator.victoriametrics.com:customresourcedefinition',
-        'vmclusters.operator.victoriametrics.com:customresourcedefinition',
-        'vmnodescrapes.operator.victoriametrics.com:customresourcedefinition',
-        'vmpodscrapes.operator.victoriametrics.com:customresourcedefinition',
-        'vmprobes.operator.victoriametrics.com:customresourcedefinition',
-        'vmrules.operator.victoriametrics.com:customresourcedefinition',
-        'vmscrapeconfigs.operator.victoriametrics.com:customresourcedefinition',
-        'vmservicescrapes.operator.victoriametrics.com:customresourcedefinition',
-        'vmsingles.operator.victoriametrics.com:customresourcedefinition',
-        'vmstaticscrapes.operator.victoriametrics.com:customresourcedefinition',
-        'vmusers.operator.victoriametrics.com:customresourcedefinition',
+if enable_monitoring_stack:
+    k8s_resource(
+      objects=[
+        '{0}:namespace'.format(EVEREST_MONITORING_NAMESPACE)
+      ],
+      new_name='everest-monitoring-namespace',
+    )
 
-    ],
-    new_name='vm-crds',
-    labels=["everest-monitoring"]
-)
-k8s_resource(
-    workload='vm-operator',
-    objects = [
-        'vm-operator:serviceaccount',
-        'vm-operator:role',
-        'vm-operator:clusterrole',
-        "vm-operator-victoriametrics-admin:clusterrole",
-        "vm-operator-victoriametrics-view:clusterrole",
-        'vm-operator:clusterrolebinding',
-        'vm-operator:rolebinding'
+    helm_remote(
+        'victoria-metrics-operator',
+        repo_name='vm',
+        repo_url='https://victoriametrics.github.io/helm-charts',
+        release_name='vm-operator',
+        namespace=EVEREST_MONITORING_NAMESPACE,
+        set=[
+            'fullnameOverride=vm-operator',
+            'crds.enabled=true',
+            'crds.plain=true',
+            'admissionWebhooks.enabled=false',
+            'certManager.enabled=false',
+        ],
+    )
+    k8s_resource(
+        objects = [
+            'vlogs.operator.victoriametrics.com:customresourcedefinition',
+            'vmagents.operator.victoriametrics.com:customresourcedefinition',
+            'vmalertmanagerconfigs.operator.victoriametrics.com:customresourcedefinition',
+            'vmalertmanagers.operator.victoriametrics.com:customresourcedefinition',
+            'vmalerts.operator.victoriametrics.com:customresourcedefinition',
+            'vmauths.operator.victoriametrics.com:customresourcedefinition',
+            'vmclusters.operator.victoriametrics.com:customresourcedefinition',
+            'vmnodescrapes.operator.victoriametrics.com:customresourcedefinition',
+            'vmpodscrapes.operator.victoriametrics.com:customresourcedefinition',
+            'vmprobes.operator.victoriametrics.com:customresourcedefinition',
+            'vmrules.operator.victoriametrics.com:customresourcedefinition',
+            'vmscrapeconfigs.operator.victoriametrics.com:customresourcedefinition',
+            'vmservicescrapes.operator.victoriametrics.com:customresourcedefinition',
+            'vmsingles.operator.victoriametrics.com:customresourcedefinition',
+            'vmstaticscrapes.operator.victoriametrics.com:customresourcedefinition',
+            'vmusers.operator.victoriametrics.com:customresourcedefinition',
 
-    ],
-    resource_deps = [
-      'everest-monitoring-namespace',
-      'vm-crds',
-      'helm-deps',
-    ],
-    new_name='vm-operator-deploy',
-    labels=["everest-monitoring"]
-)
+        ],
+        new_name='vm-crds',
+        labels=["everest-monitoring"]
+    )
+    k8s_resource(
+        workload='vm-operator',
+        objects = [
+            'vm-operator:serviceaccount',
+            'vm-operator:role',
+            'vm-operator:clusterrole',
+            "vm-operator-victoriametrics-admin:clusterrole",
+            "vm-operator-victoriametrics-view:clusterrole",
+            'vm-operator:clusterrolebinding',
+            'vm-operator:rolebinding'
+
+        ],
+        resource_deps = [
+          'everest-monitoring-namespace',
+          'vm-crds',
+        ],
+        new_name='vm-operator-deploy',
+        labels=["everest-monitoring"]
+    )
+
+    helm_remote(
+        'kube-state-metrics',
+        repo_name='prometheus-community',
+        repo_url='https://prometheus-community.github.io/helm-charts',
+        release_name='kube-state-metrics',
+        namespace=EVEREST_MONITORING_NAMESPACE,
+        set=[
+            'fullnameOverride=kube-state-metrics',
+        ],
+    )
+    k8s_resource(
+        workload='kube-state-metrics',
+        objects=[
+            'kube-state-metrics:serviceaccount:{0}'.format(EVEREST_MONITORING_NAMESPACE),
+            'kube-state-metrics:clusterrole',
+            'kube-state-metrics:clusterrolebinding',
+        ],
+        resource_deps = [
+          'everest-monitoring-namespace',
+        ],
+        new_name='kube-state-metrics-deploy',
+        labels=["everest-monitoring"]
+    )
+
+    # Cluster-scrape resources (kube-state-metrics, cAdvisor, kubelet, and
+    # PMM-client pods) so the VMAgent created by Everest's MonitoringConfig
+    # controller has something to collect cluster-wide. Mirrors the manifests
+    # documented in percona-helm-charts/charts/pmm/README.md.
+    vm_scrape_resources = """
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: kube-state-metrics
+  namespace: {namespace}
+spec:
+  jobLabel: app.kubernetes.io/name
+  namespaceSelector: {{}}
+  endpoints:
+    - scheme: http
+      port: http
+      honorLabels: true
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kube-state-metrics
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMNodeScrape
+metadata:
+  name: pmm-vm-cadvisor-metrics
+  namespace: {namespace}
+spec:
+  scheme: "https"
+  interval: "10s"
+  honorLabels: true
+  scrapeTimeout: "2s"
+  path: /metrics/cadvisor
+  selector: {{}}
+  tlsConfig:
+    insecureSkipVerify: true
+    caFile: "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
+  bearerTokenFile: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+  relabelConfigs:
+    - action: labelmap
+      regex: __meta_kubernetes_node_label_(.+)
+  metricRelabelConfigs:
+    - action: labeldrop
+      regex: cloud_google_com.*
+    - source_labels: [namespace, pod]
+      target_label: node_name
+      regex: (.+);(.+)
+      replacement: $1-$2
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMNodeScrape
+metadata:
+  name: pmm-vm-kubelet-metrics
+  namespace: {namespace}
+spec:
+  bearerTokenFile: /var/run/secrets/kubernetes.io/serviceaccount/token
+  honorLabels: true
+  interval: 30s
+  metricRelabelConfigs:
+    - action: labeldrop
+      regex: (uid)
+    - action: labeldrop
+      regex: (id|name)
+    - action: drop
+      regex: (rest_client_request_duration_seconds_bucket|rest_client_request_duration_seconds_sum|rest_client_request_duration_seconds_count)
+      source_labels: [__name__]
+    - action: labeldrop
+      regex: cloud_google_com.*
+  relabelConfigs:
+    - action: labelmap
+      regex: __meta_kubernetes_node_label_(.+)
+    - sourceLabels: [__metrics_path__]
+      targetLabel: metrics_path
+    - replacement: kubelet
+      targetLabel: job
+  scheme: https
+  scrapeTimeout: 5s
+  tlsConfig:
+    caFile: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    insecureSkipVerify: true
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMPodScrape
+metadata:
+  name: pmm-vm-pod-scrape
+  namespace: {namespace}
+spec:
+  podMetricsEndpoints:
+    - port: metrics
+      scheme: http
+  selector:
+    matchLabels:
+      monitored-by: vm-operator
+    """.format(namespace=EVEREST_MONITORING_NAMESPACE)
+
+    k8s_yaml(blob(vm_scrape_resources))
+    k8s_resource(
+        objects=[
+            'kube-state-metrics:vmservicescrape:{0}'.format(EVEREST_MONITORING_NAMESPACE),
+            'pmm-vm-cadvisor-metrics:vmnodescrape:{0}'.format(EVEREST_MONITORING_NAMESPACE),
+            'pmm-vm-kubelet-metrics:vmnodescrape:{0}'.format(EVEREST_MONITORING_NAMESPACE),
+            'pmm-vm-pod-scrape:vmpodscrape:{0}'.format(EVEREST_MONITORING_NAMESPACE),
+        ],
+        new_name='vm-scrape-resources',
+        resource_deps=[
+            'vm-crds',
+            'vm-operator-deploy',
+            'kube-state-metrics-deploy',
+        ],
+        labels=["everest-monitoring"]
+    )
 
 #################################
 ############ Everest ############
@@ -607,6 +752,9 @@ k8s_resource(
     'backupstorages.backup.openeverest.io:customresourcedefinition',
     'instances.core.openeverest.io:customresourcedefinition',
     'monitoringconfigs.monitoring.openeverest.io:customresourcedefinition',
+    'monitoringclasses.monitoring.openeverest.io:customresourcedefinition',
+    'monitoringdestinations.monitoring.openeverest.io:customresourcedefinition',
+    'monitoringbindings.monitoring.openeverest.io:customresourcedefinition',
     'plugins.extensions.openeverest.io:customresourcedefinition',
     'installedextensions.extensions.openeverest.io:customresourcedefinition',
     'providers.core.openeverest.io:customresourcedefinition',
