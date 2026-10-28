@@ -15,6 +15,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -163,6 +164,12 @@ type TopologyComponent struct {
 
 // SecretDefinition describes a Secret type that a provider supports.
 type SecretDefinition struct {
+	// Type is the Kubernetes Secret type of secrets created for this
+	// definition. The clients use it to encode input into Secret data.
+	// +kubebuilder:default=Opaque
+	// +optional
+	Type corev1.SecretType `json:"type,omitempty"`
+
 	// UISchema holds UI rendering hints for the secret creation form.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields

@@ -9229,6 +9229,12 @@ components:
                           parameters payload.
                         x-kubernetes-preserve-unknown-fields: true
                     type: object
+                  type:
+                    default: Opaque
+                    description: |-
+                      Type is the Kubernetes Secret type of secrets created for this
+                      definition. The clients use it to encode input into Secret data.
+                    type: string
                   uiSchema:
                     description: UISchema holds UI rendering hints for the secret
                       creation form.

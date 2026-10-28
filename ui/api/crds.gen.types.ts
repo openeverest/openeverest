@@ -6153,6 +6153,12 @@ export interface components {
                              */
                             openAPIV3Schema?: unknown;
                         };
+                        /**
+                         * @description Type is the Kubernetes Secret type of secrets created for this
+                         *     definition. The clients use it to encode input into Secret data.
+                         * @default Opaque
+                         */
+                        type?: string;
                         /** @description UISchema holds UI rendering hints for the secret creation form. */
                         uiSchema?: Record<string, never>;
                     };
