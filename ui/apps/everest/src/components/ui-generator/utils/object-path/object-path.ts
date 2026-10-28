@@ -21,7 +21,8 @@
  * "resources.limits['nvidia.com/gpu']".
  */
 
-const SIMPLE_SEGMENT = /^[A-Za-z0-9_]+$/;
+// `-` is safe in dot notation (and React Hook Form names), so it stays unquoted.
+const SIMPLE_SEGMENT = /^[A-Za-z0-9_-]+$/;
 
 /**
  * Splits a path into segments. Supports dot separators and bracket-quoted
@@ -143,6 +144,36 @@ export const joinPath = (parts: string[]): string => {
 // Plain form-field name prefixing (React Hook Form names), not canonical paths.
 export const appendPath = (base: string | undefined, path: string): string =>
   base ? `${base}.${path}` : path;
+
+// React Hook Form splits field names on `.` and `[`, so a form id can never
+// carry the canonical bracket syntax. `~` is kept for toggleable switch names.
+const FORM_SEGMENT = /^[A-Za-z0-9_~-]+$/;
+
+const encodeFormSegment = (part: string): string =>
+  encodeURIComponent(part).replace(/\./g, '%2E');
+
+/**
+ * Maps an API path to a React Hook Form safe field id (its inverse is
+ * {@link toApiPath}). Unsafe segments are percent-encoded, so the id only ever
+ * contains dots as segment separators:
+ * "resources.limits['nvidia.com/gpu']" → "resources.limits.nvidia%2Ecom%2Fgpu".
+ */
+export const toFormId = (path: string): string =>
+  parsePath(path)
+    .map((part) => (FORM_SEGMENT.test(part) ? part : encodeFormSegment(part)))
+    .join('.');
+
+// Inverse of {@link toFormId}: form id → canonical API path.
+export const toApiPath = (formId: string): string =>
+  joinPath(
+    formId.split('.').map((part) => {
+      try {
+        return decodeURIComponent(part);
+      } catch {
+        return part;
+      }
+    })
+  );
 
 /**
  * Returns canonical string prefixes for a path, including the full path.

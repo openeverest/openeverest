@@ -63,7 +63,7 @@ flowchart TD
   class TP2 planned;
 ```
 
-- **`path` | `id`** — `path` (`string` | `string[]`) writes to the API; an array is a multi-path (`[0]` is the source, all entries are targets). `id` has no API binding and is used only for validation / CEL. Dots separate path segments; a key that itself contains a dot (e.g. `nvidia.com/gpu`) must use a bracket-quoted segment: `resources.limits['nvidia.com/gpu']`.
+- **`path` | `id`** — `path` (`string` | `string[]`) writes to the API; an array is a multi-path (`[0]` is the source, all entries are targets). `id` has no API binding and is used only for validation / CEL. Dots separate path segments; a key that itself contains a dot (e.g. `nvidia.com/gpu`) must use a bracket-quoted segment: `resources.limits['nvidia.com/gpu']`. The bracket form is the **API path** only — React Hook Form splits names on `.`/`[`, so the form field name is a derived safe id (`toFormId`, e.g. `resources.limits.nvidia%2Ecom%2Fgpu`) mapped back to the API path at the defaults and submit boundaries (`toApiPath`).
 - **`dataSource.provider`** — a key in the open runtime registry (`register()`), not a closed enum.
 - **`modes?`** — `{ [FormMode]: { uiType? } }`; `import` is declared in the enum but is not used by the code.
 
@@ -221,15 +221,15 @@ classDiagram
 
 ## Cross-Cutting Concepts
 
-| Concept                        | Meaning                                                                                                                                                                                                                          | Status      |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| **FormMode**                   | `new · edit · restore · import` controls `modes` at three levels: component `uiType`, `fieldParams`, and `validation`                                                                                                            | implemented |
-| **multi-path**                 | `path: [a, b]` writes the same value to all targets                                                                                                                                                                              | implemented |
-| **bracket-quoted path segment** | `resources.limits['nvidia.com/gpu']` addresses a key containing dots; `parsePath` / `joinPath` in `utils/object-path/` is the shared tokenizer                                                                                | implemented |
-| **dataSource / API providers** | `dataSource: { provider }` names an API-backed option source; preprocess dev-validates the provider key, and at runtime `DataSourceField` loads the options through the registry (`DataSourcePrefetcher` sets defaults on mount) | implemented |
-| **CEL validation**             | Cross-field validation rules declared via `celExpressions` (with an `original` namespace available in edit mode)                                                                                                                 | implemented |
-| **CEL conditional rendering**  | Show / hide fields based on another field value through a generic mechanism                                                                                                                                                      | 🛠️          |
-| **group kernel**               | `bordered`, `toggleable` (form-only switch); planned: `collapsible`, persisted `gate` ([#3290](https://github.com/openeverest/openeverest/issues/3290)), `direction`                                                             | partial     |
+| Concept                         | Meaning                                                                                                                                                                                                                                                                  | Status      |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| **FormMode**                    | `new · edit · restore · import` controls `modes` at three levels: component `uiType`, `fieldParams`, and `validation`                                                                                                                                                    | implemented |
+| **multi-path**                  | `path: [a, b]` writes the same value to all targets                                                                                                                                                                                                                      | implemented |
+| **bracket-quoted path segment** | `resources.limits['nvidia.com/gpu']` addresses a key containing dots; `parsePath` / `joinPath` in `utils/object-path/` is the shared tokenizer; the RHF field name is a separate safe id (`toFormId` / `toApiPath`), so the bracket syntax never reaches React Hook Form | implemented |
+| **dataSource / API providers**  | `dataSource: { provider }` names an API-backed option source; preprocess dev-validates the provider key, and at runtime `DataSourceField` loads the options through the registry (`DataSourcePrefetcher` sets defaults on mount)                                         | implemented |
+| **CEL validation**              | Cross-field validation rules declared via `celExpressions` (with an `original` namespace available in edit mode)                                                                                                                                                         | implemented |
+| **CEL conditional rendering**   | Show / hide fields based on another field value through a generic mechanism                                                                                                                                                                                              | 🛠️          |
+| **group kernel**                | `bordered`, `toggleable` (form-only switch); planned: `collapsible`, persisted `gate` ([#3290](https://github.com/openeverest/openeverest/issues/3290)), `direction`                                                                                                     | partial     |
 
 ## To Consider
 
@@ -242,4 +242,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-13
+- Last updated: 2026-10-28

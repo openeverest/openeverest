@@ -239,4 +239,27 @@ describe('extractInstanceValues', () => {
       spec: { name: 'my-db', resources: { cpu: 4 } },
     });
   });
+
+  it('keys a qualified-name path by its RHF-safe form id', () => {
+    const sections: Record<string, Section> = {
+      basic: {
+        components: {
+          gpu: makeComponent("spec.resources.limits['nvidia.com/gpu']"),
+        },
+      },
+    };
+    const instance = {
+      spec: { resources: { limits: { 'nvidia.com/gpu': 2 } } },
+    };
+
+    const result = extractInstanceValues(
+      sections,
+      instance as unknown as Record<string, unknown>,
+      FormMode.Edit
+    );
+
+    expect(result).toEqual({
+      spec: { resources: { limits: { 'nvidia%2Ecom%2Fgpu': 2 } } },
+    });
+  });
 });

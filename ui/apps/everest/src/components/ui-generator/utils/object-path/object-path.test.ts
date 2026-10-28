@@ -26,6 +26,8 @@ import {
   parsePath,
   resolvePath,
   setByPath,
+  toApiPath,
+  toFormId,
 } from './object-path';
 
 describe('object-path utils', () => {
@@ -187,6 +189,34 @@ describe('object-path utils', () => {
     });
   });
 
+  describe('form ids (React Hook Form safe names)', () => {
+    it('leaves safe paths untouched, including hyphens', () => {
+      expect(toFormId('spec.replicas')).toBe('spec.replicas');
+      expect(toFormId('spec.foo-bar')).toBe('spec.foo-bar');
+      expect(toFormId('spec.g-foo')).toBe('spec.g-foo');
+    });
+
+    it('encodes dots and slashes so RHF cannot split the key', () => {
+      expect(toFormId("resources.limits['nvidia.com/gpu']")).toBe(
+        'resources.limits.nvidia%2Ecom%2Fgpu'
+      );
+      expect(toFormId("metadata.annotations['app.kubernetes.io/name']")).toBe(
+        'metadata.annotations.app%2Ekubernetes%2Eio%2Fname'
+      );
+    });
+
+    it('round-trips back to the canonical API path', () => {
+      const apiPath = "spec.annotations['app.kubernetes.io/name']";
+
+      expect(toApiPath(toFormId(apiPath))).toBe(apiPath);
+      expect(toApiPath('spec.foo-bar')).toBe('spec.foo-bar');
+    });
+
+    it('never leaves a dot inside a form segment', () => {
+      expect(toFormId("a['b.c']").split('.')).toEqual(['a', 'b%2Ec']);
+    });
+  });
+
   describe('deepClone', () => {
     it('produces an independent copy', () => {
       const source = { spec: { topology: { type: 'ha' } } };
@@ -229,6 +259,18 @@ describe('object-path utils', () => {
       expect(flattenObject({ x: 10 }, 'root')).toEqual([
         { key: 'root.x', value: 10 },
       ]);
+    });
+
+    it('keeps hyphenated keys in dot notation', () => {
+      expect(flattenObject({ 'foo-bar': 1 }, 'spec')).toEqual([
+        { key: 'spec.foo-bar', value: 1 },
+      ]);
+    });
+
+    it('bracket-quotes keys that contain dots', () => {
+      expect(
+        flattenObject({ limits: { 'nvidia.com/gpu': 2 } }, 'spec.resources')
+      ).toEqual([{ key: "spec.resources.limits['nvidia.com/gpu']", value: 2 }]);
     });
   });
 

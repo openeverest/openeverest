@@ -17,15 +17,18 @@ import type {
   ComponentGroup,
 } from 'components/ui-generator/ui-generator.types';
 import { getComponentSourcePath } from '../preprocess/normalized-component';
+import { toFormId } from '../object-path/object-path';
 
-// Uses the 'path' property if available, otherwise generates an ID from the component name
+// Uses the 'path' property if available, otherwise generates an ID from the component name.
+// The id is the React Hook Form field name, so it must never contain the
+// canonical `['a.b']` syntax (RHF would split it) — see toFormId.
 export const generateFieldId = (
   item: Component | ComponentGroup,
   generatedName: string
 ): string => {
   const sourcePath = getComponentSourcePath(item);
   if (sourcePath) {
-    return sourcePath;
+    return toFormId(sourcePath);
   }
 
   return `g-${generatedName}`;

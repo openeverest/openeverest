@@ -250,6 +250,8 @@ For [widgets](widgets.md), where the data lives is defined by each widget type.
   - Keys that themselves contain a dot (Kubernetes qualified names like `nvidia.com/gpu`,
     `app.kubernetes.io/name`) must use a bracket-quoted segment:
     `resources.limits['nvidia.com/gpu']` → `{ resources: { limits: { 'nvidia.com/gpu': value } } }`
+  - The bracket form describes the **API path**. The form field name is derived from it (dots inside
+    a key are encoded), so you never have to account for React Hook Form's own name parsing.
   - **Use relative field names — never absolute paths, and never array segments (`[]`).**
     See [Path scoping](#path-scoping).
 - **`id`**: Custom identifier used when you don’t want to include field data in the final API request, but need it for validation or conditional rendering.

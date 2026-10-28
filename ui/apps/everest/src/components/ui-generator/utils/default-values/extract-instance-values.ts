@@ -23,7 +23,7 @@ import { UI_TYPE_DEFAULT_VALUE } from 'components/ui-generator/constants';
 import { stripBadgeFromValue } from '../badge-to-api/badge-to-api';
 import { generateFieldId } from '../component-renderer/generate-field-id';
 import { getComponentSourcePath } from '../preprocess/normalized-component';
-import { getByPath } from '../object-path/object-path';
+import { getByPath, toFormId } from '../object-path/object-path';
 import { convertToNestedObject } from './convert-to-nested-object';
 import {
   getToggleableMeta,
@@ -79,7 +79,7 @@ const extractFlat = (
 
     getWidgetTargets(component).forEach(({ path }) => {
       const value = getByPath(instance, path);
-      if (value !== undefined) result[path] = value;
+      if (value !== undefined) result[toFormId(path)] = value;
     });
 
     // Try reading from instance first

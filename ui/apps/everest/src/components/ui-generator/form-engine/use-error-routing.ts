@@ -15,7 +15,7 @@
 import { useMemo } from 'react';
 import { FieldErrors } from 'react-hook-form';
 import {
-  joinPath,
+  appendPath,
   parsePath,
 } from 'components/ui-generator/utils/object-path/object-path';
 
@@ -36,7 +36,8 @@ export const flattenErrorPaths = (
   return Object.keys(obj).flatMap((key) =>
     flattenErrorPaths(
       obj[key] as Record<string, unknown>,
-      prefix ? joinPath([...parsePath(prefix), key]) : joinPath([key])
+      // RHF names are form ids, so plain dot joining is correct here.
+      appendPath(prefix, key)
     )
   );
 };
@@ -64,7 +65,7 @@ export const useErrorRouting = (
       // Try full path first, then progressively shorter prefixes.
       const parts = parsePath(path);
       for (let i = parts.length; i > 0; i--) {
-        const prefix = joinPath(parts.slice(0, i));
+        const prefix = parts.slice(0, i).join('.');
         if (prefix in fieldToStepMap) {
           stepsSet.add(fieldToStepMap[prefix]);
           break;

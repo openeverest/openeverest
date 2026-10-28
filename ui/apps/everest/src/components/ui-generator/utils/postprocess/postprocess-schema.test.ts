@@ -284,4 +284,30 @@ describe('postprocessSchemaData', () => {
       },
     });
   });
+
+  it('restores API keys from form ids, keeping qualified names intact', () => {
+    const formValues = {
+      spec: {
+        resources: {
+          limits: {
+            'nvidia%2Ecom%2Fgpu': '2',
+            cpu: '1',
+          },
+        },
+        'foo-bar': 'kept',
+      },
+    } as Record<string, unknown>;
+
+    expect(postprocessSchemaData(formValues)).toEqual({
+      spec: {
+        resources: {
+          limits: {
+            'nvidia.com/gpu': '2',
+            cpu: '1',
+          },
+        },
+        'foo-bar': 'kept',
+      },
+    });
+  });
 });

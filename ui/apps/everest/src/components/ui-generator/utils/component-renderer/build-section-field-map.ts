@@ -15,7 +15,7 @@
 import type { Section } from '../../ui-generator.types';
 import { generateFieldId } from './generate-field-id';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
-import { parsePath, joinPath } from '../object-path/object-path';
+import { parsePath, joinPath, toFormId } from '../object-path/object-path';
 import { walkLeafComponents } from '../schema-walker';
 
 export const buildSectionFieldMap = (
@@ -37,6 +37,10 @@ export const buildSectionFieldMap = (
           if (!path || typeof path !== 'string') return;
 
           map[path] = sectionKey;
+          // Form names and canonical paths differ from the authored path for
+          // unsafe keys; errors arrive keyed by the form id.
+          const formId = toFormId(path);
+          map[formId] = sectionKey;
           const canonical = joinPath(parsePath(path));
           if (canonical !== path) {
             map[canonical] = sectionKey;
@@ -48,6 +52,13 @@ export const buildSectionFieldMap = (
           const parts = parsePath(path);
           for (let i = 1; i < parts.length; i++) {
             const prefix = joinPath(parts.slice(0, i));
+            if (!(prefix in map)) {
+              map[prefix] = sectionKey;
+            }
+          }
+          const formParts = parsePath(formId);
+          for (let i = 1; i < formParts.length; i++) {
+            const prefix = formParts.slice(0, i).join('.');
             if (!(prefix in map)) {
               map[prefix] = sectionKey;
             }

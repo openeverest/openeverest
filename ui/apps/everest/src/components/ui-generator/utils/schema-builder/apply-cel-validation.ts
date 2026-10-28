@@ -19,6 +19,8 @@ import {
   deepClone,
   deleteByPathAndEmptyParents,
   isPlainObject,
+  parsePath,
+  toFormId,
 } from '../object-path/object-path';
 import { getSwitchedOffPaths, isToggleableOn } from '../toggleable/toggleable';
 import type { CelExpValidation } from './schema-builder.types';
@@ -33,7 +35,8 @@ const withoutSwitchedOffFields = (
   if (offPaths.length === 0) return data;
   const visible = deepClone(data);
   offPaths.forEach((path) => {
-    const [root, ...rest] = path.split('.');
+    // `data` is the form state, keyed by form ids.
+    const [root, ...rest] = parsePath(toFormId(path));
     const scope = visible[root];
     // Keep the root (e.g. `spec`): CEL fails on an unknown variable, not on an absent field.
     if (isPlainObject(scope) && rest.length > 0) {
