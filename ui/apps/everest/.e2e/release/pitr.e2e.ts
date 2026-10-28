@@ -361,10 +361,6 @@ test.describe.serial(
       // spec.components.monitoring in favour of MonitoringDestination
       // (openeverest/provider-percona-xtradb-cluster#46). Restore monitoring
       // coverage here once core and the UI support MonitoringDestination.
-      await test.step('Populate proxy', async () => {
-        await expect(page.getByTestId('step-header')).toHaveText('Proxy');
-        await moveForward(page);
-      });
 
       await test.step('Populate advanced db config', async () => {
         if (db === 'pxc') {
