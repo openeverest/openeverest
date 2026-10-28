@@ -188,16 +188,14 @@ function getNextScheduleMinute(incrementMinutes: number): string {
               page.getByTestId('text-input-monitoring-instance')
             ).toHaveValue(monitoringName);
           } else {
-            const proxyHeading = page.getByRole('heading', { name: 'Proxy' });
-            const monitoringPreview = page.getByText(
-              `Monitoring endpoint: ${monitoringName}`
-            );
-
-            if (await proxyHeading.isVisible().catch(() => false)) {
-              await expect(proxyHeading).toBeVisible();
-            } else {
-              await expect(monitoringPreview).toBeVisible();
-            }
+            // TODO(monitoring): the PXC provider dropped the wizard Monitoring
+            // step and spec.components.monitoring in favour of
+            // MonitoringDestination (openeverest/provider-percona-xtradb-cluster#46),
+            // so the wizard goes straight to Proxy. Restore monitoring coverage
+            // once core and the UI support MonitoringDestination.
+            await expect(
+              page.getByRole('heading', { name: 'Proxy' })
+            ).toBeVisible();
             await moveForward(page);
           }
         });

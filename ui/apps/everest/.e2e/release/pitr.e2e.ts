@@ -147,9 +147,6 @@ test.describe.serial(
 
     const clusterName = `${db}-${size}-pitr`;
     const namespace = EVEREST_CI_NAMESPACES.EVEREST_UI;
-    // monitoring-config.setup creates one endpoint per bucket namespace as
-    // e2e-endpoint-<idx>; the single everest namespace yields e2e-endpoint-0.
-    const monitoringName = 'e2e-endpoint-0';
     const baseBackupName = `dembkp-${db}-${size}`;
     let storageClasses: string[] = [];
 
@@ -360,46 +357,15 @@ test.describe.serial(
         await moveForward(page);
       });
 
-      await test.step('Populate monitoring', async () => {
-        if (db !== 'pxc') {
-          await page.getByTestId('switch-input-monitoring').click();
-          await page
-            .getByTestId('text-input-monitoring-instance')
-            .fill(monitoringName);
-          await expect(
-            page.getByTestId('text-input-monitoring-instance')
-          ).toHaveValue(monitoringName);
-        } else {
-          const monitoringInput = page.getByTestId(
-            'text-input-monitoring-instance'
-          );
-          const proxyHeading = page.getByRole('heading', { name: 'Proxy' });
-          const monitoringPreview = page.getByText(/Monitoring endpoint:/i);
-
-          if (await monitoringInput.isVisible().catch(() => false)) {
-            await monitoringInput.click();
-            const monitoringOption = page
-              .getByRole('option')
-              .filter({ hasText: monitoringName })
-              .first();
-
-            if (await monitoringOption.isVisible().catch(() => false)) {
-              await monitoringOption.click();
-            } else {
-              await monitoringInput.fill(monitoringName);
-              await page.getByRole('option').first().click();
-            }
-
-            await expect(monitoringInput).toHaveValue(monitoringName);
-          }
-
-          if (await proxyHeading.isVisible().catch(() => false)) {
-            await expect(proxyHeading).toBeVisible();
-          } else {
-            await expect(monitoringPreview).toBeVisible();
-          }
-          await moveForward(page);
-        }
+      // TODO(monitoring): the PXC provider dropped the wizard Monitoring step and
+      // spec.components.monitoring in favour of MonitoringDestination
+      // (openeverest/provider-percona-xtradb-cluster#46). Restore monitoring
+      // coverage here once core and the UI support MonitoringDestination.
+      await test.step('Populate proxy', async () => {
+        await expect(
+          page.getByRole('heading', { name: 'Proxy' })
+        ).toBeVisible();
+        await moveForward(page);
       });
 
       await test.step('Populate advanced db config', async () => {
@@ -413,95 +379,6 @@ test.describe.serial(
 
       await test.step('Submit wizard', async () => {
         await submitWizard(page);
-      });
-
-      await test.step('Ensure monitoring endpoint in Instance spec', async () => {
-        const instancePath = `/v1/clusters/main/namespaces/${namespace}/instances/${clusterName}`;
-
-        const instanceResponse = await expect
-          .poll(
-            async () => {
-              const response = await request.get(instancePath, {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              });
-
-              if (response.status() !== 200) {
-                return null;
-              }
-
-              return response.json();
-            },
-            {
-              timeout: 120000,
-              intervals: [2000, 5000, 5000],
-            }
-          )
-          .toBeTruthy();
-
-        const instanceBody = await request
-          .get(instancePath, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          })
-          .then((response) => response.json());
-
-        const currentMonitoringName =
-          instanceBody?.spec?.components?.monitoring?.parameters
-            ?.monitoringConfigName;
-
-        if (currentMonitoringName !== monitoringName) {
-          const updatedBody = {
-            ...instanceBody,
-            spec: {
-              ...instanceBody.spec,
-              components: {
-                ...instanceBody.spec?.components,
-                monitoring: {
-                  ...instanceBody.spec?.components?.monitoring,
-                  parameters: {
-                    ...instanceBody.spec?.components?.monitoring?.parameters,
-                    monitoringConfigName: monitoringName,
-                  },
-                },
-              },
-            },
-          };
-
-          const updateResponse = await request.put(instancePath, {
-            data: updatedBody,
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          expect(updateResponse.status()).toBe(200);
-
-          await expect
-            .poll(
-              async () => {
-                const response = await request.get(instancePath, {
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                  },
-                });
-                if (response.status() !== 200) {
-                  return '';
-                }
-                const body = await response.json();
-                return (
-                  body?.spec?.components?.monitoring?.parameters
-                    ?.monitoringConfigName || ''
-                );
-              },
-              {
-                timeout: 60000,
-                intervals: [2000, 5000, 5000],
-              }
-            )
-            .toBe(monitoringName);
-        }
       });
 
       await test.step('Check db list and status', async () => {
