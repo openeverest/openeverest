@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -47,7 +48,9 @@ export const useDBEnginesForNamespaces = (
   const queries = namespaces.map<
     UseQueryOptions<DbEngine[], unknown, DbEngine[]>
   >((namespace) => ({
-    queryKey: ['dbEngines-multi', namespace],
+    queryKey: retrieveUpgradingEngines
+      ? ['dbEngines-multi', namespace, 'with-upgrading']
+      : ['dbEngines-multi', namespace],
     // We don't use "select" here so that our cache saves data already formatted
     // Otherwise, every render from components cause "select" to be called, which means new values on every render
     queryFn: async () => {
