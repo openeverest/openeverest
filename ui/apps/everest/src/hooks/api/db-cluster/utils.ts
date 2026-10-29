@@ -16,7 +16,6 @@ import { DbType } from '@percona/types';
 import { dbTypeToProxyType } from '@percona/utils';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
 import {
-  DataSource,
   Proxy,
   ProxyExposeConfig,
   ProxyExposeType,
@@ -81,24 +80,4 @@ export const getProxySpec = (
       sourceRanges
     ),
   };
-};
-
-export const getDataSource = ({
-  backupDataSource,
-}: {
-  backupDataSource?: DataSource;
-}) => {
-  let dataSource = {};
-  if (backupDataSource?.dbClusterBackupName) {
-    dataSource = {
-      dbClusterBackupName: backupDataSource.dbClusterBackupName,
-      ...(backupDataSource?.pitr && {
-        pitr: {
-          date: backupDataSource.pitr.date,
-          type: 'date',
-        },
-      }),
-    };
-  }
-  return dataSource;
 };
