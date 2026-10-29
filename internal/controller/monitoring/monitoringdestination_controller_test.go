@@ -224,7 +224,8 @@ func TestDestinationReconcilerEnqueuesDestinationsUsingSecret(t *testing.T) {
 	assert.ElementsMatch(t, []reconcile.Request{
 		{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "pmm-prod"}},
 		{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: "pmm-ca"}},
-	}, requests)
+	}, requests,
+	)
 }
 
 func TestDestinationReconcilerEnqueuesDestinationsOfClass(t *testing.T) {
