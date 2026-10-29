@@ -26,7 +26,10 @@ import { BackupStorageFormValues } from 'shared-types/backupStorages.types';
 import { useRBACPermissions } from 'hooks/rbac';
 import { useClusterName } from 'hooks/api/useClusterName';
 
-const BackupsActionableAlert = ({ namespace }: BackupsActionableAlertProps) => {
+const BackupsActionableAlert = ({
+  namespace,
+  message = Messages.noStoragesMessage,
+}: BackupsActionableAlertProps) => {
   const [openCreateEditModal, setOpenCreateEditModal] = useState(false);
   const { mutate: createBackupStorage, isPending: creatingBackupStorage } =
     useCreateBackupStorage();
@@ -51,7 +54,7 @@ const BackupsActionableAlert = ({ namespace }: BackupsActionableAlertProps) => {
   return (
     <>
       <ActionableAlert
-        message={Messages.noStoragesMessage}
+        message={message}
         buttonMessage={Messages.addStorage}
         data-testid="no-storage-message"
         onClick={() => setOpenCreateEditModal(true)}

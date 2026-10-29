@@ -42,15 +42,25 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
     { enabled: hasValidContext }
   );
 
+  const providerEntry = useMemo(
+    () => providerRegistry.get(dataSource.provider),
+    [dataSource.provider]
+  );
+  const autoSelect = !!providerEntry?.autoSelect;
+
   useEffect(() => {
     if (isLoading || !name) return;
 
-    const nextValue = getReconciledDataSourceValue(getValues(name), options);
+    const nextValue = getReconciledDataSourceValue(
+      getValues(name),
+      options,
+      autoSelect
+    );
 
     if (nextValue !== null) {
       setValue(name, nextValue, { shouldValidate: true });
     }
-  }, [isLoading, options, name, getValues, setValue]);
+  }, [isLoading, options, name, autoSelect, getValues, setValue]);
 
   const patchedItem = useMemo(() => {
     const originalHelperText = (
@@ -79,10 +89,8 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
     } as Component;
   }, [baseComponent, options, isLoading, error, isEmpty]);
 
-  const FallbackComponent = useMemo(() => {
-    const entry = providerRegistry.get(dataSource.provider);
-    return entry?.emptyStateFallback?.component ?? null;
-  }, [dataSource.provider]);
+  const FallbackComponent =
+    providerEntry?.emptyStateFallback?.component ?? null;
 
   const showFallback =
     isEmpty && !isLoading && !!FallbackComponent && !!namespace;

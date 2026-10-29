@@ -15,16 +15,31 @@
 import { providerRegistry } from './registry';
 import { useMonitoringConfigsOptions } from 'hooks/api/monitoring/useMonitoringConfigsOptions';
 import { useStorageClassesOptions } from 'hooks/api/kubernetesClusters/useStorageClassesOptions';
-import { MonitoringEmptyFallback } from './fallbacks';
+import { useBackupStoragesOptions } from 'hooks/api/backup-storages/useBackupStoragesOptions';
+import {
+  BackupStoragesEmptyFallback,
+  MonitoringEmptyFallback,
+} from './fallbacks';
 
 providerRegistry.register('monitoringConfigs', {
   description: 'MonitoringConfig names in the current namespace.',
   useOptions: useMonitoringConfigsOptions,
   emptyStateFallback: { component: MonitoringEmptyFallback },
+  autoSelect: true,
 });
 
 providerRegistry.register('storageClasses', {
   description: 'StorageClass names available on the cluster.',
   useOptions: useStorageClassesOptions,
   emptyStateFallback: null,
+  autoSelect: true,
+});
+
+providerRegistry.register('backupStorages', {
+  description:
+    'BackupStorage (storage location) names in the current namespace.',
+  useOptions: useBackupStoragesOptions,
+  emptyStateFallback: { component: BackupStoragesEmptyFallback },
+  // Optional reference: empty is a valid choice (e.g. the provider's bundled store).
+  autoSelect: false,
 });

@@ -22,7 +22,7 @@ flowchart TD
 **Files:** `utils/preprocess/`
 **Input:** raw `TopologyUISchemas` + `Provider` object. **Output:** normalized sections.
 
-- **`preprocessSchema(schema, provider, formMode?)`** — for each component:
+- **`preprocessSchema(schema, provider)`** — for each component:
   - **`withNormalizedPathMeta`** → `_normalized.sourcePath` / `targetPaths` (parses `path` — a string
     or an array for multi-path). This is the only place paths are parsed.
   - **`resolveSelectOptions`** — `optionsPath` → static `options[]` (reads the array from the Provider
@@ -36,15 +36,8 @@ flowchart TD
     never change it. The group degrades to `bordered` (dev warning) if a key is outside
     `[A-Za-z0-9_-]`, it has no path-bound fields, it is nested in another toggleable, or a field
     outside it writes one of its paths.
-  - **`findUnguardedCelReferences`** (`utils/toggleable/find-unguarded-cel-references.ts`) —
-    warns (dev-time) when a CEL rule outside a working toggleable reads one of its paths without
-    `has()` on that exact path: while the group is off the path is absent and the rule fails.
-  - The Go validator `provider-runtime/uischema` applies the same toggleable rules to provider schemas;
-    `provider-runtime/uischema/testdata/toggleable.yaml` is the case set both are tested against.
 - **`applyModeOverrides(sections, formMode)`** (`apply-mode-overrides.ts`) — applies `modes` overrides
-  for the current `FormMode`. `preprocessSchema` runs it last when given a `formMode`: the create
-  wizard (`useSchema`) passes its mode, so defaults, validation, render and postprocess all see the
-  same fields. The section edit modal calls it directly.
+  for the current `FormMode`.
 
 **Principle:** after this stage the tree is ready — nothing parses paths again.
 
@@ -53,8 +46,7 @@ flowchart TD
 **Files:** `utils/schema-builder/`
 **Input:** normalized sections. **Output:** `z.ZodTypeAny` for `zodResolver` (react-hook-form).
 
-- **`buildZodSchema(schema, topology, options?)`** — full wizard. `useUiGenerator` passes the
-  wizard's `formMode`, which selects the `validation.modes` branch.
+- **`buildZodSchema(schema, topology, options?)`** — full wizard.
 - **`buildSectionZodSchema(sectionKey, sections, options?)`** — section edit modal: rules are built
   only for the target section, the root uses `.passthrough()`, but **CEL is collected from all
   sections** (cross-field rules).
@@ -82,16 +74,13 @@ flowchart TD
 **Files:** `utils/default-values/`
 **Output:** a `defaultValues` object for `useForm`.
 
-- Collects initial values from `fieldParams.defaultValue` (create). A `secret` field never takes
-  one: a Secret is namespaced, while the schema is cluster-wide (`getSchemaDefault`).
+- Collects initial values from `fieldParams.defaultValue` (create).
 - **Topology switch** (create wizard, no preset) — `useDatabaseFormSync` drops the previous
   topology's values with `dropOtherTopologyValues` (`utils/topology-scope/`), then merges the new
   topology's defaults over the rest (`mergeTopologyDefaults`). Switching back therefore starts from
   defaults, not stale values.
-- **`extractInstanceValues`** — reads values from the instance (by `sourcePath`). In edit it uses
-  **only** the instance, so edit doesn't inject defaults; in restore and for a preset it falls back
-  to schema defaults. A field hidden in the mode has no `sourcePath`, so restore doesn't copy its
-  value from the source.
+- **`extractInstanceValues`** — in edit/restore, reads values **only from the instance** (by
+  `sourcePath`), **without** schema defaults (so edit doesn't inject defaults).
 - **Toggleable switches** — `false` on create; when values come from an instance or preset, on
   if any of the group's `childPaths` has a value.
 
@@ -99,19 +88,13 @@ flowchart TD
 
 **Files:** `ui-generator.tsx`, `utils/component-renderer/`, `ui-component/`, `api-providers/`
 
-- **`<UIGenerator sectionKey sections root providerObject formMode namespace />`** — entry component.
-  - **`root`** (optional) — the form path where the host mounts the section's own object, e.g. a
-    secret's data at `stringData`. Field names and toggleable switches become `<root>.<path>`. The
-    other stages stay relative, so the host nests the section's zod schema and defaults under
-    `root`, prefixes `celDependencyGroups` with it, and postprocesses `formData[root]`.
-- **`UiGeneratorProvider`** (context) — provides `provider`, `formMode`, `namespace`, `root`, and
-  loading down the tree, plus `generator` (the UIGenerator itself) so a field that embeds a form,
-  like the secret field's create modal, renders it without depending on UIGenerator directly (a
-  circular dependency).
+- **`<UIGenerator sectionKey sections providerObject formMode namespace />`** — root.
+- **`UiGeneratorProvider`** (context) — provides `provider`, `formMode`, `namespace`, and loading
+  down the tree.
 - **`orderComponents(components, componentsOrder)`** — field order.
-- **`renderComponent({ item, name, root })`** — recursive traversal:
+- **`renderComponent({ item, name })`** — recursive traversal:
   - `group` / `hidden` → recurse into nested `components`;
-  - leaf → `generateFieldId(item, name)` joined with `root` (form field name) →
+  - leaf → `generateFieldId(item, name)` (form field name) →
     - has `dataSource` → `<ComponentErrorBoundary><DataSourceField><UIComponent/></DataSourceField></ComponentErrorBoundary>`
       (the wrapper loads options through `api-providers/registry` and sets a default via `useEffect`);
     - otherwise → `<ComponentErrorBoundary><UIComponent/></ComponentErrorBoundary>`.
@@ -129,9 +112,9 @@ flowchart TD
 ```mermaid
 flowchart TD
   REG["1. Registry<br/>api-providers/registry.ts<br/>register(key, entry)<br/>useProviderOptions(key, params)"]
-  PROVIDERS["2. Provider registrations<br/>api-providers/providers.ts<br/>monitoringConfigs<br/>storageClasses"]
+  PROVIDERS["2. Provider registrations<br/>api-providers/providers.ts<br/>monitoringConfigs<br/>storageClasses<br/>backupStorages"]
   RUNTIME["3. Runtime"]
-  PREFETCH["DataSourcePrefetcher<br/>prefetches options per provider<br/>sets defaults on form mount"]
+  PREFETCH["DataSourcePrefetcher<br/>prefetches options per provider<br/>sets defaults on form mount<br/>(autoSelect providers only)"]
   FIELD["DataSourceField<br/>wraps one select<br/>patches fieldParams.options<br/>handles loading/error/empty states"]
 
   PROVIDERS --> REG
@@ -147,13 +130,6 @@ mount and `DataSourceField` when the specific field renders. Both check the curr
 
 `DataSourcePrefetcher` skips fields of switched-off `toggleable` groups, so a disabled section
 triggers no request.
-
-### Secret fields on a namespace switch
-
-The create wizard mounts only the active step, so a `secret` field misses a namespace switch on
-the first step. `SecretNamespaceSync`, mounted next to `DataSourcePrefetcher` while no preset is
-selected, lists the definition's secrets in the new namespace and clears picks it doesn't have.
-Read-only and disabled fields keep their value.
 
 ## 5. Postprocess
 
@@ -261,7 +237,6 @@ components:
 | API provider registrations | `api-providers/providers.ts`                               |
 | DataSourceField            | `api-providers/data-source-field/data-source-field.tsx`    |
 | DataSourcePrefetcher       | `api-providers/data-source-prefetcher.tsx`                 |
-| SecretNamespaceSync        | `secret-field/secret-namespace-sync.tsx`                   |
 | Error boundary             | `component-error-boundary/component-error-boundary.tsx`    |
 | Monitoring options hook    | `hooks/api/monitoring/useMonitoringConfigsOptions.ts`      |
 | Storage classes hook       | `hooks/api/kubernetesClusters/useStorageClassesOptions.ts` |
@@ -270,4 +245,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-23
+- Last updated: 2026-10-28

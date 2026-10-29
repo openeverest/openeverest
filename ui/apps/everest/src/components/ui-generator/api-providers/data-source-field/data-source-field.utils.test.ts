@@ -22,34 +22,50 @@ describe('getReconciledDataSourceValue', () => {
   ];
 
   it('returns first option when value is empty and options are available', () => {
-    expect(getReconciledDataSourceValue('', options)).toBe('first');
+    expect(getReconciledDataSourceValue('', options, true)).toBe('first');
   });
 
   it('returns first option when value is undefined and options are available', () => {
-    expect(getReconciledDataSourceValue(undefined, options)).toBe('first');
+    expect(getReconciledDataSourceValue(undefined, options, true)).toBe(
+      'first'
+    );
   });
 
   it('returns first option when value is null and options are available', () => {
-    expect(getReconciledDataSourceValue(null, options)).toBe('first');
+    expect(getReconciledDataSourceValue(null, options, true)).toBe('first');
   });
 
   it('returns null when current value is valid', () => {
-    expect(getReconciledDataSourceValue('second', options)).toBeNull();
+    expect(getReconciledDataSourceValue('second', options, true)).toBeNull();
   });
 
   it('returns first option when current value is invalid', () => {
-    expect(getReconciledDataSourceValue('stale', options)).toBe('first');
+    expect(getReconciledDataSourceValue('stale', options, true)).toBe('first');
   });
 
   it('returns empty string when value is invalid and options are empty', () => {
-    expect(getReconciledDataSourceValue('stale', [])).toBe('');
+    expect(getReconciledDataSourceValue('stale', [], true)).toBe('');
   });
 
   it('returns null when value is empty and options are empty', () => {
-    expect(getReconciledDataSourceValue('', [])).toBeNull();
+    expect(getReconciledDataSourceValue('', [], true)).toBeNull();
   });
 
   it('returns first option when current value is non-string and options are available', () => {
-    expect(getReconciledDataSourceValue(123, options)).toBe('first');
+    expect(getReconciledDataSourceValue(123, options, true)).toBe('first');
+  });
+
+  describe('with autoSelect disabled', () => {
+    it('keeps an empty value empty', () => {
+      expect(getReconciledDataSourceValue('', options, false)).toBeNull();
+      expect(
+        getReconciledDataSourceValue(undefined, options, false)
+      ).toBeNull();
+    });
+
+    it('keeps a value that is missing from the options', () => {
+      expect(getReconciledDataSourceValue('stale', options, false)).toBeNull();
+      expect(getReconciledDataSourceValue('stale', [], false)).toBeNull();
+    });
   });
 });

@@ -41,6 +41,9 @@ export interface ProviderRegistryEntry {
   useOptions: (params: ProviderParams) => ProviderOptions;
   description: string;
   emptyStateFallback: EmptyStateFallback | null;
+  // Fill an empty field with the first option and replace a value missing from
+  // the list. Disable for optional references where empty is a valid choice.
+  autoSelect: boolean;
   // TODO: Add lifecycle hooks — beforeFetch, afterFetch, onError
   // TODO: Add optional `validate` callback for dev-time schema validation
 }

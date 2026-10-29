@@ -48,6 +48,16 @@ providerRegistry.register(PROVIDER, {
   description: 'Test provider',
   useOptions,
   emptyStateFallback: null,
+  autoSelect: true,
+});
+
+const NO_AUTO_SELECT_PROVIDER = 'prefetchTestOptionalRefs';
+
+providerRegistry.register(NO_AUTO_SELECT_PROVIDER, {
+  description: 'Test provider without auto-selection',
+  useOptions,
+  emptyStateFallback: null,
+  autoSelect: false,
 });
 
 const monitoringGroup: ComponentGroup = {
@@ -142,5 +152,32 @@ describe('DataSourcePrefetcher - toggleable groups', () => {
       expect(form.getValues('spec.storage.configName')).toBe('pmm')
     );
     expect(form.getValues('spec.monitoring.configName')).toBe('');
+  });
+});
+
+describe('DataSourcePrefetcher - autoSelect', () => {
+  it('leaves fields of a provider without autoSelect empty', async () => {
+    const optionalRefSections: Record<string, Section> = preprocessSchema({
+      replicaSet: {
+        sections: {
+          storage: {
+            components: {
+              storageLocation: {
+                uiType: FieldType.Select,
+                path: 'spec.storage.configName',
+                dataSource: { provider: NO_AUTO_SELECT_PROVIDER },
+                fieldParams: { label: 'Storage location' },
+              },
+            },
+          },
+        },
+      },
+    }).replicaSet.sections;
+
+    useOptions.mockClear();
+    const form = renderPrefetcher(false, optionalRefSections);
+
+    await waitFor(() => expect(useOptions).toHaveBeenCalled());
+    expect(form.getValues('spec.storage.configName')).toBe('');
   });
 });
