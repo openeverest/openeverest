@@ -20,16 +20,42 @@ import {
   can,
   canAll,
   RBACAction,
+  RBACStandardAction,
   AuthorizerObservable,
   RBACResource,
   toRBACObject,
 } from 'utils/rbac';
 
+// Runs the check now and on every policy change. Permissions start denied, so
+// the flag tells "denied" from "not checked yet".
+const useAuthorizerCheck = (check: () => Promise<void>) => {
+  const [isPermissionsLoading, setIsPermissionsLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    setIsPermissionsLoading(true);
+    AuthorizerObservable.subscribe(check);
+    check().finally(() => {
+      if (active) {
+        setIsPermissionsLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+      AuthorizerObservable.unsubscribe(check);
+    };
+  }, [check]);
+
+  return isPermissionsLoading;
+};
+
 export const useRBACPermissions = (
   resource: RBACResource,
   specificResources: string | string[] = '*'
 ) => {
-  const [permissions, setPermissions] = useState<Record<RBACAction, boolean>>({
+  const [permissions, setPermissions] = useState<
+    Record<RBACStandardAction, boolean>
+  >({
     read: false,
     update: false,
     create: false,
@@ -41,7 +67,8 @@ export const useRBACPermissions = (
     const objects = (
       Array.isArray(specificResources) ? specificResources : [specificResources]
     ).map((o) => toRBACObject(resource, o, cluster));
-    const check = (action: RBACAction) => canAll(action, resource, objects);
+    const check = (action: RBACStandardAction) =>
+      canAll(action, resource, objects);
     const [canRead, canUpdate, canDelete, canCreate] = await Promise.all([
       check('read'),
       check('update'),
@@ -57,43 +84,60 @@ export const useRBACPermissions = (
     });
   }, [cluster, resource, specificResources]);
 
-  useEffect(() => {
-    checkPermissions();
-    AuthorizerObservable.subscribe(checkPermissions);
-
-    return () => AuthorizerObservable.unsubscribe(checkPermissions);
-  }, [checkPermissions]);
+  const isPermissionsLoading = useAuthorizerCheck(checkPermissions);
 
   return {
     canRead: permissions.read,
     canUpdate: permissions.update,
     canDelete: permissions.delete,
     canCreate: permissions.create,
+    isPermissionsLoading,
   };
+};
+
+// Actions beyond CRUD belong to one resource (e.g. instances:read-connection),
+// so they are checked on demand instead of in every useRBACPermissions call.
+export const useRBACAction = (
+  action: RBACAction,
+  resource: RBACResource,
+  specificResource: string
+) => {
+  const [isAllowed, setIsAllowed] = useState(false);
+  const cluster = useClusterName();
+
+  const checkPermission = useCallback(async () => {
+    setIsAllowed(
+      await can(
+        action,
+        resource,
+        toRBACObject(resource, specificResource, cluster)
+      )
+    );
+  }, [action, cluster, resource, specificResource]);
+
+  const isPermissionsLoading = useAuthorizerCheck(checkPermission);
+
+  return { isAllowed, isPermissionsLoading };
 };
 
 export const useNamespacePermissionsForResource = (
   resource: RBACResource,
   specificResource = '*'
 ) => {
-  const [permissions, setPermissions] = useState<Record<RBACAction, string[]>>({
+  const [permissions, setPermissions] = useState<
+    Record<RBACStandardAction, string[]>
+  >({
     read: [],
     update: [],
     create: [],
     delete: [],
   });
-  // Whether the async permission check for the current namespaces has resolved
-  // at least once. Consumers gate UI on this to avoid flashing a pre-resolution
-  // state (e.g. a "no permissions" empty state on remount when namespaces are
-  // already cached and the check hasn't run yet).
-  const [isPermissionsLoading, setIsPermissionsLoading] = useState(true);
-
   const cluster = useClusterName();
   const queryResult = useNamespaces();
   const { data: namespaces } = queryResult;
 
   const checkPermissions = useCallback(async () => {
-    const newPermissions: Record<RBACAction, string[]> = {
+    const newPermissions: Record<RBACStandardAction, string[]> = {
       read: [],
       update: [],
       create: [],
@@ -102,11 +146,17 @@ export const useNamespacePermissionsForResource = (
     const permissionsPromisesArr: Promise<void>[] = [];
 
     if (namespaces) {
+      const actions: RBACStandardAction[] = [
+        'read',
+        'update',
+        'delete',
+        'create',
+      ];
       for (const namespace of namespaces) {
-        ['read', 'update', 'delete', 'create'].forEach((action) => {
+        for (const action of actions) {
           permissionsPromisesArr.push(
             can(
-              action as RBACAction,
+              action,
               resource,
               toRBACObject(
                 resource,
@@ -115,31 +165,20 @@ export const useNamespacePermissionsForResource = (
               )
             ).then((canDo) => {
               if (canDo) {
-                newPermissions[action as RBACAction].push(namespace);
+                newPermissions[action].push(namespace);
               }
             })
           );
-        });
+        }
       }
     }
     await Promise.all(permissionsPromisesArr);
     setPermissions(newPermissions);
   }, [cluster, namespaces, resource, specificResource]);
 
-  useEffect(() => {
-    let active = true;
-    setIsPermissionsLoading(true);
-    AuthorizerObservable.subscribe(checkPermissions);
-    checkPermissions().finally(() => {
-      if (active) {
-        setIsPermissionsLoading(false);
-      }
-    });
-    return () => {
-      active = false;
-      AuthorizerObservable.unsubscribe(checkPermissions);
-    };
-  }, [checkPermissions]);
+  // Consumers gate UI on this to avoid flashing a "no permissions" state when
+  // namespaces are already cached and the check hasn't run yet.
+  const isPermissionsLoading = useAuthorizerCheck(checkPermissions);
 
   return {
     canRead: permissions.read,

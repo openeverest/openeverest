@@ -14,8 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ImportFields } from 'components/cluster-form/import/import.types';
-
 export const IP_REGEX =
   /^([0-9]{1,3}\.){3}[0-9]{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$/;
 
@@ -50,7 +48,6 @@ export enum DbWizardForm {
 }
 
 export const DbWizardFormFields = {
-  ...ImportFields,
   ...DbWizardForm,
 };
 

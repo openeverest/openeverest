@@ -2254,38 +2254,45 @@ spec:
                               properties:
                                 ca:
                                   description: |-
-                                    CA selects the Secret key in the Instance's namespace holding the CA
-                                    bundle.
+                                    CA is the PEM bundle the server certificate is verified against,
+                                    instead of the system trust store.
+                                  minProperties: 1
                                   properties:
-                                    key:
-                                      description: The key of the secret to select
-                                        from.  Must be a valid secret key.
-                                      type: string
-                                    name:
-                                      default: ""
-                                      description: |-
-                                        Name of the referent.
-                                        This field is effectively required, but due to backwards compatibility is
-                                        allowed to be empty. Instances of this type with an empty value here are
-                                        almost certainly wrong.
-                                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                      type: string
-                                    optional:
-                                      description: Specify whether the Secret or its
-                                        key must be defined
-                                      type: boolean
-                                  required:
-                                  - key
+                                    secretKeyRef:
+                                      description: SecretKeyRef selects the Secret
+                                        key holding the PEM bundle.
+                                      properties:
+                                        key:
+                                          description: Key within the Secret.
+                                          maxLength: 253
+                                          minLength: 1
+                                          pattern: ^[-._a-zA-Z0-9]+$
+                                          type: string
+                                        name:
+                                          description: Name of the referenced Secret.
+                                          maxLength: 253
+                                          minLength: 1
+                                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                          type: string
+                                      required:
+                                      - key
+                                      - name
+                                      type: object
+                                      x-kubernetes-map-type: atomic
                                   type: object
-                                  x-kubernetes-map-type: atomic
                                 insecureSkipVerify:
-                                  description: InsecureSkipVerify disables verification.
+                                  description: InsecureSkipVerify disables verification
+                                    of the server certificate.
                                   type: boolean
                                 serverName:
                                   description: ServerName overrides the expected server
                                     name.
                                   type: string
                               type: object
+                              x-kubernetes-validations:
+                              - message: ca and insecureSkipVerify are mutually exclusive
+                                rule: '!(has(self.ca) && has(self.insecureSkipVerify)
+                                  && self.insecureSkipVerify)'
                           required:
                           - component
                           - kind

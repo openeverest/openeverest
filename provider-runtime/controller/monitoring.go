@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"slices"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -61,6 +62,32 @@ func (b ResolvedBinding) Integration() string {
 		return ""
 	}
 	return b.Class.Spec.ProviderManaged.Integration
+}
+
+// MonitoringCredentials returns the authentication mode of the binding's
+// destination and the data of its credentials Secret, checked against the
+// keys the class requires for that mode. The data is nil for
+// WorkloadIdentity and Anonymous.
+func (c *Context) MonitoringCredentials(rb ResolvedBinding) (string, map[string][]byte, error) {
+	if rb.Destination == nil || rb.Class == nil {
+		return "", nil, fmt.Errorf("binding %q has no resolved destination and class", rb.Binding.Name)
+	}
+	auth := rb.Destination.Spec.Authentication
+	mode := rb.Class.Spec.FindAuthMode(auth.Mode)
+	if mode == nil {
+		return "", nil, fmt.Errorf("MonitoringClass %q has no authentication mode %q", rb.Class.Name, auth.Mode)
+	}
+	if auth.CredentialsSecretRef == nil {
+		return auth.Mode, nil, nil
+	}
+	secret := &corev1.Secret{}
+	if err := c.Get(secret, auth.CredentialsSecretRef.Name); err != nil {
+		return "", nil, fmt.Errorf("get credentials Secret %q of MonitoringDestination %q: %w", auth.CredentialsSecretRef.Name, rb.Destination.Name, err)
+	}
+	if err := mode.ValidateCredentials(secret.Data); err != nil {
+		return "", nil, fmt.Errorf("credentials Secret %q of MonitoringDestination %q: %w", auth.CredentialsSecretRef.Name, rb.Destination.Name, err)
+	}
+	return auth.Mode, secret.Data, nil
 }
 
 // bindingResult is a per-binding outcome staged during Sync.
