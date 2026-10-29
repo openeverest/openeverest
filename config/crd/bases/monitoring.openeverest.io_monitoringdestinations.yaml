@@ -20,6 +20,9 @@ spec:
     - jsonPath: .spec.classRef.name
       name: Class
       type: string
+    - jsonPath: .spec.authentication.mode
+      name: Auth
+      type: string
     - jsonPath: .status.conditions[?(@.type=="Accepted")].reason
       name: Accepted
       type: string
@@ -60,6 +63,41 @@ spec:
           spec:
             description: MonitoringDestinationSpec defines the desired state of MonitoringDestination.
             properties:
+              authentication:
+                default:
+                  mode: Anonymous
+                description: |-
+                  Authentication names one of the class's authModes and, for every mode
+                  but WorkloadIdentity and Anonymous, the Secret in the same namespace
+                  holding that mode's credentials keys. Defaults to mode Anonymous, which
+                  only classes that list Anonymous accept.
+                properties:
+                  credentialsSecretRef:
+                    description: |-
+                      CredentialsSecretRef references the Secret in the same namespace that
+                      holds the credentials keys of the mode.
+                    properties:
+                      name:
+                        description: Name of the referenced Secret.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  mode:
+                    description: Mode names one of the class's authModes.
+                    pattern: ^[A-Z][A-Za-z0-9]{0,62}$
+                    type: string
+                required:
+                - mode
+                type: object
+                x-kubernetes-validations:
+                - message: credentialsSecretRef is required for every mode except
+                    WorkloadIdentity and Anonymous, which take none
+                  rule: (self.mode in ['WorkloadIdentity', 'Anonymous']) != has(self.credentialsSecretRef)
               classRef:
                 description: |-
                   ClassRef references the cluster-scoped MonitoringClass this destination
@@ -78,28 +116,51 @@ spec:
                 x-kubernetes-validations:
                 - message: spec.classRef is immutable
                   rule: self == oldSelf
-              credentialsSecretRef:
-                description: |-
-                  CredentialsSecretRef references the Secret in the same namespace that
-                  holds the destination credentials; its keys are described by the
-                  class's credentialsSchema.
-                properties:
-                  name:
-                    description: Name of the referenced Secret.
-                    maxLength: 253
-                    minLength: 1
-                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                    type: string
-                required:
-                - name
-                type: object
-                x-kubernetes-map-type: atomic
               parameters:
                 description: |-
                   Parameters are validated against
                   MonitoringClass.spec.destinationParametersSchema.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
+              tls:
+                description: TLS is how the backend's certificate is verified.
+                properties:
+                  ca:
+                    description: |-
+                      CA is the PEM bundle the server certificate is verified against,
+                      instead of the system trust store.
+                    minProperties: 1
+                    properties:
+                      secretKeyRef:
+                        description: SecretKeyRef selects the Secret key holding the
+                          PEM bundle.
+                        properties:
+                          key:
+                            description: Key within the Secret.
+                            maxLength: 253
+                            minLength: 1
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          name:
+                            description: Name of the referenced Secret.
+                            maxLength: 253
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                            type: string
+                        required:
+                        - key
+                        - name
+                        type: object
+                        x-kubernetes-map-type: atomic
+                    type: object
+                  insecureSkipVerify:
+                    description: InsecureSkipVerify disables verification of the server
+                      certificate.
+                    type: boolean
+                type: object
+                x-kubernetes-validations:
+                - message: ca and insecureSkipVerify are mutually exclusive
+                  rule: '!(has(self.ca) && has(self.insecureSkipVerify) && self.insecureSkipVerify)'
             required:
             - classRef
             type: object

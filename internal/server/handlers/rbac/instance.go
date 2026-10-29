@@ -73,7 +73,7 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 	// If user has create permission on Instance, allow any customization
 	err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionCreate, object)
 	if err == nil {
-		if err := h.ensureInstanceReferencesAuthorized(ctx, cluster, nil, instance); err != nil {
+		if err := h.ensureInstanceReferencesAuthorized(ctx, cluster, instance.GetNamespace(), instance.GetName(), nil, instance.Spec, true); err != nil {
 			return nil, err
 		}
 		return h.next.CreateInstance(ctx, cluster, instance)
@@ -83,14 +83,17 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 		return nil, fmt.Errorf("enforce create permission failed: %w", err)
 	}
 
-	// If user does not have deploy permission, reject
+	// If user does not have deploy permission, reject.
+	// instances:deploy implies backups:create and restores:create on the new
+	// instance for the schedules, PITR and data source the preset pins: they are
+	// keyed on the instance, which does not exist when the preset is written.
 	if err = h.enforce(ctx, rbac.ResourceInstances, rbac.ActionDeploy, object); err != nil {
 		return nil, err
 	}
 
 	// The preset vouches for the references it pins, but not for the user
 	// secret: whose credentials to seed is the requester's own choice.
-	if err = h.ensureUserSecretReadable(ctx, cluster, nil, instance); err != nil {
+	if err = h.ensureUserSecretReadable(ctx, cluster, instance.GetNamespace(), nil, instance.Spec); err != nil {
 		return nil, err
 	}
 
@@ -144,7 +147,7 @@ func (h *rbacHandler) UpdateInstance(ctx context.Context, cluster string, instan
 	if err := h.enforceReadMonitoringDestinations(ctx, cluster, instance.GetNamespace(), instance.Spec.Monitoring, current.Spec.Monitoring); err != nil {
 		return nil, err
 	}
-	if err := h.ensureInstanceReferencesAuthorized(ctx, cluster, current, instance); err != nil {
+	if err := h.ensureInstanceReferencesAuthorized(ctx, cluster, instance.GetNamespace(), instance.GetName(), &current.Spec, instance.Spec, true); err != nil {
 		return nil, err
 	}
 	// Pin the write to the version the checks ran against, so a reference
@@ -176,7 +179,7 @@ func (h *rbacHandler) PatchInstance(ctx context.Context, cluster, namespace, nam
 	if err := h.enforceReadMonitoringDestinations(ctx, cluster, namespace, patched.Spec.Monitoring, current.Spec.Monitoring); err != nil {
 		return nil, err
 	}
-	if err := h.ensureInstanceReferencesAuthorized(ctx, cluster, current, patched); err != nil {
+	if err := h.ensureInstanceReferencesAuthorized(ctx, cluster, namespace, name, &current.Spec, patched.Spec, true); err != nil {
 		return nil, err
 	}
 	// Same pin as UpdateInstance. patched carries the caller's version if the
@@ -287,30 +290,40 @@ func (h *rbacHandler) ensureMatchesClusterInstancePreset(ctx context.Context, cl
 	return nil
 }
 
-// ensureInstanceReferencesAuthorized checks the caller may use every resource the instance points at.
-// On update, current is the stored instance and only references the request adds or changes are checked,
+// ensureInstanceReferencesAuthorized checks the caller may use every resource the instance spec points at.
+// On update, current is the stored instance spec and only references the request adds or changes are checked,
 // so losing a grant on an untouched reference doesn't lock the caller out of editing unrelated fields.
-func (h *rbacHandler) ensureInstanceReferencesAuthorized(ctx context.Context, cluster string, current, instance *corev1alpha1.Instance) error {
+// requireBackupAndRestoreCreate also checks backups:create and restores:create on the instance.
+// Presets pass false: there is no instance yet, and instances:deploy implies both.
+func (h *rbacHandler) ensureInstanceReferencesAuthorized(
+	ctx context.Context,
+	cluster, namespace, name string,
+	current *corev1alpha1.InstanceSpec,
+	spec corev1alpha1.InstanceSpec,
+	requireBackupAndRestoreCreate bool,
+) error {
 	if current == nil {
-		current = &corev1alpha1.Instance{}
+		current = &corev1alpha1.InstanceSpec{}
 	}
-	if name := instance.Spec.ProviderRef.Name; name != current.Spec.ProviderRef.Name {
-		if err := h.enforce(ctx, rbac.ResourceProviders, rbac.ActionRead, rbac.ClusterObjectName(cluster, name)); err != nil {
+	if provider := spec.ProviderRef.Name; provider != current.ProviderRef.Name {
+		if err := h.enforce(ctx, rbac.ResourceProviders, rbac.ActionRead, rbac.ClusterObjectName(cluster, provider)); err != nil {
 			return err
 		}
 	}
-	if err := h.ensureUserSecretReadable(ctx, cluster, current, instance); err != nil {
+	if err := h.ensureUserSecretReadable(ctx, cluster, namespace, current, spec); err != nil {
 		return err
 	}
-	if err := h.ensureInstanceBackupAuthorized(ctx, cluster, current.Spec.Backup, instance); err != nil {
+	if err := h.ensureInstanceBackupAuthorized(ctx, cluster, namespace, name, current.Backup, spec.Backup, requireBackupAndRestoreCreate); err != nil {
 		return err
 	}
-	if dataSource := instance.Spec.DataSource; dataSource != nil && !reflect.DeepEqual(dataSource, current.Spec.DataSource) {
-		object := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), instance.GetName())
-		if err := h.enforce(ctx, rbac.ResourceRestores, rbac.ActionCreate, object); err != nil {
-			return err
+	if dataSource := spec.DataSource; dataSource != nil && !reflect.DeepEqual(dataSource, current.DataSource) {
+		if requireBackupAndRestoreCreate {
+			object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
+			if err := h.enforce(ctx, rbac.ResourceRestores, rbac.ActionCreate, object); err != nil {
+				return err
+			}
 		}
-		if err := h.ensureDataSourceReadable(ctx, cluster, instance.GetNamespace(), instance.GetName(), *dataSource); err != nil {
+		if err := h.ensureDataSourceReadable(ctx, cluster, namespace, name, *dataSource); err != nil {
 			return err
 		}
 	}
@@ -320,28 +333,27 @@ func (h *rbacHandler) ensureInstanceReferencesAuthorized(ctx context.Context, cl
 // ensureUserSecretReadable checks the caller may read a user secret the
 // instance newly references, so they cannot seed it with credentials they
 // could not otherwise see.
-func (h *rbacHandler) ensureUserSecretReadable(ctx context.Context, cluster string, current, instance *corev1alpha1.Instance) error {
-	secret := instance.Spec.UserSecretRef
+func (h *rbacHandler) ensureUserSecretReadable(ctx context.Context, cluster, namespace string, current *corev1alpha1.InstanceSpec, spec corev1alpha1.InstanceSpec) error {
+	secret := spec.UserSecretRef
 	if secret == nil {
 		return nil
 	}
-	if current != nil && current.Spec.UserSecretRef != nil && current.Spec.UserSecretRef.Name == secret.Name {
+	if current != nil && current.UserSecretRef != nil && current.UserSecretRef.Name == secret.Name {
 		return nil
 	}
-	object := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), secret.Name)
+	object := rbac.ClusterNamespacedObjectName(cluster, namespace, secret.Name)
 	return h.enforce(ctx, rbac.ResourceSecrets, rbac.ActionRead, object)
 }
 
 // ensureInstanceBackupAuthorized checks the backup class and storages the
-// instance newly references, and that the caller may create backups of it
-// when it adds or changes a schedule or PITR.
+// instance spec newly references, and, when requireBackupCreate is set, that the
+// caller may create backups of it when it adds or changes a schedule or PITR.
 func (h *rbacHandler) ensureInstanceBackupAuthorized(
 	ctx context.Context,
-	cluster string,
-	current *corev1alpha1.InstanceBackupSpec,
-	instance *corev1alpha1.Instance,
+	cluster, namespace, name string,
+	current, backup *corev1alpha1.InstanceBackupSpec,
+	requireBackupCreate bool,
 ) error {
-	backup := instance.Spec.Backup
 	if backup == nil {
 		return nil
 	}
@@ -362,7 +374,7 @@ func (h *rbacHandler) ensureInstanceBackupAuthorized(
 	for _, storage := range backup.Storages {
 		currentStorage, referenced := currentStorages[storage.StorageRef.Name]
 		if !referenced {
-			object := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), storage.StorageRef.Name)
+			object := rbac.ClusterNamespacedObjectName(cluster, namespace, storage.StorageRef.Name)
 			if err := h.enforce(ctx, rbac.ResourceBackupStorages, rbac.ActionRead, object); err != nil {
 				return err
 			}
@@ -372,10 +384,10 @@ func (h *rbacHandler) ensureInstanceBackupAuthorized(
 			schedulesChanged = true
 		}
 	}
-	if !schedulesChanged {
+	if !requireBackupCreate || !schedulesChanged {
 		return nil
 	}
-	object := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), instance.GetName())
+	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
 	return h.enforce(ctx, rbac.ResourceBackups, rbac.ActionCreate, object)
 }
 

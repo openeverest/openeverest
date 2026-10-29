@@ -71,9 +71,9 @@ func TestK8s_MonitoringDestinationWrites(t *testing.T) {
 				Finalizers:      []string{"example.com/stuck"},
 			},
 			Spec: monitoringv1alpha1.MonitoringDestinationSpec{
-				ClassRef:             common.ObjectRef{Name: "pmm"},
-				CredentialsSecretRef: &common.SecretRef{Name: "pmm-prod-credentials"},
-				Parameters:           &runtime.RawExtension{Raw: []byte(`{"url":"https://pmm2.example.com"}`)},
+				ClassRef:       common.ObjectRef{Name: "pmm"},
+				Authentication: common.Authentication{Mode: "ServiceAccountToken", CredentialsSecretRef: &common.SecretRef{Name: "pmm-prod-credentials"}},
+				Parameters:     &runtime.RawExtension{Raw: []byte(`{"url":"https://pmm2.example.com"}`)},
 			},
 			Status: monitoringv1alpha1.MonitoringDestinationStatus{
 				ServerVersion: "9.9.9",
@@ -112,7 +112,7 @@ func TestK8s_MonitoringDestinationWrites(t *testing.T) {
 		assert.Empty(t, created.OwnerReferences)
 		assert.Empty(t, created.Finalizers)
 		assert.Equal(t, monitoringv1alpha1.MonitoringDestinationStatus{}, created.Status)
-		assert.Equal(t, "pmm-prod-credentials", created.Spec.CredentialsSecretRef.Name)
+		assert.Equal(t, "pmm-prod-credentials", created.Spec.Authentication.CredentialsSecretRef.Name)
 		assert.JSONEq(t, `{"url":"https://pmm2.example.com"}`, string(created.Spec.Parameters.Raw))
 
 		_, err = handler.kubeConnector.GetMonitoringDestination(context.Background(), types.NamespacedName{Namespace: "other-ns", Name: "pmm-prod"})
@@ -156,7 +156,7 @@ func TestK8s_MonitoringDestinationWrites(t *testing.T) {
 		assert.Equal(t, "3.8.0", updated.Status.ServerVersion)
 		assert.Empty(t, updated.Status.Conditions)
 		assert.JSONEq(t, `{"url":"https://pmm2.example.com"}`, string(updated.Spec.Parameters.Raw))
-		assert.Equal(t, "pmm-prod-credentials", updated.Spec.CredentialsSecretRef.Name)
+		assert.Equal(t, "pmm-prod-credentials", updated.Spec.Authentication.CredentialsSecretRef.Name)
 
 		_, err = handler.kubeConnector.GetMonitoringDestination(context.Background(), types.NamespacedName{Namespace: "ns1", Name: "renamed"})
 		assert.True(t, k8serrors.IsNotFound(err), "the name in the body must be ignored")

@@ -58,6 +58,7 @@ const (
 	ReasonIntegrationInUse       = "IntegrationInUse"
 	ReasonIncompatible           = "Incompatible"
 	ReasonInvalidParameters      = "InvalidParameters"
+	ReasonAuthModeUnsupported    = "AuthModeUnsupported"
 )
 
 // ConfiguredReason is a reason of the Configured condition. The condition
@@ -68,6 +69,10 @@ type ConfiguredReason string
 const (
 	// ReasonConfigured means the configuration was handed to the agent path.
 	ReasonConfigured ConfiguredReason = "Configured"
+	// ReasonAgentTLSNotVerified means the configuration was handed to an
+	// agent that does not verify the destination's certificate, whatever
+	// spec.tls says.
+	ReasonAgentTLSNotVerified ConfiguredReason = "AgentTLSNotVerified"
 	// ReasonMaintenancePending means newer content awaits the owner's
 	// approval while the live content is kept.
 	ReasonMaintenancePending ConfiguredReason = "MaintenancePending"
@@ -97,7 +102,7 @@ const (
 // imply False.
 func (r ConfiguredReason) Status() metav1.ConditionStatus {
 	switch r {
-	case ReasonConfigured, ReasonMaintenancePending:
+	case ReasonConfigured, ReasonAgentTLSNotVerified, ReasonMaintenancePending:
 		return metav1.ConditionTrue
 	case ReasonPending, ReasonRetained:
 		return metav1.ConditionUnknown

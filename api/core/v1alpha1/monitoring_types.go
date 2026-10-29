@@ -15,7 +15,6 @@
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -152,6 +151,14 @@ type MonitoringIntegration struct {
 	// render (e.g. ">=3.0.0 <4.0.0").
 	// +optional
 	AgentVersions string `json:"agentVersions,omitempty"`
+	// AuthModes lists the authentication modes of the integration's
+	// MonitoringClass the provider can render. A destination whose mode is
+	// not listed is not bound.
+	// +kubebuilder:validation:MaxItems=16
+	// +kubebuilder:validation:items:Pattern=`^[A-Z][A-Za-z0-9]{0,62}$`
+	// +listType=set
+	// +optional
+	AuthModes []string `json:"authModes,omitempty"`
 }
 
 // MonitoringComponentType declares what one component type exposes.
@@ -253,16 +260,11 @@ type MetricsEndpoint struct {
 
 // MetricsEndpointTLS describes how to verify an https endpoint.
 type MetricsEndpointTLS struct {
-	// CA selects the Secret key in the Instance's namespace holding the CA
-	// bundle.
-	// +optional
-	CA *corev1.SecretKeySelector `json:"ca,omitempty"`
+	common.TLSConfig `json:",inline"`
+
 	// ServerName overrides the expected server name.
 	// +optional
 	ServerName string `json:"serverName,omitempty"`
-	// InsecureSkipVerify disables verification.
-	// +optional
-	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
 }
 
 // MetricsEndpointAuth names the credential profile a scraper authenticates with.
