@@ -1793,36 +1793,6 @@ func (_m *MockHandler) PatchInstance(ctx context.Context, cluster string, namesp
 	return r0, r1
 }
 
-// ResolveClusterInstancePreset provides a mock function with given fields: ctx, cluster, name, namespace
-func (_m *MockHandler) ResolveClusterInstancePreset(ctx context.Context, cluster string, name string, namespace string) (*corev1alpha1.ClusterInstancePreset, error) {
-	ret := _m.Called(ctx, cluster, name, namespace)
-
-	if len(ret) == 0 {
-		panic("no return value specified for ResolveClusterInstancePreset")
-	}
-
-	var r0 *corev1alpha1.ClusterInstancePreset
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) (*corev1alpha1.ClusterInstancePreset, error)); ok {
-		return rf(ctx, cluster, name, namespace)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *corev1alpha1.ClusterInstancePreset); ok {
-		r0 = rf(ctx, cluster, name, namespace)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*corev1alpha1.ClusterInstancePreset)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
-		r1 = rf(ctx, cluster, name, namespace)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // SetNext provides a mock function with given fields: h
 func (_m *MockHandler) SetNext(h Handler) {
 	_m.Called(h)
