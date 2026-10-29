@@ -13,20 +13,14 @@
 // limitations under the License.
 
 import { useMemo } from 'react';
-import {
-  useClusterInstancePresets,
-  useResolveClusterInstancePreset,
-} from 'hooks/api/cluster-instance-presets';
+import { useClusterInstancePresets } from 'hooks/api/cluster-instance-presets';
 import { PresetSelectionContextType } from '../preset-selection-context';
-import { Messages } from '../preset-selection.messages';
 
-// Resolves the picked preset for the current namespace and exposes the list +
-// gating flags. The picked preset NAME lives in react-hook-form (PRESET_NAME_FIELD)
-// and is passed in; this hook only owns the async resolved spec.
+// The picked preset NAME lives in react-hook-form (PRESET_NAME_FIELD) and is
+// passed in; the selected spec is taken from the already-fetched preset list.
 export const usePresetSelection = (
   clusterName: string,
   provider: string | undefined,
-  namespace: string | undefined,
   presetName: string
 ): PresetSelectionContextType => {
   const {
@@ -35,16 +29,11 @@ export const usePresetSelection = (
     isError,
   } = useClusterInstancePresets(clusterName, provider);
 
-  // Re-resolves automatically when presetName or namespace changes (query key);
-  // react-query dedupes/cancels stale fetches.
-  const {
-    data: resolved,
-    isFetching: isResolving,
-    isError: hasResolveError,
-  } = useResolveClusterInstancePreset(clusterName, presetName, namespace);
-
-  const resolvedPreset = resolved ?? null;
-  const resolveError = hasResolveError ? Messages.resolveError : null;
+  const selectedPreset = useMemo(
+    () =>
+      presets.find((preset) => preset.metadata?.name === presetName) ?? null,
+    [presets, presetName]
+  );
 
   return useMemo<PresetSelectionContextType>(
     () => ({
@@ -52,20 +41,10 @@ export const usePresetSelection = (
       isLoadingPresets,
       isError,
       presetName,
-      resolvedPreset,
-      isResolving,
-      resolveError,
+      selectedPreset,
       presetSelected: Boolean(presetName),
-      presetPending: Boolean(presetName) && (!resolvedPreset || isResolving),
+      presetPending: Boolean(presetName) && !selectedPreset,
     }),
-    [
-      presets,
-      isLoadingPresets,
-      isError,
-      presetName,
-      resolvedPreset,
-      isResolving,
-      resolveError,
-    ]
+    [presets, isLoadingPresets, isError, presetName, selectedPreset]
   );
 };

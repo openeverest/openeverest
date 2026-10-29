@@ -19,11 +19,9 @@ export interface PresetSelectionContextType {
   isLoadingPresets: boolean;
   isError: boolean;
   presetName: string;
-  resolvedPreset: ClusterInstancePreset | null;
-  isResolving: boolean;
-  resolveError: string | null;
+  selectedPreset: ClusterInstancePreset | null;
   presetSelected: boolean;
-  // True while a preset is picked but its spec is not yet resolved (or failed):
+  // True while a preset is picked but its spec is not yet available:
   // the one-click create must stay blocked until we have a spec to submit.
   presetPending: boolean;
 }
