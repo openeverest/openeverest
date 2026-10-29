@@ -59,13 +59,22 @@ const resolved = (
 const setUp = ({
   imports,
   instances,
+  backups = resolved([], ['ns-a', 'ns-b']),
+  restores = resolved(['ns-a', 'ns-b']),
   classes = { data: [IMPORT_CLASS], isLoading: false },
 }: {
   imports: NamespacePermissions;
   instances: NamespacePermissions;
+  backups?: NamespacePermissions;
+  restores?: NamespacePermissions;
   classes?: { data: BackupClass[]; isLoading: boolean };
 }) => {
-  mocks.permissions = { 'backup-imports': imports, instances };
+  mocks.permissions = {
+    'backup-imports': imports,
+    instances,
+    backups,
+    restores,
+  };
   mocks.classes = classes;
   return renderHook(useImportAvailability).result.current;
 };
@@ -83,6 +92,21 @@ describe('useImportAvailability', () => {
 
     expect(forbidden).toEqual({ canImport: false, isLoading: false });
     expect(allowed).toEqual({ canImport: true, isLoading: false });
+  });
+
+  it('needs to read the found backups and create a restore in the namespace', () => {
+    const scanAndCreate = {
+      imports: resolved(['ns-a'], ['ns-a']),
+      instances: resolved(['ns-a']),
+    };
+
+    expect(
+      setUp({ ...scanAndCreate, backups: resolved([], ['ns-b']) })
+    ).toEqual({ canImport: false, isLoading: false });
+    expect(setUp({ ...scanAndCreate, restores: resolved(['ns-b']) })).toEqual({
+      canImport: false,
+      isLoading: false,
+    });
   });
 
   it('needs a backup class that supports import', () => {

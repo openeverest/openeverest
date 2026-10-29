@@ -17,19 +17,29 @@ import { useImportBackupClasses } from 'hooks/api/backup-classes/useBackupClasse
 import { useClusterName } from 'hooks/api/useClusterName';
 import { useNamespacePermissionsForResource } from 'hooks/rbac';
 
-// Namespaces where the user can run a scan, follow it, and create the instance.
+// Namespaces where the user can scan, see the found backups and create an instance from one.
 export const useImportNamespaces = () => {
   const imports = useNamespacePermissionsForResource('backup-imports');
+  const backups = useNamespacePermissionsForResource('backups');
   const instances = useNamespacePermissionsForResource('instances');
+  const restores = useNamespacePermissionsForResource('restores');
 
   const namespaces = useMemo(
     () =>
       imports.canCreate.filter(
         (namespace) =>
           imports.canRead.includes(namespace) &&
-          instances.canCreate.includes(namespace)
+          backups.canRead.includes(namespace) &&
+          instances.canCreate.includes(namespace) &&
+          restores.canCreate.includes(namespace)
       ),
-    [imports.canCreate, imports.canRead, instances.canCreate]
+    [
+      imports.canCreate,
+      imports.canRead,
+      backups.canRead,
+      instances.canCreate,
+      restores.canCreate,
+    ]
   );
 
   return {
@@ -37,7 +47,9 @@ export const useImportNamespaces = () => {
     isLoading:
       imports.isLoading ||
       imports.isPermissionsLoading ||
-      instances.isPermissionsLoading,
+      backups.isPermissionsLoading ||
+      instances.isPermissionsLoading ||
+      restores.isPermissionsLoading,
   };
 };
 
