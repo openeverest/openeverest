@@ -216,9 +216,10 @@ const createPxcWithEngineRule = async (
   await moveForwardTo(page, proxyReplicas);
   await proxyReplicas.fill('1');
 
-  const policySwitch = page.getByLabel('Enable Pod scheduling policy');
-  await moveForwardTo(page, policySwitch);
-  await policySwitch.check();
+  await moveForwardTo(
+    page,
+    page.getByTestId('scheduling-component-tab-engine')
+  );
 
   await addRuleGroup(page, page.locator('main'), 'engine', group);
   await submitWizard(page);
@@ -347,9 +348,6 @@ test.describe.serial(
     }) => {
       const modal = await openAdvancedEditModal(page, clusterName);
       await expect(
-        modal.getByLabel('Enable Pod scheduling policy')
-      ).toBeChecked();
-      await expect(
         modal.getByTestId('scheduling-component-tab-engine')
       ).toHaveText('engine (1)');
 
@@ -467,28 +465,33 @@ test.describe.serial(
       );
     });
 
-    test('Turning the policy off removes the rule and the database recovers', async ({
+    test('Deleting the rule group removes the rule and the database recovers', async ({
       page,
       request,
     }) => {
       const modal = await openAdvancedEditModal(page, clusterName);
-      const policySwitch = modal.getByLabel('Enable Pod scheduling policy');
-      await expect(policySwitch).toBeChecked();
-      await policySwitch.uncheck();
+      await modal.getByTestId('scheduling-component-tab-engine').click();
+      await modal
+        .getByTestId('delete-editable-item-button-affinity-group-0')
+        .click();
+      await expect(
+        modal.getByText(MISSING_NODE_LABEL_KEY, { exact: true })
+      ).toBeHidden();
       await saveSection(page, modal);
 
       await expect
         .poll(
           async () =>
             (await getInstance(request, clusterName)).spec.components.engine
-              .schedulingPolicy?.affinity,
+              .schedulingPolicy?.affinity?.nodeAffinity,
           { timeout: TIMEOUTS.OneMinute }
         )
         .toBeUndefined();
       await expect
-        .poll(() => getPxcSpec(clusterName).pxc.affinity?.advanced, {
-          timeout: TIMEOUTS.ThreeMinutes,
-        })
+        .poll(
+          () => getPxcSpec(clusterName).pxc.affinity?.advanced?.nodeAffinity,
+          { timeout: TIMEOUTS.ThreeMinutes }
+        )
         .toBeUndefined();
 
       await ensureLoggedInOnDatabasesPage(page);
