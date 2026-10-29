@@ -957,12 +957,12 @@ const (
 	// list the target Instance's provider in SupportedProviders.
 	ReasonDataSourceClassUnsupported = "BackupClassUnsupported"
 
-	// ReasonUserSecretMismatch indicates the restore failed terminally
+	// ReasonDataSourceUserSecretMismatch indicates the restore failed terminally
 	// because the credentials in the Secret named by spec.userSecretRef differ
 	// from the users stored in the source backup data, so the engine cannot
 	// authenticate against the restored data. Like every False
 	// DataSourceReady reason, it is also propagated to Ready.
-	ReasonUserSecretMismatch = "UserSecretMismatch"
+	ReasonDataSourceUserSecretMismatch = "UserSecretMismatch"
 )
 
 // Reasons for the ComponentVersionDeprecated condition.
