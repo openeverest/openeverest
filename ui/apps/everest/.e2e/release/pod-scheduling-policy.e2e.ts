@@ -197,7 +197,7 @@ const createPxcWithEngineRule = async (
   name: string,
   group: RuleGroup
 ) => {
-  await page.goto('/databases');
+  await ensureLoggedInOnDatabasesPage(page);
   await openDbCreationForm(page, PXC_PROVIDER_NAME);
 
   await populateBasicInformation(page, namespace, name, 'pxc', '', false, '');
