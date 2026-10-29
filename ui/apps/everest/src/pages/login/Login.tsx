@@ -22,11 +22,14 @@ import { SSO_LOGIN_ERROR_KEY } from 'contexts/auth/auth.utils';
 import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
 import { LoginBrandPanel } from './login-brand-panel/login-brand-panel';
 import { LoginForm } from './login-form/login-form';
+import { LoginLinks } from './login-links/login-links';
 import { Messages } from './Login.messages';
 
 const Login = () => {
   const { authStatus, redirectRoute } = useContext(AuthContext);
-  const { isMobile } = useActiveBreakpoint();
+  // Below md the split-screen panel squeezes the form, so we switch to a
+  // single centered column instead
+  const { isBelowMd: isSingleColumn } = useActiveBreakpoint();
 
   useEffect(() => {
     // Surface an SSO sign-in failure that redirected back here from
@@ -47,7 +50,7 @@ const Login = () => {
 
   return (
     <Stack direction="row" sx={{ minHeight: '100dvh' }}>
-      {!isMobile && <LoginBrandPanel />}
+      {!isSingleColumn && <LoginBrandPanel />}
       <Stack
         sx={{
           flex: 1,
@@ -55,19 +58,23 @@ const Login = () => {
           justifyContent: 'center',
           px: 3,
           pt: 6,
-          // On mobile, bias the content slightly above the optical center
-          pb: { xs: '12dvh', sm: 6 },
+          // In single-column mode, bias the content slightly above the optical
+          // center
+          pb: { xs: '12dvh', md: 6 },
           bgcolor: 'background.default',
         }}
       >
         <Stack sx={{ width: '100%', maxWidth: 360 }}>
-          {isMobile && (
+          {isSingleColumn && (
             <EverestHorizontalIcon
-              data-testid="login-mobile-logo"
+              data-testid="login-single-column-logo"
               sx={{ height: 48, width: 'auto', alignSelf: 'center', mb: 5 }}
             />
           )}
           <LoginForm />
+          {isSingleColumn && (
+            <LoginLinks sx={{ justifyContent: 'center', mt: 5 }} />
+          )}
         </Stack>
       </Stack>
     </Stack>

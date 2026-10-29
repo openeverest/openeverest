@@ -25,7 +25,7 @@ import { Messages } from 'pages/login/Login.messages';
 export const LoginForm = () => {
   const { login, authStatus, isSsoEnabled } = useContext(AuthContext);
   const methods = useForm<LoginFormType>({
-    mode: 'onChange',
+    mode: 'onSubmit',
     defaultValues: { username: '', password: '' },
     resolver: zodResolver(loginSchema),
   });
@@ -47,7 +47,7 @@ export const LoginForm = () => {
         {Messages.insertCredentials}
       </Typography>
       <FormProvider {...methods}>
-        <form onSubmit={methods.handleSubmit(handleLogin)}>
+        <form noValidate onSubmit={methods.handleSubmit(handleLogin)}>
           <TextInput
             isRequired
             name="username"
@@ -77,11 +77,7 @@ export const LoginForm = () => {
             variant="contained"
             fullWidth
             data-testid="login-button"
-            disabled={
-              isLoggingIn ||
-              methods.formState.isSubmitting ||
-              !methods.formState.isValid
-            }
+            loading={isLoggingIn}
           >
             {Messages.login}
           </Button>

@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import {
-  Link,
   Stack,
   ThemeProvider,
   Typography,
@@ -22,8 +21,8 @@ import {
 } from '@mui/material';
 import { everestThemeOptions } from '@percona/design';
 import { EverestHorizontalIcon } from '@percona/ui-lib';
-import { LOGIN_LINKS } from 'pages/login/Login.constants';
 import { Messages } from 'pages/login/Login.messages';
+import { LoginLinks } from 'pages/login/login-links/login-links';
 
 // The brand panel is always dark, regardless of the user's color mode.
 const brandPanelTheme = createTheme(everestThemeOptions('dark'));
@@ -36,7 +35,7 @@ export const LoginBrandPanel = () => (
         flex: '0 0 42%',
         justifyContent: 'space-between',
         gap: 6,
-        p: { sm: 5, lg: 8 },
+        p: { md: 5, lg: 8 },
         color: theme.palette.text.primary,
         background: [
           `radial-gradient(circle at 0% 0%, ${alpha(theme.palette.primary.dark, 0.28)}, transparent 55%)`,
@@ -51,21 +50,7 @@ export const LoginBrandPanel = () => (
       <Typography variant="h4" component="p" sx={{ maxWidth: 480 }}>
         {Messages.pitch}
       </Typography>
-      <Stack direction="row" sx={{ flexWrap: 'wrap', columnGap: 3, rowGap: 1 }}>
-        {LOGIN_LINKS.map(({ label, href }) => (
-          <Link
-            key={href}
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            variant="body2"
-            color="text.secondary"
-            underline="hover"
-          >
-            {label}
-          </Link>
-        ))}
-      </Stack>
+      <LoginLinks />
     </Stack>
   </ThemeProvider>
 );

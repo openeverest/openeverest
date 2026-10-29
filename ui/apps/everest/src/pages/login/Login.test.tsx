@@ -13,10 +13,19 @@
 // limitations under the License.
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { enqueueSnackbar } from 'notistack';
+import { Route, Routes } from 'react-router-dom';
 import { AuthContext } from 'contexts/auth';
 import { AuthContextProps } from 'contexts/auth/auth.context.types';
+import { SSO_LOGIN_ERROR_KEY } from 'contexts/auth/auth.utils';
 import { TestWrapper, resizeScreenSize } from 'utils/test';
 import Login from './Login';
+import { Messages } from './Login.messages';
+
+vi.mock('notistack', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('notistack')>()),
+  enqueueSnackbar: vi.fn(),
+}));
 
 const renderLogin = (auth: Partial<AuthContextProps> = {}) => {
   const value: AuthContextProps = {
@@ -32,7 +41,10 @@ const renderLogin = (auth: Partial<AuthContextProps> = {}) => {
   render(
     <TestWrapper>
       <AuthContext.Provider value={value}>
-        <Login />
+        <Routes>
+          <Route path="/" element={<Login />} />
+          <Route path="/databases" element={<div>Databases page</div>} />
+        </Routes>
       </AuthContext.Provider>
     </TestWrapper>
   );
@@ -41,26 +53,33 @@ const renderLogin = (auth: Partial<AuthContextProps> = {}) => {
 };
 
 describe('Login', () => {
-  it('shows the brand panel next to the form on larger screens', () => {
+  beforeEach(() => {
     resizeScreenSize(1200);
-    renderLogin();
-
-    expect(screen.getByTestId('login-brand-panel')).toBeInTheDocument();
-    expect(screen.queryByTestId('login-mobile-logo')).not.toBeInTheDocument();
-    expect(screen.getByTestId('login-button')).toBeInTheDocument();
+    vi.mocked(enqueueSnackbar).mockClear();
+    sessionStorage.clear();
   });
 
-  it('shows only a logo and the form on mobile', () => {
-    resizeScreenSize(400);
-    renderLogin();
+  it.each([
+    { width: 1200, isSplitScreen: true },
+    { width: 900, isSplitScreen: true },
+    { width: 800, isSplitScreen: false },
+    { width: 400, isSplitScreen: false },
+  ])(
+    'at $width px shows the split screen: $isSplitScreen',
+    ({ width, isSplitScreen }) => {
+      resizeScreenSize(width);
+      renderLogin();
 
-    expect(screen.queryByTestId('login-brand-panel')).not.toBeInTheDocument();
-    expect(screen.getByTestId('login-mobile-logo')).toBeInTheDocument();
-    expect(screen.getByTestId('login-button')).toBeInTheDocument();
-  });
+      expect(!!screen.queryByTestId('login-brand-panel')).toBe(isSplitScreen);
+      expect(!!screen.queryByTestId('login-single-column-logo')).toBe(
+        !isSplitScreen
+      );
+      // The links stay reachable in both layouts
+      expect(screen.getAllByTestId('login-links')).toHaveLength(1);
+    }
+  );
 
   it('submits the entered credentials', async () => {
-    resizeScreenSize(1200);
     const { login } = renderLogin();
 
     fireEvent.change(screen.getByTestId('text-input-username'), {
@@ -69,9 +88,6 @@ describe('Login', () => {
     fireEvent.change(screen.getByTestId('text-input-password'), {
       target: { value: 'secret' },
     });
-    await waitFor(() =>
-      expect(screen.getByTestId('login-button')).toBeEnabled()
-    );
     fireEvent.click(screen.getByTestId('login-button'));
 
     await waitFor(() =>
@@ -82,21 +98,61 @@ describe('Login', () => {
     );
   });
 
-  it('offers SSO only when it is enabled', () => {
-    resizeScreenSize(1200);
-    const { login } = renderLogin({ isSsoEnabled: true });
+  it('keeps the submit button enabled and flags empty fields on submit', async () => {
+    const { login } = renderLogin();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Log in with SSO' }));
+    const loginButton = screen.getByTestId('login-button');
+    expect(loginButton).toBeEnabled();
+    fireEvent.click(loginButton);
 
-    expect(login).toHaveBeenCalledWith('sso');
+    expect(await screen.findAllByText('Required')).toHaveLength(2);
+    expect(login).not.toHaveBeenCalled();
   });
 
-  it('hides SSO when it is disabled', () => {
-    resizeScreenSize(1200);
-    renderLogin({ isSsoEnabled: false });
+  it('disables the inputs and both buttons while logging in', () => {
+    renderLogin({ authStatus: 'loggingIn', isSsoEnabled: true });
 
+    expect(screen.getByTestId('text-input-username')).toBeDisabled();
+    expect(screen.getByTestId('text-input-password')).toBeDisabled();
+    expect(screen.getByTestId('login-button')).toBeDisabled();
     expect(
-      screen.queryByRole('button', { name: 'Log in with SSO' })
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', { name: Messages.loginWithSso })
+    ).toBeDisabled();
   });
+
+  it('redirects to the stored route once logged in', () => {
+    renderLogin({ authStatus: 'loggedIn', redirectRoute: '/databases' });
+
+    expect(screen.getByText('Databases page')).toBeInTheDocument();
+  });
+
+  it('surfaces an SSO login error once and clears it', () => {
+    sessionStorage.setItem(SSO_LOGIN_ERROR_KEY, 'true');
+    renderLogin();
+
+    expect(enqueueSnackbar).toHaveBeenCalledExactlyOnceWith(
+      Messages.ssoLoginError,
+      { variant: 'error' }
+    );
+    expect(sessionStorage.getItem(SSO_LOGIN_ERROR_KEY)).toBeNull();
+  });
+
+  it.each([true, false])(
+    'offers SSO only when it is enabled (enabled: %s)',
+    (isSsoEnabled) => {
+      const { login } = renderLogin({ isSsoEnabled });
+      const ssoButtonQuery = {
+        name: Messages.loginWithSso,
+      };
+
+      if (isSsoEnabled) {
+        fireEvent.click(screen.getByRole('button', ssoButtonQuery));
+        expect(login).toHaveBeenCalledExactlyOnceWith('sso');
+      } else {
+        expect(
+          screen.queryByRole('button', ssoButtonQuery)
+        ).not.toBeInTheDocument();
+      }
+    }
+  );
 });
