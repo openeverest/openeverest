@@ -77,8 +77,50 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 			ConnectionSecretRef *struct {
 				Name string `json:"name"`
 			} `json:"connectionSecretRef,omitempty"`
-			Message            *string `json:"message,omitempty"`
-			ObservedGeneration *int64  `json:"observedGeneration,omitempty"`
+			Message    *string `json:"message,omitempty"`
+			Monitoring *struct {
+				Destinations *[]struct {
+					Configured *string                                          `json:"configured,omitempty"`
+					Message    *string                                          `json:"message,omitempty"`
+					Mode       *client.InstanceStatusMonitoringDestinationsMode `json:"mode,omitempty"`
+					Name       string                                           `json:"name"`
+					Reason     *string                                          `json:"reason,omitempty"`
+				} `json:"destinations,omitempty"`
+				Sources *struct {
+					Credentials *[]struct {
+						Profile   string `json:"profile"`
+						SecretRef struct {
+							Name string `json:"name"`
+						} `json:"secretRef"`
+					} `json:"credentials,omitempty"`
+					Identity *struct {
+						ClusterId *string            `json:"clusterId,omitempty"` //nolint:revive // mirrors the oapi-codegen field name
+						Labels    *map[string]string `json:"labels,omitempty"`
+					} `json:"identity,omitempty"`
+					Metrics *[]struct {
+						Auth *struct {
+							CredentialProfile string `json:"credentialProfile"`
+						} `json:"auth,omitempty"`
+						Component   string                                                 `json:"component"`
+						Kind        string                                                 `json:"kind"`
+						Params      *map[string][]string                                   `json:"params,omitempty"`
+						Path        *string                                                `json:"path,omitempty"`
+						PodSelector map[string]string                                      `json:"podSelector"`
+						Port        client.Instance_Status_Monitoring_Sources_Metrics_Port `json:"port"`
+						Scheme      *client.InstanceStatusMonitoringSourcesMetricsScheme   `json:"scheme,omitempty"`
+						Tls         *struct {                                              //nolint:revive // mirrors the oapi-codegen field name
+							Ca *struct {
+								Key      string  `json:"key"`
+								Name     *string `json:"name,omitempty"`
+								Optional *bool   `json:"optional,omitempty"`
+							} `json:"ca,omitempty"`
+							InsecureSkipVerify *bool   `json:"insecureSkipVerify,omitempty"`
+							ServerName         *string `json:"serverName,omitempty"`
+						} `json:"tls,omitempty"`
+					} `json:"metrics,omitempty"`
+				} `json:"sources,omitempty"`
+			} `json:"monitoring,omitempty"`
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 			PendingMaintenance *[]struct {
 				ApprovalToken *string                                         `json:"approvalToken,omitempty"`
 				Description   string                                          `json:"description"`
@@ -253,8 +295,50 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 			ConnectionSecretRef *struct {
 				Name string `json:"name"`
 			} `json:"connectionSecretRef,omitempty"`
-			Message            *string `json:"message,omitempty"`
-			ObservedGeneration *int64  `json:"observedGeneration,omitempty"`
+			Message    *string `json:"message,omitempty"`
+			Monitoring *struct {
+				Destinations *[]struct {
+					Configured *string                                          `json:"configured,omitempty"`
+					Message    *string                                          `json:"message,omitempty"`
+					Mode       *client.InstanceStatusMonitoringDestinationsMode `json:"mode,omitempty"`
+					Name       string                                           `json:"name"`
+					Reason     *string                                          `json:"reason,omitempty"`
+				} `json:"destinations,omitempty"`
+				Sources *struct {
+					Credentials *[]struct {
+						Profile   string `json:"profile"`
+						SecretRef struct {
+							Name string `json:"name"`
+						} `json:"secretRef"`
+					} `json:"credentials,omitempty"`
+					Identity *struct {
+						ClusterId *string            `json:"clusterId,omitempty"` //nolint:revive // mirrors the oapi-codegen field name
+						Labels    *map[string]string `json:"labels,omitempty"`
+					} `json:"identity,omitempty"`
+					Metrics *[]struct {
+						Auth *struct {
+							CredentialProfile string `json:"credentialProfile"`
+						} `json:"auth,omitempty"`
+						Component   string                                                 `json:"component"`
+						Kind        string                                                 `json:"kind"`
+						Params      *map[string][]string                                   `json:"params,omitempty"`
+						Path        *string                                                `json:"path,omitempty"`
+						PodSelector map[string]string                                      `json:"podSelector"`
+						Port        client.Instance_Status_Monitoring_Sources_Metrics_Port `json:"port"`
+						Scheme      *client.InstanceStatusMonitoringSourcesMetricsScheme   `json:"scheme,omitempty"`
+						Tls         *struct {                                              //nolint:revive // mirrors the oapi-codegen field name
+							Ca *struct {
+								Key      string  `json:"key"`
+								Name     *string `json:"name,omitempty"`
+								Optional *bool   `json:"optional,omitempty"`
+							} `json:"ca,omitempty"`
+							InsecureSkipVerify *bool   `json:"insecureSkipVerify,omitempty"`
+							ServerName         *string `json:"serverName,omitempty"`
+						} `json:"tls,omitempty"`
+					} `json:"metrics,omitempty"`
+				} `json:"sources,omitempty"`
+			} `json:"monitoring,omitempty"`
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 			PendingMaintenance *[]struct {
 				ApprovalToken *string                                         `json:"approvalToken,omitempty"`
 				Description   string                                          `json:"description"`
@@ -322,8 +406,50 @@ func minimalInst() *client.Instance {
 			ConnectionSecretRef *struct {
 				Name string `json:"name"`
 			} `json:"connectionSecretRef,omitempty"`
-			Message            *string `json:"message,omitempty"`
-			ObservedGeneration *int64  `json:"observedGeneration,omitempty"`
+			Message    *string `json:"message,omitempty"`
+			Monitoring *struct {
+				Destinations *[]struct {
+					Configured *string                                          `json:"configured,omitempty"`
+					Message    *string                                          `json:"message,omitempty"`
+					Mode       *client.InstanceStatusMonitoringDestinationsMode `json:"mode,omitempty"`
+					Name       string                                           `json:"name"`
+					Reason     *string                                          `json:"reason,omitempty"`
+				} `json:"destinations,omitempty"`
+				Sources *struct {
+					Credentials *[]struct {
+						Profile   string `json:"profile"`
+						SecretRef struct {
+							Name string `json:"name"`
+						} `json:"secretRef"`
+					} `json:"credentials,omitempty"`
+					Identity *struct {
+						ClusterId *string            `json:"clusterId,omitempty"` //nolint:revive // mirrors the oapi-codegen field name
+						Labels    *map[string]string `json:"labels,omitempty"`
+					} `json:"identity,omitempty"`
+					Metrics *[]struct {
+						Auth *struct {
+							CredentialProfile string `json:"credentialProfile"`
+						} `json:"auth,omitempty"`
+						Component   string                                                 `json:"component"`
+						Kind        string                                                 `json:"kind"`
+						Params      *map[string][]string                                   `json:"params,omitempty"`
+						Path        *string                                                `json:"path,omitempty"`
+						PodSelector map[string]string                                      `json:"podSelector"`
+						Port        client.Instance_Status_Monitoring_Sources_Metrics_Port `json:"port"`
+						Scheme      *client.InstanceStatusMonitoringSourcesMetricsScheme   `json:"scheme,omitempty"`
+						Tls         *struct {                                              //nolint:revive // mirrors the oapi-codegen field name
+							Ca *struct {
+								Key      string  `json:"key"`
+								Name     *string `json:"name,omitempty"`
+								Optional *bool   `json:"optional,omitempty"`
+							} `json:"ca,omitempty"`
+							InsecureSkipVerify *bool   `json:"insecureSkipVerify,omitempty"`
+							ServerName         *string `json:"serverName,omitempty"`
+						} `json:"tls,omitempty"`
+					} `json:"metrics,omitempty"`
+				} `json:"sources,omitempty"`
+			} `json:"monitoring,omitempty"`
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 			PendingMaintenance *[]struct {
 				ApprovalToken *string                                         `json:"approvalToken,omitempty"`
 				Description   string                                          `json:"description"`

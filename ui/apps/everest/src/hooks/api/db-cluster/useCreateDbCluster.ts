@@ -18,29 +18,17 @@
 // TODO remove this file after release of v2
 
 import { dbTypeToDbEngine } from '@percona/utils';
-import {
-  UseMutationOptions,
-  useMutation,
-  useQuery,
-} from '@tanstack/react-query';
-import {
-  createDbClusterFn,
-  createDbClusterSecretFn,
-  getDbClusterCredentialsFn,
-} from 'api/dbClusterApi';
+import { UseMutationOptions, useMutation } from '@tanstack/react-query';
+import { createDbClusterFn, createDbClusterSecretFn } from 'api/dbClusterApi';
 import { DbWizardType } from 'pages/database-form/database-form-schema.ts';
 import {
-  ClusterCredentials,
   DataSource,
   DbCluster,
-  GetDbClusterCredentialsPayload,
   ProxyExposeType,
 } from 'shared-types/dbCluster.types';
-import { PerconaQueryOptions } from 'shared-types/query.types';
 import cronConverter from 'utils/cron-converter';
 import { getDataSource, getProxySpec } from './utils';
 import { DbType } from '@percona/types';
-import { useRBACPermissions } from 'hooks/rbac';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
 
 type CreateDbClusterArgType = {
@@ -193,27 +181,6 @@ export const useCreateDbCluster = (
       ),
     ...options,
   });
-
-export const useDbClusterCredentials = (
-  dbClusterName: string,
-  namespace: string,
-  options?: PerconaQueryOptions<ClusterCredentials, unknown, ClusterCredentials>
-) => {
-  const { canRead: canReadCredentials } = useRBACPermissions(
-    'database-cluster-credentials',
-    `${namespace}/${dbClusterName}`
-  );
-
-  return useQuery<GetDbClusterCredentialsPayload, unknown, ClusterCredentials>({
-    queryKey: ['cluster-credentials', namespace, dbClusterName],
-    queryFn: () => getDbClusterCredentialsFn(dbClusterName, namespace),
-    select: canReadCredentials
-      ? (creds) => creds
-      : () => ({ username: '', password: '' }),
-    ...options,
-    enabled: (options?.enabled ?? true) && canReadCredentials,
-  });
-};
 
 type CreateDbClusterSecretProps = {
   dbClusterName: string;

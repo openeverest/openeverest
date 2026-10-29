@@ -176,6 +176,23 @@ func TestLoadAdminPolicy(t *testing.T) {
 		enf.assertDenied("admin-user", ResourceBackupStorages, ActionRead, "default/bs1")
 	})
 
+	t.Run("admin manages monitoring destinations", func(t *testing.T) {
+		t.Parallel()
+		for _, action := range []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete} {
+			enf.assertAllowed("admin-user", ResourceMonitoringDestinations, action, "prod/ns1/pmm-prod")
+		}
+	})
+
+	t.Run("admin only reads monitoring classes and bindings", func(t *testing.T) {
+		t.Parallel()
+		enf.assertAllowed("admin-user", ResourceMonitoringClasses, ActionRead, "prod/pmm")
+		enf.assertAllowed("admin-user", ResourceMonitoringBindings, ActionRead, "prod/ns1/db1")
+		for _, action := range []string{ActionCreate, ActionUpdate, ActionDelete} {
+			enf.assertDenied("admin-user", ResourceMonitoringClasses, action, "prod/pmm")
+			enf.assertDenied("admin-user", ResourceMonitoringBindings, action, "prod/ns1/db1")
+		}
+	})
+
 	t.Run("non-admin without policy is denied", func(t *testing.T) {
 		t.Parallel()
 		enf.assertDenied("random-user", ResourceClusters, ActionRead, "any-cluster")

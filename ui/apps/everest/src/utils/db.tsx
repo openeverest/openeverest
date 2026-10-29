@@ -16,12 +16,10 @@ import { MongoIcon, MySqlIcon, PostgreSqlIcon } from '@percona/ui-lib';
 import { DbEngineType, DbType, ProxyType } from '@percona/types';
 import {
   DbCluster,
-  ManageableSchedules,
   Proxy,
   ProxyExposeType,
   Schedule,
 } from 'shared-types/dbCluster.types';
-import { can } from './rbac';
 import {
   Affinity,
   AffinityComponent,
@@ -124,28 +122,6 @@ export const someErrorInStateFields = <T extends Record<string, unknown>>(
 
 export const isProxy = (proxy: Proxy): boolean => {
   return proxy && typeof proxy.expose === 'object';
-};
-export const transformSchedulesIntoManageableSchedules = async (
-  schedules: Schedule[],
-  namespace: string,
-  canCreateBackups: boolean,
-  canUpdateDb: boolean
-) => {
-  const transformedSchedules: ManageableSchedules[] = await Promise.all(
-    schedules.map(async (schedule) => ({
-      ...schedule,
-      canBeManaged:
-        (await can(
-          'read',
-          'backup-storages',
-          `${namespace}/${schedule.backupStorageName}`
-        )) &&
-        canCreateBackups &&
-        canUpdateDb,
-    }))
-  );
-
-  return transformedSchedules;
 };
 
 export const dbPayloadToAffinityRules = (

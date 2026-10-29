@@ -110,6 +110,11 @@ const (
 	OpenEverestProviderLabel = "openeverest.io/provider"
 	// OpenEverestDefinitionLabel identifies the Secret or ConfigMap definition for filtering.
 	OpenEverestDefinitionLabel = "openeverest.io/definition"
+
+	// InstancePresetAnnotation is the annotation key for the InstancePreset that an Instance was created from.
+	InstancePresetAnnotation = "openeverest.io/instance-preset"
+	// ClusterInstancePresetAnnotation is the annotation key for the ClusterInstancePreset that an Instance was created from.
+	ClusterInstancePresetAnnotation = "openeverest.io/cluster-instance-preset"
 )
 
 // InitialPasswordWarningMessage is the message that is shown to the user after the installation/upgrade,

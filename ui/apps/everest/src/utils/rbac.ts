@@ -14,6 +14,7 @@
 
 import { getRBACPolicies, RBACPolicies } from 'api/policies';
 import { Authorizer } from 'casbin.js';
+import type { HttpApi } from '@generated/api-types';
 
 let authorizer: Authorizer | null = null;
 let username: string = '';
@@ -41,24 +42,79 @@ export const AuthorizerObservable = Object.freeze({
   },
 });
 
-export type RBACAction = 'read' | 'update' | 'delete' | 'create';
+export type RBACStandardAction = 'read' | 'update' | 'delete' | 'create';
+export type RBACAction = RBACStandardAction | 'read-connection';
 export type RBACResource =
   | 'namespaces'
   | 'database-engines'
   | 'database-clusters'
   | 'backups'
   | 'backup-classes'
-  | 'backup-imports'
   | 'instances'
-  | 'database-cluster-backups'
-  | 'database-cluster-restores'
-  | 'database-cluster-credentials'
   | 'backup-storages'
   | 'monitoring-configs'
   | 'secrets'
   | 'pod-scheduling-policies'
   | 'load-balancer-configs'
-  | 'enginefeatures/split-horizon-dns-configs';
+  | 'enginefeatures/split-horizon-dns-configs'
+  | 'providers'
+  | 'plugins'
+  | 'restores'
+  | 'backup-imports'
+  | 'config-maps';
+
+type FirstSegment<P extends string> = P extends `${infer Head}/${string}`
+  ? Head
+  : P;
+type ApiResourceUnder<
+  Prefix extends string,
+  Path = keyof HttpApi.paths,
+> = Path extends `${Prefix}/${infer Rest}` ? FirstSegment<Rest> : never;
+
+type RBACObjectFormat<R extends RBACResource> =
+  R extends ApiResourceUnder<'/clusters/{cluster}/namespaces/{namespace}'>
+    ? 'cluster-namespaced'
+    : R extends ApiResourceUnder<'/clusters/{cluster}'>
+      ? 'cluster-scoped'
+      : 'as-is';
+
+// The scope follows the resource's API path, so a misclassified or missing
+// resource is a type error.
+const RBAC_OBJECT_FORMATS: { [R in RBACResource]: RBACObjectFormat<R> } = {
+  namespaces: 'cluster-scoped',
+  providers: 'cluster-scoped',
+  plugins: 'cluster-scoped',
+  'backup-classes': 'cluster-scoped',
+  instances: 'cluster-namespaced',
+  backups: 'cluster-namespaced',
+  'backup-imports': 'cluster-namespaced',
+  restores: 'cluster-namespaced',
+  'backup-storages': 'cluster-namespaced',
+  'monitoring-configs': 'cluster-namespaced',
+  'config-maps': 'cluster-namespaced',
+  secrets: 'cluster-namespaced',
+  'database-engines': 'as-is',
+  'database-clusters': 'as-is',
+  'pod-scheduling-policies': 'as-is',
+  'load-balancer-configs': 'as-is',
+  'enginefeatures/split-horizon-dns-configs': 'as-is',
+};
+
+// Matches ClusterNamespacedObjectName / ClusterObjectName in pkg/rbac/rbac.go
+export const toRBACObject = (
+  resource: RBACResource,
+  object: string,
+  cluster: string
+): string => {
+  switch (RBAC_OBJECT_FORMATS[resource]) {
+    case 'cluster-namespaced':
+      return object === '*' ? `${cluster}/*/*` : `${cluster}/${object}`;
+    case 'cluster-scoped':
+      return `${cluster}/${object}`;
+    default:
+      return object;
+  }
+};
 
 const constructAuthorizer = async () => {
   const newAuthorizer = new Authorizer('auto', { endpoint: '/' });

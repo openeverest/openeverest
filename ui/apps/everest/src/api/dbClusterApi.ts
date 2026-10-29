@@ -13,11 +13,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import {
-  DbCluster,
-  GetDbClusterCredentialsPayload,
-  GetDbClusterPayload,
-} from 'shared-types/dbCluster.types';
+import { DbCluster, GetDbClusterPayload } from 'shared-types/dbCluster.types';
 import { api } from './api';
 import { DBClusterComponentsList } from 'shared-types/components.types';
 
@@ -68,17 +64,6 @@ export const getDbClustersFn = async (namespace: string) => {
   const response = await api.get<GetDbClusterPayload>(
     `namespaces/${namespace}/database-clusters`
   );
-  return response.data;
-};
-
-export const getDbClusterCredentialsFn = async (
-  dbClusterName: string,
-  namespace: string
-) => {
-  const response = await api.get<GetDbClusterCredentialsPayload>(
-    `namespaces/${namespace}/database-clusters/${dbClusterName}/credentials`
-  );
-
   return response.data;
 };
 

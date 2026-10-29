@@ -44,6 +44,7 @@ type Handler interface {
 	PluginHandler
 	InstanceHandler
 	ClusterInstancePresetHandler
+	InstancePresetHandler
 	ClusterHandler
 	BackupClassHandler
 	BackupHandler
@@ -51,6 +52,9 @@ type Handler interface {
 	RestoreHandler
 	InstanceBackupHandler
 	MonitoringConfigHandler
+	MonitoringClassHandler
+	MonitoringDestinationHandler
+	MonitoringBindingHandler
 	InstanceRestoreHandler
 	ConfigMapHandler
 	SecretHandler
@@ -106,6 +110,15 @@ type ClusterInstancePresetHandler interface {
 	ResolveClusterInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.ClusterInstancePreset, error)
 }
 
+// InstancePresetHandler provides methods for handling operations on namespace-scoped instance presets.
+type InstancePresetHandler interface {
+	ListInstancePresets(ctx context.Context, cluster, namespace, provider string) (*corev1alpha1.InstancePresetList, error)
+	GetInstancePreset(ctx context.Context, cluster, namespace, name string) (*corev1alpha1.InstancePreset, error)
+	CreateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error)
+	UpdateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error)
+	DeleteInstancePreset(ctx context.Context, cluster, namespace, name string) error
+}
+
 // ClusterHandler provides methods for handling operations on clusters.
 type ClusterHandler interface {
 	ListClusters(ctx context.Context) (*api.ClusterList, error)
@@ -153,6 +166,28 @@ type MonitoringConfigHandler interface {
 	ListMonitoringConfigs(ctx context.Context, cluster, namespaces string) (*monitoringv1alpha1.MonitoringConfigList, error)
 	GetMonitoringConfig(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha1.MonitoringConfig, error)
 	DeleteMonitoringConfig(ctx context.Context, cluster, namespace, name string) error
+}
+
+// MonitoringClassHandler provides methods for handling operations on monitoring classes.
+type MonitoringClassHandler interface {
+	ListMonitoringClasses(ctx context.Context, cluster, provider string) (*monitoringv1alpha1.MonitoringClassList, error)
+	GetMonitoringClass(ctx context.Context, cluster, name string) (*monitoringv1alpha1.MonitoringClass, error)
+}
+
+// MonitoringDestinationHandler provides methods for handling operations on monitoring destinations.
+// The namespace, and the name on update, come from the request path, never from the object.
+type MonitoringDestinationHandler interface {
+	ListMonitoringDestinations(ctx context.Context, cluster, namespace, class string) (*monitoringv1alpha1.MonitoringDestinationList, error)
+	GetMonitoringDestination(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha1.MonitoringDestination, error)
+	CreateMonitoringDestination(ctx context.Context, cluster, namespace string, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error)
+	UpdateMonitoringDestination(ctx context.Context, cluster, namespace, name string, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error)
+	DeleteMonitoringDestination(ctx context.Context, cluster, namespace, name string) error
+}
+
+// MonitoringBindingHandler provides methods for handling operations on monitoring bindings.
+type MonitoringBindingHandler interface {
+	ListMonitoringBindings(ctx context.Context, cluster, namespace string, params *api.ListMonitoringBindingsParams) (*monitoringv1alpha1.MonitoringBindingList, error)
+	GetMonitoringBinding(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha1.MonitoringBinding, error)
 }
 
 // InstanceRestoreHandler provides methods for handling operations on instance restores.

@@ -45,6 +45,7 @@ func TestRBAC_Backup(t *testing.T) {
 					Type:        backupv1alpha1.BackupOriginTypeInstance,
 					InstanceRef: &objectref.ObjectRef{Name: "instance-1"},
 				},
+				ClassRef: objectref.ObjectRef{Name: "pbm"},
 			},
 		}
 	}
@@ -58,6 +59,7 @@ func TestRBAC_Backup(t *testing.T) {
 					Type:     backupv1alpha1.BackupOriginTypeExternal,
 					External: &backupv1alpha1.BackupOriginExternal{Path: "path/to/backup"},
 				},
+				ClassRef: objectref.ObjectRef{Name: "pbm"},
 			},
 		}
 	}
@@ -398,7 +400,18 @@ func TestRBAC_Backup(t *testing.T) {
 				),
 			},
 			{
-				desc:    "external: namespace-wide create and storage",
+				desc:    "external: namespace-wide create, storage and class",
+				cluster: "prod",
+				backup:  externalBackupFixture(),
+				policy: newPolicy(
+					"p, role:test, backups, create, prod/ns1/*",
+					"p, role:test, backup-storages, read, prod/ns1/storage-a",
+					"p, role:test, backup-classes, read, prod/pbm",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:    "external: no class access",
 				cluster: "prod",
 				backup:  externalBackupFixture(),
 				policy: newPolicy(
@@ -406,6 +419,7 @@ func TestRBAC_Backup(t *testing.T) {
 					"p, role:test, backup-storages, read, prod/ns1/storage-a",
 					"g, bob, role:test",
 				),
+				wantErr: ErrInsufficientPermissions,
 			},
 			{
 				desc:    "external: no storage access",
@@ -444,6 +458,8 @@ func TestRBAC_Backup(t *testing.T) {
 				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"p, role:test, backups, create, prod/ns1/instance-1",
+					"p, role:test, backup-storages, read, prod/ns1/storage-a",
+					"p, role:test, backup-classes, read, prod/pbm",
 					"g, bob, role:test",
 				),
 			},
@@ -453,8 +469,32 @@ func TestRBAC_Backup(t *testing.T) {
 				backup:  instanceBackupFixture(),
 				policy: newPolicy(
 					"p, role:test, backups, create, prod/ns1/*",
+					"p, role:test, backup-storages, read, prod/ns1/*",
+					"p, role:test, backup-classes, read, prod/*",
 					"g, bob, role:test",
 				),
+			},
+			{
+				desc:    "cannot read the target storage",
+				cluster: "prod",
+				backup:  instanceBackupFixture(),
+				policy: newPolicy(
+					"p, role:test, backups, create, prod/ns1/instance-1",
+					"p, role:test, backup-classes, read, prod/pbm",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "cannot read the backup class",
+				cluster: "prod",
+				backup:  instanceBackupFixture(),
+				policy: newPolicy(
+					"p, role:test, backups, create, prod/ns1/instance-1",
+					"p, role:test, backup-storages, read, prod/ns1/storage-a",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
 			},
 			{
 				desc:    "has read but not create",
