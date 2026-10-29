@@ -1387,7 +1387,7 @@ func TestRBAC_Instance(t *testing.T) {
 func TestRBAC_InstanceReferences(t *testing.T) {
 	t.Parallel()
 
-	const basePolicy = "p, role:test, instances, *, prod/ns1/*\ng, bob, role:test"
+	const basePolicy = "p, role:test, instances, *, prod/ns1/db1\ng, bob, role:test"
 
 	withStorages := func(storages ...corev1alpha1.InstanceBackupStorage) *corev1alpha1.InstanceBackupSpec {
 		return &corev1alpha1.InstanceBackupSpec{ClassRef: apicommon.ObjectRef{Name: "pbm"}, Storages: storages}
@@ -1445,6 +1445,7 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 		createBackups = "p, role:test, backups, create, prod/ns1/db1"
 		createRestore = "p, role:test, restores, create, prod/ns1/db1"
 		readSource    = "p, role:test, backups, read, prod/ns1/source-db"
+		connectSource = "p, role:test, instances, read-connection, prod/ns1/source-db"
 	)
 
 	createCases := []struct {
@@ -1460,7 +1461,8 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 		{desc: "backup class not readable", spec: corev1alpha1.InstanceSpec{Backup: withStorages(storage("s1"))}, policy: []string{readProvider, readS1}, wantDeny: true},
 		{desc: "schedules with backups create", spec: corev1alpha1.InstanceSpec{Backup: withStorages(scheduled("s1"))}, policy: []string{readProvider, readClass, readS1, createBackups}},
 		{desc: "schedules without backups create", spec: corev1alpha1.InstanceSpec{Backup: withStorages(scheduled("s1"))}, policy: []string{readProvider, readClass, readS1}, wantDeny: true},
-		{desc: "data source readable", spec: corev1alpha1.InstanceSpec{DataSource: fromBackup}, policy: []string{readProvider, createRestore, readSource}},
+		{desc: "data source readable", spec: corev1alpha1.InstanceSpec{DataSource: fromBackup}, policy: []string{readProvider, createRestore, readSource, connectSource}},
+		{desc: "data source from another instance without read-connection", spec: corev1alpha1.InstanceSpec{DataSource: fromBackup}, policy: []string{readProvider, createRestore, readSource}, wantDeny: true},
 		{desc: "data source without restores create", spec: corev1alpha1.InstanceSpec{DataSource: fromBackup}, policy: []string{readProvider, readSource}, wantDeny: true},
 		{desc: "data source backup not readable", spec: corev1alpha1.InstanceSpec{DataSource: fromBackup}, policy: []string{readProvider, createRestore}, wantDeny: true},
 	}
@@ -1504,6 +1506,12 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 		{desc: "removing schedules needs no backups create", mutate: func(i *corev1alpha1.Instance) {
 			i.Spec.Backup.Storages[0].Schedules = nil
 		}},
+		{desc: "adding a data source from another instance without read-connection", mutate: func(i *corev1alpha1.Instance) {
+			i.Spec.DataSource = fromBackup
+		}, policy: []string{createRestore, readSource}, wantDeny: true},
+		{desc: "adding a data source from another instance with read-connection", mutate: func(i *corev1alpha1.Instance) {
+			i.Spec.DataSource = fromBackup
+		}, policy: []string{createRestore, readSource, connectSource}},
 	}
 	for _, tc := range updateCases {
 		t.Run("UpdateInstance/"+tc.desc, func(t *testing.T) {

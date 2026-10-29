@@ -685,6 +685,7 @@ func TestRBAC_InstancePresetReferences(t *testing.T) {
 		readPMM1     = "p, role:test, monitoring-destinations, read, prod/ns1/pmm1"
 		readPMM2     = "p, role:test, monitoring-destinations, read, prod/ns1/pmm2"
 		readBackup   = "p, role:test, backups, read, prod/ns1/source-db"
+		readConn     = "p, role:test, instances, read-connection, prod/ns1/source-db"
 	)
 
 	t.Run("CreateInstancePreset", func(t *testing.T) {
@@ -766,10 +767,18 @@ func TestRBAC_InstancePresetReferences(t *testing.T) {
 			},
 			{
 				name:   "data source backup readable",
+				policy: []string{readProvider, readBackup, readConn},
+				spec: corev1alpha1.InstanceSpec{
+					DataSource: fromBackup,
+				},
+			},
+			{
+				name:   "data source backup without read-connection on the source",
 				policy: []string{readProvider, readBackup},
 				spec: corev1alpha1.InstanceSpec{
 					DataSource: fromBackup,
 				},
+				wantErr: true,
 			},
 			{
 				name:   "data source backup not readable",
@@ -781,7 +790,7 @@ func TestRBAC_InstancePresetReferences(t *testing.T) {
 			},
 			{
 				name:   "data source PITR readable",
-				policy: []string{readProvider, readStorage1, readBackup},
+				policy: []string{readProvider, readStorage1, readBackup, readConn},
 				spec: corev1alpha1.InstanceSpec{
 					DataSource: fromPITR,
 				},
@@ -902,7 +911,7 @@ func TestRBAC_InstancePresetReferences(t *testing.T) {
 			},
 			{
 				name:   "adding a readable data source",
-				policy: []string{readBackup},
+				policy: []string{readBackup, readConn},
 				mutate: func(p *corev1alpha1.InstancePreset) {
 					p.Spec.DataSource = fromBackup
 				},
