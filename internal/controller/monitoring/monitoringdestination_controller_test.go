@@ -54,7 +54,7 @@ func TestDestinationReconcilerAccepted(t *testing.T) {
 
 	token := newSecret("pmm-prod-credentials", map[string]string{"token": "glsa_token"})
 	noURL := pmmDestination("pmm-prod")
-	noURL.Spec.URL = ""
+	noURL.Spec.Parameters = nil
 	unknownParameter := newDestination("prom", "prometheus")
 	unknownParameter.Spec.Parameters = raw(`{"url":"https://prometheus.example.com"}`)
 	basicAuth := newDestination("prom", "prometheus")
@@ -95,12 +95,12 @@ func TestDestinationReconcilerAccepted(t *testing.T) {
 			wantMessage: `MonitoringClass "datadog" not found`,
 		},
 		{
-			name:        "url missing although the class requires one",
+			name:        "no parameters although the destination schema requires one",
 			objects:     []client.Object{noURL, token},
 			destination: "pmm-prod",
 			wantStatus:  metav1.ConditionFalse,
-			wantReason:  monitoringv1alpha1.ReasonURLRequired,
-			wantMessage: `MonitoringClass "pmm" requires spec.url`,
+			wantReason:  monitoringv1alpha1.ReasonInvalidParameters,
+			wantMessage: "(root): url is required",
 		},
 		{
 			name:        "parameters rejected by the destination schema",

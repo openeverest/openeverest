@@ -193,14 +193,6 @@ spec:
                   credentials keyed by authentication mode).
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
-              urlPolicy:
-                default: Optional
-                description: URLPolicy says whether MonitoringDestination.spec.url
-                  must be set.
-                enum:
-                - Required
-                - Optional
-                type: string
             required:
             - authModes
             type: object

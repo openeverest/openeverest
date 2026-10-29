@@ -7471,12 +7471,6 @@ export interface components {
                  *     credentials keyed by authentication mode).
                  */
                 uiSchema?: Record<string, never>;
-                /**
-                 * @description URLPolicy says whether MonitoringDestination.spec.url must be set.
-                 * @default Optional
-                 * @enum {string}
-                 */
-                urlPolicy: "Required" | "Optional";
             };
             /**
              * @description MonitoringClassStatus defines the observed state of MonitoringClass. It
@@ -7595,7 +7589,11 @@ export interface components {
                 /**
                  * @description Authentication names one of the class's authModes and, for every mode
                  *     but WorkloadIdentity and Anonymous, the Secret in the same namespace
-                 *     holding that mode's credentials keys.
+                 *     holding that mode's credentials keys. Defaults to mode Anonymous, which
+                 *     only classes that list Anonymous accept.
+                 * @default {
+                 *       "mode": "Anonymous"
+                 *     }
                  */
                 authentication: {
                     /**
@@ -7640,11 +7638,6 @@ export interface components {
                     /** @description InsecureSkipVerify disables verification of the server certificate. */
                     insecureSkipVerify?: boolean;
                 };
-                /**
-                 * @description URL is the address of the backend. Required when the class's urlPolicy
-                 *     is Required.
-                 */
-                url?: string;
             };
             /**
              * @description MonitoringDestinationStatus defines the observed state of

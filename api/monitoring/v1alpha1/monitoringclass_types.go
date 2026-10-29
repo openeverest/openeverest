@@ -71,10 +71,6 @@ type MonitoringClassSpec struct {
 	// +listType=map
 	// +listMapKey=name
 	AuthModes []common.AuthMode `json:"authModes"`
-	// URLPolicy says whether MonitoringDestination.spec.url must be set.
-	// +kubebuilder:default=Optional
-	// +optional
-	URLPolicy URLPolicy `json:"urlPolicy,omitempty"`
 	// UISchema holds free-form form-rendering hints consumed only by the UI,
 	// grouped by the form they decorate (destination, instance, and
 	// credentials keyed by authentication mode).
@@ -143,19 +139,6 @@ func (s *MonitoringClassSpec) AuthModeNames() []string {
 	}
 	return names
 }
-
-// URLPolicy says whether a MonitoringDestination of the class must set
-// spec.url.
-//
-// +kubebuilder:validation:Enum=Required;Optional
-type URLPolicy string
-
-const (
-	// URLPolicyRequired means every destination of the class sets spec.url.
-	URLPolicyRequired URLPolicy = "Required"
-	// URLPolicyOptional means spec.url may be set, for display only.
-	URLPolicyOptional URLPolicy = "Optional"
-)
 
 // Disruption is what enabling a class does to the pods of an Instance.
 //

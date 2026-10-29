@@ -161,6 +161,10 @@ func pmmClass() *monitoringv1alpha1.MonitoringClass {
 				AgentImage:   "percona/pmm-client:3.8.0",
 				AgentVersion: "3.8.0",
 			},
+			DestinationParametersSchema: objectSchema(map[string]apiextensionsv1.JSONSchemaProps{
+				"url": {Type: "string"},
+			}, "url",
+			),
 			InstanceParametersSchema: objectSchema(map[string]apiextensionsv1.JSONSchemaProps{
 				"resources": {Type: "object", Properties: map[string]apiextensionsv1.JSONSchemaProps{
 					"limits":   stringMap(),
@@ -168,7 +172,6 @@ func pmmClass() *monitoringv1alpha1.MonitoringClass {
 				}},
 			}),
 			AuthModes: []common.AuthMode{{Name: "ServiceAccountToken", Credentials: &common.CredentialKeys{Required: []string{"token"}}}},
-			URLPolicy: monitoringv1alpha1.URLPolicyRequired,
 		},
 	})
 }
@@ -314,7 +317,7 @@ func newDestination(name, class string) *monitoringv1alpha1.MonitoringDestinatio
 
 func pmmDestination(name string) *monitoringv1alpha1.MonitoringDestination {
 	dst := newDestination(name, "pmm")
-	dst.Spec.URL = "https://pmm.example.com"
+	dst.Spec.Parameters = raw(`{"url":"https://pmm.example.com"}`)
 	dst.Spec.Authentication = common.Authentication{Mode: "ServiceAccountToken", CredentialsSecretRef: &common.SecretRef{Name: name + "-credentials"}}
 	return dst
 }

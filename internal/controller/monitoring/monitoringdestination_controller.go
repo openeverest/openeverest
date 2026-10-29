@@ -95,9 +95,9 @@ func (r *DestinationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return ctrl.Result{}, rtmonitoring.ApplyCondition(ctx, r.Client, dst, dst.Status.Conditions, rtmonitoring.MaterializerFieldOwner, cond)
 }
 
-// acceptedCondition: class found, url set if the class requires one,
-// parameters valid against its schema, authentication mode defined by the
-// class with every credentials key present, and the CA bundle parseable.
+// acceptedCondition: class found, parameters valid against its schema,
+// authentication mode defined by the class with every credentials key
+// present, and the CA bundle parseable.
 func (r *DestinationReconciler) acceptedCondition(ctx context.Context, dst *monitoringv1alpha1.MonitoringDestination) (metav1.Condition, error) {
 	reject := func(reason, msg string) (metav1.Condition, error) {
 		return rtmonitoring.NewCondition(dst, monitoringv1alpha1.MonitoringDestinationConditionAccepted, metav1.ConditionFalse, reason, msg), nil
@@ -109,9 +109,6 @@ func (r *DestinationReconciler) acceptedCondition(ctx context.Context, dst *moni
 			return metav1.Condition{}, fmt.Errorf("get MonitoringClass %q: %w", dst.Spec.ClassRef.Name, err)
 		}
 		return reject(monitoringv1alpha1.ReasonClassNotFound, fmt.Sprintf("MonitoringClass %q not found", dst.Spec.ClassRef.Name))
-	}
-	if class.Spec.URLPolicy == monitoringv1alpha1.URLPolicyRequired && dst.Spec.URL == "" {
-		return reject(monitoringv1alpha1.ReasonURLRequired, fmt.Sprintf("MonitoringClass %q requires spec.url", class.Name))
 	}
 	schema := class.Spec.DestinationParametersSchema
 	params := dst.Spec.Parameters

@@ -19,7 +19,8 @@ metadata:
   namespace: my-special-place
 spec:
   classRef: {name: pmm}
-  url: https://monitoring-service.pmm.svc.cluster.local
+  parameters:
+    url: https://monitoring-service.pmm.svc.cluster.local
   authentication:
     mode: ServiceAccountToken
     credentialsSecretRef: {name: pmm-dev-credentials}
@@ -32,7 +33,6 @@ metadata:
   namespace: my-special-place
 spec:
   classRef: {name: prometheus}
-  authentication: {mode: Anonymous}
   parameters:
     podMonitorLabels: {release: kube-prometheus-stack}
     interval: 30s
@@ -44,7 +44,6 @@ metadata:
   namespace: my-special-place
 spec:
   classRef: {name: victoriametrics}
-  authentication: {mode: Anonymous}
   parameters:
     vmPodScrapeLabels: {app.kubernetes.io/instance: vmagent}
     interval: 30s

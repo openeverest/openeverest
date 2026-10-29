@@ -843,24 +843,6 @@ func (e MonitoringBindingStatusConditionsStatus) Valid() bool {
 	}
 }
 
-// Defines values for MonitoringClassSpecUrlPolicy.
-const (
-	MonitoringClassSpecUrlPolicyOptional MonitoringClassSpecUrlPolicy = "Optional"
-	MonitoringClassSpecUrlPolicyRequired MonitoringClassSpecUrlPolicy = "Required"
-)
-
-// Valid indicates whether the value is a known member of the MonitoringClassSpecUrlPolicy enum.
-func (e MonitoringClassSpecUrlPolicy) Valid() bool {
-	switch e {
-	case MonitoringClassSpecUrlPolicyOptional:
-		return true
-	case MonitoringClassSpecUrlPolicyRequired:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for MonitoringClassStatusConditionsStatus.
 const (
 	MonitoringClassStatusConditionsStatusFalse   MonitoringClassStatusConditionsStatus = "False"
@@ -6084,9 +6066,6 @@ type MonitoringClass struct {
 		// grouped by the form they decorate (destination, instance, and
 		// credentials keyed by authentication mode).
 		UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
-
-		// UrlPolicy URLPolicy says whether MonitoringDestination.spec.url must be set.
-		UrlPolicy *MonitoringClassSpecUrlPolicy `json:"urlPolicy,omitempty"`
 	} `json:"spec"`
 
 	// Status MonitoringClassStatus defines the observed state of MonitoringClass. It
@@ -6143,9 +6122,6 @@ type MonitoringClass struct {
 		} `json:"providers,omitempty"`
 	} `json:"status,omitempty"`
 }
-
-// MonitoringClassSpecUrlPolicy URLPolicy says whether MonitoringDestination.spec.url must be set.
-type MonitoringClassSpecUrlPolicy string
 
 // MonitoringClassStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type MonitoringClassStatusConditionsStatus string
@@ -6275,8 +6251,9 @@ type MonitoringDestination struct {
 	Spec struct {
 		// Authentication Authentication names one of the class's authModes and, for every mode
 		// but WorkloadIdentity and Anonymous, the Secret in the same namespace
-		// holding that mode's credentials keys.
-		Authentication struct {
+		// holding that mode's credentials keys. Defaults to mode Anonymous, which
+		// only classes that list Anonymous accept.
+		Authentication *struct {
 			// CredentialsSecretRef CredentialsSecretRef references the Secret in the same namespace that
 			// holds the credentials keys of the mode.
 			CredentialsSecretRef *struct {
@@ -6286,7 +6263,7 @@ type MonitoringDestination struct {
 
 			// Mode Mode names one of the class's authModes.
 			Mode string `json:"mode"`
-		} `json:"authentication"`
+		} `json:"authentication,omitempty"`
 
 		// ClassRef ClassRef references the cluster-scoped MonitoringClass this destination
 		// belongs to. Immutable.
@@ -6317,10 +6294,6 @@ type MonitoringDestination struct {
 			// InsecureSkipVerify InsecureSkipVerify disables verification of the server certificate.
 			InsecureSkipVerify *bool `json:"insecureSkipVerify,omitempty"`
 		} `json:"tls,omitempty"`
-
-		// Url URL is the address of the backend. Required when the class's urlPolicy
-		// is Required.
-		Url *string `json:"url,omitempty"`
 	} `json:"spec"`
 
 	// Status MonitoringDestinationStatus defines the observed state of

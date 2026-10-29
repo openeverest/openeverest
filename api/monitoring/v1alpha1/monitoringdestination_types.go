@@ -40,7 +40,6 @@ const (
 const (
 	ReasonCredentialsNotFound = "CredentialsNotFound"
 	ReasonInvalidCABundle     = "InvalidCABundle"
-	ReasonURLRequired         = "URLRequired"
 )
 
 // ReadyReason is a reason of the MonitoringDestination Ready condition. The
@@ -83,25 +82,19 @@ func (r ReadyReason) Status() metav1.ConditionStatus {
 }
 
 // MonitoringDestinationSpec defines the desired state of MonitoringDestination.
-//
-// +kubebuilder:validation:XValidation:rule="!(has(self.url) && self.url.startsWith('http://') && has(self.tls))",message="tls applies to https URLs only"
 type MonitoringDestinationSpec struct {
 	// ClassRef references the cluster-scoped MonitoringClass this destination
 	// belongs to. Immutable.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.classRef is immutable"
 	ClassRef common.ObjectRef `json:"classRef"`
-	// URL is the address of the backend. Required when the class's urlPolicy
-	// is Required.
-	// +optional
-	// +kubebuilder:validation:MaxLength=2048
-	// +kubebuilder:validation:XValidation:rule="self.matches('^https?://[^/?#@]+([/?#].*)?$')",message="url must be an absolute http or https URL without user information"
-	URL string `json:"url,omitempty"`
 	// Authentication names one of the class's authModes and, for every mode
 	// but WorkloadIdentity and Anonymous, the Secret in the same namespace
-	// holding that mode's credentials keys.
-	// +kubebuilder:validation:Required
-	Authentication common.Authentication `json:"authentication"`
+	// holding that mode's credentials keys. Defaults to mode Anonymous, which
+	// only classes that list Anonymous accept.
+	// +kubebuilder:default={mode: "Anonymous"}
+	// +optional
+	Authentication common.Authentication `json:"authentication,omitzero"`
 	// TLS is how the backend's certificate is verified.
 	// +optional
 	TLS *common.TLSConfig `json:"tls,omitempty"`
@@ -141,7 +134,6 @@ type MonitoringDestinationStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=mdest
 // +kubebuilder:printcolumn:name="Class",type="string",JSONPath=".spec.classRef.name"
-// +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".spec.url"
 // +kubebuilder:printcolumn:name="Auth",type="string",JSONPath=".spec.authentication.mode"
 // +kubebuilder:printcolumn:name="Accepted",type="string",JSONPath=".status.conditions[?(@.type==\"Accepted\")].reason"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"

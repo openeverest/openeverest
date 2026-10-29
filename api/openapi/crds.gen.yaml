@@ -8250,14 +8250,6 @@ components:
                 credentials keyed by authentication mode).
               type: object
               x-kubernetes-preserve-unknown-fields: true
-            urlPolicy:
-              default: Optional
-              description: URLPolicy says whether MonitoringDestination.spec.url must
-                be set.
-              enum:
-              - Required
-              - Optional
-              type: string
           required:
           - authModes
           type: object
@@ -8575,10 +8567,13 @@ components:
           description: MonitoringDestinationSpec defines the desired state of MonitoringDestination.
           properties:
             authentication:
+              default:
+                mode: Anonymous
               description: |-
                 Authentication names one of the class's authModes and, for every mode
                 but WorkloadIdentity and Anonymous, the Secret in the same namespace
-                holding that mode's credentials keys.
+                holding that mode's credentials keys. Defaults to mode Anonymous, which
+                only classes that list Anonymous accept.
               properties:
                 credentialsSecretRef:
                   description: |-
@@ -8669,22 +8664,9 @@ components:
               x-kubernetes-validations:
               - message: ca and insecureSkipVerify are mutually exclusive
                 rule: '!(has(self.ca) && has(self.insecureSkipVerify) && self.insecureSkipVerify)'
-            url:
-              description: |-
-                URL is the address of the backend. Required when the class's urlPolicy
-                is Required.
-              maxLength: 2048
-              type: string
-              x-kubernetes-validations:
-              - message: url must be an absolute http or https URL without user information
-                rule: self.matches('^https?://[^/?#@]+([/?#].*)?$')
           required:
-          - authentication
           - classRef
           type: object
-          x-kubernetes-validations:
-          - message: tls applies to https URLs only
-            rule: '!(has(self.url) && self.url.startsWith(''http://'') && has(self.tls))'
         status:
           default:
             conditions:
