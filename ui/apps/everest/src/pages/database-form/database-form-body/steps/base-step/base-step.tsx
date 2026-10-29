@@ -83,7 +83,7 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
   //   !!valid(dbEngineData?.operatorVersion) &&
   //   lt(dbEngineData?.operatorVersion || '', '1.17.0');
 
-  const { isLoading } = useNamespacePermissionsForResource('database-clusters');
+  const { isLoading } = useNamespacePermissionsForResource('instances');
 
   // const filteredNamespaces = canCreate.filter((namespace) =>
   //   dbEnginesDataWithNamespaces?.find(

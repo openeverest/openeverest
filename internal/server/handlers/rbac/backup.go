@@ -73,25 +73,28 @@ func (h *rbacHandler) GetBackup(ctx context.Context, cluster, namespace, name st
 
 // CreateBackup creates a backup if the caller may create it:
 //   - Instance origin: backups create on the Instance.
-//   - External origin: namespace-wide backups create and its BackupStorage read.
+//   - External origin: namespace-wide backups create.
+//
+// Either way the caller must also read the BackupStorage it writes to and the
+// BackupClass it runs, since the class's job permissions become the
+// ServiceAccount the backup job runs as.
 func (h *rbacHandler) CreateBackup(ctx context.Context, cluster string, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error) {
 	namespace := backup.GetNamespace()
-	if ref := backup.Spec.Origin.InstanceRef; ref != nil {
-		object := rbac.ClusterNamespacedObjectName(cluster, namespace, ref.Name)
-		if err := h.enforce(ctx, rbac.ResourceBackups, rbac.ActionCreate, object); err != nil {
-			return nil, err
-		}
-		return h.next.CreateBackup(ctx, cluster, backup)
-	}
 	// External backups have no Instance to grant on, so they need a
-	// namespace-wide backups grant. Storage read prevents callers without
-	// access to the storage from registering backup paths in it.
-	namespaceWide := rbac.ClusterNamespacedObjectName(cluster, namespace, "*")
-	if err := h.enforce(ctx, rbac.ResourceBackups, rbac.ActionCreate, namespaceWide); err != nil {
+	// namespace-wide backups grant.
+	object := rbac.ClusterNamespacedObjectName(cluster, namespace, "*")
+	if ref := backup.Spec.Origin.InstanceRef; ref != nil {
+		object = rbac.ClusterNamespacedObjectName(cluster, namespace, ref.Name)
+	}
+	if err := h.enforce(ctx, rbac.ResourceBackups, rbac.ActionCreate, object); err != nil {
 		return nil, err
 	}
 	storageObject := rbac.ClusterNamespacedObjectName(cluster, namespace, backup.Spec.StorageRef.Name)
 	if err := h.enforce(ctx, rbac.ResourceBackupStorages, rbac.ActionRead, storageObject); err != nil {
+		return nil, err
+	}
+	classObject := rbac.ClusterObjectName(cluster, backup.Spec.ClassRef.Name)
+	if err := h.enforce(ctx, rbac.ResourceBackupClasses, rbac.ActionRead, classObject); err != nil {
 		return nil, err
 	}
 	return h.next.CreateBackup(ctx, cluster, backup)
