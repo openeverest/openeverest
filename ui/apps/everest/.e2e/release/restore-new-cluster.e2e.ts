@@ -34,7 +34,7 @@ import {
   fillScheduleModalForm,
   ScheduleTimeOptions,
 } from '@e2e/pr/db-cluster/db-wizard/db-wizard-utils';
-import { EVEREST_CI_NAMESPACES } from '@e2e/constants';
+import { EVEREST_CI_NAMESPACES, TIMEOUTS } from '@e2e/constants';
 import {
   waitForStatus,
   waitForDelete,
@@ -188,16 +188,12 @@ function getNextScheduleMinute(incrementMinutes: number): string {
               page.getByTestId('text-input-monitoring-instance')
             ).toHaveValue(monitoringName);
           } else {
-            const proxyHeading = page.getByRole('heading', { name: 'Proxy' });
-            const monitoringPreview = page.getByText(
-              `Monitoring endpoint: ${monitoringName}`
-            );
-
-            if (await proxyHeading.isVisible().catch(() => false)) {
-              await expect(proxyHeading).toBeVisible();
-            } else {
-              await expect(monitoringPreview).toBeVisible();
-            }
+            // TODO(monitoring): the PXC provider dropped the wizard Monitoring
+            // step and spec.components.monitoring in favour of
+            // MonitoringDestination (openeverest/provider-percona-xtradb-cluster#46),
+            // so the wizard goes straight to Proxy. Restore monitoring coverage
+            // once core and the UI support MonitoringDestination.
+            await expect(page.getByTestId('step-header')).toHaveText('Proxy');
             await moveForward(page);
           }
         });
@@ -216,7 +212,11 @@ function getNextScheduleMinute(incrementMinutes: number): string {
         });
 
         await test.step('Check db list and status', async () => {
-          await page.goto('/databases');
+          // The wizard navigates to the list once the create request succeeds;
+          // navigating ourselves would abort the in-flight request.
+          await page.waitForURL('**/databases', {
+            timeout: TIMEOUTS.ThirtySeconds,
+          });
           if (db !== 'postgresql' && db !== 'pxc') {
             await waitForStatus(page, clusterName, 'Initializing', 15000);
           }
