@@ -143,9 +143,7 @@ copyright-run:
 .PHONY: charts
 HELM=go tool helm
 charts:        ## Install Helm dependency charts for Everest CLI.
-	$(HELM) repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	$(HELM) repo add openeverest https://openeverest.github.io/helm-charts/
-	$(HELM) repo add vm https://victoriametrics.github.io/helm-charts
 	$(HELM) repo update
 
 ##@ Build
@@ -380,20 +378,28 @@ add-shared-everest-namespace: ## Add shared Everest namespace with all operators
 PXC_PROVIDER_DIR ?= ../provider-percona-xtradb-cluster
 PXC_PROVIDER_IMG ?= ghcr.io/openeverest/provider-percona-xtradb-cluster-dev:latest
 PXC_PROVIDER_K3D_CLUSTER ?= everest-server-test
-# Matches the pxc-operator Helm dependency pinned in the provider chart.
-PXC_OPERATOR_VERSION ?= 1.20.0
 PXC_PROVIDER_NAMESPACE ?= provider-system
-PXC_OPERATOR_DEPLOYMENT ?= provider-percona-xtradb-cluster-operator
+PXC_PROVIDER_CHART_DIR ?= $(PXC_PROVIDER_DIR)/charts/provider-percona-xtradb-cluster
 .PHONY: deploy-pxc-provider
 deploy-pxc-provider: ## Build + Helm-install the PXC provider into the test cluster (needs the provider repo checked out at PXC_PROVIDER_DIR).
 	$(info Building and Helm-installing the PXC provider from $(PXC_PROVIDER_DIR))
 	$(MAKE) -C "$(PXC_PROVIDER_DIR)" docker-build IMG=$(PXC_PROVIDER_IMG)
 	$(MAKE) $(CLUSTER_PROVIDER)-upload-pxc-provider-image
-	$(MAKE) -C "$(PXC_PROVIDER_DIR)" install-crds deploy-provider-ci IMG=$(PXC_PROVIDER_IMG) PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION)
-	# deploy-provider-ci installs the native PXC operator scaled to zero; scale it
-	# up so PerconaXtraDBCluster CRs actually reconcile into running databases.
-	kubectl -n $(PXC_PROVIDER_NAMESPACE) scale deploy $(PXC_OPERATOR_DEPLOYMENT) --replicas=1
-	kubectl -n $(PXC_PROVIDER_NAMESPACE) rollout status deploy/$(PXC_OPERATOR_DEPLOYMENT) --timeout=180s
+	# Install the provider the way users do: on top of an already deployed
+	# Everest. OpenEverest CRDs come only from core (this checkout); the PXC
+	# operator CRDs come from the chart's pxc-operator dependency. Do not use the
+	# provider's `install-crds`: it applies the OpenEverest CRDs pinned in the
+	# provider's go.mod, which conflict with core's as soon as main changes a CRD.
+	$(HELM) repo add percona https://percona.github.io/percona-helm-charts/
+	$(HELM) dependency build "$(PXC_PROVIDER_CHART_DIR)"
+	$(HELM) upgrade --install provider-percona-xtradb-cluster "$(PXC_PROVIDER_CHART_DIR)" \
+		--create-namespace \
+		--namespace $(PXC_PROVIDER_NAMESPACE) \
+		--set image.repository=$(firstword $(subst :, ,$(PXC_PROVIDER_IMG))) \
+		--set image.tag=$(lastword $(subst :, ,$(PXC_PROVIDER_IMG))) \
+		--set image.pullPolicy=Never \
+		--set operator.replicaCount=1 \
+		--wait --timeout 5m
 
 .PHONY: k3d-upload-pxc-provider-image
 k3d-upload-pxc-provider-image:

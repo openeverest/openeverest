@@ -48,10 +48,6 @@ export interface Schedule {
   schedule: string;
 }
 
-export type ManageableSchedules = Schedule & {
-  canBeManaged: boolean;
-};
-
 export interface PITR {
   enabled: boolean;
   backupStorageName: string;
@@ -205,11 +201,3 @@ export type GetDbClusterPayload = {
   kind: 'DatabaseCluster';
   metadata: DbClusterMetadata;
 };
-
-export type ClusterCredentials = {
-  username: string;
-  password: string;
-  connectionUrl?: string;
-};
-
-export type GetDbClusterCredentialsPayload = ClusterCredentials;

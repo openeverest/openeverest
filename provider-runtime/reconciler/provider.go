@@ -43,6 +43,7 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 	"github.com/openeverest/openeverest/v2/provider-runtime/internal/instanceprep"
 	"github.com/openeverest/openeverest/v2/provider-runtime/server"
@@ -50,18 +51,24 @@ import (
 
 const finalizerName = "everest.percona.com/provider-finalizer"
 
+// conflictRequeue gives the cache time to catch up with the write that won
+// the optimistic lock.
+const conflictRequeue = time.Second
+
 // =============================================================================
 // PROVIDER RECONCILER - Works with both Interface and Builder providers
 // =============================================================================
 
 // ProviderReconciler reconciles Instance resources using a Provider.
 type ProviderReconciler struct {
-	provider     providerAdapter
-	manager      ctrl.Manager
-	serverConfig *server.ServerConfig
-	server       *server.Server
-	breaker      maintenanceBreaker
-	pods         atomic.Value // client.Reader, set once the pod watch runs
+	provider      providerAdapter
+	manager       ctrl.Manager
+	serverConfig  *server.ServerConfig
+	server        *server.Server
+	breaker       maintenanceBreaker
+	pods          atomic.Value // client.Reader, set once the pod watch runs
+	apiReader     client.Reader
+	kubeSystemUID atomic.Value // string, the cluster identity of monitoring sources
 	client.Client
 }
 
@@ -167,6 +174,10 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		return nil, fmt.Errorf("failed to add backup v1alpha1 scheme: %w", err)
 	}
 
+	if err := monitoringv1alpha1.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("failed to add monitoring v1alpha1 scheme: %w", err)
+	}
+
 	// Register provider-specific types
 	if typesFunc := p.Types(); typesFunc != nil {
 		if err := typesFunc(scheme); err != nil {
@@ -226,10 +237,19 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		}
 	}
 
+	if _, ok := p.(controller.MonitoringIntegrationsProvider); ok {
+		if err := mgr.GetFieldIndexer().IndexField(ctx, &monitoringv1alpha1.MonitoringDestination{},
+			indexDestinationSecrets, destinationSecrets,
+		); err != nil {
+			return nil, fmt.Errorf("failed to register monitoring destination credentials index: %w", err)
+		}
+	}
+
 	r := &ProviderReconciler{
 		provider:     p,
 		manager:      mgr,
 		serverConfig: options.serverConfig,
+		apiReader:    mgr.GetAPIReader(),
 		Client:       mgr.GetClient(),
 	}
 
@@ -375,6 +395,10 @@ func (r *ProviderReconciler) setup() error {
 		}
 	}
 
+	if monitoringEnabled(r.provider) {
+		r.watchMonitoringBindings(b)
+	}
+
 	c, err := b.Build(r)
 	if err != nil {
 		return err
@@ -403,8 +427,10 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return r.handleDeletion(ctx, inCtx, in, logger)
 	}
 
-	// Ensure provider label and finalizer are present
+	// Ensure provider label and finalizer are present. A merge patch, unlike
+	// Update, cannot erase spec fields this binary's types do not know.
 	var needsUpdate bool
+	base := in.DeepCopy()
 	if in.Labels == nil {
 		in.Labels = make(map[string]string)
 	}
@@ -417,7 +443,10 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		needsUpdate = true
 	}
 	if needsUpdate {
-		if err := r.Client.Update(ctx, in); err != nil {
+		if err := r.Patch(ctx, in, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})); err != nil {
+			if apierrors.IsConflict(err) {
+				return reconcile.Result{RequeueAfter: conflictRequeue}, nil
+			}
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{Requeue: true}, nil
@@ -486,6 +515,9 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	}
 	syncCtx := controller.NewContext(ctx, r.Client, resolvedIn, r.provider.Name())
 	syncCtx.BlockMaintenance(r.breaker.blockedTokens(req.NamespacedName, approvedMaintenanceValue(in))...)
+	if ip, ok := r.provider.(controller.MonitoringIntegrationsProvider); ok {
+		syncCtx.SetMonitoringIntegrations(ip.MonitoringIntegrations()...)
+	}
 
 	// Passive warning for owners: flag effective component versions the
 	// installed catalog marks as deprecated, before any upgrade is attempted.
@@ -597,6 +629,8 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	if effectiveBundleName != "" {
 		in.Status.Version = effectiveBundleName
 	}
+
+	r.reconcileMonitoring(ctx, syncCtx, in)
 
 	// Write connection details Secret and set the ConnectionDetailsReady condition.
 	if err := r.reconcileConnectionSecret(ctx, in, status); err != nil {
@@ -727,8 +761,12 @@ func (r *ProviderReconciler) handleDeletion(
 	}
 
 	// Remove finalizer
+	base := in.DeepCopy()
 	controllerutil.RemoveFinalizer(in, finalizerName)
-	if err := r.Client.Update(ctx, in); err != nil {
+	if err := r.Patch(ctx, in, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})); err != nil {
+		if apierrors.IsConflict(err) {
+			return reconcile.Result{RequeueAfter: conflictRequeue}, nil
+		}
 		return reconcile.Result{}, err
 	}
 	// Drop breaker state so a recreated Instance with the same name does not

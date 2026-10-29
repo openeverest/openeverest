@@ -24,15 +24,21 @@ export type MonitoringConfigCreateParams =
   HttpApi.components['schemas']['MonitoringConfigCreateParams'];
 export type MonitoringConfigUpdateParams =
   HttpApi.components['schemas']['MonitoringConfigUpdateParams'];
+export type Secret = HttpApi.components['schemas']['Secret'];
+export type SecretList = HttpApi.components['schemas']['SecretList'];
+export type SecretListFilter = NonNullable<
+  HttpApi.operations['listSecrets']['parameters']['query']
+>;
 export type GetInstances = CrdsGen.components['schemas']['InstanceList'];
 export type Instance = CrdsGen.components['schemas']['Instance'];
 export type InstanceConnectionDetails =
   CrdsGen.components['schemas']['InstanceConnectionDetails'];
 export type PhaseType = NonNullable<Instance['status']>['phase'];
 
-export type InstancePreset = CrdsGen.components['schemas']['InstancePreset'];
-export type InstancePresetList =
-  CrdsGen.components['schemas']['InstancePresetList'];
+export type ClusterInstancePreset =
+  CrdsGen.components['schemas']['ClusterInstancePreset'];
+export type ClusterInstancePresetList =
+  CrdsGen.components['schemas']['ClusterInstancePresetList'];
 
 export type CreateDbInstancePayload =
   HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances']['post']['requestBody']['content']['application/json'];

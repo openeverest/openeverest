@@ -14,9 +14,10 @@
 
 import type { ReactNode } from 'react';
 import React from 'react';
-import type {
-  Component,
-  ComponentGroup,
+import {
+  FieldType,
+  type Component,
+  type ComponentGroup,
 } from 'components/ui-generator/ui-generator.types';
 import UIComponent from 'components/ui-generator/ui-component/ui-component';
 import UIGroup from 'components/ui-generator/ui-group/ui-group';
@@ -28,18 +29,23 @@ import {
   type ComponentWithDataSource,
 } from 'components/ui-generator/api-providers';
 import { ComponentErrorBoundary } from 'components/ui-generator/component-error-boundary';
+import { SecretField } from 'components/ui-generator/secret-field';
+import { joinPath } from '../object-path';
 
 export type RenderComponentProps = {
   item: Component | ComponentGroup;
   name: string;
+  root?: string;
 };
 
 // Recursively renders UI components and groups.
 export const renderComponent = ({
   item,
   name,
+  root,
 }: RenderComponentProps): ReactNode => {
-  const fieldName = generateFieldId(item, name);
+  const fieldId = generateFieldId(item, name);
+  const fieldName = joinPath(root, fieldId);
   const isGroup = item?.uiType === 'group' && 'components' in item;
 
   const children = isGroup ? (
@@ -47,16 +53,19 @@ export const renderComponent = ({
       (item as ComponentGroup).components,
       (item as ComponentGroup).componentsOrder
     ).map(([childKey, childItem]) => {
-      const childFieldName = `${fieldName}.${childKey}`;
+      const childName = `${fieldId}.${childKey}`;
       return (
-        <React.Fragment key={childFieldName}>
+        <React.Fragment key={childName}>
           {renderComponent({
             item: childItem,
-            name: childFieldName,
+            name: childName,
+            root,
           })}
         </React.Fragment>
       );
     })
+  ) : item.uiType === FieldType.Secret ? (
+    <SecretField item={item} name={fieldName} />
   ) : hasDataSource(item as Component) ? (
     <ComponentErrorBoundary key={fieldName} componentName={name}>
       <DataSourceField item={item as ComponentWithDataSource} name={fieldName}>

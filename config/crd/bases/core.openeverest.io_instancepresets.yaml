@@ -15,12 +15,24 @@ spec:
     - pre
     - preset
     singular: instancepreset
-  scope: Cluster
+  scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: InstancePreset is the Schema for the instancepresets API
+        description: |-
+          InstancePreset is a namespace-scoped template for creating Instances
+          within a single namespace.
+
+          Because an InstancePreset lives in the same namespace as the Instances
+          it produces, it may reference namespace-scoped objects (Secrets, etc.)
+          directly by name. It is used for capturing a known-good configuration,
+          including concrete local references, and reuse it to create Instances
+          in that namespace.
+
+          It is similar to a ClusterInstancePreset, however it is scoped to a single
+          namespace and can therefore only be used to create Instances within that
+          same namespace.
         properties:
           apiVersion:
             description: |-
@@ -1727,6 +1739,71 @@ spec:
                     - Downtime
                     type: string
                 type: object
+              monitoring:
+                description: |-
+                  Monitoring configures where this Instance sends monitoring data. Core
+                  creates one MonitoringBinding per destination; the resolved state is
+                  mirrored in status.monitoring.destinations[].
+                properties:
+                  destinations:
+                    description: |-
+                      Destinations lists the MonitoringDestinations this Instance sends to.
+                      Core creates one MonitoringBinding per entry.
+                    items:
+                      description: |-
+                        InstanceMonitoringDestination sends the Instance's monitoring data to one
+                        MonitoringDestination.
+                      properties:
+                        destinationRef:
+                          description: |-
+                            DestinationRef references the MonitoringDestination in the Instance's
+                            namespace.
+                          properties:
+                            kind:
+                              default: MonitoringDestination
+                              description: Kind of the referenced object.
+                              enum:
+                              - MonitoringDestination
+                              type: string
+                            name:
+                              description: |-
+                                Name of the referenced object. At most 63 characters, since it is also
+                                a label value on the MonitoringBinding.
+                              maxLength: 63
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
+                          required:
+                          - name
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        name:
+                          description: |-
+                            Name identifies the entry within the Instance; it is the key of
+                            status.monitoring.destinations[] and part of the MonitoringBinding name.
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                        parameters:
+                          description: Parameters are validated against the class's
+                            instanceParametersSchema.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                      required:
+                      - destinationRef
+                      - name
+                      type: object
+                    maxItems: 8
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                    x-kubernetes-validations:
+                    - message: each MonitoringDestination may be listed at most once
+                      rule: self.all(a, self.exists_one(b, b.destinationRef.name ==
+                        a.destinationRef.name))
+                type: object
               parameters:
                 description: |-
                   Parameters contains structured parameters that apply to the Instance
@@ -1880,6 +1957,8 @@ spec:
         required:
         - spec
         type: object
+    selectableFields:
+    - jsonPath: .spec.providerRef.name
     served: true
     storage: true
     subresources:
