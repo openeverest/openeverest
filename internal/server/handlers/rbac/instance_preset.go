@@ -59,7 +59,30 @@ func (h *rbacHandler) CreateInstancePreset(ctx context.Context, cluster string, 
 	if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionCreate, object); err != nil {
 		return nil, err
 	}
+	if err := h.ensureInstancePresetReferencesAuthorized(ctx, cluster, nil, preset); err != nil {
+		return nil, err
+	}
 	return h.next.CreateInstancePreset(ctx, cluster, preset)
+}
+
+// ensureInstancePresetReferencesAuthorized checks the caller may read resource
+// the preset pins, since users deploying from the preset are not checked against them.
+// On update, current is the stored preset and only added or changed references are checked.
+//
+// backups:create and restores:create are not checked: they are keyed on an
+// instance that does not exist until someone deploys from the preset, and
+// instances:deploy implies them.
+func (h *rbacHandler) ensureInstancePresetReferencesAuthorized(ctx context.Context, cluster string, current, preset *corev1alpha1.InstancePreset) error {
+	var currentSpec *corev1alpha1.InstanceSpec
+	var currentMonitoring *corev1alpha1.InstanceMonitoringSpec
+	if current != nil {
+		currentSpec = &current.Spec.InstanceSpec
+		currentMonitoring = current.Spec.Monitoring
+	}
+	if err := h.enforceReadMonitoringDestinations(ctx, cluster, preset.GetNamespace(), preset.Spec.Monitoring, currentMonitoring); err != nil {
+		return err
+	}
+	return h.ensureInstanceReferencesAuthorized(ctx, cluster, preset.GetNamespace(), preset.GetName(), currentSpec, preset.Spec.InstanceSpec, false)
 }
 
 // UpdateInstancePreset updates a namespace-scoped instance preset, gated by RBAC.
@@ -67,6 +90,17 @@ func (h *rbacHandler) UpdateInstancePreset(ctx context.Context, cluster string, 
 	object := rbac.ClusterNamespacedObjectName(cluster, preset.GetNamespace(), preset.GetName())
 	if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionUpdate, object); err != nil {
 		return nil, err
+	}
+	current, err := h.next.GetInstancePreset(ctx, cluster, preset.GetNamespace(), preset.GetName())
+	if err != nil {
+		return nil, err
+	}
+	if err := h.ensureInstancePresetReferencesAuthorized(ctx, cluster, current, preset); err != nil {
+		return nil, err
+	}
+	// Pin the write to the version the checks ran against.
+	if preset.GetResourceVersion() == "" {
+		preset.SetResourceVersion(current.GetResourceVersion())
 	}
 	return h.next.UpdateInstancePreset(ctx, cluster, preset)
 }
