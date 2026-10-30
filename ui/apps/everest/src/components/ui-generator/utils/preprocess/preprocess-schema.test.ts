@@ -91,11 +91,10 @@ describe('preprocessSchema', () => {
     };
 
     const result = preprocessSchema(schema);
-    const comp = result.single.sections.storage.components
-      .storageClass as Component;
 
-    expect(comp.uiType).toBe(FieldType.Select);
-    expect(comp.dataSource).toEqual(dataSource);
+    expect(
+      result.single.sections.storage.components.storageClass
+    ).toMatchObject({ uiType: FieldType.Select, dataSource });
   });
 
   it('applies the form mode, so restore leaves out the source value of a field hidden in it', () => {
