@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { Section } from 'components/ui-generator/ui-generator.types';
+import { getByPath } from 'components/ui-generator/utils/object-path';
 import {
   MonitoringClass,
   MonitoringDestination,
@@ -147,10 +148,6 @@ export const getDestinationAddress = (
   if (!section || !hasAddressComponent(section.components)) {
     return undefined;
   }
-  const parameters: unknown = destination.spec.parameters;
-  const url =
-    typeof parameters === 'object' && parameters !== null
-      ? Reflect.get(parameters, 'url')
-      : undefined;
+  const url = getByPath(destination.spec, ADDRESS_PARAMETER_PATH);
   return typeof url === 'string' && url ? url : undefined;
 };

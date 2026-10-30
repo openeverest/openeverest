@@ -19,7 +19,10 @@ import {
   toOpenApiParameterFormValues,
 } from 'components/openapi-parameters-fields';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
-import { deepMerge } from 'components/ui-generator/utils/object-path';
+import {
+  deepMerge,
+  isPlainObject,
+} from 'components/ui-generator/utils/object-path';
 import {
   CredentialsSecretWrite,
   SaveMonitoringDestinationRequest,
@@ -52,9 +55,6 @@ import {
 } from './monitoring-destination-modal.types';
 
 const NO_PARAMETER_FIELDS: OpenApiParameterFields = { fields: [], skipped: [] };
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 export const getDestinationClassForms = (
   monitoringClass: MonitoringClass | undefined,
@@ -112,6 +112,18 @@ export const getCredentialsSecretAction = (
     : undefined;
 };
 
+// The Secret the destination keeps when the user doesn't replace the
+// credentials: only its current one, and only for the mode it was made for.
+export const getKeptCredentialsSecretName = (
+  authMode: string,
+  original: MonitoringDestination | undefined
+): string | undefined => {
+  const secretName = original && getCredentialsSecretName(original);
+  return secretName && authMode === original.spec.authentication?.mode
+    ? secretName
+    : undefined;
+};
+
 export const getFormDefaults = ({
   original,
   namespace,
@@ -160,7 +172,7 @@ export const getFormDefaults = ({
       : {},
     spec: forms.destination
       ? deepMerge(getSectionFormDefaults(forms.destination), {
-          parameters: isRecord(parameters) ? parameters : {},
+          parameters: isPlainObject(parameters) ? parameters : {},
         })
       : {},
     fallbackParameters: toOpenApiParameterFormValues(
@@ -191,11 +203,11 @@ const toParameters = (
       values.spec,
       forms.destination
     );
-    return isRecord(parameters) ? parameters : {};
+    return isPlainObject(parameters) ? parameters : {};
   }
   // Parameters the generated form can't edit are kept as they are.
   const current: unknown = original?.spec.parameters;
-  const kept = isRecord(current)
+  const kept = isPlainObject(current)
     ? Object.fromEntries(
         Object.entries(current).filter(([key]) =>
           forms.parameterFields.skipped.includes(key)

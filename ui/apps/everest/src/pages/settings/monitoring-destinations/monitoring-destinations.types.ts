@@ -33,3 +33,11 @@ export interface MonitoringDestinationPermissions {
   updateNamespaces: string[];
   deleteNamespaces: string[];
 }
+
+// A destination the user asked to delete, with who uses it right now.
+export interface MonitoringDestinationDeletion {
+  row: MonitoringDestinationRow;
+  usedBy: string[];
+  // The credentials Secret deleted along with the destination.
+  secretDeletedToo?: string;
+}

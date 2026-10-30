@@ -24,8 +24,9 @@ export const Messages = {
   authMode: 'Authentication',
   required: 'Required',
   credentials: 'Credentials',
-  replaceCredentials: (secret: string) =>
-    `Replace the credentials (now in Secret ${secret}); they are saved to a new Secret`,
+  replaceCredentials: 'Replace the credentials',
+  replaceCredentialsCaption: (secret: string) =>
+    `Now in Secret ${secret}; new credentials are saved to a new Secret.`,
   credentialsSecretName: 'Credentials Secret name',
   credentialsSecretNameHelper: (defaultName: string) =>
     `The Secret the credentials are stored in. Defaults to ${defaultName}.`,
