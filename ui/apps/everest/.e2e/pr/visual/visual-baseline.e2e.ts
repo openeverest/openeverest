@@ -43,10 +43,7 @@ const screenshotOpts = {
 };
 
 // Helper: wait for a MRT table to finish loading
-async function waitForTableContent(
-  page: import('@playwright/test').Page,
-  headerText: string
-) {
+async function waitForTableContent(page: Page, headerText: string) {
   await page
     .locator(`th:text-is("${headerText}")`)
     .first()

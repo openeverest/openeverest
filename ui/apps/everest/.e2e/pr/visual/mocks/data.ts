@@ -262,11 +262,14 @@ export const mockMonitoringDestinations = {
   ],
 };
 
+const noMonitoringDestinations: (typeof mockMonitoringDestinations)['items'] =
+  [];
+
 // Empty variant so the create-DB wizard monitoring step renders the
 // no-destination state deterministically.
 export const mockMonitoringDestinationsEmpty = {
   ...mockMonitoringDestinations,
-  items: [] as (typeof mockMonitoringDestinations)['items'],
+  items: noMonitoringDestinations,
 };
 
 // MonitoringBindingList = { items: MonitoringBinding[] }: nothing uses the
