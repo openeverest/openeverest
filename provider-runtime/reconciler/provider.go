@@ -49,7 +49,10 @@ import (
 	"github.com/openeverest/openeverest/v2/provider-runtime/server"
 )
 
-const finalizerName = "everest.percona.com/provider-finalizer"
+const (
+	finalizerName                  = "everest.percona.com/provider-finalizer"
+	providerLeaderElectionIDSuffix = ".provider.openeverest.io"
+)
 
 // conflictRequeue gives the cache time to catch up with the write that won
 // the optimistic lock.
@@ -97,6 +100,7 @@ type ReconcilerOption func(*reconcilerOptions)
 type reconcilerOptions struct {
 	serverConfig       *server.ServerConfig
 	metricsBindAddress string
+	leaderElection     bool
 }
 
 // WithServer enables the integrated HTTP server for the validation webhook.
@@ -145,6 +149,14 @@ func WithMetrics(bindAddress string) ReconcilerOption {
 	}
 }
 
+// WithLeaderElection ensures only one replica of a provider reconciles at a
+// time. Validation and readiness continue to run on every replica.
+func WithLeaderElection() ReconcilerOption {
+	return func(o *reconcilerOptions) {
+		o.leaderElection = true
+	}
+}
+
 // newReconciler creates a reconciler from any provider that satisfies providerAdapter.
 func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOption) (*ProviderReconciler, error) {
 	// Apply options
@@ -187,13 +199,7 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&zap.Options{Development: true})))
 
-	// Configure manager options
-	mgrOpts := ctrl.Options{Scheme: scheme}
-	if options.metricsBindAddress != "" {
-		mgrOpts.Metrics = metricsserver.Options{
-			BindAddress: options.metricsBindAddress,
-		}
-	}
+	mgrOpts := newManagerOptions(scheme, p.Name(), *options)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOpts)
 	if err != nil {
@@ -289,6 +295,25 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 	}
 
 	return r, nil
+}
+
+func newManagerOptions(scheme *runtime.Scheme, providerName string, options reconcilerOptions) ctrl.Options {
+	mgrOpts := ctrl.Options{Scheme: scheme}
+	if options.metricsBindAddress != "" {
+		mgrOpts.Metrics = metricsserver.Options{
+			BindAddress: options.metricsBindAddress,
+		}
+	}
+	if options.leaderElection {
+		mgrOpts.LeaderElection = true
+		mgrOpts.LeaderElectionID = providerLeaderElectionID(providerName)
+		mgrOpts.LeaderElectionReleaseOnCancel = true
+	}
+	return mgrOpts
+}
+
+func providerLeaderElectionID(providerName string) string {
+	return providerName + providerLeaderElectionIDSuffix
 }
 
 // GetManager returns the controller manager.

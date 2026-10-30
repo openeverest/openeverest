@@ -72,3 +72,23 @@ func (p *MyProvider) Sync(c *controller.Context) error { ... }
 func (p *MyProvider) Status(c *controller.Context) (controller.Status, error) { ... }
 func (p *MyProvider) Cleanup(c *controller.Context) error { ... }
 ```
+
+## Leader election
+
+Providers that run more than one replica should enable leader election when
+constructing their reconciler:
+
+```go
+r, err := reconciler.New(ctx, provider, reconciler.WithLeaderElection())
+```
+
+The runtime derives the Lease name from the provider name as
+`<provider-name>.provider.openeverest.io`, so providers deployed in the same
+namespace do not contend for leadership. Leadership is released when the
+manager stops, allowing a replacement pod to take over promptly during a
+rolling update.
+
+Leader election is opt-in for compatibility. A provider that enables it must
+grant its service account namespace-scoped `get`, `create`, and `update`
+permissions for `coordination.k8s.io` Lease resources. Validation, health, and
+readiness remain available on standby replicas.
