@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMonitoringDestination } from 'hooks/api/monitoring-destinations';
 import { MonitoringDestinationForm } from './monitoring-destination-form/monitoring-destination-form';
 import { MonitoringDestinationModalProps } from './monitoring-destination-modal.types';
@@ -26,11 +26,22 @@ export const MonitoringDestinationModal = ({
   onClose,
 }: MonitoringDestinationModalProps) => {
   const [changedMeanwhile, setChangedMeanwhile] = useState(false);
-  const { data: original, refetch } = useMonitoringDestination(
-    target?.namespace ?? '',
-    target?.name ?? '',
-    { enabled: !!target, staleTime: 0, gcTime: 0 }
-  );
+  const {
+    data: original,
+    refetch,
+    isError,
+  } = useMonitoringDestination(target?.namespace ?? '', target?.name ?? '', {
+    enabled: !!target,
+    staleTime: 0,
+    gcTime: 0,
+  });
+
+  // The request already reported the error; don't leave an invisible modal open.
+  useEffect(() => {
+    if (isError && !original) {
+      onClose();
+    }
+  }, [isError, original, onClose]);
 
   if (target && !original) {
     return null;
