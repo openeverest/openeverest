@@ -14,6 +14,7 @@
 
 import { z } from 'zod';
 import { KeyValuePair } from '@percona/ui-lib';
+import { isPlainObject } from 'components/ui-generator/utils/object-path';
 import {
   OpenApiParameterField,
   OpenApiParameterFields,
@@ -22,17 +23,14 @@ import {
 } from './openapi-parameters-fields.types';
 import { Messages } from './openapi-parameters-fields.messages';
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
 const isStringMapSchema = (property: Record<string, unknown>) =>
   property.type === 'object' &&
-  !isRecord(property.properties) &&
-  isRecord(property.additionalProperties) &&
+  !isPlainObject(property.properties) &&
+  isPlainObject(property.additionalProperties) &&
   property.additionalProperties.type === 'string';
 
 const toKind = (property: unknown): OpenApiParameterKind | undefined => {
-  if (!isRecord(property)) {
+  if (!isPlainObject(property)) {
     return undefined;
   }
   if (property.type === 'string') {
@@ -48,7 +46,10 @@ const toKind = (property: unknown): OpenApiParameterKind | undefined => {
 export const getOpenApiParameterFields = (
   openAPIV3Schema: unknown
 ): OpenApiParameterFields => {
-  if (!isRecord(openAPIV3Schema) || !isRecord(openAPIV3Schema.properties)) {
+  if (
+    !isPlainObject(openAPIV3Schema) ||
+    !isPlainObject(openAPIV3Schema.properties)
+  ) {
     return { fields: [], skipped: [] };
   }
   const required = Array.isArray(openAPIV3Schema.required)
@@ -64,7 +65,7 @@ export const getOpenApiParameterFields = (
         return { fields, skipped: [...skipped, name] };
       }
       const description =
-        isRecord(property) && typeof property.description === 'string'
+        isPlainObject(property) && typeof property.description === 'string'
           ? property.description
           : undefined;
       return {
@@ -80,7 +81,7 @@ export const getOpenApiParameterFields = (
 };
 
 const toPairs = (value: unknown): KeyValuePair[] =>
-  isRecord(value)
+  isPlainObject(value)
     ? Object.entries(value).map(([key, entryValue]) => ({
         key,
         value: typeof entryValue === 'string' ? entryValue : '',
@@ -91,7 +92,7 @@ export const toOpenApiParameterFormValues = (
   parameters: unknown,
   { fields }: OpenApiParameterFields
 ): OpenApiParameterFormValues => {
-  const source = isRecord(parameters) ? parameters : {};
+  const source = isPlainObject(parameters) ? parameters : {};
   return Object.fromEntries(
     fields.map((field) => {
       const value = source[field.name];
@@ -108,7 +109,7 @@ export const toOpenApiParameterFormValues = (
 };
 
 const isKeyValuePair = (value: unknown): value is KeyValuePair =>
-  isRecord(value) &&
+  isPlainObject(value) &&
   typeof value.key === 'string' &&
   typeof value.value === 'string';
 
@@ -117,7 +118,7 @@ export const fromOpenApiParameterFormValues = (
   values: unknown,
   { fields }: OpenApiParameterFields
 ): Record<string, unknown> => {
-  const source = isRecord(values) ? values : {};
+  const source = isPlainObject(values) ? values : {};
   return Object.fromEntries(
     fields.flatMap((field): [string, unknown][] => {
       const value = source[field.name];

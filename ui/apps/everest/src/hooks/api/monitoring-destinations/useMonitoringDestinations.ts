@@ -89,7 +89,7 @@ export const useMonitoringDestination = (
   return useQuery<MonitoringDestination>({
     queryKey: getMonitoringDestinationQueryKey(cluster, namespace, name),
     queryFn: () => getMonitoringDestinationFn(cluster, namespace, name),
-    enabled: (options?.enabled ?? true) && !!namespace && !!name,
     ...options,
+    enabled: (options?.enabled ?? true) && !!namespace && !!name,
   });
 };

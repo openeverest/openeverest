@@ -58,7 +58,7 @@ export const useMonitoringClasses = (
     queryKey: getMonitoringClassesQueryKey(cluster, ''),
     queryFn: () => getMonitoringClassesFn(cluster),
     select: ({ items = [] }) => items,
-    enabled: (options?.enabled ?? true) && canRead,
     ...options,
+    enabled: (options?.enabled ?? true) && canRead,
   });
 };

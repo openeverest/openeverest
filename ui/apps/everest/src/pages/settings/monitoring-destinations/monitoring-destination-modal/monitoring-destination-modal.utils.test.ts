@@ -20,6 +20,7 @@ import {
   buildSaveRequest,
   getCredentialsSecretAction,
   getFormDefaults,
+  getKeptCredentialsSecretName,
 } from './monitoring-destination-modal.utils';
 
 // No uiSchema: credentials from the auth mode, parameters from the schema.
@@ -88,6 +89,18 @@ describe('getCredentialsSecretAction', () => {
         stored
       )
     ).toBe('replace');
+  });
+});
+
+describe('getKeptCredentialsSecretName', () => {
+  it('keeps the current Secret only for the mode it was made for', () => {
+    expect(getKeptCredentialsSecretName('BasicAuth', stored)).toBe(
+      'prom-basic'
+    );
+    expect(getKeptCredentialsSecretName('Anonymous', stored)).toBeUndefined();
+    expect(
+      getKeptCredentialsSecretName('BasicAuth', undefined)
+    ).toBeUndefined();
   });
 });
 

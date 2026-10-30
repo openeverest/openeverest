@@ -28,7 +28,6 @@ import {
   getDefaultEntryParameters,
   getDestinationDisabledReason,
   getDestinationReadiness,
-  getDestinationSummary,
   groupDestinationsByClass,
   parseMonitoringDestinations,
   pruneMonitoringDestinations,
@@ -61,26 +60,19 @@ const makeClass = (
 const makeDestination = (
   name: string,
   className: string,
-  conditions: { type: string; status: 'True' | 'False' | 'Unknown' }[] = [],
-  parameters?: Record<string, string>
-): MonitoringDestination => {
-  const destination: MonitoringDestination = {
-    metadata: { name },
-    spec: { classRef: { name: className } },
-    status: {
-      conditions: conditions.map((condition) => ({
-        ...condition,
-        reason: 'Test',
-        message: '',
-        lastTransitionTime: '2026-01-01T00:00:00Z',
-      })),
-    },
-  };
-  if (parameters) {
-    Reflect.set(destination.spec, 'parameters', parameters);
-  }
-  return destination;
-};
+  conditions: { type: string; status: 'True' | 'False' | 'Unknown' }[] = []
+): MonitoringDestination => ({
+  metadata: { name },
+  spec: { classRef: { name: className } },
+  status: {
+    conditions: conditions.map((condition) => ({
+      ...condition,
+      reason: 'Test',
+      message: '',
+      lastTransitionTime: '2026-01-01T00:00:00Z',
+    })),
+  },
+});
 
 const entry = (
   name: string,
@@ -302,24 +294,6 @@ describe('getDestinationReadiness', () => {
         ])
       )
     ).toBe(DestinationReadiness.Pending);
-  });
-});
-
-describe('getDestinationSummary', () => {
-  it('returns the url parameter', () => {
-    expect(
-      getDestinationSummary(
-        makeDestination('d', 'pmm', [], { url: 'https://pmm.example.com' })
-      )
-    ).toBe('https://pmm.example.com');
-  });
-
-  it('returns nothing for a class without a url parameter', () => {
-    expect(
-      getDestinationSummary(
-        makeDestination('d', 'prometheus', [], { interval: '30s' })
-      )
-    ).toBeUndefined();
   });
 });
 

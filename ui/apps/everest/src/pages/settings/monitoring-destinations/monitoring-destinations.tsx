@@ -17,102 +17,28 @@ import { Add } from '@mui/icons-material';
 import { Button } from '@mui/material';
 import { Table } from '@percona/ui-lib';
 import { type MRT_ColumnDef } from 'material-react-table';
-import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
 import TableActionsMenu from 'components/table-actions-menu';
-import {
-  useFetchMonitoringBindings,
-  useMonitoringBindingsForNamespaces,
-} from 'hooks/api/monitoring-bindings';
-import { useMonitoringClasses } from 'hooks/api/monitoring-classes';
-import {
-  useDeleteMonitoringDestination,
-  useMonitoringDestinationsForNamespaces,
-} from 'hooks/api/monitoring-destinations';
-import {
-  useNamespacePermissionsForResource,
-  useRBACPermissions,
-} from 'hooks/rbac';
-import { MonitoringClass } from 'shared-types/monitoring-destinations.types';
-import { getSecretDeletedWithDestination } from 'utils/monitoring-destinations';
+import { DeleteDestinationDialog } from './delete-destination-dialog/delete-destination-dialog';
 import { DestinationStatusCell } from './destination-status-cell/destination-status-cell';
-import { UsedByCell } from './used-by-cell/used-by-cell';
+import { useDestinationDeletion } from './hooks/use-destination-deletion';
+import { useMonitoringDestinationPermissions } from './hooks/use-monitoring-destination-permissions';
+import { useMonitoringDestinationRows } from './hooks/use-monitoring-destination-rows';
 import { getMonitoringDestinationMenuItems } from './monitoring-destination-menu-actions';
 import { MonitoringDestinationModal } from './monitoring-destination-modal/monitoring-destination-modal';
 import { MonitoringDestinationTarget } from './monitoring-destination-modal/monitoring-destination-modal.types';
-import { IN_USE_NAMES_SHOWN } from './monitoring-destinations.constants';
 import { Messages } from './monitoring-destinations.messages';
-import {
-  MonitoringDestinationPermissions,
-  MonitoringDestinationRow,
-} from './monitoring-destinations.types';
-import {
-  toMonitoringDestinationRows,
-  toWritableNamespaces,
-} from './monitoring-destinations.utils';
-
-const NO_CLASSES: MonitoringClass[] = [];
+import { MonitoringDestinationRow } from './monitoring-destinations.types';
+import { UsedByCell } from './used-by-cell/used-by-cell';
 
 type ModalState = { target?: MonitoringDestinationTarget } | undefined;
 
-interface DeleteState {
-  row: MonitoringDestinationRow;
-  usedBy: string[];
-}
-
 export const MonitoringDestinations = () => {
-  const destinationPermissions = useNamespacePermissionsForResource(
-    'monitoring-destinations'
-  );
-  const secretPermissions = useNamespacePermissionsForResource('secrets');
-  const bindingPermissions = useNamespacePermissionsForResource(
-    'monitoring-bindings'
-  );
-  const { canRead: canReadClasses } = useRBACPermissions('monitoring-classes');
-  const { data: classes = NO_CLASSES } = useMonitoringClasses();
-
-  const readNamespaces = destinationPermissions.canRead;
-  const destinationResults =
-    useMonitoringDestinationsForNamespaces(readNamespaces);
-  const bindingResults = useMonitoringBindingsForNamespaces(
-    bindingPermissions.canRead
-  );
-
-  const rows = toMonitoringDestinationRows(
-    readNamespaces.map((namespace, index) => ({
-      namespace,
-      destinations: destinationResults[index]?.data ?? [],
-      bindings:
-        bindingResults[bindingPermissions.canRead.indexOf(namespace)]?.data ??
-        [],
-    })),
-    classes
-  );
-  const isLoading =
-    destinationPermissions.isPermissionsLoading ||
-    destinationResults.some((result) => result.isLoading);
-  const hasAddress = rows.some((row) => !!row.address);
-
-  const permissions: MonitoringDestinationPermissions = {
-    createNamespaces: toWritableNamespaces({
-      destinationNamespaces: destinationPermissions.canCreate,
-      secretCreateNamespaces: secretPermissions.canCreate,
-      secretReadNamespaces: secretPermissions.canRead,
-      canReadClasses,
-    }),
-    updateNamespaces: toWritableNamespaces({
-      destinationNamespaces: destinationPermissions.canUpdate,
-      secretCreateNamespaces: secretPermissions.canCreate,
-      secretReadNamespaces: secretPermissions.canRead,
-      canReadClasses,
-    }),
-    deleteNamespaces: destinationPermissions.canDelete,
-  };
-
+  const { rows, classes, isLoading } = useMonitoringDestinationRows();
+  const permissions = useMonitoringDestinationPermissions();
+  const { deletion, isDeleting, request, confirm, cancel } =
+    useDestinationDeletion(rows);
   const [modal, setModal] = useState<ModalState>();
-  const [deleteState, setDeleteState] = useState<DeleteState>();
-  const fetchBindings = useFetchMonitoringBindings();
-  const { mutate: deleteDestination, isPending: isDeleting } =
-    useDeleteMonitoringDestination();
+  const hasAddress = rows.some((row) => !!row.address);
 
   const columns = useMemo<MRT_ColumnDef<MonitoringDestinationRow>[]>(
     () => [
@@ -157,41 +83,6 @@ export const MonitoringDestinations = () => {
     [hasAddress]
   );
 
-  // Asks the server who uses the destination right before deleting it.
-  const handleDelete = (row: MonitoringDestinationRow) =>
-    fetchBindings(row.namespace, row.name)
-      .then((bindings) =>
-        setDeleteState({
-          row,
-          usedBy: bindings.map((binding) => binding.spec.instanceRef.name),
-        })
-      )
-      .catch(() => undefined);
-
-  const namespaceDestinationsOf = (namespace: string) =>
-    rows.filter((row) => row.namespace === namespace).map((row) => row.raw);
-
-  const handleConfirmDelete = (_name: string, namespace: string) => {
-    if (!deleteState) {
-      return;
-    }
-    deleteDestination(
-      {
-        namespace,
-        destination: deleteState.row.raw,
-        namespaceDestinations: namespaceDestinationsOf(namespace),
-      },
-      { onSuccess: () => setDeleteState(undefined) }
-    );
-  };
-
-  const secretDeletedToo =
-    deleteState &&
-    getSecretDeletedWithDestination(
-      deleteState.row.raw,
-      namespaceDestinationsOf(deleteState.row.namespace)
-    );
-
   return (
     <>
       <Table
@@ -223,7 +114,7 @@ export const MonitoringDestinations = () => {
               permissions,
               onEdit: ({ namespace, name }) =>
                 setModal({ target: { namespace, name } }),
-              onDelete: handleDelete,
+              onDelete: request,
             })}
           />
         )}
@@ -236,38 +127,14 @@ export const MonitoringDestinations = () => {
           onClose={() => setModal(undefined)}
         />
       )}
-      {deleteState &&
-        (deleteState.usedBy.length > 0 ? (
-          <ConfirmDialog
-            open
-            selectedId={deleteState.row.name}
-            closeModal={() => setDeleteState(undefined)}
-            headerMessage={Messages.inUseHeader}
-            cancelMessage={Messages.close}
-            submitMessage=""
-          >
-            {Messages.inUse(
-              deleteState.row.name,
-              deleteState.usedBy,
-              IN_USE_NAMES_SHOWN
-            )}
-          </ConfirmDialog>
-        ) : (
-          <ConfirmDialog
-            open
-            selectedId={deleteState.row.name}
-            selectedNamespace={deleteState.row.namespace}
-            closeModal={() => setDeleteState(undefined)}
-            headerMessage={Messages.deleteHeader}
-            cancelMessage={Messages.cancel}
-            handleConfirmNamespace={handleConfirmDelete}
-            disabledButtons={isDeleting}
-          >
-            {Messages.deleteConfirmation(deleteState.row.name)}
-            {secretDeletedToo &&
-              ` ${Messages.secretDeletedToo(secretDeletedToo)}`}
-          </ConfirmDialog>
-        ))}
+      {deletion && (
+        <DeleteDestinationDialog
+          deletion={deletion}
+          isDeleting={isDeleting}
+          onConfirm={confirm}
+          onClose={cancel}
+        />
+      )}
     </>
   );
 };

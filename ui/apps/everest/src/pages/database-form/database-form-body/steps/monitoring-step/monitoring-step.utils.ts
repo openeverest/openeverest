@@ -99,17 +99,6 @@ export const getDestinationReadiness = (
   return DestinationReadiness.Pending;
 };
 
-// The backend address, when the class keeps it in a url parameter.
-export const getDestinationSummary = (
-  destination: MonitoringDestination
-): string | undefined => {
-  const parameters: unknown = destination.spec.parameters;
-  if (!isPlainObject(parameters)) {
-    return undefined;
-  }
-  return typeof parameters.url === 'string' ? parameters.url : undefined;
-};
-
 const toDnsLabel = (name: string) =>
   name
     .toLowerCase()

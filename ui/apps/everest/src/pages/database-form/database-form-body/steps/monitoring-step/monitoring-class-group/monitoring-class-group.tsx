@@ -14,7 +14,10 @@
 
 import { Box, Stack, Typography } from '@mui/material';
 import { SelectableCard } from '@percona/ui-lib';
-import { getDestinationName } from 'utils/monitoring-destinations';
+import {
+  getDestinationAddress,
+  getDestinationName,
+} from 'utils/monitoring-destinations';
 import {
   getMonitoringClassName,
   getMonitoringClassTitle,
@@ -25,10 +28,7 @@ import {
   MonitoringClassDestinations,
   MonitoringSelection,
 } from '../monitoring-step.types';
-import {
-  getDestinationReadiness,
-  getDestinationSummary,
-} from '../monitoring-step.utils';
+import { getDestinationReadiness } from '../monitoring-step.utils';
 
 interface MonitoringClassGroupProps {
   group: MonitoringClassDestinations;
@@ -74,7 +74,7 @@ export const MonitoringClassGroup = ({
               item={{
                 id: name,
                 title: name,
-                subtitle: getDestinationSummary(destination),
+                subtitle: getDestinationAddress(destination, monitoringClass),
                 detail: disabledReason
                   ? Messages.disabledReason[disabledReason]
                   : Messages.readiness[getDestinationReadiness(destination)],

@@ -39,6 +39,11 @@ vi.mock('hooks/api/monitoring-classes', () => {
           agentVersion: '3.0.0',
         },
         uiSchema: {
+          destination: {
+            components: {
+              url: { path: 'parameters.url', uiType: 'text' },
+            },
+          },
           instance: {
             components: {
               cpuRequest: {
