@@ -13,9 +13,8 @@
 // limitations under the License.
 
 import { useMemo, useState } from 'react';
-import { IconButton, Stack } from '@mui/material';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { OverviewCard } from '@percona/ui-lib';
+import { Stack } from '@mui/material';
+import { EditIconButton, OverviewCard } from '@percona/ui-lib';
 import { useMonitoringClassesForProvider } from 'hooks/api/monitoring-classes';
 import { useRBACPermissions } from 'hooks/rbac';
 import { MonitoringClass } from 'shared-types/monitoring-destinations.types';
@@ -25,10 +24,7 @@ import { MonitoringEditModal } from '../monitoring-edit-modal/monitoring-edit-mo
 import { ConfiguredStatus } from './configured-status/configured-status';
 import { Messages } from './monitoring-card.messages';
 import { MonitoringCardProps } from './monitoring-card.types';
-import {
-  describeCondition,
-  getMonitoringOverview,
-} from './monitoring-card.utils';
+import { getMonitoringOverview } from './monitoring-card.utils';
 
 const NO_CLASSES: MonitoringClass[] = [];
 
@@ -63,14 +59,11 @@ export const MonitoringCard = ({
           title: Messages.title,
           action:
             editable && canUpdate && classes.length > 0 ? (
-              <IconButton
-                data-testid="monitoring-edit-button"
-                size="small"
+              <EditIconButton
+                dataTestId="monitoring-edit-button"
                 onClick={() => setEditing(true)}
-                aria-label={Messages.edit}
-              >
-                <EditOutlinedIcon fontSize="small" />
-              </IconButton>
+                label={Messages.edit}
+              />
             ) : undefined,
         }}
       >
@@ -90,10 +83,10 @@ export const MonitoringCard = ({
                     label={Messages.status}
                     content={<ConfiguredStatus status={configured.status} />}
                   />
-                  {describeCondition(configured) && (
+                  {configured.details && (
                     <OverviewSectionRow
                       label={Messages.details}
-                      content={describeCondition(configured)}
+                      content={configured.details}
                     />
                   )}
                 </OverviewSection>
@@ -114,10 +107,10 @@ export const MonitoringCard = ({
                       content={entry.mode}
                     />
                   )}
-                  {describeCondition(entry) && (
+                  {entry.details && (
                     <OverviewSectionRow
                       label={Messages.details}
-                      content={describeCondition(entry)}
+                      content={entry.details}
                     />
                   )}
                 </OverviewSection>

@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { deepClone } from 'components/ui-generator/utils/object-path';
+import {
+  deepClone,
+  deleteByPathAndEmptyParents,
+  setByPath,
+} from 'components/ui-generator/utils/object-path';
 import { Instance } from 'shared-types/api.types';
 import {
   InstanceMonitoringDestinationPayload,
@@ -28,6 +32,8 @@ import {
   MonitoringChange,
   MonitoringDisruption,
 } from './monitoring-edit-modal.types';
+
+const INSTANCE_MONITORING_DESTINATIONS_PATH = 'spec.monitoring.destinations';
 
 const restartsPods = (monitoringClass: MonitoringClass, provider: string) =>
   monitoringClass.status?.providers?.some(
@@ -87,24 +93,16 @@ export const getMonitoringDisruption = ({
 };
 
 // The generated Instance types keep entry parameters opaque, so the
-// class-defined objects are written onto a copy of the Instance as they are.
+// class-defined objects are written onto a copy of the Instance by path.
 export const withMonitoringDestinations = (
   instance: Instance,
   destinations: InstanceMonitoringDestinationPayload[]
 ): Instance => {
   const updated = deepClone(instance);
-  if (!updated.spec) {
-    return updated;
-  }
-  const monitoring = { ...updated.spec.monitoring };
-  delete monitoring.destinations;
   if (destinations.length > 0) {
-    Reflect.set(monitoring, 'destinations', destinations);
-  }
-  if (Object.keys(monitoring).length > 0) {
-    Reflect.set(updated.spec, 'monitoring', monitoring);
+    setByPath(updated, INSTANCE_MONITORING_DESTINATIONS_PATH, destinations);
   } else {
-    Reflect.deleteProperty(updated.spec, 'monitoring');
+    deleteByPathAndEmptyParents(updated, INSTANCE_MONITORING_DESTINATIONS_PATH);
   }
   return updated;
 };
