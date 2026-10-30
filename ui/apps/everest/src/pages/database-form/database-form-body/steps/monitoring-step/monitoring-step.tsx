@@ -13,12 +13,12 @@
 // limitations under the License.
 
 import { Box, Skeleton, Stack } from '@mui/material';
+import { getMonitoringClassName } from 'utils/monitoring-classes';
 import { StepHeader } from 'pages/database-form/database-form-body/steps-old/step-header/step-header';
 import { StepProps } from 'pages/database-form/database-form.types';
 import { useMonitoringSelection } from './hooks/use-monitoring-selection';
 import { MonitoringClassGroup } from './monitoring-class-group/monitoring-class-group';
 import { Messages } from './monitoring-step.messages';
-import { getMonitoringClassName } from './monitoring-step.utils';
 
 export const MonitoringStep = (
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

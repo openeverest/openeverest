@@ -46,3 +46,19 @@ export const useMonitoringClassesForProvider = (
     enabled: (options?.enabled ?? true) && canRead && !!provider,
   });
 };
+
+// Every installed class, e.g. to name the class of each destination.
+export const useMonitoringClasses = (
+  options?: PerconaQueryOptions<MonitoringClassList, unknown, MonitoringClass[]>
+) => {
+  const cluster = useClusterName();
+  const { canRead } = useRBACPermissions('monitoring-classes');
+
+  return useQuery<MonitoringClassList, unknown, MonitoringClass[]>({
+    queryKey: getMonitoringClassesQueryKey(cluster, ''),
+    queryFn: () => getMonitoringClassesFn(cluster),
+    select: ({ items = [] }) => items,
+    ...options,
+    enabled: (options?.enabled ?? true) && canRead,
+  });
+};

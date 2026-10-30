@@ -13,3 +13,5 @@
 // limitations under the License.
 
 export * from './useMonitoringDestinations';
+export * from './monitoring-destination-requests';
+export * from './useMonitoringDestinationMutations';

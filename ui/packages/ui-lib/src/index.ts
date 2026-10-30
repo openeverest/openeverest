@@ -58,6 +58,8 @@ export { default as TextInput } from './form/inputs/text';
 export * from './form/inputs/text-array';
 export { default as TextArray } from './form/inputs/text-array';
 
+export * from './form/inputs/key-value-array';
+
 export * from './form/inputs/multiple-text-input';
 export { default as MultipleTextInput } from './form/inputs/multiple-text-input/multiple-text-input';
 
