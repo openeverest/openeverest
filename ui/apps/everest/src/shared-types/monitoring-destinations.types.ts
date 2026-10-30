@@ -23,6 +23,13 @@ export type MonitoringDestination =
 export type MonitoringDestinationList =
   CrdsGen.components['schemas']['MonitoringDestinationList'];
 
+// Condition types core and the class controllers report on MonitoringClass
+// and MonitoringDestination; the generated types keep `type` a plain string.
+export const MonitoringConditionType = {
+  Accepted: 'Accepted',
+  Ready: 'Ready',
+} as const;
+
 export type InstanceMonitoringSpec = NonNullable<
   NonNullable<Instance['spec']>['monitoring']
 >;

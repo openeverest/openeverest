@@ -24,6 +24,7 @@ import {
   InstanceMonitoringDestination,
   InstanceMonitoringDestinationPayload,
   MonitoringClass,
+  MonitoringConditionType,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
 import {
@@ -89,8 +90,12 @@ export const getDestinationReadiness = (
   destination: MonitoringDestination
 ): DestinationReadiness => {
   const conditions = destination.status?.conditions ?? [];
-  const accepted = conditions.find((c) => c.type === 'Accepted');
-  const ready = conditions.find((c) => c.type === 'Ready');
+  const accepted = conditions.find(
+    (c) => c.type === MonitoringConditionType.Accepted
+  );
+  const ready = conditions.find(
+    (c) => c.type === MonitoringConditionType.Ready
+  );
 
   if (accepted?.status === 'False' || ready?.status === 'False') {
     return DestinationReadiness.NotReady;

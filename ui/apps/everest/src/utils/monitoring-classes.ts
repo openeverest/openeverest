@@ -25,7 +25,10 @@ import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import { buildSectionZodSchema } from 'components/ui-generator/utils/schema-builder';
 import { postprocessSchemaData } from 'components/ui-generator/utils/postprocess/postprocess-schema';
 import { isPlainObject } from 'components/ui-generator/utils/object-path';
-import { MonitoringClass } from 'shared-types/monitoring-destinations.types';
+import {
+  MonitoringClass,
+  MonitoringConditionType,
+} from 'shared-types/monitoring-destinations.types';
 
 // The class uiSchema groups its forms by what they fill: the destination's
 // spec, the Secret of each auth mode and an Instance's monitoring entry.
@@ -52,13 +55,12 @@ const toSectionMap = (value: unknown): Record<string, Section> =>
       )
     : {};
 
-const ACCEPTED_CONDITION = 'Accepted';
-
 // A class nobody claims (Accepted is not True) cannot serve a destination.
 export const isMonitoringClassAccepted = (monitoringClass: MonitoringClass) =>
   (monitoringClass.status?.conditions ?? []).some(
     (condition) =>
-      condition.type === ACCEPTED_CONDITION && condition.status === 'True'
+      condition.type === MonitoringConditionType.Accepted &&
+      condition.status === 'True'
   );
 
 // The generated CRD types keep uiSchema opaque, so each form is narrowed here.
