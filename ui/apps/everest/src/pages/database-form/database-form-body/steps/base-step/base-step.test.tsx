@@ -74,6 +74,7 @@ const makeContextValue = (topologies: string[] = ['replica']) => ({
   sectionsOrder: [],
   providerObject: undefined,
   hasBackupStep: false,
+  hasMonitoringStep: false,
 });
 
 const presetSelectionValue: PresetSelectionContextType = {

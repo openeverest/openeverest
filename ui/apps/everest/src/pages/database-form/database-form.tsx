@@ -49,6 +49,7 @@ import { DbWizardFormFields } from 'consts';
 import {
   BASE_STEP_ID,
   BACKUP_STEP_ID,
+  MONITORING_STEP_ID,
 } from './database-form-body/steps/constants';
 import {
   useFormEngine,
@@ -70,6 +71,11 @@ import {
 } from './database-form-body/steps/backup-step';
 import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
+import { useMonitoringClassesForProvider } from 'hooks/api/monitoring-classes';
+import {
+  MonitoringStep,
+  MONITORING_DESTINATIONS_FIELD,
+} from './database-form-body/steps/monitoring-step';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { PluginFormSections } from './plugin-form-sections';
 import { useSubmitPluginInstanceConfig } from 'hooks/api/plugins/useSubmitPluginInstanceConfig';
@@ -296,6 +302,15 @@ export const DatabasePage = () => {
     typeof selectedPreset === 'string' ? selectedPreset : ''
   );
 
+  // ── Monitoring classes compatible with the provider (determines if the
+  // monitoring step is shown)
+  const { data: monitoringClasses = [] } = useMonitoringClassesForProvider(
+    typeof selectedProvider === 'string'
+      ? selectedProvider
+      : (providerObject?.metadata?.name ?? '')
+  );
+  const hasMonitoringStep = monitoringClasses.length > 0;
+
   // Single owner of programmatic form writes: populate from the picked preset
   // (and revert on clear) and merge topology defaults on a manual switch.
   useDatabaseFormSync({
@@ -337,8 +352,16 @@ export const DatabasePage = () => {
         fields: [BACKUP_SCHEDULES_FIELD],
       });
     }
+    if (hasMonitoringStep) {
+      steps.push({
+        id: MONITORING_STEP_ID,
+        label: 'Monitoring',
+        component: MonitoringStep,
+        fields: [MONITORING_DESTINATIONS_FIELD],
+      });
+    }
     return steps;
-  }, [hasBackupStep]);
+  }, [hasBackupStep, hasMonitoringStep]);
 
   const engine = useFormEngine({
     uiSchema,
@@ -563,6 +586,7 @@ export const DatabasePage = () => {
         sectionsOrder: engine.sectionsOrder,
         providerObject,
         hasBackupStep,
+        hasMonitoringStep,
       }}
     >
       <Stack direction={isDesktop ? 'row' : 'column'}>
