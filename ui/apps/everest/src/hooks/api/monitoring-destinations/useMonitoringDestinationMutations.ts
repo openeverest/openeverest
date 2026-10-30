@@ -16,6 +16,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   createMonitoringDestinationFn,
   deleteMonitoringDestinationFn,
+  getMonitoringDestinationsFn,
   updateMonitoringDestinationFn,
 } from 'api/monitoring-destinations';
 import { createSecretFn, deleteSecretFn } from 'api/secrets';
@@ -43,6 +44,10 @@ const toRequests = (
     updateMonitoringDestinationFn(cluster, namespace, destination),
   deleteDestination: (name) =>
     deleteMonitoringDestinationFn(cluster, namespace, name),
+  listDestinations: () =>
+    getMonitoringDestinationsFn(cluster, namespace).then(
+      ({ items = [] }) => items
+    ),
 });
 
 // Settled, not only successful: a failed save may still have touched the

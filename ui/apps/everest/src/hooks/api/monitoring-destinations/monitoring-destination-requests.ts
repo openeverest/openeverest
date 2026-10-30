@@ -21,6 +21,7 @@ import {
 import {
   getDestinationName,
   getSecretDeletedWithDestination,
+  isCredentialsSecretRemovable,
 } from 'utils/monitoring-destinations';
 
 export interface MonitoringDestinationRequests {
@@ -33,15 +34,23 @@ export interface MonitoringDestinationRequests {
     destination: MonitoringDestinationPayload
   ) => Promise<MonitoringDestination>;
   deleteDestination: (name: string) => Promise<unknown>;
+  listDestinations: () => Promise<MonitoringDestination[]>;
 }
 
-// create: a new Secret; replace: the referenced Secret recreated with new
-// values (there is no Secret update); reuse: an existing Secret as it is.
+// create: a new Secret; replace: a new Secret under a fresh name that takes
+// over from previousName (there is no Secret update, and switching names
+// leaves no moment without credentials); reuse: an existing Secret as it is.
 export type CredentialsSecretWrite =
   | {
-      action: 'create' | 'replace';
+      action: 'create';
       name: string;
       stringData: Record<string, string>;
+    }
+  | {
+      action: 'replace';
+      name: string;
+      stringData: Record<string, string>;
+      previousName?: string;
     }
   | { action: 'reuse'; name: string };
 
@@ -71,6 +80,30 @@ const ignoreNotFound = (error: unknown) => {
   }
 };
 
+// The replaced Secret goes once the destination no longer references it, if
+// the form created it and no other destination uses it. Best effort: the
+// save has already succeeded.
+const deleteReplacedSecret = async (
+  destinationName: string,
+  secretName: string,
+  requests: MonitoringDestinationRequests
+) => {
+  try {
+    const namespaceDestinations = await requests.listDestinations();
+    if (
+      isCredentialsSecretRemovable(
+        destinationName,
+        secretName,
+        namespaceDestinations
+      )
+    ) {
+      await requests.deleteSecret(secretName);
+    }
+  } catch {
+    // A leftover Secret is harmless: the destination already uses the new one.
+  }
+};
+
 // The Secret goes first, since the destination references it; a Secret this
 // call created is deleted again when the destination can't be saved.
 export const saveMonitoringDestination = async (
@@ -81,9 +114,6 @@ export const saveMonitoringDestination = async (
 
   if (credentialsSecret && credentialsSecret.action !== 'reuse') {
     const { action, name, stringData } = credentialsSecret;
-    if (action === 'replace') {
-      await requests.deleteSecret(name).catch(ignoreNotFound);
-    }
     try {
       await requests.createSecret({ metadata: { name }, stringData });
     } catch (error) {
@@ -92,13 +122,12 @@ export const saveMonitoringDestination = async (
       }
       throw error;
     }
-    if (action === 'create') {
-      createdSecretName = name;
-    }
+    createdSecretName = name;
   }
 
+  let saved: MonitoringDestination;
   try {
-    return isEdit
+    saved = isEdit
       ? await requests.updateDestination(destination)
       : await requests.createDestination(destination);
   } catch (error) {
@@ -107,6 +136,19 @@ export const saveMonitoringDestination = async (
     }
     throw error;
   }
+
+  if (
+    credentialsSecret?.action === 'replace' &&
+    credentialsSecret.previousName &&
+    credentialsSecret.previousName !== credentialsSecret.name
+  ) {
+    await deleteReplacedSecret(
+      destination.metadata?.name ?? '',
+      credentialsSecret.previousName,
+      requests
+    );
+  }
+  return saved;
 };
 
 export const deleteMonitoringDestination = async (

@@ -19,6 +19,7 @@ import {
   MonitoringDestinationState,
   MonitoringDestinationStatus,
 } from 'shared-types/monitoring-destinations.types';
+import { generateShortUID } from './generateShortUID';
 import { getMonitoringClassUiSchema } from './monitoring-classes';
 
 const ADDRESS_PARAMETER_PATH = 'parameters.url';
@@ -28,28 +29,65 @@ const READY_PENDING_REASON = 'Pending';
 export const getDestinationName = (destination: MonitoringDestination) =>
   destination.metadata?.name ?? '';
 
+const CREDENTIALS_SECRET_SUFFIX = '-credentials';
+const MAX_SECRET_NAME_LENGTH = 253;
+
 export const getDefaultCredentialsSecretName = (destinationName: string) =>
-  `${destinationName}-credentials`;
+  `${destinationName}${CREDENTIALS_SECRET_SUFFIX}`;
+
+// A fresh name for rotated credentials, so the destination can move to the
+// new Secret before the old one goes.
+export const getRotatedCredentialsSecretName = (
+  destinationName: string,
+  suffix = `${Date.now().toString(36)}${generateShortUID()}`
+) => {
+  const base = getDefaultCredentialsSecretName(destinationName);
+  return `${base.slice(0, MAX_SECRET_NAME_LENGTH - suffix.length - 1)}-${suffix}`;
+};
+
+// Secrets the form names: <destination>-credentials, or with a rotation
+// suffix. Any other Secret was brought by the user and is never deleted.
+export const isFormCreatedCredentialsSecret = (
+  destinationName: string,
+  secretName: string
+) => {
+  const base = getDefaultCredentialsSecretName(destinationName);
+  return (
+    secretName === base ||
+    (secretName.startsWith(`${base}-`) &&
+      /^[a-z0-9]+$/.test(secretName.slice(base.length + 1)))
+  );
+};
 
 export const getCredentialsSecretName = (destination: MonitoringDestination) =>
   destination.spec.authentication?.credentialsSecretRef?.name;
 
-// The credentials Secret that goes with the destination on delete: the one
-// the form creates by default, unless another destination of the namespace
-// uses it too.
+// A Secret the form created for the destination may go once no other
+// destination of the namespace references it.
+export const isCredentialsSecretRemovable = (
+  destinationName: string,
+  secretName: string,
+  namespaceDestinations: MonitoringDestination[]
+) =>
+  isFormCreatedCredentialsSecret(destinationName, secretName) &&
+  !namespaceDestinations.some(
+    (other) =>
+      getDestinationName(other) !== destinationName &&
+      getCredentialsSecretName(other) === secretName
+  );
+
+// The credentials Secret that goes with the destination on delete.
 export const getSecretDeletedWithDestination = (
   destination: MonitoringDestination,
   namespaceDestinations: MonitoringDestination[]
 ): string | undefined => {
-  const name = getDestinationName(destination);
   const secretName = getCredentialsSecretName(destination);
-  const sharedWithAnother = namespaceDestinations.some(
-    (other) =>
-      getDestinationName(other) !== name &&
-      getCredentialsSecretName(other) === secretName
-  );
-  return secretName === getDefaultCredentialsSecretName(name) &&
-    !sharedWithAnother
+  return secretName &&
+    isCredentialsSecretRemovable(
+      getDestinationName(destination),
+      secretName,
+      namespaceDestinations
+    )
     ? secretName
     : undefined;
 };
