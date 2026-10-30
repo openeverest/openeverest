@@ -34,6 +34,7 @@ import {
 } from 'shared-types/monitoring-destinations.types';
 import {
   getCredentialsSection,
+  getMonitoringClassName,
   getMonitoringClassUiSchema,
   getSectionFormDefaults,
   isSecretBackedAuthMode,
@@ -154,7 +155,7 @@ export const getFormDefaults = ({
   const className = original.spec.classRef.name;
   const authMode = original.spec.authentication?.mode ?? '';
   const forms = getDestinationClassForms(
-    classes.find((c) => c.metadata?.name === className),
+    classes.find((c) => getMonitoringClassName(c) === className),
     authMode,
     FormMode.Edit
   );
