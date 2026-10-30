@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ConditionStatus } from './monitoring-card.types';
+import { ConditionStatus, MonitoringMode } from './monitoring-card.types';
 
 export const Messages = {
   title: 'Monitoring',
@@ -27,4 +27,8 @@ export const Messages = {
     False: 'Not configured',
     Unknown: 'Pending',
   } satisfies Record<ConditionStatus, string>,
+  modes: {
+    ProviderManaged: 'Provider-managed',
+    ExtensionManaged: 'Extension-managed',
+  } satisfies Record<MonitoringMode, string>,
 };

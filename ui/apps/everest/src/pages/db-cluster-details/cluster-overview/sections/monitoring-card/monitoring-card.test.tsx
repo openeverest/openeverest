@@ -17,6 +17,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Instance } from 'shared-types/api.types';
 import { TestWrapper } from 'utils/test';
 import { MonitoringCard } from './monitoring-card';
+import { MONITORING_CONFIGURED_CONDITION } from './monitoring-card.constants';
+import { ConditionStatus } from './monitoring-card.types';
 
 const mocks = vi.hoisted(() => ({ classes: { data: [{}] } }));
 
@@ -28,12 +30,8 @@ vi.mock('hooks/rbac', () => {
   return { useRBACPermissions: () => permissions };
 });
 
-const condition = (
-  status: 'True' | 'False' | 'Unknown',
-  reason: string,
-  message = ''
-) => ({
-  type: 'MonitoringConfigured',
+const condition = (status: ConditionStatus, reason: string, message = '') => ({
+  type: MONITORING_CONFIGURED_CONDITION,
   status,
   reason,
   message,
@@ -89,7 +87,7 @@ describe('MonitoringCard', () => {
     );
     const pmm = screen.getByTestId('monitoring-pmm-overview-section');
     expect(pmm).toHaveTextContent('pmm-prod');
-    expect(pmm).toHaveTextContent('ProviderManaged');
+    expect(pmm).toHaveTextContent('Provider-managed');
     expect(pmm).toHaveTextContent(
       'AgentNotRegistered: pmm-client could not reach the server'
     );

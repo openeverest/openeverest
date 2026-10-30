@@ -104,7 +104,7 @@ export const MonitoringCard = ({
                   {entry.mode && (
                     <OverviewSectionRow
                       label={Messages.mode}
-                      content={entry.mode}
+                      content={Messages.modes[entry.mode]}
                     />
                   )}
                   {entry.details && (
