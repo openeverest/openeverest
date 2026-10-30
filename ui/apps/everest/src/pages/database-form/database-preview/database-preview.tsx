@@ -15,10 +15,9 @@
 import React from 'react';
 import { Stack, Typography } from '@mui/material';
 import { useFormContext, useWatch } from 'react-hook-form';
-import { useLocation } from 'react-router-dom';
 import { DatabasePreviewProps } from './database-preview.types.ts';
 import { Messages } from './database.preview.messages.ts';
-import { PreviewSection, PreviewContentText } from './preview-section.tsx';
+import { PreviewSection } from './preview-section.tsx';
 import { DbWizardType } from '../database-form-schema.ts';
 import { useDatabaseFormContext } from '../database-form-context.tsx';
 import DynamicSectionPreview from './dynamic-section-preview/dynamic-section-preview.tsx';
@@ -27,7 +26,6 @@ import { PreviewBackupSection } from './sections/backup-section.tsx';
 import {
   BASE_STEP_ID,
   BACKUP_STEP_ID,
-  IMPORT_STEP_ID,
 } from '../database-form-body/steps/constants.ts';
 import { getSectionStepId } from 'components/ui-generator/utils/section-step-id.ts';
 
@@ -40,8 +38,6 @@ export const DatabasePreview = ({
   ...stackProps
 }: DatabasePreviewProps) => {
   const { getValues } = useFormContext<DbWizardType>();
-  const location = useLocation();
-  const showImportStep = location.state?.showImport;
   const { sections, sectionsOrder, hasBackupStep } = useDatabaseFormContext();
 
   // Trigger a re-render when any form value changes so the preview stays in sync
@@ -61,15 +57,6 @@ export const DatabasePreview = ({
       title: 'Basic Information',
       content: <PreviewSectionOne {...values} />,
     },
-    ...(showImportStep
-      ? [
-          {
-            stepId: IMPORT_STEP_ID,
-            title: 'Import information',
-            content: <PreviewContentText text="" />,
-          },
-        ]
-      : []),
     ...(hasBackupStep
       ? [
           {

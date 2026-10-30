@@ -20,10 +20,11 @@ spec:
       properties:
         url:
           type: string
+          pattern: '^https?://[^/?#@]+([/?#].*)?$'
           description: PMM Server URL, e.g. https://pmm.example.com
-        verifyTLS:
-          type: boolean
-          description: Verify the PMM Server TLS certificate (default true).
+  authModes:
+    - name: ServiceAccountToken
+      credentials: {required: [token]}
   instanceParametersSchema:
     openAPIV3Schema:
       type: object
@@ -40,8 +41,6 @@ spec:
               type: object
               additionalProperties:
                 type: string
-  credentialsSchema:
-    required: [apiKey]
 ---
 apiVersion: monitoring.openeverest.io/v1alpha1
 kind: MonitoringClass
@@ -53,6 +52,8 @@ spec:
   extensionManaged:
     requires:
       metrics: true
+  authModes:
+    - name: Anonymous
   destinationParametersSchema:
     openAPIV3Schema:
       type: object
@@ -80,6 +81,8 @@ spec:
   extensionManaged:
     requires:
       metrics: true
+  authModes:
+    - name: Anonymous
   destinationParametersSchema:
     openAPIV3Schema:
       type: object

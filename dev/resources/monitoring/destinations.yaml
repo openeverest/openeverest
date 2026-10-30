@@ -1,7 +1,7 @@
 # One MonitoringDestination per class in the my-special-place namespace of
 # dev/config.yaml.example. Core sets Accepted (class found, parameters valid,
-# credentials present); the class controller sets Ready once it reached the
-# backend.
+# authentication mode and credentials present); the class controller sets Ready
+# once it reached the backend.
 apiVersion: v1
 kind: Secret
 metadata:
@@ -10,7 +10,7 @@ metadata:
 type: Opaque
 stringData:
   # A PMM 3 service account token.
-  apiKey: replace-with-a-pmm-service-account-token
+  token: replace-with-a-pmm-service-account-token
 ---
 apiVersion: monitoring.openeverest.io/v1alpha1
 kind: MonitoringDestination
@@ -19,10 +19,12 @@ metadata:
   namespace: my-special-place
 spec:
   classRef: {name: pmm}
-  credentialsSecretRef: {name: pmm-dev-credentials}
   parameters:
     url: https://monitoring-service.pmm.svc.cluster.local
-    verifyTLS: false
+  authentication:
+    mode: ServiceAccountToken
+    credentialsSecretRef: {name: pmm-dev-credentials}
+  tls: {insecureSkipVerify: true}
 ---
 apiVersion: monitoring.openeverest.io/v1alpha1
 kind: MonitoringDestination

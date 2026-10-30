@@ -99,6 +99,14 @@ func TestBindingReconcilerRejectsEntry(t *testing.T) {
 	sized.Spec.InstanceParametersSchema.OpenAPIV3Schema.Required = []string{"resources"}
 	sizedDestination := pmmDestination("pmm-sized")
 	sizedDestination.Spec.ClassRef.Name = sized.Name
+	twoModes := pmmClass()
+	twoModes.Name = "pmm-basic"
+	twoModes.Spec.AuthModes = append(twoModes.Spec.AuthModes,
+		common.AuthMode{Name: "BasicAuth", Credentials: &common.CredentialKeys{Required: []string{"username", "password"}}},
+	)
+	basicAuthDestination := pmmDestination("pmm-basic")
+	basicAuthDestination.Spec.ClassRef.Name = twoModes.Name
+	basicAuthDestination.Spec.Authentication.Mode = "BasicAuth"
 
 	tests := []struct {
 		name        string
@@ -175,6 +183,16 @@ func TestBindingReconcilerRejectsEntry(t *testing.T) {
 			wantReason:  monitoringv1alpha1.ReasonIntegrationUnsupported,
 			wantMessage: `Provider "provider-kserve" does not declare integration "pmm"`,
 			wantClass:   "pmm",
+		},
+		{
+			name:        "provider does not render the destination's mode",
+			provider:    pxcProvider(),
+			objects:     []client.Object{twoModes, basicAuthDestination},
+			entries:     []corev1alpha1.InstanceMonitoringDestination{entry("pmm", "pmm-basic")},
+			check:       "pmm",
+			wantReason:  monitoringv1alpha1.ReasonAuthModeUnsupported,
+			wantMessage: `Provider "percona-xtradb-cluster" does not render authentication mode "BasicAuth" for integration "pmm"`,
+			wantClass:   "pmm-basic",
 		},
 		{
 			name:        "integration already used by another entry",

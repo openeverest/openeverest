@@ -21,7 +21,6 @@ import { ProviderTile } from './provider-tile';
 export const ProviderTiles = ({
   providers,
   getProviderMeta,
-  showImport = false,
 }: ProviderPickerProps) => {
   return (
     <Box sx={gridSx}>
@@ -37,7 +36,6 @@ export const ProviderTiles = ({
             name={name}
             label={label}
             meta={meta}
-            showImport={showImport}
           />
         );
       })}

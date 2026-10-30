@@ -53,7 +53,7 @@ vi.mock('../../../hooks/use-database-page-mode', () => ({
   useDatabasePageMode: vi.fn(() => WizardMode.New),
 }));
 
-const schema = getDBWizardSchema([], false);
+const schema = getDBWizardSchema([]);
 
 const defaultValues = {
   [DbWizardFormFields.provider]: 'psmdb',
