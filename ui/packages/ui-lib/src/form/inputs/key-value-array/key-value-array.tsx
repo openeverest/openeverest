@@ -17,6 +17,7 @@ import { IconButton, Stack } from '@mui/material';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import ActionableLabeledContent from '../../../actionable-labeled-content';
 import TextInput from '../text';
+import { PAIR_INPUT_SX } from './key-value-array.constants';
 import { KeyValueArrayProps } from './key-value-array.types';
 import { Messages } from './key-value-array.messages';
 
@@ -46,7 +47,7 @@ export const KeyValueArray = ({
             textFieldProps={{
               placeholder: keyPlaceholder,
               inputProps: { 'aria-label': `${Messages.key} ${index + 1}` },
-              sx: { flex: 1, mt: 1 },
+              sx: PAIR_INPUT_SX,
             }}
           />
           <TextInput
@@ -54,7 +55,7 @@ export const KeyValueArray = ({
             textFieldProps={{
               placeholder: valuePlaceholder,
               inputProps: { 'aria-label': `${Messages.value} ${index + 1}` },
-              sx: { flex: 1, mt: 1 },
+              sx: PAIR_INPUT_SX,
             }}
           />
           <IconButton
