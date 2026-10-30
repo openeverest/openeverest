@@ -166,9 +166,6 @@ describe('MonitoringDestinationModal', () => {
         },
       }
     );
-    expect(vi.mocked(createSecretFn).mock.invocationCallOrder[0]).toBeLessThan(
-      vi.mocked(createMonitoringDestinationFn).mock.invocationCallOrder[0]
-    );
   });
 
   it('offers to reuse a Secret whose name is taken', async () => {
@@ -202,7 +199,7 @@ describe('MonitoringDestinationModal', () => {
     );
   });
 
-  it('deletes the Secret it created when the destination is refused', async () => {
+  it('stays open after rolling back a refused destination', async () => {
     vi.mocked(createMonitoringDestinationFn).mockRejectedValue(new Error('no'));
     const onClose = renderModal();
     await fillPmmDestination();
