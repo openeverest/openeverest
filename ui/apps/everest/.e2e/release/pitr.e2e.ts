@@ -149,6 +149,9 @@ test.describe.serial(
     const namespace = EVEREST_CI_NAMESPACES.EVEREST_UI;
     const baseBackupName = `dembkp-${db}-${size}`;
     let storageClasses: string[] = [];
+    // Start of the latest insert batch; the PITR waits below poll until the
+    // recovery window covers it.
+    let lastInsertStartedAt: Date;
 
     test.beforeAll(async ({ request }) => {
       token = await getCITokenFromLocalStorage();
@@ -186,11 +189,18 @@ test.describe.serial(
     // the binlogs up to that moment have been uploaded to the PITR storage. This
     // is the exact precondition a point-in-time restore needs, so the wait is
     // both correct and self-documenting (vs. a blind fixed sleep).
+    //
+    // `target` must be a moment at or before the last write we need restored,
+    // never "now": the PXC binlog collector reports the timestamp of the last
+    // uploaded transaction truncated to whole seconds, and it only advances when
+    // a new transaction is written. Waiting for a moment after our last write
+    // would depend on some unrelated later write that may never happen.
     const waitForPitrWindowToCover = async (
       request: APIRequestContext,
       target: Date
     ) => {
       const instancePath = `/v1/clusters/main/namespaces/${namespace}/instances/${clusterName}`;
+      const targetSecond = Math.floor(target.getTime() / 1000) * 1000;
       await expect
         .poll(
           async () => {
@@ -209,8 +219,7 @@ test.describe.serial(
               (storage: { pitr?: { latestRestorableTime?: string } }) => {
                 const latest = storage.pitr?.latestRestorableTime;
                 return (
-                  latest != null &&
-                  new Date(latest).getTime() >= target.getTime()
+                  latest != null && new Date(latest).getTime() >= targetSecond
                 );
               }
             );
@@ -477,6 +486,7 @@ test.describe.serial(
       await new Promise((resolve) => setTimeout(resolve, 2000));
       pitrRestoreTime = getCurrentPITRTime();
       await new Promise((resolve) => setTimeout(resolve, 2000));
+      lastInsertStartedAt = new Date();
       await insertTestDB(
         clusterName,
         namespace,
@@ -488,10 +498,10 @@ test.describe.serial(
     test(`Wait for binlogs to be uploaded [${db} size ${size}]`, async ({
       request,
     }) => {
-      // The recovery window must reach "now" (after the inserts above) before a
+      // The recovery window must cover the inserts above before a
       // point-in-time restore can target a moment within it. Poll the uploaded
       // binlog watermark instead of sleeping a fixed, environment-fragile time.
-      await waitForPitrWindowToCover(request, new Date());
+      await waitForPitrWindowToCover(request, lastInsertStartedAt);
     });
 
     test(`Delete data before date restore [${db} size ${size}]`, async () => {
@@ -613,6 +623,7 @@ test.describe.serial(
     });
 
     test(`Add more data before latest restore [${db} size ${size}]`, async () => {
+      lastInsertStartedAt = new Date();
       await insertTestDB(
         clusterName,
         namespace,
@@ -627,7 +638,7 @@ test.describe.serial(
       // Same precondition as before the date restore: wait until the recovery
       // window covers the just-inserted rows so "restore to latest" includes
       // them, rather than relying on a fixed sleep.
-      await waitForPitrWindowToCover(request, new Date());
+      await waitForPitrWindowToCover(request, lastInsertStartedAt);
     });
 
     test(`Delete data before latest restore [${db} size ${size}]`, async () => {
