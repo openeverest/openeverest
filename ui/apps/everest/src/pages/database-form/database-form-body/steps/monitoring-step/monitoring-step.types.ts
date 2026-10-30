@@ -44,3 +44,12 @@ export interface MonitoringSelection {
     destination: MonitoringDestination
   ) => MonitoringSectionForm | undefined;
 }
+
+export interface MonitoringSelectionOptions {
+  namespace: string;
+  provider: string;
+  // Drop entries whose destination is not offered, e.g. after the namespace
+  // changed on an earlier wizard step. An existing Instance keeps them, so an
+  // edit never removes what it doesn't show.
+  pruneUnavailable: boolean;
+}

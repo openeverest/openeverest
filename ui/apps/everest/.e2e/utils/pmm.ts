@@ -13,100 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { APIRequestContext, expect } from '@playwright/test';
+import { expect } from '@playwright/test';
 import { execSync } from 'child_process';
 import { getDBClientPod } from '@e2e/utils/db-cmd-line';
 import { getK8sUid } from '@e2e/utils/kubernetes';
-import { EVEREST_CI_CLUSTER } from '@e2e/constants';
-const { MONITORING_URL, MONITORING_USER, MONITORING_PASSWORD } = process.env;
-
-export const testMonitoringName = 'ui-test-monitoring';
-export const testMonitoringName2 = 'ui-test-monitoring-1';
-
-export const createMonitoringConfig = async (
-  request: APIRequestContext,
-  name: string,
-  namespace: string,
-  token: string
-) => {
-  const data = {
-    name,
-    type: 'pmm',
-    url: MONITORING_URL,
-    verifyTLS: false,
-    pmm: {
-      user: MONITORING_USER,
-      password: MONITORING_PASSWORD,
-    },
-  };
-
-  const response = await request.post(
-    `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/monitoring-configs`,
-    {
-      data,
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
-
-  expect(response.ok()).toBeTruthy();
-};
-
-export const getMonitoringConfig = async (
-  request: APIRequestContext,
-  namespace: string,
-  name: string,
-  token: string
-) => {
-  const response = await request.get(
-    `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/monitoring-configs/${name}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
-  expect(response.status() === 200).toBeTruthy();
-  return await response.json();
-};
-
-export const deleteMonitoringConfig = async (
-  request: APIRequestContext,
-  namespace: string,
-  name: string,
-  token: string
-) => {
-  const response = await request.delete(
-      `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/monitoring-configs/${name}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    ),
-    code = response.status();
-  expect(code === 204 || response.status() === 404).toBeTruthy();
-};
-
-export const listMonitoringConfigs = async (
-  request: APIRequestContext,
-  namespace: string,
-  token: string
-) => {
-  const response = await request.get(
-    `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/monitoring-configs`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
-  expect(response.ok()).toBeTruthy();
-
-  const responseBody = await response.json();
-  return responseBody;
-};
 
 export const getPMMMajorVersion = async () => {
   try {

@@ -34,7 +34,7 @@ import { DB_NAMESPACE, DB_NAME } from './mocks/data';
 import {
   mockInstancesListEmptyRoute,
   mockInstanceDetailWithSchedules,
-  mockMonitoringConfigsEmptyRoute,
+  mockMonitoringDestinationsEmptyRoute,
 } from './mocks/routes';
 
 const screenshotOpts = {
@@ -92,26 +92,26 @@ test.describe('Visual Baseline - Pages', () => {
     );
   });
 
-  // --- SETTINGS: MONITORING ENDPOINTS ---
-  test('Settings - Monitoring Endpoints', async ({ page }) => {
-    await goToUrl(page, '/settings/monitoring-endpoints');
-    await waitForTableContent(page, 'Endpoint');
+  // --- SETTINGS: MONITORING DESTINATIONS ---
+  test('Settings - Monitoring Destinations', async ({ page }) => {
+    await goToUrl(page, '/settings/monitoring-destinations');
+    await waitForTableContent(page, 'Address');
     await expect(page).toHaveScreenshot(
-      'settings-monitoring-endpoints.png',
+      'settings-monitoring-destinations.png',
       screenshotOpts
     );
   });
 
-  test('Settings - Monitoring Endpoints - Add modal', async ({ page }) => {
-    await goToUrl(page, '/settings/monitoring-endpoints');
-    await waitForTableContent(page, 'Endpoint');
-    await page.getByTestId('add-monitoring-endpoint').click();
+  test('Settings - Monitoring Destinations - Add modal', async ({ page }) => {
+    await goToUrl(page, '/settings/monitoring-destinations');
+    await waitForTableContent(page, 'Address');
+    await page.getByTestId('add-monitoring-destination').click();
     await page
       .getByRole('dialog')
       .waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForTimeout(300);
     await expect(page).toHaveScreenshot(
-      'settings-monitoring-add-modal.png',
+      'settings-monitoring-destinations-add-modal.png',
       screenshotOpts
     );
   });
@@ -211,8 +211,8 @@ test.describe('Visual Baseline - DB Wizard', () => {
   test.describe.configure({ timeout: TIMEOUTS.FiveMinutes });
 
   test('DB Wizard - all steps', async ({ page }) => {
-    // Empty monitoring so the plain wizard monitoring step shows the no-endpoint state.
-    await mockMonitoringConfigsEmptyRoute(page);
+    // No destination so the wizard monitoring step shows the no-destination state.
+    await mockMonitoringDestinationsEmptyRoute(page);
 
     await goToUrl(page, '/databases');
     await page
@@ -248,7 +248,19 @@ test.describe('Visual Baseline - DB Wizard', () => {
       screenshotOpts
     );
 
-    // Navigate to Database Version (step 3)
+    // Navigate to Monitoring (step 3, shown because a class is installed for the provider)
+    await page.getByTestId('db-wizard-continue-button').click();
+    await page.waitForTimeout(1000);
+    await page
+      .getByTestId('step-header')
+      .waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForTimeout(500);
+    await expect(page).toHaveScreenshot(
+      'db-wizard-monitoring.png',
+      screenshotOpts
+    );
+
+    // Navigate to Database Version (step 4)
     await page.getByTestId('db-wizard-continue-button').click();
     await page.waitForTimeout(1000);
     await page
@@ -260,7 +272,7 @@ test.describe('Visual Baseline - DB Wizard', () => {
       screenshotOpts
     );
 
-    // Navigate to Resources (step 4)
+    // Navigate to Resources (step 5)
     await page.getByTestId('db-wizard-continue-button').click();
     await page.waitForTimeout(1000);
     await page
@@ -269,18 +281,6 @@ test.describe('Visual Baseline - DB Wizard', () => {
     await page.waitForTimeout(500);
     await expect(page).toHaveScreenshot(
       'db-wizard-resources.png',
-      screenshotOpts
-    );
-
-    // Navigate to Monitoring (step 5)
-    await page.getByTestId('db-wizard-continue-button').click();
-    await page.waitForTimeout(1000);
-    await page
-      .getByTestId('step-header')
-      .waitFor({ state: 'visible', timeout: 10000 });
-    await page.waitForTimeout(500);
-    await expect(page).toHaveScreenshot(
-      'db-wizard-monitoring.png',
       screenshotOpts
     );
 
@@ -336,8 +336,10 @@ test.describe('Visual Baseline - Mocked States', () => {
     );
   });
 
-  test('DB Wizard - monitoring with endpoint available', async ({ page }) => {
-    // Default monitoring-configs fixture already exposes an endpoint.
+  test('DB Wizard - monitoring with destination available', async ({
+    page,
+  }) => {
+    // The default fixtures expose one PMM destination in the namespace.
     await goToUrl(page, '/databases');
     await page
       .getByTestId('add-db-cluster-button')
@@ -347,25 +349,16 @@ test.describe('Visual Baseline - Mocked States', () => {
       .getByTestId('step-header')
       .waitFor({ state: 'visible', timeout: 60000 });
 
-    // Navigate through steps to reach Monitoring
+    // Monitoring is the step right after Backups.
     await page.getByRole('button', { name: /configure more/i }).click();
     await page.waitForTimeout(1000);
-    for (let i = 0; i < 3; i++) {
-      await page.getByTestId('db-wizard-continue-button').click();
-      await page.waitForTimeout(1500);
-    }
+    await page.getByTestId('db-wizard-continue-button').click();
     await page
-      .getByText(/monitoring/i)
-      .first()
+      .getByTestId('monitoring-class-pmm')
       .waitFor({ state: 'visible', timeout: 10000 });
     await page.waitForTimeout(500);
-    const pageContent = await page.textContent('main');
-    if (pageContent?.includes('Advanced configuration')) {
-      await page.getByRole('button', { name: /previous/i }).click();
-      await page.waitForTimeout(1000);
-    }
     await expect(page).toHaveScreenshot(
-      'db-wizard-monitoring-with-endpoint.png',
+      'db-wizard-monitoring-with-destination.png',
       screenshotOpts
     );
   });

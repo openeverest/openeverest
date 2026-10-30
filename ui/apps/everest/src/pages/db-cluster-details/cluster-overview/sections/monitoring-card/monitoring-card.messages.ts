@@ -12,4 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export { MonitoringEmptyFallback } from './monitoring-empty-fallback';
+import { ConditionStatus } from './monitoring-card.types';
+
+export const Messages = {
+  title: 'Monitoring',
+  edit: 'Edit monitoring',
+  notConfigured: 'Not configured',
+  destinations: 'Destinations',
+  status: 'Status',
+  mode: 'Mode',
+  details: 'Details',
+  configured: {
+    True: 'Configured',
+    False: 'Not configured',
+    Unknown: 'Pending',
+  } satisfies Record<ConditionStatus, string>,
+};

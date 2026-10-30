@@ -12,8 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export const Messages = {
-  alertText: (namespace: string) =>
-    `Database monitoring is currently disabled because no monitoring endpoints have been configured. To enable database monitoring, first add a monitoring endpoint for the ${namespace} namespace`,
-  addMonitoringEndpoint: 'Add monitoring endpoint',
-};
+import { Typography } from '@mui/material';
+import StatusField from 'components/status-field';
+import { CONFIGURED_TO_STATUS } from '../monitoring-card.constants';
+import { Messages } from '../monitoring-card.messages';
+import { ConditionStatus } from '../monitoring-card.types';
+
+export const ConfiguredStatus = ({ status }: { status: ConditionStatus }) => (
+  <StatusField status={status} statusMap={CONFIGURED_TO_STATUS}>
+    <Typography variant="body2">{Messages.configured[status]}</Typography>
+  </StatusField>
+);

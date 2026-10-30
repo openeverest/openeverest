@@ -14,7 +14,7 @@
 
 // Deterministic, pure fixtures for the visual-regression suite.
 //
-// NOTE ON TYPES: the src shared-types (e.g. `Instance`, `MonitoringConfigList`)
+// NOTE ON TYPES: the src shared-types (e.g. `Instance`, `MonitoringDestinationList`)
 // live behind the `shared-types/*` path alias which is NOT exposed to the e2e
 // tsconfig (only `@generated/api-types`, `@e2e/*`, etc. are). The generated CRD
 // types also model `metadata` as an opaque `Record<string, never>`, which makes
@@ -164,37 +164,117 @@ export const mockInstanceConnection = {
 // useNamespaces which sorts the array as strings). Must include `default`.
 export const mockNamespaces = [DB_NAMESPACE];
 
-// MonitoringConfigList = { items: MonitoringConfig[] }.
-// Lifted verbatim from the proven inline fixture in visual-baseline.e2e.ts.
-export const mockMonitoringConfigs = {
+// MonitoringClassList = { items: MonitoringClass[] } (see the PMM class in
+// monitoring-pmm/charts/monitoring-pmm/templates/monitoringclass.yaml). The
+// class is Accepted and claimed by the mocked provider, so the wizard shows its
+// Monitoring step.
+export const mockMonitoringClasses = {
   apiVersion: 'monitoring.openeverest.io/v1alpha1',
-  kind: 'MonitoringConfigList',
+  kind: 'MonitoringClassList',
   items: [
     {
       apiVersion: 'monitoring.openeverest.io/v1alpha1',
-      kind: 'MonitoringConfig',
-      metadata: { name: 'pmm-prod', namespace: 'default' },
+      kind: 'MonitoringClass',
+      metadata: { name: 'pmm' },
       spec: {
-        type: 'pmm',
-        pmm: {
-          credentialsSecretRef: {
-            name: 'monitoring-config-pmm-prod-credentials',
+        displayName: 'Percona Monitoring and Management',
+        description: 'Percona Monitoring and Management 3.',
+        providerManaged: {
+          integration: 'pmm',
+          agentImage: 'percona/pmm-client:3.8.0',
+          agentVersion: '3.8.0',
+        },
+        authModes: [
+          { name: 'ServiceAccountToken', credentials: { required: ['token'] } },
+        ],
+        uiSchema: {
+          destination: {
+            components: {
+              url: {
+                path: 'parameters.url',
+                uiType: 'text',
+                fieldParams: { label: 'PMM server URL' },
+                validation: { required: true, url: true },
+              },
+            },
           },
-          url: 'http://monitoring.example.com',
-          verifyTLS: false,
         },
       },
-      status: { inUse: false, lastObservedGeneration: 1 },
+      status: {
+        conditions: [
+          {
+            type: 'Accepted',
+            status: 'True',
+            reason: 'Accepted',
+            message: '',
+            lastTransitionTime: '2026-01-01T00:00:00Z',
+          },
+        ],
+        providers: [
+          {
+            name: 'percona-server-mongodb',
+            mode: 'ProviderManaged',
+            disruption: 'RollingRestart',
+          },
+        ],
+      },
+    },
+  ],
+};
+
+// MonitoringDestinationList = { items: MonitoringDestination[] }.
+export const mockMonitoringDestinations = {
+  apiVersion: 'monitoring.openeverest.io/v1alpha1',
+  kind: 'MonitoringDestinationList',
+  items: [
+    {
+      apiVersion: 'monitoring.openeverest.io/v1alpha1',
+      kind: 'MonitoringDestination',
+      metadata: { name: 'pmm-prod', namespace: 'default' },
+      spec: {
+        classRef: { name: 'pmm' },
+        authentication: {
+          mode: 'ServiceAccountToken',
+          credentialsSecretRef: { name: 'pmm-prod-credentials' },
+        },
+        parameters: { url: 'http://monitoring.example.com' },
+      },
+      status: {
+        serverVersion: '3.8.0',
+        conditions: [
+          {
+            type: 'Accepted',
+            status: 'True',
+            reason: 'Accepted',
+            message: '',
+            lastTransitionTime: '2026-01-01T00:00:00Z',
+          },
+          {
+            type: 'Ready',
+            status: 'True',
+            reason: 'Ready',
+            message: '',
+            lastTransitionTime: '2026-01-01T00:00:00Z',
+          },
+        ],
+      },
     },
   ],
 };
 
 // Empty variant so the create-DB wizard monitoring step renders the
-// no-endpoint-available state deterministically.
-export const mockMonitoringConfigsEmpty = {
+// no-destination state deterministically.
+export const mockMonitoringDestinationsEmpty = {
+  ...mockMonitoringDestinations,
+  items: [] as (typeof mockMonitoringDestinations)['items'],
+};
+
+// MonitoringBindingList = { items: MonitoringBinding[] }: nothing uses the
+// destination yet.
+export const mockMonitoringBindings = {
   apiVersion: 'monitoring.openeverest.io/v1alpha1',
-  kind: 'MonitoringConfigList',
-  items: [] as (typeof mockMonitoringConfigs)['items'],
+  kind: 'MonitoringBindingList',
+  items: [],
 };
 
 // BackupStorageList = { items: BackupStorage[] } (see src/api/backupStorage.ts).

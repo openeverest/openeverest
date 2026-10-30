@@ -57,10 +57,7 @@ export const dbClusterProject: PlaywrightTestProject[] = [
     name: 'pr:db-cluster:db-wizard:create',
     testDir: './pr/db-cluster/db-wizard/create-db-cluster',
     testMatch: /create-db-cluster\.e2e\.ts/,
-    dependencies: [
-      'global:backup-storage:setup',
-      'global:monitoring-instance:setup',
-    ],
+    dependencies: ['global:backup-storage:setup'],
     use: {
       storageState: CI_USER_STORAGE_STATE_FILE,
     },

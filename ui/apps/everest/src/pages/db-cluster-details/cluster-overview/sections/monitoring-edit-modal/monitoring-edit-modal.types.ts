@@ -12,5 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './useMonitoringConfigsList';
-export * from './useMonitoringConfigsOptions';
+import { Instance } from 'shared-types/api.types';
+
+export interface MonitoringEditModalProps {
+  instance: Instance;
+  namespace: string;
+  onClose: () => void;
+}
+
+export enum MonitoringChange {
+  Enable = 'enable',
+  Remove = 'remove',
+}
+
+// What saving the new destinations does to the running database.
+export interface MonitoringDisruption {
+  restarts: { change: MonitoringChange; classTitle: string }[];
+  singleReplica: boolean;
+}
