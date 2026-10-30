@@ -14,7 +14,7 @@
 
 import React, { useEffect, useMemo } from 'react';
 import { useFormContext } from 'react-hook-form';
-import type { Component } from '../../ui-generator.types';
+import { FormMode, type Component } from '../../ui-generator.types';
 import { providerRegistry, useProviderOptions } from '../registry';
 import { useUiGeneratorContext } from '../../ui-generator-context';
 import { useClusterName } from 'hooks/api/useClusterName';
@@ -26,16 +26,15 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
   name,
   children,
 }) => {
-  const { namespace } = useUiGeneratorContext();
+  const { namespace, formMode } = useUiGeneratorContext();
   const cluster = useClusterName();
   const { getValues, setValue } = useFormContext();
   const { dataSource, ...baseComponent } = item;
 
   const hasValidContext = !!namespace && !!cluster;
-  // Reconciling a field the user can't change would silently rewrite the
-  // stored value on save (e.g. pin an unset storageClass, which the operator
-  // can't apply to an existing StatefulSet).
-  const isDisabled = !!baseComponent.fieldParams?.disabled;
+  // Edit shows the stored spec as-is, like extractInstanceValues: auto-selecting
+  // here would write a value nobody chose into the spec on save.
+  const shouldAutoSelect = formMode !== FormMode.Edit;
 
   const { options, isLoading, error, isEmpty } = useProviderOptions(
     dataSource.provider,
@@ -47,14 +46,14 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
   );
 
   useEffect(() => {
-    if (isLoading || !name || isDisabled) return;
+    if (isLoading || !name || !shouldAutoSelect) return;
 
     const nextValue = getReconciledDataSourceValue(getValues(name), options);
 
     if (nextValue !== null) {
       setValue(name, nextValue, { shouldValidate: true });
     }
-  }, [isLoading, isDisabled, options, name, getValues, setValue]);
+  }, [isLoading, shouldAutoSelect, options, name, getValues, setValue]);
 
   const patchedItem = useMemo(() => {
     const originalHelperText = (

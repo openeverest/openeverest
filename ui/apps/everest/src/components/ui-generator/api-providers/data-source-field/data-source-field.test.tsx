@@ -16,10 +16,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { DataSourceField } from './data-source-field';
 import type { ComponentWithDataSource } from './data-source-field.types';
-import { FieldType } from '../../ui-generator.types';
+import { FieldType, FormMode } from '../../ui-generator.types';
 
 const mockUseProviderOptions = vi.fn();
 const mockRegistryGet = vi.fn();
+
+const CREATE_CONTEXT = { namespace: 'ns' };
+const EDIT_CONTEXT = { namespace: 'ns', formMode: FormMode.Edit };
+let mockContext: typeof CREATE_CONTEXT | typeof EDIT_CONTEXT = CREATE_CONTEXT;
 
 vi.mock('../registry', () => ({
   useProviderOptions: (...args: unknown[]) => mockUseProviderOptions(...args),
@@ -32,7 +36,7 @@ vi.mock('../registry', () => ({
 }));
 
 vi.mock('../../ui-generator-context', () => ({
-  useUiGeneratorContext: () => ({ namespace: 'ns' }),
+  useUiGeneratorContext: () => mockContext,
 }));
 
 vi.mock('hooks/api/useClusterName', () => ({
@@ -51,6 +55,60 @@ const makeItem = (
 });
 
 describe('DataSourceField', () => {
+  afterEach(() => {
+    mockContext = CREATE_CONTEXT;
+  });
+
+  const renderWithValue = (
+    storedValue: string,
+    item: ComponentWithDataSource = makeItem()
+  ) => {
+    mockUseProviderOptions.mockReturnValue({
+      options: [{ label: 'standard', value: 'standard' }],
+      isLoading: false,
+      error: null,
+      isEmpty: false,
+    });
+
+    let getValues: (name: string) => unknown = () => undefined;
+
+    const Harness = () => {
+      const methods = useForm({
+        defaultValues: { spec: { storageClass: storedValue } },
+      });
+      getValues = methods.getValues;
+      return (
+        <FormProvider {...methods}>
+          <DataSourceField item={item} name="spec.storageClass">
+            {() => <div />}
+          </DataSourceField>
+        </FormProvider>
+      );
+    };
+
+    render(<Harness />);
+    return () => getValues('spec.storageClass');
+  };
+
+  it.each([
+    ['an unset value', ''],
+    ['a value missing from the options', 'deleted-class'],
+  ])('keeps %s as stored in edit mode', async (_case, storedValue) => {
+    mockContext = EDIT_CONTEXT;
+    const readValue = renderWithValue(storedValue);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(readValue()).toBe(storedValue);
+  });
+
+  it('auto-selects a disabled field outside edit mode', async () => {
+    const readValue = renderWithValue(
+      '',
+      makeItem({ label: 'Storage class', disabled: true })
+    );
+
+    await waitFor(() => expect(readValue()).toBe('standard'));
+  });
   it('sets form value to first option when options arrive and field is empty', async () => {
     mockUseProviderOptions.mockReturnValue({
       options: [
@@ -118,46 +176,6 @@ describe('DataSourceField', () => {
       expect(getValues('spec.storageClass')).toBe('premium');
     });
   });
-
-  it.each([
-    ['an unset value', ''],
-    ['a value missing from the options', 'deleted-class'],
-  ])(
-    'leaves %s untouched when the field is disabled for the mode',
-    async (_case, storedValue) => {
-      mockUseProviderOptions.mockReturnValue({
-        options: [{ label: 'standard', value: 'standard' }],
-        isLoading: false,
-        error: null,
-        isEmpty: false,
-      });
-
-      let getValues: (name: string) => unknown = () => undefined;
-      const disabledItem = makeItem({
-        label: 'Storage class',
-        disabled: true,
-      });
-
-      const Harness = () => {
-        const methods = useForm({
-          defaultValues: { spec: { storageClass: storedValue } },
-        });
-        getValues = methods.getValues;
-        return (
-          <FormProvider {...methods}>
-            <DataSourceField item={disabledItem} name="spec.storageClass">
-              {() => <div />}
-            </DataSourceField>
-          </FormProvider>
-        );
-      };
-
-      render(<Harness />);
-
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(getValues('spec.storageClass')).toBe(storedValue);
-    }
-  );
 
   it('resets form value when current value is no longer in options', async () => {
     const { rerender } = render(<></>);

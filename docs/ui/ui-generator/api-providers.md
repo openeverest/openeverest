@@ -36,7 +36,7 @@ fieldKey:
   fieldParams:
     label: string
     helperText: string # shown below; defaults to "No options available" when empty
-    disabled: boolean # always disabled, regardless of loading state; its value is never auto-selected or replaced
+    disabled: boolean # always disabled, regardless of loading state
     defaultValue: string # overrides auto-selection of first option
     displayEmpty: boolean # adds empty "None" option for optional fields
   validation: # same as regular select — required, regex, celExpressions
@@ -69,6 +69,8 @@ A `dataSource` field is still a regular `select` — the only difference is that
 | Fetch failed   | disabled | Failed to load options     | not shown                                                    |
 | No options     | hidden   | —                          | shown instead of select if provider has `emptyStateFallback` |
 | Options loaded | enabled  | first option auto-selected | not shown                                                    |
+
+In `edit` mode nothing is auto-selected: the field shows the stored value as-is, even when it is empty or no longer among the options, so saving another field never rewrites it. Auto-selection applies only when creating (`new`, `restore`, `import`).
 
 When a provider registers an `emptyStateFallback`, `DataSourceField` renders the fallback component **instead of** the select field whenever options are empty. The select is not shown at all — the fallback completely replaces it. This is used for resources that can be user-created (e.g. monitoring endpoints). Providers for non-creatable resources (e.g. StorageClasses) register `emptyStateFallback: null`, in which case the select is rendered normally with a "No options available" helper text.
 
