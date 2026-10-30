@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { Stack, Typography } from '@mui/material';
-import { CheckboxInput, TextInput } from '@percona/ui-lib';
+import { SwitchInput, TextInput } from '@percona/ui-lib';
 import { useFormContext, useWatch } from 'react-hook-form';
 import TlsAlert from 'components/tls-alert';
 import { DestinationFormFields } from '../monitoring-destination-modal.constants';
@@ -30,7 +30,7 @@ export const TlsFields = () => {
   return (
     <Stack sx={{ mt: 3 }}>
       <Typography variant="sectionHeading">{Messages.tls}</Typography>
-      <CheckboxInput
+      <SwitchInput
         name={DestinationFormFields.insecureSkipVerify}
         label={Messages.skipTlsVerification}
       />

@@ -32,8 +32,9 @@ export const Messages = {
     [MonitoringDestinationState.Failing]: 'Not ready',
   } satisfies Record<MonitoringDestinationState, string>,
   serverVersion: (version: string) => `v${version}`,
-  usedBy: (instances: string[]) =>
-    `${instances.length}: ${instances.join(', ')}`,
+  usedByCount: (count: number) =>
+    count === 1 ? '1 database' : `${count} databases`,
+  usedByDialogTitle: (name: string) => `Databases using ${name}`,
   edit: 'Edit',
   delete: 'Delete',
   cancel: 'Cancel',
@@ -44,6 +45,10 @@ export const Messages = {
   secretDeletedToo: (secret: string) =>
     `Its credentials Secret ${secret} is deleted with it.`,
   inUseHeader: 'Destination in use',
-  inUse: (name: string, instances: string[]) =>
-    `${name} is used by ${instances.join(', ')}. Remove it from those databases first.`,
+  inUse: (name: string, instances: string[], shownLimit: number) => {
+    const shown = instances.slice(0, shownLimit).join(', ');
+    const more = instances.length - shownLimit;
+    const list = more > 0 ? `${shown} and ${more} more` : shown;
+    return `${name} is used by ${list}. Remove it from those databases first.`;
+  },
 };
