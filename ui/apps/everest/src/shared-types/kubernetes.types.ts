@@ -23,6 +23,7 @@ export type StorageClass = {
   allowVolumeExpansion: boolean;
   metadata: {
     name: string;
+    annotations?: Record<string, string>;
   };
 };
 
