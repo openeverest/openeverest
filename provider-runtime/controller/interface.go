@@ -384,8 +384,17 @@ type UpgradeProvider interface {
 // =============================================================================
 
 // MonitoringSourcesProvider is an optional interface a provider implements to
-// publish what an Instance exposes to monitoring (credentials and OpenMetrics
-// endpoints), which ExtensionManaged MonitoringClasses consume.
+// publish what an Instance exposes to monitoring (credentials, OpenMetrics
+// endpoints and native-protocol connection endpoints), which ExtensionManaged
+// MonitoringClasses consume.
+//
+// A provider whose component types declare connection: Supported publishes,
+// while RequiredSources().Connections asks for it, one connection endpoint
+// per serving component and an Instance-owned Secret with the read-only
+// monitoring user under the CredentialProfileMonitor profile. It also renders
+// Context.MonitoringPodAnnotations(component) into each component's pod
+// template on every Sync, for classes whose agents discover databases
+// through pod annotations.
 //
 // When a provider implements MonitoringSourcesProvider or
 // MonitoringIntegrationsProvider the runtime:
@@ -407,9 +416,10 @@ type MonitoringSourcesProvider interface {
 	// The runtime drops duplicate credential profiles and credentials whose
 	// Secret is not controlled by the Instance; it drops endpoints of
 	// component types the Provider does not declare or declares with
-	// metrics None, endpoints whose pod selector lacks the Instance label,
-	// endpoints with a scheme other than http or https and endpoints naming
-	// a credential profile missing from credentials, and keeps at most 32.
+	// metrics None (connection None for connection endpoints), endpoints
+	// whose pod selector lacks the Instance label, metrics endpoints with a
+	// scheme other than http or https and endpoints naming a credential
+	// profile missing from credentials, and keeps at most 32 of each.
 	// It sets each endpoint's kind from its declared component type and
 	// overwrites identity. Returning nil clears the published sources; an
 	// error keeps the previous ones.

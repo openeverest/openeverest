@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"slices"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -110,6 +111,38 @@ type ExtensionManagedFulfilment struct {
 	// be eligible for this class.
 	// +optional
 	Requires SourceRequirements `json:"requires,omitzero"`
+	// PodMetadata lets the class controller request annotations on the
+	// pods of bound Instances (status.podMetadata of its bindings), for
+	// backends whose agents discover databases through pod annotations. The
+	// provider renders them into the pod templates, which rolls the pods.
+	// +optional
+	PodMetadata *PodMetadataPolicy `json:"podMetadata,omitempty"`
+}
+
+// PodMetadataPolicy bounds what a class controller may put on database pods.
+type PodMetadataPolicy struct {
+	// AnnotationPrefixes are the annotation key prefixes the class
+	// controller may request, each a DNS subdomain followed by "/"
+	// (e.g. "coroot.com/"). Kubernetes and OpenEverest prefixes are
+	// reserved.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=8
+	// +kubebuilder:validation:items:MaxLength=254
+	// +kubebuilder:validation:items:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)+/$`
+	// +kubebuilder:validation:XValidation:rule="self.all(p, !(p.endsWith('kubernetes.io/') || p.endsWith('k8s.io/') || p.endsWith('openeverest.io/')))",message="kubernetes.io, k8s.io and openeverest.io prefixes are reserved"
+	// +listType=set
+	AnnotationPrefixes []string `json:"annotationPrefixes"`
+}
+
+// AllowsAnnotation reports whether key falls under one of the prefixes.
+func (p *PodMetadataPolicy) AllowsAnnotation(key string) bool {
+	if p == nil {
+		return false
+	}
+	return slices.ContainsFunc(p.AnnotationPrefixes, func(prefix string) bool {
+		return len(key) > len(prefix) && strings.HasPrefix(key, prefix)
+	})
 }
 
 // SourceRequirements is matched against
@@ -120,6 +153,10 @@ type SourceRequirements struct {
 	// (metrics: Native or Exporter).
 	// +optional
 	Metrics bool `json:"metrics,omitempty"`
+	// Connection requires the component to accept native-protocol
+	// connections from monitoring agents (connection: Supported).
+	// +optional
+	Connection bool `json:"connection,omitempty"`
 }
 
 // FindAuthMode returns the class's authentication mode named name, or nil.

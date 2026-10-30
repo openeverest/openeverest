@@ -324,6 +324,9 @@ func (r *ProviderReconciler) monitoringSources(ctx context.Context, syncCtx *con
 	if dropped := len(computed.Metrics) - len(validated.Metrics); dropped > 0 {
 		return validated, fmt.Sprintf("%d of %d metrics endpoints dropped", dropped, len(computed.Metrics))
 	}
+	if dropped := len(computed.Connections) - len(validated.Connections); dropped > 0 {
+		return validated, fmt.Sprintf("%d of %d connection endpoints dropped", dropped, len(computed.Connections))
+	}
 	return validated, ""
 }
 
@@ -421,6 +424,7 @@ func (r *ProviderReconciler) validateSources(ctx context.Context, syncCtx *contr
 		return nil, err
 	}
 	out.Metrics = validMetrics(in, spec, out.Credentials, out.Metrics, logger)
+	out.Connections = validConnections(in, spec, out.Credentials, out.Connections, logger)
 
 	out.Identity = v1alpha1.MonitoringIdentity{
 		ClusterID: clusterID,
@@ -500,6 +504,47 @@ func validMetrics(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, credential
 	}
 	if len(out) > maxMetricsEndpoints {
 		logger.Info("Dropping metrics endpoints beyond the limit", "limit", maxMetricsEndpoints, "dropped", len(out)-maxMetricsEndpoints)
+		out = out[:maxMetricsEndpoints]
+	}
+	return out
+}
+
+// validConnections drops the connection endpoints the Provider declaration
+// or the Instance status schema rejects, sets each kind from its declared
+// component type and keeps at most maxMetricsEndpoints.
+func validConnections(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, credentials []v1alpha1.MonitoringCredential, connections []v1alpha1.ConnectionEndpoint, logger logr.Logger) []v1alpha1.ConnectionEndpoint {
+	var declared map[string]v1alpha1.MonitoringComponentType
+	if spec.Monitoring != nil {
+		declared = spec.Monitoring.ComponentTypes
+	}
+	profiles := make(map[string]bool, len(credentials))
+	for _, cred := range credentials {
+		profiles[cred.Profile] = true
+	}
+
+	var out []v1alpha1.ConnectionEndpoint
+	for _, ep := range connections {
+		componentType := in.Spec.Components[ep.Component].Type
+		if componentType == "" {
+			componentType = spec.Components[ep.Component].Type
+		}
+		decl, isDeclared := declared[componentType]
+		switch {
+		case !isDeclared:
+			logger.Info("Dropping connection endpoint of an undeclared component type", "component", ep.Component, "type", componentType)
+		case decl.Connection != v1alpha1.ConnectionSupported:
+			logger.Info("Dropping connection endpoint of a component type declared without connections", "component", ep.Component, "type", componentType)
+		case ep.PodSelector[controller.InstanceLabel] != in.Name:
+			logger.Info("Dropping connection endpoint whose pod selector lacks the Instance label", "component", ep.Component)
+		case ep.Auth != nil && !profiles[ep.Auth.CredentialProfile]:
+			logger.Info("Dropping connection endpoint naming an unpublished credential profile", "component", ep.Component, "profile", ep.Auth.CredentialProfile)
+		default:
+			ep.Kind = decl.Kind
+			out = append(out, ep)
+		}
+	}
+	if len(out) > maxMetricsEndpoints {
+		logger.Info("Dropping connection endpoints beyond the limit", "limit", maxMetricsEndpoints, "dropped", len(out)-maxMetricsEndpoints)
 		out = out[:maxMetricsEndpoints]
 	}
 	return out

@@ -2135,6 +2135,118 @@ spec:
                       Sources is the per-Instance publication of the provider's monitoring
                       contract, consumed by ExtensionManaged class controllers.
                     properties:
+                      connections:
+                        description: |-
+                          Connections lists the endpoints monitoring agents connect to over the
+                          engine's native protocol (e.g. agents discovering databases through
+                          pod annotations), one per serving component.
+                        items:
+                          description: |-
+                            ConnectionEndpoint is one component's native-protocol endpoint, reached on
+                            each selected pod directly (not through a proxy or a Service), so agents
+                            collect per-instance statistics.
+                          properties:
+                            auth:
+                              description: |-
+                                Auth names the credential profile agents log in with, normally
+                                CredentialProfileMonitor.
+                              properties:
+                                credentialProfile:
+                                  description: CredentialProfile matches MonitoringSources.credentials[].profile.
+                                  type: string
+                              required:
+                              - credentialProfile
+                              type: object
+                            component:
+                              description: Component is the Instance component name
+                                (e.g. "engine").
+                              type: string
+                            container:
+                              description: |-
+                                Container is the name of the container serving the endpoint, for
+                                agents that address containers (e.g. Datadog Autodiscovery).
+                              type: string
+                            kind:
+                              description: Kind is the component's engine kind.
+                              pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
+                              type: string
+                            podSelector:
+                              additionalProperties:
+                                type: string
+                              description: PodSelector selects the pods serving the
+                                endpoint.
+                              minProperties: 1
+                              type: object
+                            port:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              description: Port is the container port, by name or
+                                number.
+                              x-kubernetes-int-or-string: true
+                            tls:
+                              description: |-
+                                TLS is set when the endpoint accepts TLS connections; absent means
+                                plaintext only.
+                              properties:
+                                ca:
+                                  description: |-
+                                    CA is the PEM bundle that verifies the server certificate. Server
+                                    certificates name Services, not pod IPs, so agents verify the chain
+                                    only.
+                                  minProperties: 1
+                                  properties:
+                                    secretKeyRef:
+                                      description: SecretKeyRef selects the Secret
+                                        key holding the PEM bundle.
+                                      properties:
+                                        key:
+                                          description: Key within the Secret.
+                                          maxLength: 253
+                                          minLength: 1
+                                          pattern: ^[-._a-zA-Z0-9]+$
+                                          type: string
+                                        name:
+                                          description: Name of the referenced Secret.
+                                          maxLength: 253
+                                          minLength: 1
+                                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                          type: string
+                                      required:
+                                      - key
+                                      - name
+                                      type: object
+                                      x-kubernetes-map-type: atomic
+                                  type: object
+                                clientCertificateSecretRef:
+                                  description: |-
+                                    ClientCertificateSecretRef references a kubernetes.io/tls Secret
+                                    (keys tls.crt and tls.key) agents present as a client certificate.
+                                  properties:
+                                    name:
+                                      description: Name of the referenced Secret.
+                                      maxLength: 253
+                                      minLength: 1
+                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                  x-kubernetes-map-type: atomic
+                                required:
+                                  description: Required means the endpoint rejects
+                                    connections without TLS.
+                                  type: boolean
+                              type: object
+                          required:
+                          - component
+                          - kind
+                          - podSelector
+                          - port
+                          type: object
+                        maxItems: 32
+                        type: array
+                        x-kubernetes-list-type: atomic
                       credentials:
                         description: |-
                           Credentials lists the Instance-owned monitoring credential Secrets by

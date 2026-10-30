@@ -957,6 +957,24 @@ func (e PluginStatusConditionsStatus) Valid() bool {
 	}
 }
 
+// Defines values for ProviderSpecMonitoringComponentTypesConnection.
+const (
+	ProviderSpecMonitoringComponentTypesConnectionNone      ProviderSpecMonitoringComponentTypesConnection = "None"
+	ProviderSpecMonitoringComponentTypesConnectionSupported ProviderSpecMonitoringComponentTypesConnection = "Supported"
+)
+
+// Valid indicates whether the value is a known member of the ProviderSpecMonitoringComponentTypesConnection enum.
+func (e ProviderSpecMonitoringComponentTypesConnection) Valid() bool {
+	switch e {
+	case ProviderSpecMonitoringComponentTypesConnectionNone:
+		return true
+	case ProviderSpecMonitoringComponentTypesConnectionSupported:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProviderSpecMonitoringComponentTypesMetrics.
 const (
 	ProviderSpecMonitoringComponentTypesMetricsExporter ProviderSpecMonitoringComponentTypesMetrics = "Exporter"
@@ -4395,6 +4413,62 @@ type Instance struct {
 			// Sources Sources is the per-Instance publication of the provider's monitoring
 			// contract, consumed by ExtensionManaged class controllers.
 			Sources *struct {
+				// Connections Connections lists the endpoints monitoring agents connect to over the
+				// engine's native protocol (e.g. agents discovering databases through
+				// pod annotations), one per serving component.
+				Connections *[]struct {
+					// Auth Auth names the credential profile agents log in with, normally
+					// CredentialProfileMonitor.
+					Auth *struct {
+						// CredentialProfile CredentialProfile matches MonitoringSources.credentials[].profile.
+						CredentialProfile string `json:"credentialProfile"`
+					} `json:"auth,omitempty"`
+
+					// Component Component is the Instance component name (e.g. "engine").
+					Component string `json:"component"`
+
+					// Container Container is the name of the container serving the endpoint, for
+					// agents that address containers (e.g. Datadog Autodiscovery).
+					Container *string `json:"container,omitempty"`
+
+					// Kind Kind is the component's engine kind.
+					Kind string `json:"kind"`
+
+					// PodSelector PodSelector selects the pods serving the endpoint.
+					PodSelector map[string]string `json:"podSelector"`
+
+					// Port Port is the container port, by name or number.
+					Port Instance_Status_Monitoring_Sources_Connections_Port `json:"port"`
+
+					// Tls TLS is set when the endpoint accepts TLS connections; absent means
+					// plaintext only.
+					Tls *struct {
+						// Ca CA is the PEM bundle that verifies the server certificate. Server
+						// certificates name Services, not pod IPs, so agents verify the chain
+						// only.
+						Ca *struct {
+							// SecretKeyRef SecretKeyRef selects the Secret key holding the PEM bundle.
+							SecretKeyRef *struct {
+								// Key Key within the Secret.
+								Key string `json:"key"`
+
+								// Name Name of the referenced Secret.
+								Name string `json:"name"`
+							} `json:"secretKeyRef,omitempty"`
+						} `json:"ca,omitempty"`
+
+						// ClientCertificateSecretRef ClientCertificateSecretRef references a kubernetes.io/tls Secret
+						// (keys tls.crt and tls.key) agents present as a client certificate.
+						ClientCertificateSecretRef *struct {
+							// Name Name of the referenced Secret.
+							Name string `json:"name"`
+						} `json:"clientCertificateSecretRef,omitempty"`
+
+						// Required Required means the endpoint rejects connections without TLS.
+						Required *bool `json:"required,omitempty"`
+					} `json:"tls,omitempty"`
+				} `json:"connections,omitempty"`
+
 				// Credentials Credentials lists the Instance-owned monitoring credential Secrets by
 				// profile.
 				Credentials *[]struct {
@@ -4597,6 +4671,17 @@ type InstanceStatusConditionsStatus string
 
 // InstanceStatusMonitoringDestinationsMode Mode is the resolved execution mode.
 type InstanceStatusMonitoringDestinationsMode string
+
+// InstanceStatusMonitoringSourcesConnectionsPort0 defines model for .
+type InstanceStatusMonitoringSourcesConnectionsPort0 = int
+
+// InstanceStatusMonitoringSourcesConnectionsPort1 defines model for .
+type InstanceStatusMonitoringSourcesConnectionsPort1 = string
+
+// Instance_Status_Monitoring_Sources_Connections_Port Port is the container port, by name or number.
+type Instance_Status_Monitoring_Sources_Connections_Port struct {
+	union json.RawMessage
+}
 
 // InstanceStatusMonitoringSourcesMetricsPort0 defines model for .
 type InstanceStatusMonitoringSourcesMetricsPort0 = int
@@ -5941,6 +6026,19 @@ type MonitoringBinding struct {
 			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
 			Type string `json:"type"`
 		} `json:"conditions,omitempty"`
+
+		// PodMetadata PodMetadata is the pod metadata the class controller of an
+		// ExtensionManaged binding requests per component, written together
+		// with Configured. provider-runtime hands the annotations allowed by
+		// the class's spec.extensionManaged.podMetadata to the provider, which
+		// renders them on the component's pods.
+		PodMetadata *[]struct {
+			// Annotations Annotations to set on the component's pods.
+			Annotations *map[string]string `json:"annotations,omitempty"`
+
+			// Component Component is the Instance component name.
+			Component string `json:"component"`
+		} `json:"podMetadata,omitempty"`
 	} `json:"status,omitempty"`
 }
 
@@ -6027,9 +6125,25 @@ type MonitoringClass struct {
 		// from the provider's monitoring contract alone
 		// (Instance.status.monitoring.sources).
 		ExtensionManaged *struct {
+			// PodMetadata PodMetadata lets the class controller request annotations on the
+			// pods of bound Instances (status.podMetadata of its bindings), for
+			// backends whose agents discover databases through pod annotations. The
+			// provider renders them into the pod templates, which rolls the pods.
+			PodMetadata *struct {
+				// AnnotationPrefixes AnnotationPrefixes are the annotation key prefixes the class
+				// controller may request, each a DNS subdomain followed by "/"
+				// (e.g. "coroot.com/"). Kubernetes and OpenEverest prefixes are
+				// reserved.
+				AnnotationPrefixes []string `json:"annotationPrefixes"`
+			} `json:"podMetadata,omitempty"`
+
 			// Requires Requires lists the source capabilities a component must satisfy to
 			// be eligible for this class.
 			Requires *struct {
+				// Connection Connection requires the component to accept native-protocol
+				// connections from monitoring agents (connection: Supported).
+				Connection *bool `json:"connection,omitempty"`
+
 				// Metrics Metrics requires the component to expose OpenMetrics
 				// (metrics: Native or Exporter).
 				Metrics *bool `json:"metrics,omitempty"`
@@ -6624,6 +6738,10 @@ type Provider struct {
 			// ComponentTypes ComponentTypes declares what each component type exposes, keyed by
 			// component type (the software), not by component name.
 			ComponentTypes *map[string]struct {
+				// Connection Connection states whether monitoring agents can connect to the
+				// component over its native protocol, with the monitor credential.
+				Connection *ProviderSpecMonitoringComponentTypesConnection `json:"connection,omitempty"`
+
 				// Kind Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
 				// follow OpenTelemetry db.system.name; unknown kinds are allowed.
 				Kind string `json:"kind"`
@@ -6767,6 +6885,10 @@ type Provider struct {
 		} `json:"conditions,omitempty"`
 	} `json:"status,omitempty"`
 }
+
+// ProviderSpecMonitoringComponentTypesConnection Connection states whether monitoring agents can connect to the
+// component over its native protocol, with the monitor credential.
+type ProviderSpecMonitoringComponentTypesConnection string
 
 // ProviderSpecMonitoringComponentTypesMetrics Metrics states how the component exposes OpenMetrics.
 type ProviderSpecMonitoringComponentTypesMetrics string
@@ -7510,6 +7632,68 @@ func (t Instance_Spec_Components_Storage_Size) MarshalJSON() ([]byte, error) {
 }
 
 func (t *Instance_Spec_Components_Storage_Size) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsInstanceStatusMonitoringSourcesConnectionsPort0 returns the union data inside the Instance_Status_Monitoring_Sources_Connections_Port as a InstanceStatusMonitoringSourcesConnectionsPort0
+func (t Instance_Status_Monitoring_Sources_Connections_Port) AsInstanceStatusMonitoringSourcesConnectionsPort0() (InstanceStatusMonitoringSourcesConnectionsPort0, error) {
+	var body InstanceStatusMonitoringSourcesConnectionsPort0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromInstanceStatusMonitoringSourcesConnectionsPort0 overwrites any union data inside the Instance_Status_Monitoring_Sources_Connections_Port as the provided InstanceStatusMonitoringSourcesConnectionsPort0
+func (t *Instance_Status_Monitoring_Sources_Connections_Port) FromInstanceStatusMonitoringSourcesConnectionsPort0(v InstanceStatusMonitoringSourcesConnectionsPort0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeInstanceStatusMonitoringSourcesConnectionsPort0 performs a merge with any union data inside the Instance_Status_Monitoring_Sources_Connections_Port, using the provided InstanceStatusMonitoringSourcesConnectionsPort0
+func (t *Instance_Status_Monitoring_Sources_Connections_Port) MergeInstanceStatusMonitoringSourcesConnectionsPort0(v InstanceStatusMonitoringSourcesConnectionsPort0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsInstanceStatusMonitoringSourcesConnectionsPort1 returns the union data inside the Instance_Status_Monitoring_Sources_Connections_Port as a InstanceStatusMonitoringSourcesConnectionsPort1
+func (t Instance_Status_Monitoring_Sources_Connections_Port) AsInstanceStatusMonitoringSourcesConnectionsPort1() (InstanceStatusMonitoringSourcesConnectionsPort1, error) {
+	var body InstanceStatusMonitoringSourcesConnectionsPort1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromInstanceStatusMonitoringSourcesConnectionsPort1 overwrites any union data inside the Instance_Status_Monitoring_Sources_Connections_Port as the provided InstanceStatusMonitoringSourcesConnectionsPort1
+func (t *Instance_Status_Monitoring_Sources_Connections_Port) FromInstanceStatusMonitoringSourcesConnectionsPort1(v InstanceStatusMonitoringSourcesConnectionsPort1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeInstanceStatusMonitoringSourcesConnectionsPort1 performs a merge with any union data inside the Instance_Status_Monitoring_Sources_Connections_Port, using the provided InstanceStatusMonitoringSourcesConnectionsPort1
+func (t *Instance_Status_Monitoring_Sources_Connections_Port) MergeInstanceStatusMonitoringSourcesConnectionsPort1(v InstanceStatusMonitoringSourcesConnectionsPort1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t Instance_Status_Monitoring_Sources_Connections_Port) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *Instance_Status_Monitoring_Sources_Connections_Port) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

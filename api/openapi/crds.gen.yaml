@@ -5584,6 +5584,117 @@ components:
                     Sources is the per-Instance publication of the provider's monitoring
                     contract, consumed by ExtensionManaged class controllers.
                   properties:
+                    connections:
+                      description: |-
+                        Connections lists the endpoints monitoring agents connect to over the
+                        engine's native protocol (e.g. agents discovering databases through
+                        pod annotations), one per serving component.
+                      items:
+                        description: |-
+                          ConnectionEndpoint is one component's native-protocol endpoint, reached on
+                          each selected pod directly (not through a proxy or a Service), so agents
+                          collect per-instance statistics.
+                        properties:
+                          auth:
+                            description: |-
+                              Auth names the credential profile agents log in with, normally
+                              CredentialProfileMonitor.
+                            properties:
+                              credentialProfile:
+                                description: CredentialProfile matches MonitoringSources.credentials[].profile.
+                                type: string
+                            required:
+                            - credentialProfile
+                            type: object
+                          component:
+                            description: Component is the Instance component name
+                              (e.g. "engine").
+                            type: string
+                          container:
+                            description: |-
+                              Container is the name of the container serving the endpoint, for
+                              agents that address containers (e.g. Datadog Autodiscovery).
+                            type: string
+                          kind:
+                            description: Kind is the component's engine kind.
+                            pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
+                            type: string
+                          podSelector:
+                            additionalProperties:
+                              type: string
+                            description: PodSelector selects the pods serving the
+                              endpoint.
+                            minProperties: 1
+                            type: object
+                          port:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: Port is the container port, by name or number.
+                            x-kubernetes-int-or-string: true
+                          tls:
+                            description: |-
+                              TLS is set when the endpoint accepts TLS connections; absent means
+                              plaintext only.
+                            properties:
+                              ca:
+                                description: |-
+                                  CA is the PEM bundle that verifies the server certificate. Server
+                                  certificates name Services, not pod IPs, so agents verify the chain
+                                  only.
+                                minProperties: 1
+                                properties:
+                                  secretKeyRef:
+                                    description: SecretKeyRef selects the Secret key
+                                      holding the PEM bundle.
+                                    properties:
+                                      key:
+                                        description: Key within the Secret.
+                                        maxLength: 253
+                                        minLength: 1
+                                        pattern: ^[-._a-zA-Z0-9]+$
+                                        type: string
+                                      name:
+                                        description: Name of the referenced Secret.
+                                        maxLength: 253
+                                        minLength: 1
+                                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                        type: string
+                                    required:
+                                    - key
+                                    - name
+                                    type: object
+                                    x-kubernetes-map-type: atomic
+                                type: object
+                              clientCertificateSecretRef:
+                                description: |-
+                                  ClientCertificateSecretRef references a kubernetes.io/tls Secret
+                                  (keys tls.crt and tls.key) agents present as a client certificate.
+                                properties:
+                                  name:
+                                    description: Name of the referenced Secret.
+                                    maxLength: 253
+                                    minLength: 1
+                                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              required:
+                                description: Required means the endpoint rejects connections
+                                  without TLS.
+                                type: boolean
+                            type: object
+                        required:
+                        - component
+                        - kind
+                        - podSelector
+                        - port
+                        type: object
+                      maxItems: 32
+                      type: array
+                      x-kubernetes-list-type: atomic
                     credentials:
                       description: |-
                         Credentials lists the Instance-owned monitoring credential Secrets by
@@ -8044,6 +8155,34 @@ components:
               x-kubernetes-list-map-keys:
               - type
               x-kubernetes-list-type: map
+            podMetadata:
+              description: |-
+                PodMetadata is the pod metadata the class controller of an
+                ExtensionManaged binding requests per component, written together
+                with Configured. provider-runtime hands the annotations allowed by
+                the class's spec.extensionManaged.podMetadata to the provider, which
+                renders them on the component's pods.
+              items:
+                description: ComponentPodMetadata is the metadata requested for one
+                  component's pods.
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations to set on the component's pods.
+                    maxProperties: 32
+                    type: object
+                  component:
+                    description: Component is the Instance component name.
+                    type: string
+                required:
+                - component
+                type: object
+              maxItems: 16
+              type: array
+              x-kubernetes-list-map-keys:
+              - component
+              x-kubernetes-list-type: map
           type: object
       required:
       - spec
@@ -8185,11 +8324,45 @@ components:
                 from the provider's monitoring contract alone
                 (Instance.status.monitoring.sources).
               properties:
+                podMetadata:
+                  description: |-
+                    PodMetadata lets the class controller request annotations on the
+                    pods of bound Instances (status.podMetadata of its bindings), for
+                    backends whose agents discover databases through pod annotations. The
+                    provider renders them into the pod templates, which rolls the pods.
+                  properties:
+                    annotationPrefixes:
+                      description: |-
+                        AnnotationPrefixes are the annotation key prefixes the class
+                        controller may request, each a DNS subdomain followed by "/"
+                        (e.g. "coroot.com/"). Kubernetes and OpenEverest prefixes are
+                        reserved.
+                      items:
+                        maxLength: 254
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)+/$
+                        type: string
+                      maxItems: 8
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: set
+                      x-kubernetes-validations:
+                      - message: kubernetes.io, k8s.io and openeverest.io prefixes
+                          are reserved
+                        rule: self.all(p, !(p.endsWith('kubernetes.io/') || p.endsWith('k8s.io/')
+                          || p.endsWith('openeverest.io/')))
+                  required:
+                  - annotationPrefixes
+                  type: object
                 requires:
                   description: |-
                     Requires lists the source capabilities a component must satisfy to
                     be eligible for this class.
                   properties:
+                    connection:
+                      description: |-
+                        Connection requires the component to accept native-protocol
+                        connections from monitoring agents (connection: Supported).
+                      type: boolean
                     metrics:
                       description: |-
                         Metrics requires the component to expose OpenMetrics
@@ -9259,6 +9432,15 @@ components:
                     description: MonitoringComponentType declares what one component
                       type exposes.
                     properties:
+                      connection:
+                        default: None
+                        description: |-
+                          Connection states whether monitoring agents can connect to the
+                          component over its native protocol, with the monitor credential.
+                        enum:
+                        - Supported
+                        - None
+                        type: string
                       kind:
                         description: |-
                           Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
