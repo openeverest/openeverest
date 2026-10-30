@@ -23,3 +23,6 @@ export const DESTINATION_STATE_TO_STATUS: Record<
   [MonitoringDestinationState.Pending]: 'pending',
   [MonitoringDestinationState.Failing]: 'error',
 };
+
+// Database names spelled out in the "in use" message before "and N more".
+export const IN_USE_NAMES_SHOWN = 5;

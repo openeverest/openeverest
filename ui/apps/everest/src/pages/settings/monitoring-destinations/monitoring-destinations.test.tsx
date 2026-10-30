@@ -144,7 +144,31 @@ describe('MonitoringDestinations', () => {
     expect(screen.getByText('PMM')).toBeInTheDocument();
     expect(screen.getByText('https://pmm.example.com')).toBeInTheDocument();
     expect(screen.getByText('Ready · v3.1.0')).toBeInTheDocument();
-    expect(screen.getByText('1: orders-db')).toBeInTheDocument();
+    expect(screen.getByText('1 database')).toBeInTheDocument();
+  });
+
+  it('lists the databases using a destination in a dialog', async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByTestId('used-by-pmm-prod-toggle'));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('Databases using pmm-prod');
+    expect(dialog).toHaveTextContent('orders-db');
+  });
+
+  it('names a few users of a busy destination and counts the rest', async () => {
+    mocks.fetchBindings.mockResolvedValue(
+      ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((name) => binding(`${name}-db`))
+    );
+    renderPage();
+    await clickDelete();
+
+    expect(
+      await screen.findByText(
+        'pmm-prod is used by a-db, b-db, c-db, d-db, e-db and 2 more. Remove it from those databases first.'
+      )
+    ).toBeInTheDocument();
   });
 
   it('refuses to delete a destination databases still use', async () => {

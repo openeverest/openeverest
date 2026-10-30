@@ -35,9 +35,11 @@ import {
 import { MonitoringClass } from 'shared-types/monitoring-destinations.types';
 import { getSecretDeletedWithDestination } from 'utils/monitoring-destinations';
 import { DestinationStatusCell } from './destination-status-cell/destination-status-cell';
+import { UsedByCell } from './used-by-cell/used-by-cell';
 import { getMonitoringDestinationMenuItems } from './monitoring-destination-menu-actions';
 import { MonitoringDestinationModal } from './monitoring-destination-modal/monitoring-destination-modal';
 import { MonitoringDestinationTarget } from './monitoring-destination-modal/monitoring-destination-modal.types';
+import { IN_USE_NAMES_SHOWN } from './monitoring-destinations.constants';
 import { Messages } from './monitoring-destinations.messages';
 import {
   MonitoringDestinationPermissions,
@@ -88,6 +90,7 @@ export const MonitoringDestinations = () => {
   const isLoading =
     destinationPermissions.isPermissionsLoading ||
     destinationResults.some((result) => result.isLoading);
+  const hasAddress = rows.some((row) => !!row.address);
 
   const permissions: MonitoringDestinationPermissions = {
     createNamespaces: toWritableNamespaces({
@@ -116,11 +119,21 @@ export const MonitoringDestinations = () => {
       { accessorKey: 'name', header: Messages.columns.name },
       { accessorKey: 'namespace', header: Messages.columns.namespace },
       { accessorKey: 'type', header: Messages.columns.type },
-      {
-        accessorKey: 'address',
-        header: Messages.columns.address,
-        Cell: ({ row }) => row.original.address ?? Messages.none,
-      },
+      // Only classes whose destination form has a URL field have an address
+      // (e.g. PMM); Prometheus and Coroot destinations have none.
+      ...(hasAddress
+        ? [
+            {
+              accessorKey: 'address',
+              header: Messages.columns.address,
+              Cell: ({
+                row,
+              }: {
+                row: { original: MonitoringDestinationRow };
+              }) => row.original.address ?? Messages.none,
+            } satisfies MRT_ColumnDef<MonitoringDestinationRow>,
+          ]
+        : []),
       {
         id: 'status',
         header: Messages.columns.status,
@@ -133,13 +146,15 @@ export const MonitoringDestinations = () => {
         id: 'usedBy',
         header: Messages.columns.usedBy,
         accessorFn: (row) => row.usedBy.length,
-        Cell: ({ row }) =>
-          row.original.usedBy.length > 0
-            ? Messages.usedBy(row.original.usedBy)
-            : Messages.none,
+        Cell: ({ row }) => (
+          <UsedByCell
+            destination={row.original.name}
+            instances={row.original.usedBy}
+          />
+        ),
       },
     ],
-    []
+    [hasAddress]
   );
 
   // Asks the server who uses the destination right before deleting it.
@@ -231,7 +246,11 @@ export const MonitoringDestinations = () => {
             cancelMessage={Messages.close}
             submitMessage=""
           >
-            {Messages.inUse(deleteState.row.name, deleteState.usedBy)}
+            {Messages.inUse(
+              deleteState.row.name,
+              deleteState.usedBy,
+              IN_USE_NAMES_SHOWN
+            )}
           </ConfirmDialog>
         ) : (
           <ConfirmDialog
