@@ -19,7 +19,10 @@ import {
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
 import { rfc_123_schema } from 'utils/common-validation';
-import { getSectionFormZodSchema } from 'utils/monitoring-classes';
+import {
+  getMonitoringClassName,
+  getSectionFormZodSchema,
+} from 'utils/monitoring-classes';
 import {
   DestinationFormFields,
   MAX_SECRET_NAME_LENGTH,
@@ -66,7 +69,7 @@ export const buildMonitoringDestinationSchema = ({
     .superRefine((values, ctx) => {
       const formMode = getFormMode(original);
       const forms = getDestinationClassForms(
-        classes.find((c) => c.metadata?.name === values.className),
+        classes.find((c) => getMonitoringClassName(c) === values.className),
         values.authMode,
         formMode
       );
