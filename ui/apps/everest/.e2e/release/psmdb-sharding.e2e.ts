@@ -46,7 +46,7 @@ import {
   queryTestDB,
 } from '@e2e/utils/db-cmd-line';
 import { getDbClusterAPI } from '@e2e/utils/db-cluster';
-import { checkDBMetrics, checkQAN } from '@e2e/utils/monitoring-config';
+import { checkDBMetrics, checkQAN } from '@e2e/utils/pmm';
 import { shouldExecuteDBCombination } from '@e2e/utils/generic';
 
 let token: string;

@@ -202,7 +202,6 @@ test.describe.parallel('DB Cluster Restore to the new cluster', () => {
                 sourceRange: '192.168.1.1/32',
               },
             ],
-            monitoringConfigName: 'pmm',
           },
           EVEREST_CI_NAMESPACES.PG_ONLY
         );

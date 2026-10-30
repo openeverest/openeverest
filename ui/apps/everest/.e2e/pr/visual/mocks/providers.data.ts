@@ -300,23 +300,6 @@ export const mockProviders: any = {
                   'Provide the information about the database version you want to use.',
                 label: 'Database Version',
               },
-              monitoring: {
-                components: {
-                  monitoring: {
-                    dataSource: {
-                      provider: 'monitoringConfigs',
-                    },
-                    fieldParams: {
-                      label: 'Monitoring endpoint',
-                    },
-                    path: 'spec.components.monitoring.parameters.monitoringConfigName',
-                    uiType: 'select',
-                  },
-                },
-                description:
-                  'Monitor the health of your database to detect issues quickly and improve its performance.',
-                label: 'Monitoring',
-              },
               resources: {
                 components: {
                   nodes: {
@@ -422,12 +405,7 @@ export const mockProviders: any = {
                 label: 'Resources',
               },
             },
-            sectionsOrder: [
-              'databaseVersion',
-              'resources',
-              'monitoring',
-              'advanced',
-            ],
+            sectionsOrder: ['databaseVersion', 'resources', 'advanced'],
           },
           sharded: {
             sections: {
@@ -522,23 +500,6 @@ export const mockProviders: any = {
                 description:
                   'Provide the information about the database version you want to use.',
                 label: 'Database Version',
-              },
-              monitoring: {
-                components: {
-                  monitoring: {
-                    dataSource: {
-                      provider: 'monitoringConfigs',
-                    },
-                    fieldParams: {
-                      label: 'Monitoring endpoint',
-                    },
-                    path: 'spec.components.monitoring.parameters.monitoringConfigName',
-                    uiType: 'select',
-                  },
-                },
-                description:
-                  'Monitor the health of your database to detect issues quickly and improve its performance.',
-                label: 'Monitoring',
               },
               resources: {
                 components: {
@@ -757,12 +718,7 @@ export const mockProviders: any = {
                 label: 'Resources',
               },
             },
-            sectionsOrder: [
-              'databaseVersion',
-              'resources',
-              'monitoring',
-              'advanced',
-            ],
+            sectionsOrder: ['databaseVersion', 'resources', 'advanced'],
           },
         },
       },

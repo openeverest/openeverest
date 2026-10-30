@@ -19,7 +19,6 @@ export const settingsProject: PlaywrightTestProject[] = [
     name: 'pr:settings',
     testMatch: /.^/,
     dependencies: [
-      'pr:settings:monitoring-config',
       'pr:settings:backup-storage',
       // 'pr:settings:namespace',
       // 'pr:settings:psp',
@@ -30,14 +29,6 @@ export const settingsProject: PlaywrightTestProject[] = [
     name: 'pr:settings:backup-storage',
     testDir: './pr/settings',
     testMatch: /backup-storage\.e2e\.ts/,
-  },
-  {
-    name: 'pr:settings:monitoring-config',
-    testDir: './pr/settings',
-    testMatch: /monitoring-config\.e2e\.ts/,
-    // TODO(OE-2038): keep this project isolated from global:monitoring-config:setup.
-    // When pr:multinamespaces is re-enabled, preserve project ordering or namespace
-    // isolation so the fallback test still runs against an empty namespace.
   },
   // {
   //   name: 'pr:settings:namespace',

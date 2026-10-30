@@ -14,6 +14,7 @@
 
 import { Section } from 'components/ui-generator/ui-generator.types';
 import { getByPath } from 'components/ui-generator/utils/object-path';
+import { Instance } from 'shared-types/api.types';
 import {
   MonitoringClass,
   MonitoringConditionType,
@@ -30,6 +31,13 @@ const READY_PENDING_REASON = 'Pending';
 
 export const getDestinationName = (destination: MonitoringDestination) =>
   destination.metadata?.name ?? '';
+
+export const getInstanceMonitoringDestinationNames = (
+  instance: Instance
+): string[] =>
+  (instance.spec?.monitoring?.destinations ?? []).map(
+    (entry) => entry.destinationRef.name
+  );
 
 const CREDENTIALS_SECRET_SUFFIX = '-credentials';
 const MAX_SECRET_NAME_LENGTH = 253;
@@ -93,6 +101,15 @@ export const getSecretDeletedWithDestination = (
     ? secretName
     : undefined;
 };
+
+// "Reason: message", or whichever of the two a condition reports.
+export const describeCondition = ({
+  reason,
+  message,
+}: {
+  reason?: string;
+  message?: string;
+}) => [reason, message].filter(Boolean).join(': ');
 
 export const getDestinationStatus = (
   destination: MonitoringDestination

@@ -17,7 +17,6 @@ export * from './backup-storages';
 export * from './db-cluster';
 export * from './db-clusters';
 export * from './db-engines';
-export * from './monitoring';
 export * from './restores';
 export * from './kubernetesClusters';
 export * from './namespaces';

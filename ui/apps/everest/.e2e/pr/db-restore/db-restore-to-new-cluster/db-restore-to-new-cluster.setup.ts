@@ -52,7 +52,6 @@ setup.describe.serial('DB Restore To New Cluster setup', () => {
             sourceRange: '192.168.1.1/32',
           },
         ],
-        monitoringConfigName: 'pmm',
       },
       EVEREST_CI_NAMESPACES.EVEREST_UI
     );

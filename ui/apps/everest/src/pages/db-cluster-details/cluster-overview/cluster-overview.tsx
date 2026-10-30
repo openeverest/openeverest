@@ -26,6 +26,7 @@ import { BackupsDetails } from './old-cards/backups-details';
 // TODO: Re-enable OtherFieldsCard when uncovered fields are properly formatted
 // import OtherFieldsCard from './sections/other-fields-card';
 import { SectionEditModal } from './sections/section-edit-modal';
+import { MonitoringCard } from './sections/monitoring-card/monitoring-card';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { isSectionEditable } from 'components/ui-generator/utils/section-editable';
 import { shouldDbActionsBeBlocked } from 'utils/db';
@@ -136,6 +137,11 @@ export const ClusterOverview = () => {
             </OverviewCard>
           );
         })}
+        <MonitoringCard
+          instance={instance}
+          namespace={namespace}
+          editable={!actionsBlocked}
+        />
         {backupsSupported && (
           <BackupsDetails
             instance={instance}

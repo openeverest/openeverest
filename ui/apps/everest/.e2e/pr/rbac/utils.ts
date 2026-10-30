@@ -9,7 +9,7 @@ export const MOCK_CLUSTER_NAME = 'cluster-1';
 export const MOCK_BACKUP_NAME = 'backup-1';
 export const MOCK_STORAGE_NAME = 'storage-1';
 export const MOCK_SCHEDULE_NAME = 'schedule-1';
-export const MOCK_MONITORING_CONFIG_NAME = 'monitoring-1';
+export const MOCK_MONITORING_DESTINATION_NAME = 'monitoring-1';
 
 const DEFAULT_CLUSTER_CONFIG_OPTIONS: ClusterConfigOptions = {
   enableMonitoring: true,
@@ -64,7 +64,12 @@ const getClusterConfig = (
       },
       ...(mergedOptions.enableMonitoring && {
         monitoring: {
-          monitoringConfigName: MOCK_MONITORING_CONFIG_NAME,
+          destinations: [
+            {
+              name: MOCK_MONITORING_DESTINATION_NAME,
+              destinationRef: { name: MOCK_MONITORING_DESTINATION_NAME },
+            },
+          ],
         },
       }),
     },

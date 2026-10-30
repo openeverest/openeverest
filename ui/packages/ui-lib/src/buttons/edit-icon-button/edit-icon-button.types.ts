@@ -12,4 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export { MonitoringEmptyFallback } from './monitoring-empty-fallback';
+export interface EditIconButtonProps {
+  // Accessible name, e.g. "Edit monitoring".
+  label: string;
+  onClick: () => void;
+  dataTestId?: string;
+}

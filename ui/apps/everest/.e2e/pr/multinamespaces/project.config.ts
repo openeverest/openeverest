@@ -21,7 +21,6 @@ export const multinamespacesProject: PlaywrightTestProject[] = [
     testMatch: /.^/,
     dependencies: [
       'pr:multinamespaces:db-wizard',
-      'pr:multinamespaces:monitoring',
       'pr:multinamespaces:storage-location',
     ],
   },
@@ -31,19 +30,6 @@ export const multinamespacesProject: PlaywrightTestProject[] = [
     testDir: './pr/multinamespaces',
     testMatch: /db-wizard\.e2e\.ts/,
     dependencies: ['global:auth:ci:setup'],
-    use: {
-      storageState: CI_USER_STORAGE_STATE_FILE,
-    },
-  },
-  // pr:multinamespaces:monitoring tests
-  {
-    name: 'pr:multinamespaces:monitoring',
-    testDir: './pr/multinamespaces',
-    testMatch: /monitoring\.e2e\.ts/,
-    // TODO(OE-2038): when restoring this project together with pr:settings,
-    // explicitly coordinate it with the fallback test in monitoring-config.e2e.ts
-    // via project dependencies or dedicated namespaces before enabling both.
-    dependencies: ['global:monitoring-instance:setup'],
     use: {
       storageState: CI_USER_STORAGE_STATE_FILE,
     },

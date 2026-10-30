@@ -17,7 +17,6 @@ import { providerRegistry, useProviderOptions } from './index';
 
 describe('ApiProviderRegistry', () => {
   it('built-in providers are registered via side-effect import', () => {
-    expect(providerRegistry.has('monitoringConfigs')).toBe(true);
     expect(providerRegistry.has('storageClasses')).toBe(true);
   });
 

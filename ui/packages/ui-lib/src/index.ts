@@ -80,6 +80,8 @@ export { default as SegmentedField } from './form/segmented-field';
 export * from './loadable-children';
 export { default as LoadableChildren } from './loadable-children';
 
+export * from './buttons/edit-icon-button';
+
 export * from './buttons/menu-button';
 export { default as MenuButton } from './buttons/menu-button';
 

@@ -129,7 +129,7 @@ flowchart TD
 ```mermaid
 flowchart TD
   REG["1. Registry<br/>api-providers/registry.ts<br/>register(key, entry)<br/>useProviderOptions(key, params)"]
-  PROVIDERS["2. Provider registrations<br/>api-providers/providers.ts<br/>monitoringConfigs<br/>storageClasses"]
+  PROVIDERS["2. Provider registrations<br/>api-providers/providers.ts<br/>storageClasses"]
   RUNTIME["3. Runtime"]
   PREFETCH["DataSourcePrefetcher<br/>prefetches options per provider<br/>sets defaults on form mount"]
   FIELD["DataSourceField<br/>wraps one select<br/>patches fieldParams.options<br/>handles loading/error/empty states"]
@@ -263,11 +263,10 @@ components:
 | DataSourcePrefetcher       | `api-providers/data-source-prefetcher.tsx`                 |
 | SecretNamespaceSync        | `secret-field/secret-namespace-sync.tsx`                   |
 | Error boundary             | `component-error-boundary/component-error-boundary.tsx`    |
-| Monitoring options hook    | `hooks/api/monitoring/useMonitoringConfigsOptions.ts`      |
 | Storage classes hook       | `hooks/api/kubernetesClusters/useStorageClassesOptions.ts` |
 
 ## Metadata
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-23
+- Last updated: 2026-10-30

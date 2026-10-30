@@ -13,15 +13,7 @@
 // limitations under the License.
 
 import { providerRegistry } from './registry';
-import { useMonitoringConfigsOptions } from 'hooks/api/monitoring/useMonitoringConfigsOptions';
 import { useStorageClassesOptions } from 'hooks/api/kubernetesClusters/useStorageClassesOptions';
-import { MonitoringEmptyFallback } from './fallbacks';
-
-providerRegistry.register('monitoringConfigs', {
-  description: 'MonitoringConfig names in the current namespace.',
-  useOptions: useMonitoringConfigsOptions,
-  emptyStateFallback: { component: MonitoringEmptyFallback },
-});
 
 providerRegistry.register('storageClasses', {
   description: 'StorageClass names available on the cluster.',
