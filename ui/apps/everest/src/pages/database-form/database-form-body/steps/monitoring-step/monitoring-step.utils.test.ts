@@ -17,17 +17,13 @@ import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
-import {
-  DestinationDisabledReason,
-  DestinationReadiness,
-} from './monitoring-step.types';
+import { DestinationDisabledReason } from './monitoring-step.types';
 import {
   buildInstanceFormsByDestination,
   buildMonitoringParametersSchema,
   finalizeMonitoringEntries,
   getDefaultEntryParameters,
   getDestinationDisabledReason,
-  getDestinationReadiness,
   groupDestinationsByClass,
   parseMonitoringDestinations,
   pruneMonitoringDestinations,
@@ -59,19 +55,10 @@ const makeClass = (
 
 const makeDestination = (
   name: string,
-  className: string,
-  conditions: { type: string; status: 'True' | 'False' | 'Unknown' }[] = []
+  className: string
 ): MonitoringDestination => ({
   metadata: { name },
   spec: { classRef: { name: className } },
-  status: {
-    conditions: conditions.map((condition) => ({
-      ...condition,
-      reason: 'Test',
-      message: '',
-      lastTransitionTime: '2026-01-01T00:00:00Z',
-    })),
-  },
 });
 
 const entry = (
@@ -260,40 +247,6 @@ describe('writeMonitoringEntries', () => {
     writeMonitoringEntries(formData, instanceForms);
 
     expect(formData).toEqual({ dbName: 'db' });
-  });
-});
-
-describe('getDestinationReadiness', () => {
-  it('is ready when Ready is True', () => {
-    expect(
-      getDestinationReadiness(
-        makeDestination('d', 'prometheus', [
-          { type: 'Accepted', status: 'True' },
-          { type: 'Ready', status: 'True' },
-        ])
-      )
-    ).toBe(DestinationReadiness.Ready);
-  });
-
-  it('is not ready when core did not accept the destination', () => {
-    expect(
-      getDestinationReadiness(
-        makeDestination('d', 'prometheus', [
-          { type: 'Accepted', status: 'False' },
-          { type: 'Ready', status: 'Unknown' },
-        ])
-      )
-    ).toBe(DestinationReadiness.NotReady);
-  });
-
-  it('is pending while its controller has not reported', () => {
-    expect(
-      getDestinationReadiness(
-        makeDestination('d', 'prometheus', [
-          { type: 'Ready', status: 'Unknown' },
-        ])
-      )
-    ).toBe(DestinationReadiness.Pending);
   });
 });
 

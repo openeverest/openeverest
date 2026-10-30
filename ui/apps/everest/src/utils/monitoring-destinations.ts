@@ -16,6 +16,7 @@ import { Section } from 'components/ui-generator/ui-generator.types';
 import { getByPath } from 'components/ui-generator/utils/object-path';
 import {
   MonitoringClass,
+  MonitoringConditionType,
   MonitoringDestination,
   MonitoringDestinationState,
   MonitoringDestinationStatus,
@@ -97,8 +98,12 @@ export const getDestinationStatus = (
   destination: MonitoringDestination
 ): MonitoringDestinationStatus => {
   const conditions = destination.status?.conditions ?? [];
-  const accepted = conditions.find((c) => c.type === 'Accepted');
-  const ready = conditions.find((c) => c.type === 'Ready');
+  const accepted = conditions.find(
+    (c) => c.type === MonitoringConditionType.Accepted
+  );
+  const ready = conditions.find(
+    (c) => c.type === MonitoringConditionType.Ready
+  );
   const serverVersion = destination.status?.serverVersion || undefined;
   const explainedBy = (
     state: MonitoringDestinationState,

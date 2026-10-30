@@ -17,6 +17,7 @@ import { SelectableCard } from '@percona/ui-lib';
 import {
   getDestinationAddress,
   getDestinationName,
+  getDestinationStatus,
 } from 'utils/monitoring-destinations';
 import {
   getMonitoringClassName,
@@ -28,7 +29,6 @@ import {
   MonitoringClassDestinations,
   MonitoringSelection,
 } from '../monitoring-step.types';
-import { getDestinationReadiness } from '../monitoring-step.utils';
 
 interface MonitoringClassGroupProps {
   group: MonitoringClassDestinations;
@@ -77,7 +77,7 @@ export const MonitoringClassGroup = ({
                 subtitle: getDestinationAddress(destination, monitoringClass),
                 detail: disabledReason
                   ? Messages.disabledReason[disabledReason]
-                  : Messages.readiness[getDestinationReadiness(destination)],
+                  : Messages.state[getDestinationStatus(destination).state],
               }}
               selected={selection.isSelected(destination)}
               disabled={!!disabledReason}

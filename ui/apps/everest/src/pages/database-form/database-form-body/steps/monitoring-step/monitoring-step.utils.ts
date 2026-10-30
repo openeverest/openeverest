@@ -24,7 +24,6 @@ import {
   InstanceMonitoringDestination,
   InstanceMonitoringDestinationPayload,
   MonitoringClass,
-  MonitoringConditionType,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
 import { getDestinationName } from 'utils/monitoring-destinations';
@@ -45,7 +44,6 @@ import {
 } from './monitoring-step.constants';
 import {
   DestinationDisabledReason,
-  DestinationReadiness,
   MonitoringClassDestinations,
 } from './monitoring-step.types';
 
@@ -78,26 +76,6 @@ export const groupDestinationsByClass = (
         getMonitoringClassName(monitoringClass)
     ),
   }));
-
-export const getDestinationReadiness = (
-  destination: MonitoringDestination
-): DestinationReadiness => {
-  const conditions = destination.status?.conditions ?? [];
-  const accepted = conditions.find(
-    (c) => c.type === MonitoringConditionType.Accepted
-  );
-  const ready = conditions.find(
-    (c) => c.type === MonitoringConditionType.Ready
-  );
-
-  if (accepted?.status === 'False' || ready?.status === 'False') {
-    return DestinationReadiness.NotReady;
-  }
-  if (ready?.status === 'True') {
-    return DestinationReadiness.Ready;
-  }
-  return DestinationReadiness.Pending;
-};
 
 const toDnsLabel = (name: string) =>
   name

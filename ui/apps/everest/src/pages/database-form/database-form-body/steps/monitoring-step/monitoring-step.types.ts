@@ -18,12 +18,6 @@ import {
 } from 'shared-types/monitoring-destinations.types';
 import { MonitoringSectionForm } from 'utils/monitoring-classes';
 
-export enum DestinationReadiness {
-  Ready = 'ready',
-  Pending = 'pending',
-  NotReady = 'notReady',
-}
-
 export enum DestinationDisabledReason {
   LimitReached = 'limitReached',
   IntegrationTaken = 'integrationTaken',

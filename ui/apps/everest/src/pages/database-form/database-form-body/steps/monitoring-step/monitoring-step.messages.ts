@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { MonitoringDestinationState } from 'shared-types/monitoring-destinations.types';
 import { MAX_MONITORING_DESTINATIONS } from './monitoring-step.constants';
-import {
-  DestinationDisabledReason,
-  DestinationReadiness,
-} from './monitoring-step.types';
+import { DestinationDisabledReason } from './monitoring-step.types';
 
 export const Messages = {
   title: 'Monitoring',
@@ -24,11 +22,11 @@ export const Messages = {
     'Choose where this database sends its monitoring data. You can send it to several systems at once.',
   noDestinations: (namespace: string) =>
     `No destinations of this system in the ${namespace} namespace yet.`,
-  readiness: {
-    [DestinationReadiness.Ready]: 'Ready',
-    [DestinationReadiness.Pending]: 'Waiting for its controller',
-    [DestinationReadiness.NotReady]: 'Not ready',
-  } satisfies Record<DestinationReadiness, string>,
+  state: {
+    [MonitoringDestinationState.Ready]: 'Ready',
+    [MonitoringDestinationState.Pending]: 'Waiting for its controller',
+    [MonitoringDestinationState.Failing]: 'Not ready',
+  } satisfies Record<MonitoringDestinationState, string>,
   disabledReason: {
     [DestinationDisabledReason.LimitReached]: `A database can send to at most ${MAX_MONITORING_DESTINATIONS} destinations`,
     [DestinationDisabledReason.IntegrationTaken]:
