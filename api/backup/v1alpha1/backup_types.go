@@ -258,6 +258,7 @@ const (
 // +kubebuilder:selectablefield:JSONPath=".spec.classRef.name"
 // +kubebuilder:selectablefield:JSONPath=".spec.storageRef.name"
 // +kubebuilder:selectablefield:JSONPath=".spec.origin.type"
+// +kubebuilder:selectablefield:JSONPath=".spec.origin.instanceRef.name"
 
 // Backup is the Schema for the backups API.
 type Backup struct {
