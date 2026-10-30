@@ -58,7 +58,7 @@ const uiSchema = {
   },
 } as unknown as TopologyUISchemas;
 
-const resolvedPreset: ClusterInstancePreset = {
+const selectedPreset: ClusterInstancePreset = {
   spec: {
     version: '8.0.12',
     topology: { type: 'replicaSet' },
@@ -78,13 +78,12 @@ const EXTRA_PATH = 'spec.components.engine.extra';
 interface HookArgs {
   mode?: FormMode;
   presetName?: string;
-  namespace?: string;
   preset?: ClusterInstancePreset | null;
 }
 
 const setup = (args: HookArgs = {}) => {
   const utils = renderHook(
-    ({ mode, presetName, namespace, preset }: Required<HookArgs>) => {
+    ({ mode, presetName, preset }: Required<HookArgs>) => {
       const methods = useForm({
         defaultValues: {
           provider: 'psmdb',
@@ -101,9 +100,8 @@ const setup = (args: HookArgs = {}) => {
         uiSchema,
         defaultValues: { backup: { enabled: false } },
         defaultTopology: 'replicaSet',
-        resolvedPreset: preset,
+        selectedPreset: preset,
         presetName,
-        namespace,
         reset: methods.reset as unknown as UseFormReset<DbWizardType>,
         getValues:
           methods.getValues as unknown as UseFormGetValues<DbWizardType>,
@@ -114,8 +112,7 @@ const setup = (args: HookArgs = {}) => {
       initialProps: {
         mode: args.mode ?? FormMode.New,
         presetName: args.presetName ?? 'psmdb-replicaset',
-        namespace: args.namespace ?? 'ns-1',
-        preset: args.preset === undefined ? resolvedPreset : args.preset,
+        preset: args.preset === undefined ? selectedPreset : args.preset,
       },
     }
   );
@@ -168,7 +165,6 @@ describe('usePresetFormSync', () => {
     rerender({
       mode: FormMode.New,
       presetName: '',
-      namespace: 'ns-1',
       preset: null,
     });
 

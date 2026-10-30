@@ -27,9 +27,7 @@ const baseContext: PresetSelectionContextType = {
   isLoadingPresets: false,
   isError: false,
   presetName: '',
-  resolvedPreset: null,
-  isResolving: false,
-  resolveError: null,
+  selectedPreset: null,
   presetSelected: false,
   presetPending: false,
 };

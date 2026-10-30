@@ -17,7 +17,7 @@ import { ClusterInstancePreset } from 'shared-types/api.types';
 import { buildPresetCreateArgs } from './preset-selection.utils';
 import { CLUSTER_INSTANCE_PRESET_ANNOTATION } from './preset-selection.constants';
 
-const resolvedPreset = {
+const selectedPreset = {
   spec: {
     version: '8.0.12',
     topology: { type: 'replicaSet' },
@@ -26,21 +26,21 @@ const resolvedPreset = {
 } as unknown as ClusterInstancePreset;
 
 describe('buildPresetCreateArgs', () => {
-  it('sends the resolved preset spec verbatim (same reference)', () => {
+  it('sends the selected preset spec verbatim (same reference)', () => {
     const args = buildPresetCreateArgs({
-      resolvedPreset,
+      selectedPreset,
       provider: 'psmdb',
       dbName: 'my-db',
       k8sNamespace: 'prod',
       presetName: 'psmdb-replicaset',
     });
 
-    expect(args.formValue.spec).toBe(resolvedPreset.spec);
+    expect(args.formValue.spec).toBe(selectedPreset.spec);
   });
 
   it('records the originating preset in the tracking annotation', () => {
     const args = buildPresetCreateArgs({
-      resolvedPreset,
+      selectedPreset,
       provider: 'psmdb',
       dbName: 'my-db',
       k8sNamespace: 'prod',
@@ -54,7 +54,7 @@ describe('buildPresetCreateArgs', () => {
 
   it('produces a spec of providerRef + preset spec, with no wizard meta leaking', () => {
     const args = buildPresetCreateArgs({
-      resolvedPreset,
+      selectedPreset,
       provider: 'psmdb',
       dbName: 'my-db',
       k8sNamespace: 'prod',
@@ -64,7 +64,7 @@ describe('buildPresetCreateArgs', () => {
     const spec = buildCreateInstanceSpec(args.formValue);
 
     expect(spec).toEqual({
-      ...resolvedPreset.spec,
+      ...selectedPreset.spec,
       providerRef: { name: 'psmdb' },
     });
     // Request-address / UI-only fields must never end up in the Instance spec.

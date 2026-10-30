@@ -107,7 +107,6 @@ type InstanceHandler interface {
 type ClusterInstancePresetHandler interface {
 	ListClusterInstancePresets(ctx context.Context, cluster string, provider string) (*corev1alpha1.ClusterInstancePresetList, error)
 	GetClusterInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.ClusterInstancePreset, error)
-	ResolveClusterInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.ClusterInstancePreset, error)
 }
 
 // InstancePresetHandler provides methods for handling operations on namespace-scoped instance presets.

@@ -31,11 +31,11 @@ test.describe('Instance PATCH', () => {
   test.describe.configure({mode: 'serial', timeout: TIMEOUTS.OneMinute});
 
   test.beforeAll(async ({request}) => {
-    const resolveResponse = await request.get(
-      `/v1/clusters/${CLUSTER_NAME}/cluster-instance-presets/${PRESET_NAME}/resolve?namespace=${EVEREST_CI_NAMESPACE}`
+    const presetResponse = await request.get(
+      `/v1/clusters/${CLUSTER_NAME}/cluster-instance-presets/${PRESET_NAME}`
     );
-    await checkError(resolveResponse);
-    const preset = await resolveResponse.json();
+    await checkError(presetResponse);
+    const preset = await presetResponse.json();
 
     const response = await request.post(
       `/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/instances`,

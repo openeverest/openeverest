@@ -646,8 +646,7 @@ func TestRBAC_Instance(t *testing.T) {
 
 				next := &handlers.MockHandler{}
 				next.On("CreateInstance", mock.Anything, mock.Anything, mock.Anything).Return(tc.instance, nil)
-				next.On("GetPreset", mock.Anything, mock.Anything, mock.Anything).Return(testPreset, nil)
-				next.On("ResolveClusterInstancePreset", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+				next.On("GetClusterInstancePreset", mock.Anything, mock.Anything, mock.Anything).
 					Return(testPreset, nil)
 
 				h := &rbacHandler{
@@ -1633,7 +1632,7 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 				spec.UserSecretRef = tc.secret
 				preset := &corev1alpha1.ClusterInstancePreset{Spec: corev1alpha1.ClusterInstancePresetSpec{InstanceSpec: spec}}
 				next := &handlers.MockHandler{}
-				next.On("ResolveClusterInstancePreset", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(preset, nil)
+				next.On("GetClusterInstancePreset", mock.Anything, mock.Anything, mock.Anything).Return(preset, nil)
 				next.On("CreateInstance", mock.Anything, mock.Anything, mock.Anything).Return(stored(), nil)
 				h := &rbacHandler{next: next, log: zap.NewNop().Sugar(), enforcer: enf, userGetter: testUserGetter}
 

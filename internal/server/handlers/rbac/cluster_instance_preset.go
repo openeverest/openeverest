@@ -52,17 +52,3 @@ func (h *rbacHandler) GetClusterInstancePreset(ctx context.Context, cluster, nam
 	}
 	return h.next.GetClusterInstancePreset(ctx, cluster, name)
 }
-
-// ResolveClusterInstancePreset returns a cluster instance preset with namespace defaults, gated by RBAC.
-func (h *rbacHandler) ResolveClusterInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.ClusterInstancePreset, error) {
-	object := rbac.ClusterObjectName(cluster, name)
-	if err := h.enforce(ctx, rbac.ResourceClusterInstancePresets, rbac.ActionRead, object); err != nil {
-		return nil, err
-	}
-	// Also check namespace access
-	nsObject := rbac.ClusterObjectName(cluster, namespace)
-	if err := h.enforce(ctx, rbac.ResourceNamespaces, rbac.ActionRead, nsObject); err != nil {
-		return nil, err
-	}
-	return h.next.ResolveClusterInstancePreset(ctx, cluster, name, namespace)
-}
