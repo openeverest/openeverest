@@ -16,14 +16,6 @@ import { CrdsGen, HttpApi } from '@generated/api-types';
 
 export type GetProviders = CrdsGen.components['schemas']['ProviderList'];
 export type Provider = CrdsGen.components['schemas']['Provider'];
-export type MonitoringConfig =
-  CrdsGen.components['schemas']['MonitoringConfig'];
-export type MonitoringConfigList =
-  CrdsGen.components['schemas']['MonitoringConfigList'];
-export type MonitoringConfigCreateParams =
-  HttpApi.components['schemas']['MonitoringConfigCreateParams'];
-export type MonitoringConfigUpdateParams =
-  HttpApi.components['schemas']['MonitoringConfigUpdateParams'];
 export type Secret = HttpApi.components['schemas']['Secret'];
 export type SecretList = HttpApi.components['schemas']['SecretList'];
 export type SecretListFilter = NonNullable<

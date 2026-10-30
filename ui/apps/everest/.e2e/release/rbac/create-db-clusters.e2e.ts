@@ -282,13 +282,10 @@ test.describe(
           page.getByRole('row').filter({ hasText: 'bucket-1' })
         ).toBeVisible();
 
-        await page.goto('/settings/monitoring-endpoints');
+        await page.goto('/settings/monitoring-destinations');
         await expect(page.getByRole('table')).toBeVisible();
         await expect(
-          page.getByRole('row').filter({ hasText: 'e2e-endpoint-0' })
-        ).toBeVisible();
-        await expect(
-          page.getByTestId('add-monitoring-endpoint')
+          page.getByTestId('add-monitoring-destination')
         ).not.toBeVisible();
       });
 

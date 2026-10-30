@@ -12,19 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Box, Skeleton, Stack } from '@mui/material';
-import { getMonitoringClassName } from 'utils/monitoring-classes';
+import { Box } from '@mui/material';
+import { useFormContext, useWatch } from 'react-hook-form';
+import { DbWizardFormFields } from 'consts';
 import { StepHeader } from 'pages/database-form/database-form-body/steps-old/step-header/step-header';
 import { StepProps } from 'pages/database-form/database-form.types';
-import { useMonitoringSelection } from './hooks/use-monitoring-selection';
-import { MonitoringClassGroup } from './monitoring-class-group/monitoring-class-group';
+import { MonitoringDestinationsPicker } from './monitoring-destinations-picker/monitoring-destinations-picker';
 import { Messages } from './monitoring-step.messages';
 
 export const MonitoringStep = (
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _props: StepProps
 ) => {
-  const selection = useMonitoringSelection();
+  const { control } = useFormContext();
+  const [namespace, provider] = useWatch({
+    control,
+    name: [DbWizardFormFields.k8sNamespace, DbWizardFormFields.provider],
+  });
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column' }}>
@@ -32,22 +36,11 @@ export const MonitoringStep = (
         pageTitle={Messages.title}
         pageDescription={Messages.caption}
       />
-      {selection.isLoading ? (
-        <>
-          <Skeleton height="120px" />
-          <Skeleton height="120px" />
-        </>
-      ) : (
-        <Stack gap={4} sx={{ mt: 3 }}>
-          {selection.groups.map((group) => (
-            <MonitoringClassGroup
-              key={getMonitoringClassName(group.monitoringClass)}
-              group={group}
-              selection={selection}
-            />
-          ))}
-        </Stack>
-      )}
+      <MonitoringDestinationsPicker
+        namespace={typeof namespace === 'string' ? namespace : ''}
+        provider={typeof provider === 'string' ? provider : ''}
+        pruneUnavailable
+      />
     </Box>
   );
 };

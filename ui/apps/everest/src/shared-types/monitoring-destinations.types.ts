@@ -43,6 +43,10 @@ export type InstanceMonitoringDestination = NonNullable<
   InstanceMonitoringSpec['destinations']
 >[number];
 
+export type InstanceMonitoringStatus = NonNullable<
+  NonNullable<NonNullable<Instance['status']>['monitoring']>['destinations']
+>[number];
+
 // The generated types keep `parameters` opaque; what the UI writes is the
 // class-defined object.
 export type InstanceMonitoringDestinationPayload = Omit<

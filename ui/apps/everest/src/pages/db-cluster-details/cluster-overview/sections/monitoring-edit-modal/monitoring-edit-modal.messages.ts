@@ -12,14 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { MonitoringConfig } from 'shared-types/api.types';
+import { MonitoringChange } from './monitoring-edit-modal.types';
 
-export interface MonitoringConfigTableElement {
-  name: string;
-  namespace: string;
-  type: string;
-  url: string;
-  inUse: boolean;
-  pmmServerVersion: string;
-  raw: MonitoringConfig;
-}
+const changeVerb: Record<MonitoringChange, string> = {
+  [MonitoringChange.Enable]: 'Enabling',
+  [MonitoringChange.Remove]: 'Removing',
+};
+
+export const Messages = {
+  title: 'Edit monitoring',
+  save: 'Save',
+  restart: (change: MonitoringChange, classTitle: string) =>
+    `${changeVerb[change]} ${classTitle} restarts the database pods one at a time; connections briefly drop.`,
+  singleReplica: 'This database will be briefly unavailable while it restarts.',
+  saved: 'Monitoring updated',
+};

@@ -56,10 +56,9 @@ A `dataSource` field is still a regular `select` — the only difference is that
 
 ## Available Providers
 
-| Key                 | Returns                                     | Scoped to         | Empty State Fallback           |
-| ------------------- | ------------------------------------------- | ----------------- | ------------------------------ |
-| `monitoringConfigs` | MonitoringConfig resource names             | cluster/namespace | ActionableAlert + create modal |
-| `storageClasses`    | StorageClass names available on the cluster | cluster           | None (not user-creatable)      |
+| Key              | Returns                                     | Scoped to | Empty State Fallback      |
+| ---------------- | ------------------------------------------- | --------- | ------------------------- |
+| `storageClasses` | StorageClass names available on the cluster | cluster   | None (not user-creatable) |
 
 ## Field Behavior
 
@@ -70,12 +69,12 @@ A `dataSource` field is still a regular `select` — the only difference is that
 | No options     | hidden   | —                          | shown instead of select if provider has `emptyStateFallback` |
 | Options loaded | enabled  | first option auto-selected | not shown                                                    |
 
-When a provider registers an `emptyStateFallback`, `DataSourceField` renders the fallback component **instead of** the select field whenever options are empty. The select is not shown at all — the fallback completely replaces it. This is used for resources that can be user-created (e.g. monitoring endpoints). Providers for non-creatable resources (e.g. StorageClasses) register `emptyStateFallback: null`, in which case the select is rendered normally with a "No options available" helper text.
+When a provider registers an `emptyStateFallback`, `DataSourceField` renders the fallback component **instead of** the select field whenever options are empty. The select is not shown at all — the fallback completely replaces it. This is meant for resources the user can create from the form (none of the built-in providers needs it today). Providers for non-creatable resources (e.g. StorageClasses) register `emptyStateFallback: null`, in which case the select is rendered normally with a "No options available" helper text.
 
 ## Adding a New Provider in https://github.com/openeverest/openeverest
 
 1. Create a `useXxxOptions` hook in `hooks/api/<resource>/` that accepts `ProviderParams` and returns `ProviderOptions`.
-2. If the resource can be user-created, create a fallback component in `api-providers/fallbacks/` (see `monitoring-empty-fallback.tsx` for the pattern).
+2. If the resource can be user-created, create a fallback component in `api-providers/fallbacks/` that offers creating it (e.g. an `ActionableAlert` opening a create modal) and export it from `api-providers/fallbacks/index.ts`.
 3. Register it in `api-providers/providers.ts`:
 
    ```ts

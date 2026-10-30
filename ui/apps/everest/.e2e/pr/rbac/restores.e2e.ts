@@ -2,7 +2,12 @@ import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 import { getNamespacesFn } from '@e2e/utils/namespaces';
 import { setRBACPermissionsK8S } from '@e2e/utils/rbac-cmd-line';
 import { expect, test } from '@playwright/test';
-import { MOCK_CLUSTER_NAME, mockBackups, mockClusters } from './utils';
+import {
+  MOCK_CLUSTER_NAME,
+  MOCK_MONITORING_DESTINATION_NAME,
+  mockBackups,
+  mockClusters,
+} from './utils';
 
 const { CI_USER: user } = process.env;
 
@@ -45,7 +50,11 @@ test.describe('Restores RBAC', () => {
       ['database-clusters', 'create', `${namespace}/*`],
       ['backup-storages', 'read', `${namespace}/*`],
       ['database-cluster-backups', '*', `${namespace}/${MOCK_CLUSTER_NAME}`],
-      ['monitoring-instances', '*', `${namespace}/${MOCK_CLUSTER_NAME}`],
+      [
+        'monitoring-destinations',
+        '*',
+        `${namespace}/${MOCK_MONITORING_DESTINATION_NAME}`,
+      ],
       ['database-cluster-restores', 'create', `${namespace}/*`],
       [
         'database-cluster-credentials',
@@ -181,7 +190,11 @@ test.describe('Restores RBAC', () => {
       ['database-clusters', 'create', `${namespace}/*`],
       ['backup-storages', 'read', `${namespace}/*`],
       ['database-cluster-backups', 'read', `${namespace}/${MOCK_CLUSTER_NAME}`],
-      ['monitoring-instances', 'read', `${namespace}/${MOCK_CLUSTER_NAME}`],
+      [
+        'monitoring-destinations',
+        'read',
+        `${namespace}/${MOCK_MONITORING_DESTINATION_NAME}`,
+      ],
       ['database-cluster-restores', 'create', `${namespace}/*`],
       [
         'database-cluster-credentials',
