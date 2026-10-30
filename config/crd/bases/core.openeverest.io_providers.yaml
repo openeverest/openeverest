@@ -130,6 +130,15 @@ spec:
                       description: MonitoringComponentType declares what one component
                         type exposes.
                       properties:
+                        connection:
+                          default: None
+                          description: |-
+                            Connection states whether monitoring agents can connect to the
+                            component over its native protocol, with the monitor credential.
+                          enum:
+                          - Supported
+                          - None
+                          type: string
                         kind:
                           description: |-
                             Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values

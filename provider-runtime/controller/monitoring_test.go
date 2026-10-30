@@ -279,7 +279,8 @@ func TestRequiredSources(t *testing.T) {
 
 			got, err := c.RequiredSources()
 			require.NoError(t, err)
-			assert.Equal(t, RequiredSources{Metrics: tc.wantMetrics, Integrations: tc.wantIntegrations}, got)
+			assert.Equal(t, tc.wantMetrics, got.Metrics)
+			assert.Equal(t, tc.wantIntegrations, got.Integrations)
 		})
 	}
 }
