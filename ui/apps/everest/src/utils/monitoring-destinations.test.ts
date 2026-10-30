@@ -20,6 +20,8 @@ import {
 import {
   getDestinationAddress,
   getDestinationStatus,
+  getRotatedCredentialsSecretName,
+  isFormCreatedCredentialsSecret,
 } from './monitoring-destinations';
 
 type Condition = {
@@ -165,5 +167,33 @@ describe('getDestinationAddress', () => {
       getDestinationAddress(destination, classWithUiSchema(undefined))
     ).toBe(undefined);
     expect(getDestinationAddress(destination, undefined)).toBe(undefined);
+  });
+});
+
+describe('credentials Secret names', () => {
+  it('gives rotated credentials a fresh name within the Secret name limit', () => {
+    expect(getRotatedCredentialsSecretName('pmm', 'k2x9a')).toBe(
+      'pmm-credentials-k2x9a'
+    );
+    expect(getRotatedCredentialsSecretName('pmm')).toMatch(
+      /^pmm-credentials-[a-z0-9]+$/
+    );
+    expect(
+      getRotatedCredentialsSecretName('x'.repeat(260), 'k2x9a')
+    ).toHaveLength(253);
+  });
+
+  it('tells the Secrets the form created from those the user brought', () => {
+    expect(isFormCreatedCredentialsSecret('pmm', 'pmm-credentials')).toBe(true);
+    expect(isFormCreatedCredentialsSecret('pmm', 'pmm-credentials-k2x9a')).toBe(
+      true
+    );
+    expect(isFormCreatedCredentialsSecret('pmm', 'pmm-eu-credentials')).toBe(
+      false
+    );
+    expect(
+      isFormCreatedCredentialsSecret('pmm', 'pmm-credentials-old-token')
+    ).toBe(false);
+    expect(isFormCreatedCredentialsSecret('pmm', 'team-pmm-token')).toBe(false);
   });
 });

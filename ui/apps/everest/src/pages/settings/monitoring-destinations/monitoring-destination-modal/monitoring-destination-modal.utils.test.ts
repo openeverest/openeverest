@@ -161,7 +161,7 @@ describe('buildSaveRequest', () => {
     });
   });
 
-  it('replaces the credentials in the Secret the destination references', () => {
+  it('replaces the credentials in a new Secret the destination switches to', () => {
     const request = buildSaveRequest({
       values: {
         ...getFormDefaults({
@@ -178,8 +178,13 @@ describe('buildSaveRequest', () => {
 
     expect(request.credentialsSecret).toEqual({
       action: 'replace',
-      name: 'prom-basic',
+      name: expect.stringMatching(/^prom-credentials-[a-z0-9]+$/),
       stringData: { username: 'u2', password: 'p2' },
+      previousName: 'prom-basic',
+    });
+    expect(request.destination.spec.authentication).toEqual({
+      mode: 'BasicAuth',
+      credentialsSecretRef: { name: request.credentialsSecret?.name },
     });
   });
 });

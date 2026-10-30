@@ -40,6 +40,7 @@ import {
 import {
   getCredentialsSecretName,
   getDefaultCredentialsSecretName,
+  getRotatedCredentialsSecretName,
 } from 'utils/monitoring-destinations';
 import {
   CREDENTIALS_SECTION_KEY,
@@ -88,9 +89,10 @@ export const getDestinationClassForms = (
 export const getFormMode = (original: MonitoringDestination | undefined) =>
   original ? FormMode.Edit : FormMode.New;
 
-// Whether the save writes the credentials Secret: always for a new
+// Whether the save writes a credentials Secret: always for a new
 // Secret-backed destination, and on edit when the mode changes, the
-// destination has no Secret yet or the user replaces the credentials.
+// destination has no Secret yet or the user replaces the credentials. A
+// replacement goes to a new Secret the destination then switches to.
 export const getCredentialsSecretAction = (
   {
     authMode,
@@ -235,14 +237,26 @@ const toCredentialsSecretWrite = (
   if (reuseSecretName) {
     return { action: 'reuse', name: reuseSecretName };
   }
-  const name =
-    (action === 'replace' && original && getCredentialsSecretName(original)) ||
-    values.credentialsSecretName ||
-    getDefaultCredentialsSecretName(values.name);
-  const credentials = forms.credentials
-    ? postprocessSectionForm(values.credentials, forms.credentials)
-    : {};
-  return { action, name, stringData: toStringData(credentials) };
+  const stringData = toStringData(
+    forms.credentials
+      ? postprocessSectionForm(values.credentials, forms.credentials)
+      : {}
+  );
+  if (action === 'replace') {
+    return {
+      action,
+      name: getRotatedCredentialsSecretName(values.name),
+      stringData,
+      previousName: original && getCredentialsSecretName(original),
+    };
+  }
+  return {
+    action,
+    name:
+      values.credentialsSecretName ||
+      getDefaultCredentialsSecretName(values.name),
+    stringData,
+  };
 };
 
 // The requests a submit makes. Credentials go to the Secret only; the
