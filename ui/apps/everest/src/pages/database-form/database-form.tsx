@@ -37,11 +37,6 @@ import DatabaseFormSideDrawer from './database-form-side-drawer';
 import { useInstancesForNamespaces, useNamespaces } from 'hooks';
 
 import { FormMode } from 'components/ui-generator/ui-generator.types';
-import {
-  deleteByPathAndEmptyParents,
-  getByPath,
-  setByPath,
-} from 'components/ui-generator/utils/object-path';
 import { ZodType } from 'zod';
 import { useDatabasePageDefaultValues } from './hooks/use-database-form-default-values';
 import { useDatabasePageMode } from './hooks/use-database-page-mode';
@@ -76,14 +71,10 @@ import {
 } from './database-form-body/steps/backup-step';
 import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
-import { useMonitoringClassesForProvider } from 'hooks/api/monitoring-classes';
 import {
-  buildMonitoringParametersSchema,
-  finalizeMonitoringEntries,
   MonitoringStep,
   MONITORING_DESTINATIONS_FIELD,
-  parseMonitoringDestinations,
-  useMonitoringInstanceForms,
+  useMonitoringStep,
 } from './database-form-body/steps/monitoring-step';
 import { Messages as MonitoringStepMessages } from './database-form-body/steps/monitoring-step/monitoring-step.messages';
 import { useClusterName } from 'hooks/api/useClusterName';
@@ -312,23 +303,14 @@ export const DatabasePage = () => {
     typeof selectedPreset === 'string' ? selectedPreset : ''
   );
 
-  // ── Monitoring classes compatible with the provider (determines if the
-  // monitoring step is shown)
-  const monitoringProvider =
+  // ── Monitoring step (shown when a class is compatible with the provider)
+  const monitoringStep = useMonitoringStep(
+    typeof selectedNamespace === 'string' ? selectedNamespace : '',
     typeof selectedProvider === 'string'
       ? selectedProvider
-      : (providerObject?.metadata?.name ?? '');
-  const { data: monitoringClasses = [] } =
-    useMonitoringClassesForProvider(monitoringProvider);
-  const hasMonitoringStep = monitoringClasses.length > 0;
-  const monitoringInstanceForms = useMonitoringInstanceForms(
-    typeof selectedNamespace === 'string' ? selectedNamespace : '',
-    monitoringProvider
+      : (providerObject?.metadata?.name ?? '')
   );
-  const monitoringParametersSchema = useMemo(
-    () => buildMonitoringParametersSchema(monitoringInstanceForms),
-    [monitoringInstanceForms]
-  );
+  const { hasMonitoringStep } = monitoringStep;
 
   // Single owner of programmatic form writes: populate from the picked preset
   // (and revert on clear) and merge topology defaults on a manual switch.
@@ -420,7 +402,7 @@ export const DatabasePage = () => {
   const validationSchema = useDbValidationSchema(
     dbInstancesList,
     engine.zodSchema,
-    monitoringParametersSchema
+    monitoringStep.parametersSchema
   ) as unknown as ZodType<DbWizardType>;
 
   useEffect(() => {
@@ -519,18 +501,7 @@ export const DatabasePage = () => {
       }
     }
 
-    const monitoringEntries = parseMonitoringDestinations(
-      getByPath(formData, MONITORING_DESTINATIONS_FIELD)
-    );
-    if (monitoringEntries.length > 0) {
-      setByPath(
-        formData,
-        MONITORING_DESTINATIONS_FIELD,
-        finalizeMonitoringEntries(monitoringEntries, monitoringInstanceForms)
-      );
-    } else {
-      deleteByPathAndEmptyParents(formData, MONITORING_DESTINATIONS_FIELD);
-    }
+    monitoringStep.writeEntries(formData);
 
     latestDataRef.current = postProcessedData;
 

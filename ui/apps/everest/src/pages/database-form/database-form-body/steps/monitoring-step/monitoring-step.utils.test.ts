@@ -34,6 +34,7 @@ import {
   pruneMonitoringDestinations,
   toggleMonitoringDestination,
   toMonitoringEntryName,
+  writeMonitoringEntries,
 } from './monitoring-step.utils';
 
 const PROVIDER = 'percona-server-mongodb';
@@ -241,6 +242,32 @@ describe('finalizeMonitoringEntries', () => {
       entry('pmm-a'),
       entry('prom'),
     ]);
+  });
+});
+
+describe('writeMonitoringEntries', () => {
+  it('writes the finalized entries into the request', () => {
+    const formData = {
+      monitoring: {
+        destinations: [{ ...entry('pmm-a'), parameters: { replicas: '2' } }],
+      },
+    };
+
+    writeMonitoringEntries(formData, instanceForms);
+
+    expect(formData).toEqual({
+      monitoring: {
+        destinations: [{ ...entry('pmm-a'), parameters: { replicas: 2 } }],
+      },
+    });
+  });
+
+  it('drops spec.monitoring when no destination is selected', () => {
+    const formData = { dbName: 'db', monitoring: { destinations: [] } };
+
+    writeMonitoringEntries(formData, instanceForms);
+
+    expect(formData).toEqual({ dbName: 'db' });
   });
 });
 

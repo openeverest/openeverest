@@ -20,3 +20,4 @@ export {
   parseMonitoringDestinations,
 } from './monitoring-step.utils';
 export { useMonitoringInstanceForms } from './hooks/use-monitoring-instance-forms';
+export { useMonitoringStep } from './hooks/use-monitoring-step';

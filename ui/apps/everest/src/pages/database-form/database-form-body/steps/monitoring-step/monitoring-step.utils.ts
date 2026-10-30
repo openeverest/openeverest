@@ -15,8 +15,10 @@
 import { z } from 'zod';
 import { removeEmptyFieldValues } from 'components/ui-generator/utils/postprocess/postprocess-schema';
 import {
+  deleteByPathAndEmptyParents,
   getByPath,
   isPlainObject,
+  setByPath,
 } from 'components/ui-generator/utils/object-path';
 import {
   InstanceMonitoringDestination,
@@ -325,3 +327,23 @@ export const finalizeMonitoringEntries = (
         Object.keys(cleaned).length > 0 && { parameters: cleaned }),
     };
   });
+
+// Writes the finalized entries into the create request, or drops
+// spec.monitoring when no destination is selected.
+export const writeMonitoringEntries = (
+  formData: Record<string, unknown>,
+  formsByDestination: Map<string, MonitoringSectionForm>
+) => {
+  const entries = parseMonitoringDestinations(
+    getByPath(formData, MONITORING_DESTINATIONS_FIELD)
+  );
+  if (entries.length === 0) {
+    deleteByPathAndEmptyParents(formData, MONITORING_DESTINATIONS_FIELD);
+    return;
+  }
+  setByPath(
+    formData,
+    MONITORING_DESTINATIONS_FIELD,
+    finalizeMonitoringEntries(entries, formsByDestination)
+  );
+};
