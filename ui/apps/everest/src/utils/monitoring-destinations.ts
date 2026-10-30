@@ -102,6 +102,15 @@ export const getSecretDeletedWithDestination = (
     : undefined;
 };
 
+// "Reason: message", or whichever of the two a condition reports.
+export const describeCondition = ({
+  reason,
+  message,
+}: {
+  reason?: string;
+  message?: string;
+}) => [reason, message].filter(Boolean).join(': ');
+
 export const getDestinationStatus = (
   destination: MonitoringDestination
 ): MonitoringDestinationStatus => {

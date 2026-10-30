@@ -13,16 +13,9 @@
 // limitations under the License.
 
 import { Instance } from 'shared-types/api.types';
+import { describeCondition } from 'utils/monitoring-destinations';
 import { MONITORING_CONFIGURED_CONDITION } from './monitoring-card.constants';
 import { ConditionStatus, MonitoringOverview } from './monitoring-card.types';
-
-const describeCondition = ({
-  reason,
-  message,
-}: {
-  reason?: string;
-  message?: string;
-}) => [reason, message].filter(Boolean).join(': ');
 
 const toConditionStatus = (value: string | undefined): ConditionStatus =>
   value === 'True' || value === 'False' ? value : 'Unknown';
