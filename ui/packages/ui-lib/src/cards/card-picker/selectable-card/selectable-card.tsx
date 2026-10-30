@@ -16,10 +16,13 @@ import { Card, CardActionArea, CardContent, Typography } from '@mui/material';
 import { CardPickerItem } from '../card-picker.types';
 import { Highlight } from '../highlight';
 
-interface SelectableCardProps {
+const NO_TOKENS: string[] = [];
+
+export interface SelectableCardProps {
   item: CardPickerItem;
   selected: boolean;
-  tokens: string[];
+  // Search tokens to highlight in the texts.
+  tokens?: string[];
   onSelect: () => void;
   // Non-interactive state: renders inert and dimmed (e.g. an in-grid notice).
   disabled?: boolean;
@@ -30,7 +33,7 @@ interface SelectableCardProps {
 export const SelectableCard = ({
   item,
   selected,
-  tokens,
+  tokens = NO_TOKENS,
   onSelect,
   disabled = false,
   role,
