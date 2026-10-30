@@ -21,6 +21,11 @@ import {
   TimeValue,
   WeekDays,
 } from '../../time-selection/time-selection.types';
+import {
+  MAX_RETENTION_AMOUNT,
+  RetentionDurationUnit,
+  RetentionType,
+} from './schedule-form.constants';
 
 const makeSchedule = (
   overrides: Partial<FlattenedSchedule> = {}
@@ -37,7 +42,10 @@ const validFormData = {
   scheduleName: 'my-new-backup',
   backupClassName: 'percona-backup-mongodb',
   storageLocation: { metadata: { name: 'storage-a' } },
+  retentionType: RetentionType.count,
   retentionCopies: '3',
+  retentionDurationValue: '30',
+  retentionDurationUnit: RetentionDurationUnit.days,
   selectedTime: TimeValue.days,
   minute: 0,
   hour: 1,
@@ -110,22 +118,35 @@ describe('schedule-form-schema', () => {
     });
   });
 
-  describe('retentionCopies validation', () => {
-    it('accepts zero (infinite retention)', () => {
+  describe('retention validation', () => {
+    it('accepts keep-all without validating copies or duration', () => {
       const s = schema([], WizardMode.New);
-      const result = s.safeParse({ ...validFormData, retentionCopies: '0' });
+      const result = s.safeParse({
+        ...validFormData,
+        retentionType: RetentionType.keepAll,
+        retentionCopies: '0',
+        retentionDurationValue: '0',
+      });
       expect(result.success).toBe(true);
     });
 
-    it('accepts positive integer', () => {
+    it('accepts count retention with positive copies', () => {
       const s = schema([], WizardMode.New);
-      const result = s.safeParse({ ...validFormData, retentionCopies: '10' });
+      const result = s.safeParse({
+        ...validFormData,
+        retentionType: RetentionType.count,
+        retentionCopies: '10',
+      });
       expect(result.success).toBe(true);
     });
 
-    it('rejects negative number', () => {
+    it('rejects count retention with zero copies', () => {
       const s = schema([], WizardMode.New);
-      const result = s.safeParse({ ...validFormData, retentionCopies: '-1' });
+      const result = s.safeParse({
+        ...validFormData,
+        retentionType: RetentionType.count,
+        retentionCopies: '0',
+      });
       expect(result.success).toBe(false);
       if (!result.success) {
         const messages = result.error.issues.map((i) => i.message);
@@ -133,19 +154,91 @@ describe('schedule-form-schema', () => {
       }
     });
 
-    it('rejects NaN string', () => {
-      const s = schema([], WizardMode.New);
-      const result = s.safeParse({ ...validFormData, retentionCopies: 'abc' });
-      expect(result.success).toBe(false);
-    });
-
-    it('rejects overflow (> 2^31 - 1)', () => {
+    it('rejects count retention with non-numeric copies', () => {
       const s = schema([], WizardMode.New);
       const result = s.safeParse({
         ...validFormData,
-        retentionCopies: '2147483648',
+        retentionType: RetentionType.count,
+        retentionCopies: 'abc',
       });
       expect(result.success).toBe(false);
+    });
+
+    it('accepts time retention with positive duration', () => {
+      const s = schema([], WizardMode.New);
+      const result = s.safeParse({
+        ...validFormData,
+        retentionType: RetentionType.time,
+        retentionDurationValue: '30',
+        retentionDurationUnit: RetentionDurationUnit.days,
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects time retention with zero duration', () => {
+      const s = schema([], WizardMode.New);
+      const result = s.safeParse({
+        ...validFormData,
+        retentionType: RetentionType.time,
+        retentionDurationValue: '0',
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        const messages = result.error.issues.map((i) => i.message);
+        expect(messages).toContain(Messages.retentionDuration.invalidNumber);
+      }
+    });
+
+    it.each(['030', '30.5', '1e3'])(
+      'rejects CRD-invalid amount %s for count retention',
+      (retentionCopies) => {
+        const s = schema([], WizardMode.New);
+        const result = s.safeParse({
+          ...validFormData,
+          retentionType: RetentionType.count,
+          retentionCopies,
+        });
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          const messages = result.error.issues.map((i) => i.message);
+          expect(messages).toContain(Messages.retentionCopies.invalidNumber);
+        }
+      }
+    );
+
+    it.each(['030', '30.5', '1e3'])(
+      'rejects CRD-invalid amount %s for time retention',
+      (retentionDurationValue) => {
+        const s = schema([], WizardMode.New);
+        const result = s.safeParse({
+          ...validFormData,
+          retentionType: RetentionType.time,
+          retentionDurationValue,
+        });
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          const messages = result.error.issues.map((i) => i.message);
+          expect(messages).toContain(Messages.retentionDuration.invalidNumber);
+        }
+      }
+    );
+
+    it('rejects retention amount above 2^31 - 1', () => {
+      const s = schema([], WizardMode.New);
+      const overflow = String(MAX_RETENTION_AMOUNT + 1);
+      const countResult = s.safeParse({
+        ...validFormData,
+        retentionType: RetentionType.count,
+        retentionCopies: overflow,
+      });
+      expect(countResult.success).toBe(false);
+
+      const timeResult = s.safeParse({
+        ...validFormData,
+        retentionType: RetentionType.time,
+        retentionDurationValue: overflow,
+      });
+      expect(timeResult.success).toBe(false);
     });
   });
 

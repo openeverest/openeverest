@@ -15,6 +15,10 @@
 // limitations under the License.
 
 import { errorMessages } from 'utils/common-validation';
+import {
+  RetentionDurationUnit,
+  RetentionType,
+} from './schedule-form.constants';
 
 export const Messages = {
   scheduleName: {
@@ -27,10 +31,29 @@ export const Messages = {
     invalidOption:
       'Invalid option. Please make sure you added a backup storage and select it from the dropdown',
   },
+  retentionType: {
+    label: 'Retention',
+    count: 'Keep last N backups',
+    time: 'Keep for a period',
+    keepAll: 'Keep all',
+    keepAllHelper: 'Backups are never deleted automatically',
+  },
   retentionCopies: {
-    label: 'Retention copies',
-    helperText: '0 = infinite retention copies',
-    invalidNumber: 'Invalid number',
+    label: 'Number of backups',
+    helperText: 'Older backups are deleted automatically',
+    invalidNumber: 'Enter a whole number of at least 1',
+  },
+  retentionDuration: {
+    label: 'Keep for',
+    helperText:
+      'Backups needed to restore to any point in this period are kept',
+    invalidNumber: 'Enter a whole number of at least 1',
+    unitLabel: 'Unit',
+    unit: {
+      [RetentionDurationUnit.days]: 'Days',
+      [RetentionDurationUnit.weeks]: 'Weeks',
+      [RetentionDurationUnit.months]: 'Months',
+    },
   },
   backupDetails: 'Backup Details',
   repeats: 'Repeats',
@@ -47,3 +70,18 @@ export const Messages = {
   pgStorageEditRestriction:
     'You cannot modify the storage location for an existing schedule due to a limitation of the PG operator.',
 };
+
+export const retentionTypeOptions = [
+  {
+    label: Messages.retentionType.count,
+    value: RetentionType.count,
+  },
+  {
+    label: Messages.retentionType.time,
+    value: RetentionType.time,
+  },
+  {
+    label: Messages.retentionType.keepAll,
+    value: RetentionType.keepAll,
+  },
+];
