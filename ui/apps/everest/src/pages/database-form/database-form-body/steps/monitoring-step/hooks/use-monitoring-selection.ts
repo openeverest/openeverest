@@ -18,13 +18,13 @@ import { DbWizardFormFields } from 'consts';
 import { useMonitoringClassesForProvider } from 'hooks/api/monitoring-classes';
 import { useMonitoringDestinations } from 'hooks/api/monitoring-destinations';
 import { MonitoringDestination } from 'shared-types/monitoring-destinations.types';
+import { getMonitoringClassName } from 'utils/monitoring-classes';
+import { getDestinationName } from 'utils/monitoring-destinations';
 import { MONITORING_DESTINATIONS_FIELD } from '../monitoring-step.constants';
 import { MonitoringSelection } from '../monitoring-step.types';
 import {
   getDefaultEntryParameters,
   getDestinationDisabledReason,
-  getDestinationName,
-  getMonitoringClassName,
   groupDestinationsByClass,
   isDestinationSelected,
   parseMonitoringDestinations,
