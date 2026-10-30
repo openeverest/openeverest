@@ -14,6 +14,8 @@
 
 import { z } from 'zod';
 import {
+  Component,
+  FieldType,
   FormMode,
   isSection,
   Section,
@@ -46,6 +48,9 @@ export interface MonitoringSectionForm {
   sections: Record<string, Section>;
 }
 
+// Modes core resolves without a Secret.
+const SECRETLESS_AUTH_MODES = ['Anonymous', 'WorkloadIdentity'];
+
 const toSectionMap = (value: unknown): Record<string, Section> =>
   isPlainObject(value)
     ? Object.fromEntries(
@@ -62,6 +67,15 @@ export const isMonitoringClassAccepted = (monitoringClass: MonitoringClass) =>
       condition.type === MonitoringConditionType.Accepted &&
       condition.status === 'True'
   );
+
+export const getMonitoringClassName = (monitoringClass: MonitoringClass) =>
+  monitoringClass.metadata?.name ?? '';
+
+export const getMonitoringClassTitle = (monitoringClass: MonitoringClass) =>
+  monitoringClass.spec.displayName || getMonitoringClassName(monitoringClass);
+
+export const isSecretBackedAuthMode = (mode: string) =>
+  !SECRETLESS_AUTH_MODES.includes(mode);
 
 // The generated CRD types keep uiSchema opaque, so each form is narrowed here.
 export const getMonitoringClassUiSchema = (
@@ -115,3 +129,42 @@ export const postprocessSectionForm = (
     schema: form.schema,
     selectedTopology: form.sectionKey,
   });
+
+const toMaskedCredentialField = (
+  key: string,
+  required: boolean
+): Component => ({
+  path: key,
+  uiType: FieldType.Text,
+  fieldParams: { label: key, type: 'password' },
+  ...(required && { validation: { required: true } }),
+});
+
+// The class's credentials form for the mode or, when it ships none, one masked
+// input per credential key the mode declares.
+export const getCredentialsSection = (
+  monitoringClass: MonitoringClass,
+  mode: string
+): Section | undefined => {
+  const section = getMonitoringClassUiSchema(monitoringClass).credentials[mode];
+  if (section) {
+    return section;
+  }
+  const credentials = monitoringClass.spec.authModes.find(
+    (authMode) => authMode.name === mode
+  )?.credentials;
+  const required = credentials?.required ?? [];
+  const keys = [...required, ...(credentials?.optional ?? [])];
+  if (keys.length === 0) {
+    return undefined;
+  }
+  return {
+    componentsOrder: keys,
+    components: Object.fromEntries(
+      keys.map((key) => [
+        key,
+        toMaskedCredentialField(key, required.includes(key)),
+      ])
+    ),
+  };
+};

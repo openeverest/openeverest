@@ -12,8 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useQuery } from '@tanstack/react-query';
-import { getMonitoringDestinationsFn } from 'api/monitoring-destinations';
+import { useQueries, useQuery } from '@tanstack/react-query';
+import {
+  getMonitoringDestinationFn,
+  getMonitoringDestinationsFn,
+} from 'api/monitoring-destinations';
 import { useRBACPermissions } from 'hooks/rbac';
 import { useClusterName } from 'hooks/api/useClusterName';
 import {
@@ -28,6 +31,14 @@ export const getMonitoringDestinationsQueryKey = (
   cluster: string,
   namespace: string
 ) => [MONITORING_DESTINATIONS_QUERY_KEY, cluster, namespace] as const;
+
+export const getMonitoringDestinationQueryKey = (
+  cluster: string,
+  namespace: string,
+  name: string
+) => [MONITORING_DESTINATIONS_QUERY_KEY, cluster, namespace, name] as const;
+
+const DESTINATIONS_REFETCH_INTERVAL = 10 * 1000;
 
 export const useMonitoringDestinations = (
   namespace: string,
@@ -49,5 +60,36 @@ export const useMonitoringDestinations = (
     select: ({ items = [] }) => items,
     ...options,
     enabled: (options?.enabled ?? true) && canRead && !!namespace,
+  });
+};
+
+// The destinations of each namespace, refreshed to follow their status.
+export const useMonitoringDestinationsForNamespaces = (
+  namespaces: string[]
+) => {
+  const cluster = useClusterName();
+
+  return useQueries({
+    queries: namespaces.map((namespace) => ({
+      queryKey: getMonitoringDestinationsQueryKey(cluster, namespace),
+      queryFn: () => getMonitoringDestinationsFn(cluster, namespace),
+      select: ({ items = [] }: MonitoringDestinationList) => items,
+      refetchInterval: DESTINATIONS_REFETCH_INTERVAL,
+    })),
+  });
+};
+
+export const useMonitoringDestination = (
+  namespace: string,
+  name: string,
+  options?: PerconaQueryOptions<MonitoringDestination>
+) => {
+  const cluster = useClusterName();
+
+  return useQuery<MonitoringDestination>({
+    queryKey: getMonitoringDestinationQueryKey(cluster, namespace, name),
+    queryFn: () => getMonitoringDestinationFn(cluster, namespace, name),
+    enabled: (options?.enabled ?? true) && !!namespace && !!name,
+    ...options,
   });
 };

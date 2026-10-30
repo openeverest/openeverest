@@ -27,7 +27,9 @@ import {
   MonitoringConditionType,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
+import { getDestinationName } from 'utils/monitoring-destinations';
 import {
+  getMonitoringClassName,
   getMonitoringClassUiSchema,
   getSectionFormDefaults,
   getSectionFormZodSchema,
@@ -61,15 +63,6 @@ export const parseMonitoringDestinations = (
   value: unknown
 ): InstanceMonitoringDestination[] =>
   Array.isArray(value) ? value.filter(isInstanceMonitoringDestination) : [];
-
-export const getDestinationName = (destination: MonitoringDestination) =>
-  destination.metadata?.name ?? '';
-
-export const getMonitoringClassName = (monitoringClass: MonitoringClass) =>
-  monitoringClass.metadata?.name ?? '';
-
-export const getMonitoringClassTitle = (monitoringClass: MonitoringClass) =>
-  monitoringClass.spec.displayName || getMonitoringClassName(monitoringClass);
 
 // Keeps the order of the classes and lists every class, including those
 // without a destination in the namespace yet.

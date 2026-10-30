@@ -14,6 +14,11 @@
 
 import { Box, Stack, Typography } from '@mui/material';
 import { SelectableCard } from '@percona/ui-lib';
+import { getDestinationName } from 'utils/monitoring-destinations';
+import {
+  getMonitoringClassName,
+  getMonitoringClassTitle,
+} from 'utils/monitoring-classes';
 import { MonitoringEntryParameters } from '../monitoring-entry-parameters/monitoring-entry-parameters';
 import { Messages } from '../monitoring-step.messages';
 import {
@@ -21,11 +26,8 @@ import {
   MonitoringSelection,
 } from '../monitoring-step.types';
 import {
-  getDestinationName,
   getDestinationReadiness,
   getDestinationSummary,
-  getMonitoringClassName,
-  getMonitoringClassTitle,
 } from '../monitoring-step.utils';
 
 interface MonitoringClassGroupProps {
