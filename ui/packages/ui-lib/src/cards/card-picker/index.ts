@@ -13,7 +13,7 @@
 // limitations under the License.
 
 export { CardPicker } from './card-picker';
-export { SelectableCard } from './selectable-card/selectable-card';
+export { SelectableCard } from './selectable-card';
 export { flattenToSearchText } from './card-picker.utils';
 export type {
   CardPickerItem,
