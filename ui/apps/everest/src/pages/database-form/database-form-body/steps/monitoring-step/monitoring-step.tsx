@@ -13,8 +13,8 @@
 // limitations under the License.
 
 import { Box, Skeleton, Stack } from '@mui/material';
-import { StepHeader } from '../../steps-old/step-header/step-header';
-import { StepProps } from '../../../database-form.types';
+import { StepHeader } from 'pages/database-form/database-form-body/steps-old/step-header/step-header';
+import { StepProps } from 'pages/database-form/database-form.types';
 import { useMonitoringSelection } from './hooks/use-monitoring-selection';
 import { MonitoringClassGroup } from './monitoring-class-group/monitoring-class-group';
 import { Messages } from './monitoring-step.messages';

@@ -24,6 +24,7 @@ import { applyModeOverrides } from 'components/ui-generator/utils/preprocess/app
 import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import { buildSectionZodSchema } from 'components/ui-generator/utils/schema-builder';
 import { postprocessSchemaData } from 'components/ui-generator/utils/postprocess/postprocess-schema';
+import { isPlainObject } from 'components/ui-generator/utils/object-path';
 import { MonitoringClass } from 'shared-types/monitoring-destinations.types';
 
 // The class uiSchema groups its forms by what they fill: the destination's
@@ -42,11 +43,8 @@ export interface MonitoringSectionForm {
   sections: Record<string, Section>;
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
 const toSectionMap = (value: unknown): Record<string, Section> =>
-  isRecord(value)
+  isPlainObject(value)
     ? Object.fromEntries(
         Object.entries(value).filter((entry): entry is [string, Section] =>
           isSection(entry[1])
@@ -54,12 +52,21 @@ const toSectionMap = (value: unknown): Record<string, Section> =>
       )
     : {};
 
+const ACCEPTED_CONDITION = 'Accepted';
+
+// A class nobody claims (Accepted is not True) cannot serve a destination.
+export const isMonitoringClassAccepted = (monitoringClass: MonitoringClass) =>
+  (monitoringClass.status?.conditions ?? []).some(
+    (condition) =>
+      condition.type === ACCEPTED_CONDITION && condition.status === 'True'
+  );
+
 // The generated CRD types keep uiSchema opaque, so each form is narrowed here.
 export const getMonitoringClassUiSchema = (
   monitoringClass: MonitoringClass
 ): MonitoringClassUiSchema => {
   const uiSchema: unknown = monitoringClass.spec.uiSchema;
-  if (!isRecord(uiSchema)) {
+  if (!isPlainObject(uiSchema)) {
     return { credentials: {} };
   }
   return {

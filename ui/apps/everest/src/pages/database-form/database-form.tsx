@@ -85,6 +85,7 @@ import {
   parseMonitoringDestinations,
   useMonitoringInstanceForms,
 } from './database-form-body/steps/monitoring-step';
+import { Messages as MonitoringStepMessages } from './database-form-body/steps/monitoring-step/monitoring-step.messages';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { PluginFormSections } from './plugin-form-sections';
 import { useSubmitPluginInstanceConfig } from 'hooks/api/plugins/useSubmitPluginInstanceConfig';
@@ -373,7 +374,7 @@ export const DatabasePage = () => {
     if (hasMonitoringStep) {
       steps.push({
         id: MONITORING_STEP_ID,
-        label: 'Monitoring',
+        label: MonitoringStepMessages.title,
         component: MonitoringStep,
         fields: [MONITORING_DESTINATIONS_FIELD],
       });

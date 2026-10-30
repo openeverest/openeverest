@@ -47,7 +47,7 @@ export const useMonitoringDestinations = (
     queryKey: getMonitoringDestinationsQueryKey(cluster, namespace),
     queryFn: () => getMonitoringDestinationsFn(cluster, namespace),
     select: ({ items = [] }) => items,
-    enabled: (options?.enabled ?? true) && canRead && !!namespace,
     ...options,
+    enabled: (options?.enabled ?? true) && canRead && !!namespace,
   });
 };

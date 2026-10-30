@@ -12,21 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { getByPath } from 'components/ui-generator/utils/object-path';
+import {
+  MONITORING_DESTINATIONS_FIELD,
+  parseMonitoringDestinations,
+} from 'pages/database-form/database-form-body/steps/monitoring-step';
+import { Messages } from '../database.preview.messages';
 import { PreviewContentText } from '../preview-section';
 import { SectionProps } from './section.types';
-import { parseMonitoringDestinations } from '../../database-form-body/steps/monitoring-step';
-import { Messages } from '../../database-form-body/steps/monitoring-step/monitoring-step.messages';
 
 export const PreviewMonitoringSection = (props: SectionProps) => {
-  const monitoring: unknown = Reflect.get(props, 'monitoring');
   const destinations = parseMonitoringDestinations(
-    typeof monitoring === 'object' && monitoring !== null
-      ? Reflect.get(monitoring, 'destinations')
-      : undefined
+    getByPath(props, MONITORING_DESTINATIONS_FIELD)
   );
 
   if (destinations.length === 0) {
-    return <PreviewContentText text={Messages.previewNone} />;
+    return <PreviewContentText text={Messages.noMonitoring} />;
   }
 
   return (

@@ -73,7 +73,7 @@ export const DatabasePreview = ({
       ? [
           {
             stepId: MONITORING_STEP_ID,
-            title: 'Monitoring',
+            title: Messages.monitoring,
             content: <PreviewMonitoringSection {...values} />,
           },
         ]

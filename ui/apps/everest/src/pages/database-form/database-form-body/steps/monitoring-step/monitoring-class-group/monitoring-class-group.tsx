@@ -14,10 +14,12 @@
 
 import { Box, Stack, Typography } from '@mui/material';
 import { SelectableCard } from '@percona/ui-lib';
-import { MonitoringSelection } from '../hooks/use-monitoring-selection';
 import { MonitoringEntryParameters } from '../monitoring-entry-parameters/monitoring-entry-parameters';
 import { Messages } from '../monitoring-step.messages';
-import { MonitoringClassGroup as MonitoringClassGroupData } from '../monitoring-step.types';
+import {
+  MonitoringClassDestinations,
+  MonitoringSelection,
+} from '../monitoring-step.types';
 import {
   getDestinationName,
   getDestinationReadiness,
@@ -27,11 +29,9 @@ import {
 } from '../monitoring-step.utils';
 
 interface MonitoringClassGroupProps {
-  group: MonitoringClassGroupData;
+  group: MonitoringClassDestinations;
   selection: MonitoringSelection;
 }
-
-const NO_HIGHLIGHT: string[] = [];
 
 export const MonitoringClassGroup = ({
   group: { monitoringClass, destinations },
@@ -77,7 +77,6 @@ export const MonitoringClassGroup = ({
                   ? Messages.disabledReason[disabledReason]
                   : Messages.readiness[getDestinationReadiness(destination)],
               }}
-              tokens={NO_HIGHLIGHT}
               selected={selection.isSelected(destination)}
               disabled={!!disabledReason}
               onSelect={() => selection.toggle(destination)}

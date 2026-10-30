@@ -14,7 +14,10 @@
 
 import { z } from 'zod';
 import { removeEmptyFieldValues } from 'components/ui-generator/utils/postprocess/postprocess-schema';
-import { getByPath } from 'components/ui-generator/utils/object-path';
+import {
+  getByPath,
+  isPlainObject,
+} from 'components/ui-generator/utils/object-path';
 import {
   InstanceMonitoringDestination,
   InstanceMonitoringDestinationPayload,
@@ -38,20 +41,17 @@ import {
 import {
   DestinationDisabledReason,
   DestinationReadiness,
-  MonitoringClassGroup,
+  MonitoringClassDestinations,
 } from './monitoring-step.types';
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 const isInstanceMonitoringDestination = (
   value: unknown
 ): value is InstanceMonitoringDestination => {
-  if (!isRecord(value) || typeof value.name !== 'string') {
+  if (!isPlainObject(value) || typeof value.name !== 'string') {
     return false;
   }
   const ref = value.destinationRef;
-  return isRecord(ref) && typeof ref.name === 'string';
+  return isPlainObject(ref) && typeof ref.name === 'string';
 };
 
 export const parseMonitoringDestinations = (
@@ -73,7 +73,7 @@ export const getMonitoringClassTitle = (monitoringClass: MonitoringClass) =>
 export const groupDestinationsByClass = (
   classes: MonitoringClass[],
   destinations: MonitoringDestination[]
-): MonitoringClassGroup[] =>
+): MonitoringClassDestinations[] =>
   classes.map((monitoringClass) => ({
     monitoringClass,
     destinations: destinations.filter(
@@ -104,7 +104,7 @@ export const getDestinationSummary = (
   destination: MonitoringDestination
 ): string | undefined => {
   const parameters: unknown = destination.spec.parameters;
-  if (!isRecord(parameters)) {
+  if (!isPlainObject(parameters)) {
     return undefined;
   }
   return typeof parameters.url === 'string' ? parameters.url : undefined;
@@ -273,7 +273,7 @@ export const getDefaultEntryParameters = (
   form: MonitoringSectionForm | undefined
 ): Record<string, unknown> | undefined => {
   const parameters = form ? getSectionFormDefaults(form).parameters : undefined;
-  return isRecord(parameters) ? parameters : undefined;
+  return isPlainObject(parameters) ? parameters : undefined;
 };
 
 // Each entry's parameters are validated against its class's instance form;
@@ -290,7 +290,7 @@ export const buildMonitoringParametersSchema = (
   const entriesPath = MONITORING_DESTINATIONS_FIELD.split('.');
 
   return z.unknown().superRefine((data, ctx) => {
-    if (!isRecord(data)) {
+    if (!isPlainObject(data)) {
       return;
     }
     parseMonitoringDestinations(
@@ -321,7 +321,7 @@ export const finalizeMonitoringEntries = (
     return {
       name,
       destinationRef: { name: destinationRef.name },
-      ...(isRecord(cleaned) &&
+      ...(isPlainObject(cleaned) &&
         Object.keys(cleaned).length > 0 && { parameters: cleaned }),
     };
   });

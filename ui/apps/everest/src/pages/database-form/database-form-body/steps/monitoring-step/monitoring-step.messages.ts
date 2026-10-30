@@ -34,7 +34,6 @@ export const Messages = {
     [DestinationDisabledReason.IntegrationTaken]:
       'Another destination of this system is already selected',
   } satisfies Record<DestinationDisabledReason, string>,
-  previewNone: 'Not configured',
   entryParameters: (destinationName: string) =>
     `Settings for ${destinationName}`,
 };

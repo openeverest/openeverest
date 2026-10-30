@@ -16,6 +16,7 @@ import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
+import { MonitoringSectionForm } from 'utils/monitoring-classes';
 
 export enum DestinationReadiness {
   Ready = 'ready',
@@ -28,7 +29,24 @@ export enum DestinationDisabledReason {
   IntegrationTaken = 'integrationTaken',
 }
 
-export interface MonitoringClassGroup {
+export interface MonitoringClassDestinations {
   monitoringClass: MonitoringClass;
   destinations: MonitoringDestination[];
+}
+
+export interface MonitoringSelection {
+  namespace: string;
+  groups: MonitoringClassDestinations[];
+  isLoading: boolean;
+  isSelected: (destination: MonitoringDestination) => boolean;
+  getDisabledReason: (
+    destination: MonitoringDestination
+  ) => DestinationDisabledReason | undefined;
+  toggle: (destination: MonitoringDestination) => void;
+  // Position of the destination's entry in spec.monitoring.destinations, -1
+  // when it is not selected.
+  getEntryIndex: (destination: MonitoringDestination) => number;
+  getInstanceForm: (
+    destination: MonitoringDestination
+  ) => MonitoringSectionForm | undefined;
 }

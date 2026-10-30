@@ -21,6 +21,7 @@ import {
   MonitoringClassList,
 } from 'shared-types/monitoring-destinations.types';
 import { PerconaQueryOptions } from 'shared-types/query.types';
+import { isMonitoringClassAccepted } from 'utils/monitoring-classes';
 
 export const MONITORING_CLASSES_QUERY_KEY = 'monitoring-classes';
 
@@ -28,15 +29,6 @@ export const getMonitoringClassesQueryKey = (
   cluster: string,
   provider: string
 ) => [MONITORING_CLASSES_QUERY_KEY, cluster, provider] as const;
-
-const ACCEPTED_CONDITION = 'Accepted';
-
-// A class nobody claims (Accepted is not True) cannot serve a destination.
-export const isMonitoringClassAccepted = (monitoringClass: MonitoringClass) =>
-  (monitoringClass.status?.conditions ?? []).some(
-    (condition) =>
-      condition.type === ACCEPTED_CONDITION && condition.status === 'True'
-  );
 
 // Classes an Instance of the provider can send monitoring data to.
 export const useMonitoringClassesForProvider = (
@@ -50,7 +42,7 @@ export const useMonitoringClassesForProvider = (
     queryKey: getMonitoringClassesQueryKey(cluster, provider),
     queryFn: () => getMonitoringClassesFn(cluster, provider),
     select: ({ items = [] }) => items.filter(isMonitoringClassAccepted),
-    enabled: (options?.enabled ?? true) && canRead && !!provider,
     ...options,
+    enabled: (options?.enabled ?? true) && canRead && !!provider,
   });
 };

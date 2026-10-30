@@ -18,12 +18,8 @@ import { DbWizardFormFields } from 'consts';
 import { useMonitoringClassesForProvider } from 'hooks/api/monitoring-classes';
 import { useMonitoringDestinations } from 'hooks/api/monitoring-destinations';
 import { MonitoringDestination } from 'shared-types/monitoring-destinations.types';
-import { MonitoringSectionForm } from 'utils/monitoring-classes';
 import { MONITORING_DESTINATIONS_FIELD } from '../monitoring-step.constants';
-import {
-  DestinationDisabledReason,
-  MonitoringClassGroup,
-} from '../monitoring-step.types';
+import { MonitoringSelection } from '../monitoring-step.types';
 import {
   getDefaultEntryParameters,
   getDestinationDisabledReason,
@@ -36,23 +32,6 @@ import {
   toggleMonitoringDestination,
 } from '../monitoring-step.utils';
 import { useMonitoringInstanceForms } from './use-monitoring-instance-forms';
-
-export interface MonitoringSelection {
-  namespace: string;
-  groups: MonitoringClassGroup[];
-  isLoading: boolean;
-  isSelected: (destination: MonitoringDestination) => boolean;
-  getDisabledReason: (
-    destination: MonitoringDestination
-  ) => DestinationDisabledReason | undefined;
-  toggle: (destination: MonitoringDestination) => void;
-  // Position of the destination's entry in spec.monitoring.destinations, -1
-  // when it is not selected.
-  getEntryIndex: (destination: MonitoringDestination) => number;
-  getInstanceForm: (
-    destination: MonitoringDestination
-  ) => MonitoringSectionForm | undefined;
-}
 
 export const useMonitoringSelection = (): MonitoringSelection => {
   const { control, getValues } = useFormContext();
