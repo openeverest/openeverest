@@ -36,7 +36,7 @@ fieldKey:
   fieldParams:
     label: string
     helperText: string # shown below; defaults to "No options available" when empty
-    disabled: boolean # always disabled, regardless of loading state
+    disabled: boolean # always disabled, regardless of loading state; its value is never auto-selected or replaced
     defaultValue: string # overrides auto-selection of first option
     displayEmpty: boolean # adds empty "None" option for optional fields
   validation: # same as regular select — required, regex, celExpressions

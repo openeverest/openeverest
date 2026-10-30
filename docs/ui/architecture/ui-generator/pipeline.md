@@ -144,6 +144,9 @@ flowchart TD
 an empty value. The default is set asynchronously in two places: `DataSourcePrefetcher` on form
 mount and `DataSourceField` when the specific field renders. Both check the current value via
 `getValues(path)` before writing, so they never overwrite a user selection or an existing value.
+`DataSourceField` also leaves a field that is disabled for the current mode (e.g. `storageClass`
+in edit) untouched: the user can't change it, so neither may the form — auto-filling it would
+rewrite the stored spec on save.
 
 `DataSourcePrefetcher` skips fields of switched-off `toggleable` groups, so a disabled section
 triggers no request.
@@ -270,4 +273,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-23
+- Last updated: 2026-10-30

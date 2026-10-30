@@ -39,10 +39,14 @@ vi.mock('hooks/api/useClusterName', () => ({
   useClusterName: () => 'main',
 }));
 
-const makeItem = (): ComponentWithDataSource => ({
+const makeItem = (
+  fieldParams: { label: string; disabled?: boolean } = {
+    label: 'Storage class',
+  }
+): ComponentWithDataSource => ({
   uiType: FieldType.Select,
   path: 'spec.storageClass',
-  fieldParams: { label: 'Storage class' },
+  fieldParams,
   dataSource: { provider: 'storageClasses' },
 });
 
@@ -114,6 +118,46 @@ describe('DataSourceField', () => {
       expect(getValues('spec.storageClass')).toBe('premium');
     });
   });
+
+  it.each([
+    ['an unset value', ''],
+    ['a value missing from the options', 'deleted-class'],
+  ])(
+    'leaves %s untouched when the field is disabled for the mode',
+    async (_case, storedValue) => {
+      mockUseProviderOptions.mockReturnValue({
+        options: [{ label: 'standard', value: 'standard' }],
+        isLoading: false,
+        error: null,
+        isEmpty: false,
+      });
+
+      let getValues: (name: string) => unknown = () => undefined;
+      const disabledItem = makeItem({
+        label: 'Storage class',
+        disabled: true,
+      });
+
+      const Harness = () => {
+        const methods = useForm({
+          defaultValues: { spec: { storageClass: storedValue } },
+        });
+        getValues = methods.getValues;
+        return (
+          <FormProvider {...methods}>
+            <DataSourceField item={disabledItem} name="spec.storageClass">
+              {() => <div />}
+            </DataSourceField>
+          </FormProvider>
+        );
+      };
+
+      render(<Harness />);
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(getValues('spec.storageClass')).toBe(storedValue);
+    }
+  );
 
   it('resets form value when current value is no longer in options', async () => {
     const { rerender } = render(<></>);

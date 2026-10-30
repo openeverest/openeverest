@@ -32,6 +32,10 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
   const { dataSource, ...baseComponent } = item;
 
   const hasValidContext = !!namespace && !!cluster;
+  // Reconciling a field the user can't change would silently rewrite the
+  // stored value on save (e.g. pin an unset storageClass, which the operator
+  // can't apply to an existing StatefulSet).
+  const isDisabled = !!baseComponent.fieldParams?.disabled;
 
   const { options, isLoading, error, isEmpty } = useProviderOptions(
     dataSource.provider,
@@ -43,14 +47,14 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
   );
 
   useEffect(() => {
-    if (isLoading || !name) return;
+    if (isLoading || !name || isDisabled) return;
 
     const nextValue = getReconciledDataSourceValue(getValues(name), options);
 
     if (nextValue !== null) {
       setValue(name, nextValue, { shouldValidate: true });
     }
-  }, [isLoading, options, name, getValues, setValue]);
+  }, [isLoading, isDisabled, options, name, getValues, setValue]);
 
   const patchedItem = useMemo(() => {
     const originalHelperText = (
