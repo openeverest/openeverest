@@ -20,6 +20,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -110,6 +111,33 @@ func (cc ClassController) Resolve(ctx context.Context, b *monitoringv1alpha1.Mon
 func (cc ClassController) SetConfigured(ctx context.Context, b *monitoringv1alpha1.MonitoringBinding, reason monitoringv1alpha1.ConfiguredReason, message string) error {
 	cond := NewCondition(b, monitoringv1alpha1.MonitoringBindingConditionConfigured, reason.Status(), string(reason), message)
 	return ApplyCondition(ctx, cc.Client, b, b.Status.Conditions, cc.FieldOwner, cond)
+}
+
+// SetConfiguredWithPodMetadata is SetConfigured for classes that declare
+// spec.extensionManaged.podMetadata: it writes Configured and the pod
+// metadata the class controller requests in one apply, since an apply that
+// omits status.podMetadata removes it. Pass nil to withdraw the request.
+func (cc ClassController) SetConfiguredWithPodMetadata(
+	ctx context.Context,
+	b *monitoringv1alpha1.MonitoringBinding,
+	reason monitoringv1alpha1.ConfiguredReason,
+	message string,
+	podMetadata []monitoringv1alpha1.ComponentPodMetadata,
+) error {
+	cond := NewCondition(b, monitoringv1alpha1.MonitoringBindingConditionConfigured, reason.Status(), string(reason), message)
+	extra := make(map[string]any)
+	if len(podMetadata) > 0 {
+		items := make([]any, 0, len(podMetadata))
+		for _, pm := range podMetadata {
+			raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&pm)
+			if err != nil {
+				return fmt.Errorf("convert pod metadata of component %q: %w", pm.Component, err)
+			}
+			items = append(items, raw)
+		}
+		extra["podMetadata"] = items
+	}
+	return ApplyCondition(ctx, cc.Client, b, b.Status.Conditions, cc.FieldOwner, cond, extra)
 }
 
 // SetDestinationReady writes the destination's Ready condition and

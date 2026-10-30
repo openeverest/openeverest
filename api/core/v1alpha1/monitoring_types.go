@@ -43,10 +43,16 @@ const (
 	CredentialSecretKeyPassword = "password"
 )
 
+// CredentialProfileMonitor is the well-known credential profile of a
+// read-only monitoring user: the engine's monitoring role (e.g. MongoDB
+// clusterMonitor plus read on local, PostgreSQL pg_monitor) and nothing more.
+// Connection endpoints that monitoring agents log in to name it.
+const CredentialProfileMonitor = "monitor"
+
 // MonitoringKindPattern validates every monitoring engine kind. Kubebuilder
 // markers cannot reference constants, so the Pattern markers on
-// MonitoringComponentType.Kind and MetricsEndpoint.Kind must stay identical
-// to it.
+// MonitoringComponentType.Kind, MetricsEndpoint.Kind and
+// ConnectionEndpoint.Kind must stay identical to it.
 const MonitoringKindPattern = `^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
 
 // InstanceMonitoringSpec configures where the Instance sends monitoring data.
@@ -133,6 +139,20 @@ const (
 	MetricsSourceNone MetricsSource = "None"
 )
 
+// ConnectionSupport states whether monitoring agents can connect to a
+// component type over its native protocol.
+//
+// +kubebuilder:validation:Enum=Supported;None
+type ConnectionSupport string
+
+const (
+	// ConnectionSupported means the provider publishes connection endpoints
+	// and a monitor credential for the component type.
+	ConnectionSupported ConnectionSupport = "Supported"
+	// ConnectionNone means agents cannot connect to the component type.
+	ConnectionNone ConnectionSupport = "None"
+)
+
 // ProviderMonitoring is the provider's static monitoring contract.
 type ProviderMonitoring struct {
 	// Integrations lists the operator-native monitoring integrations the
@@ -172,6 +192,11 @@ type MonitoringComponentType struct {
 	// +kubebuilder:default=None
 	// +optional
 	Metrics MetricsSource `json:"metrics,omitempty"`
+	// Connection states whether monitoring agents can connect to the
+	// component over its native protocol, with the monitor credential.
+	// +kubebuilder:default=None
+	// +optional
+	Connection ConnectionSupport `json:"connection,omitempty"`
 }
 
 // MonitoringSources is the per-Instance publication of the monitoring
@@ -194,6 +219,13 @@ type MonitoringSources struct {
 	// +kubebuilder:validation:MaxItems=32
 	// +optional
 	Metrics []MetricsEndpoint `json:"metrics,omitempty"`
+	// Connections lists the endpoints monitoring agents connect to over the
+	// engine's native protocol (e.g. agents discovering databases through
+	// pod annotations), one per serving component.
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=32
+	// +optional
+	Connections []ConnectionEndpoint `json:"connections,omitempty"`
 }
 
 // MonitoringIdentity identifies the Instance towards monitoring destinations.
@@ -272,4 +304,54 @@ type MetricsEndpointAuth struct {
 	// CredentialProfile matches MonitoringSources.credentials[].profile.
 	// +kubebuilder:validation:Required
 	CredentialProfile string `json:"credentialProfile"`
+}
+
+// ConnectionEndpoint is one component's native-protocol endpoint, reached on
+// each selected pod directly (not through a proxy or a Service), so agents
+// collect per-instance statistics.
+type ConnectionEndpoint struct {
+	// Component is the Instance component name (e.g. "engine").
+	// +kubebuilder:validation:Required
+	Component string `json:"component"`
+	// Kind is the component's engine kind.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
+	Kind string `json:"kind"`
+	// PodSelector selects the pods serving the endpoint.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinProperties=1
+	PodSelector map[string]string `json:"podSelector"`
+	// Container is the name of the container serving the endpoint, for
+	// agents that address containers (e.g. Datadog Autodiscovery).
+	// +optional
+	Container string `json:"container,omitempty"`
+	// Port is the container port, by name or number.
+	// +kubebuilder:validation:Required
+	Port intstr.IntOrString `json:"port"`
+	// TLS is set when the endpoint accepts TLS connections; absent means
+	// plaintext only.
+	// +optional
+	TLS *ConnectionTLS `json:"tls,omitempty"`
+	// Auth names the credential profile agents log in with, normally
+	// CredentialProfileMonitor.
+	// +optional
+	Auth *MetricsEndpointAuth `json:"auth,omitempty"`
+}
+
+// ConnectionTLS describes TLS on a connection endpoint. It is published
+// whenever the endpoint accepts TLS, not only when it requires it, so that
+// tightening Required does not change what agents are configured with.
+type ConnectionTLS struct {
+	// Required means the endpoint rejects connections without TLS.
+	// +optional
+	Required bool `json:"required,omitempty"`
+	// CA is the PEM bundle that verifies the server certificate. Server
+	// certificates name Services, not pod IPs, so agents verify the chain
+	// only.
+	// +optional
+	CA *common.CABundleSource `json:"ca,omitempty"`
+	// ClientCertificateSecretRef references a kubernetes.io/tls Secret
+	// (keys tls.crt and tls.key) agents present as a client certificate.
+	// +optional
+	ClientCertificateSecretRef *common.SecretRef `json:"clientCertificateSecretRef,omitempty"`
 }

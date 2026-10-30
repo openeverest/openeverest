@@ -4453,6 +4453,13 @@ export interface components {
                     componentTypes?: {
                         [key: string]: {
                             /**
+                             * @description Connection states whether monitoring agents can connect to the
+                             *     component over its native protocol, with the monitor credential.
+                             * @default None
+                             * @enum {string}
+                             */
+                            connection?: "Supported" | "None";
+                            /**
                              * @description Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
                              *     follow OpenTelemetry db.system.name; unknown kinds are allowed.
                              */
@@ -6066,6 +6073,66 @@ export interface components {
                      */
                     sources?: {
                         /**
+                         * @description Connections lists the endpoints monitoring agents connect to over the
+                         *     engine's native protocol (e.g. agents discovering databases through
+                         *     pod annotations), one per serving component.
+                         */
+                        connections?: {
+                            /**
+                             * @description Auth names the credential profile agents log in with, normally
+                             *     CredentialProfileMonitor.
+                             */
+                            auth?: {
+                                /** @description CredentialProfile matches MonitoringSources.credentials[].profile. */
+                                credentialProfile: string;
+                            };
+                            /** @description Component is the Instance component name (e.g. "engine"). */
+                            component: string;
+                            /**
+                             * @description Container is the name of the container serving the endpoint, for
+                             *     agents that address containers (e.g. Datadog Autodiscovery).
+                             */
+                            container?: string;
+                            /** @description Kind is the component's engine kind. */
+                            kind: string;
+                            /** @description PodSelector selects the pods serving the endpoint. */
+                            podSelector: {
+                                [key: string]: string;
+                            };
+                            /** @description Port is the container port, by name or number. */
+                            port: number | string;
+                            /**
+                             * @description TLS is set when the endpoint accepts TLS connections; absent means
+                             *     plaintext only.
+                             */
+                            tls?: {
+                                /**
+                                 * @description CA is the PEM bundle that verifies the server certificate. Server
+                                 *     certificates name Services, not pod IPs, so agents verify the chain
+                                 *     only.
+                                 */
+                                ca?: {
+                                    /** @description SecretKeyRef selects the Secret key holding the PEM bundle. */
+                                    secretKeyRef?: {
+                                        /** @description Key within the Secret. */
+                                        key: string;
+                                        /** @description Name of the referenced Secret. */
+                                        name: string;
+                                    };
+                                };
+                                /**
+                                 * @description ClientCertificateSecretRef references a kubernetes.io/tls Secret
+                                 *     (keys tls.crt and tls.key) agents present as a client certificate.
+                                 */
+                                clientCertificateSecretRef?: {
+                                    /** @description Name of the referenced Secret. */
+                                    name: string;
+                                };
+                                /** @description Required means the endpoint rejects connections without TLS. */
+                                required?: boolean;
+                            };
+                        }[];
+                        /**
                          * @description Credentials lists the Instance-owned monitoring credential Secrets by
                          *     profile.
                          */
@@ -7420,10 +7487,30 @@ export interface components {
                  */
                 extensionManaged?: {
                     /**
+                     * @description PodMetadata lets the class controller request annotations on the
+                     *     pods of bound Instances (status.podMetadata of its bindings), for
+                     *     backends whose agents discover databases through pod annotations. The
+                     *     provider renders them into the pod templates, which rolls the pods.
+                     */
+                    podMetadata?: {
+                        /**
+                         * @description AnnotationPrefixes are the annotation key prefixes the class
+                         *     controller may request, each a DNS subdomain followed by "/"
+                         *     (e.g. "coroot.com/"). Kubernetes and OpenEverest prefixes are
+                         *     reserved.
+                         */
+                        annotationPrefixes: string[];
+                    };
+                    /**
                      * @description Requires lists the source capabilities a component must satisfy to
                      *     be eligible for this class.
                      */
                     requires?: {
+                        /**
+                         * @description Connection requires the component to accept native-protocol
+                         *     connections from monitoring agents (connection: Supported).
+                         */
+                        connection?: boolean;
                         /**
                          * @description Metrics requires the component to expose OpenMetrics
                          *     (metrics: Native or Exporter).
@@ -7827,6 +7914,21 @@ export interface components {
                     status: "True" | "False" | "Unknown";
                     /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
                     type: string;
+                }[];
+                /**
+                 * @description PodMetadata is the pod metadata the class controller of an
+                 *     ExtensionManaged binding requests per component, written together
+                 *     with Configured. provider-runtime hands the annotations allowed by
+                 *     the class's spec.extensionManaged.podMetadata to the provider, which
+                 *     renders them on the component's pods.
+                 */
+                podMetadata?: {
+                    /** @description Annotations to set on the component's pods. */
+                    annotations?: {
+                        [key: string]: string;
+                    };
+                    /** @description Component is the Instance component name. */
+                    component: string;
                 }[];
             };
         };

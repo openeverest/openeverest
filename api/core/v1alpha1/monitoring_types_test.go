@@ -46,6 +46,11 @@ func TestMonitoringKindPatternMatchesCRDs(t *testing.T) {
 			crd:  "core.openeverest.io_instances.yaml",
 			path: []string{"status", "monitoring", "sources", "metrics", "[]", "kind"},
 		},
+		{
+			name: "Instance connection endpoint kind",
+			crd:  "core.openeverest.io_instances.yaml",
+			path: []string{"status", "monitoring", "sources", "connections", "[]", "kind"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

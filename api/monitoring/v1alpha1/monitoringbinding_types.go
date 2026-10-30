@@ -150,6 +150,27 @@ type MonitoringBindingStatus struct {
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// PodMetadata is the pod metadata the class controller of an
+	// ExtensionManaged binding requests per component, written together
+	// with Configured. provider-runtime hands the annotations allowed by
+	// the class's spec.extensionManaged.podMetadata to the provider, which
+	// renders them on the component's pods.
+	// +listType=map
+	// +listMapKey=component
+	// +kubebuilder:validation:MaxItems=16
+	// +optional
+	PodMetadata []ComponentPodMetadata `json:"podMetadata,omitempty"`
+}
+
+// ComponentPodMetadata is the metadata requested for one component's pods.
+type ComponentPodMetadata struct {
+	// Component is the Instance component name.
+	// +kubebuilder:validation:Required
+	Component string `json:"component"`
+	// Annotations to set on the component's pods.
+	// +kubebuilder:validation:MaxProperties=32
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // +kubebuilder:object:root=true

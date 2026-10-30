@@ -128,11 +128,45 @@ spec:
                   from the provider's monitoring contract alone
                   (Instance.status.monitoring.sources).
                 properties:
+                  podMetadata:
+                    description: |-
+                      PodMetadata lets the class controller request annotations on the
+                      pods of bound Instances (status.podMetadata of its bindings), for
+                      backends whose agents discover databases through pod annotations. The
+                      provider renders them into the pod templates, which rolls the pods.
+                    properties:
+                      annotationPrefixes:
+                        description: |-
+                          AnnotationPrefixes are the annotation key prefixes the class
+                          controller may request, each a DNS subdomain followed by "/"
+                          (e.g. "coroot.com/"). Kubernetes and OpenEverest prefixes are
+                          reserved.
+                        items:
+                          maxLength: 254
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)+/$
+                          type: string
+                        maxItems: 8
+                        minItems: 1
+                        type: array
+                        x-kubernetes-list-type: set
+                        x-kubernetes-validations:
+                        - message: kubernetes.io, k8s.io and openeverest.io prefixes
+                            are reserved
+                          rule: self.all(p, !(p.endsWith('kubernetes.io/') || p.endsWith('k8s.io/')
+                            || p.endsWith('openeverest.io/')))
+                    required:
+                    - annotationPrefixes
+                    type: object
                   requires:
                     description: |-
                       Requires lists the source capabilities a component must satisfy to
                       be eligible for this class.
                     properties:
+                      connection:
+                        description: |-
+                          Connection requires the component to accept native-protocol
+                          connections from monitoring agents (connection: Supported).
+                        type: boolean
                       metrics:
                         description: |-
                           Metrics requires the component to expose OpenMetrics

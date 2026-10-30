@@ -213,6 +213,21 @@ func victoriaMetricsClass() *monitoringv1alpha1.MonitoringClass {
 	return scrapeClass("victoriametrics", "vmPodScrapeLabels")
 }
 
+// annotationDiscoveryClass is a class whose agent connects to the databases
+// itself and discovers them through pod annotations (e.g. Coroot).
+func annotationDiscoveryClass() *monitoringv1alpha1.MonitoringClass {
+	return claimed(&monitoringv1alpha1.MonitoringClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "coroot"},
+		Spec: monitoringv1alpha1.MonitoringClassSpec{
+			ExtensionManaged: &monitoringv1alpha1.ExtensionManagedFulfilment{
+				Requires:    monitoringv1alpha1.SourceRequirements{Connection: true},
+				PodMetadata: &monitoringv1alpha1.PodMetadataPolicy{AnnotationPrefixes: []string{"coroot.com/"}},
+			},
+			AuthModes: []common.AuthMode{{Name: common.AuthModeAnonymous}},
+		},
+	})
+}
+
 func pmmIntegration() map[string]corev1alpha1.MonitoringIntegration {
 	return map[string]corev1alpha1.MonitoringIntegration{"pmm": {AgentVersions: ">=3.0.0 <4.0.0", AuthModes: []string{"ServiceAccountToken"}}}
 }
@@ -249,7 +264,7 @@ func psmdbProvider() *corev1alpha1.Provider {
 		&corev1alpha1.ProviderMonitoring{
 			Integrations: pmmIntegration(),
 			ComponentTypes: map[string]corev1alpha1.MonitoringComponentType{
-				"mongod": {Kind: "mongodb", Metrics: corev1alpha1.MetricsSourceExporter},
+				"mongod": {Kind: "mongodb", Metrics: corev1alpha1.MetricsSourceExporter, Connection: corev1alpha1.ConnectionSupported},
 				"mongos": {Kind: "mongodb", Metrics: corev1alpha1.MetricsSourceExporter},
 			},
 		})
