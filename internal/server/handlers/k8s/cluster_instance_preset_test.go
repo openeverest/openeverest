@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
@@ -51,7 +50,6 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, storagev1.AddToScheme(scheme))
-	require.NoError(t, monitoringv1alpha1.AddToScheme(scheme))
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
@@ -62,14 +60,6 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 					Namespace:   namespace,
 					Annotations: map[string]string{"openeverest.io/is-default-components-pmm": "true"},
 				},
-			},
-			&monitoringv1alpha1.MonitoringConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "default-monitoring",
-					Namespace:   namespace,
-					Annotations: map[string]string{"openeverest.io/is-default-components-pmm": "true"},
-				},
-				Spec: monitoringv1alpha1.MonitoringConfigSpec{Type: "pmm"},
 			},
 			&storagev1.StorageClass{
 				ObjectMeta: metav1.ObjectMeta{
@@ -124,86 +114,86 @@ func TestApplyNamespaceDefaults_New(t *testing.T) {
 			}),
 		},
 		{
-			name: "resolve monitoringConfigName",
+			name: "resolve secretName",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					Parameters: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": ""}),
+						Raw: mustMarshal(t, map[string]any{"secretName": ""}),
 					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					Parameters: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": "default-monitoring"}),
+						Raw: mustMarshal(t, map[string]any{"secretName": "default-secret"}),
 					},
 				},
 			}),
 		},
 		{
-			name: "resolve monitoringConfig",
+			name: "resolve secret",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					Parameters: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfig": ""}),
+						Raw: mustMarshal(t, map[string]any{"secret": ""}),
 					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					Parameters: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfig": "default-monitoring"}),
+						Raw: mustMarshal(t, map[string]any{"secret": "default-secret"}),
 					},
 				},
 			}),
 		},
 		{
-			name: "resolve monitoringConfigRef",
+			name: "resolve secretRef",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					Parameters: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfigRef": corev1.LocalObjectReference{Name: ""}}),
+						Raw: mustMarshal(t, map[string]any{"secretRef": corev1.LocalObjectReference{Name: ""}}),
 					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					Parameters: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfigRef": corev1.LocalObjectReference{Name: "default-monitoring"}}),
+						Raw: mustMarshal(t, map[string]any{"secretRef": corev1.LocalObjectReference{Name: "default-secret"}}),
 					},
 				},
 			}),
 		},
 		{
-			name: "other component does not resolve monitoringConfig",
+			name: "other component does not resolve secretName",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"other": {
 					Parameters: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": ""}),
+						Raw: mustMarshal(t, map[string]any{"secretName": ""}),
 					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"other": {
 					Parameters: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"monitoringConfigName": ""}),
+						Raw: mustMarshal(t, map[string]any{"secretName": ""}),
 					},
 				},
 			}),
 		},
 		{
-			name: "resolve nested monitoringConfig",
+			name: "resolve nested secretName",
 			input: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					Parameters: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"nested": map[string]any{"monitoringConfigName": ""}}),
+						Raw: mustMarshal(t, map[string]any{"nested": map[string]any{"secretName": ""}}),
 					},
 				},
 			}),
 			expected: newTestPreset(map[string]corev1alpha1.ComponentSpec{
 				"pmm": {
 					Parameters: &runtime.RawExtension{
-						Raw: mustMarshal(t, map[string]any{"nested": map[string]any{"monitoringConfigName": "default-monitoring"}}),
+						Raw: mustMarshal(t, map[string]any{"nested": map[string]any{"secretName": "default-secret"}}),
 					},
 				},
 			}),

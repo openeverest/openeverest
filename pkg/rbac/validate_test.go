@@ -91,14 +91,14 @@ func TestCheckResourceNames(t *testing.T) {
 		{
 			policies: [][]string{
 				{"role:admin", "instances", "create", "*"},
-				{"role:admin", "monitoring-configs", "*", "*"},
+				{"role:admin", "monitoring-destinations", "*", "*"},
 			},
 			valid: true,
 		},
 		{
 			policies: [][]string{
 				{"role:admin", "instances", "create", "*"},
-				{"role:admin", "monitoring-configs", "*", "*"},
+				{"role:admin", "monitoring-destinations", "*", "*"},
 				{"role:admin", "does-not-exist", "*", "*"},
 			},
 			valid: false,
@@ -127,6 +127,17 @@ func TestCheckResourceNames(t *testing.T) {
 	}
 }
 
+func TestCheckResourceNamesRejectsMonitoringConfigs(t *testing.T) {
+	t.Parallel()
+
+	err := checkResourceNames([][]string{
+		{"role:ops", "instances", "read", "*/*/*"},
+		{"role:ops", "monitoring-configs", "*", "*/*/*"},
+	})
+
+	require.EqualError(t, err, "resource name 'monitoring-configs' was removed; use 'monitoring-destinations' instead")
+}
+
 func TestCheckRoles(t *testing.T) {
 	t.Parallel()
 	testcases := []struct {
@@ -138,7 +149,7 @@ func TestCheckRoles(t *testing.T) {
 			roles: []string{"role:admin", "role:viewer"},
 			policies: [][]string{
 				{"role:admin", "instances", "create", "*"},
-				{"role:admin", "monitoring-configs", "*", "*"},
+				{"role:admin", "monitoring-destinations", "*", "*"},
 			},
 			valid: true,
 		},
@@ -146,8 +157,8 @@ func TestCheckRoles(t *testing.T) {
 			roles: []string{"role:admin", "role:viewer"},
 			policies: [][]string{
 				{"role:admin", "instances", "create", "*"},
-				{"role:admin", "monitoring-configs", "*", "*"},
-				{"role:does-not-exist", "monitoring-configs", "*", "*"},
+				{"role:admin", "monitoring-destinations", "*", "*"},
+				{"role:does-not-exist", "monitoring-destinations", "*", "*"},
 			},
 			valid: false,
 		},

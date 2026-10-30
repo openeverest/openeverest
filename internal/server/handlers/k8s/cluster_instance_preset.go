@@ -26,7 +26,6 @@ import (
 
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 )
 
 const (
@@ -77,7 +76,7 @@ func (h *k8sHandler) ResolveClusterInstancePreset(ctx context.Context, _, name, 
 // The fields that could have namespace references are in parameters.
 // It skips other fields like resources, image, etc. since they are not
 // namespace-specific, and also skips fields with unknown type.
-// Supported types are Secret and MonitoringConfig.
+// Supported types are Secret.
 // The resolution is based on the most recently created resource with the
 // annotation "openeverest.io/is-default-components-<componentName>" set
 // to "true" in the specified namespace.
@@ -238,8 +237,6 @@ func (h *k8sHandler) findDefaultResource(ctx context.Context, namespace, resourc
 	switch resourceType {
 	case "Secret":
 		mostRecent, err = h.findDefaultSecret(ctx, namespace, annotationKey)
-	case "MonitoringConfig":
-		mostRecent, err = h.findDefaultMonitoringConfig(ctx, namespace, annotationKey)
 	default:
 		return "", nil
 	}
@@ -254,15 +251,11 @@ func (h *k8sHandler) findDefaultResource(ctx context.Context, namespace, resourc
 // inferSupportedResourceType derives resource type from field name.
 // Returns empty string if field is not supported resource type.
 // secretRef -> Secret
-// monitoringConfigName -> MonitoringConfig
 func inferSupportedResourceType(fieldName string) string {
 	resolvableFields := map[string]string{
-		"secret":               "Secret",
-		"secretName":           "Secret",
-		"secretRef":            "Secret",
-		"monitoringConfig":     "MonitoringConfig",
-		"monitoringConfigName": "MonitoringConfig",
-		"monitoringConfigRef":  "MonitoringConfig",
+		"secret":     "Secret",
+		"secretName": "Secret",
+		"secretRef":  "Secret",
 	}
 
 	if resourceType, ok := resolvableFields[fieldName]; ok {
@@ -298,34 +291,6 @@ func (h *k8sHandler) findDefaultSecret(ctx context.Context, namespace, annotatio
 	}
 
 	return getMostRecentlyCreated(convertSecretsToObjects(filtered)), nil
-}
-
-// findDefaultMonitoringConfig finds the most recent MonitoringConfig with the annotation
-func (h *k8sHandler) findDefaultMonitoringConfig(ctx context.Context, namespace, annotationKey string) (ctrlclient.Object, error) {
-	configs, err := h.kubeConnector.ListMonitoringConfigsV2(ctx,
-		ctrlclient.InNamespace(namespace),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	// Filter by annotation. Note: Kubernetes API doesn't support annotation selectors,
-	// so we must list all MonitoringConfigs and filter client-side (same limitation as StorageClass).
-	// If performance becomes an issue with many configs, consider adding labels instead.
-	filtered := make([]monitoringv1alpha1.MonitoringConfig, 0)
-	for _, config := range configs.Items {
-		if annotations := config.GetAnnotations(); annotations != nil {
-			if annotations[annotationKey] == "true" {
-				filtered = append(filtered, config)
-			}
-		}
-	}
-
-	if len(filtered) == 0 {
-		return nil, nil
-	}
-
-	return getMostRecentlyCreated(convertMonitoringConfigsToObjects(filtered)), nil
 }
 
 // findDefaultStorageClass finds the most recent StorageClass using the same annotation
@@ -371,14 +336,6 @@ func getMostRecentlyCreated(items []ctrlclient.Object) ctrlclient.Object {
 }
 
 func convertSecretsToObjects(items []corev1.Secret) []ctrlclient.Object {
-	result := make([]ctrlclient.Object, len(items))
-	for i := range items {
-		result[i] = &items[i]
-	}
-	return result
-}
-
-func convertMonitoringConfigsToObjects(items []monitoringv1alpha1.MonitoringConfig) []ctrlclient.Object {
 	result := make([]ctrlclient.Object, len(items))
 	for i := range items {
 		result[i] = &items[i]

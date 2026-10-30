@@ -1,4 +1,4 @@
 p, role:admin, namespaces, read, *
 p, role:admin, clusters, *, *
-p, role:admin, monitoring-configs, *, */*, asdfasdf
+p, role:admin, monitoring-destinations, *, */*, asdfasdf
 g, admin, role:admin

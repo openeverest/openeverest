@@ -8,7 +8,6 @@ IMAGE_TAG ?= 0.0.0
 IMG = $(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME):$(IMAGE_TAG)
 EVEREST_CONTROLLER_IMG = $(IMAGE_PREFIX)/$(EVEREST_CONTROLLER_DEV_IMAGE_NAME):$(IMAGE_TAG)
 CONTROLLER_TOOLS_VERSION ?= v0.18.0
-VICTORIAMETRICS_OPERATOR_VERSION ?= 0.66.1
 
 .PHONY: default
 default: help
@@ -577,9 +576,7 @@ build-installer: gen-crds-manifests kustomize ## Generate a consolidated YAML wi
 	"$(KUSTOMIZE)" build config/default > dist/install.yaml
 
 .PHONY: deploy-test-controller
-deploy-test-controller: gen-crds-manifests kustomize deploy-cert-manager
-	kubectl apply -f https://raw.githubusercontent.com/VictoriaMetrics/operator/v$(VICTORIAMETRICS_OPERATOR_VERSION)/config/crd/overlay/crd.yaml
-	kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
+deploy-test-controller: gen-crds-manifests kustomize
 	cd config/test && "$(KUSTOMIZE)" edit set image controller=${EVEREST_CONTROLLER_IMG}
 	"$(KUSTOMIZE)" build config/test | kubectl apply -f -
 	kubectl delete pod -n openeverest-system -l control-plane=controller-manager
@@ -611,13 +608,6 @@ setup-envtest: envtest ## Download the binaries required for ENVTEST.
 .PHONY: envtest
 envtest: ensure-localbin ## Download setup-envtest locally if necessary.
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
-
-.PHONY: deploy-cert-manager
-deploy-cert-manager: # Install cert-manager used by controller webhook.
-	kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
-	kubectl wait --for=condition=available --timeout=120s deployment/cert-manager -n cert-manager
-	kubectl wait --for=condition=available --timeout=120s deployment/cert-manager-webhook -n cert-manager
-	kubectl wait --for=condition=available --timeout=120s deployment/cert-manager-cainjector -n cert-manager
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist.
 # $1 - target path with name of binary

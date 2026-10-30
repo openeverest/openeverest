@@ -900,21 +900,6 @@ func (e MonitoringClassStatusProvidersMode) Valid() bool {
 	}
 }
 
-// Defines values for MonitoringConfigSpecType.
-const (
-	MonitoringConfigSpecTypePmm MonitoringConfigSpecType = "pmm"
-)
-
-// Valid indicates whether the value is a known member of the MonitoringConfigSpecType enum.
-func (e MonitoringConfigSpecType) Valid() bool {
-	switch e {
-	case MonitoringConfigSpecTypePmm:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for MonitoringDestinationStatusConditionsStatus.
 const (
 	MonitoringDestinationStatusConditionsStatusFalse   MonitoringDestinationStatusConditionsStatus = "False"
@@ -6145,85 +6130,6 @@ type MonitoringClassList struct {
 	Metadata *struct {
 		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
 		Name *string `json:"name,omitempty"`
-	} `json:"metadata,omitempty"`
-}
-
-// MonitoringConfig MonitoringConfig is the Schema for the monitoringconfigs API.
-type MonitoringConfig struct {
-	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
-	// Servers should convert recognized schemas to the latest internal value, and
-	// may reject unrecognized values.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-	ApiVersion *string `json:"apiVersion,omitempty"`
-
-	// Kind Kind is a string value representing the REST resource this object represents.
-	// Servers may infer this from the endpoint the client submits requests to.
-	// Cannot be updated.
-	// In CamelCase.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind *string `json:"kind,omitempty"`
-
-	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
-	Metadata *ObjectMeta `json:"metadata,omitempty"`
-
-	// Spec spec defines the desired state of MonitoringConfig
-	Spec struct {
-		// Pmm PMM contains PMM-specific monitoring configuration.
-		// Required when type is "pmm".
-		Pmm *struct {
-			// CredentialsSecretRef CredentialsSecretRef references the Secret in the same namespace
-			// containing the API key. It contains an `apiKey` key with the API key
-			// value.
-			CredentialsSecretRef struct {
-				// Name Name of the referenced Secret.
-				Name string `json:"name"`
-			} `json:"credentialsSecretRef"`
-
-			// Url URL is the URL of the PMM server.
-			Url string `json:"url"`
-
-			// VerifyTLS VerifyTLS is set to ensure TLS/SSL verification.
-			// If unspecified, the default value is true.
-			VerifyTLS *bool `json:"verifyTLS,omitempty"`
-		} `json:"pmm,omitempty"`
-
-		// Type Type is the name of monitoring tool (e.g., "pmm").
-		Type MonitoringConfigSpecType `json:"type"`
-	} `json:"spec"`
-
-	// Status status defines the observed state of MonitoringConfig
-	Status *struct {
-		// InUse InUse is a flag that indicates if any Instance uses the monitoring config.
-		InUse *bool `json:"inUse,omitempty"`
-
-		// LastObservedGeneration LastObservedGeneration is the most recent generation observed for this MonitoringConfig.
-		LastObservedGeneration *int64 `json:"lastObservedGeneration,omitempty"`
-
-		// Pmm PMM contains PMM-specific status information.
-		Pmm *struct {
-			// ServerVersion ServerVersion shows the PMM server version.
-			ServerVersion *string `json:"serverVersion,omitempty"`
-		} `json:"pmm,omitempty"`
-	} `json:"status,omitempty"`
-}
-
-// MonitoringConfigSpecType Type is the name of monitoring tool (e.g., "pmm").
-type MonitoringConfigSpecType string
-
-// MonitoringConfigList MonitoringConfigList is an object that contains the list of the existing monitoringconfigs.
-type MonitoringConfigList struct {
-	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-	ApiVersion *string             `json:"apiVersion,omitempty"`
-	Items      *[]MonitoringConfig `json:"items,omitempty"`
-
-	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	Kind     *string `json:"kind,omitempty"`
-	Metadata *struct {
-		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
-		Name *string `json:"name,omitempty"`
-
-		// Namespace Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
-		Namespace *string `json:"namespace,omitempty"`
 	} `json:"metadata,omitempty"`
 }
 

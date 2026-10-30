@@ -20,7 +20,6 @@ import (
 	"flag"
 	"os"
 
-	vmv1beta1 "github.com/VictoriaMetrics/operator/api/operator/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -42,7 +41,6 @@ import (
 	backupcontroller "github.com/openeverest/openeverest/v2/internal/controller/backup"
 	plugincontroller "github.com/openeverest/openeverest/v2/internal/controller/extension"
 	monitoringcontroller "github.com/openeverest/openeverest/v2/internal/controller/monitoring"
-	webhookmonitoringv1alpha1 "github.com/openeverest/openeverest/v2/internal/webhook/monitoring/v1alpha1"
 )
 
 var (
@@ -57,7 +55,6 @@ func init() {
 	utilruntime.Must(extensionsv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(backupv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(vmv1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -70,7 +67,6 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
-	var monitoringNamespace string
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -89,8 +85,7 @@ func main() {
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	flag.StringVar(&monitoringNamespace, "monitoring-namespace", os.Getenv("MONITORING_NAMESPACE"),
-		"The namespace where the VMAgent and monitoring resources are managed.")
+	flag.String("monitoring-namespace", "", "Deprecated and ignored; still accepted because the Helm chart passes it.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -222,15 +217,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&monitoringcontroller.MonitoringConfigReconciler{
-		Client:              mgr.GetClient(),
-		Scheme:              mgr.GetScheme(),
-		MonitoringNamespace: monitoringNamespace,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create controller", "controller", "MonitoringConfig")
-		os.Exit(1)
-	}
-
 	if err := (&monitoringcontroller.DestinationReconciler{
 		Client: mgr.GetClient(),
 	}).SetupWithManager(mgr); err != nil {
@@ -269,13 +255,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookmonitoringv1alpha1.SetupMonitoringConfigWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "Failed to create webhook", "webhook", "MonitoringConfig")
-			os.Exit(1)
-		}
-	}
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

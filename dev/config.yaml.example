@@ -2,11 +2,6 @@
 enableFrontendBuild: true
 # Set to false to skip deploying the OpenEverest Plugin Hub (plugin-hub sub-chart).
 enablePluginHub: false
-# Set to true to self-install the VictoriaMetrics operator + kube-state-metrics
-# in the dev cluster, so Everest's MonitoringConfig/VMAgent flow has something
-# to scrape. Off by default, since the 'everest' chart no longer bundles this;
-# see percona-helm-charts/charts/pmm/README.md for the equivalent manual setup.
-enableMonitoringStack: false
 namespaces:
   # List of DB namespaces that will be created automatically
   - name: my-special-place
