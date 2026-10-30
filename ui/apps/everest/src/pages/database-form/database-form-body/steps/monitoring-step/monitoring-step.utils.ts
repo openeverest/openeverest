@@ -12,14 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { z } from 'zod';
+import { removeEmptyFieldValues } from 'components/ui-generator/utils/postprocess/postprocess-schema';
+import { getByPath } from 'components/ui-generator/utils/object-path';
 import {
   InstanceMonitoringDestination,
+  InstanceMonitoringDestinationPayload,
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
 import {
+  getMonitoringClassUiSchema,
+  getSectionFormDefaults,
+  getSectionFormZodSchema,
+  MonitoringSectionForm,
+  postprocessSectionForm,
+  toMonitoringSectionForm,
+} from 'utils/monitoring-classes';
+import {
   MAX_MONITORING_DESTINATIONS,
+  MONITORING_DESTINATIONS_FIELD,
   MONITORING_ENTRY_NAME_MAX_LENGTH,
+  MONITORING_INSTANCE_SECTION_KEY,
 } from './monitoring-step.constants';
 import {
   DestinationDisabledReason,
@@ -123,14 +137,16 @@ export const toMonitoringEntryName = (
 };
 
 export const isDestinationSelected = (
-  selected: InstanceMonitoringDestination[],
+  selected: Pick<InstanceMonitoringDestination, 'destinationRef'>[],
   destinationName: string
 ) => selected.some((entry) => entry.destinationRef.name === destinationName);
 
+// A new entry starts from the defaults of the class's instance form, if any.
 export const toggleMonitoringDestination = (
-  selected: InstanceMonitoringDestination[],
-  destinationName: string
-): InstanceMonitoringDestination[] => {
+  selected: InstanceMonitoringDestinationPayload[],
+  destinationName: string,
+  defaultParameters?: Record<string, unknown>
+): InstanceMonitoringDestinationPayload[] => {
   if (isDestinationSelected(selected, destinationName)) {
     return selected.filter(
       (entry) => entry.destinationRef.name !== destinationName
@@ -144,6 +160,7 @@ export const toggleMonitoringDestination = (
         selected.map((entry) => entry.name)
       ),
       destinationRef: { name: destinationName },
+      ...(defaultParameters && { parameters: defaultParameters }),
     },
   ];
 };
@@ -222,3 +239,89 @@ export const pruneMonitoringDestinations = (
   selected.filter((entry) =>
     offeredDestinationNames.includes(entry.destinationRef.name)
   );
+
+// The instance form of each destination whose class defines one.
+export const buildInstanceFormsByDestination = (
+  classes: MonitoringClass[],
+  destinations: MonitoringDestination[]
+): Map<string, MonitoringSectionForm> => {
+  const formsByClass = new Map(
+    classes.flatMap((monitoringClass): [string, MonitoringSectionForm][] => {
+      const { instance } = getMonitoringClassUiSchema(monitoringClass);
+      return instance
+        ? [
+            [
+              getMonitoringClassName(monitoringClass),
+              toMonitoringSectionForm(
+                MONITORING_INSTANCE_SECTION_KEY,
+                instance
+              ),
+            ],
+          ]
+        : [];
+    })
+  );
+  return new Map(
+    destinations.flatMap((destination): [string, MonitoringSectionForm][] => {
+      const form = formsByClass.get(destination.spec.classRef.name);
+      return form ? [[getDestinationName(destination), form]] : [];
+    })
+  );
+};
+
+export const getDefaultEntryParameters = (
+  form: MonitoringSectionForm | undefined
+): Record<string, unknown> | undefined => {
+  const parameters = form ? getSectionFormDefaults(form).parameters : undefined;
+  return isRecord(parameters) ? parameters : undefined;
+};
+
+// Each entry's parameters are validated against its class's instance form;
+// issues point at the entry's own fields in the wizard.
+export const buildMonitoringParametersSchema = (
+  formsByDestination: Map<string, MonitoringSectionForm>
+): z.ZodTypeAny => {
+  const schemasByDestination = new Map(
+    [...formsByDestination].map(([destinationName, form]) => [
+      destinationName,
+      getSectionFormZodSchema(form),
+    ])
+  );
+  const entriesPath = MONITORING_DESTINATIONS_FIELD.split('.');
+
+  return z.unknown().superRefine((data, ctx) => {
+    if (!isRecord(data)) {
+      return;
+    }
+    parseMonitoringDestinations(
+      getByPath(data, MONITORING_DESTINATIONS_FIELD)
+    ).forEach((entry, index) => {
+      const result = schemasByDestination
+        .get(entry.destinationRef.name)
+        ?.safeParse(entry);
+      result?.error?.issues.forEach((issue) =>
+        ctx.addIssue({ ...issue, path: [...entriesPath, index, ...issue.path] })
+      );
+    });
+  });
+};
+
+// The entries as the Instance spec takes them: parameters cleaned like any
+// ui-generator form and left out when nothing was filled.
+export const finalizeMonitoringEntries = (
+  entries: InstanceMonitoringDestination[],
+  formsByDestination: Map<string, MonitoringSectionForm>
+): InstanceMonitoringDestinationPayload[] =>
+  entries.map(({ name, destinationRef, parameters }) => {
+    const form = formsByDestination.get(destinationRef.name);
+    const values = form
+      ? postprocessSectionForm({ parameters }, form)
+      : removeEmptyFieldValues({ parameters });
+    const cleaned = values.parameters;
+    return {
+      name,
+      destinationRef: { name: destinationRef.name },
+      ...(isRecord(cleaned) &&
+        Object.keys(cleaned).length > 0 && { parameters: cleaned }),
+    };
+  });

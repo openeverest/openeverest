@@ -22,6 +22,10 @@ import {
   DestinationReadiness,
 } from './monitoring-step.types';
 import {
+  buildInstanceFormsByDestination,
+  buildMonitoringParametersSchema,
+  finalizeMonitoringEntries,
+  getDefaultEntryParameters,
   getDestinationDisabledReason,
   getDestinationReadiness,
   getDestinationSummary,
@@ -88,6 +92,30 @@ const entry = (
 const pmm = makeClass('pmm', 'ProviderManaged', 'pmm');
 const prometheus = makeClass('prometheus', 'ExtensionManaged');
 
+const pmmWithInstanceForm = makeClass('pmm', 'ProviderManaged', 'pmm');
+Reflect.set(pmmWithInstanceForm.spec, 'uiSchema', {
+  instance: {
+    components: {
+      cpuRequest: {
+        path: 'parameters.resources.requests.cpu',
+        uiType: 'text',
+        fieldParams: { label: 'CPU request', defaultValue: '100m' },
+      },
+      replicas: {
+        path: 'parameters.replicas',
+        uiType: 'number',
+        fieldParams: { label: 'Replicas' },
+        validation: { min: 1 },
+      },
+    },
+  },
+});
+
+const instanceForms = buildInstanceFormsByDestination(
+  [pmmWithInstanceForm, prometheus],
+  [makeDestination('pmm-a', 'pmm'), makeDestination('prom', 'prometheus')]
+);
+
 describe('toMonitoringEntryName', () => {
   it('uses the destination name when it is a free DNS label', () => {
     expect(toMonitoringEntryName('prometheus', [])).toBe('prometheus');
@@ -127,6 +155,92 @@ describe('toggleMonitoringDestination', () => {
         'prometheus'
       )
     ).toEqual([entry('pmm')]);
+  });
+});
+
+describe('buildInstanceFormsByDestination', () => {
+  it('maps only destinations whose class defines an instance form', () => {
+    expect([...instanceForms.keys()]).toEqual(['pmm-a']);
+  });
+
+  it('seeds a new entry with the form defaults', () => {
+    const defaults = getDefaultEntryParameters(instanceForms.get('pmm-a'));
+
+    expect(toggleMonitoringDestination([], 'pmm-a', defaults)).toEqual([
+      {
+        ...entry('pmm-a'),
+        parameters: expect.objectContaining({
+          resources: { requests: { cpu: '100m' } },
+        }),
+      },
+    ]);
+    expect(getDefaultEntryParameters(undefined)).toBeUndefined();
+  });
+});
+
+describe('buildMonitoringParametersSchema', () => {
+  const schema = buildMonitoringParametersSchema(instanceForms);
+  const formWith = (destinations: unknown[]) => ({
+    monitoring: { destinations },
+  });
+
+  it('reports an invalid parameter at its entry', () => {
+    const result = schema.safeParse(
+      formWith([
+        entry('prom'),
+        { ...entry('pmm-a'), parameters: { replicas: 0 } },
+      ])
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.map((issue) => issue.path)).toEqual([
+      ['monitoring', 'destinations', 1, 'parameters', 'replicas'],
+    ]);
+  });
+
+  it('accepts entries without a form or with valid parameters', () => {
+    expect(
+      schema.safeParse(
+        formWith([
+          entry('prom'),
+          { ...entry('pmm-a'), parameters: { replicas: 2 } },
+        ])
+      ).success
+    ).toBe(true);
+    expect(schema.safeParse({}).success).toBe(true);
+  });
+});
+
+describe('finalizeMonitoringEntries', () => {
+  it('cleans parameters and coerces numbers of the class form', () => {
+    const [pmmEntry] = parseMonitoringDestinations([
+      {
+        ...entry('pmm-a'),
+        parameters: {
+          replicas: '2',
+          resources: { requests: { cpu: '' } },
+        },
+      },
+    ]);
+
+    expect(finalizeMonitoringEntries([pmmEntry], instanceForms)).toEqual([
+      { ...entry('pmm-a'), parameters: { replicas: 2 } },
+    ]);
+  });
+
+  it('omits parameters when nothing was filled', () => {
+    const entries = parseMonitoringDestinations([
+      {
+        ...entry('pmm-a'),
+        parameters: { resources: { requests: { cpu: '' } } },
+      },
+      { ...entry('prom'), parameters: {} },
+    ]);
+
+    expect(finalizeMonitoringEntries(entries, instanceForms)).toEqual([
+      entry('pmm-a'),
+      entry('prom'),
+    ]);
   });
 });
 

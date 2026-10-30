@@ -13,7 +13,13 @@
 // limitations under the License.
 
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { TestWrapper } from 'utils/test';
 import { DbWizardFormFields } from 'consts';
@@ -32,6 +38,17 @@ vi.mock('hooks/api/monitoring-classes', () => {
           agentImage: 'pmm-client:3',
           agentVersion: '3.0.0',
         },
+        uiSchema: {
+          instance: {
+            components: {
+              cpuRequest: {
+                path: 'parameters.resources.requests.cpu',
+                uiType: 'text',
+                fieldParams: { label: 'CPU request' },
+              },
+            },
+          },
+        },
       },
       status: {
         providers: [
@@ -44,6 +61,17 @@ vi.mock('hooks/api/monitoring-classes', () => {
       spec: {
         displayName: 'Prometheus',
         authModes: [{ name: 'Anonymous' }],
+        uiSchema: {
+          instance: {
+            components: {
+              interval: {
+                path: 'parameters.interval',
+                uiType: 'text',
+                fieldParams: { label: 'Scrape interval' },
+              },
+            },
+          },
+        },
       },
       status: {
         providers: [
@@ -180,7 +208,11 @@ describe('MonitoringStep', () => {
 
     fireEvent.click(getCard('prometheus'));
     expect(selectedValue()).toEqual([
-      { name: 'prometheus', destinationRef: { name: 'prometheus' } },
+      {
+        name: 'prometheus',
+        destinationRef: { name: 'prometheus' },
+        parameters: { interval: '' },
+      },
     ]);
     expect(getCard('prometheus')).toHaveAttribute('aria-pressed', 'true');
 
@@ -218,8 +250,60 @@ describe('MonitoringStep', () => {
 
     await waitFor(() =>
       expect(selectedValue()).toEqual([
-        { name: 'prometheus', destinationRef: { name: 'prometheus' } },
+        expect.objectContaining({
+          name: 'prometheus',
+          destinationRef: { name: 'prometheus' },
+        }),
       ])
     );
+  });
+
+  it("fills each entry's parameters from its class instance form", () => {
+    render(
+      <Wrapper>
+        <MonitoringStep />
+      </Wrapper>
+    );
+    const fieldOf = (destination: string, label: RegExp) =>
+      within(
+        screen.getByTestId(`monitoring-entry-parameters-${destination}`)
+      ).getByLabelText(label);
+
+    expect(
+      screen.queryByTestId('monitoring-entry-parameters-pmm-a')
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(getCard('pmm-a'));
+    fireEvent.click(getCard('prometheus'));
+    fireEvent.change(fieldOf('pmm-a', /CPU request/), {
+      target: { value: '200m' },
+    });
+    fireEvent.change(fieldOf('prometheus', /Scrape interval/), {
+      target: { value: '30s' },
+    });
+
+    expect(selectedValue()).toEqual([
+      {
+        name: 'pmm-a',
+        destinationRef: { name: 'pmm-a' },
+        parameters: { resources: { requests: { cpu: '200m' } } },
+      },
+      {
+        name: 'prometheus',
+        destinationRef: { name: 'prometheus' },
+        parameters: { interval: '30s' },
+      },
+    ]);
+
+    fireEvent.click(getCard('pmm-a'));
+
+    expect(selectedValue()).toEqual([
+      {
+        name: 'prometheus',
+        destinationRef: { name: 'prometheus' },
+        parameters: { interval: '30s' },
+      },
+    ]);
+    expect(fieldOf('prometheus', /Scrape interval/)).toHaveValue('30s');
   });
 });

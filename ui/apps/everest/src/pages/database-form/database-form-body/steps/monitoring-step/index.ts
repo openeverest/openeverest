@@ -14,4 +14,9 @@
 
 export { MonitoringStep } from './monitoring-step';
 export { MONITORING_DESTINATIONS_FIELD } from './monitoring-step.constants';
-export { parseMonitoringDestinations } from './monitoring-step.utils';
+export {
+  buildMonitoringParametersSchema,
+  finalizeMonitoringEntries,
+  parseMonitoringDestinations,
+} from './monitoring-step.utils';
+export { useMonitoringInstanceForms } from './hooks/use-monitoring-instance-forms';

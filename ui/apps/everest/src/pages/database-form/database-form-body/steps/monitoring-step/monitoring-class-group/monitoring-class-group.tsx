@@ -15,6 +15,7 @@
 import { Box, Stack, Typography } from '@mui/material';
 import { SelectableCard } from '@percona/ui-lib';
 import { MonitoringSelection } from '../hooks/use-monitoring-selection';
+import { MonitoringEntryParameters } from '../monitoring-entry-parameters/monitoring-entry-parameters';
 import { Messages } from '../monitoring-step.messages';
 import { MonitoringClassGroup as MonitoringClassGroupData } from '../monitoring-step.types';
 import {
@@ -85,5 +86,22 @@ export const MonitoringClassGroup = ({
         })}
       </Box>
     )}
+    {destinations.map((destination) => {
+      const form = selection.getInstanceForm(destination);
+      const entryIndex = selection.getEntryIndex(destination);
+      if (!form || entryIndex < 0) {
+        return null;
+      }
+      const name = getDestinationName(destination);
+      return (
+        <MonitoringEntryParameters
+          key={name}
+          destinationName={name}
+          entryIndex={entryIndex}
+          form={form}
+          namespace={selection.namespace}
+        />
+      );
+    })}
   </Stack>
 );

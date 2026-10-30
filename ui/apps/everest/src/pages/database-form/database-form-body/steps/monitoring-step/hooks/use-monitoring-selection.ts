@@ -18,12 +18,14 @@ import { DbWizardFormFields } from 'consts';
 import { useMonitoringClassesForProvider } from 'hooks/api/monitoring-classes';
 import { useMonitoringDestinations } from 'hooks/api/monitoring-destinations';
 import { MonitoringDestination } from 'shared-types/monitoring-destinations.types';
+import { MonitoringSectionForm } from 'utils/monitoring-classes';
 import { MONITORING_DESTINATIONS_FIELD } from '../monitoring-step.constants';
 import {
   DestinationDisabledReason,
   MonitoringClassGroup,
 } from '../monitoring-step.types';
 import {
+  getDefaultEntryParameters,
   getDestinationDisabledReason,
   getDestinationName,
   getMonitoringClassName,
@@ -33,6 +35,7 @@ import {
   pruneMonitoringDestinations,
   toggleMonitoringDestination,
 } from '../monitoring-step.utils';
+import { useMonitoringInstanceForms } from './use-monitoring-instance-forms';
 
 export interface MonitoringSelection {
   namespace: string;
@@ -43,10 +46,16 @@ export interface MonitoringSelection {
     destination: MonitoringDestination
   ) => DestinationDisabledReason | undefined;
   toggle: (destination: MonitoringDestination) => void;
+  // Position of the destination's entry in spec.monitoring.destinations, -1
+  // when it is not selected.
+  getEntryIndex: (destination: MonitoringDestination) => number;
+  getInstanceForm: (
+    destination: MonitoringDestination
+  ) => MonitoringSectionForm | undefined;
 }
 
 export const useMonitoringSelection = (): MonitoringSelection => {
-  const { control } = useFormContext();
+  const { control, getValues } = useFormContext();
   const namespace = useWatch({
     control,
     name: DbWizardFormFields.k8sNamespace,
@@ -62,6 +71,7 @@ export const useMonitoringSelection = (): MonitoringSelection => {
     isLoading: destinationsLoading,
     isSuccess: destinationsLoaded,
   } = useMonitoringDestinations(namespaceName);
+  const instanceForms = useMonitoringInstanceForms(namespaceName, providerName);
 
   const {
     field: { value, onChange },
@@ -92,14 +102,24 @@ export const useMonitoringSelection = (): MonitoringSelection => {
     if (!destinationsLoaded || classesLoading) {
       return;
     }
+    const current = parseMonitoringDestinations(
+      getValues(MONITORING_DESTINATIONS_FIELD)
+    );
     const pruned = pruneMonitoringDestinations(
-      selected,
+      current,
       destinations.map(getDestinationName)
     );
-    if (pruned.length !== selected.length) {
+    if (pruned.length !== current.length) {
       onChange(pruned);
     }
-  }, [destinationsLoaded, classesLoading, destinations, selected, onChange]);
+  }, [
+    destinationsLoaded,
+    classesLoading,
+    destinations,
+    selected,
+    getValues,
+    onChange,
+  ]);
 
   const isSelected = useCallback(
     (destination: MonitoringDestination) =>
@@ -119,12 +139,32 @@ export const useMonitoringSelection = (): MonitoringSelection => {
     [selected, destinations, classes, providerName]
   );
 
+  const getInstanceForm = useCallback(
+    (destination: MonitoringDestination) =>
+      instanceForms.get(getDestinationName(destination)),
+    [instanceForms]
+  );
+
+  const getEntryIndex = useCallback(
+    (destination: MonitoringDestination) =>
+      selected.findIndex(
+        (entry) => entry.destinationRef.name === getDestinationName(destination)
+      ),
+    [selected]
+  );
+
+  // Reads the entries fresh: the controller value does not follow edits of the
+  // entries' parameters, and toggling must keep them.
   const toggle = useCallback(
     (destination: MonitoringDestination) =>
       onChange(
-        toggleMonitoringDestination(selected, getDestinationName(destination))
+        toggleMonitoringDestination(
+          parseMonitoringDestinations(getValues(MONITORING_DESTINATIONS_FIELD)),
+          getDestinationName(destination),
+          getDefaultEntryParameters(getInstanceForm(destination))
+        )
       ),
-    [selected, onChange]
+    [getValues, onChange, getInstanceForm]
   );
 
   return {
@@ -134,5 +174,7 @@ export const useMonitoringSelection = (): MonitoringSelection => {
     isSelected,
     getDisabledReason,
     toggle,
+    getEntryIndex,
+    getInstanceForm,
   };
 };

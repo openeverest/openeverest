@@ -21,3 +21,7 @@ export const MAX_MONITORING_DESTINATIONS = 8;
 
 // Entry names are DNS labels.
 export const MONITORING_ENTRY_NAME_MAX_LENGTH = 63;
+
+// The class uiSchema form that fills an entry's parameters; its paths are
+// relative to the entry.
+export const MONITORING_INSTANCE_SECTION_KEY = 'instance';
