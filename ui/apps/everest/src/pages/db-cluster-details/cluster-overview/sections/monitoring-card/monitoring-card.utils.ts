@@ -16,6 +16,14 @@ import { Instance } from 'shared-types/api.types';
 import { MONITORING_CONFIGURED_CONDITION } from './monitoring-card.constants';
 import { ConditionStatus, MonitoringOverview } from './monitoring-card.types';
 
+const describeCondition = ({
+  reason,
+  message,
+}: {
+  reason?: string;
+  message?: string;
+}) => [reason, message].filter(Boolean).join(': ');
+
 const toConditionStatus = (value: string | undefined): ConditionStatus =>
   value === 'True' || value === 'False' ? value : 'Unknown';
 
@@ -31,8 +39,7 @@ export const getMonitoringOverview = (
   return {
     configured: condition && {
       status: condition.status,
-      reason: condition.reason || undefined,
-      message: condition.message || undefined,
+      details: describeCondition(condition),
     },
     entries: (instance.spec?.monitoring?.destinations ?? []).map((entry) => {
       const status = statuses.find((s) => s.name === entry.name);
@@ -41,17 +48,8 @@ export const getMonitoringOverview = (
         destination: entry.destinationRef.name,
         mode: status?.mode,
         configured: toConditionStatus(status?.configured),
-        reason: status?.reason || undefined,
-        message: status?.message || undefined,
+        details: status ? describeCondition(status) : '',
       };
     }),
   };
 };
-
-export const describeCondition = ({
-  reason,
-  message,
-}: {
-  reason?: string;
-  message?: string;
-}) => [reason, message].filter(Boolean).join(': ');

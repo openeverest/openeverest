@@ -18,7 +18,11 @@ import { CONFIGURED_TO_STATUS } from '../monitoring-card.constants';
 import { Messages } from '../monitoring-card.messages';
 import { ConditionStatus } from '../monitoring-card.types';
 
-export const ConfiguredStatus = ({ status }: { status: ConditionStatus }) => (
+interface ConfiguredStatusProps {
+  status: ConditionStatus;
+}
+
+export const ConfiguredStatus = ({ status }: ConfiguredStatusProps) => (
   <StatusField status={status} statusMap={CONFIGURED_TO_STATUS}>
     <Typography variant="body2">{Messages.configured[status]}</Typography>
   </StatusField>

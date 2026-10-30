@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { IconButton, Stack } from '@mui/material';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { DatabaseIcon, OverviewCard } from '@percona/ui-lib';
+import { Stack } from '@mui/material';
+import { DatabaseIcon, EditIconButton, OverviewCard } from '@percona/ui-lib';
 import type { SchemaDrivenCardProps } from './schema-driven-card.types';
 import { segmentCardFields } from './schema-driven-card.utils';
 import OverviewSectionRow from '../../overview-section-row';
@@ -31,16 +30,14 @@ const SchemaDrivenCard = ({
     cardHeaderProps={{
       title: card.title,
       avatar: <DatabaseIcon />,
-      action: editable ? (
-        <IconButton
-          data-testid={`${card.key}-edit-button`}
-          size="small"
-          onClick={onEdit}
-          aria-label={`Edit ${card.title}`}
-        >
-          <EditOutlinedIcon fontSize="small" />
-        </IconButton>
-      ) : undefined,
+      action:
+        editable && onEdit ? (
+          <EditIconButton
+            dataTestId={`${card.key}-edit-button`}
+            onClick={onEdit}
+            label={`Edit ${card.title}`}
+          />
+        ) : undefined,
     }}
   >
     <Stack

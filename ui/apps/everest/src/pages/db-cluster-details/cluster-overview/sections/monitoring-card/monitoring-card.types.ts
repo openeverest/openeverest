@@ -22,16 +22,15 @@ export interface MonitoringEntryOverview {
   destination: string;
   mode?: string;
   configured: ConditionStatus;
-  reason?: string;
-  message?: string;
+  // The reason and message core reports, empty when it reports none.
+  details: string;
 }
 
 export interface MonitoringOverview {
   // The MonitoringConfigured roll-up, independent of the Instance's Ready.
   configured?: {
     status: ConditionStatus;
-    reason?: string;
-    message?: string;
+    details: string;
   };
   entries: MonitoringEntryOverview[];
 }
