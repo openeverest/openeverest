@@ -646,7 +646,6 @@ func TestRBAC_Instance(t *testing.T) {
 
 				next := &handlers.MockHandler{}
 				next.On("CreateInstance", mock.Anything, mock.Anything, mock.Anything).Return(tc.instance, nil)
-				next.On("GetPreset", mock.Anything, mock.Anything, mock.Anything).Return(testPreset, nil)
 				next.On("GetClusterInstancePreset", mock.Anything, mock.Anything, mock.Anything).
 					Return(testPreset, nil)
 
