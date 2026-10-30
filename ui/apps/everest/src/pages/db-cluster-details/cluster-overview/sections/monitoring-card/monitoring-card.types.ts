@@ -13,14 +13,18 @@
 // limitations under the License.
 
 import { Instance } from 'shared-types/api.types';
+import { InstanceCondition } from 'shared-types/instance.types';
+import { InstanceMonitoringStatus } from 'shared-types/monitoring-destinations.types';
 
-export type ConditionStatus = 'True' | 'False' | 'Unknown';
+export type ConditionStatus = InstanceCondition['status'];
+
+export type MonitoringMode = NonNullable<InstanceMonitoringStatus['mode']>;
 
 // One spec.monitoring.destinations entry with the state core reports for it.
 export interface MonitoringEntryOverview {
   name: string;
   destination: string;
-  mode?: string;
+  mode?: MonitoringMode;
   configured: ConditionStatus;
   // The reason and message core reports, empty when it reports none.
   details: string;
