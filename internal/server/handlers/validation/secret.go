@@ -29,6 +29,10 @@ import (
 
 // CreateSecret validates the secret request and proxies it to the next handler.
 func (h *validateHandler) CreateSecret(ctx context.Context, cluster, namespace string, secret *corev1.Secret) (*corev1.Secret, error) {
+	if secret == nil {
+		return nil, errors.Join(ErrInvalidRequest, errors.New("secret cannot be nil"))
+	}
+
 	if err := utils.ValidateEverestResourceName(secret.GetName(), "name"); err != nil {
 		return nil, errors.Join(ErrInvalidRequest, err)
 	}

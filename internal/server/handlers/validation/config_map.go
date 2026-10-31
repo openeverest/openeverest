@@ -29,7 +29,11 @@ import (
 
 // CreateConfigMap validates and creates a ConfigMap.
 func (h *validateHandler) CreateConfigMap(ctx context.Context, cluster, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
-	if err := utils.ValidateEverestResourceName(configMap.Name, "name"); err != nil {
+	if configMap == nil {
+		return nil, errors.Join(ErrInvalidRequest, errors.New("configmap cannot be nil"))
+	}
+
+	if err := utils.ValidateEverestResourceName(configMap.GetName(), "name"); err != nil {
 		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("invalid ConfigMap name: %w", err))
 	}
 

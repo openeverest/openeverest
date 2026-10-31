@@ -75,6 +75,12 @@ func TestCreateSecret_Validation(t *testing.T) {
 		err       string
 	}{
 		{
+			name:      "nil secret fails",
+			secret:    nil,
+			providers: []*corev1alpha1.Provider{provider},
+			err:       "secret cannot be nil",
+		},
+		{
 			name: "missing provider label fails",
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
