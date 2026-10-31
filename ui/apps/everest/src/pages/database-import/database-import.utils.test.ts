@@ -44,7 +44,11 @@ const provider = (name: string): Provider => ({ metadata: { name }, spec: {} });
 
 const backupClass = (supportedProviders?: string[]): BackupClass => ({
   metadata: { name: 'psmdb-pbm' },
-  spec: { executionMode: 'ProviderManaged', supportedProviders },
+  spec: {
+    executionMode: 'ProviderManaged',
+    supportedProviders,
+    backupStorageClasses: [],
+  },
 });
 
 describe('getImportBackupRows', () => {

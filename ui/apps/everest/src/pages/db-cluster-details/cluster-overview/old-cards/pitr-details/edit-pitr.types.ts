@@ -27,7 +27,9 @@ export const pitrEditDialogDefaultValues = (
   storageLocation: string | undefined
 ) => ({
   [PitrEditFields.enabled]: enabled,
-  [PitrEditFields.storageLocation]: { name: storageLocation },
+  [PitrEditFields.storageLocation]: storageLocation
+    ? { metadata: { name: storageLocation } }
+    : null,
 });
 
 export const pitrEditDialogPropsSchema = () =>

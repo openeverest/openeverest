@@ -35,6 +35,7 @@ import {
   mockMonitoringConfigs,
   mockMonitoringConfigsEmpty,
   mockBackupStorages,
+  mockBackupStorageClasses,
   mockBackups,
   mockBackupClasses,
   mockRestores,
@@ -107,10 +108,16 @@ export const mockMonitoringConfigsRoute = (
 export const mockMonitoringConfigsEmptyRoute = (page: Page) =>
   mockMonitoringConfigsRoute(page, mockMonitoringConfigsEmpty);
 
-// GET clusters/main/namespaces/{ns}/backup-storages -> BackupStorageList
+// GET clusters/main/namespaces/{ns}/backup-storages[?backupClass=...] -> BackupStorageList
 export const mockBackupStoragesRoute = (page: Page) =>
-  page.route(/\/backup-storages$/, (route) =>
+  page.route(/\/backup-storages(\?|$)/, (route) =>
     route.fulfill(json(mockBackupStorages))
+  );
+
+// GET clusters/main/backup-storage-classes -> BackupStorageClassList
+export const mockBackupStorageClassesRoute = (page: Page) =>
+  page.route(/\/backup-storage-classes$/, (route) =>
+    route.fulfill(json(mockBackupStorageClasses))
   );
 
 // GET clusters/main/namespaces/{ns}/instances/{n}/backups -> BackupList
@@ -204,6 +211,7 @@ export const installVisualMocks = async (page: Page) => {
   await mockInstanceConnectionRoute(page);
   await mockMonitoringConfigsRoute(page);
   await mockBackupStoragesRoute(page);
+  await mockBackupStorageClassesRoute(page);
   await mockBackupsRoute(page);
   await mockBackupClassesRoute(page);
   await mockRestoresRoute(page);

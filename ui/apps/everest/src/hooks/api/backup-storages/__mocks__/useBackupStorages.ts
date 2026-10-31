@@ -22,12 +22,12 @@ const storageDataObject = {
     namespace: 'the-dark-side',
   },
   spec: {
-    type: 's3',
-    s3: {
-      bucket: 'bucket-001',
-      region: 'Us',
+    backupStorageClassRef: { name: 's3' },
+    location: { bucket: 'bucket-001' },
+    parameters: { region: 'Us', endpointURL: 'http://localhost' },
+    authentication: {
+      mode: 'AccessKey',
       credentialsSecretRef: { name: 'secret-1' },
-      endpointURL: 'http://localhost',
     },
   },
 } as unknown as BackupStorageCRD;

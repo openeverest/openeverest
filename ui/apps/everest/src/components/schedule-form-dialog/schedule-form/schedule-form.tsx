@@ -115,6 +115,7 @@ export const ScheduleForm = ({
       </LabeledContent>
       <BackupStoragesInput
         namespace={namespace}
+        backupClass={backupClass?.metadata?.name}
         schedules={storageSchedules}
         maxStorages={maxStorages}
         maxSchedulesPerStorage={maxSchedulesPerStorage}

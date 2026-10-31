@@ -54,13 +54,29 @@ vi.mock('hooks/api/backup-classes/useBackupClasses.ts', () => ({
   useBackupClassUiSchema: () => ({ sections: undefined, uiSchema: undefined }),
 }));
 
-vi.mock('hooks/api/backup-storages/useBackupStorages', () => ({
-  useBackupStoragesByNamespace: () => ({
-    data: [{ name: 'storage-a' }, { name: 'storage-b' }, { name: 'storage-c' }],
-    isFetching: false,
-    isLoading: false,
-  }),
+const mockStorage = (name: string) => ({
+  metadata: { name },
+  spec: {
+    backupStorageClassRef: { name: 's3' },
+    location: { bucket: name },
+    authentication: { mode: 'AccessKey' },
+  },
+  status: { conditions: [{ type: 'Accepted', status: 'True' }] },
+});
+
+const mocks = vi.hoisted(() => ({
+  useBackupStoragesByNamespace: vi.fn(),
 }));
+
+vi.mock('hooks/api/backup-storages/useBackupStorages', () => ({
+  useBackupStoragesByNamespace: mocks.useBackupStoragesByNamespace,
+}));
+
+const mockStorages = [
+  mockStorage('storage-a'),
+  mockStorage('storage-b'),
+  mockStorage('storage-c'),
+];
 
 vi.mock('hooks/api/useClusterName.ts', () => ({
   useClusterName: () => 'main',
@@ -165,6 +181,22 @@ const renderFieldsWrapper = (initialClass?: string) =>
 describe('OnDemandBackupFieldsWrapper', () => {
   beforeEach(() => {
     queryClient.clear();
+    mocks.useBackupStoragesByNamespace.mockReturnValue({
+      data: mockStorages,
+      isLoading: false,
+    });
+  });
+
+  it('lists the storages the selected backup class can write to', async () => {
+    renderFieldsWrapper('class-generous');
+
+    await waitFor(() =>
+      expect(mocks.useBackupStoragesByNamespace).toHaveBeenCalledWith(
+        'test-ns',
+        { backupClass: 'class-generous' },
+        expect.anything()
+      )
+    );
   });
 
   it('auto-fills backupClassName with the first available class', async () => {

@@ -13,31 +13,100 @@
 // limitations under the License.
 
 import { UseQueryResult } from '@tanstack/react-query';
+import { BaseStatus } from 'components/status-field/status-field.types';
 import {
+  BackupStorageClass,
   BackupStorageCRD,
-  StorageType,
 } from 'shared-types/backupStorages.types';
+import {
+  BACKUP_STORAGE_ACCEPTED_CONDITION,
+  BACKUP_STORAGE_DELETING_CONDITION,
+  formatBackupStorageLocation,
+  getBackupStorageClassDisplayName,
+  getBackupStorageCondition,
+} from 'utils/backup-storages';
 import { Messages } from './storage-locations.messages';
-import { BackupStorageTableElement } from './storage-locations.types';
+import {
+  BackupStorageStatus,
+  BackupStorageTableElement,
+} from './storage-locations.types';
 
-export const convertStoragesType = (value: StorageType) =>
-  ({
-    [StorageType.S3]: Messages.s3,
-  })[value] ?? value;
+export const BACKUP_STORAGE_STATUS_TO_BASE_STATUS: Record<
+  BackupStorageStatus,
+  BaseStatus
+> = {
+  [BackupStorageStatus.Accepted]: 'success',
+  [BackupStorageStatus.Rejected]: 'error',
+  [BackupStorageStatus.Deleting]: 'deleting',
+  [BackupStorageStatus.Pending]: 'pending',
+};
+
+export const getBackupStorageStatus = (
+  storage: BackupStorageCRD
+): Pick<
+  BackupStorageTableElement,
+  'status' | 'statusLabel' | 'statusMessage'
+> => {
+  const deleting = getBackupStorageCondition(
+    storage,
+    BACKUP_STORAGE_DELETING_CONDITION
+  );
+  if (deleting?.status === 'True') {
+    return {
+      status: BackupStorageStatus.Deleting,
+      statusLabel: Messages.status.deleting,
+      statusMessage: deleting.message,
+    };
+  }
+
+  const accepted = getBackupStorageCondition(
+    storage,
+    BACKUP_STORAGE_ACCEPTED_CONDITION
+  );
+  switch (accepted?.status) {
+    case 'True':
+      return {
+        status: BackupStorageStatus.Accepted,
+        statusLabel: Messages.status.accepted,
+      };
+    case 'False':
+      return {
+        status: BackupStorageStatus.Rejected,
+        statusLabel: accepted.reason,
+        statusMessage: accepted.message,
+      };
+    default:
+      return {
+        status: BackupStorageStatus.Pending,
+        statusLabel: Messages.status.pending,
+        statusMessage: accepted?.message,
+      };
+  }
+};
 
 export const convertBackupStoragesPayloadToTableFormat = (
-  data: UseQueryResult<BackupStorageCRD[], Error>[]
-): BackupStorageTableElement[] => {
-  return data.flatMap((item) =>
+  data: UseQueryResult<BackupStorageCRD[], Error>[],
+  backupStorageClasses: BackupStorageClass[]
+): BackupStorageTableElement[] =>
+  data.flatMap((item) =>
     item.isSuccess
-      ? item.data.map((storage) => ({
-          namespace: storage.metadata?.namespace ?? '',
-          name: storage.metadata?.name ?? '',
-          type: (storage.spec?.type as StorageType) ?? StorageType.S3,
-          bucketName: storage.spec?.s3?.bucket ?? '',
-          url: storage.spec?.s3?.endpointURL ?? '',
-          raw: storage,
-        }))
+      ? item.data.map((storage) => {
+          const className = storage.spec.backupStorageClassRef.name;
+          return {
+            name: storage.metadata?.name ?? '',
+            namespace: storage.metadata?.namespace ?? '',
+            backupStorageClass: getBackupStorageClassDisplayName(
+              backupStorageClasses.find(
+                (backupStorageClass) =>
+                  backupStorageClass.metadata?.name === className
+              ),
+              className
+            ),
+            location: formatBackupStorageLocation(storage),
+            authMode: storage.spec.authentication.mode,
+            ...getBackupStorageStatus(storage),
+            raw: storage,
+          };
+        })
       : []
   );
-};

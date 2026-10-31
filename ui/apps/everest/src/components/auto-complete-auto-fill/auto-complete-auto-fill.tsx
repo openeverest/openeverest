@@ -35,16 +35,19 @@ export function AutoCompleteAutoFill<T>({
 
   useEffect(() => {
     const currentValues = getValues(name);
+    const firstOption = options?.find(
+      (option) => !autoCompleteProps?.getOptionDisabled?.(option)
+    );
 
     if (
-      !options?.length ||
+      firstOption === undefined ||
       !enableFillFirst ||
       (currentValues !== undefined && currentValues !== null)
     ) {
       return;
     }
 
-    setValue(name, options[0]);
+    setValue(name, firstOption);
     trigger(name);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [options]);

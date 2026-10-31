@@ -198,29 +198,172 @@ export const mockMonitoringConfigsEmpty = {
 };
 
 // BackupStorageList = { items: BackupStorage[] } (see src/api/backupStorage.ts).
-// Lifted verbatim from the proven inline fixture.
 export const mockBackupStorages = {
-  apiVersion: 'storage.openeverest.io/v1alpha1',
+  apiVersion: 'backup.openeverest.io/v1alpha1',
   kind: 'BackupStorageList',
   items: [
     {
-      apiVersion: 'storage.openeverest.io/v1alpha1',
+      apiVersion: 'backup.openeverest.io/v1alpha1',
       kind: 'BackupStorage',
       metadata: { name: 's3-prod-backups', namespace: 'default' },
       spec: {
-        type: 's3',
-        s3: {
-          bucket: 'everest-backups-prod',
+        backupStorageClassRef: { name: 's3' },
+        location: { bucket: 'everest-backups-prod' },
+        parameters: {
           region: 'us-east-1',
-          credentialsSecretRef: {
-            name: 'backup-storage-s3-prod-credentials',
-          },
           endpointURL: 'https://s3.amazonaws.com',
-          verifyTLS: true,
           forcePathStyle: false,
+          implementation: 'aws',
+        },
+        authentication: {
+          mode: 'AccessKey',
+          credentialsSecretRef: {
+            name: 'backup-storage-s3-prod-backups-credentials',
+          },
         },
       },
-      status: {},
+      status: {
+        conditions: [
+          {
+            type: 'Accepted',
+            status: 'True',
+            reason: 'Accepted',
+            message: '',
+            lastTransitionTime: '2026-01-01T00:00:00Z',
+          },
+        ],
+        backupClasses: [{ name: 'psmdb-backup-class', compatible: true }],
+      },
+    },
+  ],
+};
+
+// BackupStorageClassList = { items: BackupStorageClass[] } (see
+// src/api/backupStorageClasses.ts); the built-in s3 class.
+export const mockBackupStorageClasses = {
+  apiVersion: 'backup.openeverest.io/v1alpha1',
+  kind: 'BackupStorageClassList',
+  items: [
+    {
+      apiVersion: 'backup.openeverest.io/v1alpha1',
+      kind: 'BackupStorageClass',
+      metadata: { name: 's3' },
+      spec: {
+        displayName: 'S3-compatible object storage',
+        description:
+          'Amazon S3 and S3-compatible object stores such as MinIO, Ceph RGW and the GCS interoperability endpoint.',
+        authModes: [
+          {
+            name: 'AccessKey',
+            credentials: {
+              required: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'],
+            },
+          },
+        ],
+        parametersSchema: {
+          openAPIV3Schema: {
+            type: 'object',
+            required: ['endpointURL', 'region'],
+            properties: {
+              endpointURL: { type: 'string' },
+              forcePathStyle: { type: 'boolean' },
+              implementation: {
+                type: 'string',
+                enum: ['aws', 'minio', 'ceph', 'gcs', 'other'],
+              },
+              region: { type: 'string' },
+            },
+          },
+        },
+        uiSchema: {
+          credentials: {
+            AccessKey: {
+              components: {
+                AWS_ACCESS_KEY_ID: {
+                  uiType: 'text',
+                  path: 'AWS_ACCESS_KEY_ID',
+                  fieldParams: { label: 'Access key ID' },
+                  validation: { required: true },
+                },
+                AWS_SECRET_ACCESS_KEY: {
+                  uiType: 'text',
+                  path: 'AWS_SECRET_ACCESS_KEY',
+                  fieldParams: { label: 'Secret access key', type: 'password' },
+                  validation: { required: true },
+                },
+              },
+              componentsOrder: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'],
+            },
+          },
+          location: {
+            components: {
+              bucket: {
+                uiType: 'text',
+                path: 'location.bucket',
+                fieldParams: { label: 'Bucket', placeholder: 'my-backups' },
+                validation: { required: true },
+              },
+              prefix: {
+                uiType: 'text',
+                path: 'location.prefix',
+                fieldParams: {
+                  label: 'Prefix',
+                  helperText: 'Optional path within the bucket',
+                },
+              },
+            },
+            componentsOrder: ['bucket', 'prefix'],
+          },
+          storage: {
+            components: {
+              region: {
+                uiType: 'text',
+                path: 'parameters.region',
+                fieldParams: { label: 'Region', placeholder: 'us-east-1' },
+                validation: { required: true },
+              },
+              endpointURL: {
+                uiType: 'text',
+                path: 'parameters.endpointURL',
+                fieldParams: {
+                  label: 'Endpoint URL',
+                  placeholder: 'https://s3.us-east-1.amazonaws.com',
+                  helperText: 'An http:// URL uses plain HTTP',
+                },
+                validation: { required: true },
+              },
+              implementation: {
+                uiType: 'select',
+                path: 'parameters.implementation',
+                fieldParams: {
+                  label: 'Implementation',
+                  options: [
+                    { label: 'Amazon S3', value: 'aws' },
+                    { label: 'MinIO', value: 'minio' },
+                    { label: 'Ceph RGW', value: 'ceph' },
+                    {
+                      label: 'Google Cloud Storage (S3 interoperability)',
+                      value: 'gcs',
+                    },
+                    { label: 'Other S3-compatible', value: 'other' },
+                  ],
+                },
+              },
+              forcePathStyle: {
+                uiType: 'toggle',
+                path: 'parameters.forcePathStyle',
+                fieldParams: { label: 'Force path-style URLs' },
+              },
+            },
+            componentsOrder: [
+              'region',
+              'endpointURL',
+              'implementation',
+              'forcePathStyle',
+            ],
+          },
+        },
+      },
     },
   ],
 };

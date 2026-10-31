@@ -39,6 +39,7 @@ interface ImportSourceFieldsProps {
   isNamespacesLoading: boolean;
   storages: BackupStorageCRD[];
   isStoragesLoading: boolean;
+  backupClassName: string;
   importClasses: BackupClass[];
   selectedClass?: BackupClass;
   classProviders: Provider[];
@@ -51,6 +52,7 @@ export const ImportSourceFields = ({
   isNamespacesLoading,
   storages,
   isStoragesLoading,
+  backupClassName,
   importClasses,
   selectedClass,
   classProviders,
@@ -99,6 +101,7 @@ export const ImportSourceFields = ({
             <BackupStoragesInput
               name={DatabaseImportFields.storage}
               namespace={namespace}
+              backupClass={backupClassName || undefined}
               schedules={[]}
             />
           </ActionableLabeledContent>
