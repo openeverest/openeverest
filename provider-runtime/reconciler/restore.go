@@ -68,7 +68,7 @@ func setupRestoreReconciler(mgr ctrl.Manager, bp controller.BackupProvider, prov
 		).
 		Watches(&backupv1alpha1.BackupStorage{},
 			handler.EnqueueRequestsFromMapFunc(r.restoresForStorage),
-			builder.WithPredicates(existenceChanged()),
+			builder.WithPredicates(acceptanceChanged()),
 		).
 		Named(providerName + "-restore-controller")
 
