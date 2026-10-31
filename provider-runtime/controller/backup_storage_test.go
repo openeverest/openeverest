@@ -179,3 +179,18 @@ func TestBackupStorageTLS(t *testing.T) {
 		require.ErrorContains(t, err, `has no key "other.crt"`)
 	})
 }
+
+func TestBackupLocation(t *testing.T) {
+	t.Parallel()
+
+	bs := acceptedBackupStorage(nil)
+	bs.Spec.Location.Prefix = "team-a"
+
+	taken := &backupv1alpha1.Backup{Status: backupv1alpha1.BackupStatus{Path: "team-a/backups/ns/orders/uid/s3-prod"}}
+	assert.Equal(t, "team-a/backups/ns/orders/uid/s3-prod", BackupLocation(taken, bs))
+
+	imported := &backupv1alpha1.Backup{Spec: backupv1alpha1.BackupSpec{Origin: backupv1alpha1.BackupOrigin{
+		External: &backupv1alpha1.BackupOriginExternal{Path: "legacy/2026-01-01"},
+	}}}
+	assert.Equal(t, "team-a/legacy/2026-01-01", BackupLocation(imported, bs))
+}

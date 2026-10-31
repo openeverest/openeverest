@@ -17,6 +17,7 @@ package controller
 import (
 	"errors"
 	"fmt"
+	"path"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -145,6 +146,17 @@ func judgeBackupStorage(class *backupv1alpha1.BackupClass, bs *backupv1alpha1.Ba
 		)
 	}
 	return "", ""
+}
+
+// BackupLocation returns the directory in bs's bucket that holds backup's
+// data: the path recorded when the backup started, or for an imported backup
+// its external path under the storage's prefix. It is "" for a backup taken
+// before the path was recorded.
+func BackupLocation(backup *backupv1alpha1.Backup, bs *backupv1alpha1.BackupStorage) string {
+	if ext := backup.Spec.Origin.External; ext != nil {
+		return path.Join(bs.Spec.Location.Prefix, ext.Path)
+	}
+	return backup.Status.Path
 }
 
 // RejectBackupStorage records that the provider cannot render the entry

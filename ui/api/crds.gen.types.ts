@@ -231,6 +231,13 @@ export interface components {
                     name: string;
                 };
                 /**
+                 * @description Path is the directory in the BackupStorage's bucket the source
+                 *     Instance writes its backups to, recorded when the backup starts so
+                 *     restores resolve after the Instance is gone. Empty for external
+                 *     backups, whose path is spec.origin.external.path.
+                 */
+                path?: string;
+                /**
                  * @description Size is the size of the backup data as reported by the engine.
                  *     Empty for external backups.
                  */
