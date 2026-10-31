@@ -67,7 +67,7 @@ func newOperationTestClient(objs ...client.Object) client.Client { //nolint:iret
 
 func testOperationInstance() *v1alpha1.Instance {
 	return &v1alpha1.Instance{
-		ObjectMeta: metav1.ObjectMeta{Name: "orders", Namespace: "team-a"},
+		ObjectMeta: metav1.ObjectMeta{Name: "orders", Namespace: "team-a", UID: "orders-uid"},
 		Spec:       v1alpha1.InstanceSpec{ProviderRef: common.ObjectRef{Name: "test-provider"}},
 	}
 }
@@ -164,6 +164,7 @@ func TestBackupReconcile_WaitsForReferents(t *testing.T) {
 			require.NoError(t, c.Get(t.Context(), key, got))
 			if tc.wantSynced {
 				assert.Equal(t, 1, p.backups)
+				assert.Equal(t, "prod/backups/team-a/orders/orders-uid/s3-prod", got.Status.Path)
 				return
 			}
 			assert.Zero(t, p.backups, "the provider must not be called")
