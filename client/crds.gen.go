@@ -1291,6 +1291,12 @@ type Backup struct {
 			Name string `json:"name"`
 		} `json:"operatorBackupRef,omitempty"`
 
+		// Path Path is the directory in the BackupStorage's bucket the source
+		// Instance writes its backups to, recorded when the backup starts so
+		// restores resolve after the Instance is gone. Empty for external
+		// backups, whose path is spec.origin.external.path.
+		Path *string `json:"path,omitempty"`
+
 		// Size Size is the size of the backup data as reported by the engine.
 		// Empty for external backups.
 		Size *string `json:"size,omitempty"`
