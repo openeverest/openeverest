@@ -17,12 +17,16 @@ package extension
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 
 	"github.com/rodaine/table"
 	"go.uber.org/zap"
 
+	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 	cliutils "github.com/openeverest/openeverest/v2/pkg/cli/utils"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
@@ -31,6 +35,16 @@ import (
 type ListConfig struct {
 	KubeconfigPath string
 	Pretty         bool
+}
+
+// PluginInfo contains information about an installed extension.
+type PluginInfo struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+	// Exactly one of ExternalURL or ServiceRef is set when the extension has a backend.
+	ExternalURL string                                      `json:"externalUrl,omitempty"`
+	ServiceRef  *extensionsv1alpha1.PluginBackendServiceRef `json:"serviceRef,omitempty"`
+	Enabled     bool                                        `json:"enabled"`
 }
 
 // PluginLister lists installed extensions.
@@ -58,31 +72,59 @@ func NewPluginLister(cfg ListConfig, l *zap.SugaredLogger) (*PluginLister, error
 	return pl, nil
 }
 
-// Run lists all extensions and prints them as a table.
+// Run lists all extensions and prints them to stdout, either as a table (pretty mode)
+// or as raw JSON.
 func (pl *PluginLister) Run(ctx context.Context) error {
 	plugins, err := pl.kubeClient.ListPlugins(ctx)
 	if err != nil {
 		return fmt.Errorf("cannot list plugins: %w", err)
 	}
 
-	tbl := table.New("NAME", "DISPLAY NAME", "BACKEND URL", "ENABLED")
+	items := make([]PluginInfo, 0, len(plugins.Items))
+	for _, p := range plugins.Items {
+		info := PluginInfo{
+			Name:        p.Name,
+			DisplayName: p.Spec.DisplayName,
+			Enabled:     p.Spec.Enabled,
+		}
+		if p.Spec.Backend != nil {
+			info.ExternalURL = p.Spec.Backend.ExternalURL
+			info.ServiceRef = p.Spec.Backend.ServiceRef
+		}
+		items = append(items, info)
+	}
+
+	pl.render(os.Stdout, items)
+	return nil
+}
+
+func formatBackendURL(p PluginInfo) string {
+	if p.ServiceRef != nil {
+		return fmt.Sprintf("%s.%s:%d (in-cluster)", p.ServiceRef.Name, p.ServiceRef.Namespace, p.ServiceRef.Port)
+	}
+	return p.ExternalURL
+}
+
+func (pl *PluginLister) render(w io.Writer, plugins []PluginInfo) {
+	if !pl.cfg.Pretty {
+		if plugins == nil {
+			plugins = []PluginInfo{}
+		}
+		_ = json.NewEncoder(w).Encode(plugins) //nolint:errchkjson
+		return
+	}
+	printPluginsTable(w, plugins)
+}
+
+func printPluginsTable(w io.Writer, plugins []PluginInfo) {
+	tbl := table.New("NAME", "DISPLAY NAME", "BACKEND URL", "ENABLED").WithWriter(w)
 	tbl.WithHeaderFormatter(func(format string, vals ...interface{}) string {
 		return strings.ToUpper(fmt.Sprintf(format, vals...))
 	})
 
-	for _, p := range plugins.Items {
-		backendURL := ""
-		if p.Spec.Backend != nil {
-			if p.Spec.Backend.ServiceRef != nil {
-				ref := p.Spec.Backend.ServiceRef
-				backendURL = fmt.Sprintf("%s.%s:%d (in-cluster)", ref.Name, ref.Namespace, ref.Port)
-			} else {
-				backendURL = p.Spec.Backend.ExternalURL
-			}
-		}
-		tbl.AddRow(p.Name, p.Spec.DisplayName, backendURL, p.Spec.Enabled)
+	for _, p := range plugins {
+		tbl.AddRow(p.Name, p.DisplayName, formatBackendURL(p), p.Enabled)
 	}
 
 	tbl.Print()
-	return nil
 }
