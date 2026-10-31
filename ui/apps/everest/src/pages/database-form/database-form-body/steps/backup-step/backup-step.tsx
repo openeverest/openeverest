@@ -15,13 +15,14 @@
 // limitations under the License.
 
 import { FormGroup, Box, Skeleton } from '@mui/material';
+import { keepPreviousData } from '@tanstack/react-query';
 import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages';
 import { useFormContext } from 'react-hook-form';
 import { DbWizardFormFields } from 'consts.ts';
 import BackupsActionableAlert from 'components/actionable-alert/backups-actionable-alert';
 import { StepHeader } from '../../steps-old/step-header/step-header.tsx';
 import { Messages } from './backup-step.messages.ts';
-import { Schedules } from './schedules.tsx';
+import { Schedules, BACKUP_CLASS_REF_FIELD } from './schedules.tsx';
 import { PitrBlock } from './pitr';
 import { StepProps } from '../../../database-form.types';
 
@@ -32,9 +33,13 @@ export const BackupStep = (
   const { watch } = useFormContext();
 
   const selectedNamespace: string = watch(DbWizardFormFields.k8sNamespace);
+  const backupClassName: string | undefined = watch(BACKUP_CLASS_REF_FIELD);
 
-  const { data: backupStorages = [], isLoading } =
-    useBackupStoragesByNamespace(selectedNamespace);
+  const { data: backupStorages = [], isLoading } = useBackupStoragesByNamespace(
+    selectedNamespace,
+    backupClassName ? { backupClass: backupClassName } : undefined,
+    { refetchInterval: 5 * 1000, placeholderData: keepPreviousData }
+  );
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column' }}>

@@ -13,7 +13,28 @@
 // limitations under the License.
 
 import { BackupStorageCRD } from 'shared-types/backupStorages.types';
+import {
+  BACKUP_STORAGE_ACCEPTED_CONDITION,
+  getBackupStorageCondition,
+} from 'utils/backup-storages';
+import { Messages } from './backup-storages-input.messages';
 import { ScheduleWithStorage } from './backup-storages-input.types';
+
+// Undefined when the storage is Accepted, so backups can be written to it.
+export const getBackupStorageUnavailableReason = (
+  storage: BackupStorageCRD
+): string | undefined => {
+  const accepted = getBackupStorageCondition(
+    storage,
+    BACKUP_STORAGE_ACCEPTED_CONDITION
+  );
+  if (accepted?.status === 'True') {
+    return undefined;
+  }
+  return accepted
+    ? accepted.message || accepted.reason
+    : Messages.notValidatedYet;
+};
 
 export type GetAvailableStoragesParams = {
   backupStorages: BackupStorageCRD[];

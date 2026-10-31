@@ -17,11 +17,8 @@
 import { expect, test as setup } from '@playwright/test';
 import 'dotenv/config';
 import { getCITokenFromLocalStorage } from '../utils/localStorage';
-import {
-  EVEREST_CI_CLUSTER,
-  EVEREST_CI_NAMESPACES,
-  getBucketNamespacesMap,
-} from '../constants';
+import { createBackupStorage, S3BackupStorage } from '../utils/backup-storage';
+import { EVEREST_CI_NAMESPACES, getBucketNamespacesMap } from '../constants';
 
 const {
   EVEREST_LOCATION_ACCESS_KEY,
@@ -33,22 +30,6 @@ const {
   EVEREST_S3_REGION,
   EVEREST_S3_URL,
 } = process.env;
-
-const postBackupStorage = async (
-  request: any,
-  token: string,
-  namespace: string,
-  data: any
-) =>
-  request.post(
-    `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/backup-storages/`,
-    {
-      data,
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
 
 setup.describe.serial('Backup Storage setup', () => {
   setup('Create Backup Storages', async ({ request }) => {
@@ -63,57 +44,35 @@ setup.describe.serial('Backup Storage setup', () => {
 
     bucketNamespacesMap.forEach(async ([bucket, namespace]) => {
       const isEverestTesting = bucket === 'everest-testing';
-      const data = isEverestTesting
+      const storage: S3BackupStorage = isEverestTesting
         ? {
-            metadata: {
-              name: bucket,
-              namespace,
-            },
-            spec: {
-              type: 's3',
-              s3: {
-                bucket,
-                endpointURL: EVEREST_S3_URL,
-                region: EVEREST_S3_REGION,
-                credentialsSecretRef: {
-                  name: `backup-storage-${bucket}-credentials`,
-                },
-                accessKeyId: EVEREST_S3_ACCESS_KEY,
-                secretAccessKey: EVEREST_S3_SECRET_KEY,
-                verifyTLS: true,
-                forcePathStyle: false,
-              },
-            },
+            name: bucket,
+            bucket,
+            endpointURL: EVEREST_S3_URL,
+            region: EVEREST_S3_REGION,
+            accessKeyId: EVEREST_S3_ACCESS_KEY,
+            secretAccessKey: EVEREST_S3_SECRET_KEY,
+            verifyTLS: true,
+            forcePathStyle: false,
           }
         : {
-            metadata: {
-              name: bucket,
-              namespace,
-            },
-            spec: {
-              type: 's3',
-              s3: {
-                bucket,
-                endpointURL: EVEREST_LOCATION_URL,
-                region: EVEREST_LOCATION_REGION,
-                credentialsSecretRef: {
-                  name: `backup-storage-${bucket}-credentials`,
-                },
-                accessKeyId: EVEREST_LOCATION_ACCESS_KEY,
-                secretAccessKey: EVEREST_LOCATION_SECRET_KEY,
-                verifyTLS: false,
-                forcePathStyle: true,
-              },
-            },
+            name: bucket,
+            bucket,
+            endpointURL: EVEREST_LOCATION_URL,
+            region: EVEREST_LOCATION_REGION,
+            accessKeyId: EVEREST_LOCATION_ACCESS_KEY,
+            secretAccessKey: EVEREST_LOCATION_SECRET_KEY,
+            verifyTLS: false,
+            forcePathStyle: true,
           };
 
       promises.push(
         (async () => {
-          let response = await postBackupStorage(
+          let response = await createBackupStorage(
             request,
-            token,
             namespace,
-            data
+            storage,
+            token
           );
 
           if (response.status() === 404) {
@@ -122,17 +81,11 @@ setup.describe.serial('Backup Storage setup', () => {
               body?.message && body.message.includes('not found');
 
             if (isMissingNamespace) {
-              response = await postBackupStorage(
+              response = await createBackupStorage(
                 request,
-                token,
                 EVEREST_CI_NAMESPACES.EVEREST_UI,
-                {
-                  ...data,
-                  metadata: {
-                    ...data.metadata,
-                    namespace: EVEREST_CI_NAMESPACES.EVEREST_UI,
-                  },
-                }
+                storage,
+                token
               );
             }
           }

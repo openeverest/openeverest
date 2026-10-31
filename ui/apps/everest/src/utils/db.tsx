@@ -892,7 +892,7 @@ export const changeDbClusterEngine = (
 export const changeDbClusterPITR = (
   dbCluster: DbCluster,
   enabled: boolean,
-  backupStorageName: string | { name: string }
+  backupStorageName: string | { metadata: { name: string } }
 ) => ({
   ...dbCluster,
   spec: {
@@ -904,7 +904,7 @@ export const changeDbClusterPITR = (
             backupStorageName:
               typeof backupStorageName === 'string'
                 ? backupStorageName
-                : backupStorageName!.name,
+                : backupStorageName.metadata.name,
             enabled: true,
           }
         : { enabled: false, backupStorageName: '' },

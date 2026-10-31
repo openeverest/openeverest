@@ -35,6 +35,8 @@ export type BackupStoragesInputProps = {
    *   the storage already saved in the existing configuration.
    */
   autoFillProps?: Partial<AutoCompleteAutoFillProps<BackupStorageCRD>>;
+  // Offers only the storages this BackupClass can write to.
+  backupClass?: string;
   maxStorages?: number;
   maxSchedulesPerStorage?: number;
 } & (

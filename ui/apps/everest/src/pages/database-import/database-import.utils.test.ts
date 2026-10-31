@@ -47,6 +47,7 @@ const backupClass = (provider?: string): BackupClass => ({
   spec: {
     executionMode: 'ProviderManaged',
     providerManaged: provider ? { providerRef: { name: provider } } : undefined,
+    backupStorageClasses: [],
   },
 });
 

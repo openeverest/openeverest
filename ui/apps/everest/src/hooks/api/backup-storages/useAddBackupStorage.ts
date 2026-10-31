@@ -14,6 +14,7 @@
 
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { BackupStorageSecretConflictError } from 'api/backupStorage';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { useRBACPermissions } from 'hooks/rbac';
 import { CreateEditModalStorageProps } from 'pages/settings/storage-locations/createEditModal/create-edit-modal.types';
@@ -29,12 +30,17 @@ export const useAddBackupStorage = (
   onAdded?: (storageName: string) => void
 ) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [secretConflict, setSecretConflict] =
+    useState<BackupStorageSecretConflictError>();
   const { mutate: createBackupStorage, isPending } = useCreateBackupStorage();
   const queryClient = useQueryClient();
   const clusterName = useClusterName();
   const { canCreate } = useRBACPermissions('backup-storages', `${namespace}/*`);
 
-  const close = () => setIsOpen(false);
+  const close = () => {
+    setIsOpen(false);
+    setSecretConflict(undefined);
+  };
   const modalProps: CreateEditModalStorageProps = {
     open: isOpen,
     handleCloseModal: close,
@@ -47,10 +53,17 @@ export const useAddBackupStorage = (
           close();
           onAdded?.(data.name);
         },
+        onError: (error) =>
+          setSecretConflict(
+            error instanceof BackupStorageSecretConflictError
+              ? error
+              : undefined
+          ),
       });
     },
     isLoading: isPending,
     prefillNamespace: namespace,
+    secretConflict,
   };
 
   return {

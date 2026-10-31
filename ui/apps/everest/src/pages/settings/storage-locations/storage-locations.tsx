@@ -13,10 +13,13 @@
 // limitations under the License.
 
 import { Add } from '@mui/icons-material';
-import { Box, Button } from '@mui/material';
+import { Box, Button, Tooltip } from '@mui/material';
 import { Table } from '@percona/ui-lib';
 import { useQueryClient } from '@tanstack/react-query';
+import { BackupStorageSecretConflictError } from 'api/backupStorage';
 import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
+import StatusField from 'components/status-field';
+import { useBackupStorageClasses } from 'hooks/api/backup-storage-classes';
 import {
   getBackupStoragesQueryKey,
   useBackupStorages,
@@ -30,7 +33,6 @@ import { useMemo, useState } from 'react';
 import {
   BackupStorageCRD,
   BackupStorageFormValues,
-  StorageType,
 } from 'shared-types/backupStorages.types';
 import { CreateEditModalStorage } from './createEditModal/create-edit-modal';
 import { Messages } from './storage-locations.messages';
@@ -39,8 +41,8 @@ import {
   BackupStorageTableElement,
 } from './storage-locations.types';
 import {
+  BACKUP_STORAGE_STATUS_TO_BASE_STATUS,
   convertBackupStoragesPayloadToTableFormat,
-  convertStoragesType,
 } from './storage-locations.utils';
 import { useNamespacePermissionsForResource } from 'hooks/rbac';
 import { useClusterName } from 'hooks/api/useClusterName';
@@ -57,18 +59,27 @@ export const StorageLocations = () => {
   const clusterName = useClusterName();
   const { canCreate } = useNamespacePermissionsForResource('backup-storages');
   const backupStorages = useBackupStorages();
+  const { data: backupStorageClasses } = useBackupStorageClasses();
 
   const backupStoragesLoading = backupStorages.some(
     (result) => result.isLoading
   );
 
   const tableData = useMemo(
-    () => convertBackupStoragesPayloadToTableFormat(backupStorages),
-    [backupStorages]
+    () =>
+      convertBackupStoragesPayloadToTableFormat(
+        backupStorages,
+        backupStorageClasses ?? []
+      ),
+    [backupStorages, backupStorageClasses]
   );
 
-  const { mutate: createBackupStorage, isPending: creatingBackupStorage } =
-    useCreateBackupStorage();
+  const {
+    mutate: createBackupStorage,
+    isPending: creatingBackupStorage,
+    error: createBackupStorageError,
+    reset: resetCreateBackupStorage,
+  } = useCreateBackupStorage();
   const { mutate: editBackupStorage, isPending: editingBackupStorage } =
     useEditBackupStorage();
   const { mutate: deleteBackupStorage, isPending: deletingBackupStorage } =
@@ -89,22 +100,37 @@ export const StorageLocations = () => {
         header: Messages.name,
       },
       {
-        accessorKey: StorageLocationsFields.type,
-        header: Messages.type,
-        Cell: ({ cell }) => convertStoragesType(cell.getValue<StorageType>()),
-      },
-      {
-        accessorKey: StorageLocationsFields.bucketName,
-        header: Messages.bucketName,
-      },
-      {
         accessorKey: StorageLocationsFields.namespace,
         header: Messages.namespace,
       },
       {
-        accessorKey: StorageLocationsFields.url,
-        header: Messages.url,
-        enableHiding: false,
+        accessorKey: StorageLocationsFields.backupStorageClass,
+        header: Messages.backupStorageClass,
+      },
+      {
+        accessorKey: 'location',
+        header: Messages.bucket,
+      },
+      {
+        accessorKey: StorageLocationsFields.authMode,
+        header: Messages.authMode,
+      },
+      {
+        accessorKey: 'statusLabel',
+        header: Messages.statusHeader,
+        Cell: ({ row }) => (
+          <Tooltip title={row.original.statusMessage ?? ''} placement="top">
+            <Box>
+              <StatusField
+                status={row.original.status}
+                statusMap={BACKUP_STORAGE_STATUS_TO_BASE_STATUS}
+                dataTestId={row.original.name}
+              >
+                {row.original.statusLabel}
+              </StatusField>
+            </Box>
+          </Tooltip>
+        ),
       },
     ],
     []
@@ -123,24 +149,31 @@ export const StorageLocations = () => {
   const handleCloseModal = () => {
     setSelectedStorageLocation(undefined);
     setOpenCreateEditModal(false);
+    resetCreateBackupStorage();
   };
 
-  const handleEditBackupStorage = (data: BackupStorageFormValues) => {
+  const handleEditBackupStorage = (
+    data: BackupStorageFormValues,
+    previous: BackupStorageCRD
+  ) => {
     const queryKey = getBackupStoragesQueryKey(clusterName, data.namespace);
-    editBackupStorage(data, {
-      onSuccess: (updatedLocation) => {
-        const updatedStorage = updatedLocation as BackupStorageCRD;
-        optimisticEditBy<BackupStorageCRD>(
-          queryClient,
-          queryKey,
-          updatedStorage,
-          (item) =>
-            item.metadata?.name === updatedStorage.metadata?.name &&
-            item.metadata?.namespace === updatedStorage.metadata?.namespace
-        );
-        handleCloseModal();
-      },
-    });
+    editBackupStorage(
+      { formData: data, previous },
+      {
+        onSuccess: (updatedLocation) => {
+          const updatedStorage = updatedLocation as BackupStorageCRD;
+          optimisticEditBy<BackupStorageCRD>(
+            queryClient,
+            queryKey,
+            updatedStorage,
+            (item) =>
+              item.metadata?.name === updatedStorage.metadata?.name &&
+              item.metadata?.namespace === updatedStorage.metadata?.namespace
+          );
+          handleCloseModal();
+        },
+      }
+    );
   };
 
   const handleCreateBackup = (data: BackupStorageFormValues) => {
@@ -162,8 +195,8 @@ export const StorageLocations = () => {
   };
 
   const handleSubmit = (isEdit: boolean, data: BackupStorageFormValues) => {
-    if (isEdit) {
-      handleEditBackupStorage(data);
+    if (isEdit && selectedStorageLocation) {
+      handleEditBackupStorage(data, selectedStorageLocation);
     } else {
       handleCreateBackup(data);
     }
@@ -212,11 +245,6 @@ export const StorageLocations = () => {
         noDataMessage={Messages.noData}
         hideExpandAllIcon
         state={{
-          columnVisibility: {
-            url: false,
-            accessKey: false,
-            secretKey: false,
-          },
           isLoading: backupStoragesLoading,
         }}
         columns={columns}
@@ -244,28 +272,33 @@ export const StorageLocations = () => {
           );
           return <TableActionsMenu menuItems={menuItems} />;
         }}
-        renderDetailPanel={({ row }) => (
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'start',
-              alignItems: 'start',
-              gap: '50px',
-            }}
-          >
+        renderDetailPanel={({ row }) => {
+          const { authentication, tls } = row.original.raw.spec;
+          const ca = tls?.ca?.secretKeyRef;
+          return (
             <Box>
               <ExpandedRowInfoLine
-                label={Messages.url}
-                value={row.original.url}
+                label={Messages.credentialsSecret}
+                value={authentication.credentialsSecretRef?.name}
               />
+              {ca ? (
+                <ExpandedRowInfoLine
+                  label={Messages.caSecret}
+                  value={`${ca.name} (${ca.key})`}
+                />
+              ) : (
+                <ExpandedRowInfoLine
+                  label={Messages.insecureSkipVerify}
+                  value={
+                    tls?.insecureSkipVerify
+                      ? Messages.skipped
+                      : Messages.systemTrustStore
+                  }
+                />
+              )}
             </Box>
-            {/* TODO: uncomment when endpoint is ready
-            <Box>
-              <ExpandedRowInfoLine label="Access key" value={row.original.accessKey} />
-              <ExpandedRowInfoLine label="Secret key" value={row.original.secretKey} />
-            </Box>  */}
-          </Box>
-        )}
+          );
+        }}
       />
       {openCreateEditModal && (
         <CreateEditModalStorage
@@ -274,6 +307,11 @@ export const StorageLocations = () => {
           handleSubmitModal={handleSubmit}
           selectedStorageLocation={selectedStorageLocation}
           isLoading={creatingBackupStorage || editingBackupStorage}
+          secretConflict={
+            createBackupStorageError instanceof BackupStorageSecretConflictError
+              ? createBackupStorageError
+              : undefined
+          }
         />
       )}
       {openDeleteDialog && (

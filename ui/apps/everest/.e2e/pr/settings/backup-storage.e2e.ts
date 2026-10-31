@@ -68,18 +68,29 @@ test.describe.serial('Backup storage', () => {
 
       await page.getByTestId('text-input-namespace').click();
       await page.getByRole('option', { name: namespace, exact: true }).click();
-      await expect(page.getByTestId('select-input-type')).toHaveValue('s3');
-      await page.getByTestId('text-input-bucket-name').fill(bucketName);
-      await page.getByTestId('text-input-region').fill(EVEREST_LOCATION_REGION);
-      await page.getByTestId('text-input-url').fill(EVEREST_LOCATION_URL);
+      await expect(
+        page.getByTestId('select-input-backup-storage-class')
+      ).toHaveValue('s3');
+      await page.getByRole('textbox', { name: /^Bucket/ }).fill(bucketName);
       await page
-        .getByTestId('text-input-access-key')
+        .getByRole('textbox', { name: /^Region/ })
+        .fill(EVEREST_LOCATION_REGION);
+      await page
+        .getByRole('textbox', { name: /^Endpoint URL/ })
+        .fill(EVEREST_LOCATION_URL);
+      await page
+        .getByRole('textbox', { name: /^Access key ID/ })
         .fill(EVEREST_LOCATION_ACCESS_KEY);
       await page
-        .getByTestId('text-input-secret-key')
+        .getByLabel(/^Secret access key/)
         .fill(EVEREST_LOCATION_SECRET_KEY);
-      await page.getByTestId('checkbox-verify-tls').setChecked(false);
-      await page.getByTestId('checkbox-force-path-style').setChecked(true);
+      await page
+        .getByRole('switch', { name: 'Force path-style URLs' })
+        .setChecked(true);
+      await page.getByText('Advanced', { exact: true }).click();
+      await page
+        .getByLabel('Skip certificate verification', { exact: true })
+        .check();
       await page.getByTestId('form-dialog-add').click();
     });
 
@@ -104,7 +115,7 @@ test.describe.serial('Backup storage', () => {
       .locator('.MuiTableRow-root')
       .filter({ hasText: backupStorageName });
     await expect(row).toBeVisible();
-    await expect(row.getByText('S3 Compatible')).toBeVisible();
+    await expect(row.getByText('S3-compatible object storage')).toBeVisible();
     await expect(row.getByText(bucketName)).toBeVisible();
     await expect(row.getByText(namespace)).toBeVisible();
   });
@@ -114,13 +125,7 @@ test.describe.serial('Backup storage', () => {
 
     await test.step('Update Backup Storage URL', async () => {
       await findRowAndClickActions(page, backupStorageName, 'Edit');
-      await page.getByTestId('text-input-url').fill(newUrl);
-      await page
-        .getByTestId('text-input-access-key')
-        .fill(EVEREST_LOCATION_ACCESS_KEY);
-      await page
-        .getByTestId('text-input-secret-key')
-        .fill(EVEREST_LOCATION_SECRET_KEY);
+      await page.getByRole('textbox', { name: /^Endpoint URL/ }).fill(newUrl);
       const updResponse = page.waitForResponse(
         (resp) =>
           resp.request().method() === 'PATCH' &&
@@ -138,7 +143,9 @@ test.describe.serial('Backup storage', () => {
     await test.step('Check updated Backup Storage URL', async () => {
       await goToUrl(page, '/settings/storage-locations');
       await findRowAndClickActions(page, backupStorageName, 'Edit');
-      await expect(page.getByTestId('text-input-url')).toHaveValue(newUrl);
+      await expect(
+        page.getByRole('textbox', { name: /^Endpoint URL/ })
+      ).toHaveValue(newUrl);
       await page.getByTestId('form-dialog-cancel').click();
     });
   });
