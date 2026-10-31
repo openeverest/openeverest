@@ -15,14 +15,80 @@
 import {
   getAvailableStorages,
   GetAvailableStoragesParams,
+  getBackupStorageUnavailableReason,
 } from './backup-storages-input.utils';
-import { BackupStorageCRD } from 'shared-types/backupStorages.types';
+import { Messages } from './backup-storages-input.messages';
+import {
+  BackupStorageCondition,
+  BackupStorageCRD,
+} from 'shared-types/backupStorages.types';
+
+describe('getBackupStorageUnavailableReason', () => {
+  const withConditions = (conditions?: Partial<BackupStorageCondition>[]) =>
+    ({
+      metadata: { name: 'storage' },
+      spec: {
+        backupStorageClassRef: { name: 's3' },
+        location: { bucket: 'bucket' },
+        authentication: { mode: 'AccessKey' },
+      },
+      ...(conditions && { status: { conditions } }),
+    }) as unknown as BackupStorageCRD;
+
+  it('is undefined for an accepted storage', () => {
+    expect(
+      getBackupStorageUnavailableReason(
+        withConditions([{ type: 'Accepted', status: 'True' }])
+      )
+    ).toBeUndefined();
+  });
+
+  it('is the message of the Accepted condition when it is not true', () => {
+    expect(
+      getBackupStorageUnavailableReason(
+        withConditions([
+          {
+            type: 'Accepted',
+            status: 'False',
+            reason: 'CredentialsNotFound',
+            message: 'Secret "creds" not found',
+          },
+        ])
+      )
+    ).toBe('Secret "creds" not found');
+  });
+
+  it('falls back to the reason when the message is empty', () => {
+    expect(
+      getBackupStorageUnavailableReason(
+        withConditions([
+          {
+            type: 'Accepted',
+            status: 'False',
+            reason: 'InvalidLocation',
+            message: '',
+          },
+        ])
+      )
+    ).toBe('InvalidLocation');
+  });
+
+  it('says the storage is not validated yet when core has not judged it', () => {
+    expect(getBackupStorageUnavailableReason(withConditions())).toBe(
+      Messages.notValidatedYet
+    );
+  });
+});
 
 describe('getAvailableStorages', () => {
   const mkStorage = (name: string) =>
     ({
       metadata: { name },
-      spec: { type: 's3' },
+      spec: {
+        backupStorageClassRef: { name: 's3' },
+        location: { bucket: name },
+        authentication: { mode: 'AccessKey' },
+      },
     }) as unknown as BackupStorageCRD;
 
   const allStorages: BackupStorageCRD[] = [

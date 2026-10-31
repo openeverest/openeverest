@@ -12,13 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { AutoCompleteAutoFill } from 'components/auto-complete-auto-fill/auto-complete-auto-fill';
 import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useFormContext } from 'react-hook-form';
 import { BackupStorageCRD } from 'shared-types/backupStorages.types';
 import { Messages } from './backup-storages-input.messages';
-import { getAvailableStorages } from './backup-storages-input.utils';
+import {
+  getAvailableStorages,
+  getBackupStorageUnavailableReason,
+} from './backup-storages-input.utils';
 import {
   BackupStoragesInputProps,
   ScheduleWithStorage,
@@ -28,10 +32,13 @@ const BackupStoragesInput = ({
   name = 'storageLocation',
   namespace,
   autoFillProps,
+  backupClass,
   maxStorages,
   maxSchedulesPerStorage,
   ...rest
 }: BackupStoragesInputProps) => {
+  const { setValue, getValues } = useFormContext();
+
   // Derive flat schedules and instanceStorageNames from nested storages when provided
   const { schedules, instanceStorageNames } = useMemo(() => {
     if ('instanceStorages' in rest && rest.instanceStorages) {
@@ -55,8 +62,12 @@ const BackupStoragesInput = ({
     };
   }, [rest]);
 
-  const { data: backupStorages = [], isFetching } =
-    useBackupStoragesByNamespace(namespace);
+  const { data: backupStorages = [], isLoading } = useBackupStoragesByNamespace(
+    namespace,
+    backupClass ? { backupClass } : undefined,
+    // A new storage is listed once core has judged it.
+    { refetchInterval: 5 * 1000 }
+  );
 
   const {
     storagesToShow,
@@ -82,6 +93,40 @@ const BackupStoragesInput = ({
   // Show "(in use)" label only when displaying the full namespace list (limit not reached)
   const showInUseHighlight = !limitReached && inUseNames.size > 0;
 
+  const fillFirst = autoFillProps?.enableFillFirst ?? true;
+
+  // A storage picked for another backup class can't be written to.
+  useEffect(() => {
+    if (!backupClass || isLoading || isDisabled) {
+      return;
+    }
+    const value: BackupStorageCRD | string | null | undefined = getValues(name);
+    const selectedName =
+      typeof value === 'string' ? value : value?.metadata?.name;
+    if (
+      !selectedName ||
+      backupStorages.some((storage) => storage.metadata?.name === selectedName)
+    ) {
+      return;
+    }
+    const firstAvailable = storagesToShow.find(
+      (storage) => !getBackupStorageUnavailableReason(storage)
+    );
+    setValue(name, (fillFirst && firstAvailable) || null, {
+      shouldValidate: true,
+    });
+  }, [
+    backupClass,
+    isLoading,
+    isDisabled,
+    backupStorages,
+    storagesToShow,
+    fillFirst,
+    name,
+    setValue,
+    getValues,
+  ]);
+
   return (
     <AutoCompleteAutoFill<BackupStorageCRD>
       name={name}
@@ -90,7 +135,7 @@ const BackupStoragesInput = ({
         helperText,
       }}
       enableFillFirst
-      loading={isFetching}
+      loading={isLoading}
       options={storagesToShow}
       {...autoFillProps}
       controllerProps={{ name, defaultValue: null }}
@@ -99,25 +144,40 @@ const BackupStoragesInput = ({
           option.metadata?.name === value.metadata?.name,
         getOptionLabel: (option) =>
           typeof option === 'string' ? option : (option.metadata?.name ?? ''),
-        ...(showInUseHighlight && {
-          renderOption: (props, option) => (
-            <li {...props} key={option.metadata?.name}>
-              {option.metadata?.name}
-              {inUseNames.has(option.metadata?.name ?? '') && (
-                <Typography
-                  component="span"
-                  variant="body2"
-                  sx={{
-                    color: 'text.secondary',
-                    ml: 1,
-                  }}
-                >
-                  {Messages.inUseLabel}
-                </Typography>
-              )}
+        getOptionDisabled: (option) =>
+          !!getBackupStorageUnavailableReason(option),
+        ...(backupClass && { noOptionsText: Messages.noCompatibleStorages }),
+        renderOption: (props, option) => {
+          const storageName = option.metadata?.name ?? '';
+          const unavailableReason = getBackupStorageUnavailableReason(option);
+          return (
+            <li {...props} key={storageName}>
+              <Box>
+                {storageName}
+                {showInUseHighlight && inUseNames.has(storageName) && (
+                  <Typography
+                    component="span"
+                    variant="body2"
+                    sx={{
+                      color: 'text.secondary',
+                      ml: 1,
+                    }}
+                  >
+                    {Messages.inUseLabel}
+                  </Typography>
+                )}
+                {unavailableReason && (
+                  <Typography
+                    variant="caption"
+                    sx={{ display: 'block', color: 'text.secondary' }}
+                  >
+                    {unavailableReason}
+                  </Typography>
+                )}
+              </Box>
             </li>
-          ),
-        }),
+          );
+        },
       }}
       disabled={isDisabled}
     />

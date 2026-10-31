@@ -131,6 +131,7 @@ export const DatabaseImportPage = () => {
               isNamespacesLoading={isNamespacesLoading}
               storages={storages}
               isStoragesLoading={isStoragesLoading}
+              backupClassName={backupClassName}
               importClasses={importClasses}
               selectedClass={selectedClass}
               classProviders={classProviders}

@@ -76,7 +76,10 @@ vi.mock('hooks/api/backup-classes/useBackupClasses.ts', () => ({
 
 vi.mock('hooks/api/backup-storages/useBackupStorages.ts', () => ({
   useBackupStoragesByNamespace: () => ({
-    data: [{ name: 'storage-1' }, { name: 'storage-2' }],
+    data: [
+      { metadata: { name: 'storage-1' } },
+      { metadata: { name: 'storage-2' } },
+    ],
     isFetching: false,
     isLoading: mockLoadingStorages,
   }),
