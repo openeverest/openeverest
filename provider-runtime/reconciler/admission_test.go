@@ -282,7 +282,7 @@ func TestInstanceAdmissionBackupClass(t *testing.T) {
 	}
 	storages := func() []client.Object {
 		return []client.Object{
-			testBackupStorage("s3-a", "keys"), testBackupStorage("s3-b", "keys"), testSecret("keys"),
+			testBackupStorage("s3-a", "keys", metav1.ConditionTrue), testBackupStorage("s3-b", "keys", metav1.ConditionTrue), testSecret("keys"),
 		}
 	}
 

@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package controller is the API of the provider runtime: the interfaces a
+// provider implements and the Context it renders an Instance with.
 package controller
 
 // Implement the Provider interface to create a provider.

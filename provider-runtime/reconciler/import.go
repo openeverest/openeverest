@@ -55,7 +55,7 @@ func setupBackupImportReconciler(mgr ctrl.Manager, bi controller.BackupImporter,
 		).
 		Watches(&backupv1alpha1.BackupStorage{},
 			handler.EnqueueRequestsFromMapFunc(r.importsForStorage),
-			builder.WithPredicates(existenceChanged()),
+			builder.WithPredicates(acceptanceChanged()),
 		).
 		WatchesMetadata(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.importsForSecret),
