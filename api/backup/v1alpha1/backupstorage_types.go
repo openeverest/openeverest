@@ -102,6 +102,54 @@ type BackupStorageS3Spec struct {
 // BackupStorageStatus defines the observed state of a BackupStorage.
 type BackupStorageStatus struct{}
 
+// BackupStorageLocation is where a BackupStorage keeps its backups.
+type BackupStorageLocation struct {
+	// Bucket is the bucket, or the container for technologies that call it
+	// so.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:Pattern=`^[^/]+$`
+	Bucket string `json:"bucket"`
+	// Prefix is the path within the bucket under which backups are written,
+	// without leading or trailing slash.
+	// +kubebuilder:validation:MaxLength=512
+	// +kubebuilder:validation:Pattern=`^([^/]+(/[^/]+)*)?$`
+	// +kubebuilder:validation:XValidation:rule="!self.split('/').exists(s, s == '.' || s == '..')",message="prefix must not contain '.' or '..' segments"
+	// +optional
+	Prefix string `json:"prefix,omitempty"`
+}
+
+// BackupStorage conditions and their reasons.
+const (
+	// BackupStorageConditionAccepted reports whether the storage is valid for
+	// its BackupStorageClass. It does not test that the store is reachable.
+	BackupStorageConditionAccepted = "Accepted"
+
+	// ReasonAccepted means the storage is valid for its class.
+	ReasonAccepted = "Accepted"
+	// ReasonClassNotFound means the referenced BackupStorageClass does not
+	// exist.
+	ReasonClassNotFound = "ClassNotFound"
+	// ReasonInvalidClass means the BackupStorageClass itself breaks a rule
+	// every class must follow.
+	ReasonInvalidClass = "InvalidClass"
+	// ReasonInvalidLocation means spec.location breaks a naming rule of the
+	// technology.
+	ReasonInvalidLocation = "InvalidLocation"
+	// ReasonInvalidParameters means spec.parameters is rejected by the class.
+	ReasonInvalidParameters = "InvalidParameters"
+	// ReasonAuthModeUnsupported means the class has no authentication mode
+	// named by spec.authentication.mode.
+	ReasonAuthModeUnsupported = "AuthModeUnsupported"
+	// ReasonCredentialsNotFound means the credentials Secret, or a key the
+	// authentication mode requires, is missing.
+	ReasonCredentialsNotFound = "CredentialsNotFound"
+	// ReasonInvalidCABundle means the CA bundle named by spec.tls.ca is
+	// missing or holds no PEM certificate.
+	ReasonInvalidCABundle = "InvalidCABundle"
+)
+
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=bstor
