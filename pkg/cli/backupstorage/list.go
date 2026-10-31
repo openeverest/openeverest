@@ -31,6 +31,7 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/duration"
 
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
@@ -41,12 +42,15 @@ type Config struct {
 	Pretty bool
 }
 
-// ListOptions holds the inputs for the list command.
+// ListOptions holds the inputs for the list command. BackupClass and Class are
+// optional filters.
 type ListOptions struct {
 	Namespace     string
 	AllNamespaces bool
 	Cluster       string
 	Context       string
+	BackupClass   string
+	Class         string
 }
 
 // ListRunner lists backup storages via the Everest API.
@@ -65,8 +69,8 @@ func NewListRunner(cfg Config, l *zap.SugaredLogger) *ListRunner {
 }
 
 // Run fetches backup storages and prints them to stdout, either as a table (pretty mode)
-// or as raw JSON. Credentials are never part of the response: the API clears write-only
-// credential fields before persisting a BackupStorage, so nothing needs to be redacted here.
+// or as raw JSON. Credentials are never part of the response: a BackupStorage only
+// names the Secret that holds them.
 func (sl *ListRunner) Run(ctx context.Context, opts ListOptions, cfgPath string) error {
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: sl.config.Pretty}, sl.l.Desugar().Sugar(), cfgPath, opts.Context)
 	if err != nil {
@@ -80,9 +84,17 @@ func (sl *ListRunner) Run(ctx context.Context, opts ListOptions, cfgPath string)
 		}
 	}
 
+	params := &client.ListBackupStoragesParams{}
+	if opts.BackupClass != "" {
+		params.BackupClass = &opts.BackupClass
+	}
+	if opts.Class != "" {
+		params.BackupStorageClass = &opts.Class
+	}
+
 	backupStorages := make([]client.BackupStorage, 0, len(namespaces))
 	for _, ns := range namespaces {
-		items, err := sl.listBackupStorages(ctx, c, opts.Cluster, ns)
+		items, err := sl.listBackupStorages(ctx, c, opts.Cluster, ns, params)
 		if err != nil {
 			return err
 		}
@@ -115,9 +127,9 @@ func (sl *ListRunner) listNamespaces(ctx context.Context, c *client.ClientWithRe
 }
 
 func (sl *ListRunner) listBackupStorages(
-	ctx context.Context, c *client.ClientWithResponses, cluster, namespace string,
+	ctx context.Context, c *client.ClientWithResponses, cluster, namespace string, params *client.ListBackupStoragesParams,
 ) ([]client.BackupStorage, error) {
-	resp, err := c.ListBackupStoragesWithResponse(ctx, cluster, namespace)
+	resp, err := c.ListBackupStoragesWithResponse(ctx, cluster, namespace, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list backup storages in namespace %q: %w", namespace, err)
 	}
@@ -142,13 +154,16 @@ func (sl *ListRunner) render(w io.Writer, backupStorages []client.BackupStorage)
 }
 
 func printBackupStorageTable(w io.Writer, backupStorages []client.BackupStorage) {
-	tbl := table.New("NAME", "NAMESPACE", "TYPE", "AGE").WithWriter(w)
+	tbl := table.New("NAME", "NAMESPACE", "CLASS", "BUCKET", "AUTH", "ACCEPTED", "AGE").WithWriter(w)
 	for i := range backupStorages {
 		bs := &backupStorages[i]
 		tbl.AddRow(
 			backupStorageName(bs),
 			backupStorageNamespace(bs),
-			backupStorageType(bs),
+			dashIfEmpty(bs.Spec.BackupStorageClassRef.Name),
+			backupStorageBucket(bs),
+			dashIfEmpty(bs.Spec.Authentication.Mode),
+			backupStorageAccepted(bs),
 			backupStorageAge(bs),
 		)
 	}
@@ -169,11 +184,32 @@ func backupStorageNamespace(bs *client.BackupStorage) string {
 	return bs.Metadata.Namespace
 }
 
-func backupStorageType(bs *client.BackupStorage) string {
-	if bs.Spec.Type == "" {
+func dashIfEmpty(s string) string {
+	if s == "" {
 		return "-"
 	}
-	return string(bs.Spec.Type)
+	return s
+}
+
+func backupStorageBucket(bs *client.BackupStorage) string {
+	loc := bs.Spec.Location
+	if loc.Prefix != nil && *loc.Prefix != "" {
+		return loc.Bucket + "/" + *loc.Prefix
+	}
+	return dashIfEmpty(loc.Bucket)
+}
+
+// backupStorageAccepted is the status of the Accepted condition, Unknown until
+// the controller has set it.
+func backupStorageAccepted(bs *client.BackupStorage) string {
+	if bs.Status != nil && bs.Status.Conditions != nil {
+		for _, cond := range *bs.Status.Conditions {
+			if cond.Type == backupv1alpha1.BackupStorageConditionAccepted {
+				return string(cond.Status)
+			}
+		}
+	}
+	return string(client.BackupStorageStatusConditionsStatusUnknown)
 }
 
 func backupStorageAge(bs *client.BackupStorage) string {

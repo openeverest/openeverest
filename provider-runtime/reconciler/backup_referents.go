@@ -118,10 +118,10 @@ func missingBackupStorage(ctx context.Context, c client.Reader, namespace, name 
 }
 
 func credentialsSecretName(storage *backupv1alpha1.BackupStorage) string {
-	if storage.Spec.S3 == nil {
-		return ""
+	if ref := storage.Spec.Authentication.CredentialsSecretRef; ref != nil {
+		return ref.Name
 	}
-	return storage.Spec.S3.CredentialsSecretRef.Name
+	return ""
 }
 
 func backupStorageNames(in *v1alpha1.Instance) []string {
@@ -152,7 +152,7 @@ func (r *ProviderReconciler) instancesForBackupStorage(ctx context.Context, obj 
 }
 
 // storagesUsingSecret returns the names of the BackupStorages in namespace
-// whose credentials are the Secret.
+// that reference the Secret, for credentials or a CA bundle.
 func storagesUsingSecret(ctx context.Context, c client.Reader, namespace, secret string) []string {
 	list := &backupv1alpha1.BackupStorageList{}
 	if err := c.List(ctx, list, client.InNamespace(namespace)); err != nil {
@@ -161,7 +161,7 @@ func storagesUsingSecret(ctx context.Context, c client.Reader, namespace, secret
 	}
 	var names []string
 	for i := range list.Items {
-		if credentialsSecretName(&list.Items[i]) == secret {
+		if slices.Contains(list.Items[i].Spec.SecretNames(), secret) {
 			names = append(names, list.Items[i].Name)
 		}
 	}

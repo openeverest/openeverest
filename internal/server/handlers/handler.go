@@ -75,9 +75,11 @@ type BackupStorageHandler interface {
 	CreateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
 	UpdateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
 	PatchBackupStorage(ctx context.Context, cluster, namespace, name string, patch []byte) (*backupv1alpha1.BackupStorage, error)
-	ListBackupStorages(ctx context.Context, cluster, namespace string) (*backupv1alpha1.BackupStorageList, error)
+	ListBackupStorages(ctx context.Context, cluster, namespace, backupClass, backupStorageClass string) (*backupv1alpha1.BackupStorageList, error)
 	GetBackupStorage(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.BackupStorage, error)
 	DeleteBackupStorage(ctx context.Context, cluster, namespace, name string) error
+	ListBackupStorageClasses(ctx context.Context, cluster string) (*backupv1alpha1.BackupStorageClassList, error)
+	GetBackupStorageClass(ctx context.Context, cluster, name string) (*backupv1alpha1.BackupStorageClass, error)
 }
 
 // ProviderHandler provides methods for handling operations on providers.
@@ -127,7 +129,7 @@ type ClusterHandler interface {
 
 // BackupClassHandler provides methods for handling operations on backup classes.
 type BackupClassHandler interface {
-	ListBackupClasses(ctx context.Context, cluster string) (*backupv1alpha1.BackupClassList, error)
+	ListBackupClasses(ctx context.Context, cluster, provider string) (*backupv1alpha1.BackupClassList, error)
 	GetBackupClass(ctx context.Context, cluster, name string) (*backupv1alpha1.BackupClass, error)
 }
 

@@ -6,6 +6,7 @@ package rbac
 var AllResources = []string{
 	"backup-classes",
 	"backup-imports",
+	"backup-storage-classes",
 	"backup-storages",
 	"backups",
 	"cluster-instance-presets",
@@ -30,6 +31,8 @@ var resourcePathMap = map[string]string{
 	"/clusters":                                                               "clusters",
 	"/clusters/:cluster/backup-classes":                                       "backup-classes",
 	"/clusters/:cluster/backup-classes/:backupClass":                          "backup-classes",
+	"/clusters/:cluster/backup-storage-classes":                               "backup-storage-classes",
+	"/clusters/:cluster/backup-storage-classes/:name":                         "backup-storage-classes",
 	"/clusters/:cluster/cluster-instance-presets":                             "cluster-instance-presets",
 	"/clusters/:cluster/cluster-instance-presets/:name":                       "cluster-instance-presets",
 	"/clusters/:cluster/cluster-instance-presets/:name/resolve":               "cluster-instance-presets",

@@ -65,9 +65,11 @@ func testBackupStorage(name, secret string) *backupv1alpha1.BackupStorage {
 	return &backupv1alpha1.BackupStorage{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "team-a"},
 		Spec: backupv1alpha1.BackupStorageSpec{
-			Type: backupv1alpha1.BackupStorageTypeS3,
-			S3: &backupv1alpha1.BackupStorageS3Spec{
-				CredentialsSecretRef: common.SecretRef{Name: secret},
+			BackupStorageClassRef: common.ObjectRef{Name: "s3"},
+			Location:              backupv1alpha1.BackupStorageLocation{Bucket: "backups"},
+			Authentication: common.Authentication{
+				Mode:                 "AccessKey",
+				CredentialsSecretRef: &common.SecretRef{Name: secret},
 			},
 		},
 	}

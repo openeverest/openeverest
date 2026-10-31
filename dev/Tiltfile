@@ -704,13 +704,14 @@ if need_backup_storage:
     for namespace in config_yaml['namespaces']:
         ns_name = namespace['name']
         for storage_name in namespace.get('backupStorages', []):
+            secret_name = 'backup-storage-{0}-credentials'.format(storage_name)
             bs_objs=read_yaml_stream(bs_crd_path)
             for obj in bs_objs:
                 if obj['kind'] == 'Secret':
                     obj.update({
                         'metadata': {
                             'namespace': ns_name,
-                            'name': storage_name
+                            'name': secret_name
                         }
                     })
                 elif obj['kind'] == 'BackupStorage':
@@ -720,16 +721,14 @@ if need_backup_storage:
                             'name': storage_name
                         }
                     })
-                    obj['spec']['s3'].update({
-                            'bucket': '{0}'.format(storage_name),
-                            'credentialsSecretRef': {
-                                'name': storage_name,
-                            },
-                    })
+                    obj['spec']['location']['bucket'] = storage_name
+                    obj['spec']['authentication']['credentialsSecretRef'] = {
+                        'name': secret_name,
+                    }
             k8s_yaml(encode_yaml_stream(bs_objs))
             k8s_resource(
                 objects=[
-                    '{0}:Secret:{1}'.format(storage_name, ns_name),
+                    '{0}:Secret:{1}'.format(secret_name, ns_name),
                     '{0}:BackupStorage:{1}'.format(storage_name, ns_name),
                 ],
                 new_name='bs-{0}-{1}'.format(ns_name, storage_name),
@@ -749,6 +748,7 @@ k8s_resource(
   objects=[
     'backupclasses.backup.openeverest.io:customresourcedefinition',
     'backups.backup.openeverest.io:customresourcedefinition',
+    'backupstorageclasses.backup.openeverest.io:customresourcedefinition',
     'backupstorages.backup.openeverest.io:customresourcedefinition',
     'instances.core.openeverest.io:customresourcedefinition',
     'monitoringconfigs.monitoring.openeverest.io:customresourcedefinition',
@@ -762,6 +762,18 @@ k8s_resource(
     'instancepresets.core.openeverest.io:customresourcedefinition'
   ],
   new_name='crds',
+  labels=["everest"]
+)
+
+k8s_yaml(kustomize('{0}/config/backupstorageclasses/'.format(backend_dir)))
+k8s_resource(
+  objects=[
+    's3:backupstorageclass',
+  ],
+  new_name='backup-storage-classes',
+  resource_deps=[
+    'crds',
+  ],
   labels=["everest"]
 )
 

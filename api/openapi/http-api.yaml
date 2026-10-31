@@ -1467,12 +1467,19 @@ paths:
       summary: List backup classes
       description: |
         This API lists all backup classes in the specified cluster.
+        Optionally filter by provider: only the classes whose `spec.supportedProviders` lists that provider are returned.
       operationId: listBackupClasses
       parameters:
         - name: cluster
           in: path
           required: true
           description: The name of the cluster
+          schema:
+            type: string
+        - name: provider
+          in: query
+          required: false
+          description: Return only the backup classes that support the provider with this name
           schema:
             type: string
       responses:
@@ -2154,6 +2161,83 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/backup-storage-classes':
+    x-everest-resource-name: backup-storage-classes
+    get:
+      tags:
+        - Backup Storage
+      summary: List backup storage classes
+      description: |
+        This API lists the backup storage classes, the object storage technologies a backup storage can use, in the specified cluster.
+        Backup storage classes are installed with OpenEverest or an extension and are read-only over this API.
+      operationId: listBackupStorageClasses
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of backup storage classes
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupStorageClassList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/backup-storage-classes/{name}':
+    x-everest-resource-name: backup-storage-classes
+    get:
+      tags:
+        - Backup Storage
+      summary: Get backup storage class
+      description: |
+        This API gets the backup storage class specified by the `name` in the specified `cluster`.
+      operationId: getBackupStorageClass
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the backup storage class
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Backup storage class details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupStorageClass'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Backup storage class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/namespaces/{namespace}/backup-storages':
     x-everest-resource-name: backup-storages
     post:
@@ -2232,6 +2316,7 @@ paths:
       summary: List backup storages
       description: |
         This API lists all backup storages in the specified namespace and cluster.
+        Optionally filter by the backup class that can write to them, as published in `status.backupClasses`, or by their backup storage class.
       operationId: listBackupStorages
       parameters:
         - name: cluster
@@ -2244,6 +2329,18 @@ paths:
           in: path
           required: true
           description: The namespace of the backup storages
+          schema:
+            type: string
+        - name: backupClass
+          in: query
+          required: false
+          description: Return only the backup storages this backup class can write to, as published in `status.backupClasses`
+          schema:
+            type: string
+        - name: backupStorageClass
+          in: query
+          required: false
+          description: Return only the backup storages of this backup storage class
           schema:
             type: string
       responses:

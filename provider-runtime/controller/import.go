@@ -17,6 +17,7 @@ package controller
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -28,63 +29,83 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/api/backup/v1alpha1/storageclasses"
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 )
 
-// NewS3Client builds an S3 client for the given BackupStorage. It returns an
-// error if the storage is not backed by S3. It reads its credentials from the
-// referenced Secret.
+// NewS3Client builds an S3 client for a BackupStorage of the s3 class. It
+// reads the credentials and CA bundle the storage references, and verifies
+// TLS unless the storage turns verification off.
 func NewS3Client(
 	ctx context.Context,
 	c client.Client,
 	storage *backupv1alpha1.BackupStorage,
 ) (*s3.Client, error) {
 	if storage == nil {
-		return nil, fmt.Errorf("nil BackupStorage")
+		return nil, errors.New("nil BackupStorage")
+	}
+	if class := storage.Spec.BackupStorageClassRef.Name; class != storageclasses.ClassS3 {
+		return nil, fmt.Errorf("BackupStorage %q is of BackupStorageClass %q; only %q is supported", storage.Name, class, storageclasses.ClassS3)
 	}
 
-	spec := storage.Spec.S3
-	if spec == nil {
-		return nil, fmt.Errorf("BackupStorage %q is not an S3 storage", storage.Name)
+	var data map[string][]byte
+	if ref := storage.Spec.Authentication.CredentialsSecretRef; ref != nil {
+		secret := &corev1.Secret{}
+		if err := c.Get(ctx, client.ObjectKey{Namespace: storage.Namespace, Name: ref.Name}, secret); err != nil {
+			return nil, fmt.Errorf("get credentials secret %q: %w", ref.Name, err)
+		}
+		data = secret.Data
 	}
-
-	ref := storage.Spec.S3.CredentialsSecretRef.Name
-	secret := &corev1.Secret{}
-	if err := c.Get(ctx, client.ObjectKey{
-		Namespace: storage.Namespace,
-		Name:      ref,
-	}, secret,
-	); err != nil {
-		return nil, fmt.Errorf("get credentials secret %q: %w", ref, err)
+	params, creds, err := storageclasses.S3From(storage.Spec.Location, storage.Spec.Parameters, storage.Spec.Authentication.Mode, data)
+	if err != nil {
+		return nil, fmt.Errorf("BackupStorage %q: %w", storage.Name, err)
 	}
-
-	accessKeyID := string(secret.Data["AWS_ACCESS_KEY_ID"])
-	secretAccessKey := string(secret.Data["AWS_SECRET_ACCESS_KEY"])
-
-	verifyTLS := true
-	if spec.VerifyTLS != nil {
-		verifyTLS = *spec.VerifyTLS
+	tlsConfig, err := storageTLSConfig(ctx, c, storage)
+	if err != nil {
+		return nil, err
 	}
 
 	httpClient := awshttp.NewBuildableClient().WithTransportOptions(func(tr *http.Transport) {
-		if !verifyTLS {
-			if tr.TLSClientConfig == nil {
-				tr.TLSClientConfig = &tls.Config{}
-			}
-			tr.TLSClientConfig.InsecureSkipVerify = true
-		}
+		tr.TLSClientConfig = tlsConfig
 	})
-
 	cfg := aws.Config{
-		Region:      spec.Region,
-		Credentials: credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, ""),
+		Region:      params.Region,
+		Credentials: credentials.NewStaticCredentialsProvider(creds.AccessKeyID, creds.SecretAccessKey, ""),
 		HTTPClient:  httpClient,
 	}
-
-	forcePathStyle := spec.ForcePathStyle != nil && *spec.ForcePathStyle
+	// S3-compatible gateways reject the checksums the SDK sends to Amazon S3
+	// by default.
+	whenRequired := params.EffectiveImplementation() != storageclasses.S3ImplementationAWS
 	return s3.NewFromConfig(cfg, func(o *s3.Options) {
-		if spec.EndpointURL != "" {
-			o.BaseEndpoint = aws.String(spec.EndpointURL)
+		o.BaseEndpoint = aws.String(params.EndpointURL)
+		o.UsePathStyle = params.ForcePathStyle
+		if whenRequired {
+			o.RequestChecksumCalculation = aws.RequestChecksumCalculationWhenRequired
+			o.ResponseChecksumValidation = aws.ResponseChecksumValidationWhenRequired
 		}
-		o.UsePathStyle = forcePathStyle
 	}), nil
+}
+
+// storageTLSConfig returns the TLS client configuration of a storage's
+// spec.tls: its CA bundle, or no verification.
+func storageTLSConfig(ctx context.Context, c client.Client, storage *backupv1alpha1.BackupStorage) (*tls.Config, error) {
+	cfg := &tls.Config{MinVersion: tls.VersionTLS12}
+	t := storage.Spec.TLS
+	switch {
+	case t == nil:
+	case t.InsecureSkipVerify:
+		cfg.InsecureSkipVerify = true
+	case t.CA != nil && t.CA.SecretKeyRef != nil:
+		ref := t.CA.SecretKeyRef
+		secret := &corev1.Secret{}
+		if err := c.Get(ctx, client.ObjectKey{Namespace: storage.Namespace, Name: ref.Name}, secret); err != nil {
+			return nil, fmt.Errorf("get CA secret %q: %w", ref.Name, err)
+		}
+		pool, err := common.ParseCABundle(secret.Data[ref.Key])
+		if err != nil {
+			return nil, fmt.Errorf("CA secret %q key %q: %w", ref.Name, ref.Key, err)
+		}
+		cfg.RootCAs = pool
+	}
+	return cfg, nil
 }

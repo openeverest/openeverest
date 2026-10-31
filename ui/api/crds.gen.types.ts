@@ -296,6 +296,21 @@ export interface components {
             metadata?: components["schemas"]["ObjectMeta"];
             /** @description BackupClassSpec defines the desired state of BackupClass. */
             spec: {
+                /**
+                 * @description BackupStorageClasses lists the BackupStorageClasses the class's executor
+                 *     can write to, each with the authentication modes it supports. A
+                 *     BackupStorage is usable with the class only when both its class and
+                 *     its authentication mode are listed.
+                 */
+                backupStorageClasses: {
+                    /**
+                     * @description AuthModes are the authentication modes of that class the executor
+                     *     supports.
+                     */
+                    authModes: string[];
+                    /** @description Name of the BackupStorageClass. */
+                    name: string;
+                }[];
                 /** @description Description is the description of the backup class. */
                 description?: string;
                 /** @description DisplayName is a human-readable name for the backup class. */
@@ -762,69 +777,137 @@ export interface components {
             kind?: string;
             metadata?: components["schemas"]["ObjectMeta"];
             /**
-             * @description BackupStorageSpec defines the desired state of a BackupStorage.
-             *
-             *     A BackupStorage is a reusable, namespaced reference to an object store
-             *     (today only S3-compatible) plus the credentials needed to talk to it.
-             *     It is referenced by name from:
-             *
-             *       - Instance.spec.backup.storages[].storageRef
-             *       - Backup.spec.storageRef
-             *
-             *     Decoupling storage from individual Backup CRs makes provider-managed
-             *     backups (e.g. PBM, pgBackRest) practical: the provider can register a
-             *     fixed set of storages on the engine without recomputing them from a
-             *     dynamic list of Backup CRs.
+             * @description BackupStorageSpec defines the desired state of a BackupStorage: an object
+             *     store, of the technology a BackupStorageClass describes, that backups are
+             *     written to. It is referenced by name from Instance.spec.backup.storages,
+             *     Backup.spec.storageRef, Restore point-in-time sources and BackupImports.
              */
             spec: {
                 /**
-                 * @description S3 contains S3-compatible storage configuration.
-                 *     Required when Type is "s3".
+                 * @description Authentication names one of the class's authModes and, for every mode
+                 *     but WorkloadIdentity, the Secret in the same namespace holding that
+                 *     mode's credentials keys.
                  */
-                s3?: {
+                authentication: {
                     /**
-                     * @description AccessKeyID is a write-only convenience input. When set, a webhook
-                     *     stores it in the Secret named by CredentialsSecretRef and clears
-                     *     this field. It is never persisted on the BackupStorage object.
+                     * @description CredentialsSecretRef references the Secret in the same namespace that
+                     *     holds the credentials keys of the mode.
                      */
-                    accessKeyId?: string;
-                    /** @description Bucket is the name of the S3 bucket. */
-                    bucket: string;
-                    /**
-                     * @description CredentialsSecretRef references the Secret in the same namespace
-                     *     that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
-                     */
-                    credentialsSecretRef: {
+                    credentialsSecretRef?: {
                         /** @description Name of the referenced Secret. */
                         name: string;
                     };
-                    /** @description EndpointURL is the endpoint URL of the S3-compatible service. */
-                    endpointURL: string;
-                    /**
-                     * @description ForcePathStyle forces path-style URLs (bucket name in the path
-                     *     instead of the host). Defaults to false.
-                     * @default false
-                     */
-                    forcePathStyle?: boolean;
-                    /** @description Region is the region of the S3 bucket. */
-                    region: string;
-                    /** @description SecretAccessKey is a write-only convenience input. See AccessKeyID. */
-                    secretAccessKey?: string;
-                    /**
-                     * @description VerifyTLS enables TLS certificate verification.
-                     *     Defaults to true.
-                     * @default true
-                     */
-                    verifyTLS?: boolean;
+                    /** @description Mode names one of the class's authModes. */
+                    mode: string;
                 };
                 /**
-                 * @description Type is the object storage type. Today only "s3" is supported.
-                 * @enum {string}
+                 * @description BackupStorageClassRef names the BackupStorageClass, the object storage
+                 *     technology.
                  */
-                type: "s3";
+                backupStorageClassRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
+                /**
+                 * @description Location is where backups are kept. Engines treat it as their catalog,
+                 *     so it cannot change: create a new BackupStorage instead.
+                 */
+                location: {
+                    /**
+                     * @description Bucket is the bucket, or the container for technologies that call it
+                     *     so.
+                     */
+                    bucket: string;
+                    /**
+                     * @description Prefix is the path within the bucket under which backups are written,
+                     *     without leading or trailing slash.
+                     */
+                    prefix?: string;
+                };
+                /**
+                 * @description Parameters are the connection parameters of the technology, validated
+                 *     against the class's parametersSchema.
+                 */
+                parameters?: Record<string, never>;
+                /**
+                 * @description TLS is how executors verify the server certificate of the store.
+                 *     Absent means the system trust store.
+                 */
+                tls?: {
+                    /**
+                     * @description CA is the PEM bundle the server certificate is verified against,
+                     *     instead of the system trust store.
+                     */
+                    ca?: {
+                        /** @description SecretKeyRef selects the Secret key holding the PEM bundle. */
+                        secretKeyRef?: {
+                            /** @description Key within the Secret. */
+                            key: string;
+                            /** @description Name of the referenced Secret. */
+                            name: string;
+                        };
+                    };
+                    /** @description InsecureSkipVerify disables verification of the server certificate. */
+                    insecureSkipVerify?: boolean;
+                };
             };
             /** @description BackupStorageStatus defines the observed state of a BackupStorage. */
-            status?: Record<string, never>;
+            status?: {
+                /**
+                 * @description BackupClasses lists every BackupClass and whether it can write to the
+                 *     storage.
+                 */
+                backupClasses?: {
+                    /**
+                     * @description Compatible is true when the BackupClass supports the storage's class and
+                     *     authentication mode.
+                     */
+                    compatible: boolean;
+                    /** @description Name of the BackupClass. */
+                    name: string;
+                    /** @description Reason is why the BackupClass cannot write to the storage. */
+                    reason?: string;
+                }[];
+                /**
+                 * @description Conditions: Accepted, written by core, and Deleting while a deleted
+                 *     storage waits for its referrers.
+                 */
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+            };
         };
         /**
          * @description BackupStorageClass describes an object storage technology that

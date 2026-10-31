@@ -8,9 +8,15 @@ type: Opaque
 apiVersion: backup.openeverest.io/v1alpha1
 kind: BackupStorage
 spec:
-  type: s3
-  s3:
+  backupStorageClassRef:
+    name: s3
+  location: {}
+  parameters:
     endpointURL: https://seaweedfs.seaweedfs.svc.cluster.local
     forcePathStyle: true
     region: us-east-1
-    verifyTLS: false
+    implementation: other
+  authentication:
+    mode: AccessKey
+  tls:
+    insecureSkipVerify: true

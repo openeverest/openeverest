@@ -1,17 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
 apiVersion: chainsaw.kyverno.io/v1alpha1
 kind: Test
 metadata:
   name: backupstorage
 spec:
   description: |
-    Test BackupStorage
+    Test BackupStorage: Accepted against the built-in s3 BackupStorageClass,
+    status.backupClasses, admission rules, immutability and the in-use
+    protection finalizer.
   timeouts:
     apply: 10s
     assert: 30s
     delete: 30s
   steps:
-    # Step 0: Create Provider and BackupClass for testing
-    - name: create-provider-and-backupclass
+    - name: create-provider-and-backupclasses
       try:
         - apply:
             resource:
@@ -47,30 +49,45 @@ spec:
               apiVersion: backup.openeverest.io/v1alpha1
               kind: BackupClass
               metadata:
-                name: test-backupclass
+                name: bs-test-accesskey
               spec:
                 executionMode: ProviderManaged
                 supportedProviders:
                   - test-provider
+                backupStorageClasses:
+                  - name: s3
+                    authModes: [AccessKey]
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupClass
+              metadata:
+                name: bs-test-workload-identity
+              spec:
+                executionMode: ProviderManaged
+                supportedProviders:
+                  - test-provider
+                backupStorageClasses:
+                  - name: s3
+                    authModes: [WorkloadIdentity]
       catch:
         - podLogs:
             namespace: openeverest-system
             selector: control-plane=controller-manager
             tail: 100
 
-    # Step 1: Create BackupStorage with credentials secret
-    - name: create-backupstorage
+    - name: create-accepted-backupstorage
       try:
         - apply:
             resource:
               apiVersion: v1
               kind: Secret
               metadata:
-                name: bs-test-secret
+                name: bs-test-credentials
               type: Opaque
-              data:
-                AWS_ACCESS_KEY_ID: dGVzdC1hY2Nlc3Mta2V5
-                AWS_SECRET_ACCESS_KEY: dGVzdC1zZWNyZXQta2V5
+              stringData:
+                AWS_ACCESS_KEY_ID: test-access-key
+                AWS_SECRET_ACCESS_KEY: test-secret-key
         - apply:
             resource:
               apiVersion: backup.openeverest.io/v1alpha1
@@ -78,14 +95,18 @@ spec:
               metadata:
                 name: bs-test
               spec:
-                type: s3
-                s3:
+                backupStorageClassRef:
+                  name: s3
+                location:
                   bucket: test-bucket
-                  credentialsSecretRef:
-                    name: bs-test-secret
-                  endpointURL: https://s3.amazonaws.com
+                  prefix: everest/ci
+                parameters:
                   region: us-east-1
-        # Assert BackupStorage is created with finalizer
+                  endpointURL: https://s3.amazonaws.com
+                authentication:
+                  mode: AccessKey
+                  credentialsSecretRef:
+                    name: bs-test-credentials
         - assert:
             resource:
               apiVersion: backup.openeverest.io/v1alpha1
@@ -94,41 +115,266 @@ spec:
                 name: bs-test
                 finalizers:
                   - backupstorage.backup.openeverest.io/in-use-protection
-              spec:
-                type: s3
-                s3:
-                  bucket: test-bucket
-                  credentialsSecretRef:
-                    name: bs-test-secret
-                  endpointURL: https://s3.amazonaws.com
-                  region: us-east-1
-        # Assert Secret has ownerReference to BackupStorage
-        - assert:
-            resource:
-              apiVersion: v1
-              kind: Secret
-              metadata:
-                name: bs-test-secret
-                ownerReferences:
-                  - apiVersion: backup.openeverest.io/v1alpha1
-                    blockOwnerDeletion: true
-                    controller: true
-                    kind: BackupStorage
-                    name: bs-test
-              data:
-                AWS_ACCESS_KEY_ID: dGVzdC1hY2Nlc3Mta2V5
-                AWS_SECRET_ACCESS_KEY: dGVzdC1zZWNyZXQta2V5
+              status:
+                "(conditions[?type == 'Accepted'])":
+                  - status: "True"
+                    reason: Accepted
+                "(backupClasses[?name == 'bs-test-accesskey'])":
+                  - compatible: true
+                "(backupClasses[?name == 'bs-test-workload-identity'])":
+                  - compatible: false
+                    reason: AuthModeUnsupported
       catch:
         - script:
-            content: kubectl get backupstorage/bs-test -o yaml
-        - script:
-            content: kubectl get secret/bs-test-secret -o yaml
+            content: kubectl get backupstorage/bs-test -n $NAMESPACE -o yaml
         - podLogs:
             namespace: openeverest-system
             selector: control-plane=controller-manager
             tail: 100
 
-    # Step 2: Create Instance that uses BackupStorage
+    - name: credentials-secret-created-later
+      try:
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test-late-secret
+              spec:
+                backupStorageClassRef:
+                  name: s3
+                location:
+                  bucket: test-bucket
+                parameters:
+                  region: us-east-1
+                  endpointURL: https://s3.amazonaws.com
+                authentication:
+                  mode: AccessKey
+                  credentialsSecretRef:
+                    name: bs-test-late-secret-credentials
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test-late-secret
+              status:
+                "(conditions[?type == 'Accepted'])":
+                  - status: "False"
+                    reason: CredentialsNotFound
+                    (contains(message, 'not found')): true
+        # A Secret without a key the AccessKey mode requires is still not enough.
+        - apply:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: bs-test-late-secret-credentials
+              type: Opaque
+              stringData:
+                AWS_ACCESS_KEY_ID: test-access-key
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test-late-secret
+              status:
+                "(conditions[?type == 'Accepted'])":
+                  - status: "False"
+                    reason: CredentialsNotFound
+                    (contains(message, 'AWS_SECRET_ACCESS_KEY')): true
+        - apply:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: bs-test-late-secret-credentials
+              type: Opaque
+              stringData:
+                AWS_ACCESS_KEY_ID: test-access-key
+                AWS_SECRET_ACCESS_KEY: test-secret-key
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test-late-secret
+              status:
+                "(conditions[?type == 'Accepted'])":
+                  - status: "True"
+                    reason: Accepted
+      catch:
+        - script:
+            content: kubectl get backupstorage/bs-test-late-secret -n $NAMESPACE -o yaml
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+
+    - name: rejected-by-class
+      try:
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test-missing-class
+              spec:
+                backupStorageClassRef:
+                  name: does-not-exist
+                location:
+                  bucket: test-bucket
+                authentication:
+                  mode: AccessKey
+                  credentialsSecretRef:
+                    name: bs-test-credentials
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test-no-region
+              spec:
+                backupStorageClassRef:
+                  name: s3
+                location:
+                  bucket: test-bucket
+                parameters:
+                  endpointURL: https://s3.amazonaws.com
+                authentication:
+                  mode: AccessKey
+                  credentialsSecretRef:
+                    name: bs-test-credentials
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test-missing-class
+              status:
+                "(conditions[?type == 'Accepted'])":
+                  - status: "False"
+                    reason: ClassNotFound
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test-no-region
+              status:
+                "(conditions[?type == 'Accepted'])":
+                  - status: "False"
+                    reason: InvalidParameters
+                    (contains(message, 'region')): true
+      catch:
+        - script:
+            content: kubectl get backupstorage/bs-test-missing-class backupstorage/bs-test-no-region -n $NAMESPACE -o yaml
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+
+    - name: immutable-fields
+      try:
+        - script:
+            content: |
+              kubectl patch backupstorage bs-test -n "$NAMESPACE" --type=merge --dry-run=server \
+                -p '{"spec":{"location":{"bucket":"other-bucket"}}}'
+            check:
+              ($error != null): true
+              (contains($stderr, 'location is immutable')): true
+        - script:
+            content: |
+              kubectl patch backupstorage bs-test -n "$NAMESPACE" --type=merge --dry-run=server \
+                -p '{"spec":{"location":{"prefix":"elsewhere"}}}'
+            check:
+              ($error != null): true
+              (contains($stderr, 'location is immutable')): true
+        - script:
+            content: |
+              kubectl patch backupstorage bs-test -n "$NAMESPACE" --type=merge --dry-run=server \
+                -p '{"spec":{"backupStorageClassRef":{"name":"other"}}}'
+            check:
+              ($error != null): true
+              (contains($stderr, 'backupStorageClassRef is immutable')): true
+        - script:
+            content: |
+              kubectl patch backupstorage bs-test -n "$NAMESPACE" --type=merge --dry-run=server \
+                -p '{"spec":{"parameters":{"region":"eu-west-1"},"authentication":{"credentialsSecretRef":{"name":"bs-test-late-secret-credentials"}}}}'
+            check:
+              ($error): ~
+
+    - name: admission
+      try:
+        - script:
+            content: |
+              kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test-anonymous
+              spec:
+                backupStorageClassRef: {name: s3}
+                location: {bucket: test-bucket}
+                parameters: {region: us-east-1, endpointURL: 'https://s3.amazonaws.com'}
+                authentication: {mode: Anonymous}
+              EOF
+            check:
+              ($error != null): true
+              (contains($stderr, 'a BackupStorage cannot use the Anonymous authentication mode')): true
+        - script:
+            content: |
+              kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test-ca-and-skip
+              spec:
+                backupStorageClassRef: {name: s3}
+                location: {bucket: test-bucket}
+                parameters: {region: us-east-1, endpointURL: 'https://s3.amazonaws.com'}
+                authentication: {mode: AccessKey, credentialsSecretRef: {name: bs-test-credentials}}
+                tls:
+                  ca: {secretKeyRef: {name: corp-ca, key: ca.crt}}
+                  insecureSkipVerify: true
+              EOF
+            check:
+              ($error != null): true
+              (contains($stderr, 'ca and insecureSkipVerify are mutually exclusive')): true
+        - script:
+            content: |
+              kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test-dotdot-prefix
+              spec:
+                backupStorageClassRef: {name: s3}
+                location: {bucket: test-bucket, prefix: everest/../other}
+                parameters: {region: us-east-1, endpointURL: 'https://s3.amazonaws.com'}
+                authentication: {mode: AccessKey, credentialsSecretRef: {name: bs-test-credentials}}
+              EOF
+            check:
+              ($error != null): true
+              (contains($stderr, 'prefix must not contain')): true
+        - script:
+            content: |
+              kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test-no-secret-ref
+              spec:
+                backupStorageClassRef: {name: s3}
+                location: {bucket: test-bucket}
+                parameters: {region: us-east-1, endpointURL: 'https://s3.amazonaws.com'}
+                authentication: {mode: AccessKey}
+              EOF
+            check:
+              ($error != null): true
+              (contains($stderr, 'credentialsSecretRef is required for every mode except WorkloadIdentity and Anonymous, which take none')): true
+
     - name: create-instance-with-backupstorage
       try:
         - apply:
@@ -143,11 +389,10 @@ spec:
                 backup:
                   enabled: true
                   classRef:
-                    name: test-backupclass
+                    name: bs-test-accesskey
                   storages:
                     - storageRef:
                         name: bs-test
-        # Assert Instance is created
         - assert:
             resource:
               apiVersion: core.openeverest.io/v1alpha1
@@ -155,31 +400,24 @@ spec:
               metadata:
                 name: test-instance-bs
               spec:
-                providerRef:
-                  name: test-provider
                 backup:
-                  enabled: true
                   classRef:
-                    name: test-backupclass
+                    name: bs-test-accesskey
                   storages:
                     - storageRef:
                         name: bs-test
       catch:
         - script:
-            content: kubectl get instance/test-instance-bs -o yaml
-        - script:
-            content: kubectl get backupstorage/bs-test -o yaml
+            content: kubectl get instance/test-instance-bs -n $NAMESPACE -o yaml
         - podLogs:
             namespace: openeverest-system
             selector: control-plane=controller-manager
             tail: 100
 
-    # Step 3: Try to delete BackupStorage (should be blocked by Instance)
-    - name: try-delete-backupstorage-blocked-by-instance
+    - name: delete-blocked-by-instance
       try:
         - script:
             content: kubectl delete backupstorage bs-test -n $NAMESPACE --wait=false
-        # Assert BackupStorage still exists with deletion timestamp and finalizer
         - assert:
             resource:
               apiVersion: backup.openeverest.io/v1alpha1
@@ -189,17 +427,19 @@ spec:
                 finalizers:
                   - backupstorage.backup.openeverest.io/in-use-protection
                 (deletionTimestamp != null): true
+              status:
+                "(conditions[?type == 'Deleting'])":
+                  - status: "True"
+                    reason: WaitingForReferrers
+                    message: still referenced by 1 Instance(s)
       catch:
         - script:
-            content: kubectl get backupstorage/bs-test -o yaml
-        - script:
-            content: kubectl get instance/test-instance-bs -o yaml
+            content: kubectl get backupstorage/bs-test -n $NAMESPACE -o yaml
         - podLogs:
             namespace: openeverest-system
             selector: control-plane=controller-manager
             tail: 100
 
-    # Step 4: Create Backup that also references the same BackupStorage
     - name: create-backup-with-backupstorage
       try:
         - apply:
@@ -214,42 +454,9 @@ spec:
                   instanceRef:
                     name: test-instance-bs
                 classRef:
-                  name: test-backupclass
+                  name: bs-test-accesskey
                 storageRef:
                   name: bs-test
-        # Assert Backup is created
-        - assert:
-            resource:
-              apiVersion: backup.openeverest.io/v1alpha1
-              kind: Backup
-              metadata:
-                name: test-backup-bs
-              spec:
-                origin:
-                  type: Instance
-                  instanceRef:
-                    name: test-instance-bs
-                classRef:
-                  name: test-backupclass
-                storageRef:
-                  name: bs-test
-      catch:
-        - script:
-            content: kubectl get backup/test-backup-bs -o yaml
-        - script:
-            content: kubectl get backupstorage/bs-test -o yaml
-        - podLogs:
-            namespace: openeverest-system
-            selector: control-plane=controller-manager
-            tail: 100
-
-    # Step 5: BackupStorage should still be in Terminating state (blocked by both Instance and Backup)
-    - name: assert-backupstorage-still-terminating
-      try:
-        # Wait a bit for reconciliation
-        - sleep:
-            duration: 2s
-        # Assert BackupStorage still exists with deletion timestamp and finalizer
         - assert:
             resource:
               apiVersion: backup.openeverest.io/v1alpha1
@@ -259,28 +466,25 @@ spec:
                 finalizers:
                   - backupstorage.backup.openeverest.io/in-use-protection
                 (deletionTimestamp != null): true
+              status:
+                "(conditions[?type == 'Deleting'])":
+                  - status: "True"
+                    reason: WaitingForReferrers
+                    message: still referenced by 1 Instance(s), 1 Backup(s)
       catch:
         - script:
-            content: kubectl get backupstorage/bs-test -o yaml
+            content: kubectl get backupstorage/bs-test -n $NAMESPACE -o yaml
         - script:
-            content: kubectl get instance/test-instance-bs -o yaml
-        - script:
-            content: kubectl get backup/test-backup-bs -o yaml
+            content: kubectl get backup/test-backup-bs -n $NAMESPACE -o yaml
         - podLogs:
             namespace: openeverest-system
             selector: control-plane=controller-manager
             tail: 100
 
-    # Step 6: Delete Instance (BackupStorage should still be blocked by Backup)
     - name: delete-instance
       try:
         - script:
             content: kubectl delete instance test-instance-bs -n $NAMESPACE --wait=false
-
-    # Step 7: BackupStorage should still be in Terminating state (blocked by Backup only now)
-    - name: assert-backupstorage-still-blocked-by-backup
-      try:
-        # Assert BackupStorage still exists with deletion timestamp and finalizer
         - assert:
             resource:
               apiVersion: backup.openeverest.io/v1alpha1
@@ -290,26 +494,25 @@ spec:
                 finalizers:
                   - backupstorage.backup.openeverest.io/in-use-protection
                 (deletionTimestamp != null): true
+              status:
+                "(conditions[?type == 'Deleting'])":
+                  - status: "True"
+                    reason: WaitingForReferrers
+                    message: still referenced by 1 Backup(s)
       catch:
         - script:
-            content: kubectl get backupstorage/bs-test -o yaml
+            content: kubectl get backupstorage/bs-test -n $NAMESPACE -o yaml
         - script:
-            content: kubectl get backup/test-backup-bs -o yaml
+            content: kubectl get instance/test-instance-bs -n $NAMESPACE -o yaml
         - podLogs:
             namespace: openeverest-system
             selector: control-plane=controller-manager
             tail: 100
 
-    # Step 8: Delete Backup to unblock BackupStorage deletion
-    - name: delete-backup
+    - name: delete-backup-releases-backupstorage
       try:
         - script:
             content: kubectl delete backup test-backup-bs -n $NAMESPACE --wait=false
-
-    # Step 9: Assert BackupStorage is now deleted
-    - name: assert-backupstorage-deleted
-      try:
-        # BackupStorage should be gone now
         - error:
             resource:
               apiVersion: backup.openeverest.io/v1alpha1
@@ -318,16 +521,10 @@ spec:
                 name: bs-test
       catch:
         - script:
-            content: kubectl get backupstorage/bs-test -o yaml
+            content: kubectl get backupstorage/bs-test -n $NAMESPACE -o yaml
+        - script:
+            content: kubectl get backup/test-backup-bs -n $NAMESPACE -o yaml
         - podLogs:
             namespace: openeverest-system
             selector: control-plane=controller-manager
             tail: 100
-
-    # Step 10: Cleanup - Delete remaining resources
-    - name: cleanup
-      try:
-        - script:
-            content: kubectl delete backupclass test-backupclass -n $NAMESPACE
-        - script:
-            content: kubectl delete provider test-provider -n $NAMESPACE
