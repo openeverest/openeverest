@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { BackupStorageSecretConflictError } from 'api/backupStorage';
 import {
   BackupStorageCRD,
   BackupStorageFormValues,
@@ -24,4 +25,5 @@ export interface CreateEditModalStorageProps {
   selectedStorageLocation?: BackupStorageCRD;
   prefillNamespace?: string;
   isLoading?: boolean;
+  secretConflict?: BackupStorageSecretConflictError;
 }

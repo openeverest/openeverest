@@ -13,20 +13,19 @@
 // limitations under the License.
 
 import { FormDialog } from 'components/form-dialog/form-dialog';
-import TlsAlert from 'components/tls-alert';
+import { useBackupStorageClasses } from 'hooks/api/backup-storage-classes';
 import { useMemo } from 'react';
-import { SubmitHandler } from 'react-hook-form';
 import { BackupStorageFormValues } from 'shared-types/backupStorages.types';
 import { Messages } from '../storage-locations.messages';
-import {
-  StorageLocationsFields,
-  storageLocationDefaultValues,
-  storageLocationEditValues,
-  storageLocationsEditSchema,
-  storageLocationsSchema,
-} from '../storage-locations.types';
 import { CreateEditStorageForm } from './create-edit-form';
 import { CreateEditModalStorageProps } from './create-edit-modal.types';
+import {
+  findBackupStorageClass,
+  prepareStorageSubmitValues,
+  storageLocationDefaultValues,
+  storageLocationEditValues,
+  storageLocationSchema,
+} from './create-edit-modal.utils';
 
 export const CreateEditModalStorage = ({
   open,
@@ -35,11 +34,16 @@ export const CreateEditModalStorage = ({
   selectedStorageLocation,
   isLoading = false,
   prefillNamespace = '',
+  secretConflict,
 }: CreateEditModalStorageProps) => {
   const isEditMode = !!selectedStorageLocation;
+  const { data, isLoading: loadingBackupStorageClasses } =
+    useBackupStorageClasses();
+  const backupStorageClasses = useMemo(() => data ?? [], [data]);
+
   const schema = useMemo(
-    () => (isEditMode ? storageLocationsEditSchema : storageLocationsSchema),
-    [isEditMode]
+    () => storageLocationSchema(backupStorageClasses, selectedStorageLocation),
+    [backupStorageClasses, selectedStorageLocation]
   );
 
   const defaultValues = useMemo(
@@ -50,12 +54,18 @@ export const CreateEditModalStorage = ({
     [prefillNamespace, selectedStorageLocation]
   );
 
-  const onSubmit: SubmitHandler<BackupStorageFormValues> = (data) => {
-    handleSubmitModal(isEditMode, data);
-  };
+  const onSubmit = (data: BackupStorageFormValues) =>
+    handleSubmitModal(
+      isEditMode,
+      prepareStorageSubmitValues(
+        data,
+        findBackupStorageClass(backupStorageClasses, data.backupStorageClass),
+        selectedStorageLocation
+      )
+    );
 
   return (
-    <FormDialog
+    <FormDialog<BackupStorageFormValues>
       size="XL"
       isOpen={open}
       closeModal={handleCloseModal}
@@ -66,14 +76,13 @@ export const CreateEditModalStorage = ({
       schema={schema}
       defaultValues={defaultValues}
     >
-      {({ watch }) => (
-        <>
-          <CreateEditStorageForm isEditMode={isEditMode} />
-          {!watch(StorageLocationsFields.verifyTLS) && (
-            <TlsAlert sx={{ mt: 2 }} />
-          )}
-        </>
-      )}
+      <CreateEditStorageForm
+        isEditMode={isEditMode}
+        backupStorageClasses={backupStorageClasses}
+        loadingBackupStorageClasses={loadingBackupStorageClasses}
+        previous={selectedStorageLocation}
+        secretConflict={secretConflict}
+      />
     </FormDialog>
   );
 };

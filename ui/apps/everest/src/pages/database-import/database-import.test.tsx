@@ -22,7 +22,10 @@ import { Backup, BackupClass, BackupImport } from 'shared-types/backups.types';
 import {
   BackupStorageCRD,
   BackupStorageFormValues,
-  StorageType,
+  BackupStorageListFilter,
+  CaSource,
+  CredentialsSource,
+  TlsMode,
 } from 'shared-types/backupStorages.types';
 import { DatabaseImportPage } from './database-import';
 import { Messages } from './database-import.messages';
@@ -40,19 +43,30 @@ const CLASSES: BackupClass[] = [
       executionMode: 'ProviderManaged',
       providerManaged: { providerRef: { name: 'psmdb' } },
       supportsImport: true,
+      backupStorageClasses: [{ name: 's3', authModes: ['AccessKey'] }],
     },
   },
 ];
-const storage = (name: string): BackupStorageCRD => ({
+const storage = (name: string, mode = 'AccessKey'): BackupStorageCRD => ({
   metadata: { name },
   spec: {
-    type: 's3',
-    s3: {
-      bucket: name,
-      region: 'us-east-1',
-      endpointURL: 'https://s3.example.com',
+    backupStorageClassRef: { name: 's3' },
+    location: { objectStore: { bucket: name } },
+    authentication: {
+      mode,
       credentialsSecretRef: { name: 'creds' },
     },
+  },
+  status: {
+    conditions: [
+      {
+        type: 'Accepted',
+        status: 'True',
+        reason: 'Accepted',
+        message: '',
+        lastTransitionTime: '2026-10-01T10:00:00Z',
+      },
+    ],
   },
 });
 const STORAGES_BY_NAMESPACE: Record<string, BackupStorageCRD[]> = {
@@ -63,14 +77,20 @@ const STORAGES_BY_NAMESPACE: Record<string, BackupStorageCRD[]> = {
 const ADDED_STORAGE: BackupStorageFormValues = {
   name: 's3-added',
   namespace: 'ns-a',
-  type: StorageType.S3,
-  bucketName: 's3-added',
-  url: 'https://s3.example.com',
-  region: 'us-east-1',
-  accessKey: 'key',
-  secretKey: 'secret',
-  verifyTLS: true,
-  forcePathStyle: false,
+  backupStorageClass: 's3',
+  spec: {
+    location: { objectStore: { bucket: 's3-added' } },
+    parameters: { region: 'us-east-1', endpointURL: 'https://s3.example.com' },
+  },
+  authMode: 'AccessKey',
+  credentialsSource: CredentialsSource.New,
+  credentialsSecretName: '',
+  credentials: { AWS_ACCESS_KEY_ID: 'key', AWS_SECRET_ACCESS_KEY: 'secret' },
+  tlsMode: TlsMode.System,
+  caSource: CaSource.New,
+  caBundle: '',
+  caSecretName: '',
+  caSecretKey: '',
 };
 const SOURCE_METADATA = {
   engineVersion: '8.0.12-4',
@@ -119,8 +139,21 @@ vi.mock('hooks/api/backup-classes/useBackupClasses', () => ({
 }));
 vi.mock('hooks/api/backup-storages/useBackupStorages', () => ({
   BACKUP_STORAGES_QUERY_KEY: 'backupStorages',
-  useBackupStoragesByNamespace: (namespace: string) => ({
-    data: STORAGES_BY_NAMESPACE[namespace],
+  useBackupStoragesByNamespace: (
+    namespace: string,
+    filter?: BackupStorageListFilter
+  ) => ({
+    data: (STORAGES_BY_NAMESPACE[namespace] ?? []).filter(
+      (s) =>
+        !filter?.backupClass ||
+        CLASSES.find(
+          (c) => c.metadata?.name === filter.backupClass
+        )?.spec.backupStorageClasses.some(
+          (sc) =>
+            sc.name === s.spec.backupStorageClassRef.name &&
+            sc.authModes.includes(s.spec.authentication.mode)
+        )
+    ),
     isLoading: false,
     isFetching: false,
   }),
@@ -236,6 +269,27 @@ describe('DatabaseImportPage', () => {
     await waitFor(() =>
       expect(screen.getByTestId('text-input-storage')).toHaveValue('s3-new')
     );
+  });
+
+  it('offers only the storages the backup class can write to', async () => {
+    STORAGES_BY_NAMESPACE['ns-a'] = [
+      storage('s3-other', 'WorkloadIdentity'),
+      storage('s3-old'),
+    ];
+    render(page());
+
+    await waitFor(() =>
+      expect(screen.getByTestId('text-input-storage')).toHaveValue('s3-old')
+    );
+    fireEvent.keyDown(screen.getByTestId('text-input-storage'), {
+      key: 'ArrowDown',
+    });
+    expect(
+      await screen.findByRole('option', { name: 's3-old' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('option', { name: 's3-other' })
+    ).not.toBeInTheDocument();
   });
 
   it('asks to add a storage when the namespace has none', async () => {

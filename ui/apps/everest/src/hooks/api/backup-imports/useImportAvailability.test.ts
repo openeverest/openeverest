@@ -26,7 +26,11 @@ interface NamespacePermissions {
 
 const IMPORT_CLASS: BackupClass = {
   metadata: { name: 'psmdb-pbm' },
-  spec: { executionMode: 'ProviderManaged', supportsImport: true },
+  spec: {
+    executionMode: 'ProviderManaged',
+    supportsImport: true,
+    backupStorageClasses: [],
+  },
 };
 
 const mocks = vi.hoisted(() => {
