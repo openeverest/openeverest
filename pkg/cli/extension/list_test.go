@@ -33,13 +33,17 @@ func TestPluginLister_Render_JSON(t *testing.T) {
 		{
 			Name:        "backup-storage",
 			DisplayName: "Backup Storage Extension",
-			BackendURL:  "backup-storage.everest:8080 (in-cluster)",
-			Enabled:     true,
+			ServiceRef: &extensionsv1alpha1.PluginBackendServiceRef{
+				Namespace: "everest",
+				Name:      "backup-storage",
+				Port:      8080,
+			},
+			Enabled: true,
 		},
 		{
 			Name:        "monitoring",
 			DisplayName: "Monitoring Plugin",
-			BackendURL:  "https://monitoring.example.com",
+			ExternalURL: "https://monitoring.example.com",
 			Enabled:     false,
 		},
 	}
@@ -55,13 +59,13 @@ func TestPluginLister_Render_JSON(t *testing.T) {
 		{
 			"name": "backup-storage",
 			"displayName": "Backup Storage Extension",
-			"backendUrl": "backup-storage.everest:8080 (in-cluster)",
+			"serviceRef": {"namespace": "everest", "name": "backup-storage", "port": 8080},
 			"enabled": true
 		},
 		{
 			"name": "monitoring",
 			"displayName": "Monitoring Plugin",
-			"backendUrl": "https://monitoring.example.com",
+			"externalUrl": "https://monitoring.example.com",
 			"enabled": false
 		}
 	]`
@@ -104,13 +108,17 @@ func TestPluginLister_Render_Table(t *testing.T) {
 		{
 			Name:        "backup-storage",
 			DisplayName: "Backup Storage Extension",
-			BackendURL:  "backup-storage.everest:8080 (in-cluster)",
-			Enabled:     true,
+			ServiceRef: &extensionsv1alpha1.PluginBackendServiceRef{
+				Namespace: "everest",
+				Name:      "backup-storage",
+				Port:      8080,
+			},
+			Enabled: true,
 		},
 		{
 			Name:        "monitoring",
 			DisplayName: "Monitoring Plugin",
-			BackendURL:  "https://monitoring.example.com",
+			ExternalURL: "https://monitoring.example.com",
 			Enabled:     false,
 		},
 	}
@@ -162,24 +170,17 @@ func TestPluginLister_Render_Table_Empty(t *testing.T) {
 func TestFormatBackendURL(t *testing.T) {
 	t.Parallel()
 
-	assert.Empty(t, formatBackendURL(nil))
-	assert.Empty(t, formatBackendURL(&extensionsv1alpha1.PluginSpec{}))
+	assert.Empty(t, formatBackendURL(PluginInfo{}))
 
-	inCluster := &extensionsv1alpha1.PluginSpec{
-		Backend: &extensionsv1alpha1.PluginBackend{
-			ServiceRef: &extensionsv1alpha1.PluginBackendServiceRef{
-				Namespace: "everest",
-				Name:      "my-svc",
-				Port:      8080,
-			},
+	inCluster := PluginInfo{
+		ServiceRef: &extensionsv1alpha1.PluginBackendServiceRef{
+			Namespace: "everest",
+			Name:      "my-svc",
+			Port:      8080,
 		},
 	}
 	assert.Equal(t, "my-svc.everest:8080 (in-cluster)", formatBackendURL(inCluster))
 
-	external := &extensionsv1alpha1.PluginSpec{
-		Backend: &extensionsv1alpha1.PluginBackend{
-			ExternalURL: "https://example.com/api",
-		},
-	}
+	external := PluginInfo{ExternalURL: "https://example.com/api"}
 	assert.Equal(t, "https://example.com/api", formatBackendURL(external))
 }

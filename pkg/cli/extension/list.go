@@ -41,8 +41,10 @@ type ListConfig struct {
 type PluginInfo struct {
 	Name        string `json:"name"`
 	DisplayName string `json:"displayName"`
-	BackendURL  string `json:"backendUrl"`
-	Enabled     bool   `json:"enabled"`
+	// Exactly one of ExternalURL or ServiceRef is set when the extension has a backend.
+	ExternalURL string                                      `json:"externalUrl,omitempty"`
+	ServiceRef  *extensionsv1alpha1.PluginBackendServiceRef `json:"serviceRef,omitempty"`
+	Enabled     bool                                        `json:"enabled"`
 }
 
 // PluginLister lists installed extensions.
@@ -80,27 +82,27 @@ func (pl *PluginLister) Run(ctx context.Context) error {
 
 	items := make([]PluginInfo, 0, len(plugins.Items))
 	for _, p := range plugins.Items {
-		items = append(items, PluginInfo{
+		info := PluginInfo{
 			Name:        p.Name,
 			DisplayName: p.Spec.DisplayName,
-			BackendURL:  formatBackendURL(&p.Spec),
 			Enabled:     p.Spec.Enabled,
-		})
+		}
+		if p.Spec.Backend != nil {
+			info.ExternalURL = p.Spec.Backend.ExternalURL
+			info.ServiceRef = p.Spec.Backend.ServiceRef
+		}
+		items = append(items, info)
 	}
 
 	pl.render(os.Stdout, items)
 	return nil
 }
 
-func formatBackendURL(spec *extensionsv1alpha1.PluginSpec) string {
-	if spec == nil || spec.Backend == nil {
-		return ""
+func formatBackendURL(p PluginInfo) string {
+	if p.ServiceRef != nil {
+		return fmt.Sprintf("%s.%s:%d (in-cluster)", p.ServiceRef.Name, p.ServiceRef.Namespace, p.ServiceRef.Port)
 	}
-	if spec.Backend.ServiceRef != nil {
-		ref := spec.Backend.ServiceRef
-		return fmt.Sprintf("%s.%s:%d (in-cluster)", ref.Name, ref.Namespace, ref.Port)
-	}
-	return spec.Backend.ExternalURL
+	return p.ExternalURL
 }
 
 func (pl *PluginLister) render(w io.Writer, plugins []PluginInfo) {
@@ -121,7 +123,7 @@ func printPluginsTable(w io.Writer, plugins []PluginInfo) {
 	})
 
 	for _, p := range plugins {
-		tbl.AddRow(p.Name, p.DisplayName, p.BackendURL, p.Enabled)
+		tbl.AddRow(p.Name, p.DisplayName, formatBackendURL(p), p.Enabled)
 	}
 
 	tbl.Print()
