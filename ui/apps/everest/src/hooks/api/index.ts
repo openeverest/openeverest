@@ -14,6 +14,7 @@
 
 export * from './backups';
 export * from './backup-storages';
+export * from './backup-storage-classes';
 export * from './db-cluster';
 export * from './db-clusters';
 export * from './db-engines';
