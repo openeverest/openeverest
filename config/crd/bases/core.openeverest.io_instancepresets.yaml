@@ -1703,8 +1703,14 @@ spec:
 
                   The field is mutable on a live Instance but is frozen once deletion
                   has started: switching policies after .metadata.deletionTimestamp
-                  has been set is rejected so the cascade path cannot race with
-                  itself.
+                  has been set is rejected at Kubernetes API admission via a
+                  ValidatingAdmissionPolicy (and by the Everest API with HTTP 409 Conflict)
+                  so the cascade path cannot race with itself.
+
+                  Operators and users must not attempt to switch deletionPolicy to Orphan
+                  as an escape hatch or workaround for an Instance stuck in Terminating
+                  due to failing child Backup or Restore deletions; any stuck child
+                  finalizers or resources should be diagnosed and resolved directly.
                 enum:
                 - Cascade
                 - Orphan

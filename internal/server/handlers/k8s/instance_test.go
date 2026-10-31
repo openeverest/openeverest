@@ -16,16 +16,22 @@ package k8s
 
 import (
 	"context"
+	"errors"
+	"net/http"
 	"testing"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/events"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
@@ -130,5 +136,130 @@ func TestK8s_PatchInstance(t *testing.T) {
 
 		assert.Nil(t, result.Spec.Components["engine"].Replicas)
 		assert.Equal(t, "mongod", result.Spec.Components["engine"].Type)
+	})
+}
+
+func TestK8s_DeleteInstance(t *testing.T) {
+	t.Parallel()
+
+	scheme := kubernetes.CreateScheme()
+	ctx := context.Background()
+
+	t.Run("live instance with policy change updates policy and deletes", func(t *testing.T) {
+		t.Parallel()
+
+		inst := &corev1alpha1.Instance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "db-live",
+				Namespace: "ns1",
+			},
+			Spec: corev1alpha1.InstanceSpec{
+				DeletionPolicy: corev1alpha1.InstanceDeletionPolicyCascade,
+			},
+		}
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(inst).
+			Build()
+
+		h := &k8sHandler{
+			kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), "ns1").WithKubernetesClient(fakeClient),
+			log:           zap.NewNop().Sugar(),
+		}
+
+		policyOrphan := string(corev1alpha1.InstanceDeletionPolicyOrphan)
+		params := &api.DeleteInstanceParams{
+			DeletionPolicy: (*api.DeleteInstanceParamsDeletionPolicy)(&policyOrphan),
+		}
+
+		err := h.DeleteInstance(ctx, "main", "ns1", "db-live", params)
+		require.NoError(t, err)
+
+		// Verify the instance is deleted
+		_, err = h.kubeConnector.GetInstance(ctx, types.NamespacedName{Namespace: "ns1", Name: "db-live"})
+		require.Error(t, err)
+		assert.True(t, k8serrors.IsNotFound(err))
+	})
+
+	t.Run("terminating instance with same policy proceeds without error", func(t *testing.T) {
+		t.Parallel()
+
+		now := metav1.Now()
+		inst := &corev1alpha1.Instance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "db-terminating-same",
+				Namespace:         "ns1",
+				DeletionTimestamp: &now,
+				Finalizers:        []string{"test-finalizer"},
+			},
+			Spec: corev1alpha1.InstanceSpec{
+				DeletionPolicy: corev1alpha1.InstanceDeletionPolicyCascade,
+			},
+		}
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(inst).
+			Build()
+
+		h := &k8sHandler{
+			kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), "ns1").WithKubernetesClient(fakeClient),
+			log:           zap.NewNop().Sugar(),
+		}
+
+		policyCascade := string(corev1alpha1.InstanceDeletionPolicyCascade)
+		params := &api.DeleteInstanceParams{
+			DeletionPolicy: (*api.DeleteInstanceParamsDeletionPolicy)(&policyCascade),
+		}
+
+		err := h.DeleteInstance(ctx, "main", "ns1", "db-terminating-same", params)
+		require.NoError(t, err)
+	})
+
+	t.Run("terminating instance with conflicting policy returns HTTP 409 Conflict", func(t *testing.T) {
+		t.Parallel()
+
+		now := metav1.Now()
+		inst := &corev1alpha1.Instance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:              "db-terminating-conflict",
+				Namespace:         "ns1",
+				DeletionTimestamp: &now,
+				Finalizers:        []string{"test-finalizer"},
+			},
+			Spec: corev1alpha1.InstanceSpec{
+				DeletionPolicy: corev1alpha1.InstanceDeletionPolicyCascade,
+			},
+		}
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(inst).
+			Build()
+
+		h := &k8sHandler{
+			kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), "ns1").WithKubernetesClient(fakeClient),
+			log:           zap.NewNop().Sugar(),
+		}
+
+		policyOrphan := string(corev1alpha1.InstanceDeletionPolicyOrphan)
+		params := &api.DeleteInstanceParams{
+			DeletionPolicy: (*api.DeleteInstanceParamsDeletionPolicy)(&policyOrphan),
+		}
+
+		err := h.DeleteInstance(ctx, "main", "ns1", "db-terminating-conflict", params)
+		require.Error(t, err)
+
+		var httpErr *echo.HTTPError
+		require.True(t, errors.As(err, &httpErr), "expected *echo.HTTPError, got %T: %v", err, err)
+		assert.Equal(t, http.StatusConflict, httpErr.Code)
+		assert.Contains(t, httpErr.Message, "cannot change deletion policy to \"Orphan\"")
+		assert.Contains(t, httpErr.Message, "already terminating with policy \"Cascade\"")
+
+		// Verify the stored instance's deletionPolicy was NOT modified
+		fetched, getErr := h.kubeConnector.GetInstance(ctx, types.NamespacedName{Namespace: "ns1", Name: "db-terminating-conflict"})
+		require.NoError(t, getErr)
+		assert.Equal(t, corev1alpha1.InstanceDeletionPolicyCascade, fetched.Spec.DeletionPolicy)
 	})
 }
