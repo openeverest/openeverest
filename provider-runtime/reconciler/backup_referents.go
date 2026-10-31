@@ -19,14 +19,17 @@ import (
 	"fmt"
 	"slices"
 
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/api/backup/v1alpha1/storageclasses"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
@@ -39,22 +42,15 @@ func (r *ProviderReconciler) isBackupProvider() bool {
 }
 
 // missingBackupReferent returns the BackupConfigured reason and message when
-// the backup class or a backup storage that an Instance with backups enabled
-// names is missing or incompatible.
+// the backup class an Instance with backups enabled names is missing or
+// incompatible. Backup storages are judged per entry instead, so a bad
+// entry never blocks the rest of the Instance.
 func (r *ProviderReconciler) missingBackupReferent(ctx context.Context, in *v1alpha1.Instance) (blocker, error) {
 	spec := in.Spec.Backup
 	if spec == nil || !spec.Enabled || !r.isBackupProvider() {
 		return blocker{}, nil
 	}
-	if b, err := r.unusableBackupClass(ctx, spec.ClassRef.Name, in.Spec.ProviderRef.Name); err != nil || b.reason != "" {
-		return b, err
-	}
-	for _, s := range spec.Storages {
-		if b, err := missingBackupStorage(ctx, r.Client, in.Namespace, s.StorageRef.Name); err != nil || b.reason != "" {
-			return b, err
-		}
-	}
-	return blocker{}, nil
+	return r.unusableBackupClass(ctx, spec.ClassRef.Name, in.Spec.ProviderRef.Name)
 }
 
 func (r *ProviderReconciler) unusableBackupClass(ctx context.Context, className, providerName string) (blocker, error) {
@@ -83,8 +79,8 @@ func (r *ProviderReconciler) unusableBackupClass(ctx context.Context, className,
 	return blocker{}, nil
 }
 
-// missingBackupStorage returns a blocker naming the BackupStorage, or its
-// credentials Secret, when it does not exist in namespace.
+// missingBackupStorage returns a blocker naming the BackupStorage when it
+// does not exist in namespace or is not Accepted.
 func missingBackupStorage(ctx context.Context, c client.Reader, namespace, name string) (blocker, error) {
 	storage := &backupv1alpha1.BackupStorage{}
 	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, storage); err != nil {
@@ -96,32 +92,26 @@ func missingBackupStorage(ctx context.Context, c client.Reader, namespace, name 
 			message: fmt.Sprintf("backup storage %s not found in %s", name, namespace),
 		}, nil
 	}
-	secretName := credentialsSecretName(storage)
-	if secretName == "" {
-		return blocker{}, nil
-	}
-	secret := &metav1.PartialObjectMetadata{}
-	secret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
-	if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: secretName}, secret); err != nil {
-		if !apierrors.IsNotFound(err) {
-			return blocker{}, fmt.Errorf("get secret %s: %w", secretName, err)
+	accepted := meta.FindStatusCondition(storage.Status.Conditions, backupv1alpha1.BackupStorageConditionAccepted)
+	if accepted == nil || accepted.Status != metav1.ConditionTrue {
+		message := fmt.Sprintf("backup storage %s has not been validated yet", name)
+		if accepted != nil {
+			message = fmt.Sprintf("backup storage %s is not accepted: %s: %s", name, accepted.Reason, accepted.Message)
 		}
-		return blocker{
-			reason: v1alpha1.ReasonBackupStorageCredentialsNotFound,
-			message: fmt.Sprintf(
-				"secret %s with the credentials of backup storage %s not found in %s",
-				secretName, name, namespace,
-			),
-		}, nil
+		return blocker{reason: v1alpha1.ReasonBackupStorageNotAccepted, message: message}, nil
 	}
 	return blocker{}, nil
 }
 
-func credentialsSecretName(storage *backupv1alpha1.BackupStorage) string {
-	if ref := storage.Spec.Authentication.CredentialsSecretRef; ref != nil {
-		return ref.Name
+// instanceBackupPath returns the directory in the bucket of the BackupStorage
+// name that the Instance writes its backups to, or "" while the storage does
+// not exist.
+func instanceBackupPath(ctx context.Context, c client.Reader, in *v1alpha1.Instance, name string) (string, error) {
+	storage := &backupv1alpha1.BackupStorage{}
+	if err := c.Get(ctx, client.ObjectKey{Namespace: in.Namespace, Name: name}, storage); err != nil {
+		return "", client.IgnoreNotFound(err)
 	}
-	return ""
+	return storageclasses.BackupPath(storage.Spec.Location, in.Namespace, in.Name, in.UID, name), nil
 }
 
 func backupStorageNames(in *v1alpha1.Instance) []string {
@@ -166,4 +156,26 @@ func storagesUsingSecret(ctx context.Context, c client.Reader, namespace, secret
 		}
 	}
 	return names
+}
+
+// acceptanceChanged passes BackupStorage events that can block or unblock a
+// referrer: creation, deletion and a change of the Accepted condition.
+func acceptanceChanged() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return storageAccepted(e.ObjectOld) != storageAccepted(e.ObjectNew)
+		},
+		GenericFunc: func(event.GenericEvent) bool { return false },
+	}
+}
+
+func storageAccepted(obj client.Object) metav1.ConditionStatus {
+	bs, ok := obj.(*backupv1alpha1.BackupStorage)
+	if !ok {
+		return metav1.ConditionUnknown
+	}
+	if c := meta.FindStatusCondition(bs.Status.Conditions, backupv1alpha1.BackupStorageConditionAccepted); c != nil {
+		return c.Status
+	}
+	return metav1.ConditionUnknown
 }

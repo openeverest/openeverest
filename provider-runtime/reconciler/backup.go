@@ -72,7 +72,7 @@ func setupBackupReconciler(mgr ctrl.Manager, bp controller.BackupProvider, provi
 		).
 		Watches(&backupv1alpha1.BackupStorage{},
 			handler.EnqueueRequestsFromMapFunc(r.backupsForStorage),
-			builder.WithPredicates(existenceChanged()),
+			builder.WithPredicates(acceptanceChanged()),
 		).
 		WatchesMetadata(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.backupsForSecret),
@@ -186,6 +186,12 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 			backup.Status.State = backupv1alpha1.BackupStatePending
 			backup.Status.Message = missing.message
 			return reconcile.Result{}, r.updateStatus(ctx, backup, bc)
+		}
+	}
+
+	if backup.Status.Path == "" {
+		if backup.Status.Path, err = instanceBackupPath(ctx, r.client, instance, backup.Spec.StorageRef.Name); err != nil {
+			return reconcile.Result{}, err
 		}
 	}
 

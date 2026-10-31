@@ -133,17 +133,22 @@ func (r *ProviderReconciler) instancesForProvider(ctx context.Context, _ client.
 }
 
 // instancesForSecret enqueues the Instances of this provider whose
-// spec.userSecretRef names the Secret, or whose spec.backup.storages names a
-// BackupStorage that keeps its credentials in it.
+// spec.userSecretRef names the Secret.
 func (r *ProviderReconciler) instancesForSecret(ctx context.Context, obj client.Object) []reconcile.Request {
-	var storages []string
-	if r.isBackupProvider() {
-		storages = storagesUsingSecret(ctx, r.Client, obj.GetNamespace(), obj.GetName())
+	return r.instancesMatching(ctx, obj.GetNamespace(), func(in *v1alpha1.Instance) bool {
+		return in.Spec.UserSecretRef != nil && in.Spec.UserSecretRef.Name == obj.GetName()
+	})
+}
+
+// instancesForBackupStorageSecret enqueues the Instances of this provider
+// whose spec.backup.storages names a BackupStorage that references the
+// Secret, for credentials or a CA bundle.
+func (r *ProviderReconciler) instancesForBackupStorageSecret(ctx context.Context, obj client.Object) []reconcile.Request {
+	storages := storagesUsingSecret(ctx, r.Client, obj.GetNamespace(), obj.GetName())
+	if len(storages) == 0 {
+		return nil
 	}
 	return r.instancesMatching(ctx, obj.GetNamespace(), func(in *v1alpha1.Instance) bool {
-		if in.Spec.UserSecretRef != nil && in.Spec.UserSecretRef.Name == obj.GetName() {
-			return true
-		}
 		for _, name := range backupStorageNames(in) {
 			if slices.Contains(storages, name) {
 				return true

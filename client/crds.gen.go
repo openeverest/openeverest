@@ -1291,6 +1291,12 @@ type Backup struct {
 			Name string `json:"name"`
 		} `json:"operatorBackupRef,omitempty"`
 
+		// Path Path is the directory in the BackupStorage's bucket the source
+		// Instance writes its backups to, recorded when the backup starts so
+		// restores resolve after the Instance is gone. Empty for external
+		// backups, whose path is spec.origin.external.path.
+		Path *string `json:"path,omitempty"`
+
 		// Size Size is the size of the backup data as reported by the engine.
 		// Empty for external backups.
 		Size *string `json:"size,omitempty"`
@@ -4428,6 +4434,13 @@ type Instance struct {
 			// Storages Storages is the per-storage backup status, keyed by the logical storage
 			// name declared in spec.backup.storages.
 			Storages *[]struct {
+				// Location Location is the path in the storage's bucket under which the engine
+				// writes this Instance's backups.
+				Location *string `json:"location,omitempty"`
+
+				// Message Message explains Reason.
+				Message *string `json:"message,omitempty"`
+
 				// Name Name is the BackupStorage name (matches
 				// spec.backup.storages[].storageRef.name).
 				Name string `json:"name"`
@@ -4453,6 +4466,11 @@ type Instance struct {
 					// State State summarises whether a trustworthy window exists.
 					State *InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
 				} `json:"pitr,omitempty"`
+
+				// Reason Reason is why the entry is not configured on the engine as specified,
+				// empty when it is. An entry the engine already had keeps its last
+				// configuration meanwhile.
+				Reason *string `json:"reason,omitempty"`
 			} `json:"storages,omitempty"`
 		} `json:"backup,omitempty"`
 

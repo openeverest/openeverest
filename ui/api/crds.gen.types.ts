@@ -231,6 +231,13 @@ export interface components {
                     name: string;
                 };
                 /**
+                 * @description Path is the directory in the BackupStorage's bucket the source
+                 *     Instance writes its backups to, recorded when the backup starts so
+                 *     restores resolve after the Instance is gone. Empty for external
+                 *     backups, whose path is spec.origin.external.path.
+                 */
+                path?: string;
+                /**
                  * @description Size is the size of the backup data as reported by the engine.
                  *     Empty for external backups.
                  */
@@ -3748,6 +3755,13 @@ export interface components {
                      */
                     storages?: {
                         /**
+                         * @description Location is the path in the storage's bucket under which the engine
+                         *     writes this Instance's backups.
+                         */
+                        location?: string;
+                        /** @description Message explains Reason. */
+                        message?: string;
+                        /**
                          * @description Name is the BackupStorage name (matches
                          *     spec.backup.storages[].storageRef.name).
                          */
@@ -3780,6 +3794,12 @@ export interface components {
                              */
                             state?: "Available" | "Unavailable";
                         };
+                        /**
+                         * @description Reason is why the entry is not configured on the engine as specified,
+                         *     empty when it is. An entry the engine already had keeps its last
+                         *     configuration meanwhile.
+                         */
+                        reason?: string;
                     }[];
                 };
                 /** @description Components reports how many pods each component has and how many are Ready. */
