@@ -21,8 +21,18 @@ import (
 )
 
 // ListBackupStorages proxies the request to the next handler.
-func (h *validateHandler) ListBackupStorages(ctx context.Context, cluster, namespace string) (*backupv1alpha1.BackupStorageList, error) {
-	return h.next.ListBackupStorages(ctx, cluster, namespace)
+func (h *validateHandler) ListBackupStorages(ctx context.Context, cluster, namespace, backupClass, backupStorageClass string) (*backupv1alpha1.BackupStorageList, error) {
+	return h.next.ListBackupStorages(ctx, cluster, namespace, backupClass, backupStorageClass)
+}
+
+// ListBackupStorageClasses proxies the request to the next handler.
+func (h *validateHandler) ListBackupStorageClasses(ctx context.Context, cluster string) (*backupv1alpha1.BackupStorageClassList, error) {
+	return h.next.ListBackupStorageClasses(ctx, cluster)
+}
+
+// GetBackupStorageClass proxies the request to the next handler.
+func (h *validateHandler) GetBackupStorageClass(ctx context.Context, cluster, name string) (*backupv1alpha1.BackupStorageClass, error) {
+	return h.next.GetBackupStorageClass(ctx, cluster, name)
 }
 
 // GetBackupStorage proxies the request to the next handler.

@@ -53,6 +53,10 @@ func captureStdout(t *testing.T, fn func()) string {
 
 func isTerminalFalse() bool { return false }
 
+// testStoredBackupStorage is a BackupStorage the server still holds.
+const testStoredBackupStorage = `{"metadata":{"name":"my-s3","namespace":"everest"},` +
+	`"spec":{"backupStorageClassRef":{"name":"s3"},"location":{"bucket":"my-bucket"},"authentication":{"mode":"AccessKey"}}}`
+
 // newDeleteServer fakes the backup storage DELETE (and optional GET) endpoint.
 func newDeleteServer(t *testing.T, deleteHandler, getHandler http.HandlerFunc) *httptest.Server {
 	t.Helper()
@@ -146,7 +150,7 @@ func TestDelete_IgnoreNotFound_DeleteRaces404_ReportsNotDeleted(t *testing.T) {
 		func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"metadata":{"name":"my-s3","namespace":"everest"},"spec":{"type":"s3"}}`))
+			_, _ = w.Write([]byte(testStoredBackupStorage))
 		},
 	)
 	defer srv.Close()
@@ -342,7 +346,7 @@ func TestDelete_WaitTimesOut(t *testing.T) {
 			// Backup storage stays present (still referenced), so --wait times out.
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"metadata":{"name":"my-s3","namespace":"everest"},"spec":{"type":"s3"}}`))
+			_, _ = w.Write([]byte(testStoredBackupStorage))
 		},
 	)
 	defer srv.Close()
@@ -397,4 +401,58 @@ func TestDelete_IgnoreNotFound_AlreadyGone_JSONOutput(t *testing.T) {
 	require.NoError(t, runErr)
 	assert.False(t, deleteCalled)
 	assert.JSONEq(t, `{"name":"my-s3","namespace":"everest","deleted":false}`, out)
+}
+
+func TestDeleteCondition(t *testing.T) {
+	t.Parallel()
+
+	const fallback = "backup storage still exists — likely referenced by an Instance or Backup"
+	tests := []struct {
+		name        string
+		status      string
+		wantOutcome wait.Outcome
+		wantMsg     string
+	}{
+		{
+			name:        "no status yet",
+			wantOutcome: wait.Pending,
+			wantMsg:     fallback,
+		},
+		{
+			name: "waiting for referrers",
+			status: `{"conditions":[` +
+				`{"type":"Accepted","status":"True","reason":"Accepted","message":"","lastTransitionTime":"2026-10-31T00:00:00Z"},` +
+				`{"type":"Deleting","status":"True","reason":"WaitingForReferrers","message":"still referenced by Instance db1, Backup b1",` +
+				`"lastTransitionTime":"2026-10-31T00:00:00Z"}]}`,
+			wantOutcome: wait.Pending,
+			wantMsg:     "WaitingForReferrers: still referenced by Instance db1, Backup b1",
+		},
+		{
+			name: "Deleting condition no longer true",
+			status: `{"conditions":[{"type":"Deleting","status":"False","reason":"WaitingForReferrers","message":"",` +
+				`"lastTransitionTime":"2026-10-31T00:00:00Z"}]}`,
+			wantOutcome: wait.Pending,
+			wantMsg:     fallback,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			body := testStoredBackupStorage
+			if tt.status != "" {
+				body = body[:len(body)-1] + `,"status":` + tt.status + `}`
+			}
+
+			outcome, msg := deleteCondition(backupStorageFromJSON(t, body))
+
+			assert.Equal(t, tt.wantOutcome, outcome)
+			assert.Equal(t, tt.wantMsg, msg)
+		})
+	}
+
+	outcome, msg := deleteCondition(nil)
+	assert.Equal(t, wait.Succeeded, outcome)
+	assert.Equal(t, "backup storage deleted", msg)
 }

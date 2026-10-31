@@ -86,7 +86,7 @@ func (bl *ListRunner) Run(ctx context.Context, opts ListOptions, cfgPath string)
 }
 
 func (bl *ListRunner) listBackupClasses(ctx context.Context, c *client.ClientWithResponses, cluster string) ([]client.BackupClass, error) {
-	resp, err := c.ListBackupClassesWithResponse(ctx, cluster)
+	resp, err := c.ListBackupClassesWithResponse(ctx, cluster, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list backup classes: %w", err)
 	}

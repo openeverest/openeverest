@@ -22,8 +22,8 @@ import (
 )
 
 // ListBackupClasses proxies the request to the next handler.
-func (h *validateHandler) ListBackupClasses(ctx context.Context, cluster string) (*v1alpha1.BackupClassList, error) {
-	return h.next.ListBackupClasses(ctx, cluster)
+func (h *validateHandler) ListBackupClasses(ctx context.Context, cluster, provider string) (*v1alpha1.BackupClassList, error) {
+	return h.next.ListBackupClasses(ctx, cluster, provider)
 }
 
 // GetBackupClass proxies the request to the next handler.

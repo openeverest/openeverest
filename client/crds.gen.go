@@ -201,15 +201,21 @@ func (e BackupImportStatusState) Valid() bool {
 	}
 }
 
-// Defines values for BackupStorageSpecType.
+// Defines values for BackupStorageStatusConditionsStatus.
 const (
-	BackupStorageSpecTypeS3 BackupStorageSpecType = "s3"
+	BackupStorageStatusConditionsStatusFalse   BackupStorageStatusConditionsStatus = "False"
+	BackupStorageStatusConditionsStatusTrue    BackupStorageStatusConditionsStatus = "True"
+	BackupStorageStatusConditionsStatusUnknown BackupStorageStatusConditionsStatus = "Unknown"
 )
 
-// Valid indicates whether the value is a known member of the BackupStorageSpecType enum.
-func (e BackupStorageSpecType) Valid() bool {
+// Valid indicates whether the value is a known member of the BackupStorageStatusConditionsStatus enum.
+func (e BackupStorageStatusConditionsStatus) Valid() bool {
 	switch e {
-	case BackupStorageSpecTypeS3:
+	case BackupStorageStatusConditionsStatusFalse:
+		return true
+	case BackupStorageStatusConditionsStatusTrue:
+		return true
+	case BackupStorageStatusConditionsStatusUnknown:
 		return true
 	default:
 		return false
@@ -1370,6 +1376,19 @@ type BackupClass struct {
 
 	// Spec BackupClassSpec defines the desired state of BackupClass.
 	Spec struct {
+		// BackupStorageClasses BackupStorageClasses lists the BackupStorageClasses the class's executor
+		// can write to, each with the authentication modes it supports. A
+		// BackupStorage is usable with the class only when both its class and
+		// its authentication mode are listed.
+		BackupStorageClasses []struct {
+			// AuthModes AuthModes are the authentication modes of that class the executor
+			// supports.
+			AuthModes []string `json:"authModes"`
+
+			// Name Name of the BackupStorageClass.
+			Name string `json:"name"`
+		} `json:"backupStorageClasses"`
+
 		// Description Description is the description of the backup class.
 		Description *string `json:"description,omitempty"`
 
@@ -1802,66 +1821,120 @@ type BackupStorage struct {
 	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
 	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
-	// Spec BackupStorageSpec defines the desired state of a BackupStorage.
-	//
-	// A BackupStorage is a reusable, namespaced reference to an object store
-	// (today only S3-compatible) plus the credentials needed to talk to it.
-	// It is referenced by name from:
-	//
-	//   - Instance.spec.backup.storages[].storageRef
-	//   - Backup.spec.storageRef
-	//
-	// Decoupling storage from individual Backup CRs makes provider-managed
-	// backups (e.g. PBM, pgBackRest) practical: the provider can register a
-	// fixed set of storages on the engine without recomputing them from a
-	// dynamic list of Backup CRs.
+	// Spec BackupStorageSpec defines the desired state of a BackupStorage: an object
+	// store, of the technology a BackupStorageClass describes, that backups are
+	// written to. It is referenced by name from Instance.spec.backup.storages,
+	// Backup.spec.storageRef, Restore point-in-time sources and BackupImports.
 	Spec struct {
-		// S3 S3 contains S3-compatible storage configuration.
-		// Required when Type is "s3".
-		S3 *struct {
-			// AccessKeyId AccessKeyID is a write-only convenience input. When set, a webhook
-			// stores it in the Secret named by CredentialsSecretRef and clears
-			// this field. It is never persisted on the BackupStorage object.
-			AccessKeyId *string `json:"accessKeyId,omitempty"`
-
-			// Bucket Bucket is the name of the S3 bucket.
-			Bucket string `json:"bucket"`
-
-			// CredentialsSecretRef CredentialsSecretRef references the Secret in the same namespace
-			// that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
-			CredentialsSecretRef struct {
+		// Authentication Authentication names one of the class's authModes and, for every mode
+		// but WorkloadIdentity, the Secret in the same namespace holding that
+		// mode's credentials keys.
+		Authentication struct {
+			// CredentialsSecretRef CredentialsSecretRef references the Secret in the same namespace that
+			// holds the credentials keys of the mode.
+			CredentialsSecretRef *struct {
 				// Name Name of the referenced Secret.
 				Name string `json:"name"`
-			} `json:"credentialsSecretRef"`
+			} `json:"credentialsSecretRef,omitempty"`
 
-			// EndpointURL EndpointURL is the endpoint URL of the S3-compatible service.
-			EndpointURL string `json:"endpointURL"`
+			// Mode Mode names one of the class's authModes.
+			Mode string `json:"mode"`
+		} `json:"authentication"`
 
-			// ForcePathStyle ForcePathStyle forces path-style URLs (bucket name in the path
-			// instead of the host). Defaults to false.
-			ForcePathStyle *bool `json:"forcePathStyle,omitempty"`
+		// BackupStorageClassRef BackupStorageClassRef names the BackupStorageClass, the object storage
+		// technology.
+		BackupStorageClassRef struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"backupStorageClassRef"`
 
-			// Region Region is the region of the S3 bucket.
-			Region string `json:"region"`
+		// Location Location is where backups are kept. Engines treat it as their catalog,
+		// so it cannot change: create a new BackupStorage instead.
+		Location struct {
+			// Bucket Bucket is the bucket, or the container for technologies that call it
+			// so.
+			Bucket string `json:"bucket"`
 
-			// SecretAccessKey SecretAccessKey is a write-only convenience input. See AccessKeyID.
-			SecretAccessKey *string `json:"secretAccessKey,omitempty"`
+			// Prefix Prefix is the path within the bucket under which backups are written,
+			// without leading or trailing slash.
+			Prefix *string `json:"prefix,omitempty"`
+		} `json:"location"`
 
-			// VerifyTLS VerifyTLS enables TLS certificate verification.
-			// Defaults to true.
-			VerifyTLS *bool `json:"verifyTLS,omitempty"`
-		} `json:"s3,omitempty"`
+		// Parameters Parameters are the connection parameters of the technology, validated
+		// against the class's parametersSchema.
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
-		// Type Type is the object storage type. Today only "s3" is supported.
-		Type BackupStorageSpecType `json:"type"`
+		// Tls TLS is how executors verify the server certificate of the store.
+		// Absent means the system trust store.
+		Tls *struct {
+			// Ca CA is the PEM bundle the server certificate is verified against,
+			// instead of the system trust store.
+			Ca *struct {
+				// SecretKeyRef SecretKeyRef selects the Secret key holding the PEM bundle.
+				SecretKeyRef *struct {
+					// Key Key within the Secret.
+					Key string `json:"key"`
+
+					// Name Name of the referenced Secret.
+					Name string `json:"name"`
+				} `json:"secretKeyRef,omitempty"`
+			} `json:"ca,omitempty"`
+
+			// InsecureSkipVerify InsecureSkipVerify disables verification of the server certificate.
+			InsecureSkipVerify *bool `json:"insecureSkipVerify,omitempty"`
+		} `json:"tls,omitempty"`
 	} `json:"spec"`
 
 	// Status BackupStorageStatus defines the observed state of a BackupStorage.
-	Status *map[string]interface{} `json:"status,omitempty"`
+	Status *struct {
+		// BackupClasses BackupClasses lists every BackupClass and whether it can write to the
+		// storage.
+		BackupClasses *[]struct {
+			// Compatible Compatible is true when the BackupClass supports the storage's class and
+			// authentication mode.
+			Compatible bool `json:"compatible"`
+
+			// Name Name of the BackupClass.
+			Name string `json:"name"`
+
+			// Reason Reason is why the BackupClass cannot write to the storage.
+			Reason *string `json:"reason,omitempty"`
+		} `json:"backupClasses,omitempty"`
+
+		// Conditions Conditions: Accepted, written by core, and Deleting while a deleted
+		// storage waits for its referrers.
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status BackupStorageStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+	} `json:"status,omitempty"`
 }
 
-// BackupStorageSpecType Type is the object storage type. Today only "s3" is supported.
-type BackupStorageSpecType string
+// BackupStorageStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type BackupStorageStatusConditionsStatus string
 
 // BackupStorageClass BackupStorageClass describes an object storage technology that
 // BackupStorages reference. It is pure data: the backup classes that can write

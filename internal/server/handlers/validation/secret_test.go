@@ -97,8 +97,10 @@ func TestCreateSecret_Validation(t *testing.T) {
 			name: "missing definition label fails",
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:   "no-definition-label",
-					Labels: map[string]string{},
+					Name: "no-definition-label",
+					Labels: map[string]string{
+						common.OpenEverestProviderLabel: "test-provider",
+					},
 				},
 				Type: corev1.SecretTypeOpaque,
 				StringData: map[string]string{
@@ -107,6 +109,20 @@ func TestCreateSecret_Validation(t *testing.T) {
 			},
 			providers: []*corev1alpha1.Provider{provider},
 			err:       "missing openeverest.io/definition label",
+		},
+		{
+			name: "secret no provider defines is not checked against a schema",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "backup-storage-s3-prod-credentials",
+				},
+				Type: corev1.SecretTypeOpaque,
+				StringData: map[string]string{
+					"AWS_ACCESS_KEY_ID":     "key",
+					"AWS_SECRET_ACCESS_KEY": "secret",
+				},
+			},
+			providers: []*corev1alpha1.Provider{provider},
 		},
 		{
 			name: "secret not conforming to schema fails",
@@ -141,7 +157,7 @@ func TestCreateSecret_Validation(t *testing.T) {
 				},
 			},
 			providers: []*corev1alpha1.Provider{provider},
-			err:       "'name' can be at most 22 characters long",
+			err:       "invalid name \"Invalid_Name_With_Underscore\"",
 		},
 	}
 
@@ -167,6 +183,10 @@ func TestCreateSecret_Validation(t *testing.T) {
 			}
 
 			_, err := handler.CreateSecret(ctx, cluster, namespace, tt.secret)
+			if tt.err == "" {
+				require.NoError(t, err)
+				return
+			}
 			require.ErrorContains(t, err, tt.err)
 		})
 	}

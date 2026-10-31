@@ -91,6 +91,12 @@ type S3Details struct {
 	AccessKeyID string `json:"accessKeyID,omitempty"`
 	// SecretAccessKey is the AWS secret access key.
 	SecretAccessKey string `json:"secretAccessKey,omitempty"`
+	// CABundle is the PEM bundle the server certificate is verified against,
+	// instead of the system trust store.
+	CABundle string `json:"caBundle,omitempty"`
+	// Implementation names the software serving the endpoint: aws, minio,
+	// ceph, gcs or other.
+	Implementation string `json:"implementation,omitempty"`
 }
 
 // PITRDetails contains point-in-time recovery configuration.

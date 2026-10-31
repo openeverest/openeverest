@@ -1,3 +1,12 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backup-storage-backupstorage-sample-credentials
+type: Opaque
+stringData:
+  AWS_ACCESS_KEY_ID: REPLACE_ME
+  AWS_SECRET_ACCESS_KEY: REPLACE_ME
+---
 apiVersion: backup.openeverest.io/v1alpha1
 kind: BackupStorage
 metadata:
@@ -6,4 +15,15 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: backupstorage-sample
 spec:
-  # TODO(user): Add fields here
+  backupStorageClassRef:
+    name: s3
+  location:
+    bucket: my-backups
+    prefix: openeverest
+  parameters:
+    region: us-east-1
+    endpointURL: https://s3.us-east-1.amazonaws.com
+  authentication:
+    mode: AccessKey
+    credentialsSecretRef:
+      name: backup-storage-backupstorage-sample-credentials

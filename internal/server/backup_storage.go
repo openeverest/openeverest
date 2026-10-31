@@ -19,14 +19,19 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/AlekSi/pointer"
 	"github.com/labstack/echo/v4"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
-// ListBackupStorages lists all backup storages in a namespace.
-func (e *EverestServer) ListBackupStorages(c echo.Context, cluster, namespace string) error {
-	result, err := e.handler.ListBackupStorages(c.Request().Context(), cluster, namespace)
+// ListBackupStorages lists the backup storages in a namespace, optionally those
+// a backup class can write to or of one backup storage class.
+func (e *EverestServer) ListBackupStorages(c echo.Context, cluster, namespace string, params api.ListBackupStoragesParams) error {
+	result, err := e.handler.ListBackupStorages(c.Request().Context(), cluster, namespace,
+		pointer.GetString(params.BackupClass), pointer.GetString(params.BackupStorageClass),
+	)
 	if err != nil {
 		e.l.Errorf("ListBackupStorages failed: %v", err)
 		return err

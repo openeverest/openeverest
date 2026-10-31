@@ -16,9 +16,11 @@
 package backupstorage
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -32,34 +34,24 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 )
 
-// testBackupStorage mirrors just the JSON shape the list runner reads off of
-// client.BackupStorage, so tests can build fixtures without the generated
-// type's large anonymous Spec struct.
-type testBackupStorage struct {
-	Metadata map[string]any `json:"metadata"`
-	Spec     struct {
-		Type string `json:"type"`
-		S3   *struct {
-			Bucket string `json:"bucket"`
-			Region string `json:"region"`
-		} `json:"s3,omitempty"`
-	} `json:"spec"`
-}
-
-func newTestBackupStorage(name, namespace string) testBackupStorage {
-	tbs := testBackupStorage{
-		Metadata: map[string]any{
+// newTestBackupStorage builds the JSON of a BackupStorage, so tests need not
+// spell the generated type's anonymous Spec structs.
+func newTestBackupStorage(name, namespace string) map[string]any {
+	return map[string]any{
+		"metadata": map[string]any{
 			"name":              name,
 			"namespace":         namespace,
 			"creationTimestamp": time.Now().Add(-time.Hour).UTC().Format(time.RFC3339),
 		},
+		"spec": map[string]any{
+			"backupStorageClassRef": map[string]any{"name": "s3"},
+			"location":              map[string]any{"bucket": "my-bucket"},
+			"authentication": map[string]any{
+				"mode":                 "AccessKey",
+				"credentialsSecretRef": map[string]any{"name": name + "-credentials"},
+			},
+		},
 	}
-	tbs.Spec.Type = "s3"
-	tbs.Spec.S3 = &struct {
-		Bucket string `json:"bucket"`
-		Region string `json:"region"`
-	}{Bucket: "my-bucket", Region: "us-east-1"}
-	return tbs
 }
 
 // newTestConfig returns a config with a single context pointing at serverURL.
@@ -90,7 +82,7 @@ func newTestConfig(serverURL string) *config.Config {
 func TestBackupStorageList_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	items := []testBackupStorage{
+	items := []map[string]any{
 		newTestBackupStorage("s3-primary", "everest"),
 		newTestBackupStorage("s3-secondary", "everest"),
 	}
@@ -117,7 +109,7 @@ func TestBackupStorageList_HappyPath(t *testing.T) {
 func TestBackupStorageList_AllNamespaces(t *testing.T) {
 	t.Parallel()
 
-	nsBackupStorages := map[string][]testBackupStorage{
+	nsBackupStorages := map[string][]map[string]any{
 		"everest":  {newTestBackupStorage("s3-primary", "everest")},
 		"everest2": {newTestBackupStorage("s3-secondary", "everest2")},
 	}
@@ -137,7 +129,7 @@ func TestBackupStorageList_AllNamespaces(t *testing.T) {
 				return
 			}
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"items": []testBackupStorage{}})
+		_ = json.NewEncoder(w).Encode(map[string]any{"items": []map[string]any{}})
 	}))
 	defer srv.Close()
 
@@ -159,7 +151,7 @@ func TestBackupStorageList_EmptyResult(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]any{"items": []testBackupStorage{}})
+		_ = json.NewEncoder(w).Encode(map[string]any{"items": []map[string]any{}})
 	}))
 	defer srv.Close()
 
@@ -230,7 +222,7 @@ func TestBackupStorageList_ErrorResponses(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = NewListRunner(Config{}, zap.NewNop().Sugar()).listBackupStorages(
-				t.Context(), c, "main", "everest",
+				t.Context(), c, "main", "everest", nil,
 			)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantSubstr)
@@ -257,7 +249,7 @@ func TestBackupStorageList_NoActiveContext(t *testing.T) {
 func TestBackupStorageList_JSONOutput(t *testing.T) {
 	t.Parallel()
 
-	items := []testBackupStorage{newTestBackupStorage("s3-primary", "everest")}
+	items := []map[string]any{newTestBackupStorage("s3-primary", "everest")}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -274,4 +266,74 @@ func TestBackupStorageList_JSONOutput(t *testing.T) {
 	runner := NewListRunner(Config{Pretty: false}, zap.NewNop().Sugar())
 	err := runner.Run(t.Context(), ListOptions{Cluster: "main", Namespace: "everest"}, cfgPath)
 	require.NoError(t, err)
+}
+
+func TestBackupStorageList_Filters(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		opts      ListOptions
+		wantQuery url.Values
+	}{
+		{
+			name:      "no filters",
+			opts:      ListOptions{Cluster: "main", Namespace: "everest"},
+			wantQuery: url.Values{},
+		},
+		{
+			name: "backup class and backup storage class",
+			opts: ListOptions{Cluster: "main", Namespace: "everest", BackupClass: "pbm", Class: "s3"},
+			wantQuery: url.Values{
+				"backupClass":        []string{"pbm"},
+				"backupStorageClass": []string{"s3"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			queries := make(chan url.Values, 1)
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				queries <- r.URL.Query()
+				writeJSON(w, http.StatusOK, map[string]any{"items": []map[string]any{}})
+			}))
+			defer srv.Close()
+
+			runner := NewListRunner(Config{Pretty: true}, zap.NewNop().Sugar())
+			require.NoError(t, runner.Run(t.Context(), tt.opts, newConfigPath(t, srv.URL)))
+			assert.Equal(t, tt.wantQuery, <-queries)
+		})
+	}
+}
+
+func TestPrintBackupStorageTable(t *testing.T) {
+	t.Parallel()
+
+	created := time.Now().Add(-time.Hour).UTC().Format(time.RFC3339)
+	storages := []client.BackupStorage{
+		*backupStorageFromJSON(t, `{"metadata":{"name":"s3-prod","namespace":"team-a","creationTimestamp":"`+created+`"},`+
+			`"spec":{"backupStorageClassRef":{"name":"s3"},"location":{"bucket":"my-backups","prefix":"team-a/prod"},`+
+			`"authentication":{"mode":"AccessKey"}},`+
+			`"status":{"conditions":[{"type":"Accepted","status":"True","reason":"Accepted","message":"","lastTransitionTime":"`+created+`"}]}}`),
+		*backupStorageFromJSON(t, `{"metadata":{"name":"s3-bad","namespace":"team-a","creationTimestamp":"`+created+`"},`+
+			`"spec":{"backupStorageClassRef":{"name":"s3"},"location":{"bucket":"other"},"authentication":{"mode":"AccessKey"}},`+
+			`"status":{"conditions":[`+
+			`{"type":"Deleting","status":"True","reason":"WaitingForReferrers","message":"","lastTransitionTime":"`+created+`"},`+
+			`{"type":"Accepted","status":"False","reason":"CredentialsNotFound","message":"","lastTransitionTime":"`+created+`"}]}}`),
+		*backupStorageFromJSON(t, `{"metadata":{"name":"new","namespace":"team-b"},`+
+			`"spec":{"backupStorageClassRef":{"name":"s3"},"location":{"bucket":"fresh"},"authentication":{"mode":""}}}`),
+	}
+
+	var buf bytes.Buffer
+	printBackupStorageTable(&buf, storages)
+
+	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+	require.Len(t, lines, 4)
+	assert.Equal(t, []string{"NAME", "NAMESPACE", "CLASS", "BUCKET", "AUTH", "ACCEPTED", "AGE"}, strings.Fields(lines[0]))
+	assert.Equal(t, []string{"s3-prod", "team-a", "s3", "my-backups/team-a/prod", "AccessKey", "True", "1h"}, strings.Fields(lines[1]))
+	assert.Equal(t, []string{"s3-bad", "team-a", "s3", "other", "AccessKey", "False", "1h"}, strings.Fields(lines[2]))
+	assert.Equal(t, []string{"new", "team-b", "s3", "fresh", "-", "Unknown", "-"}, strings.Fields(lines[3]))
 }

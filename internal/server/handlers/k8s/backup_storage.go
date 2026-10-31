@@ -16,12 +16,8 @@ package k8s
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,112 +25,67 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
-// ListBackupStorages returns list of backup storages in a namespace.
-func (h *k8sHandler) ListBackupStorages(ctx context.Context, cluster, namespace string) (*backupv1alpha1.BackupStorageList, error) {
-	return h.kubeConnector.ListBackupStorages(ctx, ctrlclient.InNamespace(namespace))
+// ListBackupStorages returns the backup storages in a namespace: only those
+// backupClass can write to, as published in status.backupClasses, and only
+// those of backupStorageClass, when set.
+func (h *k8sHandler) ListBackupStorages(ctx context.Context, _, namespace, backupClass, backupStorageClass string) (*backupv1alpha1.BackupStorageList, error) {
+	list, err := h.kubeConnector.ListBackupStorages(ctx, ctrlclient.InNamespace(namespace))
+	if err != nil || (backupClass == "" && backupStorageClass == "") {
+		return list, err
+	}
+	filtered := make([]backupv1alpha1.BackupStorage, 0, len(list.Items))
+	for _, bs := range list.Items {
+		if backupStorageClass != "" && bs.Spec.BackupStorageClassRef.Name != backupStorageClass {
+			continue
+		}
+		if backupClass != "" && !writableBy(&bs, backupClass) {
+			continue
+		}
+		filtered = append(filtered, bs)
+	}
+	list.Items = filtered
+	return list, nil
+}
+
+func writableBy(bs *backupv1alpha1.BackupStorage, backupClass string) bool {
+	for _, c := range bs.Status.BackupClasses {
+		if c.Name == backupClass {
+			return c.Compatible
+		}
+	}
+	return false
 }
 
 // GetBackupStorage returns a backup storage by name and namespace.
-func (h *k8sHandler) GetBackupStorage(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.BackupStorage, error) {
+func (h *k8sHandler) GetBackupStorage(ctx context.Context, _, namespace, name string) (*backupv1alpha1.BackupStorage, error) {
 	return h.kubeConnector.GetBackupStorage(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 }
 
-// CreateBackupStorage creates a backup storage.
-func (h *k8sHandler) CreateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
-	if err := h.applyS3Credentials(ctx, bs); err != nil {
-		return nil, fmt.Errorf("failed to apply S3 credentials: %w", err)
-	}
+// CreateBackupStorage creates a backup storage. Its credentials Secret is
+// created beforehand, through the Secrets API.
+func (h *k8sHandler) CreateBackupStorage(ctx context.Context, _ string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
 	return h.kubeConnector.CreateBackupStorage(ctx, bs)
 }
 
 // UpdateBackupStorage updates a backup storage.
-func (h *k8sHandler) UpdateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
-	if err := h.applyS3Credentials(ctx, bs); err != nil {
-		return nil, fmt.Errorf("failed to apply S3 credentials: %w", err)
-	}
+func (h *k8sHandler) UpdateBackupStorage(ctx context.Context, _ string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
 	return h.kubeConnector.UpdateBackupStorage(ctx, bs)
 }
 
 // PatchBackupStorage applies a merge patch to a backup storage, leaving the read-modify-write to the API server.
 // Strict validation is not optional: without it a misspelt path is pruned and returns 200 having changed nothing.
-// The Secret is written only once the patch itself is accepted, so a document the API server rejects cannot rotate live credentials.
-func (h *k8sHandler) PatchBackupStorage(ctx context.Context, _ string, namespace, name string, patch []byte) (*backupv1alpha1.BackupStorage, error) {
-	patch, accessKeyID, secretAccessKey, err := takeS3Credentials(patch)
-	if err != nil {
-		return nil, err
-	}
-
+func (h *k8sHandler) PatchBackupStorage(ctx context.Context, _, namespace, name string, patch []byte) (*backupv1alpha1.BackupStorage, error) {
 	bs := &backupv1alpha1.BackupStorage{
 		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
 	}
-	patched, err := h.kubeConnector.PatchBackupStorage(ctx, bs,
+	return h.kubeConnector.PatchBackupStorage(ctx, bs,
 		ctrlclient.RawPatch(types.MergePatchType, patch),
 		ctrlclient.FieldValidation(metav1.FieldValidationStrict),
 	)
-	if err != nil {
-		return nil, err
-	}
-	if accessKeyID == "" && secretAccessKey == "" {
-		return patched, nil
-	}
-
-	// The patched object names the Secret the credentials belong in, so a patch that
-	// repoints credentialsSecretRef and rotates in one document writes the new Secret.
-	if patched.Spec.S3 == nil {
-		return nil, errors.Join(ErrInvalidRequest, errors.New("spec.s3 is not set"))
-	}
-	patched.Spec.S3.AccessKeyID = accessKeyID
-	patched.Spec.S3.SecretAccessKey = secretAccessKey
-	if err := h.applyS3Credentials(ctx, patched); err != nil {
-		return nil, fmt.Errorf("failed to apply S3 credentials: %w", err)
-	}
-	return patched, nil
-}
-
-// takeS3Credentials removes the write-only credentials from the patch document and
-// returns them. The document is relayed to the API server as sent, so leaving them in
-// would persist on the BackupStorage what belongs only in the Secret.
-func takeS3Credentials(patch []byte) ([]byte, string, string, error) {
-	var doc map[string]any
-	if err := json.Unmarshal(patch, &doc); err != nil {
-		return nil, "", "", fmt.Errorf("failed to decode patch: %w", err)
-	}
-	spec, _ := doc["spec"].(map[string]any)
-	s3, _ := spec["s3"].(map[string]any)
-
-	accessKeyID, isString := jsonString(s3["accessKeyId"])
-	secretAccessKey, isAlsoString := jsonString(s3["secretAccessKey"])
-	if !isString || !isAlsoString {
-		// Not credentials this handler can read. Forwarding them lets the API server
-		// reject the type, which it describes better than we can.
-		return patch, "", "", nil
-	}
-	if accessKeyID == "" && secretAccessKey == "" {
-		return patch, "", "", nil
-	}
-	// Checked before the patch is sent so half a pair changes nothing at all.
-	if err := validateS3CredentialPair(accessKeyID, secretAccessKey); err != nil {
-		return nil, "", "", err
-	}
-
-	delete(s3, "accessKeyId")
-	delete(s3, "secretAccessKey")
-	stripped, err := json.Marshal(doc)
-	return stripped, accessKeyID, secretAccessKey, err
-}
-
-// jsonString reads a JSON string member, reporting absence and null as an empty
-// string and any other type as not a string.
-func jsonString(value any) (string, bool) {
-	if value == nil {
-		return "", true
-	}
-	text, isString := value.(string)
-	return text, isString
 }
 
 // DeleteBackupStorage deletes a backup storage.
-func (h *k8sHandler) DeleteBackupStorage(ctx context.Context, cluster, namespace, name string) error {
+func (h *k8sHandler) DeleteBackupStorage(ctx context.Context, _, namespace, name string) error {
 	bs, err := h.kubeConnector.GetBackupStorage(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 	if ctrlclient.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to get backup storage: %w", err)
@@ -152,62 +103,12 @@ func (h *k8sHandler) DeleteBackupStorage(ctx context.Context, cluster, namespace
 	return nil
 }
 
-// applyS3Credentials creates or updates the credentials Secret when AccessKeyID
-// and SecretAccessKey are set on the spec, then clears the write-only fields so
-// they are never persisted on the BackupStorage CR.
-// Returns an error if exactly one of the two credential fields is provided.
-func (h *k8sHandler) applyS3Credentials(ctx context.Context, bs *backupv1alpha1.BackupStorage) error {
-	if bs.Spec.S3 == nil {
-		return nil
-	}
-	s3 := bs.Spec.S3
-	if err := validateS3CredentialPair(s3.AccessKeyID, s3.SecretAccessKey); err != nil {
-		return err
-	}
-	if s3.AccessKeyID == "" && s3.SecretAccessKey == "" {
-		return nil // no credentials to update
-	}
-
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      s3.CredentialsSecretRef.Name,
-			Namespace: bs.GetNamespace(),
-		},
-		Type: corev1.SecretTypeOpaque,
-		StringData: map[string]string{
-			"AWS_ACCESS_KEY_ID":     s3.AccessKeyID,
-			"AWS_SECRET_ACCESS_KEY": s3.SecretAccessKey,
-		},
-	}
-	if _, err := h.kubeConnector.CreateSecret(ctx, secret); k8serrors.IsAlreadyExists(err) {
-		existing, err := h.kubeConnector.GetSecret(ctx, types.NamespacedName{
-			Name:      s3.CredentialsSecretRef.Name,
-			Namespace: bs.GetNamespace(),
-		})
-		if err != nil {
-			return fmt.Errorf("failed to get existing credentials secret: %w", err)
-		}
-		existing.StringData = secret.StringData
-		if _, err := h.kubeConnector.UpdateSecret(ctx, existing); err != nil {
-			return fmt.Errorf("failed to update credentials secret: %w", err)
-		}
-	} else if err != nil {
-		return fmt.Errorf("failed to create credentials secret: %w", err)
-	}
-
-	s3.AccessKeyID = ""
-	s3.SecretAccessKey = ""
-	return nil
+// ListBackupStorageClasses returns the backup storage classes.
+func (h *k8sHandler) ListBackupStorageClasses(ctx context.Context, _ string) (*backupv1alpha1.BackupStorageClassList, error) {
+	return h.kubeConnector.ListBackupStorageClasses(ctx)
 }
 
-// validateS3CredentialPair rejects a credential pair with only one half supplied,
-// for every verb that accepts the write-only fields.
-func validateS3CredentialPair(accessKeyID, secretAccessKey string) error {
-	switch {
-	case accessKeyID != "" && secretAccessKey == "":
-		return errors.Join(ErrInvalidRequest, errors.New("secretAccessKey is not provided"))
-	case accessKeyID == "" && secretAccessKey != "":
-		return errors.Join(ErrInvalidRequest, errors.New("accessKeyID is not provided"))
-	}
-	return nil
+// GetBackupStorageClass returns a backup storage class by name.
+func (h *k8sHandler) GetBackupStorageClass(ctx context.Context, _, name string) (*backupv1alpha1.BackupStorageClass, error) {
+	return h.kubeConnector.GetBackupStorageClass(ctx, types.NamespacedName{Name: name})
 }

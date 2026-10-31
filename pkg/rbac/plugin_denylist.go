@@ -26,6 +26,7 @@ var spec001Resources = map[string]struct{}{
 	ResourceDatabaseClusterRestores:    {},
 	ResourceDatabaseEngines:            {},
 	ResourceBackupStorages:             {},
+	ResourceBackupStorageClasses:       {},
 	ResourceMonitoringInstances:        {},
 	ResourceMonitoringClasses:          {},
 	ResourceMonitoringDestinations:     {},
