@@ -87,8 +87,8 @@ func settingsOIDCConfigurePreRun(cmd *cobra.Command, _ []string) {
 	}
 
 	// Validate scopes (default or provided by user in flags)
-	scopesList := strings.Split(scopes, ",")
-	if err := oidc.ValidateScopes(scopesList); err != nil {
+	scopesList, err := oidc.ParseScopes(scopes)
+	if err != nil {
 		output.PrintError(err, logger.GetLogger(), settingsOIDCConfigureCfg.Pretty)
 		os.Exit(1)
 	}
