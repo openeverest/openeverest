@@ -5708,6 +5708,14 @@ components:
                       InstanceBackupStorageStatus reports the observed backup state of a single
                       entry in spec.backup.storages.
                     properties:
+                      location:
+                        description: |-
+                          Location is the path in the storage's bucket under which the engine
+                          writes this Instance's backups.
+                        type: string
+                      message:
+                        description: Message explains Reason.
+                        type: string
                       name:
                         description: |-
                           Name is the BackupStorage name (matches
@@ -5747,6 +5755,12 @@ components:
                             - Unavailable
                             type: string
                         type: object
+                      reason:
+                        description: |-
+                          Reason is why the entry is not configured on the engine as specified,
+                          empty when it is. An entry the engine already had keeps its last
+                          configuration meanwhile.
+                        type: string
                     required:
                     - name
                     type: object

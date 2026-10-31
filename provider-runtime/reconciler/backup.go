@@ -72,7 +72,7 @@ func setupBackupReconciler(mgr ctrl.Manager, bp controller.BackupProvider, provi
 		).
 		Watches(&backupv1alpha1.BackupStorage{},
 			handler.EnqueueRequestsFromMapFunc(r.backupsForStorage),
-			builder.WithPredicates(existenceChanged()),
+			builder.WithPredicates(acceptanceChanged()),
 		).
 		WatchesMetadata(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.backupsForSecret),

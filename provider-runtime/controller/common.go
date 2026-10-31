@@ -97,6 +97,14 @@ type Context struct {
 	// monitoringIntegrations holds the integrations the provider renders,
 	// set by the reconciler before Sync.
 	monitoringIntegrations []string
+
+	// backupStorages caches BackupStorages for the pass; the reconciler
+	// reads the verdicts back after Sync.
+	backupStorages []ResolvedBackupStorage
+
+	// backupStorageRejections holds the verdicts staged with
+	// RejectBackupStorage, keyed by BackupStorage name.
+	backupStorageRejections map[string]backupStorageRejection
 }
 
 // NewContext creates a new Context handle (used internally by the reconciler).
