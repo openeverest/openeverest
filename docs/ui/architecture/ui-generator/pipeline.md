@@ -26,7 +26,10 @@ flowchart TD
   - **`withNormalizedPathMeta`** → `_normalized.sourcePath` / `targetPaths` (parses `path` — a string
     or an array for multi-path). This is the only place paths are parsed.
   - **`resolveSelectOptions`** — `optionsPath` → static `options[]` (reads the array from the Provider
-    by path, maps `labelPath` / `valuePath`).
+    by path, maps `labelPath` / `valuePath`). The `defaultValue` is then the schema's own
+    `defaultValue`, else (create only) the option named by `optionsPathConfig.defaultValuePath`
+    (e.g. the Provider's `spec.defaultVersion`), else the first option. A `defaultValuePath` that
+    resolves to a value outside the options falls back to the first option with a dev-time warning.
   - **`dataSource` validation** — for a component with `dataSource: { provider }`, warns (dev-time) if
     the provider is not registered. Options are not resolved here — they are loaded at runtime by
     `DataSourceField` and prefetched by `DataSourcePrefetcher`.
@@ -270,4 +273,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-23
+- Last updated: 2026-10-31
