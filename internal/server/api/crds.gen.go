@@ -1863,6 +1863,83 @@ type BackupStorage struct {
 // BackupStorageSpecType Type is the object storage type. Today only "s3" is supported.
 type BackupStorageSpecType string
 
+// BackupStorageClass BackupStorageClass describes an object storage technology that
+// BackupStorages reference. It is pure data: the backup classes that can write
+// to it declare so in BackupClass.spec.backupStorageClasses.
+type BackupStorageClass struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
+
+	// Spec BackupStorageClassSpec describes one object storage technology: how a
+	// BackupStorage of the technology is reached and how it authenticates.
+	Spec struct {
+		// AuthModes AuthModes lists the authentication modes of the technology, each with
+		// the credentials Secret keys it needs.
+		AuthModes []struct {
+			// Credentials Credentials lists the keys the credentials Secret must or may carry.
+			Credentials *struct {
+				// Optional Optional keys are read when present.
+				Optional *[]string `json:"optional,omitempty"`
+
+				// Required Required keys must be present and non-empty.
+				Required []string `json:"required"`
+			} `json:"credentials,omitempty"`
+
+			// Name Name identifies the mode, in PascalCase (e.g. AccessKey, BasicAuth).
+			Name string `json:"name"`
+		} `json:"authModes"`
+
+		// Description Description of the technology.
+		Description *string `json:"description,omitempty"`
+
+		// DisplayName DisplayName is the human-readable name of the technology.
+		DisplayName *string `json:"displayName,omitempty"`
+
+		// ParametersSchema ParametersSchema validates BackupStorage.spec.parameters, the
+		// connection parameters of the technology. The bucket and prefix are
+		// BackupStorage.spec.location and transport trust is
+		// BackupStorage.spec.tls, so neither belongs in it.
+		ParametersSchema *struct {
+			// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+			// parameters payload.
+			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+		} `json:"parametersSchema,omitempty"`
+
+		// UiSchema UISchema holds rendering hints for the forms that create a
+		// BackupStorage of the class, grouped by form: "location" for
+		// spec.location, "storage" for spec.parameters and "credentials" keyed by
+		// authentication mode.
+		UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
+	} `json:"spec"`
+}
+
+// BackupStorageClassList BackupStorageClassList is an object that contains the list of the existing backupstorageclasss.
+type BackupStorageClassList struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string               `json:"apiVersion,omitempty"`
+	Items      *[]BackupStorageClass `json:"items,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string `json:"kind,omitempty"`
+	Metadata *struct {
+		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
+		Name *string `json:"name,omitempty"`
+	} `json:"metadata,omitempty"`
+}
+
 // BackupStorageList BackupStorageList is an object that contains the list of the existing backupstorages.
 type BackupStorageList struct {
 	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources

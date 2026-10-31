@@ -826,6 +826,86 @@ export interface components {
             /** @description BackupStorageStatus defines the observed state of a BackupStorage. */
             status?: Record<string, never>;
         };
+        /**
+         * @description BackupStorageClass describes an object storage technology that
+         *     BackupStorages reference. It is pure data: the backup classes that can write
+         *     to it declare so in BackupClass.spec.backupStorageClasses.
+         */
+        BackupStorageClass: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: components["schemas"]["ObjectMeta"];
+            /**
+             * @description BackupStorageClassSpec describes one object storage technology: how a
+             *     BackupStorage of the technology is reached and how it authenticates.
+             */
+            spec: {
+                /**
+                 * @description AuthModes lists the authentication modes of the technology, each with
+                 *     the credentials Secret keys it needs.
+                 */
+                authModes: {
+                    /** @description Credentials lists the keys the credentials Secret must or may carry. */
+                    credentials?: {
+                        /** @description Optional keys are read when present. */
+                        optional?: string[];
+                        /** @description Required keys must be present and non-empty. */
+                        required: string[];
+                    };
+                    /** @description Name identifies the mode, in PascalCase (e.g. AccessKey, BasicAuth). */
+                    name: string;
+                }[];
+                /** @description Description of the technology. */
+                description?: string;
+                /** @description DisplayName is the human-readable name of the technology. */
+                displayName?: string;
+                /**
+                 * @description ParametersSchema validates BackupStorage.spec.parameters, the
+                 *     connection parameters of the technology. The bucket and prefix are
+                 *     BackupStorage.spec.location and transport trust is
+                 *     BackupStorage.spec.tls, so neither belongs in it.
+                 */
+                parametersSchema?: {
+                    /**
+                     * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                     *     parameters payload.
+                     */
+                    openAPIV3Schema?: unknown;
+                };
+                /**
+                 * @description UISchema holds rendering hints for the forms that create a
+                 *     BackupStorage of the class, grouped by form: "location" for
+                 *     spec.location, "storage" for spec.parameters and "credentials" keyed by
+                 *     authentication mode.
+                 */
+                uiSchema?: Record<string, never>;
+            };
+        };
+        /** @description BackupStorageClassList is an object that contains the list of the existing backupstorageclasss. */
+        BackupStorageClassList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["BackupStorageClass"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+            };
+        };
         /** @description BackupStorageList is an object that contains the list of the existing backupstorages. */
         BackupStorageList: {
             /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */

@@ -1,0 +1,147 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: backupstorageclasses.backup.openeverest.io
+spec:
+  group: backup.openeverest.io
+  names:
+    kind: BackupStorageClass
+    listKind: BackupStorageClassList
+    plural: backupstorageclasses
+    shortNames:
+    - bsc
+    singular: backupstorageclass
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.displayName
+      name: Display Name
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          BackupStorageClass describes an object storage technology that
+          BackupStorages reference. It is pure data: the backup classes that can write
+          to it declare so in BackupClass.spec.backupStorageClasses.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              BackupStorageClassSpec describes one object storage technology: how a
+              BackupStorage of the technology is reached and how it authenticates.
+            properties:
+              authModes:
+                description: |-
+                  AuthModes lists the authentication modes of the technology, each with
+                  the credentials Secret keys it needs.
+                items:
+                  description: |-
+                    AuthMode is one authentication method a class supports. A mode the class
+                    defines lists the credentials Secret keys it needs; the reserved modes
+                    (WorkloadIdentity, Anonymous) list none.
+                  properties:
+                    credentials:
+                      description: Credentials lists the keys the credentials Secret
+                        must or may carry.
+                      properties:
+                        optional:
+                          description: Optional keys are read when present.
+                          items:
+                            maxLength: 253
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          maxItems: 16
+                          type: array
+                          x-kubernetes-list-type: set
+                        required:
+                          description: Required keys must be present and non-empty.
+                          items:
+                            maxLength: 253
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          maxItems: 16
+                          minItems: 1
+                          type: array
+                          x-kubernetes-list-type: set
+                      required:
+                      - required
+                      type: object
+                    name:
+                      description: Name identifies the mode, in PascalCase (e.g. AccessKey,
+                        BasicAuth).
+                      pattern: ^[A-Z][A-Za-z0-9]{0,62}$
+                      type: string
+                  required:
+                  - name
+                  type: object
+                  x-kubernetes-validations:
+                  - message: WorkloadIdentity and Anonymous take no credentials; every
+                      other mode must declare its credentials keys
+                    rule: (self.name in ['WorkloadIdentity', 'Anonymous']) != has(self.credentials)
+                maxItems: 16
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              description:
+                description: Description of the technology.
+                maxLength: 1024
+                type: string
+              displayName:
+                description: DisplayName is the human-readable name of the technology.
+                maxLength: 63
+                type: string
+              parametersSchema:
+                description: |-
+                  ParametersSchema validates BackupStorage.spec.parameters, the
+                  connection parameters of the technology. The bucket and prefix are
+                  BackupStorage.spec.location and transport trust is
+                  BackupStorage.spec.tls, so neither belongs in it.
+                properties:
+                  openAPIV3Schema:
+                    description: |-
+                      OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                      parameters payload.
+                    x-kubernetes-preserve-unknown-fields: true
+                type: object
+              uiSchema:
+                description: |-
+                  UISchema holds rendering hints for the forms that create a
+                  BackupStorage of the class, grouped by form: "location" for
+                  spec.location, "storage" for spec.parameters and "credentials" keyed by
+                  authentication mode.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+            required:
+            - authModes
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources: {}

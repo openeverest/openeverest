@@ -1,0 +1,124 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: backupstorageclass-api-validation
+spec:
+  steps:
+  - name: builtin-s3-class
+    try:
+    - assert:
+        resource:
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupStorageClass
+          metadata:
+            name: s3
+          spec:
+            authModes:
+            - name: AccessKey
+              credentials:
+                required:
+                - AWS_ACCESS_KEY_ID
+                - AWS_SECRET_ACCESS_KEY
+            parametersSchema:
+              openAPIV3Schema:
+                required:
+                - endpointURL
+                - region
+  - name: auth-modes
+    try:
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'YAML'
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupStorageClass
+          metadata:
+            name: bsc-api-no-modes.test.openeverest.io
+          spec: {}
+          YAML
+        check:
+          ($error != null): true
+          "(contains($stderr, 'spec.authModes: Required value'))": true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'YAML'
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupStorageClass
+          metadata:
+            name: bsc-api-reserved-with-keys.test.openeverest.io
+          spec:
+            authModes:
+            - name: WorkloadIdentity
+              credentials:
+                required: [token]
+          YAML
+        check:
+          ($error != null): true
+          (contains($stderr, 'WorkloadIdentity and Anonymous take no credentials')): true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'YAML'
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupStorageClass
+          metadata:
+            name: bsc-api-mode-without-keys.test.openeverest.io
+          spec:
+            authModes:
+            - name: AccountKey
+          YAML
+        check:
+          ($error != null): true
+          (contains($stderr, 'every other mode must declare its credentials keys')): true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'YAML'
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupStorageClass
+          metadata:
+            name: bsc-api-mode-name.test.openeverest.io
+          spec:
+            authModes:
+            - name: access-key
+              credentials:
+                required: [key]
+          YAML
+        check:
+          ($error != null): true
+          "(contains($stderr, 'spec.authModes[0].name in body should match'))": true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'YAML'
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupStorageClass
+          metadata:
+            name: bsc-api-duplicate-mode.test.openeverest.io
+          spec:
+            authModes:
+            - name: AccountKey
+              credentials:
+                required: [key]
+            - name: AccountKey
+              credentials:
+                required: [other]
+          YAML
+        check:
+          ($error != null): true
+          (contains($stderr, 'Duplicate value')): true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'YAML'
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupStorageClass
+          metadata:
+            name: bsc-api-valid.test.openeverest.io
+          spec:
+            displayName: Example
+            authModes:
+            - name: WorkloadIdentity
+            - name: AccountKey
+              credentials:
+                required: [key]
+                optional: [account]
+          YAML
+        check:
+          ($error): ~
