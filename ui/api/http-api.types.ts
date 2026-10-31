@@ -5969,6 +5969,13 @@ export interface components {
                      */
                     storages?: {
                         /**
+                         * @description Location is the path in the storage's bucket under which the engine
+                         *     writes this Instance's backups.
+                         */
+                        location?: string;
+                        /** @description Message explains Reason. */
+                        message?: string;
+                        /**
                          * @description Name is the BackupStorage name (matches
                          *     spec.backup.storages[].storageRef.name).
                          */
@@ -6001,6 +6008,12 @@ export interface components {
                              */
                             state?: "Available" | "Unavailable";
                         };
+                        /**
+                         * @description Reason is why the entry is not configured on the engine as specified,
+                         *     empty when it is. An entry the engine already had keeps its last
+                         *     configuration meanwhile.
+                         */
+                        reason?: string;
                     }[];
                 };
                 /** @description Components reports how many pods each component has and how many are Ready. */

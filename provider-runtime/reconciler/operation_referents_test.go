@@ -131,18 +131,18 @@ func TestBackupReconcile_WaitsForReferents(t *testing.T) {
 			wantMessage: "backup storage s3-prod not found in team-a",
 		},
 		{
-			name: "missing storage credentials",
+			name: "storage not accepted",
 			objs: func() []client.Object {
-				return []client.Object{class(), testOperationInstance(), testBackupStorage("s3-prod", "s3-keys")}
+				return []client.Object{class(), testOperationInstance(), testBackupStorage("s3-prod", "s3-keys", metav1.ConditionFalse)}
 			},
 			wantState:   backupv1alpha1.BackupStatePending,
-			wantMessage: "secret s3-keys with the credentials of backup storage s3-prod not found in team-a",
+			wantMessage: "backup storage s3-prod is not accepted: CredentialsNotFound: ",
 		},
 		{
 			name: "every referent present",
 			objs: func() []client.Object {
 				return []client.Object{
-					class(), testOperationInstance(), testBackupStorage("s3-prod", "s3-keys"), testSecret("s3-keys"),
+					class(), testOperationInstance(), testBackupStorage("s3-prod", "s3-keys", metav1.ConditionTrue), testSecret("s3-keys"),
 				}
 			},
 			wantSynced: true,
@@ -219,7 +219,7 @@ func TestBackupsForReferents(t *testing.T) {
 	otherStorage.Spec.StorageRef.Name = "s3-dev"
 	c := newOperationTestClient(
 		testBackup(""), finished, otherStorage,
-		testBackupStorage("s3-prod", "prod-keys"), testBackupStorage("s3-dev", "dev-keys"),
+		testBackupStorage("s3-prod", "prod-keys", metav1.ConditionTrue), testBackupStorage("s3-dev", "dev-keys", metav1.ConditionTrue),
 	)
 	r := &backupRuntimeReconciler{client: c, reader: c, providerName: "test-provider"}
 
@@ -234,7 +234,7 @@ func TestBackupsForReferents(t *testing.T) {
 		names(r.backupsForInstance(t.Context(), testOperationInstance())),
 	)
 	assert.ElementsMatch(t, []string{"nightly"},
-		names(r.backupsForStorage(t.Context(), testBackupStorage("s3-prod", ""))),
+		names(r.backupsForStorage(t.Context(), testBackupStorage("s3-prod", "", ""))),
 	)
 	assert.ElementsMatch(t, []string{"other-storage"},
 		names(r.backupsForSecret(t.Context(), testSecret("dev-keys"))),
