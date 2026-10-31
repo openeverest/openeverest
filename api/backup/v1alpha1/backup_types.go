@@ -187,6 +187,12 @@ type BackupStatus struct {
 	// Empty for external backups.
 	// +optional
 	Size *string `json:"size,omitempty"`
+	// Path is the directory in the BackupStorage's bucket the source
+	// Instance writes its backups to, recorded when the backup starts so
+	// restores resolve after the Instance is gone. Empty for external
+	// backups, whose path is spec.origin.external.path.
+	// +optional
+	Path string `json:"path,omitempty"`
 	// OperatorBackupRef points at the operator-native backup resource the
 	// provider created (e.g., PerconaServerMongoDBBackup). Populated only
 	// for ProviderManaged classes. Empty for external backups, which have no

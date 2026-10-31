@@ -189,6 +189,12 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 		}
 	}
 
+	if backup.Status.Path == "" {
+		if backup.Status.Path, err = instanceBackupPath(ctx, r.client, instance, backup.Spec.StorageRef.Name); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	exec, err := r.provider.SyncBackup(inCtx, backup)
 	if err != nil {
 		if controller.IsWaitError(err) {
