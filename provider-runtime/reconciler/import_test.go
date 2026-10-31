@@ -106,6 +106,13 @@ func testStorage() *backupv1alpha1.BackupStorage {
 			Namespace: testImportNamespace,
 			Name:      "storage-1",
 		},
+		Status: backupv1alpha1.BackupStorageStatus{
+			Conditions: []metav1.Condition{{
+				Type:   backupv1alpha1.BackupStorageConditionAccepted,
+				Status: metav1.ConditionTrue,
+				Reason: backupv1alpha1.ReasonAccepted,
+			}},
+		},
 	}
 }
 
