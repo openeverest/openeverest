@@ -22,16 +22,10 @@ import {
   useState,
   type MouseEvent,
 } from 'react';
-import {
-  Button,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Link,
-  Stack,
-  Typography,
-} from '@mui/material';
-import Dialog from '../dialog';
+import { Link, Stack, Typography } from '@mui/material';
+import { ShowMoreDialog } from '../show-more-dialog';
+import { SHOW_MORE_LINK_SX } from '../show-more-dialog/show-more-dialog.constants';
+import { Messages as ShowMoreMessages } from '../show-more-dialog/show-more-dialog.messages';
 import { Messages as DefaultMessages } from './expandable-clamped-text.messages';
 import {
   type ExpandableClampedTextExpandStrategy,
@@ -42,16 +36,6 @@ export const DEFAULT_LINE_CLAMP = 2;
 export const DEFAULT_SCROLL_MAX_HEIGHT = 120;
 const INLINE_CHAR_LIMIT = 255;
 const INLINE_LINE_LIMIT = 5;
-
-const linkSx = {
-  cursor: 'pointer',
-  typography: 'inherit',
-  alignSelf: 'flex-start',
-  lineHeight: 1.2,
-  px: 0,
-  py: 0,
-  minHeight: 'auto',
-};
 
 const ExpandedTextSx = {
   whiteSpace: 'pre-wrap' as const,
@@ -71,7 +55,6 @@ export const ExpandableClampedText = ({
   linkTypographyProps,
 }: ExpandableClampedTextProps) => {
   const [expandedInline, setExpandedInline] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
   const [hasOverflow, setHasOverflow] = useState(false);
   const valueRef = useRef<HTMLDivElement>(null);
   const resizeFrameRef = useRef<number | null>(null);
@@ -101,9 +84,9 @@ export const ExpandableClampedText = ({
                 ? expandStrategy.dialogTitle
                 : undefined) ?? DefaultMessages.dialogTitle,
           closeLabel:
-            (strategyType === 'dialog'
+            strategyType === 'dialog'
               ? expandStrategy.closeDialogLabel
-              : undefined) ?? DefaultMessages.close,
+              : undefined,
           props:
             strategyType === 'dialog' ? expandStrategy.dialogProps : undefined,
         }
@@ -111,7 +94,6 @@ export const ExpandableClampedText = ({
 
   useEffect(() => {
     setExpandedInline(false);
-    setModalOpen(false);
   }, [value, strategyType]);
 
   const measureOverflow = useCallback(() => {
@@ -174,14 +156,7 @@ export const ExpandableClampedText = ({
   const toggleLabel =
     effectiveStrategy === 'inline' && expandedInline
       ? DefaultMessages.showLess
-      : DefaultMessages.showMore;
-
-  const toggleAriaExpanded =
-    effectiveStrategy === 'inline'
-      ? expandedInline
-      : effectiveStrategy === 'dialog'
-        ? modalOpen
-        : false;
+      : ShowMoreMessages.showMore;
 
   const handleToggleClick = (e: MouseEvent<HTMLElement>) => {
     e.preventDefault();
@@ -191,17 +166,12 @@ export const ExpandableClampedText = ({
         setExpandedInline((prev) => !prev);
         return;
       }
-      case 'dialog': {
-        setModalOpen(true);
-        return;
-      }
       case 'navigate': {
         if (expandStrategy.type === 'navigate') {
           expandStrategy.onExpand();
         }
         return;
       }
-      case 'scroll':
       default:
         return;
     }
@@ -218,55 +188,39 @@ export const ExpandableClampedText = ({
         ...(expandedInline ? ExpandedTextSx : clampedSx),
       };
 
+  const linkVariant =
+    linkTypographyProps?.variant ?? textTypographyProps?.variant ?? 'caption';
+
   return (
-    <>
-      <Stack spacing={0.25} sx={{ width: '100%', alignItems: 'flex-start' }}>
-        <Typography
-          ref={valueRef}
-          component="div"
-          data-testid={`${dataTestId}-value`}
-          variant={textTypographyProps?.variant}
-          color={textTypographyProps?.color}
-          sx={{
-            ...contentSx,
-            ...textTypographyProps?.sx,
-          }}
-        >
-          {value}
-        </Typography>
+    <Stack spacing={0.25} sx={{ width: '100%', alignItems: 'flex-start' }}>
+      <Typography
+        ref={valueRef}
+        component="div"
+        data-testid={`${dataTestId}-value`}
+        variant={textTypographyProps?.variant}
+        color={textTypographyProps?.color}
+        sx={{
+          ...contentSx,
+          ...textTypographyProps?.sx,
+        }}
+      >
+        {value}
+      </Typography>
 
-        {shouldShowToggle ? (
-          <Link
-            component="button"
-            type="button"
-            underline="always"
-            variant={
-              linkTypographyProps?.variant ??
-              textTypographyProps?.variant ??
-              'caption'
-            }
-            color={linkTypographyProps?.color}
-            onClick={handleToggleClick}
-            aria-expanded={toggleAriaExpanded}
-            data-testid={`${dataTestId}-toggle`}
-            sx={{ ...linkSx, ...linkTypographyProps?.sx }}
+      {shouldShowToggle &&
+        (dialogConfig ? (
+          // Keyed by value so a changed value starts with the dialog closed.
+          <ShowMoreDialog
+            key={value}
+            dataTestId={dataTestId}
+            dialogTitle={dialogConfig.title}
+            closeLabel={dialogConfig.closeLabel}
+            dialogProps={dialogConfig.props}
+            linkTypographyProps={{
+              ...linkTypographyProps,
+              variant: linkVariant,
+            }}
           >
-            {toggleLabel}
-          </Link>
-        ) : null}
-      </Stack>
-
-      {dialogConfig && (
-        <Dialog
-          open={modalOpen}
-          onClose={() => setModalOpen(false)}
-          fullWidth
-          maxWidth="md"
-          scroll="paper"
-          {...dialogConfig.props}
-        >
-          <DialogTitle>{dialogConfig.title}</DialogTitle>
-          <DialogContent sx={{ pt: 1 }}>
             <Typography
               component="div"
               sx={{
@@ -276,19 +230,23 @@ export const ExpandableClampedText = ({
             >
               {value}
             </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              variant="text"
-              onClick={() => setModalOpen(false)}
-              data-testid={`${dataTestId}-dialog-close`}
-            >
-              {dialogConfig.closeLabel}
-            </Button>
-          </DialogActions>
-        </Dialog>
-      )}
-    </>
+          </ShowMoreDialog>
+        ) : (
+          <Link
+            component="button"
+            type="button"
+            underline="always"
+            variant={linkVariant}
+            color={linkTypographyProps?.color}
+            onClick={handleToggleClick}
+            aria-expanded={effectiveStrategy === 'inline' && expandedInline}
+            data-testid={`${dataTestId}-toggle`}
+            sx={{ ...SHOW_MORE_LINK_SX, ...linkTypographyProps?.sx }}
+          >
+            {toggleLabel}
+          </Link>
+        ))}
+    </Stack>
   );
 };
 

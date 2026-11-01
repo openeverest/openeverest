@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Box, Stack } from '@mui/material';
+import { Stack } from '@mui/material';
 import { DatabaseIcon, OverviewCard } from '@percona/ui-lib';
 
 import type { OtherFieldsCardProps } from './other-fields-card.types';
@@ -20,27 +20,24 @@ import OverviewSection from '../../overview-section';
 import OverviewSectionRow from '../../overview-section-row';
 
 const OtherFieldsCard = ({ fields, loading }: OtherFieldsCardProps) => (
-  <Box>
-    <OverviewCard
-      dataTestId="other-details"
-      sx={{ width: '100%' }}
-      cardHeaderProps={{
-        title: 'Other',
-        avatar: <DatabaseIcon />,
+  <OverviewCard
+    dataTestId="other-details"
+    cardHeaderProps={{
+      title: 'Other',
+      avatar: <DatabaseIcon />,
+    }}
+  >
+    <Stack
+      sx={{
+        gap: 3,
       }}
     >
-      <Stack
-        sx={{
-          gap: 3,
-        }}
-      >
-        <OverviewSection dataTestId="other" loading={loading}>
-          {fields.map(({ label, value }) => (
-            <OverviewSectionRow key={label} label={label} content={value} />
-          ))}
-        </OverviewSection>
-      </Stack>
-    </OverviewCard>
-  </Box>
+      <OverviewSection dataTestId="other" loading={loading}>
+        {fields.map(({ label, value }) => (
+          <OverviewSectionRow key={label} label={label} content={value} />
+        ))}
+      </OverviewSection>
+    </Stack>
+  </OverviewCard>
 );
 export default OtherFieldsCard;

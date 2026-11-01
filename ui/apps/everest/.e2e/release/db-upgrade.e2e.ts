@@ -222,7 +222,9 @@ test.describe.configure({ retries: 0 });
           expect(addedCluster?.spec.engine.storage.size.toString()).toBe('1Gi');
           expect(addedCluster?.spec.proxy.expose.type).toBe('ClusterIP');
           if (db != 'psmdb') {
-            expect(addedCluster?.spec.proxy.replicas).toBe(size);
+            expect(addedCluster?.spec.proxy.replicas).toBe(
+              db === 'pxc' ? 2 : size
+            );
           }
         });
       });

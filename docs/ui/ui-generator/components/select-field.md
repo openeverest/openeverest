@@ -32,8 +32,8 @@ A dropdown selection field that allows users to choose one option from a predefi
   - `readOnly`: Make field read-only - value displayed but cannot be changed (default: `false`)
 - `validation` (optional): Validation rules object with the following properties:
   - `required`: Whether the field is required (default: `false`)
-  - `regex`: Regular expression validation (see [Regex Validation](./Readme.md#regex-validation))
-  - `celExpressions`: Array of CEL validation expressions for cross-field validation (see [CEL Expression Validation](./Readme.md#cel-expression-validation))
+  - `regex`: Regular expression validation (see [Regex Validation](../validation.md#regex))
+  - `celExpressions`: Array of CEL validation expressions for cross-field validation (see [CEL Expression Validation](../validation.md#cel-expression-validation))
 
 ## Native Validation:
 
@@ -180,4 +180,4 @@ In this example, the `self` keyword refers to the current field's value. The val
 - **Empty options**: If the `options` array is empty, the select displays a "No options" message and validates as optional string.
 - **Auto-injected empty option**: When a field is optional AND `displayEmpty: true`, an empty option (value: `""`, label: "None") is automatically added to the beginning of the options list, unless you've already provided one.
 
-**Note:** For cross-field validation or regex patterns on select values, see the [Validation](./Readme.md#validation) section in the main README.
+**Note:** For cross-field validation or regex patterns on select values, see the [Validation](../validation.md) section in the main README.

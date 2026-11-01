@@ -18,12 +18,16 @@ tags:
     description: Everything related to authentication and authorization
   - name: Provider
     description: Everything related to providers
+  - name: Plugin
+    description: Everything related to generic plugins
   - name: Instance
     description: Everything related to instances
   - name: Preset
     description: Everything related to presets
   - name: Backup
     description: Everything related to backups
+  - name: Backup Import
+    description: Everything related to backup imports
   - name: Restore
     description: Everything related to restores
   - name: Backup Storage
@@ -133,74 +137,6 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/AuthRevokeRequest'
-
-  '/session':
-    post:
-      tags:
-        - Authentication & Authorization
-      security: []
-      summary: Everest API Login
-      description: |
-        This API issues a new JWT token for logging in from the Everest API.
-        The provided user must have the `login` capability.
-      operationId: createSession
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  token:
-                    type: string
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '429':
-          description: Too many attempts
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-      requestBody:
-        description: The user credentials
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UserCredentials'
-    delete:
-      tags:
-        - Authentication & Authorization
-      summary: Everest API Logout
-      description: |
-        This API invalidates Everest API JWT token.
-      operationId: deleteSession
-      responses:
-        '204':
-          description: Successful operation
-        '429':
-          description: Too many attempts
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
 
   '/permissions':
     get:
@@ -404,6 +340,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Cluster'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Cluster not found
           content:
@@ -504,6 +446,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance preset not found
           content:
@@ -554,6 +502,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/InstancePreset'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance preset not found
           content:
@@ -624,12 +578,80 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Provider'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Provider not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/plugins':
+    x-everest-resource-name: plugins
+    get:
+      tags:
+        - Plugin
+      summary: List plugins
+      description: |
+        This API lists the enabled generic plugins available in the specified cluster
+        that the caller is permitted to see. The response drives the frontend plugin
+        loader and the CLI plugin discovery.
+      operationId: listPlugins
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of plugins
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginDescriptorList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/plugin-context':
+    x-everest-resource-name: plugins
+    get:
+      tags:
+        - Plugin
+      summary: Get plugin context
+      description: |
+        This API returns the calling user's identity and the namespaces they can
+        access in the specified cluster. Plugins use it to scope their queries per
+        tenant.
+      operationId: getPluginContext
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Plugin context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginContext'
         default:
           description: Error
           content:
@@ -711,6 +733,24 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -752,6 +792,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance not found
           content:
@@ -805,12 +851,24 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -861,12 +919,24 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '415':
           description: The Content-Type is not application/merge-patch+json
           content:
@@ -927,12 +997,24 @@ paths:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
         '204':
           description: Instance deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -977,6 +1059,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/InstanceConnectionDetails'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Instance or connection details not found
           content:
@@ -1025,8 +1113,8 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/BackupList'
-        '400':
-          description: Unsuccessful operation
+        '403':
+          description: Forbidden
           content:
             application/json:
               schema:
@@ -1073,8 +1161,8 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/RestoreList'
-        '400':
-          description: Unsuccessful operation
+        '403':
+          description: Forbidden
           content:
             application/json:
               schema:
@@ -1143,6 +1231,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/BackupClass'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup class not found
           content:
@@ -1157,6 +1251,67 @@ paths:
                 $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/namespaces/{namespace}/backups':
     x-everest-resource-name: backups
+    get:
+      tags:
+        - Backup
+      summary: List backups
+      description: |
+        This API lists all backups in the specified namespace and cluster.
+        Optionally filter by backup class, backup storage and backup origin.
+      operationId: listBackups
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the backups
+          schema:
+            type: string
+        - name: backupClass
+          in: query
+          required: false
+          description: Filter backups by backup class name
+          schema:
+            type: string
+        - name: backupStorage
+          in: query
+          required: false
+          description: Filter backups by backup storage name
+          schema:
+            type: string
+        - name: backupOrigin
+          in: query
+          required: false
+          description: Filter backups by origin type
+          schema:
+            type: string
+            enum:
+              - Instance
+              - External
+      responses:
+        '200':
+          description: List of backups
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupList'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     post:
       tags:
         - Backup
@@ -1191,6 +1346,24 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Backup'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1232,6 +1405,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Backup'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup not found
           content:
@@ -1292,12 +1471,225 @@ paths:
                 $ref: 'crds.gen.yaml#/components/schemas/Backup'
         '204':
           description: Backup deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/backup-imports':
+    x-everest-resource-name: backup-imports
+    get:
+      tags:
+        - Backup Import
+      summary: List backup imports
+      description: |
+        This API lists all backup imports in the specified namespace and cluster.
+      operationId: listBackupImports
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the backup imports are located
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of backup imports
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupImportList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Backup Import
+      summary: Create backup import
+      description: |
+        This API creates a new backup import in the specified namespace and cluster.
+        A backup import discovers restorable backups in the referenced backup storage
+        and materializes them as Backup CRs.
+      operationId: createBackupImport
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the backup import will be created
+          schema:
+            type: string
+      requestBody:
+        description: The backup import object to be created
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: 'crds.gen.yaml#/components/schemas/BackupImport'
+      responses:
+        '201':
+          description: Backup import created successfully
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupImport'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/namespaces/{namespace}/backup-imports/{name}':
+    x-everest-resource-name: backup-imports
+    get:
+      tags:
+        - Backup Import
+      summary: Get backup import
+      description: |
+        This API gets the backup import specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: getBackupImport
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the backup import is located
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the backup import
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Backup import details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupImport'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Backup import not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Backup Import
+      summary: Delete backup import
+      description: |
+        This API deletes the backup import specified by the `name` in the specified `namespace` and `cluster`.
+      operationId: deleteBackupImport
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace where the backup import is located
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the backup import
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Backup import deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1340,6 +1732,24 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Restore'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1381,6 +1791,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Restore'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Restore not found
           content:
@@ -1428,12 +1844,24 @@ paths:
                 $ref: 'crds.gen.yaml#/components/schemas/Restore'
         '204':
           description: Restore deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Restore not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1475,6 +1903,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -1521,12 +1967,6 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/BackupStorageList'
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
           content:
@@ -1574,6 +2014,12 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/BackupStorage'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup storage not found
           content:
@@ -1591,7 +2037,10 @@ paths:
         - Backup Storage
       summary: Patch backup storage
       description: |
-        This API patches the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+        This API applies Merge Patch to the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+        Members absent from the patch keep their current value, and a member set to `null` is removed. A path that does not exist on the BackupStorage
+        is rejected rather than ignored. Include `metadata.resourceVersion` to make the patch conditional, which fails with 409 if the backup storage has changed.
+        `spec.s3.accessKeyId` and `spec.s3.secretAccessKey` are write-only: they are stored in the Secret named by `spec.s3.credentialsSecretRef` and never persisted on the object.
       operationId: patchBackupStorage
       parameters:
         - name: cluster
@@ -1625,8 +2074,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup storage not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '415':
+          description: The Content-Type is not application/merge-patch+json
           content:
             application/json:
               schema:
@@ -1638,12 +2105,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
       requestBody:
-        description: The backup storage fields to be patched
+        description: |
+          A partial BackupStorage document. `status` and the `ownerReferences`, `finalizers`, `name` and `namespace` members of `metadata` are rejected.
         required: true
         content:
-          application/json:
+          application/merge-patch+json:
             schema:
-              $ref: 'crds.gen.yaml#/components/schemas/BackupStorage'
+              type: object
+              additionalProperties: true
     put:
       tags:
         - Backup Storage
@@ -1683,12 +2152,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Backup storage not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1737,6 +2218,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1782,6 +2275,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -1821,12 +2332,6 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfigList'
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
           content:
@@ -1867,8 +2372,8 @@ paths:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfig'
-        '400':
-          description: Unsuccessful operation
+        '403':
+          description: Forbidden
           content:
             application/json:
               schema:
@@ -1923,12 +2428,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Monitoring config not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -1976,12 +2493,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Monitoring config not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -2031,6 +2560,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -2077,12 +2624,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConfigMapList'
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
           content:
@@ -2124,6 +2665,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConfigMap'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: ConfigMap not found
           content:
@@ -2165,12 +2712,24 @@ paths:
       responses:
         '204':
           description: ConfigMap deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: ConfigMap not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -2220,6 +2779,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Namespace not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -2267,12 +2844,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SecretList'
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
         '500':
           description: Internal server error
           content:
@@ -2315,6 +2886,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Secret'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Secret not found
           content:
@@ -2356,12 +2933,24 @@ paths:
       responses:
         '204':
           description: Secret deleted successfully
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '404':
           description: Secret not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -2380,6 +2969,24 @@ components:
       properties:
         message:
           type: string
+    APIError:
+      description: |
+        APIError exposes the `reason` and the offending `field` in addition
+        to the `message` for better programmatic handling of errors.
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - type: object
+          properties:
+            reason:
+              type: string
+              description: Machine-readable reason for the conflict.
+              example: AlreadyExists
+            field:
+              type: string
+              description: The field path that caused the conflict.
+              example: metadata.name
+          required:
+            - reason
     SecretList:
       type: object
       description: A list of OpenEverest-managed Secrets (metadata only).
@@ -2476,13 +3083,6 @@ components:
           description: |
             The refresh token to revoke. May be omitted when the refresh token is
             carried by the refresh token cookie.
-          type: string
-    UserCredentials:
-      type: object
-      properties:
-        username:
-          type: string
-        password:
           type: string
     CreateBackupStorageParams:
       type: object
@@ -3118,8 +3718,7 @@ components:
           description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
         metadata:
-          description: 'Standard object''s metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata'
-          type: object
+          $ref: 'crds.gen.yaml#/components/schemas/ObjectMeta'
         stringData:
           description: stringData allows specifying non-binary secret data in string form. It is provided as a write-only input field for convenience. All keys and values are merged into the data field on write, overwriting any existing values. The stringData field is never output when reading from the API.
           type: object
@@ -3154,8 +3753,7 @@ components:
           description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
           type: string
         metadata:
-          description: 'Standard object''s metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata'
-          type: object
+          $ref: 'crds.gen.yaml#/components/schemas/ObjectMeta'
 
     ConfigMapList:
       type: object
@@ -3308,4 +3906,93 @@ components:
             $ref: '#/components/schemas/Cluster'
       required:
         - items
+    PluginExtensionPoint:
+      type: object
+      description: A single UI/CLI extension point contributed by a plugin.
+      properties:
+        type:
+          type: string
+        label:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        path:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        icon:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        providers:
+          type: array
+          items:
+            type: string
+          x-go-type-skip-optional-pointer: true
+      required:
+        - type
+    PluginDescriptor:
+      type: object
+      description: A single enabled plugin as advertised to the frontend loader.
+      properties:
+        name:
+          type: string
+        displayName:
+          type: string
+        description:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        version:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        vendor:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        icon:
+          type: string
+          x-go-type-skip-optional-pointer: true
+        compatibleHostVersions:
+          type: string
+          description: |
+            API-compatibility gate: the host application semver range this
+            plugin supports. Enforced against the host version at load time.
+          x-go-type-skip-optional-pointer: true
+        compatibleUiContractVersions:
+          type: string
+          description: |
+            UI-contract gate: the React-major semver range this plugin's
+            frontend supports. Enforced against the host React major at load
+            time (the only runtime a bundled-MUI plugin shares with the host).
+          x-go-type-skip-optional-pointer: true
+        bundleUrl:
+          type: string
+        extensionPoints:
+          type: array
+          items:
+            $ref: '#/components/schemas/PluginExtensionPoint'
+          x-go-type-skip-optional-pointer: true
+      required:
+        - name
+        - displayName
+        - bundleUrl
+    PluginDescriptorList:
+      type: array
+      description: A list of enabled plugins the caller is permitted to see.
+      items:
+        $ref: '#/components/schemas/PluginDescriptor'
+    PluginContext:
+      type: object
+      description: The calling user's identity and accessible namespaces in a cluster.
+      properties:
+        user:
+          type: string
+        groups:
+          type: array
+          items:
+            type: string
+          x-go-type-skip-optional-pointer: true
+        namespaces:
+          type: array
+          items:
+            type: string
+      required:
+        - user
+        - namespaces
 

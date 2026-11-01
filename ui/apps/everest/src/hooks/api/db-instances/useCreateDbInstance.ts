@@ -18,6 +18,7 @@ import {
   UseMutationOptions,
 } from '@tanstack/react-query';
 import { createDbInstanceFn, getDbInstanceConnectionFn } from 'api/instanceApi';
+import { useClusterName } from 'hooks/api/useClusterName';
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import {
   InstanceConnectionDetails,
@@ -34,6 +35,7 @@ export const getDbInstanceCredentialsQueryKey = (
 
 type CreateInstanceHookArgType = {
   formValue: Record<string, unknown>;
+  annotations?: Record<string, string>;
 };
 
 type CreateInstanceSpec = NonNullable<CreateDbInstancePayload['spec']>;
@@ -62,22 +64,39 @@ const parseDbWizardCore = (
   return { dbName, namespace: k8sNamespace ?? '' };
 };
 
+// Wizard fields that are NOT part of the Instance spec, so they are stripped
+// before the remaining form fields are merged into `spec`. Where each one goes:
+//   provider     -> spec.providerRef (added explicitly below)
+//   dbName       -> the Instance name (metadata.name), set via createDbInstanceFn
+//   k8sNamespace -> the request namespace (URL path), not the body
+//   spec         -> merged in separately
+//   presetName   -> UI-only control, never sent
+// Everything else on the form is a ui-generator-produced spec field.
+const NON_SPEC_FORM_FIELDS = new Set([
+  'provider',
+  'dbName',
+  'k8sNamespace',
+  'spec',
+  'presetName',
+]);
+
 export const buildCreateInstanceSpec = (
   formValue: Record<string, unknown>
 ): CreateInstanceSpec => {
-  const { provider, dbName, k8sNamespace, spec, ...rest } = formValue;
-  void dbName;
-  void k8sNamespace;
+  const { provider, spec } = formValue;
 
   if (typeof provider !== 'string' || provider.length === 0) {
     throw new Error('Invalid create payload: provider is required');
   }
 
   const specRecord = isRecord(spec) ? spec : {};
+  const specFields = Object.fromEntries(
+    Object.entries(formValue).filter(([key]) => !NON_SPEC_FORM_FIELDS.has(key))
+  );
 
   return {
     providerRef: { name: provider },
-    ...deepMerge(rest, specRecord),
+    ...deepMerge(specFields, specRecord),
   };
 };
 
@@ -88,20 +107,24 @@ export const useCreateDbInstance = (
     CreateInstanceHookArgType,
     unknown
   >
-) =>
-  useMutation({
-    mutationFn: ({ formValue }: CreateInstanceHookArgType) => {
+) => {
+  const clusterName = useClusterName();
+
+  return useMutation({
+    mutationFn: ({ formValue, annotations }: CreateInstanceHookArgType) => {
       const { dbName, namespace } = parseDbWizardCore(formValue);
 
       return createDbInstanceFn(
-        'main',
+        clusterName,
         dbName,
         namespace,
-        buildCreateInstanceSpec(formValue)
+        buildCreateInstanceSpec(formValue),
+        annotations
       );
     },
     ...options,
   });
+};
 
 export const useDbInstanceCredentials = (
   dbInstanceName: string,

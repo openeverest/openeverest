@@ -19,7 +19,7 @@ import { errorMessages } from 'utils/common-validation';
 export const Messages = {
   previous: 'Previous',
   continue: 'Continue',
-  createDatabase: 'Create database',
+  createDatabase: 'Create',
   editDatabase: 'Edit database',
   cancel: 'Cancel',
   dialog: {

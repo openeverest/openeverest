@@ -28,6 +28,17 @@ import (
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
+// ListBackups lists backups in the namespace, optionally filtered by
+// parameters.
+func (e *EverestServer) ListBackups(c echo.Context, cluster string, namespace string, params api.ListBackupsParams) error {
+	result, err := e.handler.ListBackups(c.Request().Context(), cluster, namespace, &params)
+	if err != nil {
+		e.l.Errorf("ListBackups failed: %v", err)
+		return err
+	}
+	return c.JSON(http.StatusOK, result)
+}
+
 // GetBackup returns a specific backup.
 func (e *EverestServer) GetBackup(c echo.Context, cluster string, namespace string, backup string) error {
 	result, err := e.handler.GetBackup(c.Request().Context(), cluster, namespace, backup)

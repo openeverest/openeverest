@@ -13,7 +13,20 @@
 // limitations under the License.
 
 import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
+import { InstanceSchedule } from 'shared-types/backups.types';
 import { Instance } from 'shared-types/api.types';
+
+export const scheduleToApi = (
+  schedule: FlattenedSchedule
+): InstanceSchedule => ({
+  name: schedule.name,
+  cron: schedule.cron,
+  enabled: schedule.enabled,
+  ...(schedule.retention ? { retention: schedule.retention } : {}),
+  ...(schedule.parameters
+    ? { parameters: schedule.parameters as Record<string, never> }
+    : {}),
+});
 
 // Project an Instance's nested spec.backup.storages[].schedules[] onto the flat
 // per-schedule shape shared by the schedule dialog, the cluster-details backups
@@ -25,8 +38,12 @@ export const flattenSchedules = (instance: Instance): FlattenedSchedule[] =>
       name: schedule.name,
       cron: schedule.cron,
       enabled: schedule.enabled,
-      retentionCopies: schedule.retentionCopies,
-      parameters: schedule.parameters as Record<string, unknown> | undefined,
+      ...(schedule.retention ? { retention: schedule.retention } : {}),
+      ...(schedule.parameters
+        ? {
+            parameters: schedule.parameters as Record<string, unknown>,
+          }
+        : {}),
       storageName: storage.storageRef.name ?? '',
     }))
   );

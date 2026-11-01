@@ -27,6 +27,12 @@ spec:
     - jsonPath: .status.phase
       name: Phase
       type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].reason
+      name: Reason
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -172,14 +178,54 @@ spec:
                                   per-backup-run.
                                 type: object
                                 x-kubernetes-preserve-unknown-fields: true
-                              retentionCopies:
+                              retention:
                                 description: |-
-                                  RetentionCopies is the number of recent backups to keep for this
-                                  schedule. Zero (or unset) means "keep all". Negative values are
-                                  rejected.
-                                format: int32
-                                minimum: 0
-                                type: integer
+                                  Retention configures count-based or time-based backup retention for
+                                  this schedule. Unset keeps all backups.
+                                properties:
+                                  count:
+                                    description: |-
+                                      Count is the number of recent backups to keep when Type is count.
+                                      Required when Type is count (minimum 1). Forbidden when Type is time.
+                                      Omit Retention on the schedule to keep all backups.
+                                    format: int32
+                                    minimum: 1
+                                    type: integer
+                                  duration:
+                                    description: |-
+                                      Duration is the recovery window when Type is time, in the form
+                                      <positive-integer><unit> where unit is d (days), w (weeks), or m
+                                      (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+                                    pattern: ^[1-9][0-9]*[dwm]$
+                                    type: string
+                                  type:
+                                    default: count
+                                    description: Type selects count-based or time-based
+                                      retention.
+                                    enum:
+                                    - count
+                                    - time
+                                    type: string
+                                required:
+                                - type
+                                type: object
+                                x-kubernetes-validations:
+                                - message: count is required when retention type is
+                                    count
+                                  rule: 'self.type == ''count'' ? has(self.count)
+                                    : true'
+                                - message: duration is only allowed when retention
+                                    type is time
+                                  rule: 'self.type == ''count'' ? !has(self.duration)
+                                    : true'
+                                - message: count is only allowed when retention type
+                                    is count
+                                  rule: 'self.type == ''time'' ? !has(self.count)
+                                    : true'
+                                - message: duration is required when retention type
+                                    is time
+                                  rule: 'self.type == ''time'' ? has(self.duration)
+                                    : true'
                             required:
                             - cron
                             - enabled
@@ -230,9 +276,6 @@ spec:
                         Image specifies an override for the image to use.
                         When unspecified, it is autmatically set from the ComponentVersions
                         based on the Version specified.
-                      type: string
-                    name:
-                      description: Name of the component.
                       type: string
                     parameters:
                       description: |-
@@ -317,6 +360,8 @@ spec:
                             Affinity constrains node selection, pod co-location and pod
                             anti-affinity (spreading pods across nodes, zones or other topology
                             domains for high availability).
+                            When omitted, the provider applies its default, which may require each
+                            replica on its own node; an empty affinity ({}) sets no constraints.
                           properties:
                             nodeAffinity:
                               description: Describes node affinity scheduling rules
@@ -1301,7 +1346,9 @@ spec:
                         topologySpreadConstraints:
                           description: |-
                             TopologySpreadConstraints describe how the pods spread across topology
-                            domains. All constraints are ANDed.
+                            domains. A constraint with neither labelSelector nor matchLabelKeys counts
+                            this component's pods. When omitted, the provider applies its default; an
+                            empty list sets no constraints.
                           items:
                             description: TopologySpreadConstraint specifies how to
                               spread matching pods among the given topology.
@@ -1683,6 +1730,36 @@ spec:
                 - Cascade
                 - Orphan
                 type: string
+              maintenance:
+                description: |-
+                  Maintenance governs how disruptive actions raised against this
+                  Instance (e.g. the convergence step after a provider upgrade) are
+                  authorized. It does NOT govern the deliberate engine-version upgrade
+                  flow (spec.version / spec.components[].version).
+                properties:
+                  approved:
+                    description: |-
+                      Approved is a one-time authorization for an action above the standing
+                      tolerance: set it to the exact approvalToken of the held action from
+                      status.pendingMaintenance. It is matched literally, authorizes only
+                      that occurrence, and re-arms naturally — a later action carries a
+                      different token, so a stale value never authorizes it. It is NOT a
+                      provider version.
+                    maxLength: 253
+                    type: string
+                  autoApproveUpTo:
+                    default: NonDisruptive
+                    description: |-
+                      AutoApproveUpTo is the standing disruption tolerance: any action at or
+                      below this impact applies automatically, anything above it is held on
+                      status.pendingMaintenance. It is cause-agnostic — the tolerance applies
+                      whether the action was raised by a provider upgrade or anything else.
+                    enum:
+                    - NonDisruptive
+                    - RollingRestart
+                    - Downtime
+                    type: string
+                type: object
               parameters:
                 description: |-
                   Parameters contains structured parameters that apply to the Instance
@@ -1723,6 +1800,28 @@ spec:
                       If omitted, the provider's default topology is used.
                     type: string
                 type: object
+              userSecretRef:
+                description: |-
+                  UserSecretRef optionally seeds the engine's initial (bootstrap)
+                  credentials from a Secret in the same namespace, for providers whose
+                  engine supports setting initial credentials at creation time.
+
+                  When omitted, the provider generates credentials automatically. The
+                  referenced Secret's required keys are provider-specific and validated
+                  by the referenced Provider. The field is immutable once set: initial
+                  credentials only apply at engine creation time, so changing it later
+                  would have no effect.
+                properties:
+                  name:
+                    description: Name of the referenced Secret.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               version:
                 description: |-
                   Version selects a provider-defined version bundle, resolving compatible
@@ -1745,6 +1844,9 @@ spec:
                 so there is no target Instance to default to'
               rule: '!has(self.dataSource) || self.dataSource.type != ''PointInTime''
                 || has(self.dataSource.pointInTime.source.instanceRef)'
+            - message: spec.userSecretRef is immutable once set
+              rule: '!has(oldSelf.userSecretRef) || (has(self.userSecretRef) && self.userSecretRef
+                == oldSelf.userSecretRef)'
           status:
             description: InstanceStatus defines the observed state of Instance.
             properties:
@@ -1810,39 +1912,36 @@ spec:
                     x-kubernetes-list-type: map
                 type: object
               components:
-                description: Components is the status of the components in the database
-                  cluster.
+                description: Components reports how many pods each component has and
+                  how many are Ready.
                 items:
+                  description: ComponentStatus counts the pods of one component.
                   properties:
-                    podRefs:
-                      description: PodRefs references the Pods backing this component.
-                      items:
-                        description: |-
-                          ObjectRef references an object by name. The target is either in the same
-                          namespace as the referrer or cluster-scoped; which one applies is fixed by
-                          the field using this type and documented there.
-                        properties:
-                          name:
-                            description: Name of the referenced object.
-                            maxLength: 253
-                            minLength: 1
-                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                            type: string
-                        required:
-                        - name
-                        type: object
-                        x-kubernetes-map-type: atomic
-                      type: array
-                    ready:
-                      format: int32
-                      type: integer
-                    state:
+                    name:
+                      description: Name is a key of spec.components.
                       type: string
-                    total:
+                    readyReplicas:
+                      description: ReadyReplicas is the number of those pods that
+                        are Ready.
                       format: int32
                       type: integer
+                    replicas:
+                      description: Replicas is the number of the component's pods
+                        that are not terminating.
+                      format: int32
+                      type: integer
+                    selector:
+                      description: |-
+                        Selector selects the component's pods in the Instance's namespace, in
+                        the form kubectl get pods -l accepts.
+                      type: string
+                  required:
+                  - name
                   type: object
                 type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               conditions:
                 items:
                   description: Condition contains details for one aspect of the current
@@ -1931,6 +2030,49 @@ spec:
                 description: Message is a custom user-facing message describing the
                   current state of the instance.
                 type: string
+              observedGeneration:
+                description: |-
+                  ObservedGeneration is the metadata.generation the provider-runtime last
+                  reconciled. Status describes an older spec while it is lower than
+                  metadata.generation.
+                format: int64
+                type: integer
+              pendingMaintenance:
+                description: |-
+                  PendingMaintenance lists the disruptive actions currently held awaiting
+                  approval. It is recomputed on every reconcile from the actions the
+                  provider currently requests above the Instance's tolerance, so it can
+                  never go stale: an action the provider stops requesting disappears.
+                items:
+                  description: |-
+                    PendingMaintenanceAction is one disruptive action currently held awaiting
+                    approval.
+                  properties:
+                    approvalToken:
+                      description: |-
+                        ApprovalToken is the occurrence-unique, human-readable token the
+                        provider assigned to this held action. Copy it verbatim into
+                        spec.maintenance.approved to authorize this specific action.
+                      maxLength: 253
+                      type: string
+                    description:
+                      description: |-
+                        Description is a human-readable summary of the action and its
+                        observable impact. It never exposes operator internals.
+                      maxLength: 1024
+                      type: string
+                    severity:
+                      description: Severity is the action's observable database impact.
+                      enum:
+                      - NonDisruptive
+                      - RollingRestart
+                      - Downtime
+                      type: string
+                  required:
+                  - description
+                  - severity
+                  type: object
+                type: array
               phase:
                 description: Phase of the database cluster.
                 enum:

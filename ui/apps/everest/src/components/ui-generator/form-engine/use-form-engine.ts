@@ -40,6 +40,7 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
     providerObject,
     namespace,
     formMode,
+    widgetRegistry,
   } = config;
 
   // 1. Schema processing (sections, zod, field map)
@@ -86,6 +87,7 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
             providerObject,
             loadingDefaultsForEdition,
             namespace,
+            widgetRegistry,
           });
 
         return {
@@ -97,7 +99,14 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
           fields,
         };
       }),
-    [sectionKeys, effectiveSections, sectionFieldMap, providerObject, namespace]
+    [
+      sectionKeys,
+      effectiveSections,
+      sectionFieldMap,
+      providerObject,
+      namespace,
+      widgetRegistry,
+    ]
   );
 
   // 3. Merge static + generated steps

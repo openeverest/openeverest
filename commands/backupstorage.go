@@ -38,4 +38,5 @@ func init() {
 	backupStorageCmd.AddCommand(backupstorage.GetListCmd())
 	backupStorageCmd.AddCommand(backupstorage.GetCreateCmd())
 	backupStorageCmd.AddCommand(backupstorage.GetDeleteCmd())
+	backupStorageCmd.AddCommand(backupstorage.GetUpdateCmd())
 }

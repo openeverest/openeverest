@@ -20,8 +20,10 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -38,6 +40,7 @@ const restoreRuntimeFinalizer = "everest.percona.com/restore-runtime-finalizer"
 // skipped, mirroring the backup reconciler's behavior.
 type restoreRuntimeReconciler struct {
 	client       client.Client
+	reader       client.Reader
 	provider     controller.BackupProvider
 	providerName string
 }
@@ -45,11 +48,28 @@ type restoreRuntimeReconciler struct {
 func setupRestoreReconciler(mgr ctrl.Manager, bp controller.BackupProvider, providerName string) error {
 	r := &restoreRuntimeReconciler{
 		client:       mgr.GetClient(),
+		reader:       mgr.GetAPIReader(),
 		provider:     bp,
 		providerName: providerName,
 	}
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&backupv1alpha1.Restore{}).
+		Watches(&backupv1alpha1.BackupClass{},
+			handler.EnqueueRequestsFromMapFunc(r.restoresForClass),
+			builder.WithPredicates(existenceChanged()),
+		).
+		Watches(&backupv1alpha1.Backup{},
+			handler.EnqueueRequestsFromMapFunc(r.restoresForSource),
+			builder.WithPredicates(existenceChanged()),
+		).
+		Watches(&corev1alpha1.Instance{},
+			handler.EnqueueRequestsFromMapFunc(r.restoresForInstance),
+			builder.WithPredicates(existenceChanged()),
+		).
+		Watches(&backupv1alpha1.BackupStorage{},
+			handler.EnqueueRequestsFromMapFunc(r.restoresForStorage),
+			builder.WithPredicates(existenceChanged()),
+		).
 		Named(providerName + "-restore-controller")
 
 	if rw, ok := bp.(controller.RestoreWatcher); ok {
@@ -99,6 +119,9 @@ func (r *restoreRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.
 	if !ours {
 		return reconcile.Result{}, nil
 	}
+	if instance == nil {
+		return r.reconcileWithoutInstance(ctx, restore, bc)
+	}
 
 	// Reject PITR requests the resolved BackupClass does not support before
 	// any provider code runs. The Restore is terminally Failed: retrying
@@ -121,6 +144,19 @@ func (r *restoreRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{Requeue: true}, nil
+	}
+
+	if pitr := restore.Spec.DataSource.PointInTime; pitr != nil &&
+		(restore.Status.State == "" || restore.Status.State == backupv1alpha1.RestoreStatePending) {
+		missing, err := missingBackupStorage(ctx, r.client, restore.Namespace, pitr.Source.StorageRef.Name)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if missing.reason != "" {
+			restore.Status.State = backupv1alpha1.RestoreStatePending
+			restore.Status.Message = missing.message
+			return reconcile.Result{}, r.updateStatus(ctx, restore, bc)
+		}
 	}
 
 	exec, err := r.provider.SyncRestore(inCtx, restore)
@@ -180,7 +216,9 @@ func resolveRestoreOwnership(
 		Name:      restore.Spec.InstanceRef.Name,
 	}, instance); err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil, bc, false, nil
+			// A ProviderManaged class lists exactly one provider, so it
+			// names the owner while the Instance is missing.
+			return nil, bc, bc.Spec.SupportedProviders.Has(providerName), nil
 		}
 		return nil, bc, false, fmt.Errorf("failed to get Instance: %w", err)
 	}

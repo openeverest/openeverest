@@ -12,10 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { ComponentType } from 'react';
 import { SelectInput, SwitchInput, TextInput } from '@percona/ui-lib';
-import { FieldType, GroupType } from './ui-generator.types';
+import { FieldType, GroupType, GroupWrapperProps } from './ui-generator.types';
 import AccordionWrapper from './ui-group-wrappers/accordion-wrapper';
+import { BorderedWrapper } from './ui-group-wrappers/bordered-wrapper';
 import StackWrapper from './ui-group-wrappers/stack-wrapper';
+import { ToggleableWrapper } from './ui-group-wrappers/toggleable-wrapper';
 import { z } from 'zod';
 
 export const UI_TYPE_DEFAULT_VALUE: Partial<Record<FieldType, unknown>> = {
@@ -23,11 +26,17 @@ export const UI_TYPE_DEFAULT_VALUE: Partial<Record<FieldType, unknown>> = {
   [FieldType.Text]: '',
   [FieldType.Toggle]: false,
   [FieldType.Hidden]: undefined,
+  [FieldType.Secret]: '',
 };
 
-export const componentGroupMap: Record<string, React.ElementType> = {
+export const componentGroupMap: Record<
+  GroupType,
+  ComponentType<GroupWrapperProps>
+> = {
   [GroupType.Accordion]: AccordionWrapper,
+  [GroupType.Bordered]: BorderedWrapper,
   [GroupType.Line]: StackWrapper,
+  [GroupType.Toggleable]: ToggleableWrapper,
 };
 export const muiComponentMap: Record<FieldType, React.ElementType> = {
   [FieldType.Number]: TextInput,
@@ -35,6 +44,8 @@ export const muiComponentMap: Record<FieldType, React.ElementType> = {
   [FieldType.Select]: SelectInput,
   [FieldType.Toggle]: SwitchInput,
   [FieldType.Hidden]: () => null,
+  // Rendered by SecretField, never through UIComponent.
+  [FieldType.Secret]: () => null,
 };
 
 export const zodRuleMapByType: Record<FieldType, Record<string, string>> = {
@@ -69,6 +80,7 @@ export const zodRuleMapByType: Record<FieldType, Record<string, string>> = {
   [FieldType.Hidden]: {
     // Hidden fields don't need validation
   },
+  [FieldType.Secret]: {},
 };
 
 export const getZodRulesForFieldType = (
@@ -110,4 +122,5 @@ export const ZOD_SCHEMA_MAP: Record<FieldType, z.ZodTypeAny> = {
   [FieldType.Select]: z.string(),
   [FieldType.Toggle]: z.boolean(),
   [FieldType.Hidden]: z.any(),
+  [FieldType.Secret]: z.string(),
 };

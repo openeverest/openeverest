@@ -33,4 +33,7 @@ export const Messages = {
     `Maximum number of storages (${maxStorages}) for this backup class has been reached.`,
   noStoragesAvailable:
     'Add a new backup storage in order to create a backup schedule',
+  retention: (duration: string) => `Retention: ${duration}`,
+  retentionCopies: (count: string | number) => `Retention copies: ${count}`,
+  infinite: 'infinite',
 };

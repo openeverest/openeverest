@@ -184,7 +184,7 @@ func sentinel(spec *corev1alpha1.ProviderSpec, path string, kind leafKind) (any,
 // nonDefaultBundle returns a bundle the baseline render would not have used.
 func nonDefaultBundle(spec *corev1alpha1.ProviderSpec) string {
 	for _, bundle := range spec.Versions {
-		if !bundle.Default {
+		if bundle.Name != spec.DefaultVersion {
 			return bundle.Name
 		}
 	}

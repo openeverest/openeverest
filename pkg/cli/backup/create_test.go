@@ -18,7 +18,6 @@ package backup
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -44,15 +43,29 @@ func newConfigPath(t *testing.T, serverURL string) string {
 // hand-spelling the generated anonymous Status struct.
 func backupWithState(t *testing.T, name, state string) *client.Backup {
 	t.Helper()
-	statusField := ""
-	if state != "" {
-		statusField = fmt.Sprintf(`,"status":{"state":%q}`, state)
+	obj := map[string]any{
+		"metadata": map[string]any{
+			"name":      name,
+			"namespace": "everest",
+		},
+		"spec": map[string]any{
+			"origin": map[string]any{
+				"type":        "Instance",
+				"instanceRef": map[string]any{"name": "my-mongo"},
+			},
+			"classRef":   map[string]any{"name": "psmdb-backup"},
+			"storageRef": map[string]any{"name": "my-s3"},
+		},
 	}
-	body := fmt.Sprintf(
-		`{"metadata":{"name":%q,"namespace":"everest"},"spec":{"instanceRef":{"name":"my-mongo"},"classRef":{"name":"psmdb-backup"},"storageRef":{"name":"my-s3"}}%s}`,
-		name, statusField,
-	)
-	return backupFromJSON(t, body)
+
+	if state != "" {
+		obj["status"] = map[string]any{"state": state}
+	}
+
+	body, err := json.Marshal(obj)
+	require.NoError(t, err)
+
+	return backupFromJSON(t, string(body))
 }
 
 func TestRun_HappyPath_GeneratesName(t *testing.T) {
@@ -84,6 +97,9 @@ func TestRun_HappyPath_GeneratesName(t *testing.T) {
 	assert.Empty(t, gotBody.Metadata.Name)
 	assert.Equal(t, "psmdb-backup", gotBody.Spec.ClassRef.Name)
 	assert.Equal(t, "my-s3", gotBody.Spec.StorageRef.Name)
+	assert.Equal(t, client.BackupSpecOriginTypeInstance, gotBody.Spec.Origin.Type)
+	require.NotNil(t, gotBody.Spec.Origin.InstanceRef)
+	assert.Equal(t, "my-mongo", gotBody.Spec.Origin.InstanceRef.Name)
 }
 
 func TestRun_ExplicitName(t *testing.T) {

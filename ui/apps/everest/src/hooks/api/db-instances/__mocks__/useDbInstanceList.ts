@@ -48,10 +48,11 @@ export const mockInstances: Instance[] = [
       phase: 'Ready',
       components: [
         {
-          podRefs: [{ name: 'psmdb-primary-0' }],
-          ready: 3,
-          state: 'Ready',
-          total: 3,
+          name: 'psmdb',
+          selector:
+            'core.openeverest.io/component=psmdb,core.openeverest.io/instance=psmdb-primary',
+          replicas: 3,
+          readyReplicas: 3,
         },
       ],
       conditions: [

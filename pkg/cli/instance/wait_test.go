@@ -98,6 +98,30 @@ func TestInstanceCondition(t *testing.T) {
 			wantOutcome: wait.Pending,
 			wantMsgHas:  "-",
 		},
+		{
+			name: "rejected spec is terminal failure",
+			body: `{"metadata":{"generation":2},"status":{"phase":"Pending","conditions":[` +
+				`{"type":"Ready","status":"False","reason":"ValidationFailed","message":"replicas must be odd",` +
+				`"observedGeneration":2,"lastTransitionTime":"2026-01-01T00:00:00Z"}]}}`,
+			wantOutcome: wait.Failed,
+			wantMsgHas:  "ValidationFailed: replicas must be odd",
+		},
+		{
+			name: "rejection of an older generation keeps waiting",
+			body: `{"metadata":{"generation":3},"status":{"phase":"Pending","conditions":[` +
+				`{"type":"Ready","status":"False","reason":"ValidationFailed","message":"replicas must be odd",` +
+				`"observedGeneration":2,"lastTransitionTime":"2026-01-01T00:00:00Z"}]}}`,
+			wantOutcome: wait.Pending,
+			wantMsgHas:  "Pending",
+		},
+		{
+			name: "missing user secret keeps waiting",
+			body: `{"metadata":{"generation":1},"status":{"phase":"Pending","conditions":[` +
+				`{"type":"Ready","status":"False","reason":"UserSecretNotFound","message":"secret s not found",` +
+				`"observedGeneration":1,"lastTransitionTime":"2026-01-01T00:00:00Z"}]}}`,
+			wantOutcome: wait.Pending,
+			wantMsgHas:  "Pending",
+		},
 	}
 
 	for _, tc := range tests {
@@ -114,10 +138,11 @@ func TestProgressMessage_WithComponents(t *testing.T) {
 	t.Parallel()
 
 	inst := instFromJSON(t, `{"status":{"phase":"Provisioning","components":[
-		{"state":"initializing","ready":1,"total":3}
+		{"name":"engine","readyReplicas":2,"replicas":3},
+		{"name":"proxy","readyReplicas":1,"replicas":1}
 	]}}`)
 	_, msg := instanceCondition(inst)
-	assert.Equal(t, "Provisioning (initializing 1/3 ready)", msg)
+	assert.Equal(t, "Provisioning (engine 2/3 ready, proxy 1/1 ready)", msg)
 }
 
 // ---- Run --wait integration -------------------------------------------------

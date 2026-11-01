@@ -95,7 +95,7 @@ describe('extractWizardBackup', () => {
                 name: 'daily',
                 cron: '0 2 * * *',
                 enabled: true,
-                retentionCopies: 2,
+                retention: { type: 'count', count: 2 },
               },
             ],
             pitr: { enabled: true },
@@ -117,7 +117,7 @@ describe('extractWizardBackup', () => {
           name: 'daily',
           cron: '0 2 * * *',
           enabled: true,
-          retentionCopies: 2,
+          retention: { type: 'count', count: 2 },
           storageName: 's3-a',
         },
         {

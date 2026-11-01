@@ -18,11 +18,8 @@
 package namespaces
 
 import (
-	"fmt"
 	"os"
-	"strings"
 
-	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
 
 	"github.com/openeverest/openeverest/v2/pkg/cli"
@@ -67,53 +64,11 @@ func namespacesListRun(cmd *cobra.Command, _ []string) {
 		output.PrintError(err, logger.GetLogger(), namespacesListCfg.Pretty)
 		os.Exit(1)
 	}
-	printNamespacesTable(nsList)
+
+	op.Render(os.Stdout, nsList)
 }
 
 // GetNamespacesListCmd returns the command to list a namespaces.
 func GetNamespacesListCmd() *cobra.Command {
 	return namespacesListCmd
-}
-
-const (
-	// columnName is the column name for the namespace.
-	columnName = "namespace"
-	// columnManagedByEverest is the column name for the namespace managed by Everest.
-	columnManagedByEverest = "managed"
-	// columnOperators is the column name for the installed Everest operators.
-	columnOperators = "operators"
-)
-
-// Print namespaces to console.
-func printNamespacesTable(nsList []namespaces.NamespaceInfo) {
-	// Prepare table headings.
-	headings := []any{columnName, columnManagedByEverest, columnOperators}
-	// Prepare table header.
-	tbl := table.New(headings...)
-	tbl.WithHeaderFormatter(func(format string, vals ...any) string {
-		// Print all in caps.
-		return strings.ToUpper(fmt.Sprintf(format, vals...))
-	})
-
-	// Return a table row for the given account.
-	row := func(ns namespaces.NamespaceInfo) []any {
-		var row []any
-		for _, heading := range headings {
-			switch heading {
-			case columnName:
-				row = append(row, ns.Name)
-			case columnManagedByEverest:
-				row = append(row, len(ns.InstalledOperators) > 0)
-			case columnOperators:
-				row = append(row, strings.Join(ns.InstalledOperators, ", "))
-			}
-		}
-		return row
-	}
-
-	for _, ns := range nsList {
-		tbl.AddRow(row(ns)...)
-	}
-
-	tbl.Print()
 }

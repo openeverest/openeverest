@@ -19,6 +19,7 @@ import type {
   TopologyUISchemas,
 } from '../../ui-generator.types';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
+import { getWidgetTargetPaths } from '../widget-targets';
 
 export interface LeafComponentInfo {
   component: Component;
@@ -81,7 +82,10 @@ export const collectAllSchemaPaths = (
     if (!section?.components) continue;
 
     walkLeafComponents(section.components, ({ component }) => {
-      getComponentTargetPaths(component).forEach((path) => {
+      [
+        ...getComponentTargetPaths(component),
+        ...getWidgetTargetPaths(component),
+      ].forEach((path) => {
         if (path) paths.add(path);
       });
     });

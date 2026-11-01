@@ -23,10 +23,16 @@ on:
 permissions:
   contents: read
 
+# Supersede per-PR runs; never cancel push/schedule analyses.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   analyze:
     name: Analyze
-    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    runs-on: cncf-ubuntu-8-32-x86
     permissions:
       actions: read
       contents: read
@@ -41,7 +47,7 @@ jobs:
 
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 

@@ -42,6 +42,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientgo "k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -59,6 +60,7 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/oidc"
 	"github.com/openeverest/openeverest/v2/pkg/session"
+	"github.com/openeverest/openeverest/v2/pkg/version"
 	"github.com/openeverest/openeverest/v2/public"
 )
 
@@ -126,6 +128,19 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 	}
 
 	echoServer := echo.New()
+	// Pre() so it also wraps the Pre() middlewares; the bare HTTPError keeps the
+	// panic text out of the response body.
+	echoServer.Pre(echomiddleware.RecoverWithConfig(echomiddleware.RecoverConfig{
+		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {
+			l.Errorw("panic recovered while serving request",
+				"error", err,
+				"method", c.Request().Method,
+				"uri", c.Request().RequestURI,
+				"stack", string(stack),
+			)
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		},
+	}))
 	echoServer.Use(echomiddleware.RateLimiter(echomiddleware.NewRateLimiterMemoryStore(rate.Limit(c.APIRequestsRateLimit))))
 	store := newPasswordGrantLimiter(c.LoginRateLimit)
 
@@ -234,7 +249,12 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 			// See the securityHeaders middleware for more information.
 			return c.Render(
 				http.StatusOK, "index.html",
-				map[string]any{"CSPNonce": secure.CSPNonce(c.Request().Context())},
+				map[string]any{
+					"CSPNonce": secure.CSPNonce(c.Request().Context()),
+					// Published so the UI can enforce a plugin's
+					// spec.compatibleHostVersions at load time.
+					"EverestVersion": version.Version,
+				},
 			)
 		}, e.securityHeaders(),
 	)
@@ -299,14 +319,15 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	// Plugin bundle serving — no JWT required.
 	// Bundles are static JS assets, same as the main app's JS files.
 	// Only GET requests on the wildcard path are served without auth.
-	e.echo.GET("/v1/plugins/:name/*", pp.proxyHandler)
+	e.echo.GET("/v1/clusters/:cluster/plugins/:name/*", pp.proxyHandler)
 
-	// Plugin discovery & API — JWT protected.
-	pluginGroup := e.echo.Group("/v1/plugins")
+	// Plugin backend proxy — JWT protected, hand-registered because the
+	// wildcard sub-path spans multiple segments (the generators would collapse
+	// {path} into echo's single-segment :path). Discovery endpoints
+	// (list + context) go through the generated OpenAPI + RBAC chain instead.
+	pluginGroup := e.echo.Group("/v1/clusters/:cluster/plugins")
 	pluginGroup.Use(jwtMW)
 	pluginGroup.Use(blocklistMW)
-	pluginGroup.GET("", pp.listPluginsHandler)
-	pluginGroup.GET("/context", e.pluginContextHandler)
 	pluginGroup.Any("/:name", pp.authedProxyHandler)
 	// Register non-GET methods on the wildcard subpath. GET is handled by
 	// the unauthenticated route above (for bundle serving via dynamic import).
@@ -586,22 +607,45 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 					Message: trimStrictDecodingError(trimWebhookErrorText(statusError.Status().Message)),
 				}
 			}
-		case k8serrors.IsAlreadyExists(err),
-			k8serrors.IsConflict(err):
-			// A bare 409 renders as a null body, leaving a client with nothing
-			// to show for a failed resourceVersion precondition.
-			httpErr := &echo.HTTPError{Code: http.StatusConflict}
+		case k8serrors.IsAlreadyExists(err):
+			var message string
+
 			statusError := &k8serrors.StatusError{}
 			if errors.As(err, &statusError) {
-				httpErr.Message = trimWebhookErrorText(statusError.Status().Message)
+				message = trimWebhookErrorText(statusError.Status().Message)
 			}
-			err = httpErr
+
+			err = &echo.HTTPError{
+				Code: http.StatusConflict,
+				Message: apiErrorBody{
+					Message: message,
+					Reason:  string(metav1.StatusReasonAlreadyExists),
+					Field:   "metadata.name",
+				},
+			}
+		case k8serrors.IsConflict(err):
+			var message string
+
+			statusError := &k8serrors.StatusError{}
+			if errors.As(err, &statusError) {
+				message = trimWebhookErrorText(statusError.Status().Message)
+			}
+
+			err = &echo.HTTPError{
+				Code: http.StatusConflict,
+				Message: apiErrorBody{
+					Message: message,
+					Reason:  string(metav1.StatusReasonConflict),
+					Field:   conflictField(message),
+				},
+			}
 		case errors.Is(err, rbachandler.ErrInsufficientPermissions):
 			err = &echo.HTTPError{
 				Code:    http.StatusForbidden,
 				Message: rbachandler.ErrInsufficientPermissions.Error(),
 			}
 		case errors.Is(err, valhandler.ErrInvalidRequest),
+			errors.Is(err, k8shandler.ErrInvalidRequest),
 			errors.Is(err, errFailedToReadRequestBody):
 			err = &echo.HTTPError{
 				Code:    http.StatusBadRequest,
@@ -619,6 +663,34 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 			}
 		}
 		next(err, c)
+	}
+}
+
+// apiErrorBody exposes `reason` and the offending `field` beyond the free
+// form `message`, so clients can map a failure to a specific input instead
+// of only showing a generic notification.
+type apiErrorBody struct {
+	Message string `json:"message"`
+	Reason  string `json:"reason,omitempty"`
+	Field   string `json:"field,omitempty"`
+}
+
+// conflictField maps a Kubernetes Conflict message to the object field whose
+// precondition was violated.
+func conflictField(message string) string {
+	switch {
+	// https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiserver/pkg/registry/rest/delete.go#L86
+	case strings.Contains(message, "UID"):
+		return "metadata.uid"
+
+		// https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiserver/pkg/registry/generic/registry/store.go#L277
+	case strings.Contains(message, "the object has been modified"),
+		// https://github.com/kubernetes/kubernetes/blob/master/staging/src/k8s.io/apiserver/pkg/registry/rest/delete.go#L89
+		strings.Contains(message, "ResourceVersion"):
+		return "metadata.resourceVersion"
+
+	default:
+		return ""
 	}
 }
 

@@ -47,16 +47,12 @@ type Subscriber struct {
 	// broadcast dropped it for being too slow. It's closed exactly once via
 	// closeOnce.
 	//
-	// ch itself is never closed. broadcast takes a point-in-time snapshot
-	// of subscribers, releases h.mu, then sends — so by the time a send is
-	// attempted, this subscriber may already be mid-teardown on another
-	// goroutine (Cancel, or a *different* broadcast call dropping it for a
-	// full buffer). Closing ch directly from that teardown could race with
-	// a send already in flight and panic ("send on closed channel"). done
-	// sidesteps that: closing it is always safe from any goroutine, any
-	// number of times guarded by closeOnce, and a send that loses the race
-	// to a close either succeeds harmlessly into an abandoned channel or is
-	// skipped via the <-done case below.
+	// ch itself is never closed: close() runs outside h.mu (Cancel's
+	// teardown, and broadcast's drop path), so it can't be ordered against
+	// a send without reintroducing the risk of a panic on a closed channel.
+	// done sidesteps that: closing it is always safe from any goroutine,
+	// any number of times guarded by closeOnce, and a reader learns the
+	// subscription is over from it rather than from a closed ch.
 	done      chan struct{}
 	closeOnce sync.Once
 }
@@ -70,9 +66,12 @@ type Subscription struct {
 	// Replay holds buffered events with Seq greater than the requested
 	// cursor, oldest first. Empty when no cursor was given.
 	Replay []Event
-	// Ch streams events published after Subscribe returned. The boundary
+	// Ch streams events published after Subscribe returned, in ascending
+	// Seq order even when publishers run concurrently. The boundary
 	// with Replay is exact — see Subscribe's comment — so the caller can
-	// simply deliver Replay first, then drain Ch, with no gap or overlap.
+	// simply deliver Replay first, then drain Ch, with no gap or overlap,
+	// and the Seq of the last event it handled is always a valid resume
+	// cursor.
 	// Never closed - select on Dropped (or your own context) to know when
 	// to stop reading.
 	Ch <-chan Event
@@ -210,20 +209,15 @@ func (h *Hub) broadcast(evt Event) {
 	evt.Epoch = h.buffer.Epoch()
 	h.buffer.Append(&evt)
 
-	// Snapshot the current subscriber set under the same critical section
-	// that just appended evt — this is the other half of the race-safety
-	// argument in Subscribe's comment. Then release before sending: a send
-	// can block a goroutine on a full channel's non-blocking select for a
-	// moment, but must never hold h.mu while doing it, or a slow subscriber
-	// would stall seq assignment and registration for everyone else.
-	subs := make([]*Subscriber, 0, len(h.subscribers))
-	for sub := range h.subscribers {
-		subs = append(subs, sub)
-	}
-	h.mu.Unlock()
-
+	// Fan out inside the same critical section that assigned evt.Seq. This
+	// is what makes Ch strictly seq-ordered: with concurrent publishers,
+	// sending outside the lock lets the goroutine holding seq N+1 win the
+	// race against the one holding seq N, and a consumer that treats the
+	// last event it received as its resume cursor then skips N forever on
+	// reconnect. Every send below is non-blocking (the default case drops),
+	// so no subscriber can stall seq assignment by holding the lock open.
 	var toDrop []*Subscriber
-	for _, sub := range subs {
+	for sub := range h.subscribers {
 		if !sub.matches(evt) {
 			continue
 		}
@@ -237,16 +231,15 @@ func (h *Hub) broadcast(evt Event) {
 			toDrop = append(toDrop, sub)
 		}
 	}
+	for _, sub := range toDrop {
+		delete(h.subscribers, sub)
+	}
+	h.mu.Unlock()
 
-	if len(toDrop) > 0 {
-		h.mu.Lock()
-		for _, sub := range toDrop {
-			delete(h.subscribers, sub)
-		}
-		h.mu.Unlock()
-		for _, sub := range toDrop {
-			sub.close()
-		}
+	// close() outside the lock: it's the one teardown step that doesn't
+	// touch h's state, and Cancel may be blocked on h.mu right now.
+	for _, sub := range toDrop {
+		sub.close()
 	}
 }
 

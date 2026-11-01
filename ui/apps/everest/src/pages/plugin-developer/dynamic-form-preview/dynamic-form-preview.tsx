@@ -14,7 +14,7 @@
 
 import { FormProvider, useForm } from 'react-hook-form';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { SelectInput, Stepper } from '@percona/ui-lib';
 import { TopologyUISchemas } from 'components/ui-generator/ui-generator.types';
 import { MenuItem, Stack, Step, StepLabel } from '@mui/material';
@@ -25,6 +25,7 @@ import { useCelValidation } from 'components/ui-generator/hooks/use-cel-validati
 import { useUiGenerator } from 'components/ui-generator/hooks/ui-generator';
 import { useTopology } from 'components/ui-generator/hooks/use-topology';
 import { useDefaultValues } from 'components/ui-generator/hooks/use-default-values';
+import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 
 export type DynamicFormProps = {
   schema: TopologyUISchemas;
@@ -34,7 +35,12 @@ export type DynamicFormProps = {
   namespace?: string;
 };
 
-export const DynamicForm = ({ schema, namespace }: DynamicFormProps) => {
+export const DynamicForm = ({
+  schema: rawSchema,
+  namespace,
+}: DynamicFormProps) => {
+  // Same pipeline entry as the real instance form, so authors see what users get.
+  const schema = useMemo(() => preprocessSchema(rawSchema), [rawSchema]);
   const [activeStep, setActiveStep] = useState(0);
   const {
     selectedTopology,

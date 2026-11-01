@@ -15,6 +15,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { getExtensionCatalogFn } from 'api/extension-catalog';
 import { ResolvedExtensionMeta } from 'shared-types/extension-catalog.types';
+import { useClusterName } from 'hooks/api/useClusterName';
 import { buildProviderMetaMap } from './useExtensionCatalog.utils';
 
 // Fetches the extension catalog from the plugin-hub plugin and exposes a helper
@@ -22,13 +23,14 @@ import { buildProviderMetaMap } from './useExtensionCatalog.utils';
 // is not installed (or the catalog is unreachable), the map is empty and callers
 // fall back to the raw resource name.
 export const useExtensionCatalog = () => {
+  const clusterName = useClusterName();
   const query = useQuery({
-    queryKey: ['extension-catalog'],
-    queryFn: getExtensionCatalogFn,
+    queryKey: ['extension-catalog', clusterName],
+    queryFn: () => getExtensionCatalogFn(clusterName),
     retry: false,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
-    select: buildProviderMetaMap,
+    select: (data) => buildProviderMetaMap(data, clusterName),
   });
 
   const providerMeta = query.data ?? new Map<string, ResolvedExtensionMeta>();

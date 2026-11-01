@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -181,20 +182,16 @@ func printComponentTable(w io.Writer, inst *client.Instance) {
 	}
 	fmt.Fprintln(w, "\nComponents:")
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "  STATE\tREADY\tTOTAL")
+	fmt.Fprintln(tw, "  NAME\tREADY")
 	for _, comp := range *inst.Status.Components {
-		state := "-"
-		if comp.State != nil {
-			state = *comp.State
+		var ready, replicas int32
+		if comp.ReadyReplicas != nil {
+			ready = *comp.ReadyReplicas
 		}
-		var ready, total int32
-		if comp.Ready != nil {
-			ready = *comp.Ready
+		if comp.Replicas != nil {
+			replicas = *comp.Replicas
 		}
-		if comp.Total != nil {
-			total = *comp.Total
-		}
-		fmt.Fprintf(tw, "  %s\t%d\t%d\n", state, ready, total)
+		fmt.Fprintf(tw, "  %s\t%d/%d\n", comp.Name, ready, replicas)
 	}
 	tw.Flush() //nolint:errcheck,gosec
 }
@@ -211,7 +208,11 @@ func printConditionTable(w io.Writer, inst *client.Instance) {
 		if msg == "" {
 			msg = "-"
 		}
-		fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\n", cond.Type, string(cond.Status), cond.Reason, msg)
+		lines := strings.Split(msg, "\n")
+		fmt.Fprintf(tw, "  %s\t%s\t%s\t%s\n", cond.Type, string(cond.Status), cond.Reason, lines[0])
+		for _, line := range lines[1:] {
+			fmt.Fprintf(tw, "  \t\t\t%s\n", line)
+		}
 	}
 	tw.Flush() //nolint:errcheck,gosec
 }

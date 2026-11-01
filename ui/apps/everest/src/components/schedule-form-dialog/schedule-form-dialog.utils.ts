@@ -28,13 +28,13 @@ export const scheduleModalDefaultValues = (
   initialBackupClassName?: string
 ): ScheduleFormData => {
   if (mode === WizardMode.Edit && selectedSchedule) {
-    const { name, storageName, cron, retentionCopies, parameters } =
-      selectedSchedule;
+    const { name, storageName, cron, retention, parameters } = selectedSchedule;
     const formValues = getFormValuesFromCronExpression(cron);
     return {
       [ScheduleFormFields.scheduleName]: name || '',
       [ScheduleFormFields.storageLocation]: { metadata: { name: storageName } },
-      [ScheduleFormFields.retentionCopies]: retentionCopies?.toString() || '0',
+      [ScheduleFormFields.retentionCopies]:
+        retention?.type === 'count' ? String(retention.count) : '0',
       [ScheduleFormFields.backupClassName]: initialBackupClassName ?? '',
       ...formValues,
       // UIGenerator fields are registered under sectionKey "parameters"

@@ -18,3 +18,7 @@ import "errors"
 
 // ErrNotFound is an error that appears when the requested resource is not managed by OpenEverest.
 var ErrNotFound = errors.New("not managed by OpenEverest")
+
+// ErrInvalidRequest marks a caller mistake this layer only notices once it has the
+// stored object or the decoded patch, so that it answers 400 rather than 500.
+var ErrInvalidRequest = errors.New("invalid request")

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -47,6 +48,7 @@ const (
 // can coexist in the same namespace without trampling each other.
 type backupRuntimeReconciler struct {
 	client       client.Client
+	reader       client.Reader
 	provider     controller.BackupProvider
 	providerName string
 }
@@ -54,11 +56,28 @@ type backupRuntimeReconciler struct {
 func setupBackupReconciler(mgr ctrl.Manager, bp controller.BackupProvider, providerName string) error {
 	r := &backupRuntimeReconciler{
 		client:       mgr.GetClient(),
+		reader:       mgr.GetAPIReader(),
 		provider:     bp,
 		providerName: providerName,
 	}
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&backupv1alpha1.Backup{}).
+		Watches(&backupv1alpha1.BackupClass{},
+			handler.EnqueueRequestsFromMapFunc(r.backupsForClass),
+			builder.WithPredicates(existenceChanged()),
+		).
+		Watches(&corev1alpha1.Instance{},
+			handler.EnqueueRequestsFromMapFunc(r.backupsForInstance),
+			builder.WithPredicates(existenceChanged()),
+		).
+		Watches(&backupv1alpha1.BackupStorage{},
+			handler.EnqueueRequestsFromMapFunc(r.backupsForStorage),
+			builder.WithPredicates(existenceChanged()),
+		).
+		WatchesMetadata(&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.backupsForSecret),
+			builder.WithPredicates(existenceChanged()),
+		).
 		Named(providerName + "-backup-controller")
 
 	if bw, ok := bp.(controller.BackupWatcher); ok {
@@ -109,6 +128,17 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return reconcile.Result{}, nil
 	}
 
+	// External backups are imported references to data already sitting in
+	// a storage; there is no source Instance. The reconciler verifies the
+	// Backup CR then marks the Backup Succeeded.
+	if backup.Spec.Origin.Type == backupv1alpha1.BackupOriginTypeExternal {
+		return r.reconcileExternalBackup(ctx, backup, bc)
+	}
+
+	if instance == nil {
+		return r.reconcileWithoutInstance(ctx, backup, bc)
+	}
+
 	inCtx := controller.NewContext(ctx, r.client, instance, r.providerName)
 
 	if !backup.DeletionTimestamp.IsZero() {
@@ -143,6 +173,20 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{Requeue: true}, nil
+	}
+
+	// A Backup that has not started waits for its storage; the watches
+	// enqueue it once the storage and its credentials exist.
+	if backup.Status.State == "" || backup.Status.State == backupv1alpha1.BackupStatePending {
+		missing, err := missingBackupStorage(ctx, r.client, backup.Namespace, backup.Spec.StorageRef.Name)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if missing.reason != "" {
+			backup.Status.State = backupv1alpha1.BackupStatePending
+			backup.Status.Message = missing.message
+			return reconcile.Result{}, r.updateStatus(ctx, backup, bc)
+		}
 	}
 
 	exec, err := r.provider.SyncBackup(inCtx, backup)
@@ -185,13 +229,22 @@ func resolveBackupOwnership(
 	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
 		return nil, bc, false, nil
 	}
+
+	// External backups have no Instance to fetch. Ownership is derived
+	// from the class's SupportedProviders.
+	if backup.Spec.Origin.Type == backupv1alpha1.BackupOriginTypeExternal {
+		return nil, bc, bc.Spec.SupportedProviders.Has(providerName), nil
+	}
+
 	instance := &corev1alpha1.Instance{}
 	if err := c.Get(ctx, client.ObjectKey{
 		Namespace: backup.Namespace,
-		Name:      backup.Spec.InstanceRef.Name,
+		Name:      backup.Spec.Origin.InstanceRef.Name,
 	}, instance); err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil, bc, false, nil
+			// A ProviderManaged class lists exactly one provider, so it
+			// names the owner while the Instance is missing.
+			return nil, bc, bc.Spec.SupportedProviders.Has(providerName), nil
 		}
 		return nil, bc, false, fmt.Errorf("failed to get Instance: %w", err)
 	}
@@ -199,6 +252,30 @@ func resolveBackupOwnership(
 		return instance, bc, false, nil
 	}
 	return instance, bc, true, nil
+}
+
+// reconcileExternalBackup verifies it carries valid startedAt and
+// completedAt timestamps, then marks the Backup Succeeded.
+func (r *backupRuntimeReconciler) reconcileExternalBackup(
+	ctx context.Context,
+	backup *backupv1alpha1.Backup,
+	bc *backupv1alpha1.BackupClass,
+) (reconcile.Result, error) {
+	if !backup.DeletionTimestamp.IsZero() {
+		return reconcile.Result{}, nil
+	}
+
+	if backup.Status.State == backupv1alpha1.BackupStateSucceeded ||
+		backup.Status.State == backupv1alpha1.BackupStateFailed {
+		return reconcile.Result{}, nil
+	}
+
+	controller.ReconcileExternalBackupStatus(backup)
+	if err := r.updateStatus(ctx, backup, bc); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	return reconcile.Result{}, nil
 }
 
 func (r *backupRuntimeReconciler) updateStatus(

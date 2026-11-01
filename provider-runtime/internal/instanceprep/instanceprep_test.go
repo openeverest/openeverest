@@ -26,10 +26,10 @@ import (
 
 func bundleSpec() *v1alpha1.ProviderSpec {
 	return &v1alpha1.ProviderSpec{
+		DefaultVersion: "8.0",
 		Versions: []v1alpha1.VersionBundle{
 			{
 				Name:       "8.0",
-				Default:    true,
 				Components: map[string]string{"engine": "8.0.12", "proxy": "8.0.12"},
 			},
 			{

@@ -12,12 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { renderComponent } from './utils';
+import { AffinityOperator } from 'shared-types/affinity.types';
 import {
   Component,
+  ComponentGroup,
   FieldType,
+  GroupType,
+  WIDGET_UI_TYPE,
+  WidgetType,
 } from 'components/ui-generator/ui-generator.types';
+import { TOGGLEABLE_SWITCHES_KEY } from 'components/ui-generator/utils/toggleable/toggleable';
+import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 import { TestWrapper } from 'utils/test';
 
 const makeSelectComponent = (path: string, label: string): Component => ({
@@ -158,5 +165,113 @@ describe('renderComponent - string values are shown correctly in preview', () =>
     );
 
     expect(screen.getByText('Version: 8.0.41')).toBeInTheDocument();
+  });
+});
+
+describe('renderComponent - toggleable group', () => {
+  const rawMonitoring: ComponentGroup = {
+    uiType: 'group',
+    groupType: GroupType.Toggleable,
+    label: 'Monitoring',
+    components: {
+      endpoint: makeTextComponent('spec.monitoring.endpoint', 'Endpoint'),
+    },
+  };
+  const monitoring = preprocessSchema({
+    replicaSet: {
+      sections: { advanced: { components: { monitoring: rawMonitoring } } },
+    },
+  }).replicaSet.sections.advanced.components.monitoring;
+
+  const renderWithSwitch = (switchOn: boolean) =>
+    render(
+      <TestWrapper>
+        <>
+          {renderComponent('monitoring', monitoring, {
+            [TOGGLEABLE_SWITCHES_KEY]: {
+              'advanced~monitoring': switchOn,
+            },
+            spec: { monitoring: { endpoint: 'pmm:443' } },
+          })}
+        </>
+      </TestWrapper>
+    );
+
+  it('summarises a switched-off section as disabled, without its fields', () => {
+    renderWithSwitch(false);
+
+    expect(screen.getByText('Monitoring: Disabled')).toBeInTheDocument();
+    expect(screen.queryByText(/Endpoint/)).not.toBeInTheDocument();
+  });
+
+  it('lists the fields of a switched-on section', () => {
+    renderWithSwitch(true);
+
+    expect(screen.getByText('Endpoint: pmm:443')).toBeInTheDocument();
+    expect(screen.queryByText('Monitoring: Disabled')).not.toBeInTheDocument();
+  });
+});
+
+describe('renderComponent - widget markers', () => {
+  const enginePath = 'spec.components.engine.schedulingPolicy.affinity';
+  const marker: Component = {
+    uiType: WIDGET_UI_TYPE,
+    widgetType: WidgetType.PodSchedulingPolicy,
+    id: 'podSchedulingPolicy',
+    _widgetTargets: [
+      { key: 'engine', path: enginePath },
+      { key: 'proxy', path: 'spec.components.proxy.schedulingPolicy.affinity' },
+    ],
+  };
+  const engineAffinity = {
+    nodeAffinity: {
+      requiredDuringSchedulingIgnoredDuringExecution: {
+        nodeSelectorTerms: [
+          {
+            matchExpressions: [
+              {
+                key: 'disktype',
+                operator: AffinityOperator.In,
+                values: ['ssd'],
+              },
+            ],
+          },
+        ],
+      },
+    },
+  };
+
+  const renderMarker = (formValues: Record<string, unknown>) =>
+    render(
+      <TestWrapper>
+        <>{renderComponent('podSchedulingPolicy', marker, formValues)}</>
+      </TestWrapper>
+    );
+
+  it('digests rules per component and opens the full view on demand', () => {
+    renderMarker({
+      spec: {
+        components: {
+          engine: { schedulingPolicy: { affinity: engineAffinity } },
+        },
+      },
+    });
+
+    expect(screen.getByText('engine: 1 required')).toBeInTheDocument();
+    expect(screen.queryByText(/^proxy:/)).not.toBeInTheDocument();
+    expect(screen.queryByText('disktype')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('preview-widget-toggle'));
+
+    expect(screen.getByText('disktype')).toBeInTheDocument();
+  });
+
+  it('shows a dash when no component has rules', () => {
+    renderMarker({ spec: {} });
+
+    expect(screen.getByText('Pod scheduling policy: -')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('preview-widget-toggle')
+    ).not.toBeInTheDocument();
   });
 });

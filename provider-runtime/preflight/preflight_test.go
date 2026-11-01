@@ -44,15 +44,15 @@ spec:
       type: mongod
   componentTypes:
     mongod:
+      defaultVersion: "8.0.12-4"
       versions:
         - version: "6.0.19-16"
           deprecated: true
           removedInVersion: "0.3"
         - version: "8.0.12-4"
-          default: true
+  defaultVersion: "8.0.12"
   versions:
     - name: "8.0.12"
-      default: true
       components:
         engine: "8.0.12-4"
 `

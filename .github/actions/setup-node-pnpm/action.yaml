@@ -1,0 +1,22 @@
+---
+name: 'Setup Node and pnpm'
+description: 'Installs pnpm and Node.js with the pnpm store cached'
+inputs:
+  cache-dependency-path:
+    description: 'Lockfile path(s) used as the cache key'
+    required: false
+    default: 'ui/pnpm-lock.yaml'
+runs:
+  using: composite
+  steps:
+    # No version input: pnpm/action-setup reads `packageManager` from
+    # ui/package.json, keeping the lockfile as the single source of truth.
+    - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
+      with:
+        package_json_file: ui/package.json
+
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: 22.x
+        cache: 'pnpm'
+        cache-dependency-path: ${{ inputs.cache-dependency-path }}

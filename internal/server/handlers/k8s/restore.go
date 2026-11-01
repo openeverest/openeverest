@@ -23,12 +23,12 @@ import (
 )
 
 // GetRestore returns a specific restore by namespace and name.
-func (h *k8sHandler) GetRestore(ctx context.Context, namespace, name string) (*backupv1alpha1.Restore, error) {
+func (h *k8sHandler) GetRestore(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Restore, error) { //nolint:revive
 	return h.kubeConnector.GetRestore(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 }
 
 // CreateRestore creates a new restore.
-func (h *k8sHandler) CreateRestore(ctx context.Context, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error) {
+func (h *k8sHandler) CreateRestore(ctx context.Context, cluster string, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error) { //nolint:revive
 	stampActor(ctx, restore)
 	return h.kubeConnector.CreateRestore(ctx, restore)
 }
@@ -38,7 +38,7 @@ func (h *k8sHandler) CreateRestore(ctx context.Context, restore *backupv1alpha1.
 // `restore.deleted` event and there is no UpdateRestore on the kube
 // connector (Restore is effectively immutable post-create). The actor
 // recorded at create time remains on the object.
-func (h *k8sHandler) DeleteRestore(ctx context.Context, namespace, name string) error {
+func (h *k8sHandler) DeleteRestore(ctx context.Context, cluster, namespace, name string) error { //nolint:revive
 	restore := &backupv1alpha1.Restore{}
 	restore.Name = name
 	restore.Namespace = namespace

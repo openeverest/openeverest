@@ -13,7 +13,7 @@
 // limitations under the License.
 
 export const Messages = {
-  createDatabase: 'Create database',
+  createDatabase: 'Create',
   importDatabase: 'Import database',
   import: 'Import',
   selectProvider: 'Select a provider to continue',

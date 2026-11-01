@@ -20,8 +20,20 @@ import {
   Component,
   ComponentGroup,
   FieldType,
+  isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { getValueByPath } from 'components/ui-generator/ui-component/utils/get-value-by-path';
+import {
+  getToggleableMeta,
+  isToggleableOn,
+} from 'components/ui-generator/utils/toggleable/toggleable';
+import {
+  getWidgetTargets,
+  readWidgetTargetValues,
+} from 'components/ui-generator/utils/widget-targets';
+import { widgetSummaryRegistry } from 'pages/database-form/widget-registry';
+import { Messages } from './dynamic-section-preview.messages';
+import { WidgetPreview } from './widget-preview';
 
 const getPrimaryPath = (
   path: Component['path'] | undefined
@@ -48,6 +60,17 @@ export const renderComponent = (
   if (!component) return null;
 
   if (component.uiType === 'group' && 'components' in component) {
+    // Sections are preprocessed, so degraded toggleables are already bordered.
+    const toggleable = getToggleableMeta(component);
+    if (toggleable && !isToggleableOn(formValues, toggleable.switchName)) {
+      return (
+        <PreviewContentText
+          key={`${parentPrefix}:${toggleable.switchName}`}
+          text={`${component.label || componentKey.split('.').pop()}: ${Messages.disabled}`}
+        />
+      );
+    }
+
     return orderComponents(component.components, component.componentsOrder).map(
       ([subKey, subComp]) =>
         renderComponent(
@@ -60,6 +83,23 @@ export const renderComponent = (
   }
 
   const leafComponent = component as Component;
+
+  if (isWidgetComponent(leafComponent)) {
+    const summary = widgetSummaryRegistry[leafComponent.widgetType];
+    const targets = getWidgetTargets(leafComponent);
+    if (summary && targets.length > 0) {
+      return (
+        <WidgetPreview
+          key={`${parentPrefix}:${componentKey}`}
+          label={summary.label}
+          item={leafComponent}
+          value={readWidgetTargetValues(targets, formValues)}
+          summary={summary}
+        />
+      );
+    }
+  }
+
   const primaryPath = getPrimaryPath(leafComponent.path);
   const value = primaryPath
     ? getValueByPath(formValues, primaryPath)
@@ -71,7 +111,7 @@ export const renderComponent = (
   if (value === null || value === undefined) {
     displayValue = '-';
   } else if (typeof value === 'boolean') {
-    displayValue = value ? 'Enabled' : 'Disabled';
+    displayValue = value ? Messages.enabled : Messages.disabled;
   } else if (typeof value === 'object' && !Array.isArray(value)) {
     displayValue = JSON.stringify(value);
   } else {

@@ -41,11 +41,13 @@ type Handler interface {
 	NamespacesHandler
 	BackupStorageHandler
 	ProviderHandler
+	PluginHandler
 	InstanceHandler
 	InstancePresetHandler
 	ClusterHandler
 	BackupClassHandler
 	BackupHandler
+	BackupImportHandler
 	RestoreHandler
 	InstanceBackupHandler
 	MonitoringConfigHandler
@@ -68,7 +70,7 @@ type NamespacesHandler interface {
 type BackupStorageHandler interface {
 	CreateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
 	UpdateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
-	PatchBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
+	PatchBackupStorage(ctx context.Context, cluster, namespace, name string, patch []byte) (*backupv1alpha1.BackupStorage, error)
 	ListBackupStorages(ctx context.Context, cluster, namespace string) (*backupv1alpha1.BackupStorageList, error)
 	GetBackupStorage(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.BackupStorage, error)
 	DeleteBackupStorage(ctx context.Context, cluster, namespace, name string) error
@@ -78,6 +80,12 @@ type BackupStorageHandler interface {
 type ProviderHandler interface {
 	ListProviders(ctx context.Context, cluster string) (*corev1alpha1.ProviderList, error)
 	GetProvider(ctx context.Context, cluster, name string) (*corev1alpha1.Provider, error)
+}
+
+// PluginHandler provides methods for handling generic plugin discovery.
+type PluginHandler interface {
+	ListPlugins(ctx context.Context, cluster string) (api.PluginDescriptorList, error)
+	GetPluginContext(ctx context.Context, cluster string) (*api.PluginContext, error)
 }
 
 // InstanceHandler provides methods for handling operations on instances.
@@ -112,16 +120,25 @@ type BackupClassHandler interface {
 
 // BackupHandler provides methods for handling operations on backups.
 type BackupHandler interface {
+	ListBackups(ctx context.Context, cluster, namespace string, params *api.ListBackupsParams) (*backupv1alpha1.BackupList, error)
 	GetBackup(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Backup, error)
 	CreateBackup(ctx context.Context, cluster string, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error)
 	DeleteBackup(ctx context.Context, cluster, namespace, name string, params *api.DeleteBackupParams) error
 }
 
+// BackupImportHandler provides methods for handling operations on backup imports.
+type BackupImportHandler interface {
+	ListBackupImports(ctx context.Context, cluster, namespace string) (*backupv1alpha1.BackupImportList, error)
+	GetBackupImport(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.BackupImport, error)
+	CreateBackupImport(ctx context.Context, cluster string, backupImport *backupv1alpha1.BackupImport) (*backupv1alpha1.BackupImport, error)
+	DeleteBackupImport(ctx context.Context, cluster, namespace, name string) error
+}
+
 // RestoreHandler provides methods for handling operations on restores.
 type RestoreHandler interface {
-	GetRestore(ctx context.Context, namespace, name string) (*backupv1alpha1.Restore, error)
-	CreateRestore(ctx context.Context, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error)
-	DeleteRestore(ctx context.Context, namespace, name string) error
+	GetRestore(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Restore, error)
+	CreateRestore(ctx context.Context, cluster string, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error)
+	DeleteRestore(ctx context.Context, cluster, namespace, name string) error
 }
 
 // InstanceBackupHandler provides methods for handling operations on instance backups.

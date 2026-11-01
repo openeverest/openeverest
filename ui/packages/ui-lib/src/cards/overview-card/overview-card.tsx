@@ -41,10 +41,7 @@ const OverviewCard = ({
   return (
     <MuiCard
       variant="grey"
-      sx={[
-        { width: '368px', height: 'fit-content' },
-        ...(Array.isArray(sx) ? sx : [sx]),
-      ]}
+      sx={[{ height: 'fit-content' }, ...(Array.isArray(sx) ? sx : [sx])]}
       data-testid={dataTestId}
       {...props}
     >

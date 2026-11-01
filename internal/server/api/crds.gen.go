@@ -30,6 +30,24 @@ func (e BackupSpecDeletionPolicy) Valid() bool {
 	}
 }
 
+// Defines values for BackupSpecOriginType.
+const (
+	BackupSpecOriginTypeExternal BackupSpecOriginType = "External"
+	BackupSpecOriginTypeInstance BackupSpecOriginType = "Instance"
+)
+
+// Valid indicates whether the value is a known member of the BackupSpecOriginType enum.
+func (e BackupSpecOriginType) Valid() bool {
+	switch e {
+	case BackupSpecOriginTypeExternal:
+		return true
+	case BackupSpecOriginTypeInstance:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BackupStatusConditionsStatus.
 const (
 	BackupStatusConditionsStatusFalse   BackupStatusConditionsStatus = "False"
@@ -138,6 +156,51 @@ func (e BackupClassStatusConditionsStatus) Valid() bool {
 	}
 }
 
+// Defines values for BackupImportStatusConditionsStatus.
+const (
+	BackupImportStatusConditionsStatusFalse   BackupImportStatusConditionsStatus = "False"
+	BackupImportStatusConditionsStatusTrue    BackupImportStatusConditionsStatus = "True"
+	BackupImportStatusConditionsStatusUnknown BackupImportStatusConditionsStatus = "Unknown"
+)
+
+// Valid indicates whether the value is a known member of the BackupImportStatusConditionsStatus enum.
+func (e BackupImportStatusConditionsStatus) Valid() bool {
+	switch e {
+	case BackupImportStatusConditionsStatusFalse:
+		return true
+	case BackupImportStatusConditionsStatusTrue:
+		return true
+	case BackupImportStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BackupImportStatusState.
+const (
+	BackupImportStatusStateError     BackupImportStatusState = "Error"
+	BackupImportStatusStateFailed    BackupImportStatusState = "Failed"
+	BackupImportStatusStatePending   BackupImportStatusState = "Pending"
+	BackupImportStatusStateSucceeded BackupImportStatusState = "Succeeded"
+)
+
+// Valid indicates whether the value is a known member of the BackupImportStatusState enum.
+func (e BackupImportStatusState) Valid() bool {
+	switch e {
+	case BackupImportStatusStateError:
+		return true
+	case BackupImportStatusStateFailed:
+		return true
+	case BackupImportStatusStatePending:
+		return true
+	case BackupImportStatusStateSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BackupStorageSpecType.
 const (
 	BackupStorageSpecTypeS3 BackupStorageSpecType = "s3"
@@ -219,6 +282,24 @@ func (e InstalledExtensionStatusPhase) Valid() bool {
 	}
 }
 
+// Defines values for InstanceSpecBackupStoragesSchedulesRetentionType.
+const (
+	InstanceSpecBackupStoragesSchedulesRetentionTypeCount InstanceSpecBackupStoragesSchedulesRetentionType = "count"
+	InstanceSpecBackupStoragesSchedulesRetentionTypeTime  InstanceSpecBackupStoragesSchedulesRetentionType = "time"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSpecBackupStoragesSchedulesRetentionType enum.
+func (e InstanceSpecBackupStoragesSchedulesRetentionType) Valid() bool {
+	switch e {
+	case InstanceSpecBackupStoragesSchedulesRetentionTypeCount:
+		return true
+	case InstanceSpecBackupStoragesSchedulesRetentionTypeTime:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceSpecDataSourcePointInTimeRecoveryTarget.
 const (
 	InstanceSpecDataSourcePointInTimeRecoveryTargetDate   InstanceSpecDataSourcePointInTimeRecoveryTarget = "date"
@@ -273,6 +354,27 @@ func (e InstanceSpecDeletionPolicy) Valid() bool {
 	}
 }
 
+// Defines values for InstanceSpecMaintenanceAutoApproveUpTo.
+const (
+	InstanceSpecMaintenanceAutoApproveUpToDowntime       InstanceSpecMaintenanceAutoApproveUpTo = "Downtime"
+	InstanceSpecMaintenanceAutoApproveUpToNonDisruptive  InstanceSpecMaintenanceAutoApproveUpTo = "NonDisruptive"
+	InstanceSpecMaintenanceAutoApproveUpToRollingRestart InstanceSpecMaintenanceAutoApproveUpTo = "RollingRestart"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSpecMaintenanceAutoApproveUpTo enum.
+func (e InstanceSpecMaintenanceAutoApproveUpTo) Valid() bool {
+	switch e {
+	case InstanceSpecMaintenanceAutoApproveUpToDowntime:
+		return true
+	case InstanceSpecMaintenanceAutoApproveUpToNonDisruptive:
+		return true
+	case InstanceSpecMaintenanceAutoApproveUpToRollingRestart:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceStatusBackupStoragesPitrState.
 const (
 	InstanceStatusBackupStoragesPitrStateAvailable   InstanceStatusBackupStoragesPitrState = "Available"
@@ -306,6 +408,27 @@ func (e InstanceStatusConditionsStatus) Valid() bool {
 	case InstanceStatusConditionsStatusTrue:
 		return true
 	case InstanceStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceStatusPendingMaintenanceSeverity.
+const (
+	InstanceStatusPendingMaintenanceSeverityDowntime       InstanceStatusPendingMaintenanceSeverity = "Downtime"
+	InstanceStatusPendingMaintenanceSeverityNonDisruptive  InstanceStatusPendingMaintenanceSeverity = "NonDisruptive"
+	InstanceStatusPendingMaintenanceSeverityRollingRestart InstanceStatusPendingMaintenanceSeverity = "RollingRestart"
+)
+
+// Valid indicates whether the value is a known member of the InstanceStatusPendingMaintenanceSeverity enum.
+func (e InstanceStatusPendingMaintenanceSeverity) Valid() bool {
+	switch e {
+	case InstanceStatusPendingMaintenanceSeverityDowntime:
+		return true
+	case InstanceStatusPendingMaintenanceSeverityNonDisruptive:
+		return true
+	case InstanceStatusPendingMaintenanceSeverityRollingRestart:
 		return true
 	default:
 		return false
@@ -351,6 +474,24 @@ func (e InstanceStatusPhase) Valid() bool {
 	case InstanceStatusPhaseTerminating:
 		return true
 	case InstanceStatusPhaseUpdating:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstancePresetSpecBackupStoragesSchedulesRetentionType.
+const (
+	InstancePresetSpecBackupStoragesSchedulesRetentionTypeCount InstancePresetSpecBackupStoragesSchedulesRetentionType = "count"
+	InstancePresetSpecBackupStoragesSchedulesRetentionTypeTime  InstancePresetSpecBackupStoragesSchedulesRetentionType = "time"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetSpecBackupStoragesSchedulesRetentionType enum.
+func (e InstancePresetSpecBackupStoragesSchedulesRetentionType) Valid() bool {
+	switch e {
+	case InstancePresetSpecBackupStoragesSchedulesRetentionTypeCount:
+		return true
+	case InstancePresetSpecBackupStoragesSchedulesRetentionTypeTime:
 		return true
 	default:
 		return false
@@ -405,6 +546,27 @@ func (e InstancePresetSpecDeletionPolicy) Valid() bool {
 	case InstancePresetSpecDeletionPolicyCascade:
 		return true
 	case InstancePresetSpecDeletionPolicyOrphan:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstancePresetSpecMaintenanceAutoApproveUpTo.
+const (
+	InstancePresetSpecMaintenanceAutoApproveUpToDowntime       InstancePresetSpecMaintenanceAutoApproveUpTo = "Downtime"
+	InstancePresetSpecMaintenanceAutoApproveUpToNonDisruptive  InstancePresetSpecMaintenanceAutoApproveUpTo = "NonDisruptive"
+	InstancePresetSpecMaintenanceAutoApproveUpToRollingRestart InstancePresetSpecMaintenanceAutoApproveUpTo = "RollingRestart"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetSpecMaintenanceAutoApproveUpTo enum.
+func (e InstancePresetSpecMaintenanceAutoApproveUpTo) Valid() bool {
+	switch e {
+	case InstancePresetSpecMaintenanceAutoApproveUpToDowntime:
+		return true
+	case InstancePresetSpecMaintenanceAutoApproveUpToNonDisruptive:
+		return true
+	case InstancePresetSpecMaintenanceAutoApproveUpToRollingRestart:
 		return true
 	default:
 		return false
@@ -635,12 +797,57 @@ type Backup struct {
 		// itself.
 		DeletionPolicy *BackupSpecDeletionPolicy `json:"deletionPolicy,omitempty"`
 
-		// InstanceRef InstanceRef references the Instance to back up. The Instance must
-		// live in the same namespace as this Backup.
-		InstanceRef struct {
-			// Name Name of the referenced object.
-			Name string `json:"name"`
-		} `json:"instanceRef"`
+		// Origin Origin identifies where this Backup's data comes from: produced by a
+		// live Instance, or imported from data already present in a BackupStorage.
+		Origin struct {
+			// External External identifies data already present in the referenced BackupStorage
+			// rather than produced by a live Instance. Required when Type is External.
+			// When set, the restore is built directly from storageRef + external.path
+			// with no live operator object.
+			External *struct {
+				// CompletedAt CompletedAt is the time when the backup completed.
+				CompletedAt time.Time `json:"completedAt"`
+
+				// Path Path is the backup's path within the BackupStorage. The bucket is
+				// already determined by storageRef, so it is not repeated here. The path
+				// is unique within its storage and is used for restore.
+				Path string `json:"path"`
+
+				// SourceMetadata SourceMetadata is engine-specific metadata that is used to make
+				// compatibility decisions for creating an Instance from this Backup.
+				SourceMetadata *struct {
+					// BackupType BackupType is the backup method recorded (e.g. "logical" or "physical"
+					// for PBM).
+					BackupType *string `json:"backupType,omitempty"`
+
+					// EngineVersion EngineVersion is the engine version recorded in the backup.
+					// Its granularity may be whatever the backup metadata records, so it
+					// may be a full version (e.g. a MongoDB server version like "8.0.12-4",
+					// a Percona XtraDB Cluster server version like "8.4.8-8.1") or only a
+					// major version (e.g. a PostgreSQL version like "18").
+					EngineVersion *string `json:"engineVersion,omitempty"`
+
+					// Topology Topology names the source Instance's topology (e.g. "replicaSet" or
+					// "sharded" for PSMDB). Recorded only for backups taken by a
+					// ProviderManaged backup class.
+					Topology *string `json:"topology,omitempty"`
+				} `json:"sourceMetadata,omitempty"`
+
+				// StartedAt StartedAt is the time when the backup started.
+				StartedAt time.Time `json:"startedAt"`
+			} `json:"external,omitempty"`
+
+			// InstanceRef InstanceRef references the Instance that produced this Backup. The
+			// Instance must live in the same namespace as this Backup. Required when
+			// Type is Instance.
+			InstanceRef *struct {
+				// Name Name of the referenced object.
+				Name string `json:"name"`
+			} `json:"instanceRef,omitempty"`
+
+			// Type Type selects the origin variant.
+			Type BackupSpecOriginType `json:"type"`
+		} `json:"origin"`
 
 		// Parameters Parameters is the backup-time structured configuration validated
 		// against the BackupClass's .spec.parametersSchema.
@@ -666,6 +873,7 @@ type Backup struct {
 	// Status BackupStatus defines the observed state of Backup.
 	Status *struct {
 		// CompletedAt CompletedAt is the time when the backup completed successfully.
+		// For external backups this mirrors spec.origin.external.completedAt.
 		CompletedAt *time.Time `json:"completedAt,omitempty"`
 		Conditions  *[]struct {
 			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
@@ -700,7 +908,8 @@ type Backup struct {
 		ExecutionMode *BackupStatusExecutionMode `json:"executionMode,omitempty"`
 
 		// JobRef JobRef references the Job that is running the backup.
-		// Populated only for Job classes.
+		// Populated only for Job classes. Empty for external backups, which run
+		// no Job.
 		JobRef *struct {
 			// Name Name of the referenced object.
 			Name string `json:"name"`
@@ -714,7 +923,8 @@ type Backup struct {
 
 		// OperatorBackupRef OperatorBackupRef points at the operator-native backup resource the
 		// provider created (e.g., PerconaServerMongoDBBackup). Populated only
-		// for ProviderManaged classes.
+		// for ProviderManaged classes. Empty for external backups, which have no
+		// operator-native backup object.
 		OperatorBackupRef *struct {
 			// Group Group is the API group of the referenced object. Empty for objects in
 			// the core API group.
@@ -728,12 +938,37 @@ type Backup struct {
 		} `json:"operatorBackupRef,omitempty"`
 
 		// Size Size is the size of the backup data as reported by the engine.
+		// Empty for external backups.
 		Size *string `json:"size,omitempty"`
 
+		// SourceMetadata SourceMetadata is the source Instance metadata recorded with the backup.
+		// For external backups this mirrors spec.origin.external.sourceMetadata;
+		// for Instance-origin backups the provider populates it from the engine.
+		SourceMetadata *struct {
+			// BackupType BackupType is the backup method recorded (e.g. "logical" or "physical"
+			// for PBM).
+			BackupType *string `json:"backupType,omitempty"`
+
+			// EngineVersion EngineVersion is the engine version recorded in the backup.
+			// Its granularity may be whatever the backup metadata records, so it
+			// may be a full version (e.g. a MongoDB server version like "8.0.12-4",
+			// a Percona XtraDB Cluster server version like "8.4.8-8.1") or only a
+			// major version (e.g. a PostgreSQL version like "18").
+			EngineVersion *string `json:"engineVersion,omitempty"`
+
+			// Topology Topology names the source Instance's topology (e.g. "replicaSet" or
+			// "sharded" for PSMDB). Recorded only for backups taken by a
+			// ProviderManaged backup class.
+			Topology *string `json:"topology,omitempty"`
+		} `json:"sourceMetadata,omitempty"`
+
 		// StartedAt StartedAt is the time when the backup started.
+		// For external backups this mirrors spec.origin.external.startedAt.
 		StartedAt *time.Time `json:"startedAt,omitempty"`
 
 		// State State is the current state of the backup.
+		// For external backups, the state is Succeeded if the backup has valid
+		// StartedAt and CompletedAt set.
 		State *BackupStatusState `json:"state,omitempty"`
 	} `json:"status,omitempty"`
 }
@@ -752,6 +987,9 @@ type Backup struct {
 // itself.
 type BackupSpecDeletionPolicy string
 
+// BackupSpecOriginType Type selects the origin variant.
+type BackupSpecOriginType string
+
 // BackupStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type BackupStatusConditionsStatus string
 
@@ -760,6 +998,8 @@ type BackupStatusConditionsStatus string
 type BackupStatusExecutionMode string
 
 // BackupStatusState State is the current state of the backup.
+// For external backups, the state is Succeeded if the backup has valid
+// StartedAt and CompletedAt set.
 type BackupStatusState string
 
 // BackupClass BackupClass is the Schema for the backupclasses API
@@ -1005,6 +1245,10 @@ type BackupClass struct {
 		// class to be usable on that Instance.
 		SupportedProviders *[]string `json:"supportedProviders,omitempty"`
 
+		// SupportsImport SupportsImport indicates whether the owner of this class can discover and
+		// import restorable backups already sitting in a BackupStorage.
+		SupportsImport *bool `json:"supportsImport,omitempty"`
+
 		// UiSchema UISchema contains free-form rendering hints for the frontend forms that
 		// configure backup, restore, and PITR for an Instance using this class.
 		// The runtime treats this field as opaque; only the UI consumes it. The
@@ -1062,6 +1306,116 @@ type BackupClassList struct {
 	Metadata *struct {
 		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
 		Name *string `json:"name,omitempty"`
+	} `json:"metadata,omitempty"`
+}
+
+// BackupImport BackupImport is the Schema for the backupimports API.
+type BackupImport struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata *ObjectMeta `json:"metadata,omitempty"`
+
+	// Spec spec defines the desired state of BackupImport
+	Spec struct {
+		// ClassRef ClassRef references the cluster-scoped BackupClass that determines how
+		// backups in the storage are parsed. The class's executionMode controls
+		// how the import is executed. The ProviderManaged classes are reconciled
+		// by the provider.
+		ClassRef struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"classRef"`
+
+		// StorageRef StorageRef references a BackupStorage in the same namespace whose
+		// contents are listed and parsed. The reconciler reads the storage and
+		// its credentials secret.
+		StorageRef struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"storageRef"`
+	} `json:"spec"`
+
+	// Status status defines the observed state of BackupImport
+	Status *struct {
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status BackupImportStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+
+		// CreatedCount CreatedCount is the number of Backup CRs created. Backups are deduped on
+		// (storageRef, path), so the import does not create duplicates.
+		CreatedCount *int32 `json:"createdCount,omitempty"`
+
+		// DiscoveredCount DiscoveredCount is the number of restorable backups found in the
+		// storage.
+		DiscoveredCount *int32 `json:"discoveredCount,omitempty"`
+
+		// LastObservedGeneration LastObservedGeneration is the last observed generation of the BackupImport CR.
+		LastObservedGeneration *int64 `json:"lastObservedGeneration,omitempty"`
+
+		// Message Message is a human-readable message about the current state.
+		Message *string `json:"message,omitempty"`
+
+		// State State is the current state of the backup import.
+		State *BackupImportStatusState `json:"state,omitempty"`
+	} `json:"status,omitempty"`
+}
+
+// BackupImportStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type BackupImportStatusConditionsStatus string
+
+// BackupImportStatusState State is the current state of the backup import.
+type BackupImportStatusState string
+
+// BackupImportList BackupImportList is an object that contains the list of the existing backupimports.
+type BackupImportList struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string         `json:"apiVersion,omitempty"`
+	Items      *[]BackupImport `json:"items,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string `json:"kind,omitempty"`
+	Metadata *struct {
+		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
+		Name *string `json:"name,omitempty"`
+
+		// Namespace Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
+		Namespace *string `json:"namespace,omitempty"`
 	} `json:"metadata,omitempty"`
 }
 
@@ -1411,10 +1765,22 @@ type Instance struct {
 					// per-backup-run.
 					Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
-					// RetentionCopies RetentionCopies is the number of recent backups to keep for this
-					// schedule. Zero (or unset) means "keep all". Negative values are
-					// rejected.
-					RetentionCopies *int32 `json:"retentionCopies,omitempty"`
+					// Retention Retention configures count-based or time-based backup retention for
+					// this schedule. Unset keeps all backups.
+					Retention *struct {
+						// Count Count is the number of recent backups to keep when Type is count.
+						// Required when Type is count (minimum 1). Forbidden when Type is time.
+						// Omit Retention on the schedule to keep all backups.
+						Count *int32 `json:"count,omitempty"`
+
+						// Duration Duration is the recovery window when Type is time, in the form
+						// <positive-integer><unit> where unit is d (days), w (weeks), or m
+						// (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+						Duration *string `json:"duration,omitempty"`
+
+						// Type Type selects count-based or time-based retention.
+						Type InstanceSpecBackupStoragesSchedulesRetentionType `json:"type"`
+					} `json:"retention,omitempty"`
 				} `json:"schedules,omitempty"`
 
 				// StorageRef StorageRef references a BackupStorage in the same namespace. The
@@ -1435,9 +1801,6 @@ type Instance struct {
 			// When unspecified, it is autmatically set from the ComponentVersions
 			// based on the Version specified.
 			Image *string `json:"image,omitempty"`
-
-			// Name Name of the component.
-			Name *string `json:"name,omitempty"`
 
 			// Parameters Parameters contains component-specific structured parameters, validated
 			// against the provider's components[].parametersSchema. Engine
@@ -1487,6 +1850,8 @@ type Instance struct {
 				// Affinity Affinity constrains node selection, pod co-location and pod
 				// anti-affinity (spreading pods across nodes, zones or other topology
 				// domains for high availability).
+				// When omitted, the provider applies its default, which may require each
+				// replica on its own node; an empty affinity ({}) sets no constraints.
 				Affinity *struct {
 					// NodeAffinity Describes node affinity scheduling rules for the pod.
 					NodeAffinity *struct {
@@ -2029,7 +2394,9 @@ type Instance struct {
 				} `json:"tolerations,omitempty"`
 
 				// TopologySpreadConstraints TopologySpreadConstraints describe how the pods spread across topology
-				// domains. All constraints are ANDed.
+				// domains. A constraint with neither labelSelector nor matchLabelKeys counts
+				// this component's pods. When omitted, the provider applies its default; an
+				// empty list sets no constraints.
 				TopologySpreadConstraints *[]struct {
 					// LabelSelector LabelSelector is used to find matching pods.
 					// Pods that match this label selector are counted to determine the number of pods
@@ -2280,6 +2647,26 @@ type Instance struct {
 		// finalizers or resources should be diagnosed and resolved directly.
 		DeletionPolicy *InstanceSpecDeletionPolicy `json:"deletionPolicy,omitempty"`
 
+		// Maintenance Maintenance governs how disruptive actions raised against this
+		// Instance (e.g. the convergence step after a provider upgrade) are
+		// authorized. It does NOT govern the deliberate engine-version upgrade
+		// flow (spec.version / spec.components[].version).
+		Maintenance *struct {
+			// Approved Approved is a one-time authorization for an action above the standing
+			// tolerance: set it to the exact approvalToken of the held action from
+			// status.pendingMaintenance. It is matched literally, authorizes only
+			// that occurrence, and re-arms naturally — a later action carries a
+			// different token, so a stale value never authorizes it. It is NOT a
+			// provider version.
+			Approved *string `json:"approved,omitempty"`
+
+			// AutoApproveUpTo AutoApproveUpTo is the standing disruption tolerance: any action at or
+			// below this impact applies automatically, anything above it is held on
+			// status.pendingMaintenance. It is cause-agnostic — the tolerance applies
+			// whether the action was raised by a provider upgrade or anything else.
+			AutoApproveUpTo *InstanceSpecMaintenanceAutoApproveUpTo `json:"autoApproveUpTo,omitempty"`
+		} `json:"maintenance,omitempty"`
+
 		// Parameters Parameters contains structured parameters that apply to the Instance
 		// as a whole, complementing the topology- and component-scoped
 		// parameters. The payload is validated against the referenced Provider's
@@ -2305,6 +2692,20 @@ type Instance struct {
 			// If omitted, the provider's default topology is used.
 			Type *string `json:"type,omitempty"`
 		} `json:"topology,omitempty"`
+
+		// UserSecretRef UserSecretRef optionally seeds the engine's initial (bootstrap)
+		// credentials from a Secret in the same namespace, for providers whose
+		// engine supports setting initial credentials at creation time.
+		//
+		// When omitted, the provider generates credentials automatically. The
+		// referenced Secret's required keys are provider-specific and validated
+		// by the referenced Provider. The field is immutable once set: initial
+		// credentials only apply at engine creation time, so changing it later
+		// would have no effect.
+		UserSecretRef *struct {
+			// Name Name of the referenced Secret.
+			Name string `json:"name"`
+		} `json:"userSecretRef,omitempty"`
 
 		// Version Version selects a provider-defined version bundle, resolving compatible
 		// versions for all components automatically. Per-component versions set
@@ -2349,16 +2750,20 @@ type Instance struct {
 			} `json:"storages,omitempty"`
 		} `json:"backup,omitempty"`
 
-		// Components Components is the status of the components in the database cluster.
+		// Components Components reports how many pods each component has and how many are Ready.
 		Components *[]struct {
-			// PodRefs PodRefs references the Pods backing this component.
-			PodRefs *[]struct {
-				// Name Name of the referenced object.
-				Name string `json:"name"`
-			} `json:"podRefs,omitempty"`
-			Ready *int32  `json:"ready,omitempty"`
-			State *string `json:"state,omitempty"`
-			Total *int32  `json:"total,omitempty"`
+			// Name Name is a key of spec.components.
+			Name string `json:"name"`
+
+			// ReadyReplicas ReadyReplicas is the number of those pods that are Ready.
+			ReadyReplicas *int32 `json:"readyReplicas,omitempty"`
+
+			// Replicas Replicas is the number of the component's pods that are not terminating.
+			Replicas *int32 `json:"replicas,omitempty"`
+
+			// Selector Selector selects the component's pods in the Instance's namespace, in
+			// the form kubectl get pods -l accepts.
+			Selector *string `json:"selector,omitempty"`
 		} `json:"components,omitempty"`
 		Conditions *[]struct {
 			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
@@ -2408,6 +2813,29 @@ type Instance struct {
 		// Message Message is a custom user-facing message describing the current state of the instance.
 		Message *string `json:"message,omitempty"`
 
+		// ObservedGeneration ObservedGeneration is the metadata.generation the provider-runtime last
+		// reconciled. Status describes an older spec while it is lower than
+		// metadata.generation.
+		ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+		// PendingMaintenance PendingMaintenance lists the disruptive actions currently held awaiting
+		// approval. It is recomputed on every reconcile from the actions the
+		// provider currently requests above the Instance's tolerance, so it can
+		// never go stale: an action the provider stops requesting disappears.
+		PendingMaintenance *[]struct {
+			// ApprovalToken ApprovalToken is the occurrence-unique, human-readable token the
+			// provider assigned to this held action. Copy it verbatim into
+			// spec.maintenance.approved to authorize this specific action.
+			ApprovalToken *string `json:"approvalToken,omitempty"`
+
+			// Description Description is a human-readable summary of the action and its
+			// observable impact. It never exposes operator internals.
+			Description string `json:"description"`
+
+			// Severity Severity is the action's observable database impact.
+			Severity InstanceStatusPendingMaintenanceSeverity `json:"severity"`
+		} `json:"pendingMaintenance,omitempty"`
+
 		// Phase Phase of the database cluster.
 		Phase *InstanceStatusPhase `json:"phase,omitempty"`
 
@@ -2423,6 +2851,9 @@ type Instance struct {
 		Version *string `json:"version,omitempty"`
 	} `json:"status,omitempty"`
 }
+
+// InstanceSpecBackupStoragesSchedulesRetentionType Type selects count-based or time-based retention.
+type InstanceSpecBackupStoragesSchedulesRetentionType string
 
 // InstanceSpecComponentsResourcesLimits0 defines model for .
 type InstanceSpecComponentsResourcesLimits0 = int
@@ -2493,11 +2924,20 @@ type InstanceSpecDataSourceType string
 // finalizers or resources should be diagnosed and resolved directly.
 type InstanceSpecDeletionPolicy string
 
+// InstanceSpecMaintenanceAutoApproveUpTo AutoApproveUpTo is the standing disruption tolerance: any action at or
+// below this impact applies automatically, anything above it is held on
+// status.pendingMaintenance. It is cause-agnostic — the tolerance applies
+// whether the action was raised by a provider upgrade or anything else.
+type InstanceSpecMaintenanceAutoApproveUpTo string
+
 // InstanceStatusBackupStoragesPitrState State summarises whether a trustworthy window exists.
 type InstanceStatusBackupStoragesPitrState string
 
 // InstanceStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstanceStatusConditionsStatus string
+
+// InstanceStatusPendingMaintenanceSeverity Severity is the action's observable database impact.
+type InstanceStatusPendingMaintenanceSeverity string
 
 // InstanceStatusPhase Phase of the database cluster.
 type InstanceStatusPhase string
@@ -2632,10 +3072,22 @@ type InstancePreset struct {
 					// per-backup-run.
 					Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
-					// RetentionCopies RetentionCopies is the number of recent backups to keep for this
-					// schedule. Zero (or unset) means "keep all". Negative values are
-					// rejected.
-					RetentionCopies *int32 `json:"retentionCopies,omitempty"`
+					// Retention Retention configures count-based or time-based backup retention for
+					// this schedule. Unset keeps all backups.
+					Retention *struct {
+						// Count Count is the number of recent backups to keep when Type is count.
+						// Required when Type is count (minimum 1). Forbidden when Type is time.
+						// Omit Retention on the schedule to keep all backups.
+						Count *int32 `json:"count,omitempty"`
+
+						// Duration Duration is the recovery window when Type is time, in the form
+						// <positive-integer><unit> where unit is d (days), w (weeks), or m
+						// (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+						Duration *string `json:"duration,omitempty"`
+
+						// Type Type selects count-based or time-based retention.
+						Type InstancePresetSpecBackupStoragesSchedulesRetentionType `json:"type"`
+					} `json:"retention,omitempty"`
 				} `json:"schedules,omitempty"`
 
 				// StorageRef StorageRef references a BackupStorage in the same namespace. The
@@ -2656,9 +3108,6 @@ type InstancePreset struct {
 			// When unspecified, it is autmatically set from the ComponentVersions
 			// based on the Version specified.
 			Image *string `json:"image,omitempty"`
-
-			// Name Name of the component.
-			Name *string `json:"name,omitempty"`
 
 			// Parameters Parameters contains component-specific structured parameters, validated
 			// against the provider's components[].parametersSchema. Engine
@@ -2708,6 +3157,8 @@ type InstancePreset struct {
 				// Affinity Affinity constrains node selection, pod co-location and pod
 				// anti-affinity (spreading pods across nodes, zones or other topology
 				// domains for high availability).
+				// When omitted, the provider applies its default, which may require each
+				// replica on its own node; an empty affinity ({}) sets no constraints.
 				Affinity *struct {
 					// NodeAffinity Describes node affinity scheduling rules for the pod.
 					NodeAffinity *struct {
@@ -3250,7 +3701,9 @@ type InstancePreset struct {
 				} `json:"tolerations,omitempty"`
 
 				// TopologySpreadConstraints TopologySpreadConstraints describe how the pods spread across topology
-				// domains. All constraints are ANDed.
+				// domains. A constraint with neither labelSelector nor matchLabelKeys counts
+				// this component's pods. When omitted, the provider applies its default; an
+				// empty list sets no constraints.
 				TopologySpreadConstraints *[]struct {
 					// LabelSelector LabelSelector is used to find matching pods.
 					// Pods that match this label selector are counted to determine the number of pods
@@ -3501,6 +3954,26 @@ type InstancePreset struct {
 		// finalizers or resources should be diagnosed and resolved directly.
 		DeletionPolicy *InstancePresetSpecDeletionPolicy `json:"deletionPolicy,omitempty"`
 
+		// Maintenance Maintenance governs how disruptive actions raised against this
+		// Instance (e.g. the convergence step after a provider upgrade) are
+		// authorized. It does NOT govern the deliberate engine-version upgrade
+		// flow (spec.version / spec.components[].version).
+		Maintenance *struct {
+			// Approved Approved is a one-time authorization for an action above the standing
+			// tolerance: set it to the exact approvalToken of the held action from
+			// status.pendingMaintenance. It is matched literally, authorizes only
+			// that occurrence, and re-arms naturally — a later action carries a
+			// different token, so a stale value never authorizes it. It is NOT a
+			// provider version.
+			Approved *string `json:"approved,omitempty"`
+
+			// AutoApproveUpTo AutoApproveUpTo is the standing disruption tolerance: any action at or
+			// below this impact applies automatically, anything above it is held on
+			// status.pendingMaintenance. It is cause-agnostic — the tolerance applies
+			// whether the action was raised by a provider upgrade or anything else.
+			AutoApproveUpTo *InstancePresetSpecMaintenanceAutoApproveUpTo `json:"autoApproveUpTo,omitempty"`
+		} `json:"maintenance,omitempty"`
+
 		// Parameters Parameters contains structured parameters that apply to the Instance
 		// as a whole, complementing the topology- and component-scoped
 		// parameters. The payload is validated against the referenced Provider's
@@ -3526,6 +3999,20 @@ type InstancePreset struct {
 			// If omitted, the provider's default topology is used.
 			Type *string `json:"type,omitempty"`
 		} `json:"topology,omitempty"`
+
+		// UserSecretRef UserSecretRef optionally seeds the engine's initial (bootstrap)
+		// credentials from a Secret in the same namespace, for providers whose
+		// engine supports setting initial credentials at creation time.
+		//
+		// When omitted, the provider generates credentials automatically. The
+		// referenced Secret's required keys are provider-specific and validated
+		// by the referenced Provider. The field is immutable once set: initial
+		// credentials only apply at engine creation time, so changing it later
+		// would have no effect.
+		UserSecretRef *struct {
+			// Name Name of the referenced Secret.
+			Name string `json:"name"`
+		} `json:"userSecretRef,omitempty"`
 
 		// Version Version selects a provider-defined version bundle, resolving compatible
 		// versions for all components automatically. Per-component versions set
@@ -3565,6 +4052,9 @@ type InstancePreset struct {
 		} `json:"conditions,omitempty"`
 	} `json:"status,omitempty"`
 }
+
+// InstancePresetSpecBackupStoragesSchedulesRetentionType Type selects count-based or time-based retention.
+type InstancePresetSpecBackupStoragesSchedulesRetentionType string
 
 // InstancePresetSpecComponentsResourcesLimits0 defines model for .
 type InstancePresetSpecComponentsResourcesLimits0 = int
@@ -3634,6 +4124,12 @@ type InstancePresetSpecDataSourceType string
 // due to failing child Backup or Restore deletions; any stuck child
 // finalizers or resources should be diagnosed and resolved directly.
 type InstancePresetSpecDeletionPolicy string
+
+// InstancePresetSpecMaintenanceAutoApproveUpTo AutoApproveUpTo is the standing disruption tolerance: any action at or
+// below this impact applies automatically, anything above it is held on
+// status.pendingMaintenance. It is cause-agnostic — the tolerance applies
+// whether the action was raised by a provider upgrade or anything else.
+type InstancePresetSpecMaintenanceAutoApproveUpTo string
 
 // InstancePresetStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstancePresetStatusConditionsStatus string
@@ -3802,7 +4298,16 @@ type Plugin struct {
 
 		// CompatibleHostVersions CompatibleHostVersions is a SemVer range expression specifying which
 		// OpenEverest host versions this plugin supports (e.g. ">=2.0.0 <3.0.0").
+		// This is the API-compatibility gate: it guards the host application version,
+		// which bumps for backend reasons unrelated to the UI runtime.
 		CompatibleHostVersions *string `json:"compatibleHostVersions,omitempty"`
+
+		// CompatibleUiContractVersions CompatibleUIContractVersions is a SemVer range expression specifying which
+		// UI-contract versions this plugin's frontend supports (e.g. "^18.0.0"). The
+		// UI contract is the shared React major — the only runtime a bundled-MUI
+		// plugin shares with the host (see issue #2661) — so this is checked
+		// separately from CompatibleHostVersions at load time.
+		CompatibleUiContractVersions *string `json:"compatibleUiContractVersions,omitempty"`
 
 		// Description Description is a short human-readable description of what the plugin does.
 		Description *string `json:"description,omitempty"`
@@ -3942,9 +4447,10 @@ type Provider struct {
 	// Spec ProviderSpec defines the desired state of Provider
 	Spec struct {
 		ComponentTypes *map[string]struct {
-			Versions *[]struct {
-				Default *bool `json:"default,omitempty"`
-
+			// DefaultVersion DefaultVersion names the entry in Versions used when neither the
+			// Instance nor a version bundle selects one.
+			DefaultVersion *string `json:"defaultVersion,omitempty"`
+			Versions       *[]struct {
 				// Deprecated Deprecated marks a version as still supported but scheduled for
 				// removal. Instances running on it get a proactive warning with a
 				// remediation runway instead of a blocked upgrade.
@@ -3981,6 +4487,10 @@ type Provider struct {
 			// UiSchema UISchema holds UI rendering hints for the configmap creation form.
 			UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
 		} `json:"configMaps,omitempty"`
+
+		// DefaultVersion DefaultVersion names the bundle in Versions used when an Instance
+		// omits Spec.Version.
+		DefaultVersion *string `json:"defaultVersion,omitempty"`
 
 		// ParametersSchema ParametersSchema declares the OpenAPI v3 schema for the instance-wide
 		// parameters payload (Instance.spec.parameters).
@@ -4056,15 +4566,11 @@ type Provider struct {
 		// Versions Versions defines curated version bundles — named sets of component
 		// versions that are known to be mutually compatible. Users reference
 		// a bundle via Instance.Spec.Version. If the user does not set a version,
-		// the bundle whose Default field is true is used automatically.
+		// the bundle named by DefaultVersion is used automatically.
 		Versions *[]struct {
 			// Components Components maps component names to their version strings for this bundle.
 			// Keys must match component names defined in ProviderSpec.Components.
 			Components *map[string]string `json:"components,omitempty"`
-
-			// Default Default marks this bundle as the implicit choice when an Instance omits
-			// Spec.Version entirely. Exactly one bundle should have Default: true.
-			Default *bool `json:"default,omitempty"`
 
 			// Name Name is the unique identifier for this bundle (e.g. "8.0.12").
 			// Users set Instance.Spec.Version to this value to select the bundle.

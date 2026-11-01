@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/url"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/AlekSi/pointer"
@@ -412,8 +413,18 @@ func (r *MonitoringConfigReconciler) ensureVMAgentResources(ctx context.Context,
 
 // genVMAgentSpec builds a VMAgentSpec from the current state of all MonitoringConfigs.
 func (r *MonitoringConfigReconciler) genVMAgentSpec(mcList *monitoringv1alpha1.MonitoringConfigList, k8sClusterID string) (*vmv1beta1.VMAgentSpec, error) {
-	remoteWrites := make([]vmv1beta1.VMAgentRemoteWriteSpec, 0, len(mcList.Items))
-	for _, mc := range mcList.Items {
+	// The cached list order is not deterministic; sort so the generated spec
+	// is stable and the VMAgent is not churned on every reconcile.
+	items := slices.Clone(mcList.Items)
+	slices.SortFunc(items, func(a, b monitoringv1alpha1.MonitoringConfig) int {
+		if c := strings.Compare(a.GetNamespace(), b.GetNamespace()); c != 0 {
+			return c
+		}
+		return strings.Compare(a.GetName(), b.GetName())
+	})
+
+	remoteWrites := make([]vmv1beta1.VMAgentRemoteWriteSpec, 0, len(items))
+	for _, mc := range items {
 		if mc.Spec.Type != monitoringv1alpha1.PMMMonitoringType {
 			continue
 		}

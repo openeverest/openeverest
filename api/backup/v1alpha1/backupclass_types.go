@@ -49,6 +49,7 @@ const (
 // +kubebuilder:validation:XValidation:rule="self.executionMode != 'Job' || has(self.job)",message="spec.job is required when executionMode is Job"
 // +kubebuilder:validation:XValidation:rule="!has(self.job) || self.executionMode == 'Job'",message="spec.job is only allowed when executionMode is Job"
 // +kubebuilder:validation:XValidation:rule="!has(self.providerManaged) || self.executionMode == 'ProviderManaged'",message="spec.providerManaged is only allowed when executionMode is ProviderManaged"
+// +kubebuilder:validation:XValidation:rule="self.executionMode != 'ProviderManaged' || (has(self.supportedProviders) && size(self.supportedProviders) == 1)",message="a ProviderManaged BackupClass must support exactly one provider"
 type BackupClassSpec struct {
 	// DisplayName is a human-readable name for the backup class.
 	DisplayName string `json:"displayName,omitempty"`
@@ -61,6 +62,10 @@ type BackupClassSpec struct {
 	// ExecutionMode selects between job-based and provider-managed execution.
 	// +kubebuilder:validation:Required
 	ExecutionMode BackupExecutionMode `json:"executionMode"`
+	// SupportsImport indicates whether the owner of this class can discover and
+	// import restorable backups already sitting in a BackupStorage.
+	// +optional
+	SupportsImport bool `json:"supportsImport,omitempty"`
 	// ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
 	// schema is intentionally open: providers may surface capability
 	// information (e.g., whether PITR is supported, schedule expression

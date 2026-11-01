@@ -13,18 +13,29 @@
 // limitations under the License.
 
 import { useEffect, useMemo } from 'react';
-import { useFormContext } from 'react-hook-form';
+import { useFormContext, useWatch } from 'react-hook-form';
 import type { Component, ComponentGroup, Section } from '../ui-generator.types';
 import { hasDataSource } from './data-source-field';
 import { useProviderOptions } from './registry';
 import { ComponentErrorBoundary } from '../component-error-boundary';
 import { getComponentSourcePath } from '../utils/preprocess/normalized-component';
+import {
+  TOGGLEABLE_SWITCHES_KEY,
+  getToggleableMeta,
+  isToggleableOn,
+} from '../utils/toggleable/toggleable';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { getReconciledDataSourceValue } from './data-source-field/data-source-field.utils';
 
+type PrefetchField = {
+  path?: string;
+  // Switch of the toggleable group containing the field; fetched only when on.
+  switchName?: string;
+};
+
 type DataSourceDeclaration = {
   provider: string;
-  fieldPaths: string[];
+  fields: PrefetchField[];
 };
 
 const collectDataSources = (
@@ -33,26 +44,28 @@ const collectDataSources = (
   const results: DataSourceDeclaration[] = [];
   const byKey = new Map<string, DataSourceDeclaration>();
 
-  const walk = (components: Record<string, Component | ComponentGroup>) => {
+  const walk = (
+    components: Record<string, Component | ComponentGroup>,
+    switchName?: string
+  ) => {
     for (const comp of Object.values(components)) {
       if ('components' in comp) {
-        walk((comp as ComponentGroup).components);
+        walk(
+          comp.components,
+          getToggleableMeta(comp)?.switchName ?? switchName
+        );
+        continue;
       }
-      const asComponent = comp as Component;
-      if (hasDataSource(asComponent)) {
-        const fieldPath = getComponentSourcePath(asComponent);
-        const existing = byKey.get(asComponent.dataSource.provider);
-        if (existing) {
-          if (fieldPath) existing.fieldPaths.push(fieldPath);
-        } else {
-          const decl: DataSourceDeclaration = {
-            provider: asComponent.dataSource.provider,
-            fieldPaths: fieldPath ? [fieldPath] : [],
-          };
-          byKey.set(asComponent.dataSource.provider, decl);
-          results.push(decl);
-        }
+      if (!hasDataSource(comp)) continue;
+
+      const provider = comp.dataSource.provider;
+      let decl = byKey.get(provider);
+      if (!decl) {
+        decl = { provider, fields: [] };
+        byKey.set(provider, decl);
+        results.push(decl);
       }
+      decl.fields.push({ path: getComponentSourcePath(comp), switchName });
     }
   };
 
@@ -106,26 +119,37 @@ export const DataSourcePrefetcher = ({
   namespace,
 }: DataSourcePrefetcherProps) => {
   const dataSources = useMemo(() => collectDataSources(sections), [sections]);
+  const switches = useWatch({ name: TOGGLEABLE_SWITCHES_KEY });
+
+  // A provider is mounted only while some of its fields are reachable, so a
+  // switched-off section triggers no request.
+  const reachable = useMemo(() => {
+    const values = { [TOGGLEABLE_SWITCHES_KEY]: switches };
+    return dataSources.flatMap(({ provider, fields }) => {
+      const reachableFields = fields.filter(
+        ({ switchName }) => !switchName || isToggleableOn(values, switchName)
+      );
+      if (reachableFields.length === 0) return [];
+      const fieldPaths = reachableFields.flatMap(({ path }) =>
+        path ? [path] : []
+      );
+      return [{ provider, fieldPaths }];
+    });
+  }, [dataSources, switches]);
 
   if (!namespace) return null;
 
-  // TODO: Support enable/disable toggle wrappers — when a component has
-  // an on/off toggle (e.g. monitoring enabled/disabled), the prefetch
-  // should only fire when the toggle is enabled. This will require
-  // reading the toggle state from the form and conditionally including
-  // the PrefetchItem.
-
   return (
     <>
-      {dataSources.map((ds) => (
+      {reachable.map(({ provider, fieldPaths }) => (
         <ComponentErrorBoundary
-          key={ds.provider}
-          componentName={`prefetch:${ds.provider}`}
+          key={provider}
+          componentName={`prefetch:${provider}`}
         >
           <PrefetchItem
-            provider={ds.provider}
+            provider={provider}
             namespace={namespace}
-            fieldPaths={ds.fieldPaths}
+            fieldPaths={fieldPaths}
           />
         </ComponentErrorBoundary>
       ))}

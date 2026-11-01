@@ -76,6 +76,27 @@ describe('extractInstanceValues', () => {
     expect(result).toEqual({ spec: { name: 'default-name' } });
   });
 
+  it('falls back past a schema default on a secret field', () => {
+    const sections: Record<string, Section> = {
+      basic: {
+        components: {
+          userSecret: makeComponent('spec.userSecretRef.name', {
+            uiType: FieldType.Secret,
+            fieldParams: {
+              label: 'Users',
+              definition: 'user',
+              defaultValue: 'creds',
+            },
+          } as unknown as Partial<Component>),
+        },
+      },
+    };
+
+    const result = extractInstanceValues(sections, { spec: {} }, FormMode.New);
+
+    expect(result).toEqual({ spec: { userSecretRef: { name: '' } } });
+  });
+
   it('extracts values from multiple sections', () => {
     const sections: Record<string, Section> = {
       basic: {

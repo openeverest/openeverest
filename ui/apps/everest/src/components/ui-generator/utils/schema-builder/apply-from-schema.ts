@@ -40,11 +40,12 @@ const applyCommonValidations = (
   let result = schema;
 
   // For select fields, regex is handled in buildSelectValidationSchema
-  // For text fields, regex is handled in buildTextValidationSchema
+  // For text and secret fields, regex is handled in buildTextValidationSchema
   // Skip regex here to avoid double-validation
   const shouldApplyRegex =
     component.uiType !== 'select' &&
     component.uiType !== 'text' &&
+    component.uiType !== 'secret' &&
     component.uiType !== 'toggle' &&
     component.validation !== undefined &&
     'regex' in component.validation &&
@@ -95,7 +96,9 @@ export const applyValidationFromSchema = (
       fieldSchema = buildSelectValidationSchema(component);
       break;
 
+    // A secret value is the secret's name, validated like plain text.
     case 'text':
+    case 'secret':
       fieldSchema = buildTextValidationSchema(component);
       break;
 

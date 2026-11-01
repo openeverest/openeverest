@@ -216,8 +216,8 @@ func TestRun_UndeclaredStatus_SurfacesDefaultMessage(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backup-storages", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-		_ = json.NewEncoder(w).Encode(map[string]string{"message": "namespace not found"})
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"message": "internal error"})
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -229,7 +229,7 @@ func TestRun_UndeclaredStatus_SurfacesDefaultMessage(t *testing.T) {
 	err := cr.Run(context.Background(), opts, newConfigPath(t, srv.URL))
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "namespace not found")
+	assert.Contains(t, err.Error(), "internal error")
 }
 
 func TestRun_UndeclaredStatus_NonJSONBody_FallsBackToStatusLine(t *testing.T) {

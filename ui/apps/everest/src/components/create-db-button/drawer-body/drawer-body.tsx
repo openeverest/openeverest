@@ -19,6 +19,7 @@ import {
   resolveProviderDisplay,
 } from 'components/provider-identity';
 import { useExtensionCatalog } from 'hooks/api/extension-catalog';
+import { usePrefetchInstancePresets } from 'hooks/api/instance-presets';
 import type { DrawerBodyProps } from './drawer-body.types';
 import { listSx, rowSx } from './drawer-body.constants';
 
@@ -28,6 +29,7 @@ export const DrawerBody = ({
   onClose,
 }: DrawerBodyProps) => {
   const { getProviderMeta } = useExtensionCatalog();
+  const prefetchPresets = usePrefetchInstancePresets();
   const testIdPrefix = createFromImport ? 'import' : 'add';
 
   return (
@@ -48,6 +50,8 @@ export const DrawerBody = ({
                 showImport: createFromImport,
               }}
               onClick={onClose}
+              onMouseEnter={() => prefetchPresets(provider)}
+              onFocus={() => prefetchPresets(provider)}
               sx={rowSx}
             >
               <ProviderIdentity label={label} meta={meta} ellipsis />

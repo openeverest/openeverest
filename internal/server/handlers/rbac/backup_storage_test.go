@@ -57,6 +57,10 @@ func TestRBAC_BackupStorageV2(t *testing.T) {
 			&backupv1alpha1.BackupStorage{ObjectMeta: metav1.ObjectMeta{Name: "s3-primary", Namespace: "ns1"}},
 			nil,
 		)
+		h.On("PatchBackupStorage", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
+			&backupv1alpha1.BackupStorage{ObjectMeta: metav1.ObjectMeta{Name: "s3-primary", Namespace: "ns1"}},
+			nil,
+		)
 		h.On("DeleteBackupStorage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		return h
 	}
@@ -365,6 +369,59 @@ func TestRBAC_BackupStorageV2(t *testing.T) {
 					require.NoError(t, err)
 					assert.Equal(t, "s3-primary", result.Name)
 				}
+			})
+		}
+	})
+
+	// A patch is authorised as an update, not as a permission of its own, so
+	// read alone must not be enough to patch.
+	t.Run("PatchBackupStorage", func(t *testing.T) {
+		t.Parallel()
+
+		testCases := []struct {
+			desc    string
+			policy  string
+			wantErr error
+		}{
+			{
+				desc: "has update permission",
+				policy: newPolicy(
+					"p, role:test, backup-storages, update, prod/ns1/s3-primary",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc: "has read but not update",
+				policy: newPolicy(
+					"p, role:test, backup-storages, read, prod/ns1/s3-primary",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+		}
+
+		ctx := testUserContext(rbac.User{Subject: "bob"})
+		for _, tc := range testCases {
+			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+				k8sMock := newConfigMapMock(tc.policy)
+				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
+				require.NoError(t, err)
+
+				h := &rbacHandler{
+					next:       mockBackupStorages(),
+					log:        zap.NewNop().Sugar(),
+					enforcer:   enf,
+					userGetter: testUserGetter,
+				}
+
+				result, err := h.PatchBackupStorage(ctx, "prod", "ns1", "s3-primary", []byte(`{"spec":{"s3":{"bucket":"bucket-2"}}}`))
+				if tc.wantErr != nil {
+					require.ErrorIs(t, err, tc.wantErr)
+					return
+				}
+				require.NoError(t, err)
+				assert.Equal(t, "s3-primary", result.Name)
 			})
 		}
 	})

@@ -127,26 +127,6 @@ func TestRBAC_GlobPatterns(t *testing.T) {
 				),
 				wantCount: 2,
 			},
-			{
-				desc:    "single character wildcard (?)",
-				cluster: "prod",
-				ns:      "ns1",
-				policy: newPolicy(
-					"p, role:test, instances, read, prod/ns1/db?",
-					"g, bob, role:test",
-				),
-				wantCount: 2,
-			},
-			{
-				desc:    "single char doesn't match multi-char",
-				cluster: "prod",
-				ns:      "ns1",
-				policy: newPolicy(
-					"p, role:test, instances, read, prod/ns1/d?",
-					"g, bob, role:test",
-				),
-				wantCount: 0,
-			},
 		}
 
 		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
@@ -352,4 +332,18 @@ func TestRBAC_GlobPatterns(t *testing.T) {
 		_, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
 		require.Error(t, err, "5-field deny rules are not supported by the adapter")
 	})
+}
+
+// The `?` metacharacter is deliberately rejected at policy load: the term
+// charset admits only a single `*` as wildcard, so a `?` pattern can never
+// reach the matcher.
+func TestRBAC_RejectsQuestionMarkWildcard(t *testing.T) {
+	t.Parallel()
+	ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"}) //nolint:staticcheck
+	k8sMock := newConfigMapMock(newPolicy(
+		"p, role:test, instances, read, prod/ns1/db?",
+		"g, bob, role:test",
+	))
+	_, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
+	require.ErrorContains(t, err, "invalid policy term")
 }

@@ -151,14 +151,54 @@ spec:
                                   per-backup-run.
                                 type: object
                                 x-kubernetes-preserve-unknown-fields: true
-                              retentionCopies:
+                              retention:
                                 description: |-
-                                  RetentionCopies is the number of recent backups to keep for this
-                                  schedule. Zero (or unset) means "keep all". Negative values are
-                                  rejected.
-                                format: int32
-                                minimum: 0
-                                type: integer
+                                  Retention configures count-based or time-based backup retention for
+                                  this schedule. Unset keeps all backups.
+                                properties:
+                                  count:
+                                    description: |-
+                                      Count is the number of recent backups to keep when Type is count.
+                                      Required when Type is count (minimum 1). Forbidden when Type is time.
+                                      Omit Retention on the schedule to keep all backups.
+                                    format: int32
+                                    minimum: 1
+                                    type: integer
+                                  duration:
+                                    description: |-
+                                      Duration is the recovery window when Type is time, in the form
+                                      <positive-integer><unit> where unit is d (days), w (weeks), or m
+                                      (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+                                    pattern: ^[1-9][0-9]*[dwm]$
+                                    type: string
+                                  type:
+                                    default: count
+                                    description: Type selects count-based or time-based
+                                      retention.
+                                    enum:
+                                    - count
+                                    - time
+                                    type: string
+                                required:
+                                - type
+                                type: object
+                                x-kubernetes-validations:
+                                - message: count is required when retention type is
+                                    count
+                                  rule: 'self.type == ''count'' ? has(self.count)
+                                    : true'
+                                - message: duration is only allowed when retention
+                                    type is time
+                                  rule: 'self.type == ''count'' ? !has(self.duration)
+                                    : true'
+                                - message: count is only allowed when retention type
+                                    is count
+                                  rule: 'self.type == ''time'' ? !has(self.count)
+                                    : true'
+                                - message: duration is required when retention type
+                                    is time
+                                  rule: 'self.type == ''time'' ? has(self.duration)
+                                    : true'
                             required:
                             - cron
                             - enabled
@@ -209,9 +249,6 @@ spec:
                         Image specifies an override for the image to use.
                         When unspecified, it is autmatically set from the ComponentVersions
                         based on the Version specified.
-                      type: string
-                    name:
-                      description: Name of the component.
                       type: string
                     parameters:
                       description: |-
@@ -296,6 +333,8 @@ spec:
                             Affinity constrains node selection, pod co-location and pod
                             anti-affinity (spreading pods across nodes, zones or other topology
                             domains for high availability).
+                            When omitted, the provider applies its default, which may require each
+                            replica on its own node; an empty affinity ({}) sets no constraints.
                           properties:
                             nodeAffinity:
                               description: Describes node affinity scheduling rules
@@ -1280,7 +1319,9 @@ spec:
                         topologySpreadConstraints:
                           description: |-
                             TopologySpreadConstraints describe how the pods spread across topology
-                            domains. All constraints are ANDed.
+                            domains. A constraint with neither labelSelector nor matchLabelKeys counts
+                            this component's pods. When omitted, the provider applies its default; an
+                            empty list sets no constraints.
                           items:
                             description: TopologySpreadConstraint specifies how to
                               spread matching pods among the given topology.
@@ -1662,6 +1703,36 @@ spec:
                 - Cascade
                 - Orphan
                 type: string
+              maintenance:
+                description: |-
+                  Maintenance governs how disruptive actions raised against this
+                  Instance (e.g. the convergence step after a provider upgrade) are
+                  authorized. It does NOT govern the deliberate engine-version upgrade
+                  flow (spec.version / spec.components[].version).
+                properties:
+                  approved:
+                    description: |-
+                      Approved is a one-time authorization for an action above the standing
+                      tolerance: set it to the exact approvalToken of the held action from
+                      status.pendingMaintenance. It is matched literally, authorizes only
+                      that occurrence, and re-arms naturally — a later action carries a
+                      different token, so a stale value never authorizes it. It is NOT a
+                      provider version.
+                    maxLength: 253
+                    type: string
+                  autoApproveUpTo:
+                    default: NonDisruptive
+                    description: |-
+                      AutoApproveUpTo is the standing disruption tolerance: any action at or
+                      below this impact applies automatically, anything above it is held on
+                      status.pendingMaintenance. It is cause-agnostic — the tolerance applies
+                      whether the action was raised by a provider upgrade or anything else.
+                    enum:
+                    - NonDisruptive
+                    - RollingRestart
+                    - Downtime
+                    type: string
+                type: object
               parameters:
                 description: |-
                   Parameters contains structured parameters that apply to the Instance
@@ -1702,6 +1773,28 @@ spec:
                       If omitted, the provider's default topology is used.
                     type: string
                 type: object
+              userSecretRef:
+                description: |-
+                  UserSecretRef optionally seeds the engine's initial (bootstrap)
+                  credentials from a Secret in the same namespace, for providers whose
+                  engine supports setting initial credentials at creation time.
+
+                  When omitted, the provider generates credentials automatically. The
+                  referenced Secret's required keys are provider-specific and validated
+                  by the referenced Provider. The field is immutable once set: initial
+                  credentials only apply at engine creation time, so changing it later
+                  would have no effect.
+                properties:
+                  name:
+                    description: Name of the referenced Secret.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               version:
                 description: |-
                   Version selects a provider-defined version bundle, resolving compatible
@@ -1724,6 +1817,9 @@ spec:
                 so there is no target Instance to default to'
               rule: '!has(self.dataSource) || self.dataSource.type != ''PointInTime''
                 || has(self.dataSource.pointInTime.source.instanceRef)'
+            - message: spec.userSecretRef is immutable once set
+              rule: '!has(oldSelf.userSecretRef) || (has(self.userSecretRef) && self.userSecretRef
+                == oldSelf.userSecretRef)'
           status:
             description: status defines the observed state of InstancePreset
             properties:

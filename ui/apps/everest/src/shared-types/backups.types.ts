@@ -20,6 +20,16 @@ export type BackupClass = CrdsGen.components['schemas']['BackupClass'];
 export type BackupList = CrdsGen.components['schemas']['BackupList'];
 export type BackupClassList = CrdsGen.components['schemas']['BackupClassList'];
 
+export type InstanceSchedule = NonNullable<
+  NonNullable<
+    NonNullable<
+      NonNullable<CrdsGen.components['schemas']['Instance']['spec']>['backup']
+    >['storages']
+  >[number]['schedules']
+>[number];
+
+export type ScheduleRetention = NonNullable<InstanceSchedule['retention']>;
+
 export type CreateBackupPayload =
   HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/backups']['post']['requestBody']['content']['application/json'];
 export type CreateBackupResponse =

@@ -89,12 +89,25 @@ export const getSchedulesPayload = ({
       ? removeEmptyFieldValues(rawParameters)
       : undefined;
 
+  const copies = parseInt(retentionCopies, 10);
+  const existing = schedules.find((item) => item.name === scheduleName);
+
+  // Form only edits count retention. copies > 0 -> count. Keep 0 on a schedule that
+  // already has time retention (form shows "0" for non-count) else
+  // omit (keep all).
+  const retention =
+    copies > 0
+      ? { type: 'count' as const, count: copies }
+      : existing?.retention?.type === 'time'
+        ? existing.retention
+        : undefined;
+
   const newSchedule: FlattenedSchedule = {
     enabled: true,
     name: scheduleName,
     storageName,
     cron,
-    retentionCopies: parseInt(retentionCopies, 10),
+    ...(retention ? { retention } : {}),
     ...(cleanedParameters && Object.keys(cleanedParameters).length > 0
       ? { parameters: cleanedParameters }
       : {}),

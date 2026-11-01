@@ -346,6 +346,23 @@ type BackupMirror interface {
 }
 
 // =============================================================================
+// BACKUP IMPORTER (Optional interface for backup discovery / import)
+// =============================================================================
+
+// BackupImporter is an optional interface that providers implement to import
+// restorable backups already sitting in a BackupStorage and turn them into
+// Backup CRs.
+type BackupImporter interface {
+	// ImportBackups lists and parses the BackupStorage and returns the
+	// discovered Backups to create along with the resulting import state.
+	// The return Backups must be named deterministically based on the
+	// storage path so concurrent imports are de-duplicated.
+	// A returned error is treated as transient (the runtime retries);
+	// a Failed State in the result is treated as terminal.
+	ImportBackups(ctx context.Context, imp *backupv1alpha1.BackupImport, storage *backupv1alpha1.BackupStorage) (BackupImportExecutionStatus, error)
+}
+
+// =============================================================================
 // UPGRADE PREFLIGHT (Optional interface for provider-specific upgrade checks)
 // =============================================================================
 
@@ -356,11 +373,10 @@ type BackupMirror interface {
 // convergence outside the bundled operator's compatibility window.
 //
 // CheckUpgrade runs inside the chart's Helm pre-upgrade hook, not during
-// reconciliation: c carries the Kubernetes client and context but no
-// Instance, so Instance-scoped Context methods must not be used. Issues with
-// severity UpgradeError abort the upgrade.
+// reconciliation: the HookContext carries the Kubernetes client and context
+// but no Instance. Issues with severity UpgradeError abort the upgrade.
 type UpgradeProvider interface {
-	CheckUpgrade(c *Context, target *corev1alpha1.ProviderSpec, instances []corev1alpha1.Instance) []UpgradeIssue
+	CheckUpgrade(h *HookContext, target *corev1alpha1.ProviderSpec, instances []corev1alpha1.Instance) []UpgradeIssue
 }
 
 // =============================================================================

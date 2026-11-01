@@ -14,7 +14,12 @@
 
 import { ComponentType } from 'react';
 import { z } from 'zod';
-import { FormMode, Section, TopologyUISchemas } from '../ui-generator.types';
+import {
+  FormMode,
+  Section,
+  TopologyUISchemas,
+  WidgetRegistry,
+} from '../ui-generator.types';
 import { Provider } from 'shared-types/api.types';
 
 // Step - a single unit in the multi-step wizard.  Both "static" steps (hand-coded
@@ -48,6 +53,8 @@ export type FormEngineConfig = {
   providerObject?: Provider;
   namespace?: string;
   formMode?: FormMode;
+  // Host-provided renderers for schema widgets
+  widgetRegistry?: WidgetRegistry;
 };
 
 export type FormEngineResult = {

@@ -37,15 +37,16 @@ export const mockProviders: any = {
       spec: {
         componentTypes: {
           backup: {
+            defaultVersion: '2.12.0',
             versions: [
               {
                 version: '2.12.0',
                 image: 'percona/percona-backup-mongodb:2.12.0',
-                default: true,
               },
             ],
           },
           mongod: {
+            defaultVersion: '8.0.12-4',
             versions: [
               {
                 version: '6.0.19-16',
@@ -70,11 +71,11 @@ export const mockProviders: any = {
               {
                 version: '8.0.12-4',
                 image: 'percona/percona-server-mongodb:8.0.12-4',
-                default: true,
               },
             ],
           },
           pmm: {
+            defaultVersion: '3.7.0',
             versions: [
               {
                 version: '2.44.1',
@@ -83,7 +84,6 @@ export const mockProviders: any = {
               {
                 version: '3.7.0',
                 image: 'percona/pmm-client:3.7.0',
-                default: true,
               },
             ],
           },
@@ -142,6 +142,7 @@ export const mockProviders: any = {
             },
           },
         },
+        defaultVersion: '8.0.12',
         versions: [
           {
             name: '8.0.12',
@@ -152,7 +153,6 @@ export const mockProviders: any = {
               monitoring: '3.7.0',
               proxy: '8.0.12-4',
             },
-            default: true,
           },
           {
             name: '8.0.8',

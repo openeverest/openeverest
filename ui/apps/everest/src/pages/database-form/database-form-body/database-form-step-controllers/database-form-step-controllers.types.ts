@@ -23,4 +23,5 @@ export type DatabaseFormStepControllersProps = {
   onCancel: () => void;
   onSubmit: () => void;
   showConfigMore?: boolean;
+  disableConfigMore?: boolean;
 };

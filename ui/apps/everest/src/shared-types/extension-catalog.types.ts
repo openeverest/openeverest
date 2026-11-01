@@ -14,8 +14,8 @@
 
 // Types describing the OpenEverest Extension Hub index (`hub.openeverest.io/v1`).
 // These mirror the JSON returned by the plugin-hub plugin at
-// `/v1/plugins/plugin-hub/api/summary`. They are hand-written because the hub
-// schema is not part of the OpenEverest CRD-generated types.
+// `/v1/clusters/{cluster}/plugins/plugin-hub/api/summary`. They are hand-written
+// because the hub schema is not part of the OpenEverest CRD-generated types.
 
 export type ExtensionType = 'provider' | 'plugin';
 

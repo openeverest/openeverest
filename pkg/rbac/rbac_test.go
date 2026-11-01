@@ -17,18 +17,23 @@ package rbac
 import (
 	"context"
 	"strings"
+	"sync/atomic"
 	"testing"
 
+	"github.com/casbin/casbin/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
+	configmapadapter "github.com/openeverest/openeverest/v2/pkg/rbac/configmap-adapter"
 )
 
 func TestGetScopeValues(t *testing.T) {
@@ -227,5 +232,118 @@ func TestEnforceWithSpecificPolicies(t *testing.T) {
 		enf.assertAllowed("bob", ResourceInstances, ActionRead, "prod/ns1/db1")
 		enf.assertDenied("bob", ResourceInstances, ActionCreate, "prod/ns1/db1")
 		enf.assertDenied("bob", ResourceInstances, ActionDelete, "prod/ns1/db1")
+	})
+}
+
+// fakeConfigMapGetter is a fake whose GetConfigMap returns a configurable
+// policy and counts how many times it is called.
+type fakeConfigMapGetter struct {
+	policy atomic.Pointer[string]
+	calls  atomic.Int64
+}
+
+func newFakeConfigMapGetter(policy string) *fakeConfigMapGetter {
+	f := &fakeConfigMapGetter{}
+	f.policy.Store(&policy)
+	return f
+}
+
+func (f *fakeConfigMapGetter) GetConfigMap(_ context.Context, _ ctrlclient.ObjectKey) (*corev1.ConfigMap, error) {
+	f.calls.Add(1)
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      common.EverestRBACConfigMapName,
+			Namespace: "everest-system",
+		},
+		Data: map[string]string{
+			"enabled":    "true",
+			"policy.csv": *f.policy.Load(),
+		},
+	}, nil
+}
+
+func (f *fakeConfigMapGetter) setPolicy(policy string) {
+	f.policy.Store(&policy)
+}
+
+// newFakeEnforcer builds a enforcer backed by the fake fakeConfigMapGetter.
+func newFakeEnforcer(t *testing.T, getter *fakeConfigMapGetter) *casbin.Enforcer {
+	t.Helper()
+	adapter := configmapadapter.New(
+		zap.NewNop().Sugar(),
+		getter,
+		types.NamespacedName{
+			Namespace: "everest-system",
+			Name:      common.EverestRBACConfigMapName,
+		},
+	)
+	enf, err := newEnforcer(adapter, false)
+	require.NoError(t, err)
+	return enf
+}
+
+// cmWithPolicy returns the RBAC ConfigMap object handed to the informer's
+// OnUpdate callback for the given policy.
+func cmWithPolicy(policy string) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: common.EverestRBACConfigMapName,
+		},
+		Data: map[string]string{
+			"enabled":    "true",
+			"policy.csv": policy,
+		},
+	}
+}
+
+// TestReloadEnforcerFromConfigMap exercises the real reloadEnforcerFromConfigMap
+// function (the body of refreshEnforcerInBackground's OnUpdate callback) using a
+// fake, latency-injecting ConfigMap adapter.
+func TestReloadEnforcerFromConfigMap(t *testing.T) {
+	t.Parallel()
+
+	t.Run("reloads the policy on update", func(t *testing.T) {
+		t.Parallel()
+		getter := newFakeConfigMapGetter("")
+		enf := newFakeEnforcer(t, getter)
+		getter.calls.Store(0) // ignore the initial construction load.
+
+		// Initially alice has no permissions.
+		ok, err := enf.Enforce("alice", "instances", "read", "prod/ns/my-inst")
+		require.NoError(t, err)
+		require.False(t, ok)
+
+		// Update the backing policy and fire the real reload.
+		policy := "p, alice, instances, read, prod/ns/my-inst"
+		getter.setPolicy(policy)
+		reloadEnforcerFromConfigMap(enf, cmWithPolicy(policy), zap.NewNop().Sugar())
+
+		ok, err = enf.Enforce("alice", "instances", "read", "prod/ns/my-inst")
+		require.NoError(t, err)
+		assert.True(t, ok)
+		assert.LessOrEqual(t, getter.calls.Load(), int64(1))
+	})
+
+	t.Run("invalid policy is rejected", func(t *testing.T) {
+		t.Parallel()
+
+		initialPolicy := "p, alice, instances, read, prod/ns/my-inst"
+		getter := newFakeConfigMapGetter(initialPolicy)
+		enf := newFakeEnforcer(t, getter)
+		getter.calls.Store(0) // ignore the initial construction load.
+
+		ok, err := enf.Enforce("alice", "instances", "read", "prod/ns/my-inst")
+		require.NoError(t, err)
+		assert.True(t, ok)
+
+		// Invalid policy keeps the previous valid policy.
+		newInvalidPolicy := "p, alice, not-a-real-resource, read, prod/ns/my-inst"
+		getter.setPolicy(newInvalidPolicy)
+		reloadEnforcerFromConfigMap(enf, cmWithPolicy(newInvalidPolicy), zap.NewNop().Sugar())
+
+		ok, err = enf.Enforce("alice", "instances", "read", "prod/ns/my-inst")
+		require.NoError(t, err)
+		assert.True(t, ok)
+		assert.LessOrEqual(t, getter.calls.Load(), int64(1))
 	})
 }
