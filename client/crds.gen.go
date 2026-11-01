@@ -2270,8 +2270,14 @@ type Instance struct {
 		//
 		// The field is mutable on a live Instance but is frozen once deletion
 		// has started: switching policies after .metadata.deletionTimestamp
-		// has been set is rejected so the cascade path cannot race with
-		// itself.
+		// has been set is rejected at Kubernetes API admission via a
+		// ValidatingAdmissionPolicy (and by the Everest API with HTTP 409 Conflict)
+		// so the cascade path cannot race with itself.
+		//
+		// Operators and users must not attempt to switch deletionPolicy to Orphan
+		// as an escape hatch or workaround for an Instance stuck in Terminating
+		// due to failing child Backup or Restore deletions; any stuck child
+		// finalizers or resources should be diagnosed and resolved directly.
 		DeletionPolicy *InstanceSpecDeletionPolicy `json:"deletionPolicy,omitempty"`
 
 		// Parameters Parameters contains structured parameters that apply to the Instance
@@ -2477,8 +2483,14 @@ type InstanceSpecDataSourceType string
 //
 // The field is mutable on a live Instance but is frozen once deletion
 // has started: switching policies after .metadata.deletionTimestamp
-// has been set is rejected so the cascade path cannot race with
-// itself.
+// has been set is rejected at Kubernetes API admission via a
+// ValidatingAdmissionPolicy (and by the Everest API with HTTP 409 Conflict)
+// so the cascade path cannot race with itself.
+//
+// Operators and users must not attempt to switch deletionPolicy to Orphan
+// as an escape hatch or workaround for an Instance stuck in Terminating
+// due to failing child Backup or Restore deletions; any stuck child
+// finalizers or resources should be diagnosed and resolved directly.
 type InstanceSpecDeletionPolicy string
 
 // InstanceStatusBackupStoragesPitrState State summarises whether a trustworthy window exists.
@@ -3479,8 +3491,14 @@ type InstancePreset struct {
 		//
 		// The field is mutable on a live Instance but is frozen once deletion
 		// has started: switching policies after .metadata.deletionTimestamp
-		// has been set is rejected so the cascade path cannot race with
-		// itself.
+		// has been set is rejected at Kubernetes API admission via a
+		// ValidatingAdmissionPolicy (and by the Everest API with HTTP 409 Conflict)
+		// so the cascade path cannot race with itself.
+		//
+		// Operators and users must not attempt to switch deletionPolicy to Orphan
+		// as an escape hatch or workaround for an Instance stuck in Terminating
+		// due to failing child Backup or Restore deletions; any stuck child
+		// finalizers or resources should be diagnosed and resolved directly.
 		DeletionPolicy *InstancePresetSpecDeletionPolicy `json:"deletionPolicy,omitempty"`
 
 		// Parameters Parameters contains structured parameters that apply to the Instance
@@ -3607,8 +3625,14 @@ type InstancePresetSpecDataSourceType string
 //
 // The field is mutable on a live Instance but is frozen once deletion
 // has started: switching policies after .metadata.deletionTimestamp
-// has been set is rejected so the cascade path cannot race with
-// itself.
+// has been set is rejected at Kubernetes API admission via a
+// ValidatingAdmissionPolicy (and by the Everest API with HTTP 409 Conflict)
+// so the cascade path cannot race with itself.
+//
+// Operators and users must not attempt to switch deletionPolicy to Orphan
+// as an escape hatch or workaround for an Instance stuck in Terminating
+// due to failing child Backup or Restore deletions; any stuck child
+// finalizers or resources should be diagnosed and resolved directly.
 type InstancePresetSpecDeletionPolicy string
 
 // InstancePresetStatusConditionsStatus status of the condition, one of True, False, Unknown.
