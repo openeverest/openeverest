@@ -229,11 +229,11 @@ func ValidateScopes(scopes []string) error {
 }
 
 // ParseScopes splits the comma-separated --scopes value, trims the spaces around
-// each scope, drops empty entries and validates the result.
+// each scope, drops empty and duplicate entries and validates the result.
 func ParseScopes(scopesStr string) ([]string, error) {
 	var scopesList []string
 	for scope := range strings.SplitSeq(scopesStr, ",") {
-		if trimmed := strings.TrimSpace(scope); trimmed != "" {
+		if trimmed := strings.TrimSpace(scope); trimmed != "" && !slices.Contains(scopesList, trimmed) {
 			scopesList = append(scopesList, trimmed)
 		}
 	}

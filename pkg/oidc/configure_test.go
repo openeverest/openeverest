@@ -51,6 +51,11 @@ func TestParseScopes(t *testing.T) {
 			wantScopes: []string{"openid", "profile", "email"},
 		},
 		{
+			name:       "duplicate scopes",
+			scopesStr:  "openid,openid, profile,profile",
+			wantScopes: []string{"openid", "profile"},
+		},
+		{
 			name:      "missing openid",
 			scopesStr: "profile,email",
 			wantErr:   true,
