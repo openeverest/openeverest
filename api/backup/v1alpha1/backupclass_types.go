@@ -52,6 +52,16 @@ type BackupClassSpec struct {
 	// supports. The Instance.spec.provider must appear in this list for the
 	// class to be usable on that Instance.
 	SupportedProviders ProviderNameList `json:"supportedProviders,omitempty"`
+	// BackupStorageClasses lists the BackupStorageClasses the class's executor
+	// can write to, each with the authentication modes it supports. A
+	// BackupStorage is usable with the class only when both its class and
+	// its authentication mode are listed.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=16
+	// +listType=map
+	// +listMapKey=name
+	BackupStorageClasses []BackupStorageClassSupport `json:"backupStorageClasses"`
 	// ExecutionMode selects who executes the class's backup and restore
 	// operations. ProviderManaged is the only mode: the provider named in
 	// SupportedProviders executes them.
@@ -152,6 +162,35 @@ type ProviderNameList []string
 // Has checks if the list contains the specified provider.
 func (e ProviderNameList) Has(provider string) bool {
 	return slices.Contains(e, provider)
+}
+
+// BackupStorageClassSupport is a BackupStorageClass a BackupClass can write
+// to.
+type BackupStorageClassSupport struct {
+	// Name of the BackupStorageClass.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	Name string `json:"name"`
+	// AuthModes are the authentication modes of that class the executor
+	// supports.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=16
+	// +kubebuilder:validation:items:Pattern=`^[A-Z][A-Za-z0-9]{0,62}$`
+	// +listType=set
+	AuthModes []string `json:"authModes"`
+}
+
+// FindBackupStorageClass returns the class's support entry for the
+// BackupStorageClass named name, or nil.
+func (s *BackupClassSpec) FindBackupStorageClass(name string) *BackupStorageClassSupport {
+	i := slices.IndexFunc(s.BackupStorageClasses, func(c BackupStorageClassSupport) bool { return c.Name == name })
+	if i < 0 {
+		return nil
+	}
+	return &s.BackupStorageClasses[i]
 }
 
 // BackupClassInstanceConstraints defines compatibility requirements and prerequisites

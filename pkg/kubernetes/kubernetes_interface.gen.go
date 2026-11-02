@@ -74,6 +74,10 @@ type KubernetesConnector interface {
 	ListBackupClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*backupv1alpha1.BackupClassList, error)
 	// GetBackupClass returns backup class that matches the criteria.
 	GetBackupClass(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.BackupClass, error)
+	// ListBackupStorageClasses returns the backup storage classes that match the criteria.
+	ListBackupStorageClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*backupv1alpha1.BackupStorageClassList, error)
+	// GetBackupStorageClass returns the backup storage class with the given key.
+	GetBackupStorageClass(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.BackupStorageClass, error)
 	// GetBackupImport returns backup import that matches the criteria.
 	GetBackupImport(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.BackupImport, error)
 	// ListBackupImports returns a list of backup imports in a given namespace.

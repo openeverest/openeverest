@@ -26,7 +26,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
+	valhandler "github.com/openeverest/openeverest/v2/internal/server/handlers/validation"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
@@ -36,7 +38,7 @@ func TestRBAC_BackupStorageV2(t *testing.T) {
 
 	mockBackupStorages := func() *handlers.MockHandler {
 		h := &handlers.MockHandler{}
-		h.On("ListBackupStorages", mock.Anything, mock.Anything, mock.Anything).Return(
+		h.On("ListBackupStorages", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
 			&backupv1alpha1.BackupStorageList{
 				Items: []backupv1alpha1.BackupStorage{
 					{ObjectMeta: metav1.ObjectMeta{Name: "s3-primary", Namespace: "ns1"}},
@@ -178,7 +180,7 @@ func TestRBAC_BackupStorageV2(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				list, err := h.ListBackupStorages(ctx, tc.cluster, tc.ns)
+				list, err := h.ListBackupStorages(ctx, tc.cluster, tc.ns, "", "")
 				require.NoError(t, err)
 				assert.Condition(t, func() bool {
 					return tc.assert(list)
@@ -268,12 +270,36 @@ func TestRBAC_BackupStorageV2(t *testing.T) {
 				policy:  newPolicy("g, bob, role:admin"),
 			},
 			{
-				desc:    "has create permission",
+				desc:    "has create permission and reads what it references",
 				cluster: "prod",
 				policy: newPolicy(
 					"p, role:test, backup-storages, create, prod/ns1/s3-primary",
+					"p, role:test, backup-storage-classes, read, prod/s3",
+					"p, role:test, secrets, read, prod/ns1/s3-keys",
+					"p, role:test, secrets, read, prod/ns1/s3-ca",
 					"g, bob, role:test",
 				),
+			},
+			{
+				desc:    "cannot read the backup storage class",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backup-storages, create, prod/ns1/s3-primary",
+					"p, role:test, secrets, read, prod/ns1/*",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "cannot read the CA bundle Secret",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backup-storages, create, prod/ns1/s3-primary",
+					"p, role:test, backup-storage-classes, read, prod/s3",
+					"p, role:test, secrets, read, prod/ns1/s3-keys",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
 			},
 			{
 				desc:    "no permissions",
@@ -299,10 +325,7 @@ func TestRBAC_BackupStorageV2(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				bs := &backupv1alpha1.BackupStorage{
-					ObjectMeta: metav1.ObjectMeta{Name: "s3-primary", Namespace: "ns1"},
-				}
-				result, err := h.CreateBackupStorage(ctx, tc.cluster, bs)
+				result, err := h.CreateBackupStorage(ctx, tc.cluster, referencingBackupStorage())
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
 				} else {
@@ -328,12 +351,25 @@ func TestRBAC_BackupStorageV2(t *testing.T) {
 				policy:  newPolicy("g, bob, role:admin"),
 			},
 			{
-				desc:    "has update permission",
+				desc:    "has update permission and reads what it references",
 				cluster: "prod",
 				policy: newPolicy(
 					"p, role:test, backup-storages, update, prod/ns1/s3-primary",
+					"p, role:test, backup-storage-classes, read, prod/*",
+					"p, role:test, secrets, read, prod/ns1/*",
 					"g, bob, role:test",
 				),
+			},
+			{
+				desc:    "cannot read the credentials Secret",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backup-storages, update, prod/ns1/s3-primary",
+					"p, role:test, backup-storage-classes, read, prod/*",
+					"p, role:test, secrets, read, prod/ns1/s3-ca",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
 			},
 			{
 				desc:    "no permissions",
@@ -359,10 +395,7 @@ func TestRBAC_BackupStorageV2(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				bs := &backupv1alpha1.BackupStorage{
-					ObjectMeta: metav1.ObjectMeta{Name: "s3-primary", Namespace: "ns1"},
-				}
-				result, err := h.UpdateBackupStorage(ctx, tc.cluster, bs)
+				result, err := h.UpdateBackupStorage(ctx, tc.cluster, referencingBackupStorage())
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
 				} else {
@@ -381,6 +414,7 @@ func TestRBAC_BackupStorageV2(t *testing.T) {
 		testCases := []struct {
 			desc    string
 			policy  string
+			patch   string
 			wantErr error
 		}{
 			{
@@ -389,6 +423,7 @@ func TestRBAC_BackupStorageV2(t *testing.T) {
 					"p, role:test, backup-storages, update, prod/ns1/s3-primary",
 					"g, bob, role:test",
 				),
+				patch: `{"spec":{"parameters":{"region":"eu-west-1"}}}`,
 			},
 			{
 				desc: "has read but not update",
@@ -396,7 +431,35 @@ func TestRBAC_BackupStorageV2(t *testing.T) {
 					"p, role:test, backup-storages, read, prod/ns1/s3-primary",
 					"g, bob, role:test",
 				),
+				patch:   `{"spec":{"parameters":{"region":"eu-west-1"}}}`,
 				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc: "names a Secret it can read",
+				policy: newPolicy(
+					"p, role:test, backup-storages, update, prod/ns1/s3-primary",
+					"p, role:test, secrets, read, prod/ns1/rotated",
+					"g, bob, role:test",
+				),
+				patch: `{"spec":{"authentication":{"credentialsSecretRef":{"name":"rotated"}}}}`,
+			},
+			{
+				desc: "names a Secret it cannot read",
+				policy: newPolicy(
+					"p, role:test, backup-storages, update, prod/ns1/s3-primary",
+					"g, bob, role:test",
+				),
+				patch:   `{"spec":{"tls":{"ca":{"secretKeyRef":{"name":"other-ca","key":"ca.crt"}}}}}`,
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc: "is not JSON",
+				policy: newPolicy(
+					"p, role:test, backup-storages, update, prod/ns1/s3-primary",
+					"g, bob, role:test",
+				),
+				patch:   `{"spec":`,
+				wantErr: valhandler.ErrInvalidRequest,
 			},
 		}
 
@@ -415,7 +478,7 @@ func TestRBAC_BackupStorageV2(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				result, err := h.PatchBackupStorage(ctx, "prod", "ns1", "s3-primary", []byte(`{"spec":{"s3":{"bucket":"bucket-2"}}}`))
+				result, err := h.PatchBackupStorage(ctx, "prod", "ns1", "s3-primary", []byte(tc.patch))
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
 					return
@@ -481,4 +544,20 @@ func TestRBAC_BackupStorageV2(t *testing.T) {
 			})
 		}
 	})
+}
+
+func referencingBackupStorage() *backupv1alpha1.BackupStorage {
+	return &backupv1alpha1.BackupStorage{
+		ObjectMeta: metav1.ObjectMeta{Name: "s3-primary", Namespace: "ns1"},
+		Spec: backupv1alpha1.BackupStorageSpec{
+			BackupStorageClassRef: corev1alpha1.ObjectRef{Name: "s3"},
+			Authentication: corev1alpha1.Authentication{
+				Mode:                 "AccessKey",
+				CredentialsSecretRef: &corev1alpha1.SecretRef{Name: "s3-keys"},
+			},
+			TLS: &corev1alpha1.TLSConfig{
+				CA: &corev1alpha1.CABundleSource{SecretKeyRef: &corev1alpha1.SecretKeyRef{Name: "s3-ca", Key: "ca.crt"}},
+			},
+		},
+	}
 }

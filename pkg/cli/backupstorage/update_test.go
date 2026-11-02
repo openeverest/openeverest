@@ -18,6 +18,7 @@ package backupstorage
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -31,7 +32,93 @@ func baseUpdateOptions() UpdateOptions {
 	return UpdateOptions{Name: "my-s3", Namespace: "everest", Cluster: "main"}
 }
 
-func TestUpdateRun_NoFieldFlags_ReturnsErrorWithoutCallingServer(t *testing.T) {
+func TestBuildSpecPatch(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		opts      UpdateOptions
+		wantPatch string
+		wantErr   string
+	}{
+		{
+			name:      "nothing set",
+			wantPatch: `{}`,
+		},
+		{
+			name: "parameters and shorthands",
+			opts: UpdateOptions{Parameters: ParameterOptions{
+				Parameters: []string{"implementation=minio"}, Region: new("eu-west-1"), ForcePathStyle: new(true),
+			}},
+			wantPatch: `{"parameters":{"implementation":"minio","region":"eu-west-1","forcePathStyle":true}}`,
+		},
+		{
+			name:      "credentials secret",
+			opts:      UpdateOptions{CredentialsSecret: "my-s3-credentials-2"}, //nolint:gosec // a Secret name, not a credential
+			wantPatch: `{"authentication":{"credentialsSecretRef":{"name":"my-s3-credentials-2"}}}`,
+		},
+		{
+			name:      "auth mode and credentials secret",
+			opts:      UpdateOptions{AuthMode: "AccessKey", CredentialsSecret: "my-s3-credentials-2"}, //nolint:gosec // a Secret name, not a credential
+			wantPatch: `{"authentication":{"mode":"AccessKey","credentialsSecretRef":{"name":"my-s3-credentials-2"}}}`,
+		},
+		{
+			name:      "CA secret clears insecure skip verify",
+			opts:      UpdateOptions{CASecret: "my-ca"},
+			wantPatch: `{"tls":{"ca":{"secretKeyRef":{"name":"my-ca","key":"ca.crt"}},"insecureSkipVerify":null}}`,
+		},
+		{
+			name:      "CA secret with a key and insecure explicitly off",
+			opts:      UpdateOptions{CASecret: "my-ca:bundle.pem", InsecureSkipTLSVerify: new(false)}, //nolint:gosec // a Secret name, not a credential
+			wantPatch: `{"tls":{"ca":{"secretKeyRef":{"name":"my-ca","key":"bundle.pem"}},"insecureSkipVerify":false}}`,
+		},
+		{
+			name:      "insecure on clears the CA",
+			opts:      UpdateOptions{InsecureSkipTLSVerify: new(true)},
+			wantPatch: `{"tls":{"insecureSkipVerify":true,"ca":null}}`,
+		},
+		{
+			name:      "insecure off",
+			opts:      UpdateOptions{InsecureSkipTLSVerify: new(false)},
+			wantPatch: `{"tls":{"insecureSkipVerify":false}}`,
+		},
+		{
+			name:    "CA secret and insecure on",
+			opts:    UpdateOptions{CASecret: "my-ca", InsecureSkipTLSVerify: new(true)},
+			wantErr: "--insecure-skip-tls-verify cannot be combined with --ca-secret",
+		},
+		{
+			name:    "invalid CA secret reference",
+			opts:    UpdateOptions{CASecret: ":ca.crt"},
+			wantErr: `invalid --ca-secret ":ca.crt"`,
+		},
+		{
+			name:    "shorthand conflict",
+			opts:    UpdateOptions{Parameters: ParameterOptions{Parameters: []string{"region=a"}, Region: new("b")}},
+			wantErr: "--region conflicts with --parameter region",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			spec, err := buildSpecPatch(tt.opts)
+
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			got, err := json.Marshal(spec)
+			require.NoError(t, err)
+			assert.JSONEq(t, tt.wantPatch, string(got))
+		})
+	}
+}
+
+func TestUpdateRun_NothingToUpdate_ReturnsErrorWithoutCallingServer(t *testing.T) {
 	t.Parallel()
 
 	mux := http.NewServeMux()
@@ -46,133 +133,86 @@ func TestUpdateRun_NoFieldFlags_ReturnsErrorWithoutCallingServer(t *testing.T) {
 	err := u.Run(context.Background(), baseUpdateOptions(), newConfigPath(t, srv.URL))
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "at least one of --access-key-id, --credentials-secret, --verify-tls, or --force-path-style is required")
+	assert.Contains(t, err.Error(), "nothing to update: pass at least one of --parameter")
 }
 
-func TestUpdateRun_VerifyTLSOnly_PatchBodyNamesOnlyThatField(t *testing.T) {
+func TestUpdateRun_SendsSpecMergePatch(t *testing.T) {
 	t.Parallel()
 
-	var gotPatch map[string]any
+	var gotPatch string
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backup-storages/my-s3", func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPatch, r.Method)
 		assert.Equal(t, "application/merge-patch+json", r.Header.Get("Content-Type"))
-		assert.NoError(t, json.NewDecoder(r.Body).Decode(&gotPatch))
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(backupStorageWithName(t, "my-s3", "everest"))
+		body, err := io.ReadAll(r.Body)
+		assert.NoError(t, err)
+		gotPatch = string(body)
+		writeJSON(w, http.StatusOK, backupStorageWithName(t, "my-s3", "everest"))
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
 	opts := baseUpdateOptions()
-	verifyTLS := false
-	opts.VerifyTLS = &verifyTLS
+	opts.CredentialsSecret = "my-s3-credentials-2"
+	opts.Parameters.EndpointURL = new("https://s3.eu-west-1.amazonaws.com")
 
-	u := NewUpdater(Config{Pretty: true}, zap.NewNop().Sugar())
+	u := NewUpdater(Config{Pretty: false}, zap.NewNop().Sugar())
 	err := u.Run(context.Background(), opts, newConfigPath(t, srv.URL))
 
 	require.NoError(t, err)
-	spec, _ := gotPatch["spec"].(map[string]any)
-	s3, _ := spec["s3"].(map[string]any)
-	require.NotNil(t, s3)
-	assert.Equal(t, map[string]any{"verifyTLS": false}, s3)
+	want := `{"spec":{
+		"parameters":{"endpointURL":"https://s3.eu-west-1.amazonaws.com"},
+		"authentication":{"credentialsSecretRef":{"name":"my-s3-credentials-2"}}
+	}}`
+	assert.JSONEq(t, want, gotPatch)
 }
 
-func TestUpdateRun_AccessKeyID_SendsCredentialPair(t *testing.T) {
+func TestUpdateRun_ErrorResponses(t *testing.T) {
 	t.Parallel()
 
-	var gotPatch map[string]any
-	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backup-storages/my-s3", func(w http.ResponseWriter, r *http.Request) {
-		assert.NoError(t, json.NewDecoder(r.Body).Decode(&gotPatch))
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(backupStorageWithName(t, "my-s3", "everest"))
-	})
-	srv := httptest.NewServer(mux)
-	defer srv.Close()
+	tests := []struct {
+		name    string
+		respond func(w http.ResponseWriter)
+		wantErr string
+	}{
+		{
+			name:    "not found",
+			respond: func(w http.ResponseWriter) { w.WriteHeader(http.StatusNotFound) },
+			wantErr: `backup storage "my-s3" not found in namespace "everest"`,
+		},
+		{
+			name: "rejected patch",
+			respond: func(w http.ResponseWriter) {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"message": "location is immutable"})
+			},
+			wantErr: "server error: location is immutable",
+		},
+		{
+			name:    "undeclared status",
+			respond: func(w http.ResponseWriter) { w.WriteHeader(http.StatusBadGateway) },
+			wantErr: `unexpected response updating backup storage "my-s3"`,
+		},
+	}
 
-	opts := baseUpdateOptions()
-	opts.AccessKeyID = "AKIA123"
-	opts.SecretAccessKey = "shh"
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 
-	u := NewUpdater(Config{Pretty: true}, zap.NewNop().Sugar())
-	err := u.Run(context.Background(), opts, newConfigPath(t, srv.URL))
+			mux := http.NewServeMux()
+			mux.HandleFunc("/v1/clusters/main/namespaces/everest/backup-storages/my-s3", func(w http.ResponseWriter, _ *http.Request) {
+				tt.respond(w)
+			})
+			srv := httptest.NewServer(mux)
+			defer srv.Close()
 
-	require.NoError(t, err)
-	spec, _ := gotPatch["spec"].(map[string]any)
-	s3, _ := spec["s3"].(map[string]any)
-	assert.Equal(t, "AKIA123", s3["accessKeyId"])
-	assert.Equal(t, "shh", s3["secretAccessKey"])
-}
+			opts := baseUpdateOptions()
+			opts.CredentialsSecret = "other-secret"
 
-func TestUpdateRun_CredentialsSecret_SendsSecretRefName(t *testing.T) {
-	t.Parallel()
+			u := NewUpdater(Config{Pretty: true}, zap.NewNop().Sugar())
+			err := u.Run(context.Background(), opts, newConfigPath(t, srv.URL))
 
-	var gotPatch map[string]any
-	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backup-storages/my-s3", func(w http.ResponseWriter, r *http.Request) {
-		assert.NoError(t, json.NewDecoder(r.Body).Decode(&gotPatch))
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(backupStorageWithName(t, "my-s3", "everest"))
-	})
-	srv := httptest.NewServer(mux)
-	defer srv.Close()
-
-	opts := baseUpdateOptions()
-	opts.CredentialsSecret = "other-secret"
-
-	u := NewUpdater(Config{Pretty: true}, zap.NewNop().Sugar())
-	err := u.Run(context.Background(), opts, newConfigPath(t, srv.URL))
-
-	require.NoError(t, err)
-	spec, _ := gotPatch["spec"].(map[string]any)
-	s3, _ := spec["s3"].(map[string]any)
-	assert.Equal(t, map[string]any{"name": "other-secret"}, s3["credentialsSecretRef"])
-	assert.NotContains(t, s3, "accessKeyId")
-	assert.NotContains(t, s3, "secretAccessKey")
-}
-
-func TestUpdateRun_NotFound_ReturnsFriendlyError(t *testing.T) {
-	t.Parallel()
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backup-storages/my-s3", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	})
-	srv := httptest.NewServer(mux)
-	defer srv.Close()
-
-	opts := baseUpdateOptions()
-	opts.CredentialsSecret = "other-secret"
-
-	u := NewUpdater(Config{Pretty: true}, zap.NewNop().Sugar())
-	err := u.Run(context.Background(), opts, newConfigPath(t, srv.URL))
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), `backup storage "my-s3" not found in namespace "everest"`)
-}
-
-func TestUpdateRun_ServerError_SurfacesMessage(t *testing.T) {
-	t.Parallel()
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backup-storages/my-s3", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		_ = json.NewEncoder(w).Encode(map[string]string{"message": "half a credential pair"})
-	})
-	srv := httptest.NewServer(mux)
-	defer srv.Close()
-
-	opts := baseUpdateOptions()
-	opts.CredentialsSecret = "other-secret"
-
-	u := NewUpdater(Config{Pretty: true}, zap.NewNop().Sugar())
-	err := u.Run(context.Background(), opts, newConfigPath(t, srv.URL))
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "half a credential pair")
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
 }
