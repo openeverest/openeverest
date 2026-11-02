@@ -12,14 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React, { useEffect, useMemo } from 'react';
-import { useFormContext } from 'react-hook-form';
+import React, { useCallback, useEffect, useMemo } from 'react';
+import { get, useFormContext } from 'react-hook-form';
 import { FormMode, type Component } from '../../ui-generator.types';
 import { providerRegistry, useProviderOptions } from '../registry';
 import { useUiGeneratorContext } from '../../ui-generator-context';
 import { useClusterName } from 'hooks/api/useClusterName';
 import type { DataSourceFieldProps } from './data-source-field.types';
-import { getReconciledDataSourceValue } from './data-source-field.utils';
+import {
+  getReconciledDataSourceValue,
+  withStoredValueOption,
+} from './data-source-field.utils';
 
 export const DataSourceField: React.FC<DataSourceFieldProps> = ({
   item,
@@ -28,7 +31,11 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
 }) => {
   const { namespace, formMode } = useUiGeneratorContext();
   const cluster = useClusterName();
-  const { getValues, setValue } = useFormContext();
+  const {
+    getValues,
+    setValue,
+    formState: { defaultValues },
+  } = useFormContext();
   const { dataSource, ...baseComponent } = item;
 
   const hasValidContext = !!namespace && !!cluster;
@@ -55,6 +62,21 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
     }
   }, [isLoading, shouldAutoSelect, options, name, getValues, setValue]);
 
+  const selectCreated = useCallback(
+    (value: string) => {
+      if (!name) return;
+      setValue(name, value, { shouldDirty: true, shouldValidate: true });
+    },
+    [name, setValue]
+  );
+
+  const storedValue =
+    shouldAutoSelect || !name ? undefined : get(defaultValues, name);
+  const displayOptions = useMemo(
+    () => withStoredValueOption(options, storedValue, !isLoading && !error),
+    [options, storedValue, isLoading, error]
+  );
+
   const patchedItem = useMemo(() => {
     const originalHelperText = (
       baseComponent.fieldParams as Record<string, unknown>
@@ -72,7 +94,7 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
       ...baseComponent,
       fieldParams: {
         ...baseComponent.fieldParams,
-        options,
+        options: displayOptions,
         disabled:
           isLoading ||
           !!error ||
@@ -80,7 +102,7 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
         ...(helperText !== undefined ? { helperText } : {}),
       },
     } as Component;
-  }, [baseComponent, options, isLoading, error, isEmpty]);
+  }, [baseComponent, displayOptions, isLoading, error, isEmpty]);
 
   const FallbackComponent = useMemo(() => {
     const entry = providerRegistry.get(dataSource.provider);
@@ -99,7 +121,11 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
   return (
     <>
       {showFallback && (
-        <FallbackComponent namespace={namespace!} cluster={cluster} />
+        <FallbackComponent
+          namespace={namespace!}
+          cluster={cluster}
+          onCreated={selectCreated}
+        />
       )}
       <div
         style={{

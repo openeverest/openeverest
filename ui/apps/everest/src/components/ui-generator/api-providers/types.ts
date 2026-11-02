@@ -31,6 +31,9 @@ export interface ProviderOptions {
 export interface EmptyStateFallbackProps {
   namespace: string;
   cluster: string;
+  // Selects the resource the user just created; call it once the refetched
+  // options include the value. Works in every form mode, unlike auto-selection.
+  onCreated?: (value: string) => void;
 }
 
 export interface EmptyStateFallback {

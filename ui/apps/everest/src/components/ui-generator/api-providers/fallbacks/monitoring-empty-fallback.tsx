@@ -27,6 +27,7 @@ import { Messages } from './monitoring-empty-fallback.messages';
 
 export const MonitoringEmptyFallback = ({
   namespace,
+  onCreated,
 }: EmptyStateFallbackProps) => {
   const [openModal, setOpenModal] = useState(false);
   const queryClient = useQueryClient();
@@ -49,11 +50,12 @@ export const MonitoringEmptyFallback = ({
         payload: { name, url, type: 'pmm', verifyTLS, pmm },
       },
       {
-        onSuccess: () => {
-          queryClient.invalidateQueries({
+        onSuccess: async () => {
+          setOpenModal(false);
+          await queryClient.invalidateQueries({
             queryKey: [MONITORING_CONFIGS_QUERY_KEY],
           });
-          setOpenModal(false);
+          onCreated?.(name);
         },
       }
     );

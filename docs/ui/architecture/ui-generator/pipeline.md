@@ -143,10 +143,21 @@ flowchart TD
 `getDefaultValues()` runs synchronously before the API responds, so `dataSource` fields start with
 an empty value. The default is set asynchronously in two places: `DataSourcePrefetcher` on form
 mount and `DataSourceField` when the specific field renders. Both check the current value via
-`getValues(path)` before writing, so they never overwrite a user selection or an existing value.
+`getValues(path)` before writing: a value that is among the options is kept, an empty one gets the
+first option, and one no longer among the options is replaced with the first option.
 In `edit` mode `DataSourceField` doesn't auto-select at all — the same rule `extractInstanceValues`
 applies to schema defaults: the form shows the stored spec as-is, so a value that is unset or no
-longer among the options stays untouched instead of being written into the spec on save.
+longer among the options stays untouched instead of being written into the spec on save. A stored
+value missing from the options is appended to the select's options (labelled as unavailable once
+the options have loaded), so the select shows what the spec holds. It is taken from the form's
+`defaultValues`, so it stays listed after the user picks another option and the pick can be undone.
+The appended option only affects rendering: the select's zod schema is built from the section
+schema, where `dataSource` fields have no static `options`.
+A resource created from the provider's `emptyStateFallback` is a separate path: the fallback calls
+`onCreated(value)` once the refetched options include it, and `DataSourceField` sets it as a user
+change (`shouldDirty`) in every mode — the user picked it, so the edit rule doesn't apply. The
+fallback waits for the refetch because in create modes the reconcile would otherwise reset a value
+that isn't among the options yet.
 
 `DataSourcePrefetcher` skips fields of switched-off `toggleable` groups, so a disabled section
 triggers no request.
@@ -273,4 +284,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-30
+- Last updated: 2026-11-02

@@ -14,8 +14,32 @@
 
 import type { Component } from '../../ui-generator.types';
 import type { ComponentWithDataSource } from './data-source-field.types';
+import { Messages } from './data-source-field.messages';
 
 type OptionValue = { value: string };
+type SelectOption = { label: string; value: string };
+
+// Edit keeps a stored value that is missing from the options; listing it lets
+// the select show what the spec holds instead of rendering empty. Until the
+// options are known, the value is listed as-is rather than marked unavailable.
+export const withStoredValueOption = (
+  options: SelectOption[],
+  storedValue: unknown,
+  optionsResolved: boolean
+): SelectOption[] => {
+  if (typeof storedValue !== 'string' || storedValue === '') return options;
+  if (options.some((option) => option.value === storedValue)) return options;
+
+  return [
+    ...options,
+    {
+      label: optionsResolved
+        ? Messages.unavailableOption(storedValue)
+        : storedValue,
+      value: storedValue,
+    },
+  ];
+};
 
 export const getReconciledDataSourceValue = (
   current: unknown,

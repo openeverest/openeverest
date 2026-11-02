@@ -70,14 +70,16 @@ A `dataSource` field is still a regular `select` — the only difference is that
 | No options     | hidden   | —                          | shown instead of select if provider has `emptyStateFallback` |
 | Options loaded | enabled  | first option auto-selected | not shown                                                    |
 
-In `edit` mode nothing is auto-selected: the field shows the stored value as-is, even when it is empty or no longer among the options, so saving another field never rewrites it. Auto-selection applies only when creating (`new`, `restore`, `import`).
+In `edit` mode nothing is auto-selected: the field shows the stored value as-is, so saving another field never rewrites it. An empty value stays empty; a value no longer among the options is kept and listed in the select as `<value> (unavailable)`. Auto-selection applies only when creating (`new`, `restore`, `import`). A resource the user creates from the fallback is still selected in every mode — see below.
 
 When a provider registers an `emptyStateFallback`, `DataSourceField` renders the fallback component **instead of** the select field whenever options are empty. The select is not shown at all — the fallback completely replaces it. This is used for resources that can be user-created (e.g. monitoring endpoints). Providers for non-creatable resources (e.g. StorageClasses) register `emptyStateFallback: null`, in which case the select is rendered normally with a "No options available" helper text.
+
+Once the user creates a resource in the fallback, the fallback calls `onCreated(value)` after the refetched options include it, and `DataSourceField` selects that value and marks the form dirty. This is the user's explicit choice, not auto-selection, so it works in every mode, `edit` included.
 
 ## Adding a New Provider in https://github.com/openeverest/openeverest
 
 1. Create a `useXxxOptions` hook in `hooks/api/<resource>/` that accepts `ProviderParams` and returns `ProviderOptions`.
-2. If the resource can be user-created, create a fallback component in `api-providers/fallbacks/` (see `monitoring-empty-fallback.tsx` for the pattern).
+2. If the resource can be user-created, create a fallback component in `api-providers/fallbacks/` (see `monitoring-empty-fallback.tsx` for the pattern). After creating the resource, await the options refetch and call `onCreated(value)` so the field selects it.
 3. Register it in `api-providers/providers.ts`:
 
    ```ts
