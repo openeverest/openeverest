@@ -58,10 +58,17 @@ func newFakeClient(t *testing.T, objs ...client.Object) client.Client { //nolint
 	require.NoError(t, clientgoscheme.AddToScheme(scheme))
 	require.NoError(t, corev1alpha1.AddToScheme(scheme))
 	require.NoError(t, monitoringv1alpha1.AddToScheme(scheme))
+	// The builder writes resourceVersion into what it is given, and parallel subtests share fixtures.
+	copies := make([]client.Object, 0, len(objs))
+	for _, obj := range objs {
+		cp, ok := obj.DeepCopyObject().(client.Object)
+		require.True(t, ok)
+		copies = append(copies, cp)
+	}
 	return fake.NewClientBuilder().
 		WithScheme(scheme).
 		WithTypeConverters(crdTypeConverter(t), managedfields.NewDeducedTypeConverter()).
-		WithObjects(objs...).
+		WithObjects(copies...).
 		WithStatusSubresource(
 			&monitoringv1alpha1.MonitoringClass{},
 			&monitoringv1alpha1.MonitoringDestination{},
