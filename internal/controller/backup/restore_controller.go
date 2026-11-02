@@ -517,39 +517,11 @@ func (r *RestoreReconciler) ensurePayloadSecret(
 	}
 
 	if storageName != "" {
-		storage := &backupv1alpha1.BackupStorage{}
-		if err := r.Client.Get(ctx, client.ObjectKey{
-			Name:      storageName,
-			Namespace: restore.GetNamespace(),
-		}, storage); err != nil {
-			return fmt.Errorf("failed to get BackupStorage %q: %w", storageName, err)
+		details, err := jobStorageDetails(ctx, r.Client, restore.GetNamespace(), storageName)
+		if err != nil {
+			return err
 		}
-		if storage.Spec.S3 != nil {
-			s3Dest := storage.Spec.S3
-			s3Details := &jobspec.S3Details{
-				Bucket:         s3Dest.Bucket,
-				Region:         s3Dest.Region,
-				EndpointURL:    s3Dest.EndpointURL,
-				VerifyTLS:      pointer.Get(s3Dest.VerifyTLS),
-				ForcePathStyle: pointer.Get(s3Dest.ForcePathStyle),
-			}
-
-			if s3Dest.CredentialsSecretRef.Name != "" {
-				credSecret := &corev1.Secret{}
-				if err := r.Client.Get(ctx, client.ObjectKey{
-					Name:      s3Dest.CredentialsSecretRef.Name,
-					Namespace: restore.GetNamespace(),
-				}, credSecret); err != nil {
-					return fmt.Errorf("failed to get S3 credentials secret: %w", err)
-				}
-				s3Details.AccessKeyID = string(credSecret.Data["AWS_ACCESS_KEY_ID"])
-				s3Details.SecretAccessKey = string(credSecret.Data["AWS_SECRET_ACCESS_KEY"])
-			}
-
-			spec.Storage = &jobspec.StorageDetails{
-				S3: s3Details,
-			}
-		}
+		spec.Storage = details
 	}
 
 	// Populate PITR details.
