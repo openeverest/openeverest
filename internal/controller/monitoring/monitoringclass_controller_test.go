@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
@@ -50,6 +51,16 @@ func TestClassCompatibilityMatrix(t *testing.T) {
 			Name:    provider,
 			Reason:  monitoringv1alpha1.ReasonIncompatible,
 			Message: `MonitoringClass "pmm" agentVersion 2.44.0 is outside the range ">=3.0.0 <4.0.0" Provider "` + provider + `" supports`,
+		}
+	}
+
+	basicAuthPMM := pmmClass()
+	basicAuthPMM.Spec.AuthModes = []common.AuthMode{{Name: "BasicAuth", Credentials: &common.CredentialKeys{Required: []string{"username", "password"}}}}
+	noMode := func(provider string) monitoringv1alpha1.ProviderCompatibility {
+		return monitoringv1alpha1.ProviderCompatibility{
+			Name:    provider,
+			Reason:  monitoringv1alpha1.ReasonAuthModeUnsupported,
+			Message: `Provider "` + provider + `" renders none of the authentication modes of MonitoringClass "pmm" for integration "pmm"`,
 		}
 	}
 
@@ -89,6 +100,25 @@ func TestClassCompatibilityMatrix(t *testing.T) {
 				outOfRange("percona-postgresql"),
 				outOfRange("percona-server-mongodb"),
 				outOfRange("percona-xtradb-cluster"),
+				{
+					Name:    "provider-kserve",
+					Reason:  monitoringv1alpha1.ReasonIntegrationUnsupported,
+					Message: `Provider "provider-kserve" does not declare integration "pmm"`,
+				},
+			},
+		},
+		{
+			name:  "ProviderManaged class whose modes no provider renders",
+			class: basicAuthPMM,
+			want: []monitoringv1alpha1.ProviderCompatibility{
+				{
+					Name:    "mariadb",
+					Reason:  monitoringv1alpha1.ReasonIntegrationUnsupported,
+					Message: `Provider "mariadb" declares no monitoring contract`,
+				},
+				noMode("percona-postgresql"),
+				noMode("percona-server-mongodb"),
+				noMode("percona-xtradb-cluster"),
 				{
 					Name:    "provider-kserve",
 					Reason:  monitoringv1alpha1.ReasonIntegrationUnsupported,

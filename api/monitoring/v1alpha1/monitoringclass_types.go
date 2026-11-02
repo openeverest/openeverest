@@ -15,6 +15,8 @@
 package v1alpha1
 
 import (
+	"slices"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -59,12 +61,19 @@ type MonitoringClassSpec struct {
 	// Instance.spec.monitoring.destinations[].parameters.
 	// +optional
 	InstanceParametersSchema *common.ParametersSchema `json:"instanceParametersSchema,omitempty"`
-	// CredentialsSchema lists the keys the MonitoringDestination credentials
-	// Secret must carry.
-	// +optional
-	CredentialsSchema *CredentialsSchema `json:"credentialsSchema,omitempty"`
+	// AuthModes lists the authentication methods a MonitoringDestination of
+	// this class can use. A mode the class defines is Secret-backed and lists
+	// its credentials keys; WorkloadIdentity and Anonymous are reserved by
+	// core and take no Secret.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=16
+	// +listType=map
+	// +listMapKey=name
+	AuthModes []common.AuthMode `json:"authModes"`
 	// UISchema holds free-form form-rendering hints consumed only by the UI,
-	// grouped by the form they decorate (destination, instance, credentials).
+	// grouped by the form they decorate (destination, instance, and
+	// credentials keyed by authentication mode).
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	UISchema *runtime.RawExtension `json:"uiSchema,omitempty"`
@@ -113,12 +122,22 @@ type SourceRequirements struct {
 	Metrics bool `json:"metrics,omitempty"`
 }
 
-// CredentialsSchema lists the keys a MonitoringDestination credentials Secret
-// must carry.
-type CredentialsSchema struct {
-	// Required is the list of required Secret keys.
-	// +optional
-	Required []string `json:"required,omitempty"`
+// FindAuthMode returns the class's authentication mode named name, or nil.
+func (s *MonitoringClassSpec) FindAuthMode(name string) *common.AuthMode {
+	i := slices.IndexFunc(s.AuthModes, func(m common.AuthMode) bool { return m.Name == name })
+	if i < 0 {
+		return nil
+	}
+	return &s.AuthModes[i]
+}
+
+// AuthModeNames returns the names of the class's authentication modes.
+func (s *MonitoringClassSpec) AuthModeNames() []string {
+	names := make([]string, 0, len(s.AuthModes))
+	for _, m := range s.AuthModes {
+		names = append(names, m.Name)
+	}
+	return names
 }
 
 // Disruption is what enabling a class does to the pods of an Instance.

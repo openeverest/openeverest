@@ -262,7 +262,7 @@ func (r *BindingReconciler) resolve(
 	existing *monitoringv1alpha1.MonitoringBinding,
 	usedIntegrations map[string]string,
 ) (resolution, error) {
-	class, rejected, err := r.resolveClass(ctx, in, entry, existing)
+	dst, class, rejected, err := r.resolveClass(ctx, in, entry, existing)
 	if err != nil || class == nil {
 		return rejected, err
 	}
@@ -290,7 +290,7 @@ func (r *BindingReconciler) resolve(
 		), nil
 	}
 
-	f := assess(provider, class, instanceComponentTypes(in, provider))
+	f := assess(provider, class, dst.Spec.Authentication.Mode, instanceComponentTypes(in, provider))
 	if f.providerManaged.ok {
 		if by, used := usedIntegrations[class.Spec.ProviderManaged.Integration]; used && by != entry.Name {
 			f.providerManaged = verdict{
@@ -318,25 +318,25 @@ func (r *BindingReconciler) resolve(
 }
 
 // resolveClass follows entry -> destination -> class and returns the
-// claimed class, or nil and the rejection naming the missing or unusable
-// link.
+// destination and its claimed class, or a nil class and the rejection naming
+// the missing or unusable link.
 func (r *BindingReconciler) resolveClass(
 	ctx context.Context,
 	in *corev1alpha1.Instance,
 	entry corev1alpha1.InstanceMonitoringDestination,
 	existing *monitoringv1alpha1.MonitoringBinding,
-) (*monitoringv1alpha1.MonitoringClass, resolution, error) {
+) (*monitoringv1alpha1.MonitoringDestination, *monitoringv1alpha1.MonitoringClass, resolution, error) {
 	dst := &monitoringv1alpha1.MonitoringDestination{}
 	if err := r.Get(ctx, types.NamespacedName{Namespace: in.Namespace, Name: entry.DestinationRef.Name}, dst); err != nil {
 		if !apierrors.IsNotFound(err) {
-			return nil, resolution{}, fmt.Errorf("get MonitoringDestination %q: %w", entry.DestinationRef.Name, err)
+			return nil, nil, resolution{}, fmt.Errorf("get MonitoringDestination %q: %w", entry.DestinationRef.Name, err)
 		}
-		return nil, rejection(existing, nil, monitoringv1alpha1.ReasonDestinationNotFound,
+		return nil, nil, rejection(existing, nil, monitoringv1alpha1.ReasonDestinationNotFound,
 			fmt.Sprintf("MonitoringDestination %q not found", entry.DestinationRef.Name),
 		), nil
 	}
 	if existing != nil && existing.Spec.ClassRef != nil && existing.Spec.ClassRef.Name != dst.Spec.ClassRef.Name {
-		return nil, rejection(existing, nil, monitoringv1alpha1.ReasonIncompatible,
+		return nil, nil, rejection(existing, nil, monitoringv1alpha1.ReasonIncompatible,
 			fmt.Sprintf("binding was created for MonitoringClass %q but MonitoringDestination %q now references %q",
 				existing.Spec.ClassRef.Name, dst.Name, dst.Spec.ClassRef.Name,
 			),
@@ -346,18 +346,18 @@ func (r *BindingReconciler) resolveClass(
 	class := &monitoringv1alpha1.MonitoringClass{}
 	if err := r.Get(ctx, types.NamespacedName{Name: dst.Spec.ClassRef.Name}, class); err != nil {
 		if !apierrors.IsNotFound(err) {
-			return nil, resolution{}, fmt.Errorf("get MonitoringClass %q: %w", dst.Spec.ClassRef.Name, err)
+			return nil, nil, resolution{}, fmt.Errorf("get MonitoringClass %q: %w", dst.Spec.ClassRef.Name, err)
 		}
-		return nil, rejection(existing, nil, monitoringv1alpha1.ReasonClassNotFound,
+		return nil, nil, rejection(existing, nil, monitoringv1alpha1.ReasonClassNotFound,
 			fmt.Sprintf("MonitoringClass %q not found", dst.Spec.ClassRef.Name),
 		), nil
 	}
 	if !rtmonitoring.ClassIsAccepted(class) {
-		return nil, rejection(existing, &common.ObjectRef{Name: class.Name}, monitoringv1alpha1.ReasonClassNotAccepted,
+		return nil, nil, rejection(existing, &common.ObjectRef{Name: class.Name}, monitoringv1alpha1.ReasonClassNotAccepted,
 			fmt.Sprintf("no controller has claimed MonitoringClass %q", class.Name),
 		), nil
 	}
-	return class, resolution{}, nil
+	return dst, class, resolution{}, nil
 }
 
 // rejection is an Accepted=False resolution. classRef, when known, is

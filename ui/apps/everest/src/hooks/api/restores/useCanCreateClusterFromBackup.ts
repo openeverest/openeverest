@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useRBACPermissions } from 'hooks/rbac';
+import { useRBACAction, useRBACPermissions } from 'hooks/rbac';
 import { useCanRestore } from './useCanRestore';
 
 interface CanCreateClusterFromBackupOptions {
@@ -21,9 +21,9 @@ interface CanCreateClusterFromBackupOptions {
 }
 
 // A user may clone an instance into a new database (restore-to-new-DB) when they
-// can restore the source and create database clusters in its namespace. Single
-// source of truth for this combined gate, shared by the instance and backup-row
-// action menus.
+// can restore the source, read its connection details and create instances in
+// its namespace. Single source of truth for this combined gate, shared by the
+// instance and backup-row action menus.
 export const useCanCreateClusterFromBackup = (
   namespace: string,
   instanceName: string,
@@ -31,6 +31,13 @@ export const useCanCreateClusterFromBackup = (
 ) => {
   const { hasSchedules = false, monitoringEnabled = false } = options;
   const canRestore = useCanRestore(namespace, instanceName);
+  // The provider copies the source's users secret into the clone, so cloning
+  // reveals the source credentials.
+  const { isAllowed: canReadSourceConnection } = useRBACAction(
+    'read-connection',
+    'instances',
+    `${namespace}/${instanceName}`
+  );
   const { canCreate: canCreateClusters } = useRBACPermissions(
     'instances',
     `${namespace}/*`
@@ -44,7 +51,8 @@ export const useCanCreateClusterFromBackup = (
     `${namespace}/${instanceName}`
   );
 
-  let canCreateClusterFromBackup = canRestore && canCreateClusters;
+  let canCreateClusterFromBackup =
+    canRestore && canReadSourceConnection && canCreateClusters;
   if (hasSchedules) {
     canCreateClusterFromBackup = canCreateClusterFromBackup && canCreateBackups;
   }

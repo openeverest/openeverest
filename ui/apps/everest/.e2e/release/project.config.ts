@@ -29,32 +29,26 @@ export const releaseProject: PlaywrightTestProject[] = [
   },
   {
     // Live PITR / restore-from-PITR golden (PXC). Auth is provided by the shared
-    // fixture (@e2e/fixtures/auth); backup storage + monitoring come from the
-    // global setup projects. The PXC provider must already be installed in the
-    // cluster (Helm: `make deploy-pxc-provider`) before this runs.
+    // fixture (@e2e/fixtures/auth); backup storage comes from the global setup
+    // project. The PXC provider must already be installed in the cluster
+    // (Helm: `make deploy-pxc-provider`) before this runs.
+    // TODO(monitoring): no monitoring setup until the release goldens cover
+    // MonitoringDestination (see the TODO in pitr.e2e.ts).
     name: 'release:pitr',
     testDir: './release',
     testMatch: /pitr\.e2e\.ts/,
-    dependencies: [
-      'global:auth:ci:setup',
-      'global:backup-storage:setup',
-      'global:monitoring-config:setup',
-    ],
+    dependencies: ['global:auth:ci:setup', 'global:backup-storage:setup'],
     use: {
       storageState: CI_USER_STORAGE_STATE_FILE,
     },
   },
   {
     // Restore-to-new-cluster (create new DB from a backup) golden. Shares the
-    // same global backup storage + monitoring setup as the PITR lane.
+    // same global backup storage setup as the PITR lane.
     name: 'release:restore-new-cluster',
     testDir: './release',
     testMatch: /restore-new-cluster\.e2e\.ts/,
-    dependencies: [
-      'global:auth:ci:setup',
-      'global:backup-storage:setup',
-      'global:monitoring-config:setup',
-    ],
+    dependencies: ['global:auth:ci:setup', 'global:backup-storage:setup'],
     use: {
       storageState: CI_USER_STORAGE_STATE_FILE,
     },

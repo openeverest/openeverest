@@ -239,7 +239,7 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 
 	if _, ok := p.(controller.MonitoringIntegrationsProvider); ok {
 		if err := mgr.GetFieldIndexer().IndexField(ctx, &monitoringv1alpha1.MonitoringDestination{},
-			indexDestinationCredentialsSecret, destinationCredentialsSecret,
+			indexDestinationSecrets, destinationSecrets,
 		); err != nil {
 			return nil, fmt.Errorf("failed to register monitoring destination credentials index: %w", err)
 		}

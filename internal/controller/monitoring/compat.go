@@ -44,10 +44,11 @@ type fulfilment struct {
 	extensionDisruption monitoringv1alpha1.Disruption
 }
 
-// assess evaluates class for provider. Only componentTypes are considered
-// for ExtensionManaged.
-func assess(provider *corev1alpha1.Provider, class *monitoringv1alpha1.MonitoringClass, componentTypes []string) fulfilment {
-	f := fulfilment{class: class, providerManaged: providerManaged(provider, class)}
+// assess evaluates class for provider. authMode is the destination's
+// authentication mode, or "" to accept any of the class's modes. Only
+// componentTypes are considered for ExtensionManaged.
+func assess(provider *corev1alpha1.Provider, class *monitoringv1alpha1.MonitoringClass, authMode string, componentTypes []string) fulfilment {
+	f := fulfilment{class: class, providerManaged: providerManaged(provider, class, authMode)}
 	f.extensionManaged, f.extensionDisruption = extensionManaged(provider, class, componentTypes)
 	return f
 }
@@ -80,7 +81,7 @@ func providerCompatibility(provider *corev1alpha1.Provider, class *monitoringv1a
 	if provider.Spec.Monitoring != nil {
 		componentTypes = slices.Sorted(maps.Keys(provider.Spec.Monitoring.ComponentTypes))
 	}
-	f := assess(provider, class, componentTypes)
+	f := assess(provider, class, "", componentTypes)
 	mode, reason, message := f.preferred()
 	pc := monitoringv1alpha1.ProviderCompatibility{Name: provider.Name, Mode: mode, Reason: reason, Message: message}
 	switch mode {
@@ -109,9 +110,10 @@ func instanceComponentTypes(in *corev1alpha1.Instance, provider *corev1alpha1.Pr
 	return slices.Sorted(maps.Keys(componentTypes))
 }
 
-// providerManaged: the Provider declares the class's integration and the
-// class's agentVersion is within the range the Provider renders.
-func providerManaged(provider *corev1alpha1.Provider, class *monitoringv1alpha1.MonitoringClass) verdict {
+// providerManaged: the Provider declares the class's integration, renders
+// authMode (or, when it is "", one of the class's modes) and the class's
+// agentVersion is within the range the Provider renders.
+func providerManaged(provider *corev1alpha1.Provider, class *monitoringv1alpha1.MonitoringClass, authMode string) verdict {
 	pm := class.Spec.ProviderManaged
 	if pm == nil {
 		return verdict{reason: monitoringv1alpha1.ReasonIncompatible, message: fmt.Sprintf("MonitoringClass %q declares no providerManaged block", class.Name)}
@@ -122,6 +124,12 @@ func providerManaged(provider *corev1alpha1.Provider, class *monitoringv1alpha1.
 	integration, ok := provider.Spec.Monitoring.Integrations[pm.Integration]
 	if !ok {
 		return verdict{reason: monitoringv1alpha1.ReasonIntegrationUnsupported, message: fmt.Sprintf("Provider %q does not declare integration %q", provider.Name, pm.Integration)}
+	}
+	if authMode != "" && !slices.Contains(integration.AuthModes, authMode) {
+		return verdict{reason: monitoringv1alpha1.ReasonAuthModeUnsupported, message: fmt.Sprintf("Provider %q does not render authentication mode %q for integration %q", provider.Name, authMode, pm.Integration)}
+	}
+	if authMode == "" && !slices.ContainsFunc(class.Spec.AuthModeNames(), func(m string) bool { return slices.Contains(integration.AuthModes, m) }) {
+		return verdict{reason: monitoringv1alpha1.ReasonAuthModeUnsupported, message: fmt.Sprintf("Provider %q renders none of the authentication modes of MonitoringClass %q for integration %q", provider.Name, class.Name, pm.Integration)}
 	}
 	if integration.AgentVersions == "" {
 		return verdict{ok: true}

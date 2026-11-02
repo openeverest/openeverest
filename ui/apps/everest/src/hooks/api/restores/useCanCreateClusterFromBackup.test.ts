@@ -17,6 +17,7 @@ import { useCanCreateClusterFromBackup } from './useCanCreateClusterFromBackup';
 
 const mockUseCanRestore = vi.fn();
 const mockUseRBACPermissions = vi.fn();
+const mockUseRBACAction = vi.fn();
 
 vi.mock('./useCanRestore', () => ({
   useCanRestore: (...args: unknown[]) => mockUseCanRestore(...args),
@@ -24,6 +25,7 @@ vi.mock('./useCanRestore', () => ({
 
 vi.mock('hooks/rbac', () => ({
   useRBACPermissions: (...args: unknown[]) => mockUseRBACPermissions(...args),
+  useRBACAction: (...args: unknown[]) => mockUseRBACAction(...args),
 }));
 
 describe('useCanCreateClusterFromBackup', () => {
@@ -31,7 +33,11 @@ describe('useCanCreateClusterFromBackup', () => {
     canCreateClusters?: boolean;
     canCreateBackups?: boolean;
     canReadMonitoring?: boolean;
+    canReadSourceConnection?: boolean;
   }) => {
+    mockUseRBACAction.mockReturnValue({
+      isAllowed: permissions.canReadSourceConnection ?? true,
+    });
     mockUseRBACPermissions.mockImplementation((resource: string) => {
       if (resource === 'instances') {
         return { canCreate: permissions.canCreateClusters ?? false };
@@ -85,6 +91,23 @@ describe('useCanCreateClusterFromBackup', () => {
       useCanCreateClusterFromBackup('ns-a', 'inst-a')
     );
 
+    expect(result.current).toBe(false);
+  });
+
+  // The clone receives the source's credentials.
+  it('requires read-connection on the source instance', () => {
+    mockUseCanRestore.mockReturnValue(true);
+    setPermissions({ canCreateClusters: true, canReadSourceConnection: false });
+
+    const { result } = renderHook(() =>
+      useCanCreateClusterFromBackup('ns-a', 'inst-a')
+    );
+
+    expect(mockUseRBACAction).toHaveBeenCalledWith(
+      'read-connection',
+      'instances',
+      'ns-a/inst-a'
+    );
     expect(result.current).toBe(false);
   });
 

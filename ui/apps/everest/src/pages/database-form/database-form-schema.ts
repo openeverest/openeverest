@@ -18,7 +18,6 @@ import { Messages } from './database-form.messages.ts';
 import { DbWizardFormFields } from 'consts.ts';
 import { rfc_123_schema } from 'utils/common-validation.ts';
 import { DbInstanceName } from './database-form.types.ts';
-import { importStepSchema } from 'components/cluster-form/import/import-schema.tsx';
 import { Instance } from 'shared-types/api.types.ts';
 
 const basicInfoFieldsSchema = z.object({
@@ -97,14 +96,9 @@ const basicInfoSchema = (dbInstances: DbInstanceName[]) =>
 
 export const getDBWizardSchema = (
   dbInstances: DbInstanceName[],
-  hasImportStep: boolean,
   openApiValidationSchema?: z.ZodTypeAny
 ) => {
   let combinedSchema: z.ZodTypeAny = basicInfoSchema(dbInstances);
-
-  if (hasImportStep) {
-    combinedSchema = combinedSchema.and(importStepSchema);
-  }
 
   if (openApiValidationSchema) {
     // Using superRefine instead of .and() / ZodIntersection to avoid
@@ -123,7 +117,6 @@ export const getDBWizardSchema = (
   return combinedSchema;
 };
 
-export type ImportStepType = z.infer<typeof importStepSchema>;
 export type BasicInfoType = z.infer<typeof basicInfoFieldsSchema>;
 export type DbWizardFormSpec = Omit<NonNullable<Instance['spec']>, 'topology'>;
 
@@ -131,6 +124,4 @@ export type DbWizardTypeBase = BasicInfoType & {
   spec: DbWizardFormSpec;
 };
 
-export type DbWizardTypeWithPrestep = DbWizardTypeBase & ImportStepType;
-
-export type DbWizardType = DbWizardTypeBase | DbWizardTypeWithPrestep;
+export type DbWizardType = DbWizardTypeBase;

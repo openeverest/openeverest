@@ -380,7 +380,7 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 		))
 		withSecret := func(namespace, secret string) *monitoringv1alpha1.MonitoringDestination {
 			d := destination(namespace, "pmm-prod")
-			d.Spec.CredentialsSecretRef = &common.SecretRef{Name: secret}
+			d.Spec.Authentication = common.Authentication{Mode: "ServiceAccountToken", CredentialsSecretRef: &common.SecretRef{Name: secret}}
 			return d
 		}
 
@@ -398,6 +398,32 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 		_, err = h.CreateMonitoringDestination(ctx, "prod", "ns2", withSecret("ns1", "pmm-prod-credentials"))
 		require.ErrorIs(t, err, ErrInsufficientPermissions, "the Secret is looked up in the path namespace")
 		assert.Len(t, next.Calls, 2)
+	})
+
+	t.Run("referencing a CA Secret needs read on it", func(t *testing.T) {
+		t.Parallel()
+
+		h, next := newHandler(t, newPolicy(
+			"p, role:test, monitoring-destinations, *, prod/*/*",
+			"p, role:test, monitoring-classes, read, prod/pmm",
+			"p, role:test, secrets, read, prod/ns1/pmm-prod-credentials",
+			"p, role:test, secrets, read, prod/ns1/corp-ca",
+			"g, bob, role:test",
+		))
+		withCA := func(ca string) *monitoringv1alpha1.MonitoringDestination {
+			d := destination("ns1", "pmm-prod")
+			d.Spec.Authentication = common.Authentication{Mode: "ServiceAccountToken", CredentialsSecretRef: &common.SecretRef{Name: "pmm-prod-credentials"}}
+			d.Spec.TLS = &common.TLSConfig{CA: &common.CABundleSource{SecretKeyRef: &common.SecretKeyRef{Name: ca, Key: "ca.crt"}}}
+			return d
+		}
+
+		_, err := h.CreateMonitoringDestination(ctx, "prod", "ns1", withCA("corp-ca"))
+		require.NoError(t, err)
+		_, err = h.CreateMonitoringDestination(ctx, "prod", "ns1", withCA("db1-root"))
+		require.ErrorIs(t, err, ErrInsufficientPermissions)
+		_, err = h.UpdateMonitoringDestination(ctx, "prod", "ns1", "pmm-prod", withCA("db1-root"))
+		require.ErrorIs(t, err, ErrInsufficientPermissions)
+		assert.Len(t, next.Calls, 1)
 	})
 
 	t.Run("referencing a class needs read on it", func(t *testing.T) {

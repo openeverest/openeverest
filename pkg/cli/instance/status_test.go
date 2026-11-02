@@ -110,9 +110,10 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 						Scheme      *client.InstanceStatusMonitoringSourcesMetricsScheme   `json:"scheme,omitempty"`
 						Tls         *struct {                                              //nolint:revive // mirrors the oapi-codegen field name
 							Ca *struct {
-								Key      string  `json:"key"`
-								Name     *string `json:"name,omitempty"`
-								Optional *bool   `json:"optional,omitempty"`
+								SecretKeyRef *struct {
+									Key  string `json:"key"`
+									Name string `json:"name"`
+								} `json:"secretKeyRef,omitempty"`
 							} `json:"ca,omitempty"`
 							InsecureSkipVerify *bool   `json:"insecureSkipVerify,omitempty"`
 							ServerName         *string `json:"serverName,omitempty"`
@@ -328,9 +329,10 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 						Scheme      *client.InstanceStatusMonitoringSourcesMetricsScheme   `json:"scheme,omitempty"`
 						Tls         *struct {                                              //nolint:revive // mirrors the oapi-codegen field name
 							Ca *struct {
-								Key      string  `json:"key"`
-								Name     *string `json:"name,omitempty"`
-								Optional *bool   `json:"optional,omitempty"`
+								SecretKeyRef *struct {
+									Key  string `json:"key"`
+									Name string `json:"name"`
+								} `json:"secretKeyRef,omitempty"`
 							} `json:"ca,omitempty"`
 							InsecureSkipVerify *bool   `json:"insecureSkipVerify,omitempty"`
 							ServerName         *string `json:"serverName,omitempty"`
@@ -439,9 +441,10 @@ func minimalInst() *client.Instance {
 						Scheme      *client.InstanceStatusMonitoringSourcesMetricsScheme   `json:"scheme,omitempty"`
 						Tls         *struct {                                              //nolint:revive // mirrors the oapi-codegen field name
 							Ca *struct {
-								Key      string  `json:"key"`
-								Name     *string `json:"name,omitempty"`
-								Optional *bool   `json:"optional,omitempty"`
+								SecretKeyRef *struct {
+									Key  string `json:"key"`
+									Name string `json:"name"`
+								} `json:"secretKeyRef,omitempty"`
 							} `json:"ca,omitempty"`
 							InsecureSkipVerify *bool   `json:"insecureSkipVerify,omitempty"`
 							ServerName         *string `json:"serverName,omitempty"`

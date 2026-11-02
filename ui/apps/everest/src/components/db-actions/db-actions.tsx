@@ -139,7 +139,6 @@ export const DbActions = ({
     { hasSchedules, monitoringEnabled }
   );
 
-  // const canRestore = canCreateRestore && canReadCredentials;
   // TODO RBAC
   // const noActionAvailable = !canUpdate && !canDelete && !canRestore;
   const noActionAvailable = false;

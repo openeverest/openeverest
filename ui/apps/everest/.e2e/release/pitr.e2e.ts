@@ -147,11 +147,11 @@ test.describe.serial(
 
     const clusterName = `${db}-${size}-pitr`;
     const namespace = EVEREST_CI_NAMESPACES.EVEREST_UI;
-    // monitoring-config.setup creates one endpoint per bucket namespace as
-    // e2e-endpoint-<idx>; the single everest namespace yields e2e-endpoint-0.
-    const monitoringName = 'e2e-endpoint-0';
     const baseBackupName = `dembkp-${db}-${size}`;
     let storageClasses: string[] = [];
+    // Start of the latest insert batch; the PITR waits below poll until the
+    // recovery window covers it.
+    let lastInsertStartedAt: Date;
 
     test.beforeAll(async ({ request }) => {
       token = await getCITokenFromLocalStorage();
@@ -189,11 +189,18 @@ test.describe.serial(
     // the binlogs up to that moment have been uploaded to the PITR storage. This
     // is the exact precondition a point-in-time restore needs, so the wait is
     // both correct and self-documenting (vs. a blind fixed sleep).
+    //
+    // `target` must be a moment at or before the last write we need restored,
+    // never "now": the PXC binlog collector reports the timestamp of the last
+    // uploaded transaction truncated to whole seconds, and it only advances when
+    // a new transaction is written. Waiting for a moment after our last write
+    // would depend on some unrelated later write that may never happen.
     const waitForPitrWindowToCover = async (
       request: APIRequestContext,
       target: Date
     ) => {
       const instancePath = `/v1/clusters/main/namespaces/${namespace}/instances/${clusterName}`;
+      const targetSecond = Math.floor(target.getTime() / 1000) * 1000;
       await expect
         .poll(
           async () => {
@@ -212,8 +219,7 @@ test.describe.serial(
               (storage: { pitr?: { latestRestorableTime?: string } }) => {
                 const latest = storage.pitr?.latestRestorableTime;
                 return (
-                  latest != null &&
-                  new Date(latest).getTime() >= target.getTime()
+                  latest != null && new Date(latest).getTime() >= targetSecond
                 );
               }
             );
@@ -360,47 +366,10 @@ test.describe.serial(
         await moveForward(page);
       });
 
-      await test.step('Populate monitoring', async () => {
-        if (db !== 'pxc') {
-          await page.getByTestId('switch-input-monitoring').click();
-          await page
-            .getByTestId('text-input-monitoring-instance')
-            .fill(monitoringName);
-          await expect(
-            page.getByTestId('text-input-monitoring-instance')
-          ).toHaveValue(monitoringName);
-        } else {
-          const monitoringInput = page.getByTestId(
-            'text-input-monitoring-instance'
-          );
-          const proxyHeading = page.getByRole('heading', { name: 'Proxy' });
-          const monitoringPreview = page.getByText(/Monitoring endpoint:/i);
-
-          if (await monitoringInput.isVisible().catch(() => false)) {
-            await monitoringInput.click();
-            const monitoringOption = page
-              .getByRole('option')
-              .filter({ hasText: monitoringName })
-              .first();
-
-            if (await monitoringOption.isVisible().catch(() => false)) {
-              await monitoringOption.click();
-            } else {
-              await monitoringInput.fill(monitoringName);
-              await page.getByRole('option').first().click();
-            }
-
-            await expect(monitoringInput).toHaveValue(monitoringName);
-          }
-
-          if (await proxyHeading.isVisible().catch(() => false)) {
-            await expect(proxyHeading).toBeVisible();
-          } else {
-            await expect(monitoringPreview).toBeVisible();
-          }
-          await moveForward(page);
-        }
-      });
+      // TODO(monitoring): the PXC provider dropped the wizard Monitoring step and
+      // spec.components.monitoring in favour of MonitoringDestination
+      // (openeverest/provider-percona-xtradb-cluster#46). Restore monitoring
+      // coverage here once core and the UI support MonitoringDestination.
 
       await test.step('Populate advanced db config', async () => {
         if (db === 'pxc') {
@@ -415,97 +384,12 @@ test.describe.serial(
         await submitWizard(page);
       });
 
-      await test.step('Ensure monitoring endpoint in Instance spec', async () => {
-        const instancePath = `/v1/clusters/main/namespaces/${namespace}/instances/${clusterName}`;
-
-        const instanceResponse = await expect
-          .poll(
-            async () => {
-              const response = await request.get(instancePath, {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              });
-
-              if (response.status() !== 200) {
-                return null;
-              }
-
-              return response.json();
-            },
-            {
-              timeout: 120000,
-              intervals: [2000, 5000, 5000],
-            }
-          )
-          .toBeTruthy();
-
-        const instanceBody = await request
-          .get(instancePath, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          })
-          .then((response) => response.json());
-
-        const currentMonitoringName =
-          instanceBody?.spec?.components?.monitoring?.parameters
-            ?.monitoringConfigName;
-
-        if (currentMonitoringName !== monitoringName) {
-          const updatedBody = {
-            ...instanceBody,
-            spec: {
-              ...instanceBody.spec,
-              components: {
-                ...instanceBody.spec?.components,
-                monitoring: {
-                  ...instanceBody.spec?.components?.monitoring,
-                  parameters: {
-                    ...instanceBody.spec?.components?.monitoring?.parameters,
-                    monitoringConfigName: monitoringName,
-                  },
-                },
-              },
-            },
-          };
-
-          const updateResponse = await request.put(instancePath, {
-            data: updatedBody,
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          expect(updateResponse.status()).toBe(200);
-
-          await expect
-            .poll(
-              async () => {
-                const response = await request.get(instancePath, {
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                  },
-                });
-                if (response.status() !== 200) {
-                  return '';
-                }
-                const body = await response.json();
-                return (
-                  body?.spec?.components?.monitoring?.parameters
-                    ?.monitoringConfigName || ''
-                );
-              },
-              {
-                timeout: 60000,
-                intervals: [2000, 5000, 5000],
-              }
-            )
-            .toBe(monitoringName);
-        }
-      });
-
       await test.step('Check db list and status', async () => {
-        await page.goto('/databases');
+        // The wizard navigates to the list once the create request succeeds;
+        // navigating ourselves would abort the in-flight request.
+        await page.waitForURL('**/databases', {
+          timeout: TIMEOUTS.ThirtySeconds,
+        });
         try {
           await waitForStatus(page, clusterName, 'Provisioning', 30000);
         } catch {
@@ -602,6 +486,7 @@ test.describe.serial(
       await new Promise((resolve) => setTimeout(resolve, 2000));
       pitrRestoreTime = getCurrentPITRTime();
       await new Promise((resolve) => setTimeout(resolve, 2000));
+      lastInsertStartedAt = new Date();
       await insertTestDB(
         clusterName,
         namespace,
@@ -613,10 +498,10 @@ test.describe.serial(
     test(`Wait for binlogs to be uploaded [${db} size ${size}]`, async ({
       request,
     }) => {
-      // The recovery window must reach "now" (after the inserts above) before a
+      // The recovery window must cover the inserts above before a
       // point-in-time restore can target a moment within it. Poll the uploaded
       // binlog watermark instead of sleeping a fixed, environment-fragile time.
-      await waitForPitrWindowToCover(request, new Date());
+      await waitForPitrWindowToCover(request, lastInsertStartedAt);
     });
 
     test(`Delete data before date restore [${db} size ${size}]`, async () => {
@@ -738,6 +623,7 @@ test.describe.serial(
     });
 
     test(`Add more data before latest restore [${db} size ${size}]`, async () => {
+      lastInsertStartedAt = new Date();
       await insertTestDB(
         clusterName,
         namespace,
@@ -752,7 +638,7 @@ test.describe.serial(
       // Same precondition as before the date restore: wait until the recovery
       // window covers the just-inserted rows so "restore to latest" includes
       // them, rather than relying on a fixed sleep.
-      await waitForPitrWindowToCover(request, new Date());
+      await waitForPitrWindowToCover(request, lastInsertStartedAt);
     });
 
     test(`Delete data before latest restore [${db} size ${size}]`, async () => {

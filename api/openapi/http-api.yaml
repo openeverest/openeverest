@@ -2896,7 +2896,7 @@ paths:
       description: |
         This API creates a new monitoring destination in the specified namespace and cluster.
         Only `metadata.name`, `metadata.generateName`, `metadata.labels`, `metadata.annotations` and `spec` are taken from the request; the namespace is the one in the path.
-        Credentials are never part of the payload: create the Secret through the secrets API and reference it in `spec.credentialsSecretRef`, which requires `read` on that Secret.
+        Credentials are never part of the payload: create the Secret through the secrets API and reference it in `spec.authentication.credentialsSecretRef`, together with the `spec.authentication.mode` of the monitoring class it holds the keys of. A CA bundle is referenced the same way in `spec.tls.ca.secretKeyRef`. Referencing a Secret requires `read` on it.
         `spec.classRef` requires `read` on the monitoring class it names.
       operationId: createMonitoringDestination
       parameters:
@@ -3056,7 +3056,7 @@ paths:
       description: |
         This API replaces the labels, annotations and `spec` of the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
         Include `metadata.resourceVersion` from the object being replaced to make the update fail with 409 if the monitoring destination has changed since; without it, the destination is replaced whatever its current version.
-        `spec.classRef` is immutable and requires `read` on the monitoring class it names. Credentials are never part of the payload: update the Secret named by `spec.credentialsSecretRef` instead. Referencing a Secret requires `read` on it.
+        `spec.classRef` is immutable and requires `read` on the monitoring class it names. Credentials are never part of the payload: update the Secret named by `spec.authentication.credentialsSecretRef` instead. Referencing a Secret, as credentials or as `spec.tls.ca.secretKeyRef`, requires `read` on it.
       operationId: updateMonitoringDestination
       parameters:
         - name: cluster

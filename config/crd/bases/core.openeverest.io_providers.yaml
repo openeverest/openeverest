@@ -161,6 +161,17 @@ spec:
                             AgentVersions is the semver range of agent versions the provider can
                             render (e.g. ">=3.0.0 <4.0.0").
                           type: string
+                        authModes:
+                          description: |-
+                            AuthModes lists the authentication modes of the integration's
+                            MonitoringClass the provider can render. A destination whose mode is
+                            not listed is not bound.
+                          items:
+                            pattern: ^[A-Z][A-Za-z0-9]{0,62}$
+                            type: string
+                          maxItems: 16
+                          type: array
+                          x-kubernetes-list-type: set
                       type: object
                     description: |-
                       Integrations lists the operator-native monitoring integrations the
