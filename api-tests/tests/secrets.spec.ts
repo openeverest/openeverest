@@ -18,12 +18,14 @@ import * as th from '@tests/utils/api';
 const secretName1 = 'test-secret-name-1'
 const secretName2 = 'test-secret-name-2'
 const secretName3 = 'test-secret-name-3'
+const secretName4 = 'test-secret-name-4'
 
 test.describe.parallel('Secrets tests', () => {
   test.afterAll(async ({request}) => {
     await th.deleteSecret(request, secretName1)
     await th.deleteSecret(request, secretName2)
     await th.deleteSecret(request, secretName3)
+    await th.deleteSecret(request, secretName4)
   })
 
   test('create/get/list/delete secret', async ({request}) => {
@@ -130,6 +132,35 @@ test.describe.parallel('Secrets tests', () => {
       expect(response.status()).toBe(400)
       const error = await response.json()
       expect(error.message).toContain('provider')
+    })
+
+    await test.step('create secret without openeverest.io labels', async () => {
+      // No provider defines it, as for the credentials of a backup storage.
+      const data = {
+        apiVersion: 'v1',
+        kind: 'Secret',
+        metadata: {
+          name: secretName4,
+        },
+        type: 'Opaque',
+        stringData: {
+          AWS_ACCESS_KEY_ID: 'plainkey',
+          AWS_SECRET_ACCESS_KEY: 'plainsecret',
+        },
+      }
+
+      const created = await th.createSecretWithData(request, data)
+      expect(created.metadata.name).toBe(secretName4)
+      expect(created.data).toBeUndefined()
+      expect(created.stringData).toBeUndefined()
+
+      const secret = await th.getSecret(request, secretName4)
+      expect(secret.metadata.labels['openeverest.io/managed']).toBe('true')
+      expect(secret.metadata.labels['openeverest.io/definition']).toBeUndefined()
+      expect(secret.metadata.labels['openeverest.io/provider']).toBeUndefined()
+      expect(secret.data).toBeUndefined()
+
+      await th.deleteSecret(request, secretName4)
     })
 
     await test.step('delete secret', async () => {

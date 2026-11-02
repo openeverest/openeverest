@@ -18,9 +18,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
-	"github.com/percona/everest-operator/utils"
 	corev1 "k8s.io/api/core/v1"
+	k8svalidation "k8s.io/apimachinery/pkg/util/validation"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/pkg/common"
@@ -29,16 +30,20 @@ import (
 
 // CreateSecret validates the secret request and proxies it to the next handler.
 func (h *validateHandler) CreateSecret(ctx context.Context, cluster, namespace string, secret *corev1.Secret) (*corev1.Secret, error) {
-	if err := utils.ValidateEverestResourceName(secret.GetName(), "name"); err != nil {
-		return nil, errors.Join(ErrInvalidRequest, err)
+	if errs := k8svalidation.IsDNS1123Subdomain(secret.GetName()); len(errs) > 0 {
+		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("invalid name %q: %s", secret.GetName(), strings.Join(errs, "; ")))
 	}
 
 	definition := secret.GetLabels()[common.OpenEverestDefinitionLabel]
+	providerName := secret.GetLabels()[common.OpenEverestProviderLabel]
+	if definition == "" && providerName == "" {
+		// No provider defines this Secret, as for the credentials of a
+		// BackupStorage: whatever references it checks its keys.
+		return h.next.CreateSecret(ctx, cluster, namespace, secret)
+	}
 	if definition == "" {
 		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("missing %s label", common.OpenEverestDefinitionLabel))
 	}
-
-	providerName := secret.GetLabels()[common.OpenEverestProviderLabel]
 	if providerName == "" {
 		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("missing %s label", common.OpenEverestProviderLabel))
 	}

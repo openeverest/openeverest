@@ -41,6 +41,7 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/backupstorageclasses"
 )
 
 // =============================================================================
@@ -837,22 +838,34 @@ func (c *Context) BackupStorage(name string) (*backupv1alpha1.BackupStorage, err
 	return bs, nil
 }
 
-// BackupStorageCredentials reads the credentials Secret referenced by an S3
-// BackupStorage and returns the access key id / secret access key. Returns
-// empty strings if the storage does not reference a Secret (caller can decide
-// whether that is an error).
-func (c *Context) BackupStorageCredentials(bs *backupv1alpha1.BackupStorage) (accessKeyID, secretAccessKey string, err error) {
-	if bs == nil || bs.Spec.S3 == nil || bs.Spec.S3.CredentialsSecretRef.Name == "" {
-		return "", "", nil
+// BackupStorageCredentials returns the storage's authentication mode and the
+// data of its credentials Secret, which is nil for modes without a Secret.
+func (c *Context) BackupStorageCredentials(bs *backupv1alpha1.BackupStorage) (string, map[string][]byte, error) {
+	mode := bs.Spec.Authentication.Mode
+	ref := bs.Spec.Authentication.CredentialsSecretRef
+	if ref == nil {
+		return mode, nil, nil
 	}
 	secret := &corev1.Secret{}
-	if err := c.client.Get(c.ctx, client.ObjectKey{
-		Namespace: bs.GetNamespace(),
-		Name:      bs.Spec.S3.CredentialsSecretRef.Name,
-	}, secret); err != nil {
-		return "", "", fmt.Errorf("failed to get credentials secret %q: %w", bs.Spec.S3.CredentialsSecretRef.Name, err)
+	if err := c.client.Get(c.ctx, client.ObjectKey{Namespace: bs.GetNamespace(), Name: ref.Name}, secret); err != nil {
+		return "", nil, fmt.Errorf("failed to get credentials secret %q: %w", ref.Name, err)
 	}
-	return string(secret.Data["AWS_ACCESS_KEY_ID"]), string(secret.Data["AWS_SECRET_ACCESS_KEY"]), nil
+	return mode, secret.Data, nil
+}
+
+// BackupStorageS3 decodes a BackupStorage of the s3 class: its connection
+// parameters and the credentials of its authentication mode. Parameters the
+// runtime does not know are backupstorageclasses.ErrUnsupportedParameter.
+func (c *Context) BackupStorageS3(bs *backupv1alpha1.BackupStorage) (backupstorageclasses.S3, backupstorageclasses.S3Credentials, error) {
+	if class := bs.Spec.BackupStorageClassRef.Name; class != backupstorageclasses.ClassS3 {
+		return backupstorageclasses.S3{}, backupstorageclasses.S3Credentials{},
+			fmt.Errorf("BackupStorage %q is of BackupStorageClass %q, not %q", bs.Name, class, backupstorageclasses.ClassS3)
+	}
+	mode, data, err := c.BackupStorageCredentials(bs)
+	if err != nil {
+		return backupstorageclasses.S3{}, backupstorageclasses.S3Credentials{}, err
+	}
+	return backupstorageclasses.S3From(bs.Spec.Location, bs.Spec.Parameters, mode, data)
 }
 
 // BackupsForInstance lists all Backup CRs in the instance namespace whose

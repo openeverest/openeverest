@@ -415,21 +415,11 @@ func (r *BackupReconciler) ensurePayloadSecret(
 		}
 	}
 
-	// Resolve S3 storage details from the referenced BackupStorage CR.
-	storage := &backupv1alpha1.BackupStorage{}
-	if err := r.Client.Get(ctx, client.ObjectKey{
-		Name:      backup.Spec.StorageRef.Name,
-		Namespace: backup.GetNamespace(),
-	}, storage); err != nil {
-		return fmt.Errorf("failed to get BackupStorage %q: %w", backup.Spec.StorageRef.Name, err)
+	details, err := jobStorageDetails(ctx, r.Client, backup.GetNamespace(), backup.Spec.StorageRef.Name)
+	if err != nil {
+		return err
 	}
-	if s3 := storage.Spec.S3; s3 != nil {
-		details, err := r.buildS3StorageDetails(ctx, backup.GetNamespace(), s3)
-		if err != nil {
-			return err
-		}
-		spec.Storage = details
-	}
+	spec.Storage = details
 
 	// Pass through the config.
 	if cfg := backup.Spec.Parameters; cfg != nil {
@@ -453,37 +443,6 @@ func (r *BackupReconciler) ensurePayloadSecret(
 		return fmt.Errorf("failed to create or update payload secret: %w", err)
 	}
 	return nil
-}
-
-// buildS3StorageDetails converts an S3 BackupStorage spec into job-payload
-// storage details, reading the referenced credentials Secret when one is set.
-func (r *BackupReconciler) buildS3StorageDetails(
-	ctx context.Context,
-	namespace string,
-	s3Dest *backupv1alpha1.BackupStorageS3Spec,
-) (*jobspec.StorageDetails, error) {
-	s3Details := &jobspec.S3Details{
-		Bucket:         s3Dest.Bucket,
-		Region:         s3Dest.Region,
-		EndpointURL:    s3Dest.EndpointURL,
-		VerifyTLS:      pointer.Get(s3Dest.VerifyTLS),
-		ForcePathStyle: pointer.Get(s3Dest.ForcePathStyle),
-	}
-
-	// Read S3 credentials from the referenced Secret.
-	if s3Dest.CredentialsSecretRef.Name != "" {
-		credSecret := &corev1.Secret{}
-		if err := r.Client.Get(ctx, client.ObjectKey{
-			Name:      s3Dest.CredentialsSecretRef.Name,
-			Namespace: namespace,
-		}, credSecret); err != nil {
-			return nil, fmt.Errorf("failed to get S3 credentials secret: %w", err)
-		}
-		s3Details.AccessKeyID = string(credSecret.Data["AWS_ACCESS_KEY_ID"])
-		s3Details.SecretAccessKey = string(credSecret.Data["AWS_SECRET_ACCESS_KEY"])
-	}
-
-	return &jobspec.StorageDetails{S3: s3Details}, nil
 }
 
 func (r *BackupReconciler) ensureBackupJob(
