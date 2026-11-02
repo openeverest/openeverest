@@ -26,6 +26,7 @@ import {
 import type { Instance, Provider } from 'shared-types/api.types';
 import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 import { Messages } from 'components/ui-generator/api-providers/data-source-field/data-source-field.messages';
+import { Messages as ProvidersMessages } from 'components/ui-generator/api-providers/providers.messages';
 import SectionEditModal from './section-edit-modal';
 
 const { mutate, clusterInfo } = vi.hoisted(() => {
@@ -305,8 +306,19 @@ describe('SectionEditModal dataSource field disabled on edit', () => {
     expect(
       screen.getByText(Messages.unavailableOption('deleted-class'))
     ).toBeInTheDocument();
+    expect(
+      screen.getByText(Messages.unavailableLockedValueHint)
+    ).toBeInTheDocument();
     expect(warn).not.toHaveBeenCalledWith(
       expect.stringContaining('out-of-range')
     );
+  });
+
+  it('explains what an unset storage class means', () => {
+    renderModal({ interval: 30 });
+
+    expect(
+      screen.getByText(ProvidersMessages.storageClassesUnsetValueHint)
+    ).toBeInTheDocument();
   });
 });

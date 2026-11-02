@@ -13,14 +13,17 @@
 // limitations under the License.
 
 import React, { useCallback, useEffect, useMemo } from 'react';
-import { get, useFormContext } from 'react-hook-form';
+import { get, useFormContext, useWatch } from 'react-hook-form';
 import { FormMode, type Component } from '../../ui-generator.types';
 import { providerRegistry, useProviderOptions } from '../registry';
 import { useUiGeneratorContext } from '../../ui-generator-context';
+import { isSelectComponent } from '../../ui-component/utils/select-component-handler';
 import { useClusterName } from 'hooks/api/useClusterName';
 import type { DataSourceFieldProps } from './data-source-field.types';
+import { Messages } from './data-source-field.messages';
 import {
   getReconciledDataSourceValue,
+  getStoredValueHint,
   withStoredValueOption,
 } from './data-source-field.utils';
 
@@ -72,10 +75,30 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
 
   const storedValue =
     shouldAutoSelect || !name ? undefined : get(defaultValues, name);
+  const optionsResolved = !isLoading && !error;
   const displayOptions = useMemo(
-    () => withStoredValueOption(options, storedValue, !isLoading && !error),
-    [options, storedValue, isLoading, error]
+    () => withStoredValueOption(options, storedValue, optionsResolved),
+    [options, storedValue, optionsResolved]
   );
+
+  const registryEntry = useMemo(
+    () => providerRegistry.get(dataSource.provider),
+    [dataSource.provider]
+  );
+  const currentValue = useWatch({ name });
+  const isLocked =
+    isSelectComponent(item) &&
+    !!(item.fieldParams.disabled || item.fieldParams.readOnly);
+  const storedValueHint =
+    shouldAutoSelect || !optionsResolved
+      ? undefined
+      : getStoredValueHint({
+          currentValue,
+          storedValue,
+          options,
+          isLocked,
+          unsetValueHint: registryEntry?.unsetValueHint,
+        });
 
   const patchedItem = useMemo(() => {
     const originalHelperText = (
@@ -83,12 +106,12 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
     )?.helperText;
 
     const helperText = isLoading
-      ? 'Loading...'
+      ? Messages.loading
       : error
-        ? 'Failed to load options'
+        ? Messages.loadFailed
         : isEmpty
-          ? (originalHelperText ?? 'No options available')
-          : originalHelperText;
+          ? (originalHelperText ?? Messages.noOptions)
+          : (storedValueHint ?? originalHelperText);
 
     return {
       ...baseComponent,
@@ -102,12 +125,17 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
         ...(helperText !== undefined ? { helperText } : {}),
       },
     } as Component;
-  }, [baseComponent, displayOptions, isLoading, error, isEmpty]);
+  }, [
+    baseComponent,
+    displayOptions,
+    isLoading,
+    error,
+    isEmpty,
+    storedValueHint,
+  ]);
 
-  const FallbackComponent = useMemo(() => {
-    const entry = providerRegistry.get(dataSource.provider);
-    return entry?.emptyStateFallback?.component ?? null;
-  }, [dataSource.provider]);
+  const FallbackComponent =
+    registryEntry?.emptyStateFallback?.component ?? null;
 
   const showFallback =
     isEmpty && !isLoading && !!FallbackComponent && !!namespace;

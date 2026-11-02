@@ -41,6 +41,37 @@ export const withStoredValueOption = (
   ];
 };
 
+interface StoredValueHintInput {
+  currentValue: unknown;
+  storedValue: unknown;
+  options: OptionValue[];
+  isLocked: boolean;
+  unsetValueHint?: string;
+}
+
+// Explains a value edit keeps as-is. Why a stored value is missing from the
+// options is unknown (deleted, or hidden by RBAC), so the hint doesn't say.
+export const getStoredValueHint = ({
+  currentValue,
+  storedValue,
+  options,
+  isLocked,
+  unsetValueHint,
+}: StoredValueHintInput): string | undefined => {
+  if (
+    currentValue === undefined ||
+    currentValue === null ||
+    currentValue === ''
+  )
+    return unsetValueHint;
+  if (currentValue !== storedValue) return undefined;
+  if (options.some((option) => option.value === currentValue)) return undefined;
+
+  return isLocked
+    ? Messages.unavailableLockedValueHint
+    : Messages.unavailableValueHint;
+};
+
 export const getReconciledDataSourceValue = (
   current: unknown,
   options: OptionValue[]

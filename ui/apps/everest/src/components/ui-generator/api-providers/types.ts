@@ -44,6 +44,8 @@ export interface ProviderRegistryEntry {
   useOptions: (params: ProviderParams) => ProviderOptions;
   description: string;
   emptyStateFallback: EmptyStateFallback | null;
+  // Shown in edit mode when the field is empty, to say what an unset value means.
+  unsetValueHint?: string;
   // TODO: Add lifecycle hooks — beforeFetch, afterFetch, onError
   // TODO: Add optional `validate` callback for dev-time schema validation
 }

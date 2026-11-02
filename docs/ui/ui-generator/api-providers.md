@@ -72,6 +72,11 @@ A `dataSource` field is still a regular `select` — the only difference is that
 
 In `edit` mode nothing is auto-selected: the field shows the stored value as-is, so saving another field never rewrites it. An empty value stays empty; a value no longer among the options is kept and listed in the select as `<value> (unavailable)`. Auto-selection applies only when creating (`new`, `restore`, `import`). A resource the user creates from the fallback is still selected in every mode — see below.
 
+Once the options have loaded, edit mode also explains such a value in the helper text, replacing the schema's `helperText` while it applies:
+
+- **Unavailable stored value** (still selected): the UI only knows the value isn't among the options — it may have been deleted or hidden by RBAC — so the text doesn't claim a cause. It says the value is kept, and offers picking another one only when the field isn't `disabled`/`readOnly`.
+- **Empty value**: what "unset" means depends on the resource, so the registry entry provides it via `unsetValueHint` (e.g. `storageClasses`: the cluster's default storage class applies). Without it, no hint is shown.
+
 When a provider registers an `emptyStateFallback`, `DataSourceField` renders the fallback component **instead of** the select field whenever options are empty. The select is not shown at all — the fallback completely replaces it. This is used for resources that can be user-created (e.g. monitoring endpoints). Providers for non-creatable resources (e.g. StorageClasses) register `emptyStateFallback: null`, in which case the select is rendered normally with a "No options available" helper text.
 
 Once the user creates a resource in the fallback, the fallback calls `onCreated(value)` after the refetched options include it, and `DataSourceField` selects that value and marks the form dirty. This is the user's explicit choice, not auto-selection, so it works in every mode, `edit` included.
@@ -92,6 +97,8 @@ Once the user creates a resource in the fallback, the fallback calls `onCreated(
      // Use { component: XxxEmptyFallback } for user-creatable resources,
      // or null for resources that cannot be created by the user.
      emptyStateFallback: { component: XxxEmptyFallback },
+     // Optional: helper text explaining an empty value in edit mode.
+     unsetValueHint: Messages.xxxUnsetValueHint,
    });
    ```
 

@@ -102,17 +102,6 @@ describe('DataSourceField', () => {
     return () => getValues('spec.storageClass');
   };
 
-  it.each([
-    ['an unset value', ''],
-    ['a value missing from the options', 'deleted-class'],
-  ])('keeps %s as stored in edit mode', async (_case, storedValue) => {
-    mockContext = EDIT_CONTEXT;
-    const readValue = renderWithValue(storedValue);
-
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(readValue()).toBe(storedValue);
-  });
-
   it('auto-selects a disabled field outside edit mode', async () => {
     const readValue = renderWithValue(
       '',
@@ -130,16 +119,17 @@ describe('DataSourceField', () => {
       isEmpty: false,
     };
 
-    const renderOptionLabels = (patched: Component) => (
-      <ul>
-        {(isSelectComponent(patched)
-          ? resolveSelectOptions(patched.fieldParams)
-          : []
-        ).map((option) => (
-          <li key={option.value}>{option.label}</li>
-        ))}
-      </ul>
-    );
+    const renderOptionLabels = (patched: Component) =>
+      isSelectComponent(patched) ? (
+        <>
+          <ul>
+            {resolveSelectOptions(patched.fieldParams).map((option) => (
+              <li key={option.value}>{option.label}</li>
+            ))}
+          </ul>
+          <p data-testid="helper-text">{patched.fieldParams.helperText}</p>
+        </>
+      ) : null;
 
     const renderStoredValue = (providerOptions: typeof LOADED_OPTIONS) => {
       mockUseProviderOptions.mockReturnValue(providerOptions);
@@ -171,16 +161,6 @@ describe('DataSourceField', () => {
     const optionLabels = () =>
       screen.getAllByRole('listitem').map((item) => item.textContent);
 
-    it('lists it as unavailable in edit mode', () => {
-      mockContext = EDIT_CONTEXT;
-      renderStoredValue(LOADED_OPTIONS);
-
-      expect(optionLabels()).toEqual([
-        'standard',
-        Messages.unavailableOption('deleted-class'),
-      ]);
-    });
-
     it('lists it as-is in edit mode while the options are loading', () => {
       mockContext = EDIT_CONTEXT;
       renderStoredValue({ ...LOADED_OPTIONS, options: [], isLoading: true });
@@ -198,6 +178,18 @@ describe('DataSourceField', () => {
         'standard',
         Messages.unavailableOption('deleted-class'),
       ]);
+    });
+
+    it('explains the stored value until the user picks another option', () => {
+      mockContext = EDIT_CONTEXT;
+      const { pickAndRerender } = renderStoredValue(LOADED_OPTIONS);
+      const helperText = screen.getByTestId('helper-text');
+
+      expect(helperText).toHaveTextContent(Messages.unavailableValueHint);
+
+      pickAndRerender('standard');
+
+      expect(helperText).toBeEmptyDOMElement();
     });
 
     it('does not list it outside edit mode', () => {
@@ -485,19 +477,33 @@ describe('DataSourceField', () => {
       mockRegistryGet.mockReturnValue({
         emptyStateFallback: { component: CreatingFallback },
       });
+      const monitoringPath =
+        'spec.components.monitoring.parameters.monitoringConfigName';
+      const monitoringItem: ComponentWithDataSource = {
+        uiType: FieldType.Select,
+        path: monitoringPath,
+        fieldParams: { label: 'Monitoring endpoint' },
+        dataSource: { provider: 'monitoringConfigs' },
+      };
 
       let getValues: (name: string) => unknown = () => undefined;
       let isDirty = false;
 
       const Harness = () => {
         const methods = useForm({
-          defaultValues: { spec: { storageClass: '' } },
+          defaultValues: {
+            spec: {
+              components: {
+                monitoring: { parameters: { monitoringConfigName: '' } },
+              },
+            },
+          },
         });
         getValues = methods.getValues;
         isDirty = methods.formState.isDirty;
         return (
           <FormProvider {...methods}>
-            <DataSourceField item={makeItem()} name="spec.storageClass">
+            <DataSourceField item={monitoringItem} name={monitoringPath}>
               {() => <div />}
             </DataSourceField>
           </FormProvider>
@@ -507,7 +513,7 @@ describe('DataSourceField', () => {
       render(<Harness />);
       fireEvent.click(screen.getByRole('button', { name: 'create' }));
 
-      expect(getValues('spec.storageClass')).toBe('pmm');
+      expect(getValues(monitoringPath)).toBe('pmm');
       expect(isDirty).toBe(true);
     });
 

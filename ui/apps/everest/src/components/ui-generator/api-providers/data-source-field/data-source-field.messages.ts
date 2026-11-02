@@ -13,5 +13,12 @@
 // limitations under the License.
 
 export const Messages = {
+  loading: 'Loading...',
+  loadFailed: 'Failed to load options',
+  noOptions: 'No options available',
   unavailableOption: (value: string) => `${value} (unavailable)`,
+  unavailableValueHint:
+    "Not found in the available options — it may have been deleted or you may not have access to it. It's kept unless you pick another one.",
+  unavailableLockedValueHint:
+    "Not found in the available options — it may have been deleted or you may not have access to it. It's kept as is.",
 };
