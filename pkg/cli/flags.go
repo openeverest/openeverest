@@ -209,22 +209,37 @@ const (
 	FlagBackupStorageAllNamespaces = "all-namespaces"
 	// FlagBackupStorageName is the name of the backup storage name flag.
 	FlagBackupStorageName = "name"
-	// FlagBackupStorageType is the name of the storage type flag.
-	FlagBackupStorageType = "type"
+	// FlagBackupStorageClass is the name of the BackupStorageClass flag (create)
+	// and of the BackupStorageClass filter (list).
+	FlagBackupStorageClass = "class"
+	// FlagBackupStorageBackupClass filters list to the storages a BackupClass can write to.
+	FlagBackupStorageBackupClass = "backup-class"
 	// FlagBackupStorageBucket is the name of the bucket flag.
 	FlagBackupStorageBucket = "bucket"
-	// FlagBackupStorageRegion is the name of the region flag.
+	// FlagBackupStoragePrefix is the name of the prefix flag.
+	FlagBackupStoragePrefix = "prefix"
+	// FlagBackupStorageParameter sets one spec.parameters entry as key=value.
+	FlagBackupStorageParameter = "parameter"
+	// FlagBackupStorageRegion sets the s3 region parameter.
 	FlagBackupStorageRegion = "region"
-	// FlagBackupStorageEndpointURL is the name of the endpoint-url flag.
+	// FlagBackupStorageEndpointURL sets the s3 endpointURL parameter.
 	FlagBackupStorageEndpointURL = "endpoint-url"
-	// FlagBackupStorageVerifyTLS toggles TLS certificate verification.
-	FlagBackupStorageVerifyTLS = "verify-tls"
-	// FlagBackupStorageForcePathStyle forces path-style storage URLs.
+	// FlagBackupStorageForcePathStyle sets the s3 forcePathStyle parameter.
 	FlagBackupStorageForcePathStyle = "force-path-style"
+	// FlagBackupStorageImplementation sets the s3 implementation parameter.
+	FlagBackupStorageImplementation = "implementation"
+	// FlagBackupStorageAuthMode is the name of the authentication mode flag.
+	FlagBackupStorageAuthMode = "auth-mode"
 	// FlagBackupStorageCredentialsSecret is the name of an existing credentials Secret.
 	FlagBackupStorageCredentialsSecret = "credentials-secret"
-	// FlagBackupStorageAccessKeyID is the access key ID (plain flag; the secret access key is never a flag).
-	FlagBackupStorageAccessKeyID = "access-key-id"
+	// FlagBackupStorageCredentialsFile is a KEY=VALUE file the credentials Secret is created from.
+	FlagBackupStorageCredentialsFile = "credentials-file"
+	// FlagBackupStorageCAFile is a PEM file the CA bundle Secret is created from.
+	FlagBackupStorageCAFile = "ca-file"
+	// FlagBackupStorageCASecret is an existing Secret holding the CA bundle, as NAME[:KEY].
+	FlagBackupStorageCASecret = "ca-secret"
+	// FlagBackupStorageInsecureSkipTLSVerify disables verification of the server certificate.
+	FlagBackupStorageInsecureSkipTLSVerify = "insecure-skip-tls-verify"
 	// FlagBackupStorageWait blocks delete until the backup storage is fully removed.
 	FlagBackupStorageWait = "wait"
 	// FlagBackupStorageTimeout bounds --wait; only valid together with --wait.

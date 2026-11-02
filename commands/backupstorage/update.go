@@ -32,33 +32,33 @@ var (
 		Use:   "update [flags]",
 		Args:  cobra.NoArgs,
 		Short: "Update a backup storage",
-		Long: `Patch an existing BackupStorage's safe-to-edit fields via the Everest API.
+		Long: `Patch an existing BackupStorage via the Everest API.
 
 The name and namespace flags are required, plus at least one of:
 
-  - --access-key-id, with the secret access key supplied the same way as
-    'backup-storage create' (the EVEREST_BACKUP_STORAGE_SECRET_ACCESS_KEY
-    environment variable, or an interactive prompt).
-  - --credentials-secret, to re-point at a different existing Secret.
-    Mutually exclusive with --access-key-id.
-  - --verify-tls / --force-path-style, to change connection settings.
+  - --parameter key=value (repeatable), or the s3 shorthands --region,
+    --endpoint-url, --force-path-style and --implementation. Parameters
+    merge key by key: the ones not named keep their value.
+  - --auth-mode, to switch to another of the class's authentication modes.
+  - --credentials-secret, to point at another existing Secret in the
+    namespace. This is how credentials are rotated: create a Secret with
+    the new keys, then switch the storage to it.
+  - --ca-secret NAME[:KEY] or --insecure-skip-tls-verify, to change how
+    the server certificate is verified. Setting one clears the other.
 
-The identity fields (--type, --bucket, --region, --endpoint-url) are
-deliberately not exposed here, even though the API does not itself reject a
-change to them: re-pointing a storage that already holds backups orphans
-every Backup CR referencing it by name and every engine already registered
-against the old coordinates. Re-homing a storage is create-new + delete-old,
-not an update.`,
-		Example: `  # Rotate credentials
-  everestctl backup-storage update --name my-s3 --namespace everest \
-    --access-key-id AKIA...
+The class and the location (bucket and prefix) cannot change: engines
+treat the location as their catalog. Re-homing a storage is create-new +
+delete-old, not an update.`,
+		Example: `  # Rotate credentials: point at a Secret holding the new keys
+  everestctl backup-storage update --name s3-prod -n team-a \
+    --credentials-secret s3-prod-credentials-2
 
-  # Point at an externally managed Secret instead
-  everestctl backup-storage update --name my-s3 --namespace everest \
-    --credentials-secret my-rotated-creds
+  # Move to another endpoint and region
+  everestctl backup-storage update --name s3-prod -n team-a \
+    --endpoint-url https://s3.eu-west-1.amazonaws.com --region eu-west-1
 
-  # Toggle TLS verification for a self-signed MinIO
-  everestctl bs update --name my-minio --namespace everest --verify-tls=false`,
+  # Trust a private CA
+  everestctl bs update --name minio -n team-a --ca-secret minio-ca:ca.crt`,
 		PreRun: updatePreRun,
 		Run:    updateRun,
 	}
@@ -71,41 +71,28 @@ func init() {
 	updateCmd.Flags().StringVarP(&updateOpts.Namespace, cli.FlagBackupStorageNamespace, "n", "", "Namespace the backup storage is in (required)")
 	updateCmd.Flags().StringVar(&updateOpts.Cluster, cli.FlagBackupStorageCluster, "main", "Cluster name")
 	updateCmd.Flags().StringVar(&updateOpts.Context, cli.FlagBackupStorageContext, "", "Context to use (default: current context)")
-	updateCmd.Flags().StringVar(&updateOpts.CredentialsSecret, cli.FlagBackupStorageCredentialsSecret, "", "Name of an existing Secret holding the storage credentials")
-	updateCmd.Flags().StringVar(&updateOpts.AccessKeyID, cli.FlagBackupStorageAccessKeyID, "", "Access key ID (the secret access key is never passed as a flag — see --help)")
-	updateCmd.Flags().Bool(cli.FlagBackupStorageVerifyTLS, false, "Verify TLS certificates when connecting to the endpoint")
-	updateCmd.Flags().Bool(cli.FlagBackupStorageForcePathStyle, false, "Force path-style storage URLs (bucket name in the path instead of the host)")
+	addParameterFlags(updateCmd, &updateOpts.Parameters)
+	updateCmd.Flags().StringVar(&updateOpts.AuthMode, cli.FlagBackupStorageAuthMode, "", "Authentication mode, one of the class's authModes")
+	updateCmd.Flags().StringVar(&updateOpts.CredentialsSecret, cli.FlagBackupStorageCredentialsSecret, "", "Name of an existing Secret holding the credentials")
+	updateCmd.Flags().StringVar(&updateOpts.CASecret, cli.FlagBackupStorageCASecret, "", "Existing Secret holding the PEM CA bundle, as NAME[:KEY] (KEY defaults to ca.crt)")
+	updateCmd.Flags().Bool(cli.FlagBackupStorageInsecureSkipTLSVerify, false, "Do not verify the server certificate of the store")
 
 	_ = updateCmd.MarkFlagRequired(cli.FlagBackupStorageName)
 	_ = updateCmd.MarkFlagRequired(cli.FlagBackupStorageNamespace)
-
-	updateCmd.MarkFlagsMutuallyExclusive(cli.FlagBackupStorageCredentialsSecret, cli.FlagBackupStorageAccessKeyID)
 }
 
 func updatePreRun(cmd *cobra.Command, _ []string) {
 	updateCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
 }
 
-// updateRun reads --verify-tls/--force-path-style through cmd.Flags().Changed
-// rather than their bound values: unlike `create`, an update must not name a
-// field in the patch that the caller never passed.
+// updateRun reads --insecure-skip-tls-verify and the parameter shorthands
+// through cmd.Flags().Changed rather than their bound values: an update must
+// not name a field in the patch that the caller never passed.
 func updateRun(cmd *cobra.Command, _ []string) {
-	if cmd.Flags().Changed(cli.FlagBackupStorageVerifyTLS) {
-		v, _ := cmd.Flags().GetBool(cli.FlagBackupStorageVerifyTLS)
-		updateOpts.VerifyTLS = &v
-	}
-	if cmd.Flags().Changed(cli.FlagBackupStorageForcePathStyle) {
-		v, _ := cmd.Flags().GetBool(cli.FlagBackupStorageForcePathStyle)
-		updateOpts.ForcePathStyle = &v
-	}
-
-	if updateOpts.AccessKeyID != "" {
-		secret, err := resolveSecretAccessKey(cmd)
-		if err != nil {
-			output.PrintError(err, logger.GetLogger(), updateCfg.Pretty)
-			os.Exit(1)
-		}
-		updateOpts.SecretAccessKey = secret
+	readParameterShorthands(cmd, &updateOpts.Parameters)
+	if cmd.Flags().Changed(cli.FlagBackupStorageInsecureSkipTLSVerify) {
+		v, _ := cmd.Flags().GetBool(cli.FlagBackupStorageInsecureSkipTLSVerify)
+		updateOpts.InsecureSkipTLSVerify = &v
 	}
 
 	cfgPath, err := config.DefaultPath()
