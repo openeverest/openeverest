@@ -465,7 +465,7 @@ test.describe.serial(
       );
     });
 
-    test('Deleting the rule group removes the rule and the database recovers', async ({
+    test('Deleting the rule group removes the rule', async ({
       page,
       request,
     }) => {
@@ -493,14 +493,26 @@ test.describe.serial(
           { timeout: TIMEOUTS.ThreeMinutes }
         )
         .toBeUndefined();
-
-      await ensureLoggedInOnDatabasesPage(page);
-      await waitForStatus(page, clusterName, 'Ready', TIMEOUTS.FifteenMinutes);
-
-      await gotoOverview(page, clusterName);
-      await expect(page.getByTestId('pods-alert')).toBeHidden({
-        timeout: TIMEOUTS.ThreeMinutes,
-      });
     });
+
+    // The Pending engine pod is never recreated:
+    // https://github.com/openeverest/provider-percona-xtradb-cluster/issues/49
+    test.fixme(
+      'The database recovers once the rule is gone',
+      async ({ page }) => {
+        await ensureLoggedInOnDatabasesPage(page);
+        await waitForStatus(
+          page,
+          clusterName,
+          'Ready',
+          TIMEOUTS.FifteenMinutes
+        );
+
+        await gotoOverview(page, clusterName);
+        await expect(page.getByTestId('pods-alert')).toBeHidden({
+          timeout: TIMEOUTS.ThreeMinutes,
+        });
+      }
+    );
   }
 );
