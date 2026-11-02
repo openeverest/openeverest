@@ -72,6 +72,7 @@ const (
 	ResourceClusterInstancePresets = "cluster-instance-presets"
 	ResourceInstancePresets        = "instance-presets"
 	ResourceBackupClasses          = "backup-classes"
+	ResourceBackupStorageClasses   = "backup-storage-classes"
 	ResourceBackups                = "backups"
 	ResourceBackupImports          = "backup-imports"
 	ResourceRestores               = "restores"
@@ -108,6 +109,7 @@ var ClusterScopedResources = []string{
 	ResourceNamespaces,
 	ResourceProviders,
 	ResourceBackupClasses,
+	ResourceBackupStorageClasses,
 	ResourcePlugins,
 	ResourceClusterInstancePresets,
 	ResourceMonitoringClasses,
@@ -133,7 +135,7 @@ var ClusterNamespacedResources = []string{
 // resource, so the admin role is granted only read on it.
 func isReadOnlyResource(resource string) bool {
 	return resource == ResourceMonitoringClasses || resource == ResourceMonitoringBindings ||
-		resource == ResourcePlatformEvents
+		resource == ResourceBackupStorageClasses || resource == ResourcePlatformEvents
 }
 
 // IsGlobalResource returns true if the given resource is a global (non-namespaced) Everest API resource.

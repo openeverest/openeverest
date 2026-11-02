@@ -26,6 +26,7 @@ import (
 
 	"go.uber.org/zap"
 
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
@@ -68,10 +69,8 @@ func NewDeleter(cfg Config, l *zap.SugaredLogger) *Deleter {
 
 // Run deletes the backup storage: confirms, deletes, then waits if asked.
 // ctx stays plain here so Ctrl-C during confirm is a decline, not a
-// cancelled wait, see waitForDeletion. The credentials Secret is not
-// handled here, the BackupStorage controller adopts it via an owner
-// reference, so Kubernetes garbage-collects it once the BackupStorage is
-// actually gone.
+// cancelled wait, see waitForDeletion. The Secrets the storage references
+// are left in place.
 func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) error {
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: bd.config.Pretty}, bd.l.Desugar().Sugar(), cfgPath, opts.Context)
 	if err != nil {
@@ -200,7 +199,18 @@ func newBackupStorageDeletePoll(
 }
 
 func deleteCondition(bs *client.BackupStorage) (wait.Outcome, string) {
-	return deletion.GoneCondition("backup storage deleted", func(*client.BackupStorage) string {
-		return "backup storage still exists — likely referenced by an Instance or Backup"
-	})(bs)
+	return deletion.GoneCondition("backup storage deleted", deletionPendingMessage)(bs)
+}
+
+// deletionPendingMessage reports what a deleted storage waits for: its
+// Deleting condition names the referrers.
+func deletionPendingMessage(bs *client.BackupStorage) string {
+	if bs.Status != nil && bs.Status.Conditions != nil {
+		for _, cond := range *bs.Status.Conditions {
+			if cond.Type == backupv1alpha1.BackupStorageConditionDeleting && cond.Status == client.BackupStorageStatusConditionsStatusTrue {
+				return fmt.Sprintf("%s: %s", cond.Reason, cond.Message)
+			}
+		}
+	}
+	return "backup storage still exists — likely referenced by an Instance or Backup"
 }

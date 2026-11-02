@@ -37,25 +37,21 @@ var (
 		Short: "Delete a backup storage",
 		Long: `Delete a BackupStorage through the Everest API.
 
-The name and namespace flags are required. The credentials Secret is not
-deleted by this command directly. The BackupStorage controller adopts any
-credentials Secret with no existing owner, whether it was CLI-generated or
-supplied via --credentials-secret, and Kubernetes garbage-collects it once
-the BackupStorage is actually gone. A Secret shared across multiple backup
-storages via --credentials-secret is not protected from this: deleting
-whichever storage adopted it first takes the Secret down too.
+The name and namespace flags are required. The Secrets the backup storage
+references (credentials, CA bundle) are not deleted, whether 'backup-storage
+create' made them or not: remove them once nothing else uses them.
 
 Interactively (a terminal, no --yes), you'll be asked to confirm with y/N.
 Pass --yes/-y to skip the prompt; in a non-interactive context (no terminal,
 or --json) omitting --yes fails immediately instead of hanging on a prompt
 nobody can answer.
 
---ignore-not-found treats an already-absent backup storage as success and
-skips both the confirmation prompt and --wait entirely, since there's
-nothing to confirm or wait for. If --wait times out, the deletion is still
-running server-side, and a stuck delete is almost always an Instance or
-Backup that still references the storage, so point at 'everestctl instance
-list'/'everestctl backup list' for the namespace.`,
+The server keeps a deleted backup storage until no Instance, Backup,
+Restore or BackupImport references it; --wait reports which ones it is
+waiting for. --ignore-not-found treats an already-absent backup storage as
+success and skips both the confirmation prompt and --wait entirely, since
+there's nothing to confirm or wait for. If --wait times out, the deletion
+is still pending server-side until those referrers are gone.`,
 		Example: `  # Delete a backup storage (prompts y/N)
   everestctl backup-storage delete --name my-s3 --namespace everest
 
