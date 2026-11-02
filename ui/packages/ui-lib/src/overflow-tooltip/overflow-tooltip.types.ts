@@ -12,5 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export { default, TruncatedText } from './truncated-text';
-export type { TruncatedTextProps } from './truncated-text.types';
+import type { RefObject } from 'react';
+import type { TooltipProps } from '@mui/material';
+
+export interface OverflowTooltipProps
+  extends Omit<TooltipProps, 'open' | 'onOpen' | 'onClose'> {
+  // Kept separate from the anchor (`children`) so a whole focusable row can
+  // trigger the tooltip while only its truncated label is measured.
+  measureRef: RefObject<HTMLElement>;
+}

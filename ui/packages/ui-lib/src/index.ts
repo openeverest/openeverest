@@ -105,8 +105,7 @@ export * from './masonry-columns';
 export * from './show-more-dialog';
 export { default as ShowMoreDialog } from './show-more-dialog';
 
-export * from './truncated-text';
-export { default as TruncatedText } from './truncated-text';
+export * from './overflow-tooltip';
 
 export * from './form/inputs/file';
 export { default as FileInput } from './form/inputs/file';

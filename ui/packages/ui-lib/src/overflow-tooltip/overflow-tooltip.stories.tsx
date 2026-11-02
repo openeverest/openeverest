@@ -12,28 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { useRef } from 'react';
 import { type Meta, type StoryObj } from '@storybook/react';
-import { Box } from '@mui/material';
-import TruncatedText from './truncated-text';
-import { type TruncatedTextProps } from './truncated-text.types';
+import { Button, Typography } from '@mui/material';
+import { OverflowTooltip } from './overflow-tooltip';
 
-const meta: Meta<TruncatedTextProps> = {
-  title: 'TruncatedText',
-  component: TruncatedText,
+interface OverflowTooltipStoryArgs {
+  text: string;
+}
+
+const OverflowTooltipStory = ({ text }: OverflowTooltipStoryArgs) => {
+  const labelRef = useRef<HTMLElement>(null);
+
+  return (
+    <OverflowTooltip title={text} placement="right" arrow measureRef={labelRef}>
+      <Button variant="outlined" sx={{ width: 160 }}>
+        <Typography ref={labelRef} noWrap>
+          {text}
+        </Typography>
+      </Button>
+    </OverflowTooltip>
+  );
+};
+
+const meta: Meta<OverflowTooltipStoryArgs> = {
+  title: 'OverflowTooltip',
+  component: OverflowTooltipStory,
   parameters: {
     layout: 'centered',
   },
-  decorators: [
-    (Story) => (
-      <Box sx={{ width: 160 }}>
-        <Story />
-      </Box>
-    ),
-  ],
 };
 
 export default meta;
-type Story = StoryObj<TruncatedTextProps>;
+type Story = StoryObj<OverflowTooltipStoryArgs>;
 
 export const Overflowing: Story = {
   args: {

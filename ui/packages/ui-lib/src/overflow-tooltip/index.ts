@@ -12,11 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { TooltipProps, TypographyProps } from '@mui/material';
-
-export interface TruncatedTextProps {
-  text: string;
-  tooltipPlacement?: TooltipProps['placement'];
-  typographyProps?: Omit<TypographyProps, 'children' | 'noWrap'>;
-  dataTestId?: string;
-}
+export { OverflowTooltip } from './overflow-tooltip';
+export type { OverflowTooltipProps } from './overflow-tooltip.types';
