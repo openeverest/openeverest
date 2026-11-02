@@ -8,3 +8,6 @@ spec:
   supportsImport: true
   supportedProviders:
     - test-provider
+  backupStorageClasses:
+    - name: s3
+      authModes: [AccessKey]

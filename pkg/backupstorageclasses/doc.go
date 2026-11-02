@@ -13,11 +13,11 @@
 // limitations under the License.
 
 // Package backupstorageclasses holds the Go types of the built-in
-// BackupStorageClasses.
+// BackupStorageClasses and the decoders that turn a BackupStorage into them.
 //
 // The parametersSchema of every built-in class is generated from these types
 // (make gen writes config/backupstorageclasses), so the schema a storage is
-// validated against and the type executors read it into cannot drift.
+// validated against and the decoder executors read it with cannot drift.
 // Every field of a class parameter type is a connection parameter and carries
 // the +openeverest:param=connection marker; the location (bucket, prefix) and
 // transport trust (tls) are typed on BackupStorage instead.
