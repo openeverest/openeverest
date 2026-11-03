@@ -81,7 +81,13 @@ describe('createBackupStorageFn', () => {
       [
         SECRETS_URL,
         {
-          metadata: { name: 'backup-storage-s3-prod-credentials' },
+          metadata: {
+            name: 'backup-storage-s3-prod-credentials',
+            labels: {
+              'openeverest.io/backup-storage-class': 's3',
+              'openeverest.io/definition': 'AccessKey',
+            },
+          },
           type: 'Opaque',
           stringData: { AWS_ACCESS_KEY_ID: 'id', AWS_SECRET_ACCESS_KEY: 'key' },
         },
@@ -90,7 +96,10 @@ describe('createBackupStorageFn', () => {
       [
         SECRETS_URL,
         {
-          metadata: { name: 'backup-storage-s3-prod-ca' },
+          metadata: {
+            name: 'backup-storage-s3-prod-ca',
+            labels: { 'openeverest.io/definition': 'ca-bundle' },
+          },
           type: 'Opaque',
           stringData: { 'ca.crt': 'PEM' },
         },
@@ -227,7 +236,13 @@ describe('editBackupStorageFn', () => {
     expect(api.post).toHaveBeenCalledWith(
       SECRETS_URL,
       expect.objectContaining({
-        metadata: { name: 'backup-storage-s3-prod-credentials-x1y' },
+        metadata: {
+          name: 'backup-storage-s3-prod-credentials-x1y',
+          labels: {
+            'openeverest.io/backup-storage-class': 's3',
+            'openeverest.io/definition': 'AccessKey',
+          },
+        },
       }),
       expect.anything()
     );
