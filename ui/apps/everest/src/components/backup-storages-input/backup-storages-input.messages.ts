@@ -18,4 +18,6 @@ export const Messages = {
       ? `Storage limit reached. You are using ${activeStorages} out of ${maxStorages} available storages.`
       : `You are currently using ${activeStorages} out of ${maxStorages} available storages.`,
   inUseLabel: '(in use)',
+  notValidatedYet: 'The storage has not been validated yet.',
+  noCompatibleStorages: 'No backup storage this backup class can write to',
 };

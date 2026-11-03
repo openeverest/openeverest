@@ -49,7 +49,11 @@ export const useImportSource = (
 
   const { namespaces, isLoading: isNamespacesLoading } = useImportNamespaces();
   const { data: storages = [], isLoading: isStoragesLoading } =
-    useBackupStoragesByNamespace(namespace, { enabled: !!namespace });
+    useBackupStoragesByNamespace(
+      namespace,
+      backupClassName ? { backupClass: backupClassName } : undefined,
+      { enabled: !!namespace, refetchInterval: 5 * 1000 }
+    );
   const { data: importClasses, isLoading: isClassesLoading } =
     useImportBackupClasses(clusterName);
   const { data: providers = [], isLoading: isProvidersLoading } =
