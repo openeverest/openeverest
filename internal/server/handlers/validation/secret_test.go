@@ -29,6 +29,7 @@ import (
 
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
@@ -64,16 +65,57 @@ func TestCreateSecret_Validation(t *testing.T) {
 		},
 	}
 
+	// MonitoringClass whose mode needs a token.
+	class := &monitoringv1alpha1.MonitoringClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "pmm",
+		},
+		Spec: monitoringv1alpha1.MonitoringClassSpec{
+			AuthModes: []commonv1alpha1.AuthMode{{
+				Name:        "ServiceAccountToken",
+				Credentials: &commonv1alpha1.CredentialKeys{Required: []string{"token"}},
+			}},
+		},
+	}
+
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, corev1alpha1.AddToScheme(scheme))
+	require.NoError(t, monitoringv1alpha1.AddToScheme(scheme))
+
+	providerLabels := map[string]string{
+		common.OpenEverestDefinitionLabel: "database-credentials",
+		common.OpenEverestProviderLabel:   "test-provider",
+	}
+	classLabels := map[string]string{
+		common.OpenEverestDefinitionLabel:      "ServiceAccountToken",
+		common.OpenEverestMonitoringClassLabel: "pmm",
+	}
+	userCredentials := map[string]string{
+		"username": "admin",
+		"password": "secret123",
+	}
 
 	tests := []struct {
-		name      string
-		secret    *corev1.Secret
-		providers []*corev1alpha1.Provider
-		err       string
+		name   string
+		secret *corev1.Secret
+		err    string
 	}{
+		{
+			name: "provider secret matching its definition is created",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "db-credentials", Labels: providerLabels},
+				Type:       corev1.SecretTypeOpaque,
+				StringData: userCredentials,
+			},
+		},
+		{
+			name: "monitoring class credentials with a long name are created",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "monitoring-destination-pmm-prod-eu-west-credentials", Labels: classLabels},
+				StringData: map[string]string{"token": "glsa_token"},
+			},
+		},
 		{
 			name: "missing provider label fails",
 			secret: &corev1.Secret{
@@ -81,67 +123,83 @@ func TestCreateSecret_Validation(t *testing.T) {
 					Name: "no-provider-label",
 					Labels: map[string]string{
 						common.OpenEverestDefinitionLabel: "database-credentials",
-						// No provider label
 					},
 				},
-				Type: corev1.SecretTypeOpaque,
-				StringData: map[string]string{
-					"username": "admin",
-					"password": "secret123",
-				},
+				Type:       corev1.SecretTypeOpaque,
+				StringData: userCredentials,
 			},
-			providers: []*corev1alpha1.Provider{provider},
-			err:       "missing openeverest.io/provider label",
+			err: "openeverest.io/definition needs one of openeverest.io/provider, openeverest.io/monitoring-class",
 		},
 		{
 			name: "missing definition label fails",
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   "no-definition-label",
-					Labels: map[string]string{},
+					Labels: map[string]string{common.OpenEverestProviderLabel: "test-provider"},
 				},
-				Type: corev1.SecretTypeOpaque,
-				StringData: map[string]string{
-					"key": "value",
-				},
+				Type:       corev1.SecretTypeOpaque,
+				StringData: map[string]string{"key": "value"},
 			},
-			providers: []*corev1alpha1.Provider{provider},
-			err:       "missing openeverest.io/definition label",
+			err: "missing openeverest.io/definition label",
+		},
+		{
+			name: "secret without labels fails",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "no-labels"},
+				StringData: map[string]string{"token": "glsa_token"},
+			},
+			err: "label the Secret with one of",
 		},
 		{
 			name: "secret not conforming to schema fails",
 			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "empty-secret", Labels: providerLabels},
+				Type:       corev1.SecretTypeOpaque,
+			},
+			err: "secret does not conform to schema",
+		},
+		{
+			name: "monitoring class credentials missing a required key fail",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "pmm-credentials", Labels: classLabels},
+				StringData: map[string]string{"apiKey": "k"},
+			},
+			err: `missing key "token" required by authentication mode "ServiceAccountToken"`,
+		},
+		{
+			name: "unknown monitoring class fails",
+			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "empty-secret",
+					Name: "datadog-credentials",
 					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "database-credentials",
-						common.OpenEverestProviderLabel:   "test-provider",
+						common.OpenEverestDefinitionLabel:      "ApiKey",
+						common.OpenEverestMonitoringClassLabel: "datadog",
 					},
 				},
-				Type: corev1.SecretTypeOpaque,
-				// No data or stringData
+				StringData: map[string]string{"apiKey": "k"},
 			},
-			providers: []*corev1alpha1.Provider{provider},
-			err:       "secret does not conform to schema",
+			err: `definition source not found: MonitoringClass "datadog"`,
+		},
+		{
+			name: "service account token secret fails",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "pmm-credentials",
+					Labels:      classLabels,
+					Annotations: map[string]string{corev1.ServiceAccountNameKey: "default"},
+				},
+				Type: corev1.SecretTypeServiceAccountToken,
+			},
+			err: `Secrets of type "kubernetes.io/service-account-token" cannot be created`,
 		},
 		{
 			name: "invalid secret name fails",
 			secret: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "Invalid_Name_With_Underscore",
-					Labels: map[string]string{
-						common.OpenEverestDefinitionLabel: "database-credentials",
-						common.OpenEverestProviderLabel:   "test-provider",
-					},
-				},
-				Type: corev1.SecretTypeOpaque,
-				StringData: map[string]string{
-					"username": "admin",
-					"password": "secret123",
-				},
+				ObjectMeta: metav1.ObjectMeta{Name: "Invalid_Name_With_Underscore", Labels: providerLabels},
+				Type:       corev1.SecretTypeOpaque,
+				StringData: userCredentials,
 			},
-			providers: []*corev1alpha1.Provider{provider},
-			err:       "'name' can be at most 22 characters long",
+			err: `invalid name "Invalid_Name_With_Underscore"`,
 		},
 	}
 
@@ -151,7 +209,7 @@ func TestCreateSecret_Validation(t *testing.T) {
 
 			// Use DeepCopy to avoid race conditions since the fake client
 			// modifies the objects' ResourceVersion during Build().
-			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(provider.DeepCopy()).Build()
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(provider.DeepCopy(), class.DeepCopy()).Build()
 			kubeConnector := kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).WithKubernetesClient(fakeClient)
 
 			// Create mock next handler.
@@ -167,7 +225,14 @@ func TestCreateSecret_Validation(t *testing.T) {
 			}
 
 			_, err := handler.CreateSecret(ctx, cluster, namespace, tt.secret)
+			if tt.err == "" {
+				require.NoError(t, err)
+				mockNext.AssertCalled(t, "CreateSecret", mock.Anything, cluster, namespace, tt.secret)
+				return
+			}
+			require.ErrorIs(t, err, ErrInvalidRequest)
 			require.ErrorContains(t, err, tt.err)
+			mockNext.AssertNotCalled(t, "CreateSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 		})
 	}
 }
