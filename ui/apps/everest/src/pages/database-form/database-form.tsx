@@ -208,7 +208,7 @@ export const DatabasePage = () => {
   const hasBackupStep = backupClasses.length > 0;
 
   // ── Page-level defaults (merges schema defaults + wizard-specific ones)
-  const { defaultValues, dbClusterRequestStatus } =
+  const { defaultValues, dbClusterRequestStatus, dbClusterData } =
     useDatabasePageDefaultValues(
       mode,
       uiSchema,
@@ -346,6 +346,7 @@ export const DatabasePage = () => {
     namespace: selectedNamespace || namespaces[0],
     formMode: mode,
     widgetRegistry,
+    originalData: mode === FormMode.Restore ? dbClusterData : undefined,
   });
 
   // Navigation

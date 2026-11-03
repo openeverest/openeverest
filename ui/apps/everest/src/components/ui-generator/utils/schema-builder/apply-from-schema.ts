@@ -88,7 +88,9 @@ export const applyValidationFromSchema = (
   const isRequired = !!component.validation?.required;
 
   switch (component.uiType) {
+    // Quantity validates the amount in `unit` with the same numeric rules.
     case 'number':
+    case 'quantity':
       fieldSchema = buildNumberValidationSchema(component);
       break;
 

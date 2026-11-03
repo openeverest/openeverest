@@ -15,6 +15,7 @@
 import { SelectProps, SwitchProps, TextFieldProps } from '@mui/material';
 import {
   NumberFieldParams,
+  QuantityFieldParams,
   SelectFieldParams,
   TextFieldParams,
   ToggleFieldParams,
@@ -54,6 +55,11 @@ export const getMappedParams = <K extends keyof FieldParamsMap>(
       return mapNumberFieldParams(
         fieldParams as NumberFieldParams,
         validation as ValidationMap[FieldType.Number] | undefined
+      );
+    case 'quantity':
+      return mapQuantityFieldParams(
+        fieldParams as QuantityFieldParams,
+        validation as ValidationMap[FieldType.Quantity] | undefined
       );
     case 'text':
       return mapTextFieldParams(fieldParams as TextFieldParams);
@@ -125,6 +131,22 @@ const mapNumberFieldParams = (
     },
     badge,
   };
+};
+
+// Same numeric input as number - adornment is unitLabel ?? unit (not badge).
+const mapQuantityFieldParams = (
+  fieldParams: QuantityFieldParams,
+  validation?: ValidationMap[FieldType.Quantity]
+) => {
+  const { unit, unitLabel, ...rest } = fieldParams;
+
+  return mapNumberFieldParams(
+    {
+      ...rest,
+      badge: unitLabel ?? unit,
+    },
+    validation
+  );
 };
 
 const mapSelectFieldParams = (fieldParams: SelectFieldParams) => {

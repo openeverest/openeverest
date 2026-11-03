@@ -284,4 +284,110 @@ describe('postprocessSchemaData', () => {
       },
     });
   });
+
+  describe('quantity fields', () => {
+    const quantitySchema: TopologyUISchemas = {
+      ha: {
+        sections: {
+          resources: {
+            components: {
+              cpu: {
+                uiType: FieldType.Quantity,
+                path: 'spec.resources.cpu',
+                fieldParams: { label: 'CPU', unitLabel: 'cores', step: 0.1 },
+              },
+              memory: {
+                uiType: FieldType.Quantity,
+                path: 'spec.resources.memory',
+                fieldParams: { label: 'Memory', unit: 'Gi' },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    it('writes fractional CPU as a string, never a JSON float', () => {
+      const result = postprocessSchemaData(
+        { spec: { resources: { cpu: 0.5, memory: 10 } } },
+        { schema: quantitySchema, selectedTopology: 'ha' }
+      );
+
+      expect(result).toEqual({
+        spec: { resources: { cpu: '0.5', memory: '10Gi' } },
+      });
+      expect(typeof (result as { spec: { resources: { cpu: unknown } } }).spec
+        .resources.cpu).toBe('string');
+    });
+
+    it('keeps an untouched quantity as stored when originalData matches', () => {
+      const result = postprocessSchemaData(
+        { spec: { resources: { cpu: 0.5, memory: 10 } } },
+        {
+          schema: quantitySchema,
+          selectedTopology: 'ha',
+          originalData: {
+            spec: { resources: { cpu: '500m', memory: '10240Mi' } },
+          },
+        }
+      );
+
+      expect(result).toEqual({
+        spec: { resources: { cpu: '500m', memory: '10240Mi' } },
+      });
+    });
+
+    it('rewrites a changed quantity in the field unit', () => {
+      const result = postprocessSchemaData(
+        { spec: { resources: { cpu: 1, memory: 12 } } },
+        {
+          schema: quantitySchema,
+          selectedTopology: 'ha',
+          originalData: {
+            spec: { resources: { cpu: '500m', memory: '10240Mi' } },
+          },
+        }
+      );
+
+      expect(result).toEqual({
+        spec: { resources: { cpu: '1', memory: '12Gi' } },
+      });
+    });
+
+    it('leaves number + badgeToApi behavior unchanged', () => {
+      const schema: TopologyUISchemas = {
+        ha: {
+          sections: {
+            resources: {
+              components: {
+                disk: {
+                  uiType: FieldType.Number,
+                  path: 'spec.resources.disk',
+                  fieldParams: {
+                    label: 'Disk',
+                    badge: 'Gi',
+                    badgeToApi: true,
+                  },
+                },
+                cpu: {
+                  uiType: FieldType.Quantity,
+                  path: 'spec.resources.cpu',
+                  fieldParams: { label: 'CPU' },
+                },
+              },
+            },
+          },
+        },
+      };
+
+      const result = postprocessSchemaData(
+        { spec: { resources: { disk: 25, cpu: 0.5 } } },
+        { schema, selectedTopology: 'ha' }
+      );
+
+      expect(result).toEqual({
+        spec: { resources: { disk: '25Gi', cpu: '0.5' } },
+      });
+    });
+  });
 });
