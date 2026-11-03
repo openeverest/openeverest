@@ -47,10 +47,11 @@ test.describe.parallel('Backup Storage V2 tests', () => {
         expect(backupStorage.spec.tls).toEqual(payload.spec.tls)
       });
 
-      await test.step('credentials Secret is a plain Secret created through the secrets API', async () => {
+      await test.step('credentials Secret is labelled with its class and mode', async () => {
         const secret = await th.getSecret(request, th.backupStorageCredentialsSecretName(bsName))
         expect(secret.metadata.labels['openeverest.io/managed']).toBe('true')
-        expect(secret.metadata.labels['openeverest.io/definition']).toBeUndefined()
+        expect(secret.metadata.labels['openeverest.io/backup-storage-class']).toBe('s3')
+        expect(secret.metadata.labels['openeverest.io/definition']).toBe('AccessKey')
         expect(secret.metadata.labels['openeverest.io/provider']).toBeUndefined()
         expect(secret.data).toBeUndefined()
       });

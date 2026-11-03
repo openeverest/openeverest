@@ -60,6 +60,9 @@ func (h *k8sHandler) ListSecrets(ctx context.Context, _ string, namespace string
 	if filter.MonitoringClass != "" {
 		selector[common.OpenEverestMonitoringClassLabel] = filter.MonitoringClass
 	}
+	if filter.BackupStorageClass != "" {
+		selector[common.OpenEverestBackupStorageClassLabel] = filter.BackupStorageClass
+	}
 	if filter.Definition != "" {
 		selector[common.OpenEverestDefinitionLabel] = filter.Definition
 	}
