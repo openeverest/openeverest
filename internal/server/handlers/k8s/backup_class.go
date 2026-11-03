@@ -24,9 +24,21 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
-// ListBackupClasses returns list of backup classes.
-func (h *k8sHandler) ListBackupClasses(ctx context.Context, cluster string) (*backupv1alpha1.BackupClassList, error) {
-	return h.kubeConnector.ListBackupClasses(ctx)
+// ListBackupClasses returns the backup classes, only those that support
+// provider when it is set.
+func (h *k8sHandler) ListBackupClasses(ctx context.Context, _, provider string) (*backupv1alpha1.BackupClassList, error) {
+	list, err := h.kubeConnector.ListBackupClasses(ctx)
+	if err != nil || provider == "" {
+		return list, err
+	}
+	filtered := make([]backupv1alpha1.BackupClass, 0, len(list.Items))
+	for _, bc := range list.Items {
+		if bc.Spec.SupportedProviders.Has(provider) {
+			filtered = append(filtered, bc)
+		}
+	}
+	list.Items = filtered
+	return list, nil
 }
 
 // GetBackupClass returns backup class that matches the criteria.

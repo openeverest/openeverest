@@ -603,6 +603,18 @@ type InstanceBackupStorageStatus struct {
 	// spec.backup.storages[].storageRef.name).
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
+	// Location is the path in the storage's bucket under which the engine
+	// writes this Instance's backups.
+	// +optional
+	Location string `json:"location,omitempty"`
+	// Reason is why the entry is not configured on the engine as specified,
+	// empty when it is. An entry the engine already had keeps its last
+	// configuration meanwhile.
+	// +optional
+	Reason string `json:"reason,omitempty"`
+	// Message explains Reason.
+	// +optional
+	Message string `json:"message,omitempty"`
 	// PITR reports the point-in-time recovery window observed on this storage.
 	// Only populated when PITR is enabled for the storage.
 	// +optional
@@ -888,9 +900,35 @@ const (
 	// spec.backup.storages does not exist in the Instance's namespace.
 	ReasonBackupStorageNotFound = "BackupStorageNotFound"
 
-	// ReasonBackupStorageCredentialsNotFound indicates the credentials
-	// Secret of a BackupStorage named in spec.backup.storages does not exist.
-	ReasonBackupStorageCredentialsNotFound = "BackupStorageCredentialsNotFound"
+	// ReasonBackupStorageNotAccepted indicates a BackupStorage named in
+	// spec.backup.storages is not Accepted by its BackupStorageClass.
+	ReasonBackupStorageNotAccepted = "BackupStorageNotAccepted"
+
+	// ReasonBackupStorageIncompatible indicates the Instance's BackupClass
+	// cannot write to a BackupStorage named in spec.backup.storages.
+	ReasonBackupStorageIncompatible = "BackupStorageIncompatible"
+
+	// ReasonBackupStorageLocationChanged indicates the path a storage entry
+	// renders to differs from the one recorded in status.backup.storages,
+	// for example because the BackupStorage was recreated elsewhere.
+	ReasonBackupStorageLocationChanged = "BackupStorageLocationChanged"
+
+	// ReasonUnsupportedParameter indicates a BackupStorage sets a parameter
+	// the provider does not know or cannot honour.
+	ReasonUnsupportedParameter = "UnsupportedParameter"
+
+	// ReasonImplementationUnsupported indicates the engine does not support
+	// the implementation a BackupStorage names.
+	ReasonImplementationUnsupported = "ImplementationUnsupported"
+
+	// ReasonTLSOptionUnsupported indicates the engine cannot honour the TLS
+	// settings of a BackupStorage.
+	ReasonTLSOptionUnsupported = "TLSOptionUnsupported"
+
+	// ReasonBackupStoragesUnusable indicates more than one entry of
+	// spec.backup.storages is not configured; status.backup.storages names
+	// each entry's reason.
+	ReasonBackupStoragesUnusable = "BackupStoragesUnusable"
 )
 
 // Reasons for the MonitoringConfigured condition.

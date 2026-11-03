@@ -110,9 +110,11 @@ const (
 	OpenEverestProviderLabel = "openeverest.io/provider"
 	// OpenEverestMonitoringClassLabel identifies the MonitoringClass that defines a Secret.
 	OpenEverestMonitoringClassLabel = "openeverest.io/monitoring-class"
+	// OpenEverestBackupStorageClassLabel identifies the BackupStorageClass that defines a Secret.
+	OpenEverestBackupStorageClassLabel = "openeverest.io/backup-storage-class"
 	// OpenEverestDefinitionLabel names the definition a Secret or ConfigMap follows within its
 	// source: a key of Provider.spec.secrets or Provider.spec.configMaps, or an authentication
-	// mode of a MonitoringClass.
+	// mode of a MonitoringClass or BackupStorageClass.
 	OpenEverestDefinitionLabel = "openeverest.io/definition"
 	// OpenEverestCABundleDefinition is the definition of a CA bundle Secret, the one definition
 	// core owns: the Secret carries no source label, and every key holds PEM CA certificates.

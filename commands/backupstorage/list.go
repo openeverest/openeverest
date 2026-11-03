@@ -36,17 +36,25 @@ var (
 		Short:   "List backup storages",
 		Long: `List BackupStorage resources via the Everest API.
 
-Displays a table with NAME, NAMESPACE, TYPE, and AGE. Type-specific details
-(e.g. S3 bucket, region, endpoint) remain available via --json / --verbose.
-Credentials are never included in the output.`,
+Displays a table with NAME, NAMESPACE, CLASS (the BackupStorageClass),
+BUCKET (bucket/prefix), AUTH (the authentication mode), ACCEPTED (whether
+the storage is valid for its class) and AGE. Parameters, TLS settings and
+the reason a storage is not accepted remain available via --json /
+--verbose. Credentials are never included in the output.
+
+--backup-class keeps only the storages that BackupClass can write to, and
+--class only those of that BackupStorageClass.`,
 		Example: `  # List backup storages in a namespace
   everestctl backup-storage list --namespace everest
 
   # List across all namespaces
   everestctl bs ls --all-namespaces
 
-  # JSON output — inspect S3 details
-  everestctl backup-storage list --namespace everest --json | jq '.[].spec.s3'
+  # Only the storages the pbm backup class can write to
+  everestctl backup-storage list --namespace everest --backup-class pbm
+
+  # JSON output — inspect connection parameters and conditions
+  everestctl backup-storage list --namespace everest --json | jq '.[] | {name: .metadata.name, parameters: .spec.parameters, conditions: .status.conditions}'
 
   # Specific cluster and context
   everestctl backup-storage list --namespace everest --cluster staging --context staging-ctx`,
@@ -60,6 +68,8 @@ Credentials are never included in the output.`,
 func init() {
 	listCmd.Flags().StringVarP(&listOpts.Namespace, cli.FlagBackupStorageNamespace, "n", "", "Namespace to list backup storages from")
 	listCmd.Flags().BoolVarP(&listOpts.AllNamespaces, cli.FlagBackupStorageAllNamespaces, "A", false, "List backup storages across all namespaces")
+	listCmd.Flags().StringVar(&listOpts.BackupClass, cli.FlagBackupStorageBackupClass, "", "Only list the backup storages this BackupClass can write to")
+	listCmd.Flags().StringVar(&listOpts.Class, cli.FlagBackupStorageClass, "", "Only list the backup storages of this BackupStorageClass")
 	listCmd.Flags().StringVar(&listOpts.Cluster, cli.FlagBackupStorageCluster, "main", "Cluster name")
 	listCmd.Flags().StringVar(&listOpts.Context, cli.FlagBackupStorageContext, "", "Context to use (default: current context)")
 

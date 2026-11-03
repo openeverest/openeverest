@@ -50,14 +50,17 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 		Status: &struct {
 			Backup *struct {
 				Storages *[]struct {
-					Name string `json:"name"`
-					Pitr *struct {
+					Location *string `json:"location,omitempty"`
+					Message  *string `json:"message,omitempty"`
+					Name     string  `json:"name"`
+					Pitr     *struct {
 						EarliestRestorableTime *time.Time                                    `json:"earliestRestorableTime,omitempty"`
 						LatestRestorableTime   *time.Time                                    `json:"latestRestorableTime,omitempty"`
 						Message                *string                                       `json:"message,omitempty"`
 						Reason                 *string                                       `json:"reason,omitempty"`
 						State                  *client.InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
 					} `json:"pitr,omitempty"`
+					Reason *string `json:"reason,omitempty"`
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
@@ -269,14 +272,17 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 		Status: &struct {
 			Backup *struct {
 				Storages *[]struct {
-					Name string `json:"name"`
-					Pitr *struct {
+					Location *string `json:"location,omitempty"`
+					Message  *string `json:"message,omitempty"`
+					Name     string  `json:"name"`
+					Pitr     *struct {
 						EarliestRestorableTime *time.Time                                    `json:"earliestRestorableTime,omitempty"`
 						LatestRestorableTime   *time.Time                                    `json:"latestRestorableTime,omitempty"`
 						Message                *string                                       `json:"message,omitempty"`
 						Reason                 *string                                       `json:"reason,omitempty"`
 						State                  *client.InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
 					} `json:"pitr,omitempty"`
+					Reason *string `json:"reason,omitempty"`
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {
@@ -381,14 +387,17 @@ func minimalInst() *client.Instance {
 		Status: &struct {
 			Backup *struct {
 				Storages *[]struct {
-					Name string `json:"name"`
-					Pitr *struct {
+					Location *string `json:"location,omitempty"`
+					Message  *string `json:"message,omitempty"`
+					Name     string  `json:"name"`
+					Pitr     *struct {
 						EarliestRestorableTime *time.Time                                    `json:"earliestRestorableTime,omitempty"`
 						LatestRestorableTime   *time.Time                                    `json:"latestRestorableTime,omitempty"`
 						Message                *string                                       `json:"message,omitempty"`
 						Reason                 *string                                       `json:"reason,omitempty"`
 						State                  *client.InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
 					} `json:"pitr,omitempty"`
+					Reason *string `json:"reason,omitempty"`
 				} `json:"storages,omitempty"`
 			} `json:"backup,omitempty"`
 			Components *[]struct {

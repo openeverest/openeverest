@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
@@ -96,6 +97,22 @@ func TestCreateSecret_Validation(t *testing.T) {
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, corev1alpha1.AddToScheme(scheme))
 	require.NoError(t, monitoringv1alpha1.AddToScheme(scheme))
+	require.NoError(t, backupv1alpha1.AddToScheme(scheme))
+
+	// BackupStorageClass whose mode needs an access key pair.
+	storageClass := &backupv1alpha1.BackupStorageClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "s3"},
+		Spec: backupv1alpha1.BackupStorageClassSpec{
+			AuthModes: []commonv1alpha1.AuthMode{{
+				Name:        "AccessKey",
+				Credentials: &commonv1alpha1.CredentialKeys{Required: []string{"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"}},
+			}},
+		},
+	}
+	storageClassLabels := map[string]string{
+		common.OpenEverestBackupStorageClassLabel: "s3",
+		common.OpenEverestDefinitionLabel:         "AccessKey",
+	}
 
 	providerLabels := map[string]string{
 		common.OpenEverestDefinitionLabel: "database-credentials",
@@ -129,6 +146,21 @@ func TestCreateSecret_Validation(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: "monitoring-destination-pmm-prod-eu-west-credentials", Labels: classLabels},
 				StringData: map[string]string{"token": "glsa_token"},
 			},
+		},
+		{
+			name: "backup storage credentials are created",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "backup-storage-prod-credentials", Labels: storageClassLabels},
+				StringData: map[string]string{"AWS_ACCESS_KEY_ID": "AKIA", "AWS_SECRET_ACCESS_KEY": "shh"},
+			},
+		},
+		{
+			name: "backup storage credentials missing a key fail",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "backup-storage-prod-credentials", Labels: storageClassLabels},
+				StringData: map[string]string{"AWS_ACCESS_KEY_ID": "AKIA"},
+			},
+			err: `missing key "AWS_SECRET_ACCESS_KEY" required by authentication mode "AccessKey"`,
 		},
 		{
 			name: "missing provider label fails",
@@ -244,7 +276,7 @@ func TestCreateSecret_Validation(t *testing.T) {
 
 			// Use DeepCopy to avoid race conditions since the fake client
 			// modifies the objects' ResourceVersion during Build().
-			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(provider.DeepCopy(), class.DeepCopy()).Build()
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(provider.DeepCopy(), class.DeepCopy(), storageClass.DeepCopy()).Build()
 			kubeConnector := kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).WithKubernetesClient(fakeClient)
 
 			// Create mock next handler.

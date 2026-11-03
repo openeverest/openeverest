@@ -234,28 +234,65 @@ export const deleteDBClusterRaw = async (request, name) => {
 
 const CLUSTER_NAME = 'main'
 
+export const backupStorageCredentialsSecretName = (bsName: string) => `backup-storage-${bsName}-credentials`
+
+// The credentials of the s3 class's AccessKey mode, labelled so that the Secrets API checks them against it.
+export const getBackupStorageCredentialsPayload = (secretName: string) => {
+  return {
+    apiVersion: 'v1',
+    kind: 'Secret',
+    metadata: {
+      name: secretName,
+      labels: {
+        'openeverest.io/backup-storage-class': 's3',
+        'openeverest.io/definition': 'AccessKey',
+      },
+    },
+    type: 'Opaque',
+    stringData: {
+      AWS_ACCESS_KEY_ID: 'seaweedfsadmin',
+      AWS_SECRET_ACCESS_KEY: 'seaweedfsadmin',
+    },
+  }
+}
+
+export const createBackupStorageCredentials = async (request, secretName: string) => {
+  return await createSecretWithData(request, getBackupStorageCredentialsPayload(secretName))
+}
+
 export const getBackupStoragePayload = (bsName: string) => {
   return {
     metadata: {
       name: bsName,
     },
     spec: {
-      type: 's3',
-      s3: {
-        bucket: 'bucket-4',
+      backupStorageClassRef: {name: 's3'},
+      location: {
+        objectStore: {
+          bucket: 'bucket-4',
+          prefix: 'api-tests',
+        },
+      },
+      parameters: {
         region: 'us-east-1',
         endpointURL: 'https://seaweedfs.seaweedfs.svc',
-        credentialsSecretRef: { name: `${bsName}-creds` },
-        accessKeyId: 'seaweedfsadmin',
-        secretAccessKey: 'seaweedfsadmin',
         forcePathStyle: true,
-        verifyTLS: false,
+        implementation: 'other',
+      },
+      authentication: {
+        mode: 'AccessKey',
+        credentialsSecretRef: {name: backupStorageCredentialsSecretName(bsName)},
+      },
+      tls: {
+        insecureSkipVerify: true,
       },
     },
   }
 }
 
+// Creates the credentials Secret the payload references through the secrets API, then the backup storage.
 export const generateBackupStorage = async (request, data) => {
+  await createBackupStorageCredentials(request, data.spec.authentication.credentialsSecretRef.name)
   const response = await createBackupStorageRaw(request, data)
   await checkError(response)
   return (await response.json())
@@ -275,14 +312,14 @@ export const getBackupStorageRaw = async (request, name) => {
   return await request.get(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`)
 }
 
-export const listBackupStorages = async (request) => {
-  const response = await listBackupStoragesRaw(request)
+export const listBackupStorages = async (request, params: {backupClass?: string, backupStorageClass?: string} = {}) => {
+  const response = await listBackupStoragesRaw(request, params)
   await checkError(response)
   return (await response.json())
 }
 
-export const listBackupStoragesRaw = async (request) => {
-  return await request.get(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages`)
+export const listBackupStoragesRaw = async (request, params: {backupClass?: string, backupStorageClass?: string} = {}) => {
+  return await request.get(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages`, {params: params})
 }
 
 export const updateBackupStorage = async (request, name, data) => {
@@ -318,10 +355,33 @@ export const deleteBackupStorage = async (request, name) => {
     intervals: [1000],
     timeout: 60 * 1000,
   })
+  await deleteSecret(request, backupStorageCredentialsSecretName(name))
 }
 
 export const deleteBackupStorageRaw = async (request, name) => {
   return await request.delete(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`)
+}
+
+// --------------------- Backup Storage Class helpers -----------------------------------
+
+export const listBackupStorageClasses = async (request) => {
+  const response = await listBackupStorageClassesRaw(request)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const listBackupStorageClassesRaw = async (request) => {
+  return await request.get(`/v1/clusters/${CLUSTER_NAME}/backup-storage-classes`)
+}
+
+export const getBackupStorageClass = async (request, name) => {
+  const response = await getBackupStorageClassRaw(request, name)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const getBackupStorageClassRaw = async (request, name) => {
+  return await request.get(`/v1/clusters/${CLUSTER_NAME}/backup-storage-classes/${name}`)
 }
 
 // --------------------- Backup Import helpers ------------------------------------------
@@ -553,6 +613,12 @@ export const listSecretsByMonitoringClass = async (request, monitoringClass: str
 
 export const listSecretsByDefinition = async (request, definition: string) => {
   const response = await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets?definition=${definition}`)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const listSecretsByBackupStorageClass = async (request, backupStorageClass: string, definition: string) => {
+  const response = await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets?backupStorageClass=${backupStorageClass}&definition=${definition}`)
   await checkError(response)
   return (await response.json())
 }

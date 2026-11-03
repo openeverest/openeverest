@@ -1411,12 +1411,19 @@ paths:
       summary: List backup classes
       description: |
         This API lists all backup classes in the specified cluster.
+        Optionally filter by provider: only the classes whose `spec.supportedProviders` lists that provider are returned.
       operationId: listBackupClasses
       parameters:
         - name: cluster
           in: path
           required: true
           description: The name of the cluster
+          schema:
+            type: string
+        - name: provider
+          in: query
+          required: false
+          description: Return only the backup classes that support the provider with this name
           schema:
             type: string
       responses:
@@ -2098,6 +2105,83 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/backup-storage-classes':
+    x-everest-resource-name: backup-storage-classes
+    get:
+      tags:
+        - Backup Storage
+      summary: List backup storage classes
+      description: |
+        This API lists the backup storage classes, the object storage technologies a backup storage can use, in the specified cluster.
+        Backup storage classes are installed with OpenEverest or an extension and are read-only over this API.
+      operationId: listBackupStorageClasses
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of backup storage classes
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupStorageClassList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/backup-storage-classes/{name}':
+    x-everest-resource-name: backup-storage-classes
+    get:
+      tags:
+        - Backup Storage
+      summary: Get backup storage class
+      description: |
+        This API gets the backup storage class specified by the `name` in the specified `cluster`.
+      operationId: getBackupStorageClass
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the backup storage class
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Backup storage class details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupStorageClass'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Backup storage class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/namespaces/{namespace}/backup-storages':
     x-everest-resource-name: backup-storages
     post:
@@ -2106,6 +2190,7 @@ paths:
       summary: Create backup storage
       description: |
         This API creates a new backup storage in the specified namespace and cluster.
+        Credentials are never part of the payload: create the Secret through the secrets API, labelled `openeverest.io/backup-storage-class: <class>` and `openeverest.io/definition: <mode>`, and reference it in `spec.authentication.credentialsSecretRef`. A CA bundle created through the secrets API is labelled `openeverest.io/definition: ca-bundle` and referenced in `spec.tls.ca.secretKeyRef`.
       operationId: createBackupStorage
       parameters:
         - name: cluster
@@ -2176,6 +2261,7 @@ paths:
       summary: List backup storages
       description: |
         This API lists all backup storages in the specified namespace and cluster.
+        Optionally filter by the backup class that can write to them, or by their backup storage class.
       operationId: listBackupStorages
       parameters:
         - name: cluster
@@ -2188,6 +2274,18 @@ paths:
           in: path
           required: true
           description: The namespace of the backup storages
+          schema:
+            type: string
+        - name: backupClass
+          in: query
+          required: false
+          description: Return only the backup storages this backup class can write to, per its `spec.backupStorageClasses`
+          schema:
+            type: string
+        - name: backupStorageClass
+          in: query
+          required: false
+          description: Return only the backup storages of this backup storage class
           schema:
             type: string
       responses:
@@ -3448,6 +3546,7 @@ paths:
         |---|---|---|
         | `openeverest.io/provider: <provider>` | a key of the Provider's `spec.secrets` | the definition's `type` and `parametersSchema` |
         | `openeverest.io/monitoring-class: <class>` | an authentication mode of the MonitoringClass, e.g. `ServiceAccountToken` | type `Opaque` and the keys the mode requires |
+        | `openeverest.io/backup-storage-class: <class>` | an authentication mode of the BackupStorageClass, e.g. `AccessKey` | type `Opaque` and the keys the mode requires |
         | none | `ca-bundle`, the one definition core owns | type `Opaque`; every key holds PEM CA certificates and no other PEM block |
 
         A CA bundle is trust material, not a credential of any provider or class, so one bundle can be referenced from `spec.tls.ca.secretKeyRef` by any kind; list them with `?definition=ca-bundle`.
@@ -3543,6 +3642,12 @@ paths:
           in: query
           required: false
           description: Filter secrets by the MonitoringClass that defines them (`openeverest.io/monitoring-class`)
+          schema:
+            type: string
+        - name: backupStorageClass
+          in: query
+          required: false
+          description: Filter secrets by the BackupStorageClass that defines them (`openeverest.io/backup-storage-class`)
           schema:
             type: string
         - name: definition

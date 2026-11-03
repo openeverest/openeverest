@@ -25,8 +25,8 @@ import (
 )
 
 // ListBackupClasses returns backup classes filtered by RBAC permissions.
-func (h *rbacHandler) ListBackupClasses(ctx context.Context, cluster string) (*backupv1alpha1.BackupClassList, error) {
-	list, err := h.next.ListBackupClasses(ctx, cluster)
+func (h *rbacHandler) ListBackupClasses(ctx context.Context, cluster, provider string) (*backupv1alpha1.BackupClassList, error) {
+	list, err := h.next.ListBackupClasses(ctx, cluster, provider)
 	if err != nil {
 		return nil, fmt.Errorf("ListBackupClasses failed: %w", err)
 	}
