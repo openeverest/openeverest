@@ -52,7 +52,15 @@ func newBackupStorageTestContext(t *testing.T, objs ...client.Object) *Context {
 			},
 		},
 	}
-	cl := fake.NewClientBuilder().WithScheme(s).WithObjects(append(objs, in)...).Build()
+	// Copies, since parallel subtests share objects and Build writes their
+	// resourceVersion.
+	copies := make([]client.Object, 0, len(objs)+1)
+	for _, obj := range objs {
+		copied, ok := obj.DeepCopyObject().(client.Object)
+		require.True(t, ok)
+		copies = append(copies, copied)
+	}
+	cl := fake.NewClientBuilder().WithScheme(s).WithObjects(append(copies, in)...).Build()
 	return NewContext(context.Background(), cl, in, "test-provider")
 }
 
