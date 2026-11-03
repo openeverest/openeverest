@@ -52,8 +52,7 @@ export const readQuantity = (
     return undefined;
   }
 
-  const targetUnit =
-    unit && isKubernetesMemoryUnit(unit) ? unit : undefined;
+  const targetUnit = unit && isKubernetesMemoryUnit(unit) ? unit : undefined;
 
   if (typeof raw === 'number') {
     if (!Number.isFinite(raw)) {
@@ -82,11 +81,7 @@ export const readQuantity = (
   if (memoryMatch?.groups) {
     const amount = parseFloat(memoryMatch.groups.amount);
     const suffix = memoryMatch.groups.suffix;
-    if (
-      Number.isFinite(amount) &&
-      suffix &&
-      isKubernetesMemoryUnit(suffix)
-    ) {
+    if (Number.isFinite(amount) && suffix && isKubernetesMemoryUnit(suffix)) {
       return convertMemoryUnitToBytes(amount, suffix);
     }
   }

@@ -16,11 +16,7 @@ import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { TestWrapper } from 'utils/test';
 import { UIGenerator } from '../ui-generator';
-import {
-  Component,
-  FieldType,
-  TopologyUISchemas,
-} from '../ui-generator.types';
+import { Component, FieldType, TopologyUISchemas } from '../ui-generator.types';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { buildZodSchema } from '../utils/schema-builder';
 import { getDefaultValues } from '../utils/default-values';

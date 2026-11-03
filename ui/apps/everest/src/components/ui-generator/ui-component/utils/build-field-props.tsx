@@ -103,10 +103,7 @@ const buildTextFieldProps = (
     ...(isDisabled ? { disabled: true } : {}),
   };
 
-  if (
-    badge &&
-    (uiType === FieldType.Number || uiType === FieldType.Quantity)
-  ) {
+  if (badge && (uiType === FieldType.Number || uiType === FieldType.Quantity)) {
     return {
       ...base,
       InputProps: {

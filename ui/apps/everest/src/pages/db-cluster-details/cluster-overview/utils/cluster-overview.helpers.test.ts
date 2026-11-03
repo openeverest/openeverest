@@ -111,11 +111,9 @@ describe('collectSectionFields', () => {
 
   it('renders quantity fields with unitLabel / unit (not raw milli values)', () => {
     const quantityComponents: Record<string, Component | ComponentGroup> = {
-      cpu: quantityField(
-        'spec.components.engine.resources.limits.cpu',
-        'CPU',
-        { unitLabel: 'cores' }
-      ),
+      cpu: quantityField('spec.components.engine.resources.limits.cpu', 'CPU', {
+        unitLabel: 'cores',
+      }),
       memory: quantityField(
         'spec.components.engine.resources.limits.memory',
         'Memory',

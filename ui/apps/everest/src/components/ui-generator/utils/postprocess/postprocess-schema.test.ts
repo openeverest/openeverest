@@ -316,8 +316,10 @@ describe('postprocessSchemaData', () => {
       expect(result).toEqual({
         spec: { resources: { cpu: '0.5', memory: '10Gi' } },
       });
-      expect(typeof (result as { spec: { resources: { cpu: unknown } } }).spec
-        .resources.cpu).toBe('string');
+      expect(
+        typeof (result as { spec: { resources: { cpu: unknown } } }).spec
+          .resources.cpu
+      ).toBe('string');
     });
 
     it('keeps an untouched quantity as stored when originalData matches', () => {
