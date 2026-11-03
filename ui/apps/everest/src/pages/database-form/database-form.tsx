@@ -292,7 +292,6 @@ export const DatabasePage = () => {
   const presetSelection = usePresetSelection(
     clusterName,
     typeof selectedProvider === 'string' ? selectedProvider : undefined,
-    selectedNamespace || namespaces[0],
     typeof selectedPreset === 'string' ? selectedPreset : ''
   );
 
@@ -305,10 +304,9 @@ export const DatabasePage = () => {
     defaultTopology,
     selectedTopology,
     preset: {
-      resolvedPreset: presetSelection.resolvedPreset,
+      selectedPreset: presetSelection.selectedPreset,
       presetName: presetSelection.presetName,
       presetSelected: presetSelection.presetSelected,
-      namespace: selectedNamespace || namespaces[0],
     },
     reset,
     getValues,
@@ -428,16 +426,16 @@ export const DatabasePage = () => {
   );
 
   const onSubmit: SubmitHandler<DbWizardType> = (data) => {
-    // Preset mode: create straight from the resolved preset spec (one-click),
+    // Preset mode: create straight from the selected preset spec (one-click),
     // bypassing the wizard's field-by-field spec build. Never fall through to a
-    // manual create while a preset is picked but not yet resolved.
+    // manual create while a preset is picked but its spec is not yet loaded.
     if (mode === FormMode.New && presetSelection.presetSelected) {
-      if (!presetSelection.resolvedPreset) {
+      if (!presetSelection.selectedPreset) {
         return;
       }
       createInstance(
         buildPresetCreateArgs({
-          resolvedPreset: presetSelection.resolvedPreset,
+          selectedPreset: presetSelection.selectedPreset,
           provider:
             typeof selectedProvider === 'string' ? selectedProvider : '',
           dbName: data.dbName,
@@ -568,9 +566,12 @@ export const DatabasePage = () => {
       <Stack direction={isDesktop ? 'row' : 'column'}>
         <FormProvider {...methods}>
           <PresetSelectionContext.Provider value={presetSelection}>
+            {/* A selected preset owns the values: its spec is sent verbatim, so
+                auto-selected options would only mislead the preview. */}
             <DataSourcePrefetcher
               sections={engine.sections}
               namespace={selectedNamespace || namespaces[0]}
+              autoSelect={!presetSelection.presetSelected}
             />
             {/* Restore fixes the namespace, and a selected preset owns the values. */}
             {mode === FormMode.New && !presetSelection.presetSelected && (

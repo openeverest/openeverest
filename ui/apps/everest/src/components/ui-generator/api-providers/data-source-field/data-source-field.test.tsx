@@ -12,14 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { DataSourceField } from './data-source-field';
 import type { ComponentWithDataSource } from './data-source-field.types';
-import { FieldType } from '../../ui-generator.types';
+import { Messages } from './data-source-field.messages';
+import type { EmptyStateFallbackProps } from '../types';
+import {
+  isSelectComponent,
+  resolveSelectOptions,
+} from '../../ui-component/utils/select-component-handler';
+import { type Component, FieldType, FormMode } from '../../ui-generator.types';
 
 const mockUseProviderOptions = vi.fn();
 const mockRegistryGet = vi.fn();
+
+const CREATE_CONTEXT = { namespace: 'ns' };
+const EDIT_CONTEXT = { namespace: 'ns', formMode: FormMode.Edit };
+let mockContext: typeof CREATE_CONTEXT | typeof EDIT_CONTEXT = CREATE_CONTEXT;
 
 vi.mock('../registry', () => ({
   useProviderOptions: (...args: unknown[]) => mockUseProviderOptions(...args),
@@ -32,21 +48,157 @@ vi.mock('../registry', () => ({
 }));
 
 vi.mock('../../ui-generator-context', () => ({
-  useUiGeneratorContext: () => ({ namespace: 'ns' }),
+  useUiGeneratorContext: () => mockContext,
 }));
 
 vi.mock('hooks/api/useClusterName', () => ({
   useClusterName: () => 'main',
 }));
 
-const makeItem = (): ComponentWithDataSource => ({
+const makeItem = (
+  fieldParams: { label: string; disabled?: boolean } = {
+    label: 'Storage class',
+  }
+): ComponentWithDataSource => ({
   uiType: FieldType.Select,
   path: 'spec.storageClass',
-  fieldParams: { label: 'Storage class' },
+  fieldParams,
   dataSource: { provider: 'storageClasses' },
 });
 
 describe('DataSourceField', () => {
+  afterEach(() => {
+    mockContext = CREATE_CONTEXT;
+  });
+
+  const renderWithValue = (
+    storedValue: string,
+    item: ComponentWithDataSource = makeItem()
+  ) => {
+    mockUseProviderOptions.mockReturnValue({
+      options: [{ label: 'standard', value: 'standard' }],
+      isLoading: false,
+      error: null,
+      isEmpty: false,
+    });
+
+    let getValues: (name: string) => unknown = () => undefined;
+
+    const Harness = () => {
+      const methods = useForm({
+        defaultValues: { spec: { storageClass: storedValue } },
+      });
+      getValues = methods.getValues;
+      return (
+        <FormProvider {...methods}>
+          <DataSourceField item={item} name="spec.storageClass">
+            {() => <div />}
+          </DataSourceField>
+        </FormProvider>
+      );
+    };
+
+    render(<Harness />);
+    return () => getValues('spec.storageClass');
+  };
+
+  it('auto-selects a disabled field outside edit mode', async () => {
+    const readValue = renderWithValue(
+      '',
+      makeItem({ label: 'Storage class', disabled: true })
+    );
+
+    await waitFor(() => expect(readValue()).toBe('standard'));
+  });
+
+  describe('stored value missing from the options', () => {
+    const LOADED_OPTIONS = {
+      options: [{ label: 'standard', value: 'standard' }],
+      isLoading: false,
+      error: null,
+      isEmpty: false,
+    };
+
+    const renderOptionLabels = (patched: Component) =>
+      isSelectComponent(patched) ? (
+        <>
+          <ul>
+            {resolveSelectOptions(patched.fieldParams).map((option) => (
+              <li key={option.value}>{option.label}</li>
+            ))}
+          </ul>
+          <p data-testid="helper-text">{patched.fieldParams.helperText}</p>
+        </>
+      ) : null;
+
+    const renderStoredValue = (providerOptions: typeof LOADED_OPTIONS) => {
+      mockUseProviderOptions.mockReturnValue(providerOptions);
+      let setFormValue: (value: string) => void = () => {};
+
+      const Harness = () => {
+        const methods = useForm({
+          defaultValues: { spec: { storageClass: 'deleted-class' } },
+        });
+        setFormValue = (value) => methods.setValue('spec.storageClass', value);
+        return (
+          <FormProvider {...methods}>
+            <DataSourceField item={makeItem()} name="spec.storageClass">
+              {renderOptionLabels}
+            </DataSourceField>
+          </FormProvider>
+        );
+      };
+
+      const { rerender } = render(<Harness />);
+      return {
+        pickAndRerender: (value: string) => {
+          act(() => setFormValue(value));
+          rerender(<Harness />);
+        },
+      };
+    };
+
+    const optionLabels = () =>
+      screen.getAllByRole('listitem').map((item) => item.textContent);
+
+    it('lists it as-is in edit mode while the options are loading', () => {
+      mockContext = EDIT_CONTEXT;
+      renderStoredValue({ ...LOADED_OPTIONS, options: [], isLoading: true });
+
+      expect(optionLabels()).toEqual(['deleted-class']);
+    });
+
+    it('keeps listing it after the user picks another option, so the pick can be undone', () => {
+      mockContext = EDIT_CONTEXT;
+      const { pickAndRerender } = renderStoredValue(LOADED_OPTIONS);
+
+      pickAndRerender('standard');
+
+      expect(optionLabels()).toEqual([
+        'standard',
+        Messages.unavailableOption('deleted-class'),
+      ]);
+    });
+
+    it('explains the stored value until the user picks another option', () => {
+      mockContext = EDIT_CONTEXT;
+      const { pickAndRerender } = renderStoredValue(LOADED_OPTIONS);
+      const helperText = screen.getByTestId('helper-text');
+
+      expect(helperText).toHaveTextContent(Messages.unavailableValueHint);
+
+      pickAndRerender('standard');
+
+      expect(helperText).toBeEmptyDOMElement();
+    });
+
+    it('does not list it outside edit mode', () => {
+      renderStoredValue(LOADED_OPTIONS);
+
+      expect(optionLabels()).toEqual(['standard']);
+    });
+  });
+
   it('sets form value to first option when options arrive and field is empty', async () => {
     mockUseProviderOptions.mockReturnValue({
       options: [
@@ -307,6 +459,62 @@ describe('DataSourceField', () => {
 
       expect(screen.queryByTestId('fallback')).not.toBeInTheDocument();
       expect(screen.getByTestId('child')).toBeInTheDocument();
+    });
+
+    it('selects the resource created from the fallback in edit mode', () => {
+      mockContext = EDIT_CONTEXT;
+      mockUseProviderOptions.mockReturnValue({
+        options: [],
+        isLoading: false,
+        error: null,
+        isEmpty: true,
+      });
+      const CreatingFallback = ({ onCreated }: EmptyStateFallbackProps) => (
+        <button type="button" onClick={() => onCreated?.('pmm')}>
+          create
+        </button>
+      );
+      mockRegistryGet.mockReturnValue({
+        emptyStateFallback: { component: CreatingFallback },
+      });
+      const monitoringPath =
+        'spec.components.monitoring.parameters.monitoringConfigName';
+      const monitoringItem: ComponentWithDataSource = {
+        uiType: FieldType.Select,
+        path: monitoringPath,
+        fieldParams: { label: 'Monitoring endpoint' },
+        dataSource: { provider: 'monitoringConfigs' },
+      };
+
+      let getValues: (name: string) => unknown = () => undefined;
+      let isDirty = false;
+
+      const Harness = () => {
+        const methods = useForm({
+          defaultValues: {
+            spec: {
+              components: {
+                monitoring: { parameters: { monitoringConfigName: '' } },
+              },
+            },
+          },
+        });
+        getValues = methods.getValues;
+        isDirty = methods.formState.isDirty;
+        return (
+          <FormProvider {...methods}>
+            <DataSourceField item={monitoringItem} name={monitoringPath}>
+              {() => <div />}
+            </DataSourceField>
+          </FormProvider>
+        );
+      };
+
+      render(<Harness />);
+      fireEvent.click(screen.getByRole('button', { name: 'create' }));
+
+      expect(getValues(monitoringPath)).toBe('pmm');
+      expect(isDirty).toBe(true);
     });
 
     it('does not render fallback when options are present', () => {

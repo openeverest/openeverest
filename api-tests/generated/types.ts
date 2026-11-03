@@ -309,29 +309,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/clusters/{cluster}/cluster-instance-presets/{name}/resolve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Resolve cluster instance preset with namespace defaults and default StorageClass of the cluster
-         * @description This API resolves the cluster instance preset specified by the `name` in the specified `cluster`.
-         *     This endpoint is useful when creating instances from cluster instance presets, as it provides a
-         *     fully-populated preset with all namespace defaults, and default StorageClass of the cluster
-         *     if it has empty StorageClass.
-         */
-        get: operations["resolveClusterInstancePreset"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/clusters/{cluster}/namespaces/{namespace}/instance-presets": {
         parameters: {
             query?: never;
@@ -955,7 +932,7 @@ export interface paths {
          * Create monitoring destination
          * @description This API creates a new monitoring destination in the specified namespace and cluster.
          *     Only `metadata.name`, `metadata.generateName`, `metadata.labels`, `metadata.annotations` and `spec` are taken from the request; the namespace is the one in the path.
-         *     Credentials are never part of the payload: create the Secret through the secrets API and reference it in `spec.authentication.credentialsSecretRef`, together with the `spec.authentication.mode` of the monitoring class it holds the keys of. A CA bundle is referenced the same way in `spec.tls.ca.secretKeyRef`. Referencing a Secret requires `read` on it.
+         *     Credentials are never part of the payload: create the Secret through the secrets API, labelled `openeverest.io/monitoring-class: <class>` and `openeverest.io/definition: <mode>`, and reference it in `spec.authentication.credentialsSecretRef`, together with the `spec.authentication.mode` of the monitoring class it holds the keys of. A CA bundle is referenced in `spec.tls.ca.secretKeyRef`. Referencing a Secret requires `read` on it.
          *     `spec.classRef` requires `read` on the monitoring class it names.
          */
         post: operations["createMonitoringDestination"];
@@ -1100,7 +1077,7 @@ export interface paths {
          * List secrets
          * @description This API lists OpenEverest-managed Secrets in the specified namespace and cluster.
          *     Only metadata is returned; secret data is never included.
-         *     Optionally filter by provider and definition.
+         *     Optionally filter by the labels that name the Secret's definition.
          */
         get: operations["listSecrets"];
         put?: never;
@@ -1108,6 +1085,15 @@ export interface paths {
          * Create secret
          * @description This API creates a new Secret in the specified namespace and cluster.
          *     The Secret is labeled as managed by OpenEverest.
+         *
+         *     The Secret names the object that defines its shape with exactly one source label, and the definition within that source with `openeverest.io/definition`:
+         *
+         *     | Source label | `openeverest.io/definition` | Checked against |
+         *     |---|---|---|
+         *     | `openeverest.io/provider: <provider>` | a key of the Provider's `spec.secrets` | the definition's `type` and `parametersSchema` |
+         *     | `openeverest.io/monitoring-class: <class>` | an authentication mode of the MonitoringClass, e.g. `ServiceAccountToken` | type `Opaque` and the keys the mode requires |
+         *
+         *     The name follows the Kubernetes rules for Secret names. Client-supplied owner references and finalizers are dropped. Secrets of type `kubernetes.io/service-account-token` or `bootstrap.kubernetes.io/token` are refused.
          */
         post: operations["createSecret"];
         delete?: never;
@@ -8307,61 +8293,6 @@ export interface operations {
             };
         };
     };
-    resolveClusterInstancePreset: {
-        parameters: {
-            query: {
-                /** @description The namespace for which to resolve default values */
-                namespace: string;
-            };
-            header?: never;
-            path: {
-                /** @description The name of the cluster */
-                cluster: string;
-                /** @description The name of the cluster instance preset */
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Resolved cluster instance preset with namespace defaults */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClusterInstancePreset"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Cluster instance preset not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     listInstancePresets: {
         parameters: {
             query?: {
@@ -11505,9 +11436,11 @@ export interface operations {
     listSecrets: {
         parameters: {
             query?: {
-                /** @description Filter secrets by provider name */
+                /** @description Filter secrets by the provider that defines them (`openeverest.io/provider`) */
                 provider?: string;
-                /** @description Filter secrets by definition */
+                /** @description Filter secrets by the MonitoringClass that defines them (`openeverest.io/monitoring-class`) */
+                monitoringClass?: string;
+                /** @description Filter secrets by definition (`openeverest.io/definition`) */
                 definition?: string;
             };
             header?: never;

@@ -275,13 +275,11 @@ func (h *rbacHandler) ensureMatchesInstancePreset(ctx context.Context, cluster s
 // ensureMatchesClusterInstancePreset checks if an instance spec matches its referenced cluster instance preset.
 // Returns an error if the instance has been customized beyond the preset values.
 func (h *rbacHandler) ensureMatchesClusterInstancePreset(ctx context.Context, cluster string, instance *corev1alpha1.Instance, presetName string) error {
-	// Fetch the preset with namespace defaults resolved
-	preset, err := h.next.ResolveClusterInstancePreset(ctx, cluster, presetName, instance.GetNamespace())
+	preset, err := h.next.GetClusterInstancePreset(ctx, cluster, presetName)
 	if err != nil {
-		return fmt.Errorf("failed to resolve preset %s for namespace %s: %w", presetName, instance.GetNamespace(), err)
+		return fmt.Errorf("failed to get cluster preset %s: %w", presetName, err)
 	}
 
-	// Compare the instance spec with the preset's resolved instance spec
 	if diff := cmp.Diff(preset.Spec.InstanceSpec, instance.Spec); diff != "" {
 		h.log.Warnf("Instance spec customization detected for preset %s: %s", presetName, diff)
 		return ErrInsufficientPermissions

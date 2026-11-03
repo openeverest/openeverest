@@ -55,7 +55,7 @@ func TestRBAC_Secret(t *testing.T) {
 		}
 
 		h := &handlers.MockHandler{}
-		h.On("ListSecrets", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(secrets, nil)
+		h.On("ListSecrets", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(secrets, nil)
 		h.On("GetSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&secrets.Items[0], nil)
 		h.On("CreateSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&secrets.Items[0], nil)
 		h.On("DeleteSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
@@ -172,7 +172,7 @@ func TestRBAC_Secret(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				list, err := h.ListSecrets(ctx, tc.cluster, tc.ns, "test-provider", "test-definition")
+				list, err := h.ListSecrets(ctx, tc.cluster, tc.ns, handlers.SecretFilter{Provider: "test-provider", Definition: "test-definition"})
 				require.NoError(t, err)
 				assert.Condition(t, func() bool {
 					return tc.assert(list)
