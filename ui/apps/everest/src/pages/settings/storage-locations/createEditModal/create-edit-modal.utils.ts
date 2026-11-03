@@ -30,6 +30,7 @@ import {
   CredentialsSource,
   TlsMode,
 } from 'shared-types/backupStorages.types';
+import { getAuthModeCredentialsSection } from 'utils/auth-mode-credentials';
 import { getBackupStorageClassUiSchema } from 'utils/backup-storages';
 import { rfc_123_schema } from 'utils/common-validation';
 import { Messages } from '../storage-locations.messages';
@@ -140,12 +141,18 @@ export const getStorageFields = (backupStorageClass?: BackupStorageClass) => {
   };
 };
 
+// The class's credentials form for the mode or, when it ships none, one masked
+// input per credential key the mode declares.
 export const getCredentialsFields = (
   backupStorageClass: BackupStorageClass | undefined,
   authMode: string
 ) =>
   getSectionFields(
-    getBackupStorageClassUiSchema(backupStorageClass).credentials?.[authMode]
+    getAuthModeCredentialsSection(
+      backupStorageClass?.spec.authModes ?? [],
+      getBackupStorageClassUiSchema(backupStorageClass).credentials ?? {},
+      authMode
+    )
   );
 
 export const authModeUsesSecret = (

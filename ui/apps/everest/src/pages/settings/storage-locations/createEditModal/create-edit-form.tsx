@@ -33,6 +33,7 @@ import {
 } from '@percona/ui-lib';
 import {
   BackupStorageSecretConflictError,
+  CA_BUNDLE_DEFINITION,
   CA_SECRET_KEY,
 } from 'api/backupStorage';
 import { useNamespaces } from 'hooks/api/namespaces/useNamespaces';
@@ -128,14 +129,29 @@ export const CreateEditStorageForm = ({
       StorageLocationsFields.caSource,
     ],
   });
-  const { data: secrets = [], isFetching: loadingSecrets } = useSecrets(
+  // Each picker lists the Secrets that can fill its reference: credentials of
+  // the class and mode, and CA bundles.
+  const {
+    data: credentialsSecrets = [],
+    isFetching: loadingCredentialsSecrets,
+  } = useSecrets(
     cluster,
     namespace,
-    {}
+    { backupStorageClass: backupStorageClassName, definition: authMode },
+    { enabled: !!backupStorageClassName && !!authMode }
   );
-  const secretNames = useMemo(
-    () => secrets.flatMap((secret) => secret.metadata?.name ?? []),
-    [secrets]
+  const { data: caSecrets = [], isFetching: loadingCASecrets } = useSecrets(
+    cluster,
+    namespace,
+    { definition: CA_BUNDLE_DEFINITION }
+  );
+  const credentialsSecretNames = useMemo(
+    () => credentialsSecrets.flatMap((secret) => secret.metadata?.name ?? []),
+    [credentialsSecrets]
+  );
+  const caSecretNames = useMemo(
+    () => caSecrets.flatMap((secret) => secret.metadata?.name ?? []),
+    [caSecrets]
   );
   const [handledConflict, setHandledConflict] =
     useState<BackupStorageSecretConflictError>();
@@ -215,6 +231,12 @@ export const CreateEditStorageForm = ({
     setHandledConflict(conflict);
   };
 
+  // A taken credentials name can be used only if its Secret holds credentials
+  // of the class and mode; a CA bundle belongs to no class.
+  const conflictReusable =
+    conflict?.kind === BackupStorageSecretKind.CA ||
+    (!!conflict && credentialsSecretNames.includes(conflict.secretName));
+
   const conflictAlert = (kind: BackupStorageSecretKind) =>
     conflict?.kind === kind && (
       <Alert
@@ -222,12 +244,20 @@ export const CreateEditStorageForm = ({
         sx={{ mt: 2 }}
         data-testid="secret-conflict-alert"
         action={
-          <Button color="inherit" size="small" onClick={pickConflictingSecret}>
-            {Messages.createEditModal.useSecret}
-          </Button>
+          conflictReusable && (
+            <Button
+              color="inherit"
+              size="small"
+              onClick={pickConflictingSecret}
+            >
+              {Messages.createEditModal.useSecret}
+            </Button>
+          )
         }
       >
-        {Messages.createEditModal.secretConflict(kind, conflict.secretName)}
+        {conflictReusable
+          ? Messages.createEditModal.secretConflict(kind, conflict.secretName)
+          : Messages.createEditModal.secretTaken(conflict.secretName)}
       </Alert>
     );
 
@@ -333,8 +363,8 @@ export const CreateEditStorageForm = ({
               ) : (
                 <SecretSelect
                   name={StorageLocationsFields.credentialsSecretName}
-                  secretNames={secretNames}
-                  loading={loadingSecrets}
+                  secretNames={credentialsSecretNames}
+                  loading={loadingCredentialsSecrets}
                 />
               )}
               {conflictAlert(BackupStorageSecretKind.Credentials)}
@@ -402,8 +432,8 @@ export const CreateEditStorageForm = ({
                 <>
                   <SecretSelect
                     name={StorageLocationsFields.caSecretName}
-                    secretNames={secretNames}
-                    loading={loadingSecrets}
+                    secretNames={caSecretNames}
+                    loading={loadingCASecrets}
                   />
                   <TextInput
                     name={StorageLocationsFields.caSecretKey}

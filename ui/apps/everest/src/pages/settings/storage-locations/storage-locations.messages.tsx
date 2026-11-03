@@ -52,6 +52,8 @@ export const Messages = {
       `A Secret named "${secretName}" already exists in this namespace, so the ${
         kind === BackupStorageSecretKind.CA ? 'CA bundle' : 'credentials'
       } can't be saved under that name.`,
+    secretTaken: (secretName: string) =>
+      `A Secret named "${secretName}" already exists in this namespace and doesn't hold credentials for this storage type and authentication mode. Choose another storage name, or use an existing Secret.`,
     useSecret: 'Use that Secret',
   },
   deleteDialog: {

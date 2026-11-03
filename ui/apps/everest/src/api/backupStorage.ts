@@ -30,6 +30,25 @@ import { createSecretFn, deleteSecretFn } from './secrets';
 
 export const CA_SECRET_KEY = 'ca.crt';
 
+const BACKUP_STORAGE_CLASS_SECRET_LABEL = 'openeverest.io/backup-storage-class';
+const DEFINITION_SECRET_LABEL = 'openeverest.io/definition';
+
+// The labels the Secrets API checks a credentials Secret against: the class
+// that defines it and the authentication mode whose keys it holds.
+export const getCredentialsSecretLabels = (
+  backupStorageClass: string,
+  authMode: string
+): Record<string, string> => ({
+  [BACKUP_STORAGE_CLASS_SECRET_LABEL]: backupStorageClass,
+  [DEFINITION_SECRET_LABEL]: authMode,
+});
+
+// A CA bundle belongs to no class: core defines it, so it has no source label.
+export const CA_BUNDLE_DEFINITION = 'ca-bundle';
+export const CA_BUNDLE_SECRET_LABELS: Record<string, string> = {
+  [DEFINITION_SECRET_LABEL]: CA_BUNDLE_DEFINITION,
+};
+
 type BackupStorageSpec = BackupStorageCRD['spec'];
 
 type StorageSecretRefs = {
@@ -71,11 +90,12 @@ const createStorageSecret = async (
   namespace: string,
   name: string,
   kind: BackupStorageSecretKind,
+  labels: Record<string, string>,
   stringData: Record<string, string>
 ): Promise<string> => {
   try {
     await createSecretFn(cluster, namespace, {
-      metadata: { name },
+      metadata: { name, labels },
       type: 'Opaque',
       stringData,
     });
@@ -107,6 +127,9 @@ const withStorageSecrets = async <T>(
       namespace,
       backupStorageSecretName(name, kind, isEdit),
       kind,
+      kind === BackupStorageSecretKind.Credentials
+        ? getCredentialsSecretLabels(values.backupStorageClass, values.authMode)
+        : CA_BUNDLE_SECRET_LABELS,
       stringData
     );
     created.push(secretName);

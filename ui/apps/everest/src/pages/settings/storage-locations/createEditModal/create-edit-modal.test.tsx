@@ -44,8 +44,20 @@ vi.mock('hooks/api/backup-storage-classes', async () => {
   };
 });
 vi.mock('hooks/api/secrets', () => ({
-  useSecrets: () => ({
-    data: [{ metadata: { name: 'team-creds' } }],
+  // The credentials picker lists Secrets of the class and mode; the CA picker
+  // lists ca-bundle Secrets.
+  useSecrets: (
+    _cluster: string,
+    _namespace: string,
+    filter: { definition?: string }
+  ) => ({
+    data:
+      filter.definition === 'ca-bundle'
+        ? [{ metadata: { name: 'corp-ca' } }]
+        : [
+            { metadata: { name: 'team-creds' } },
+            { metadata: { name: 'backup-storage-s3-prod-credentials' } },
+          ],
     isFetching: false,
   }),
 }));
@@ -212,6 +224,28 @@ describe('CreateEditModalStorage', () => {
       expect(
         screen.getByTestId('select-input-credentials-secret-name')
       ).toHaveValue('backup-storage-s3-prod-credentials');
+    }
+  );
+
+  it(
+    'does not offer a taken name whose Secret holds other credentials',
+    { timeout: 30000 },
+    async () => {
+      renderModal({
+        secretConflict: new BackupStorageSecretConflictError(
+          BackupStorageSecretKind.Credentials,
+          'backup-storage-s3-staging-credentials'
+        ),
+      });
+
+      expect(
+        await screen.findByTestId('secret-conflict-alert')
+      ).toHaveTextContent(
+        "doesn't hold credentials for this storage type and authentication mode"
+      );
+      expect(
+        screen.queryByRole('button', { name: 'Use that Secret' })
+      ).not.toBeInTheDocument();
     }
   );
 });
