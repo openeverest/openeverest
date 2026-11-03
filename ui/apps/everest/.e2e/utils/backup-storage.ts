@@ -49,7 +49,13 @@ export const createBackupStorage = async (
     `${namespaceUrl(namespace)}/secrets`,
     {
       data: {
-        metadata: { name: secretName },
+        metadata: {
+          name: secretName,
+          labels: {
+            'openeverest.io/backup-storage-class': 's3',
+            'openeverest.io/definition': 'AccessKey',
+          },
+        },
         type: 'Opaque',
         stringData: {
           AWS_ACCESS_KEY_ID: storage.accessKeyId,
