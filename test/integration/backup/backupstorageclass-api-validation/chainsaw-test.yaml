@@ -122,3 +122,37 @@ spec:
           YAML
         check:
           ($error): ~
+  - name: name-length
+    try:
+    # A credentials Secret names its class in a label value, at most 63 characters.
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'YAML'
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupStorageClass
+          metadata:
+            name: bsc-api-name-length-xxxxxxxxxxxxxxxxxxxxxxxx.test.openeverest.io
+          spec:
+            authModes:
+            - name: AccessKey
+              credentials:
+                required: [key]
+          YAML
+        check:
+          ($error != null): true
+          (contains($stderr, 'a BackupStorageClass name must be at most 63 characters')): true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'YAML'
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupStorageClass
+          metadata:
+            name: bsc-api-name-length-xxxxxxxxxxxxxxxxxxxxxxx.test.openeverest.io
+          spec:
+            authModes:
+            - name: AccessKey
+              credentials:
+                required: [key]
+          YAML
+        check:
+          ($error): ~

@@ -678,7 +678,9 @@ export interface components {
         /**
          * @description BackupStorageClass describes an object storage technology that
          *     BackupStorages reference. It is pure data: the backup classes that can write
-         *     to it declare so in BackupClass.spec.backupStorageClasses.
+         *     to it declare so in BackupClass.spec.backupStorageClasses. Its name is at
+         *     most 63 characters because a credentials Secret names its class in the
+         *     openeverest.io/backup-storage-class label.
          */
         BackupStorageClass: {
             /**

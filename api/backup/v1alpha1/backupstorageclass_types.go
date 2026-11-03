@@ -79,10 +79,13 @@ func (s *BackupStorageClassSpec) AuthModeNames() []string {
 // +kubebuilder:resource:scope=Cluster,shortName=bsc
 // +kubebuilder:printcolumn:name="Display Name",type="string",JSONPath=".spec.displayName"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="a BackupStorageClass name must be at most 63 characters"
 
 // BackupStorageClass describes an object storage technology that
 // BackupStorages reference. It is pure data: the backup classes that can write
-// to it declare so in BackupClass.spec.backupStorageClasses.
+// to it declare so in BackupClass.spec.backupStorageClasses. Its name is at
+// most 63 characters because a credentials Secret names its class in the
+// openeverest.io/backup-storage-class label.
 type BackupStorageClass struct {
 	metav1.TypeMeta `json:",inline"`
 	// +optional
