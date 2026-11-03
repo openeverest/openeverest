@@ -212,6 +212,11 @@ func TestCreateRun_CredentialsAndCAFiles_CreateSecretsBeforeStorage(t *testing.T
 	require.NotNil(t, creds.Metadata)
 	assert.Equal(t, "backup-storage-my-s3-credentials", creds.Metadata.Name)
 	assert.Equal(t, "everest", creds.Metadata.Namespace)
+	wantLabels := map[string]string{
+		"openeverest.io/backup-storage-class": "s3",
+		"openeverest.io/definition":           "AccessKey",
+	}
+	assert.Equal(t, wantLabels, creds.Metadata.Labels)
 	require.NotNil(t, creds.Type)
 	assert.Equal(t, "Opaque", *creds.Type)
 	require.NotNil(t, creds.StringData)
@@ -219,6 +224,7 @@ func TestCreateRun_CredentialsAndCAFiles_CreateSecretsBeforeStorage(t *testing.T
 
 	ca := secrets[1]
 	assert.Equal(t, "backup-storage-my-s3-ca", ca.Metadata.Name)
+	assert.Equal(t, map[string]string{"openeverest.io/definition": "ca-bundle"}, ca.Metadata.Labels)
 	require.NotNil(t, ca.StringData)
 	assert.Equal(t, map[string]string{"ca.crt": testPEM}, *ca.StringData)
 

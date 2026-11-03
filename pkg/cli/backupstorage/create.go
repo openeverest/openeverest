@@ -30,6 +30,7 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
 
@@ -268,7 +269,14 @@ func (cr *CreateRunner) createSecrets(ctx context.Context, c *client.ClientWithR
 	var created []string
 	if req.credentials != nil {
 		name := credentialsSecretName(opts.Name)
-		if err := createSecret(ctx, c, opts.Cluster, opts.Namespace, name, cli.FlagBackupStorageCredentialsSecret, req.credentials); err != nil {
+		// The Secrets API checks the keys against the mode of the class.
+		labels := map[string]string{
+			common.OpenEverestBackupStorageClassLabel: req.storage.Spec.BackupStorageClassRef.Name,
+			common.OpenEverestDefinitionLabel:         req.storage.Spec.Authentication.Mode,
+		}
+		if err := createSecret(ctx, c, opts.Cluster, opts.Namespace, name, cli.FlagBackupStorageCredentialsSecret,
+			labels, req.credentials,
+		); err != nil {
 			return nil, err
 		}
 		cr.l.Infof("created secret %q in namespace %q", name, opts.Namespace)
@@ -276,8 +284,9 @@ func (cr *CreateRunner) createSecrets(ctx context.Context, c *client.ClientWithR
 	}
 	if req.caBundle != "" {
 		name := caSecretName(opts.Name)
+		labels := map[string]string{common.OpenEverestDefinitionLabel: common.OpenEverestCABundleDefinition}
 		data := map[string]string{defaultCAKey: req.caBundle}
-		if err := createSecret(ctx, c, opts.Cluster, opts.Namespace, name, cli.FlagBackupStorageCASecret, data); err != nil {
+		if err := createSecret(ctx, c, opts.Cluster, opts.Namespace, name, cli.FlagBackupStorageCASecret, labels, data); err != nil {
 			cr.deleteSecrets(ctx, c, opts, created)
 			return nil, err
 		}
