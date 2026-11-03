@@ -881,6 +881,7 @@ export interface paths {
         /**
          * Create backup storage
          * @description This API creates a new backup storage in the specified namespace and cluster.
+         *     Credentials are never part of the payload: create the Secret through the secrets API, labelled `openeverest.io/backup-storage-class: <class>` and `openeverest.io/definition: <mode>`, and reference it in `spec.authentication.credentialsSecretRef`. A CA bundle created through the secrets API is labelled `openeverest.io/definition: ca-bundle` and referenced in `spec.tls.ca.secretKeyRef`.
          */
         post: operations["createBackupStorage"];
         delete?: never;
@@ -1159,6 +1160,7 @@ export interface paths {
          *     |---|---|---|
          *     | `openeverest.io/provider: <provider>` | a key of the Provider's `spec.secrets` | the definition's `type` and `parametersSchema` |
          *     | `openeverest.io/monitoring-class: <class>` | an authentication mode of the MonitoringClass, e.g. `ServiceAccountToken` | type `Opaque` and the keys the mode requires |
+         *     | `openeverest.io/backup-storage-class: <class>` | an authentication mode of the BackupStorageClass, e.g. `AccessKey` | type `Opaque` and the keys the mode requires |
          *     | none | `ca-bundle`, the one definition core owns | type `Opaque`; key `ca.crt` present; every key holds PEM CA certificates and no other PEM block |
          *
          *     A CA bundle is trust material, not a credential of any provider or class, so one bundle can be referenced from `spec.tls.ca.secretKeyRef` by any kind; list them with `?definition=ca-bundle`. It holds its certificates under `ca.crt`, so a reference to it always names that key; other keys may hold more certificates.
@@ -11820,6 +11822,8 @@ export interface operations {
                 provider?: string;
                 /** @description Filter secrets by the MonitoringClass that defines them (`openeverest.io/monitoring-class`) */
                 monitoringClass?: string;
+                /** @description Filter secrets by the BackupStorageClass that defines them (`openeverest.io/backup-storage-class`) */
+                backupStorageClass?: string;
                 /** @description Filter secrets by definition (`openeverest.io/definition`) */
                 definition?: string;
             };
