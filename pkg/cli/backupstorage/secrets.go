@@ -99,13 +99,15 @@ func readCAFile(path string) (string, error) {
 	return string(data), nil
 }
 
-// createSecret creates an Opaque Secret through the Secrets API. refFlag is
-// the flag that references an existing Secret instead, for the conflict hint.
+// createSecret creates an Opaque Secret through the Secrets API, with the
+// labels that name its definition. refFlag is the flag that references an
+// existing Secret instead, for the conflict hint.
 func createSecret(
-	ctx context.Context, c *client.ClientWithResponses, cluster, namespace, name, refFlag string, data map[string]string,
+	ctx context.Context, c *client.ClientWithResponses, cluster, namespace, name, refFlag string,
+	labels, data map[string]string,
 ) error {
 	secret := client.Secret{
-		Metadata:   &client.ObjectMeta{Name: name, Namespace: namespace},
+		Metadata:   &client.ObjectMeta{Name: name, Namespace: namespace, Labels: labels},
 		Type:       new("Opaque"),
 		StringData: &data,
 	}

@@ -215,7 +215,8 @@ type SecretHandler interface {
 // SecretFilter selects Secrets by the labels that name their definition.
 // Empty fields match any value.
 type SecretFilter struct {
-	Provider        string
-	MonitoringClass string
-	Definition      string
+	Provider           string
+	MonitoringClass    string
+	BackupStorageClass string
+	Definition         string
 }

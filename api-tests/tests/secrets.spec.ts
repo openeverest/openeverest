@@ -352,3 +352,34 @@ test.describe.parallel('CA bundle Secrets', () => {
     })
   })
 })
+
+const backupCredentialsName = 'backup-storage-test-labelled-credentials'
+const backupRejectedName = 'backup-storage-test-rejected-credentials'
+
+test.describe.parallel('Secrets defined by a backup storage class', () => {
+  test.afterAll(async ({request}) => {
+    await th.deleteSecret(request, backupCredentialsName)
+    await th.deleteSecret(request, backupRejectedName)
+  })
+
+  test('create and filter credentials of the s3 AccessKey mode', async ({request}) => {
+    await th.createBackupStorageCredentials(request, backupCredentialsName)
+
+    const secret = await th.getSecret(request, backupCredentialsName)
+    expect(secret.metadata.labels['openeverest.io/backup-storage-class']).toBe('s3')
+    expect(secret.metadata.labels['openeverest.io/definition']).toBe('AccessKey')
+
+    const list = await th.listSecretsByBackupStorageClass(request, 's3', 'AccessKey')
+    expect(list.items.map(s => s.metadata.name)).toContain(backupCredentialsName)
+  })
+
+  test('reject credentials missing a key the mode requires', async ({request}) => {
+    const data = th.getBackupStorageCredentialsPayload(backupRejectedName)
+    delete data.stringData.AWS_SECRET_ACCESS_KEY
+
+    const response = await th.createSecretRaw(request, data)
+    expect(response.status()).toBe(400)
+    expect((await response.json()).message).toContain('missing key "AWS_SECRET_ACCESS_KEY"')
+    expect((await th.getSecretRaw(request, backupRejectedName)).status()).toBe(404)
+  })
+})

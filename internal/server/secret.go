@@ -49,9 +49,10 @@ func (e *EverestServer) ListSecrets(c echo.Context, cluster, namespace string, p
 		c.Request().Context(),
 		cluster, namespace,
 		handlers.SecretFilter{
-			Provider:        pointer.GetString(params.Provider),
-			MonitoringClass: pointer.GetString(params.MonitoringClass),
-			Definition:      pointer.GetString(params.Definition),
+			Provider:           pointer.GetString(params.Provider),
+			MonitoringClass:    pointer.GetString(params.MonitoringClass),
+			BackupStorageClass: pointer.GetString(params.BackupStorageClass),
+			Definition:         pointer.GetString(params.Definition),
 		},
 	)
 	if err != nil {

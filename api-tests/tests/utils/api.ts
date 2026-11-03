@@ -236,13 +236,17 @@ const CLUSTER_NAME = 'main'
 
 export const backupStorageCredentialsSecretName = (bsName: string) => `backup-storage-${bsName}-credentials`
 
-// A plain Secret: no openeverest.io/definition or openeverest.io/provider label, as no provider defines it.
+// The credentials of the s3 class's AccessKey mode, labelled so that the Secrets API checks them against it.
 export const getBackupStorageCredentialsPayload = (secretName: string) => {
   return {
     apiVersion: 'v1',
     kind: 'Secret',
     metadata: {
       name: secretName,
+      labels: {
+        'openeverest.io/backup-storage-class': 's3',
+        'openeverest.io/definition': 'AccessKey',
+      },
     },
     type: 'Opaque',
     stringData: {
@@ -609,6 +613,12 @@ export const listSecretsByMonitoringClass = async (request, monitoringClass: str
 
 export const listSecretsByDefinition = async (request, definition: string) => {
   const response = await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets?definition=${definition}`)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const listSecretsByBackupStorageClass = async (request, backupStorageClass: string, definition: string) => {
+  const response = await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets?backupStorageClass=${backupStorageClass}&definition=${definition}`)
   await checkError(response)
   return (await response.json())
 }
