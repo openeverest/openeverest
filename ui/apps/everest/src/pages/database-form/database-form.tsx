@@ -568,9 +568,12 @@ export const DatabasePage = () => {
       <Stack direction={isDesktop ? 'row' : 'column'}>
         <FormProvider {...methods}>
           <PresetSelectionContext.Provider value={presetSelection}>
+            {/* A selected preset owns the values: its spec is sent verbatim, so
+                auto-selected options would only mislead the preview. */}
             <DataSourcePrefetcher
               sections={engine.sections}
               namespace={selectedNamespace || namespaces[0]}
+              autoSelect={!presetSelection.presetSelected}
             />
             {/* Restore fixes the namespace, and a selected preset owns the values. */}
             {mode === FormMode.New && !presetSelection.presetSelected && (

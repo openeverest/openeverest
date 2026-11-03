@@ -164,7 +164,10 @@ fallback waits for the refetch as a safeguard: in create modes the reconcile cou
 that isn't among the options yet if the options update without it.
 
 `DataSourcePrefetcher` skips fields of switched-off `toggleable` groups, so a disabled section
-triggers no request.
+triggers no request. With `autoSelect={false}` it still prefetches the options but writes no value;
+the create wizard passes it while a preset is selected, because the preset's spec is sent verbatim
+and an auto-selected option would only show in the preview (e.g. a storage class the preset leaves
+to the cluster default).
 
 ### Secret fields on a namespace switch
 
