@@ -304,11 +304,27 @@ func TestListSecrets(t *testing.T) {
 				"token": []byte("glsa_token"),
 			},
 		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "backup-storage-prod-credentials",
+				Namespace: namespace,
+				Labels: map[string]string{
+					common.OpenEverestBackupStorageClassLabel: "s3",
+					common.OpenEverestDefinitionLabel:         "AccessKey",
+					common.OpenEverestManagedLabel:            "true",
+				},
+			},
+			Type: corev1.SecretTypeOpaque,
+			Data: map[string][]byte{
+				"AWS_ACCESS_KEY_ID":     []byte("AKIA"),
+				"AWS_SECRET_ACCESS_KEY": []byte("shh"),
+			},
+		},
 	}
 
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(scheme).
-		WithObjects(&secrets[0], &secrets[1], &secrets[2], &secrets[3]).
+		WithObjects(&secrets[0], &secrets[1], &secrets[2], &secrets[3], &secrets[4]).
 		Build()
 
 	handler := &k8sHandler{
@@ -323,7 +339,7 @@ func TestListSecrets(t *testing.T) {
 	}{
 		{
 			name: "no filter lists managed secrets only",
-			want: []string{"pmm-credentials", "secret-data", "secret-stringdata"},
+			want: []string{"backup-storage-prod-credentials", "pmm-credentials", "secret-data", "secret-stringdata"},
 		},
 		{
 			name:   "by definition",
@@ -334,6 +350,11 @@ func TestListSecrets(t *testing.T) {
 			name:   "by monitoring class and definition",
 			filter: handlers.SecretFilter{MonitoringClass: "pmm", Definition: "ServiceAccountToken"},
 			want:   []string{"pmm-credentials"},
+		},
+		{
+			name:   "by backup storage class and definition",
+			filter: handlers.SecretFilter{BackupStorageClass: "s3", Definition: "AccessKey"},
+			want:   []string{"backup-storage-prod-credentials"},
 		},
 		{
 			name:   "by another monitoring class",
