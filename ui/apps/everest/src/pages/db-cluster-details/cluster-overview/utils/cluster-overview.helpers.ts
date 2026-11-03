@@ -68,11 +68,18 @@ const formatBadgedValue = (rawValue: unknown, badge?: string): string => {
   return formatDisplayValue(rawValue);
 };
 
+const isUnset = (value: unknown) =>
+  value === undefined || value === null || value === '';
+
 export const collectSectionFields = (
   components: Record<string, Component | ComponentGroup>,
   instance: Record<string, unknown>,
   componentsOrder?: string[],
-  summaryRegistry?: WidgetSummaryRegistry
+  summaryRegistry?: WidgetSummaryRegistry,
+  // Shown instead of an empty value for fields whose options come from the
+  // keyed data source, so an unset field reads as "the cluster decides" rather
+  // than a missing value (e.g. storageClasses → the cluster default).
+  unsetValueByDataSource?: Record<string, string>
 ): SectionField[] => {
   const fields: SectionField[] = [];
   const keys = componentsOrder ?? Object.keys(components);
@@ -98,7 +105,8 @@ export const collectSectionFields = (
             group.components,
             instance,
             group.componentsOrder,
-            summaryRegistry
+            summaryRegistry,
+            unsetValueByDataSource
           )
         );
       }
@@ -135,13 +143,18 @@ export const collectSectionFields = (
     const path = paths[0];
     if (!path) continue;
 
+    const rawValue = getByPath(instance, path);
+    const unsetValue = component.dataSource
+      ? unsetValueByDataSource?.[component.dataSource.provider]
+      : undefined;
+
     fields.push({
       label: component.fieldParams?.label ?? key,
       path,
-      value: formatBadgedValue(
-        getByPath(instance, path),
-        component.fieldParams?.badge
-      ),
+      value:
+        unsetValue !== undefined && isUnset(rawValue)
+          ? unsetValue
+          : formatBadgedValue(rawValue, component.fieldParams?.badge),
     });
   }
 

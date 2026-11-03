@@ -14,18 +14,19 @@
 
 import { useMemo } from 'react';
 import type { ProviderOptions } from 'components/ui-generator/api-providers/types';
-import { useKubernetesClusterInfo } from './useKubernetesClusterInfo';
+import {
+  KUBERNETES_CLUSTER_INFO_QUERY_KEY,
+  useKubernetesClusterInfo,
+} from './useKubernetesClusterInfo';
 
 // TODO: useKubernetesClusterInfo currently requires queryKey as a parameter
 // (legacy API from react-query v3 migration). Every caller invents its own key,
 // which prevents proper React Query cache sharing. When refactoring this hook
 // check section-edit-modal still work correctly with a shared canonical key.
 
-const STORAGE_CLASSES_QUERY_KEY = ['kubernetesClusterInfo'];
-
 export const useStorageClassesOptions = (): ProviderOptions => {
   const { data, isLoading, error } = useKubernetesClusterInfo(
-    STORAGE_CLASSES_QUERY_KEY
+    KUBERNETES_CLUSTER_INFO_QUERY_KEY
   );
 
   const options = useMemo(() => {

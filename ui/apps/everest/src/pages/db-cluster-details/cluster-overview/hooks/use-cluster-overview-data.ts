@@ -19,6 +19,11 @@ import { useDbInstanceCredentials } from 'hooks/api/db-instances/useCreateDbInst
 import { useProviders } from 'hooks/api/providers';
 import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
 import { useClusterName } from 'hooks/api/useClusterName';
+import {
+  KUBERNETES_CLUSTER_INFO_QUERY_KEY,
+  useKubernetesClusterInfo,
+} from 'hooks/api/kubernetesClusters/useKubernetesClusterInfo';
+import { getDefaultStorageClassName } from 'utils/storage-class';
 import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
 import type {
   Section,
@@ -106,6 +111,16 @@ export const useClusterOverviewData = () => {
   // Schema-driven section cards
   const instanceAsRecord = instance as unknown as Record<string, unknown>;
 
+  const { data: clusterInfo } = useKubernetesClusterInfo(
+    KUBERNETES_CLUSTER_INFO_QUERY_KEY
+  );
+  const unsetValueByDataSource = useMemo(() => {
+    const defaultStorageClass = getDefaultStorageClassName(clusterInfo);
+    return defaultStorageClass
+      ? { storageClasses: defaultStorageClass }
+      : undefined;
+  }, [clusterInfo]);
+
   const schemaSectionCards: SchemaSectionCard[] = useMemo(() => {
     if (!instance || !sections) return [];
 
@@ -121,12 +136,19 @@ export const useClusterOverviewData = () => {
             section.components,
             instanceAsRecord,
             section.componentsOrder,
-            widgetSummaryRegistry
+            widgetSummaryRegistry,
+            unsetValueByDataSource
           ),
         };
       })
       .filter(Boolean) as SchemaSectionCard[];
-  }, [instance, sections, sectionsOrder, instanceAsRecord]);
+  }, [
+    instance,
+    sections,
+    sectionsOrder,
+    instanceAsRecord,
+    unsetValueByDataSource,
+  ]);
 
   // TODO add more tests
   // Uncovered fields (not in schema)

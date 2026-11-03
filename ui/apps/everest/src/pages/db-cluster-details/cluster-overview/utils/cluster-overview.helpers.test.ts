@@ -99,6 +99,46 @@ describe('collectSectionFields', () => {
     expect(fields[0].value).toBe('16kg');
   });
 
+  describe('unset value by data source', () => {
+    const storageClassComponents: Record<string, Component> = {
+      storageClass: {
+        uiType: FieldType.Select,
+        path: 'spec.components.engine.storage.storageClass',
+        fieldParams: { label: 'Storage class' },
+        dataSource: { provider: 'storageClasses' },
+      },
+    };
+    const fallback = { storageClasses: 'gp3' };
+
+    it('shows the fallback when the field is unset', () => {
+      const fields = collectSectionFields(
+        storageClassComponents,
+        { spec: { components: { engine: { storage: {} } } } },
+        undefined,
+        undefined,
+        fallback
+      );
+
+      expect(fields[0].value).toBe('gp3');
+    });
+
+    it('shows the stored value when the field is set', () => {
+      const fields = collectSectionFields(
+        storageClassComponents,
+        {
+          spec: {
+            components: { engine: { storage: { storageClass: 'local' } } },
+          },
+        },
+        undefined,
+        undefined,
+        fallback
+      );
+
+      expect(fields[0].value).toBe('local');
+    });
+  });
+
   describe('toggleable group', () => {
     const { advanced } = preprocessSchema({
       replicaSet: {
