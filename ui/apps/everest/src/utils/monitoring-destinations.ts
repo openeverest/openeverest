@@ -13,7 +13,9 @@
 // limitations under the License.
 
 import { Section } from 'components/ui-generator/ui-generator.types';
+import { SECRET_DEFINITION_LABEL } from 'components/ui-generator/secret-field/secret-create-modal/secret-create-modal.constants';
 import { getByPath } from 'components/ui-generator/utils/object-path';
+import { Secret } from 'shared-types/api.types';
 import {
   MonitoringClass,
   MonitoringConditionType,
@@ -31,11 +33,40 @@ const READY_PENDING_REASON = 'Pending';
 export const getDestinationName = (destination: MonitoringDestination) =>
   destination.metadata?.name ?? '';
 
+const CREDENTIALS_SECRET_PREFIX = 'monitoring-destination-';
 const CREDENTIALS_SECRET_SUFFIX = '-credentials';
 const MAX_SECRET_NAME_LENGTH = 253;
 
+// The kind in the name keeps a destination's Secret apart from those of a
+// backup storage or an Instance with the same name.
 export const getDefaultCredentialsSecretName = (destinationName: string) =>
-  `${destinationName}${CREDENTIALS_SECRET_SUFFIX}`;
+  `${CREDENTIALS_SECRET_PREFIX}${destinationName}${CREDENTIALS_SECRET_SUFFIX}`;
+
+export const MONITORING_CLASS_SECRET_LABEL = 'openeverest.io/monitoring-class';
+
+// The labels the Secrets API checks a credentials Secret against: the class
+// that defines it and the authentication mode whose keys it holds.
+export const getCredentialsSecretLabels = (
+  className: string,
+  mode: string
+): Record<string, string> => ({
+  [MONITORING_CLASS_SECRET_LABEL]: className,
+  [SECRET_DEFINITION_LABEL]: mode,
+});
+
+// Whether an existing Secret holds the credentials of the class and mode, so
+// that a destination can reuse it.
+export const isCredentialsSecretFor = (
+  secret: Secret,
+  className: string,
+  mode: string
+) => {
+  const labels = secret.metadata?.labels ?? {};
+  return (
+    labels[MONITORING_CLASS_SECRET_LABEL] === className &&
+    labels[SECRET_DEFINITION_LABEL] === mode
+  );
+};
 
 // A fresh name for rotated credentials, so the destination can move to the
 // new Secret before the old one goes.
@@ -47,8 +78,9 @@ export const getRotatedCredentialsSecretName = (
   return `${base.slice(0, MAX_SECRET_NAME_LENGTH - suffix.length - 1)}-${suffix}`;
 };
 
-// Secrets the form names: <destination>-credentials, or with a rotation
-// suffix. Any other Secret was brought by the user and is never deleted.
+// Secrets the form names: monitoring-destination-<destination>-credentials, or
+// with a rotation suffix. Any other Secret was brought by the user and is never
+// deleted.
 export const isFormCreatedCredentialsSecret = (
   destinationName: string,
   secretName: string

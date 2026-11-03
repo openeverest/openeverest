@@ -14,8 +14,6 @@
 
 import { z } from 'zod';
 import {
-  Component,
-  FieldType,
   FormMode,
   isSection,
   Section,
@@ -31,6 +29,7 @@ import {
   MonitoringClass,
   MonitoringConditionType,
 } from 'shared-types/monitoring-destinations.types';
+import { getAuthModeCredentialsSection } from './auth-mode-credentials';
 
 // The class uiSchema groups its forms by what they fill: the destination's
 // spec, the Secret of each auth mode and an Instance's monitoring entry.
@@ -130,41 +129,14 @@ export const postprocessSectionForm = (
     selectedTopology: form.sectionKey,
   });
 
-const toMaskedCredentialField = (
-  key: string,
-  required: boolean
-): Component => ({
-  path: key,
-  uiType: FieldType.Text,
-  fieldParams: { label: key, type: 'password' },
-  ...(required && { validation: { required: true } }),
-});
-
 // The class's credentials form for the mode or, when it ships none, one masked
 // input per credential key the mode declares.
 export const getCredentialsSection = (
   monitoringClass: MonitoringClass,
   mode: string
-): Section | undefined => {
-  const section = getMonitoringClassUiSchema(monitoringClass).credentials[mode];
-  if (section) {
-    return section;
-  }
-  const credentials = monitoringClass.spec.authModes.find(
-    (authMode) => authMode.name === mode
-  )?.credentials;
-  const required = credentials?.required ?? [];
-  const keys = [...required, ...(credentials?.optional ?? [])];
-  if (keys.length === 0) {
-    return undefined;
-  }
-  return {
-    componentsOrder: keys,
-    components: Object.fromEntries(
-      keys.map((key) => [
-        key,
-        toMaskedCredentialField(key, required.includes(key)),
-      ])
-    ),
-  };
-};
+): Section | undefined =>
+  getAuthModeCredentialsSection(
+    monitoringClass.spec.authModes,
+    getMonitoringClassUiSchema(monitoringClass).credentials,
+    mode
+  );

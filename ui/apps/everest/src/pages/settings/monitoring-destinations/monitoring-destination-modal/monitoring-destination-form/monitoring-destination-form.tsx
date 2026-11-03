@@ -50,7 +50,8 @@ export const MonitoringDestinationForm = ({
 }: MonitoringDestinationFormProps) => {
   const isEdit = !!original;
   const { mutate, isPending } = useSaveMonitoringDestination();
-  const [conflictingSecret, setConflictingSecret] = useState<string>();
+  const [conflictingSecret, setConflictingSecret] =
+    useState<SecretAlreadyExistsError>();
 
   const schema = useMemo(
     () => buildMonitoringDestinationSchema({ classes, original }),
@@ -91,7 +92,7 @@ export const MonitoringDestinationForm = ({
         onSuccess: onClose,
         onError: (error) => {
           if (error instanceof SecretAlreadyExistsError) {
-            setConflictingSecret(error.secretName);
+            setConflictingSecret(error);
           } else if (
             isEdit &&
             isAxiosError(error) &&
@@ -157,18 +158,22 @@ export const MonitoringDestinationForm = ({
               severity="error"
               sx={{ mt: 3 }}
               action={
-                <Button
-                  color="inherit"
-                  size="small"
-                  onClick={handleSubmit((values) =>
-                    save(values, conflictingSecret)
-                  )}
-                >
-                  {Messages.reuseSecret}
-                </Button>
+                conflictingSecret.reusable && (
+                  <Button
+                    color="inherit"
+                    size="small"
+                    onClick={handleSubmit((values) =>
+                      save(values, conflictingSecret.secretName)
+                    )}
+                  >
+                    {Messages.reuseSecret}
+                  </Button>
+                )
               }
             >
-              {Messages.secretExists(conflictingSecret)}
+              {conflictingSecret.reusable
+                ? Messages.secretExists(conflictingSecret.secretName)
+                : Messages.secretTaken(conflictingSecret.secretName)}
             </Alert>
           )}
         </>

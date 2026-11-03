@@ -12,15 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { Secret } from 'shared-types/api.types';
 import {
   MonitoringClass,
   MonitoringDestination,
   MonitoringDestinationState,
 } from 'shared-types/monitoring-destinations.types';
 import {
+  getCredentialsSecretLabels,
+  getDefaultCredentialsSecretName,
   getDestinationAddress,
   getDestinationStatus,
   getRotatedCredentialsSecretName,
+  isCredentialsSecretFor,
   isFormCreatedCredentialsSecret,
 } from './monitoring-destinations';
 
@@ -171,12 +175,18 @@ describe('getDestinationAddress', () => {
 });
 
 describe('credentials Secret names', () => {
+  it('names the Secret after the kind and the destination', () => {
+    expect(getDefaultCredentialsSecretName('pmm')).toBe(
+      'monitoring-destination-pmm-credentials'
+    );
+  });
+
   it('gives rotated credentials a fresh name within the Secret name limit', () => {
     expect(getRotatedCredentialsSecretName('pmm', 'k2x9a')).toBe(
-      'pmm-credentials-k2x9a'
+      'monitoring-destination-pmm-credentials-k2x9a'
     );
     expect(getRotatedCredentialsSecretName('pmm')).toMatch(
-      /^pmm-credentials-[a-z0-9]+$/
+      /^monitoring-destination-pmm-credentials-[a-z0-9]+$/
     );
     expect(
       getRotatedCredentialsSecretName('x'.repeat(260), 'k2x9a')
@@ -184,16 +194,62 @@ describe('credentials Secret names', () => {
   });
 
   it('tells the Secrets the form created from those the user brought', () => {
-    expect(isFormCreatedCredentialsSecret('pmm', 'pmm-credentials')).toBe(true);
-    expect(isFormCreatedCredentialsSecret('pmm', 'pmm-credentials-k2x9a')).toBe(
-      true
-    );
-    expect(isFormCreatedCredentialsSecret('pmm', 'pmm-eu-credentials')).toBe(
+    expect(
+      isFormCreatedCredentialsSecret(
+        'pmm',
+        'monitoring-destination-pmm-credentials'
+      )
+    ).toBe(true);
+    expect(
+      isFormCreatedCredentialsSecret(
+        'pmm',
+        'monitoring-destination-pmm-credentials-k2x9a'
+      )
+    ).toBe(true);
+    expect(
+      isFormCreatedCredentialsSecret(
+        'pmm',
+        'monitoring-destination-pmm-eu-credentials'
+      )
+    ).toBe(false);
+    expect(
+      isFormCreatedCredentialsSecret(
+        'pmm',
+        'monitoring-destination-pmm-credentials-old-token'
+      )
+    ).toBe(false);
+    expect(isFormCreatedCredentialsSecret('pmm', 'pmm-credentials')).toBe(
       false
     );
-    expect(
-      isFormCreatedCredentialsSecret('pmm', 'pmm-credentials-old-token')
-    ).toBe(false);
     expect(isFormCreatedCredentialsSecret('pmm', 'team-pmm-token')).toBe(false);
+  });
+});
+
+describe('credentials Secret labels', () => {
+  it('labels the Secret with the class and the authentication mode', () => {
+    expect(getCredentialsSecretLabels('pmm', 'ServiceAccountToken')).toEqual({
+      'openeverest.io/monitoring-class': 'pmm',
+      'openeverest.io/definition': 'ServiceAccountToken',
+    });
+  });
+
+  it('reuses only a Secret labelled for the same class and mode', () => {
+    const secret = (labels?: Record<string, string>): Secret => ({
+      metadata: { name: 'monitoring-destination-pmm-credentials', labels },
+    });
+    const labels = getCredentialsSecretLabels('pmm', 'ServiceAccountToken');
+
+    expect(
+      isCredentialsSecretFor(secret(labels), 'pmm', 'ServiceAccountToken')
+    ).toBe(true);
+    expect(
+      isCredentialsSecretFor(secret(labels), 'grafana', 'ServiceAccountToken')
+    ).toBe(false);
+    expect(isCredentialsSecretFor(secret(labels), 'pmm', 'BasicAuth')).toBe(
+      false
+    );
+    expect(isCredentialsSecretFor(secret(), 'pmm', 'ServiceAccountToken')).toBe(
+      false
+    );
   });
 });

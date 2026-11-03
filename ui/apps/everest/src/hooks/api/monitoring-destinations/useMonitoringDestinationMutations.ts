@@ -19,7 +19,7 @@ import {
   getMonitoringDestinationsFn,
   updateMonitoringDestinationFn,
 } from 'api/monitoring-destinations';
-import { createSecretFn, deleteSecretFn } from 'api/secrets';
+import { createSecretFn, deleteSecretFn, getSecretFn } from 'api/secrets';
 import { MONITORING_BINDINGS_QUERY_KEY } from 'hooks/api/monitoring-bindings';
 import { SECRETS_QUERY_KEY } from 'hooks/api/secrets';
 import { useClusterName } from 'hooks/api/useClusterName';
@@ -37,6 +37,8 @@ const toRequests = (
   namespace: string
 ): MonitoringDestinationRequests => ({
   createSecret: (secret) => createSecretFn(cluster, namespace, secret),
+  // Asked only to resolve a taken name, so a refusal is no error to show.
+  getSecret: (name) => getSecretFn(cluster, namespace, name, true),
   deleteSecret: (name) => deleteSecretFn(cluster, namespace, name),
   createDestination: (destination) =>
     createMonitoringDestinationFn(cluster, namespace, destination),

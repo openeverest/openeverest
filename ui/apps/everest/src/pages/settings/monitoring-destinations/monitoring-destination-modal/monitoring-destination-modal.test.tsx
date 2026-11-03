@@ -21,7 +21,7 @@ import {
 } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AxiosError, AxiosHeaders } from 'axios';
-import { createSecretFn, deleteSecretFn } from 'api/secrets';
+import { createSecretFn, deleteSecretFn, getSecretFn } from 'api/secrets';
 import { createMonitoringDestinationFn } from 'api/monitoring-destinations';
 import { MonitoringClass } from 'shared-types/monitoring-destinations.types';
 import { TestWrapper } from 'utils/test';
@@ -30,6 +30,7 @@ import { MonitoringDestinationModal } from './monitoring-destination-modal';
 vi.mock('api/secrets', () => ({
   createSecretFn: vi.fn(),
   deleteSecretFn: vi.fn(),
+  getSecretFn: vi.fn(),
   getSecretsFn: vi.fn(),
 }));
 vi.mock('api/monitoring-destinations', () => ({
@@ -47,6 +48,11 @@ const conflict = new AxiosError('exists', '409', undefined, undefined, {
   headers: {},
   config: { headers: new AxiosHeaders() },
 });
+
+const pmmCredentialsLabels = {
+  'openeverest.io/monitoring-class': 'pmm',
+  'openeverest.io/definition': 'ServiceAccountToken',
+};
 
 // The reference PMM class: url in the destination form, a token per mode.
 const pmm: MonitoringClass = {
@@ -135,6 +141,14 @@ const submit = async () => {
 describe('MonitoringDestinationModal', () => {
   beforeEach(() => {
     vi.mocked(createSecretFn).mockReset().mockResolvedValue({});
+    vi.mocked(getSecretFn)
+      .mockReset()
+      .mockResolvedValue({
+        metadata: {
+          name: 'monitoring-destination-pmm-prod-credentials',
+          labels: pmmCredentialsLabels,
+        },
+      });
     vi.mocked(deleteSecretFn).mockReset().mockResolvedValue();
     vi.mocked(createMonitoringDestinationFn)
       .mockReset()
@@ -148,7 +162,10 @@ describe('MonitoringDestinationModal', () => {
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(createSecretFn).toHaveBeenCalledWith('main', 'team-a', {
-      metadata: { name: 'pmm-prod-credentials' },
+      metadata: {
+        name: 'monitoring-destination-pmm-prod-credentials',
+        labels: pmmCredentialsLabels,
+      },
       stringData: { token: 's3cr3t' },
     });
     expect(createMonitoringDestinationFn).toHaveBeenCalledWith(
@@ -160,7 +177,9 @@ describe('MonitoringDestinationModal', () => {
           classRef: { name: 'pmm' },
           authentication: {
             mode: 'ServiceAccountToken',
-            credentialsSecretRef: { name: 'pmm-prod-credentials' },
+            credentialsSecretRef: {
+              name: 'monitoring-destination-pmm-prod-credentials',
+            },
           },
           parameters: { url: 'https://pmm.example.com' },
         },
@@ -176,7 +195,7 @@ describe('MonitoringDestinationModal', () => {
 
     expect(
       await screen.findByText(
-        /A Secret named pmm-prod-credentials already exists/
+        /A Secret named monitoring-destination-pmm-prod-credentials already exists/
       )
     ).toBeInTheDocument();
     expect(createMonitoringDestinationFn).not.toHaveBeenCalled();
@@ -192,11 +211,36 @@ describe('MonitoringDestinationModal', () => {
         spec: expect.objectContaining({
           authentication: {
             mode: 'ServiceAccountToken',
-            credentialsSecretRef: { name: 'pmm-prod-credentials' },
+            credentialsSecretRef: {
+              name: 'monitoring-destination-pmm-prod-credentials',
+            },
           },
         }),
       })
     );
+  });
+
+  it('does not offer a taken name whose Secret holds other credentials', async () => {
+    vi.mocked(createSecretFn).mockRejectedValue(conflict);
+    vi.mocked(getSecretFn).mockResolvedValue({
+      metadata: {
+        name: 'monitoring-destination-pmm-prod-credentials',
+        labels: { 'openeverest.io/provider': 'psmdb' },
+      },
+    });
+    renderModal();
+    await fillPmmDestination();
+    await submit();
+
+    expect(
+      await screen.findByText(
+        /doesn't hold credentials for this monitoring class/
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Reuse it' })
+    ).not.toBeInTheDocument();
+    expect(createMonitoringDestinationFn).not.toHaveBeenCalled();
   });
 
   it('stays open after rolling back a refused destination', async () => {
@@ -209,7 +253,7 @@ describe('MonitoringDestinationModal', () => {
       expect(deleteSecretFn).toHaveBeenCalledWith(
         'main',
         'team-a',
-        'pmm-prod-credentials'
+        'monitoring-destination-pmm-prod-credentials'
       )
     );
     expect(onClose).not.toHaveBeenCalled();

@@ -33,6 +33,8 @@ export const Messages = {
   secretNameFieldName: 'Secret name',
   secretExists: (secret: string) =>
     `A Secret named ${secret} already exists. Reuse it as is, or enter another Credentials Secret name.`,
+  secretTaken: (secret: string) =>
+    `A Secret named ${secret} already exists and doesn't hold credentials for this monitoring class and authentication mode. Enter another Credentials Secret name.`,
   reuseSecret: 'Reuse it',
   changedMeanwhile:
     'This destination was changed meanwhile. The form now shows the latest version; review it and save again.',

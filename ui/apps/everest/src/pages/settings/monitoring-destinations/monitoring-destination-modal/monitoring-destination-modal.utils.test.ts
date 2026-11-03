@@ -123,7 +123,7 @@ describe('buildSaveRequest', () => {
 
     expect(request.credentialsSecret).toEqual({
       action: 'create',
-      name: 'prom-credentials',
+      name: 'monitoring-destination-prom-credentials',
       stringData: { username: 'u', password: 'p' },
     });
     expect(request.destination).toEqual({
@@ -132,7 +132,9 @@ describe('buildSaveRequest', () => {
         classRef: { name: 'prometheus' },
         authentication: {
           mode: 'BasicAuth',
-          credentialsSecretRef: { name: 'prom-credentials' },
+          credentialsSecretRef: {
+            name: 'monitoring-destination-prom-credentials',
+          },
         },
         parameters: { podMonitorLabels: { release: 'kube-prom' } },
       },
@@ -191,7 +193,9 @@ describe('buildSaveRequest', () => {
 
     expect(request.credentialsSecret).toEqual({
       action: 'replace',
-      name: expect.stringMatching(/^prom-credentials-[a-z0-9]+$/),
+      name: expect.stringMatching(
+        /^monitoring-destination-prom-credentials-[a-z0-9]+$/
+      ),
       stringData: { username: 'u2', password: 'p2' },
       previousName: 'prom-basic',
     });

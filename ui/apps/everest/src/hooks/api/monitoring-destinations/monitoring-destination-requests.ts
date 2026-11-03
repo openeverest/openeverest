@@ -19,13 +19,16 @@ import {
   MonitoringDestinationPayload,
 } from 'shared-types/monitoring-destinations.types';
 import {
+  getCredentialsSecretLabels,
   getDestinationName,
   getSecretDeletedWithDestination,
+  isCredentialsSecretFor,
   isCredentialsSecretRemovable,
 } from 'utils/monitoring-destinations';
 
 export interface MonitoringDestinationRequests {
   createSecret: (secret: Secret) => Promise<unknown>;
+  getSecret: (name: string) => Promise<Secret>;
   deleteSecret: (name: string) => Promise<unknown>;
   createDestination: (
     destination: MonitoringDestinationPayload
@@ -61,12 +64,16 @@ export interface SaveMonitoringDestinationRequest {
   credentialsSecret?: CredentialsSecretWrite;
 }
 
+// reusable: the Secret holds credentials of the destination's class and mode,
+// so the destination can reference it as it is.
 export class SecretAlreadyExistsError extends Error {
   readonly secretName: string;
+  readonly reusable: boolean;
 
-  constructor(secretName: string) {
+  constructor(secretName: string, reusable: boolean) {
     super(`Secret ${secretName} already exists`);
     this.secretName = secretName;
+    this.reusable = reusable;
     this.name = 'SecretAlreadyExistsError';
   }
 }
@@ -104,6 +111,25 @@ const deleteReplacedSecret = async (
   }
 };
 
+// Whether the Secret that took the name holds credentials of the class and
+// mode. One the user may not read can't be referenced either.
+const isReusableSecret = async (
+  name: string,
+  className: string,
+  mode: string,
+  requests: MonitoringDestinationRequests
+) => {
+  try {
+    return isCredentialsSecretFor(
+      await requests.getSecret(name),
+      className,
+      mode
+    );
+  } catch {
+    return false;
+  }
+};
+
 // The Secret goes first, since the destination references it; a Secret this
 // call created is deleted again when the destination can't be saved.
 export const saveMonitoringDestination = async (
@@ -114,11 +140,19 @@ export const saveMonitoringDestination = async (
 
   if (credentialsSecret && credentialsSecret.action !== 'reuse') {
     const { action, name, stringData } = credentialsSecret;
+    const className = destination.spec.classRef.name;
+    const mode = destination.spec.authentication?.mode ?? '';
     try {
-      await requests.createSecret({ metadata: { name }, stringData });
+      await requests.createSecret({
+        metadata: { name, labels: getCredentialsSecretLabels(className, mode) },
+        stringData,
+      });
     } catch (error) {
       if (action === 'create' && hasStatus(error, 409)) {
-        throw new SecretAlreadyExistsError(name);
+        throw new SecretAlreadyExistsError(
+          name,
+          await isReusableSecret(name, className, mode, requests)
+        );
       }
       throw error;
     }

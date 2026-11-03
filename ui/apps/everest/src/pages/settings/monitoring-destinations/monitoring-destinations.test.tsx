@@ -70,7 +70,9 @@ vi.mock('hooks/api/monitoring-destinations', async (importOriginal) => {
             classRef: { name: 'pmm' },
             authentication: {
               mode: 'ServiceAccountToken',
-              credentialsSecretRef: { name: 'pmm-prod-credentials' },
+              credentialsSecretRef: {
+                name: 'monitoring-destination-pmm-prod-credentials',
+              },
             },
             parameters: { url: 'https://pmm.example.com' },
           },
@@ -197,7 +199,7 @@ describe('MonitoringDestinations', () => {
 
     expect(
       await screen.findByText(
-        /Its credentials Secret pmm-prod-credentials is deleted with it/
+        /Its credentials Secret monitoring-destination-pmm-prod-credentials is deleted with it/
       )
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
