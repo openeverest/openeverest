@@ -106,9 +106,13 @@ const (
 
 	// OpenEverestManagedLabel indicates a Secret or ConfigMap is managed by OpenEverest.
 	OpenEverestManagedLabel = "openeverest.io/managed"
-	// OpenEverestProviderLabel identifies the provider that uses the Secret or ConfigMap.
+	// OpenEverestProviderLabel identifies the provider that defines a Secret or ConfigMap.
 	OpenEverestProviderLabel = "openeverest.io/provider"
-	// OpenEverestDefinitionLabel identifies the Secret or ConfigMap definition for filtering.
+	// OpenEverestMonitoringClassLabel identifies the MonitoringClass that defines a Secret.
+	OpenEverestMonitoringClassLabel = "openeverest.io/monitoring-class"
+	// OpenEverestDefinitionLabel names the definition a Secret or ConfigMap follows within its
+	// source: a key of Provider.spec.secrets or Provider.spec.configMaps, or an authentication
+	// mode of a MonitoringClass.
 	OpenEverestDefinitionLabel = "openeverest.io/definition"
 
 	// InstancePresetAnnotation is the annotation key for the InstancePreset that an Instance was created from.
