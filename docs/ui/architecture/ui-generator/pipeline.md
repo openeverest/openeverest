@@ -143,10 +143,31 @@ flowchart TD
 `getDefaultValues()` runs synchronously before the API responds, so `dataSource` fields start with
 an empty value. The default is set asynchronously in two places: `DataSourcePrefetcher` on form
 mount and `DataSourceField` when the specific field renders. Both check the current value via
-`getValues(path)` before writing, so they never overwrite a user selection or an existing value.
+`getValues(path)` before writing: a value that is among the options is kept, an empty one gets the
+first option, and one no longer among the options is replaced with the first option, or cleared
+when there are none.
+In `edit` mode `DataSourceField` doesn't auto-select at all — the same rule `extractInstanceValues`
+applies to schema defaults: the form shows the stored spec as-is, so a value that is unset or no
+longer among the options stays untouched instead of being written into the spec on save. A stored
+value missing from the options is appended to the select's options (labelled as unavailable once
+the options have loaded), so the select shows what the spec holds. It is taken from the form's
+`defaultValues`, so it stays listed after the user picks another option and the pick can be undone.
+The appended option only affects rendering: the select's zod schema is built from the section
+schema, where `dataSource` fields have no static `options`. Once the options have loaded, the
+helper text explains an unavailable stored value (without claiming a cause) or an empty one (via the
+registry entry's `unsetValueHint`); it reads the current value with `useWatch`, so it clears as soon
+as the user picks another option.
+A resource created from the provider's `emptyStateFallback` is a separate path: the fallback calls
+`onCreated(value)` once the refetched options include it, and `DataSourceField` sets it as a user
+change (`shouldDirty`) in every mode — the user picked it, so the edit rule doesn't apply. The
+fallback waits for the refetch as a safeguard: in create modes the reconcile could reset a value
+that isn't among the options yet if the options update without it.
 
 `DataSourcePrefetcher` skips fields of switched-off `toggleable` groups, so a disabled section
-triggers no request.
+triggers no request. With `autoSelect={false}` it still prefetches the options but writes no value;
+the create wizard passes it while a preset is selected, because the preset's spec is sent verbatim
+and an auto-selected option would only show in the preview (e.g. a storage class the preset leaves
+to the cluster default).
 
 ### Secret fields on a namespace switch
 
@@ -270,4 +291,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-23
+- Last updated: 2026-11-02
