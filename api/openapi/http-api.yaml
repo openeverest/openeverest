@@ -464,62 +464,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  '/clusters/{cluster}/cluster-instance-presets/{name}/resolve':
-    x-everest-resource-name: cluster-instance-presets
-    get:
-      tags:
-        - Preset
-      summary: Resolve cluster instance preset with namespace defaults and default StorageClass of the cluster
-      description: |
-        This API resolves the cluster instance preset specified by the `name` in the specified `cluster`.
-        This endpoint is useful when creating instances from cluster instance presets, as it provides a
-        fully-populated preset with all namespace defaults, and default StorageClass of the cluster
-        if it has empty StorageClass.
-      operationId: resolveClusterInstancePreset
-      parameters:
-        - name: cluster
-          in: path
-          required: true
-          description: The name of the cluster
-          schema:
-            type: string
-        - name: name
-          in: path
-          required: true
-          description: The name of the cluster instance preset
-          schema:
-            type: string
-        - name: namespace
-          in: query
-          required: true
-          description: The namespace for which to resolve default values
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Resolved cluster instance preset with namespace defaults
-          content:
-            application/json:
-              schema:
-                $ref: 'crds.gen.yaml#/components/schemas/ClusterInstancePreset'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Cluster instance preset not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        default:
-          description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/namespaces/{namespace}/instance-presets':
     x-everest-resource-name: instance-presets
     get:

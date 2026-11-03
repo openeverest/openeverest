@@ -309,29 +309,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/clusters/{cluster}/cluster-instance-presets/{name}/resolve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Resolve cluster instance preset with namespace defaults and default StorageClass of the cluster
-         * @description This API resolves the cluster instance preset specified by the `name` in the specified `cluster`.
-         *     This endpoint is useful when creating instances from cluster instance presets, as it provides a
-         *     fully-populated preset with all namespace defaults, and default StorageClass of the cluster
-         *     if it has empty StorageClass.
-         */
-        get: operations["resolveClusterInstancePreset"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/clusters/{cluster}/namespaces/{namespace}/instance-presets": {
         parameters: {
             query?: never;
@@ -8270,61 +8247,6 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Cluster instance preset details */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ClusterInstancePreset"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Cluster instance preset not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    resolveClusterInstancePreset: {
-        parameters: {
-            query: {
-                /** @description The namespace for which to resolve default values */
-                namespace: string;
-            };
-            header?: never;
-            path: {
-                /** @description The name of the cluster */
-                cluster: string;
-                /** @description The name of the cluster instance preset */
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Resolved cluster instance preset with namespace defaults */
             200: {
                 headers: {
                     [name: string]: unknown;

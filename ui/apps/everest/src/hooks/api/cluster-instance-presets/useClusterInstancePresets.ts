@@ -13,10 +13,7 @@
 // limitations under the License.
 
 import { useQuery } from '@tanstack/react-query';
-import {
-  getClusterInstancePresetsFn,
-  resolveClusterInstancePresetFn,
-} from 'api/clusterInstancePresetApi';
+import { getClusterInstancePresetsFn } from 'api/clusterInstancePresetApi';
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import {
   ClusterInstancePreset,
@@ -24,8 +21,6 @@ import {
 } from 'shared-types/api.types';
 
 export const CLUSTER_INSTANCE_PRESETS_QUERY_KEY = 'cluster-instance-presets';
-export const RESOLVE_CLUSTER_INSTANCE_PRESET_QUERY_KEY =
-  'resolve-cluster-instance-preset';
 
 export const useClusterInstancePresets = (
   clusterName: string,
@@ -45,34 +40,4 @@ export const useClusterInstancePresets = (
       (data.items ?? []).filter((preset): preset is ClusterInstancePreset =>
         Boolean(preset)
       ),
-  });
-
-// Resolve is a GET modelled as a query keyed on cluster+name+namespace so the
-// spec re-resolves automatically when the namespace changes and react-query
-// dedupes/cancels stale fetches (no manual race handling needed).
-export const useResolveClusterInstancePreset = (
-  clusterName: string,
-  name: string,
-  namespace: string | undefined,
-  options?: PerconaQueryOptions<
-    ClusterInstancePreset,
-    unknown,
-    ClusterInstancePreset
-  >
-) =>
-  useQuery<ClusterInstancePreset, unknown, ClusterInstancePreset>({
-    queryKey: [
-      RESOLVE_CLUSTER_INSTANCE_PRESET_QUERY_KEY,
-      clusterName,
-      name,
-      namespace,
-    ],
-    queryFn: () =>
-      resolveClusterInstancePresetFn(clusterName, name, namespace ?? ''),
-    enabled: Boolean(clusterName) && Boolean(name) && Boolean(namespace),
-    // A resolved spec is stable for a given name+namespace; disable background
-    // refetches so `isFetching` doesn't briefly re-block the one-click submit.
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
-    ...options,
   });
