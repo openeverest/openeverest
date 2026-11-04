@@ -14,9 +14,6 @@
 
 export const Messages = {
   createDatabase: 'Create',
-  importDatabase: 'Import database',
-  import: 'Import',
   selectProvider: 'Select a provider to continue',
-  technicalPreview: 'Technical Preview',
   closeDrawerAriaLabel: 'Close',
 };

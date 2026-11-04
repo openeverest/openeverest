@@ -23,10 +23,13 @@ import { DbWizardFormFields } from 'consts.ts';
 import { useDatabasePageMode } from '../../../hooks/use-database-page-mode.js';
 import { StepHeader } from '../../steps-old/step-header/step-header.js';
 import { Messages } from './base-step.messages.js';
+import { ImportSourceBanner } from './import-source-banner';
 import { useNamespacePermissionsForResource } from 'hooks/rbac';
 import { useNamespaces } from 'hooks/index.ts';
 import { FormMode } from 'components/ui-generator/ui-generator.types.js';
 import { useDatabaseFormContext } from 'pages/database-form/database-form-context';
+import { useImportNavigationState } from 'pages/database-form/hooks/use-import-navigation-state';
+import { getImportPrefill } from 'pages/database-form/utils/import-prefill';
 import {
   PresetSelectCards,
   usePresetSelectionContext,
@@ -34,11 +37,21 @@ import {
 
 export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
   const mode = useDatabasePageMode();
+  const importNavigation = useImportNavigationState();
   // TODO probably we should show only list of available namespaces for provider, needs to be checked
   const { data: namespaces = [] } = useNamespaces({
     refetchInterval: 10 * 1000,
   });
-  const { topologies, hasMultipleTopologies } = useDatabaseFormContext();
+  const { topologies, hasMultipleTopologies, providerObject } =
+    useDatabaseFormContext();
+  const importPrefill =
+    mode === FormMode.Import && importNavigation
+      ? getImportPrefill(
+          importNavigation.importSource.sourceMetadata,
+          providerObject,
+          topologies
+        )
+      : undefined;
   const { presetSelected, presets, isError } = usePresetSelectionContext();
   const { watch, setValue, getFieldState } = useFormContext();
 
@@ -150,6 +163,12 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
         }
       />
       {mode === FormMode.New && <PresetSelectCards />}
+      {importNavigation && importPrefill && (
+        <ImportSourceBanner
+          importSource={importNavigation.importSource}
+          prefill={importPrefill}
+        />
+      )}
       <FormGroup sx={{ mt: 3 }}>
         <AutoCompleteInput
           labelProps={{
@@ -159,7 +178,12 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
           label={Messages.labels.k8sNamespace}
           loading={isLoading}
           options={namespaces}
-          disabled={mode === FormMode.Restore || loadingDefaultsForEdition}
+          // Restore and import seed from a backup in this namespace.
+          disabled={
+            mode === FormMode.Restore ||
+            mode === FormMode.Import ||
+            loadingDefaultsForEdition
+          }
           // onChange={onNamespaceChange}
           autoCompleteProps={{
             disableClearable: true,
@@ -181,6 +205,7 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
             selectFieldProps={{
               disabled:
                 mode === FormMode.Restore ||
+                !!importPrefill?.topology ||
                 loadingDefaultsForEdition ||
                 presetSelected,
             }}

@@ -43,13 +43,3 @@ func (e *EverestServer) GetClusterInstancePreset(c echo.Context, cluster string,
 	}
 	return c.JSON(http.StatusOK, result)
 }
-
-// ResolveClusterInstancePreset returns a cluster instance preset with namespace-specific default values populated.
-func (e *EverestServer) ResolveClusterInstancePreset(c echo.Context, cluster string, name string, params api.ResolveClusterInstancePresetParams) error {
-	result, err := e.handler.ResolveClusterInstancePreset(c.Request().Context(), cluster, name, params.Namespace)
-	if err != nil {
-		e.l.Errorf("ResolveClusterInstancePreset failed: %v", err)
-		return err
-	}
-	return c.JSON(http.StatusOK, result)
-}

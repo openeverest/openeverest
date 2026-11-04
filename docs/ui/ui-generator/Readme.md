@@ -207,6 +207,15 @@ for UI that plain fields can't describe. See [Widgets](widgets.md) for the suppo
 
 ## Mode-Aware Overrides
 
+The form runs in one of four modes:
+
+| Mode      | When                                                             |
+| --------- | ---------------------------------------------------------------- |
+| `new`     | Creating a database                                              |
+| `edit`    | Changing an existing database                                    |
+| `restore` | Creating a database from a backup of another database            |
+| `import`  | Creating a database from a backup imported from a backup storage |
+
 ### Component-level modes
 
 Use a component's `modes` to hide it in a mode with `uiType: hidden`. A hidden field isn't

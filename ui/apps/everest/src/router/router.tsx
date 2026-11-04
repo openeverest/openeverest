@@ -26,6 +26,7 @@ import {
   InstanceOverview,
   // Components,
   DatabasePage,
+  DatabaseImportPage,
   DbDetails,
   DbClusterView,
   // LoadBalancerConfigDetails,
@@ -79,6 +80,10 @@ const router = createBrowserRouter([
       {
         path: 'databases/new',
         element: withSuspense(<DatabasePage />),
+      },
+      {
+        path: 'databases/import',
+        element: withSuspense(<DatabaseImportPage />),
       },
       {
         path: 'databases/:namespace/:instanceName',

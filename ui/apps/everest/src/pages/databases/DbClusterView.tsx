@@ -23,6 +23,7 @@ import { useNavigate } from 'react-router-dom';
 import { beautifyDbInstanceStatus } from './DbClusterView.utils';
 import { InstanceTableElement } from './dbClusterView.types';
 import { CreateDbButton } from 'components/create-db-button';
+import { ImportDbButton } from 'components/import-db-button';
 import EmptyStateDatabases from 'components/empty-state-databases/empty-state-databases';
 import EmptyStateNamespaces from 'components/empty-state-namespaces/empty-state-namespaces';
 import { DbActions } from 'components/db-actions/db-actions';
@@ -231,11 +232,8 @@ export const DbClusterView = () => {
             }
             renderTopToolbarCustomActions={() =>
               canAddCluster && (
-                <Box display="flex" mb={1}>
-                  {/*TODO uncomment when providerImporters will be ready */}
-                  {/* {(availableEnginesForImport?.items || []).length > 0 && (
-                    <CreateDbButton createFromImport />
-                  )} */}
+                <Box display="flex" gap={1} mb={1}>
+                  <ImportDbButton />
                   <CreateDbButton />
                 </Box>
               )

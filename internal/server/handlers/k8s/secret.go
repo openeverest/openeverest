@@ -20,11 +20,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 // CreateSecret creates a Secret and labels it as managed by OpenEverest.
-// Provider and definition labels supplied by the caller are preserved.
+// Definition labels supplied by the caller are preserved; owner references
+// and finalizers are not, since OpenEverest manages the Secret's lifecycle.
 // Secret contents are stripped so only metadata is returned.
 func (h *k8sHandler) CreateSecret(ctx context.Context, _ string, namespace string, secret *corev1.Secret) (*corev1.Secret, error) {
 	if secret.Labels == nil {
@@ -32,6 +34,8 @@ func (h *k8sHandler) CreateSecret(ctx context.Context, _ string, namespace strin
 	}
 	secret.Labels[common.OpenEverestManagedLabel] = "true" //nolint:goconst
 	secret.Namespace = namespace
+	secret.OwnerReferences = nil
+	secret.Finalizers = nil
 
 	res, err := h.kubeConnector.CreateSecret(ctx, secret)
 	if err != nil {
@@ -41,15 +45,18 @@ func (h *k8sHandler) CreateSecret(ctx context.Context, _ string, namespace strin
 	return stripSecretData(res), nil
 }
 
-// ListSecrets lists OpenEverest-managed secrets matching the optional provider and
-// definition filters. Secret contents are stripped so only metadata is returned.
-func (h *k8sHandler) ListSecrets(ctx context.Context, _ string, namespace, provider, definition string) (*corev1.SecretList, error) {
+// ListSecrets lists OpenEverest-managed secrets matching the filter.
+// Secret contents are stripped so only metadata is returned.
+func (h *k8sHandler) ListSecrets(ctx context.Context, _ string, namespace string, filter handlers.SecretFilter) (*corev1.SecretList, error) {
 	selector := ctrlclient.MatchingLabels{common.OpenEverestManagedLabel: "true"}
-	if provider != "" {
-		selector[common.OpenEverestProviderLabel] = provider
+	if filter.Provider != "" {
+		selector[common.OpenEverestProviderLabel] = filter.Provider
 	}
-	if definition != "" {
-		selector[common.OpenEverestDefinitionLabel] = definition
+	if filter.MonitoringClass != "" {
+		selector[common.OpenEverestMonitoringClassLabel] = filter.MonitoringClass
+	}
+	if filter.Definition != "" {
+		selector[common.OpenEverestDefinitionLabel] = filter.Definition
 	}
 
 	list, err := h.kubeConnector.ListSecrets(ctx, ctrlclient.InNamespace(namespace), selector)

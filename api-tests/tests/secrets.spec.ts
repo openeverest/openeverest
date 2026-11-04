@@ -109,7 +109,7 @@ test.describe.parallel('Secrets tests', () => {
       expect(error.message).toContain('definition')
     })
 
-    await test.step('create secret without provider label should fail', async () => {
+    await test.step('create secret without a source label should fail', async () => {
       const data = {
         apiVersion: 'v1',
         kind: 'Secret',
@@ -138,6 +138,141 @@ test.describe.parallel('Secrets tests', () => {
       // Verify secret is deleted
       const response = await th.getSecretRaw(request, secretName1)
       expect(response.status()).toBe(404)
+    })
+  })
+})
+
+const monitoringClass = 'test-monitoring-class'
+const monitoringSecretName = 'monitoring-destination-test-pmm-prod-credentials'
+
+const monitoringSecret = (name: string, definition: string, extra: object = {}) => ({
+  apiVersion: 'v1',
+  kind: 'Secret',
+  metadata: {
+    name,
+    labels: {
+      'openeverest.io/monitoring-class': monitoringClass,
+      'openeverest.io/definition': definition,
+    },
+  },
+  type: 'Opaque',
+  stringData: {token: 'glsa_test-token'},
+  ...extra,
+})
+
+const withLabels = (labels: object) => (name: string) => ({
+  ...monitoringSecret(name, 'ServiceAccountToken'),
+  metadata: {name, labels},
+})
+
+const rejected = [
+  {
+    desc: 'a required key is missing',
+    data: (name: string) => monitoringSecret(name, 'ServiceAccountToken', {stringData: {orgID: '1'}}),
+    message: 'missing key "token"',
+  },
+  {
+    desc: 'the class has no such mode',
+    data: (name: string) => monitoringSecret(name, 'BasicAuth'),
+    message: 'has no authentication mode "BasicAuth"',
+  },
+  {
+    desc: 'the mode takes no Secret',
+    data: (name: string) => monitoringSecret(name, 'Anonymous'),
+    message: 'takes no Secret',
+  },
+  {
+    desc: 'the class does not exist',
+    data: withLabels({'openeverest.io/monitoring-class': 'non-existent', 'openeverest.io/definition': 'ServiceAccountToken'}),
+    message: 'MonitoringClass "non-existent"',
+  },
+  {
+    desc: 'the Secret is not Opaque',
+    data: (name: string) => monitoringSecret(name, 'ServiceAccountToken', {type: 'kubernetes.io/basic-auth', stringData: {token: 't', username: 'u'}}),
+    message: 'must be of type "Opaque"',
+  },
+  {
+    desc: 'the Secret would receive a service account token',
+    data: (name: string) => ({
+      ...monitoringSecret(name, 'ServiceAccountToken', {type: 'kubernetes.io/service-account-token', stringData: undefined}),
+      metadata: {
+        name,
+        labels: {'openeverest.io/monitoring-class': monitoringClass, 'openeverest.io/definition': 'ServiceAccountToken'},
+        annotations: {'kubernetes.io/service-account.name': 'default'},
+      },
+    }),
+    message: 'cannot be created',
+  },
+  {
+    desc: 'the Secret has no labels',
+    data: withLabels({}),
+    message: 'label the Secret with one of',
+  },
+  {
+    desc: 'the Secret names two sources',
+    data: withLabels({
+      'openeverest.io/monitoring-class': monitoringClass,
+      'openeverest.io/provider': 'test-provider',
+      'openeverest.io/definition': 'ServiceAccountToken',
+    }),
+    message: 'set only one of',
+  },
+]
+
+const rejectedName = (i: number) => `monitoring-destination-test-rejected-${i}-credentials`
+
+test.describe.parallel('Secrets defined by a monitoring class', () => {
+  test.afterAll(async ({request}) => {
+    await th.deleteSecret(request, monitoringSecretName)
+    for (let i = 0; i < rejected.length; i++) {
+      await th.deleteSecret(request, rejectedName(i))
+    }
+  })
+
+  test('create, filter and get monitoring credentials', async ({request}) => {
+    await test.step('create credentials with a name longer than 22 characters', async () => {
+      const data = {
+        ...monitoringSecret(monitoringSecretName, 'ServiceAccountToken'),
+        metadata: {
+          name: monitoringSecretName,
+          labels: {'openeverest.io/monitoring-class': monitoringClass, 'openeverest.io/definition': 'ServiceAccountToken'},
+          ownerReferences: [{apiVersion: 'v1', kind: 'ConfigMap', name: 'not-an-owner', uid: '00000000-0000-0000-0000-000000000000'}],
+          finalizers: ['example.com/keep'],
+        },
+      }
+
+      const created = await th.createSecretWithData(request, data)
+      expect(created.metadata.name).toBe(monitoringSecretName)
+      expect(created.data).toBeUndefined()
+      expect(created.stringData).toBeUndefined()
+    })
+
+    await test.step('get drops owner references and finalizers', async () => {
+      const secret = await th.getSecret(request, monitoringSecretName)
+      expect(secret.metadata.labels['openeverest.io/managed']).toBe('true')
+      expect(secret.metadata.labels['openeverest.io/monitoring-class']).toBe(monitoringClass)
+      expect(secret.metadata.labels['openeverest.io/definition']).toBe('ServiceAccountToken')
+      expect(secret.metadata.ownerReferences ?? []).toHaveLength(0)
+      expect(secret.metadata.finalizers ?? []).toHaveLength(0)
+    })
+
+    await test.step('filter by monitoring class', async () => {
+      const list = await th.listSecretsByMonitoringClass(request, monitoringClass, 'ServiceAccountToken')
+      expect(list.items.map(s => s.metadata.name)).toContain(monitoringSecretName)
+
+      const other = await th.listSecretsByMonitoringClass(request, 'non-existent', 'ServiceAccountToken')
+      expect(other.items).toHaveLength(0)
+    })
+  })
+
+  rejected.forEach(({desc, data, message}, i) => {
+    test(`reject credentials when ${desc}`, async ({request}) => {
+      const name = rejectedName(i)
+      const response = await th.createSecretRaw(request, data(name))
+      expect(response.status()).toBe(400)
+      expect((await response.json()).message).toContain(message)
+
+      expect((await th.getSecretRaw(request, name)).status()).toBe(404)
     })
   })
 })

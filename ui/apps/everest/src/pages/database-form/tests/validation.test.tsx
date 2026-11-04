@@ -78,7 +78,7 @@ const Wrapper = ({
     ? buildZodSchema(uiSchema, 'replica').schema
     : undefined;
 
-  const combinedSchema = getDBWizardSchema([], false, openApiSchema);
+  const combinedSchema = getDBWizardSchema([], openApiSchema);
 
   const dynamicDefaults = uiSchema ? getDefaultValues(uiSchema, 'replica') : {};
   const defaultValues = {
@@ -114,7 +114,7 @@ const Wrapper = ({
 
 describe('getDBWizardSchema + openApiValidationSchema combination', () => {
   it('is valid when base fields are filled and no openApi schema is provided', () => {
-    const schema = getDBWizardSchema([], false);
+    const schema = getDBWizardSchema([]);
     const result = schema.safeParse(BASE_DEFAULTS);
     expect(result.success).toBe(true);
   });
@@ -122,7 +122,7 @@ describe('getDBWizardSchema + openApiValidationSchema combination', () => {
   it('is valid when a required number field has a numeric value', () => {
     const uiSchema = makeUiSchema({}, { required: true });
     const openApiSchema = buildZodSchema(uiSchema, 'replica').schema;
-    const schema = getDBWizardSchema([], false, openApiSchema);
+    const schema = getDBWizardSchema([], openApiSchema);
 
     const result = schema.safeParse({
       ...BASE_DEFAULTS,
@@ -134,7 +134,7 @@ describe('getDBWizardSchema + openApiValidationSchema combination', () => {
   it('is valid when a required number field has a string-number value (as provided by inputs)', () => {
     const uiSchema = makeUiSchema({}, { required: true });
     const openApiSchema = buildZodSchema(uiSchema, 'replica').schema;
-    const schema = getDBWizardSchema([], false, openApiSchema);
+    const schema = getDBWizardSchema([], openApiSchema);
 
     // String "5" from a text input must coerce and succeed — the old .and() approach failed here
     const result = schema.safeParse({
@@ -147,7 +147,7 @@ describe('getDBWizardSchema + openApiValidationSchema combination', () => {
   it('does NOT produce an invalid_intersection_types error at root path', () => {
     const uiSchema = makeUiSchema({}, { required: true });
     const openApiSchema = buildZodSchema(uiSchema, 'replica').schema;
-    const schema = getDBWizardSchema([], false, openApiSchema);
+    const schema = getDBWizardSchema([], openApiSchema);
 
     const result = schema.safeParse({
       ...BASE_DEFAULTS,
@@ -166,7 +166,7 @@ describe('getDBWizardSchema + openApiValidationSchema combination', () => {
   it('is invalid when a required number field is empty string', () => {
     const uiSchema = makeUiSchema({}, { required: true });
     const openApiSchema = buildZodSchema(uiSchema, 'replica').schema;
-    const schema = getDBWizardSchema([], false, openApiSchema);
+    const schema = getDBWizardSchema([], openApiSchema);
 
     const result = schema.safeParse({
       ...BASE_DEFAULTS,
@@ -178,7 +178,7 @@ describe('getDBWizardSchema + openApiValidationSchema combination', () => {
   it('reports errors at the field path (not root) for an invalid required number field', () => {
     const uiSchema = makeUiSchema({}, { required: true });
     const openApiSchema = buildZodSchema(uiSchema, 'replica').schema;
-    const schema = getDBWizardSchema([], false, openApiSchema);
+    const schema = getDBWizardSchema([], openApiSchema);
 
     const result = schema.safeParse({
       ...BASE_DEFAULTS,
@@ -198,7 +198,7 @@ describe('getDBWizardSchema + openApiValidationSchema combination', () => {
   it('is valid when an optional number field is undefined (explicitly absent)', () => {
     const uiSchema = makeUiSchema({}, { required: false });
     const openApiSchema = buildZodSchema(uiSchema, 'replica').schema;
-    const schema = getDBWizardSchema([], false, openApiSchema);
+    const schema = getDBWizardSchema([], openApiSchema);
 
     // undefined is the canonical "absent" value for optional fields
     const result = schema.safeParse({
@@ -369,7 +369,7 @@ describe('topology-switch nested object error path', () => {
     // and instead reports invalid_type at the container level.
     const uiSchema = makeShardedUiSchema();
     const openApiSchema = buildZodSchema(uiSchema, 'sharded').schema;
-    const schema = getDBWizardSchema([], false, openApiSchema);
+    const schema = getDBWizardSchema([], openApiSchema);
 
     const result = schema.safeParse({
       ...BASE_DEFAULTS,
@@ -395,7 +395,7 @@ describe('topology-switch nested object error path', () => {
     // exist as {}, so Zod can validate the leaf field and report the error there.
     const uiSchema = makeShardedUiSchema();
     const openApiSchema = buildZodSchema(uiSchema, 'sharded').schema;
-    const schema = getDBWizardSchema([], false, openApiSchema);
+    const schema = getDBWizardSchema([], openApiSchema);
 
     const result = schema.safeParse({
       ...BASE_DEFAULTS,

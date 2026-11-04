@@ -56,6 +56,21 @@ export const useBackupClassesList = (
   });
 };
 
+export const useImportBackupClasses = (clusterName: string) => {
+  // The list query stays idle until the read permission is checked.
+  const { isPermissionsLoading } = useRBACPermissions('backup-classes');
+  const { data: backupClasses, isLoading } = useBackupClassesList(clusterName);
+  const importClasses = useMemo(
+    () => (backupClasses ?? []).filter((bc) => bc.spec.supportsImport),
+    [backupClasses]
+  );
+
+  return {
+    data: importClasses,
+    isLoading: isPermissionsLoading || isLoading,
+  };
+};
+
 export const useActiveBackupClass = (
   instance: Instance
 ): BackupClass | undefined => {

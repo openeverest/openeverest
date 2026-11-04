@@ -29,6 +29,7 @@ import { useCreateDbInstance } from 'hooks/api/db-instances/useCreateDbInstance'
 import { DB_INSTANCES_QUERY_KEY } from 'hooks/api/db-instances/useDbInstanceList';
 import { buildRestoreDataSource } from 'hooks/api/restores/restore-data-source';
 import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
+import { RestoreDataSourceInput } from 'shared-types/restores.types';
 import { DbWizardType } from './database-form-schema';
 import DatabaseFormCancelDialog from './database-form-cancel-dialog/index';
 import DatabaseFormBody from './database-form-body';
@@ -39,15 +40,14 @@ import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { ZodType } from 'zod';
 import { useDatabasePageDefaultValues } from './hooks/use-database-form-default-values';
 import { useDatabasePageMode } from './hooks/use-database-page-mode';
+import { useImportNavigationState } from './hooks/use-import-navigation-state';
 import { useRestoreNavigationState } from './hooks/use-restore-navigation-state';
 import { DatabaseFormProvider } from './database-form-context';
 import { useSchema } from './hooks/use-schema';
 import { useDbValidationSchema } from './hooks/use-db-validation-schema';
-import { ImportFields } from 'components/cluster-form/import/import.types';
 import { DbWizardFormFields } from 'consts';
 import {
   BASE_STEP_ID,
-  IMPORT_STEP_ID,
   BACKUP_STEP_ID,
 } from './database-form-body/steps/constants';
 import {
@@ -60,7 +60,6 @@ import { widgetRegistry } from './widget-registry';
 import { DataSourcePrefetcher } from 'components/ui-generator/api-providers';
 import { SecretNamespaceSync } from 'components/ui-generator/secret-field';
 import { BaseInfoStep } from './database-form-body/steps/base-step/base-step';
-import { ImportStep } from './database-form-body/steps-old/import/import-step';
 import {
   BackupStep,
   BACKUP_SCHEDULES_FIELD,
@@ -195,12 +194,12 @@ export const DatabasePage = () => {
   const { isDesktop } = useActiveBreakpoint();
   const mode = useDatabasePageMode();
   const { restoreDataSource } = useRestoreNavigationState();
+  const importNavigation = useImportNavigationState();
 
   // ── Schema & topology
   const { uiSchema, topologies, hasMultipleTopologies, resolvedProvider } =
     useSchema();
   const defaultTopology = topologies[0] || '';
-  const hasImportStep = !!location.state?.showImport;
   const providerObject = location.state?.selectedDbProvider ?? resolvedProvider;
 
   // ── Backup classes (determines if backup step is shown)
@@ -214,7 +213,8 @@ export const DatabasePage = () => {
       mode,
       uiSchema,
       defaultTopology,
-      hasBackupStep
+      hasBackupStep,
+      providerObject
     );
   const loadingClusterValues = !defaultValues;
 
@@ -292,7 +292,6 @@ export const DatabasePage = () => {
   const presetSelection = usePresetSelection(
     clusterName,
     typeof selectedProvider === 'string' ? selectedProvider : undefined,
-    selectedNamespace || namespaces[0],
     typeof selectedPreset === 'string' ? selectedPreset : ''
   );
 
@@ -305,10 +304,9 @@ export const DatabasePage = () => {
     defaultTopology,
     selectedTopology,
     preset: {
-      resolvedPreset: presetSelection.resolvedPreset,
+      selectedPreset: presetSelection.selectedPreset,
       presetName: presetSelection.presetName,
       presetSelected: presetSelection.presetSelected,
-      namespace: selectedNamespace || namespaces[0],
     },
     reset,
     getValues,
@@ -329,14 +327,6 @@ export const DatabasePage = () => {
         ],
       },
     ];
-    if (hasImportStep) {
-      steps.push({
-        id: IMPORT_STEP_ID,
-        label: 'Import',
-        component: ImportStep,
-        fields: Object.values(ImportFields) as string[],
-      });
-    }
     if (hasBackupStep) {
       steps.push({
         id: BACKUP_STEP_ID,
@@ -346,7 +336,7 @@ export const DatabasePage = () => {
       });
     }
     return steps;
-  }, [hasImportStep, hasBackupStep]);
+  }, [hasBackupStep]);
 
   const engine = useFormEngine({
     uiSchema,
@@ -385,7 +375,6 @@ export const DatabasePage = () => {
   // Validation
   const validationSchema = useDbValidationSchema(
     dbInstancesList,
-    hasImportStep,
     engine.zodSchema
   ) as unknown as ZodType<DbWizardType>;
 
@@ -437,16 +426,16 @@ export const DatabasePage = () => {
   );
 
   const onSubmit: SubmitHandler<DbWizardType> = (data) => {
-    // Preset mode: create straight from the resolved preset spec (one-click),
+    // Preset mode: create straight from the selected preset spec (one-click),
     // bypassing the wizard's field-by-field spec build. Never fall through to a
-    // manual create while a preset is picked but not yet resolved.
+    // manual create while a preset is picked but its spec is not yet loaded.
     if (mode === FormMode.New && presetSelection.presetSelected) {
-      if (!presetSelection.resolvedPreset) {
+      if (!presetSelection.selectedPreset) {
         return;
       }
       createInstance(
         buildPresetCreateArgs({
-          resolvedPreset: presetSelection.resolvedPreset,
+          selectedPreset: presetSelection.selectedPreset,
           provider:
             typeof selectedProvider === 'string' ? selectedProvider : '',
           dbName: data.dbName,
@@ -487,7 +476,32 @@ export const DatabasePage = () => {
 
     latestDataRef.current = postProcessedData;
 
-    if (mode === FormMode.New) {
+    // Seed the new instance from the source in a single atomic create: the
+    // operator runs the restore from spec.dataSource (it creates the seeding
+    // Restore CR itself), so there is no second request to orchestrate here.
+    const seedFrom = (source: RestoreDataSourceInput) => {
+      Reflect.set(formData, 'dataSource', buildRestoreDataSource(source));
+      // The seeding storage (where the operator reads the source) must be
+      // registered on the new instance regardless of the user's schedule
+      // choices, or the restore stalls waiting for it.
+      Reflect.set(
+        formData,
+        'backup',
+        ensureStorageRegistered(
+          backupSpecForSubmit,
+          source.storageName,
+          backupFormData?.classRefName
+        )
+      );
+    };
+
+    // An import creates a new instance, seeded from the chosen backup.
+    if (mode === FormMode.Import) {
+      if (!importNavigation) return;
+      seedFrom(importNavigation.importSource.dataSource);
+    }
+
+    if (mode === FormMode.New || mode === FormMode.Import) {
       createInstance(
         { formValue: postProcessedData },
         {
@@ -519,26 +533,7 @@ export const DatabasePage = () => {
       );
     } else if (mode === FormMode.Restore) {
       if (!restoreDataSource) return;
-      // Seed the new instance from the source in a single atomic create: the
-      // operator runs the restore from spec.dataSource (it creates the seeding
-      // Restore CR itself), so there is no second request to orchestrate here.
-      Reflect.set(
-        formData,
-        'dataSource',
-        buildRestoreDataSource(restoreDataSource)
-      );
-      // The seeding storage (where the operator reads the source) must be
-      // registered on the new instance regardless of the user's schedule
-      // choices, or the restore stalls waiting for it.
-      Reflect.set(
-        formData,
-        'backup',
-        ensureStorageRegistered(
-          backupSpecForSubmit,
-          restoreDataSource.storageName,
-          backupFormData?.classRefName
-        )
-      );
+      seedFrom(restoreDataSource);
       createInstance(
         { formValue: postProcessedData },
         {
@@ -571,9 +566,12 @@ export const DatabasePage = () => {
       <Stack direction={isDesktop ? 'row' : 'column'}>
         <FormProvider {...methods}>
           <PresetSelectionContext.Provider value={presetSelection}>
+            {/* A selected preset owns the values: its spec is sent verbatim, so
+                auto-selected options would only mislead the preview. */}
             <DataSourcePrefetcher
               sections={engine.sections}
               namespace={selectedNamespace || namespaces[0]}
+              autoSelect={!presetSelection.presetSelected}
             />
             {/* Restore fixes the namespace, and a selected preset owns the values. */}
             {mode === FormMode.New && !presetSelection.presetSelected && (
@@ -590,11 +588,6 @@ export const DatabasePage = () => {
               hasErrors={stepsWithErrors.length > 0}
               presetSelected={presetSelection.presetSelected}
               presetPending={presetSelection.presetPending}
-              disableNext={
-                hasImportStep &&
-                nav.activeStepId === IMPORT_STEP_ID &&
-                stepsWithErrors.includes(IMPORT_STEP_ID)
-              }
               onSubmit={handleSubmit(onSubmit)}
               onCancel={() => navigate('/databases')}
               handleNextStep={handleNext}
