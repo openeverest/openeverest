@@ -176,9 +176,10 @@ func TestCreateSSO(t *testing.T) {
 	tokenStr, err := mgr.CreateSSO(subject, int64(time.Hour.Seconds()), id, issuer, identity)
 	require.NoError(t, err)
 
-	parsed, err := jwt.Parse(tokenStr, func(_ *jwt.Token) (any, error) {
+	keyFunc := func(_ *jwt.Token) (any, error) {
 		return key.Public(), nil
-	}, jwt.WithValidMethods([]string{"RS256"}))
+	}
+	parsed, err := jwt.Parse(tokenStr, keyFunc, jwt.WithValidMethods([]string{"RS256"}))
 	require.NoError(t, err)
 	require.True(t, parsed.Valid)
 

@@ -176,13 +176,14 @@ func TestUserInfoFromJWT(t *testing.T) {
 		t.Parallel()
 		info, err := UserInfoFromJWT(sign(t, jwt.SigningMethodRS256, idpKey, validClaims()), keyFunc)
 		require.NoError(t, err)
-		assert.Equal(t, &UserInfo{
+		expected := &UserInfo{
 			Subject:           "oidc-subject",
 			Email:             "user@example.com",
 			Name:              "Example User",
 			PreferredUsername: "euser",
 			Groups:            StringList{"admins", "devs"},
-		}, info)
+		}
+		assert.Equal(t, expected, info)
 	})
 
 	t.Run("opaque token is rejected", func(t *testing.T) {
