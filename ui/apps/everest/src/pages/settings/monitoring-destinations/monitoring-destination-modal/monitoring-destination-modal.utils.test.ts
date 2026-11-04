@@ -128,7 +128,13 @@ describe('buildSaveRequest', () => {
       stringData: { username: 'u', password: 'p' },
     });
     expect(request.destination).toEqual({
-      metadata: { name: 'prom' },
+      metadata: {
+        name: 'prom',
+        annotations: {
+          'monitoring.openeverest.io/ui-created-credentials-secret':
+            'monitoring-destination-prom-credentials',
+        },
+      },
       spec: {
         classRef: { name: 'prometheus' },
         authentication: {
@@ -140,6 +146,26 @@ describe('buildSaveRequest', () => {
         parameters: { podMonitorLabels: { release: 'kube-prom' } },
       },
     });
+  });
+
+  it('does not record a reused Secret as created by the UI', () => {
+    const request = buildSaveRequest({
+      values: {
+        ...getFormDefaults({ namespace: 'team-a', classes: [prometheus] }),
+        name: 'prom',
+        className: 'prometheus',
+        authMode: 'BasicAuth',
+        credentials: { username: 'u', password: 'p' },
+      },
+      monitoringClass: prometheus,
+      reuseSecretName: 'prom-credentials',
+    });
+
+    expect(request.credentialsSecret).toEqual({
+      action: 'reuse',
+      name: 'prom-credentials',
+    });
+    expect(request.destination.metadata?.annotations).toBeUndefined();
   });
 
   it('updates the stored object, keeping what the form does not edit', () => {
@@ -178,19 +204,21 @@ describe('buildSaveRequest', () => {
   });
 
   it('replaces the credentials in a new Secret the destination switches to', () => {
-    const request = buildSaveRequest({
-      values: {
-        ...getFormDefaults({
-          original: stored,
-          namespace: 'team-a',
-          classes: [prometheus],
-        }),
-        replaceCredentials: true,
-        credentials: { username: 'u2', password: 'p2' },
-      },
-      monitoringClass: prometheus,
-      original: stored,
-    });
+    const replace = (original: MonitoringDestination) =>
+      buildSaveRequest({
+        values: {
+          ...getFormDefaults({
+            original,
+            namespace: 'team-a',
+            classes: [prometheus],
+          }),
+          replaceCredentials: true,
+          credentials: { username: 'u2', password: 'p2' },
+        },
+        monitoringClass: prometheus,
+        original,
+      });
+    const request = replace(stored);
 
     expect(request.credentialsSecret).toEqual({
       action: 'replace',
@@ -198,11 +226,30 @@ describe('buildSaveRequest', () => {
         /^monitoring-destination-prom-credentials-[a-z0-9]+$/
       ),
       stringData: { username: 'u2', password: 'p2' },
-      previousName: 'prom-basic',
+      previousName: undefined,
     });
     expect(request.destination.spec.authentication).toEqual({
       mode: 'BasicAuth',
       credentialsSecretRef: { name: request.credentialsSecret?.name },
+    });
+    expect(
+      request.destination.metadata?.annotations?.[
+        'monitoring.openeverest.io/ui-created-credentials-secret'
+      ]
+    ).toBe(request.credentialsSecret?.name);
+
+    const uiCreated: MonitoringDestination = {
+      ...stored,
+      metadata: {
+        ...stored.metadata,
+        annotations: {
+          'monitoring.openeverest.io/ui-created-credentials-secret':
+            'prom-basic',
+        },
+      },
+    };
+    expect(replace(uiCreated).credentialsSecret).toMatchObject({
+      previousName: 'prom-basic',
     });
   });
 });

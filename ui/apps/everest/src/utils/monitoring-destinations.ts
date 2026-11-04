@@ -43,6 +43,10 @@ export const getInstanceMonitoringDestinationNames = (
 const CREDENTIALS_SECRET_PREFIX = 'monitoring-destination-';
 const CREDENTIALS_SECRET_SUFFIX = '-credentials';
 const MAX_SECRET_NAME_LENGTH = 253;
+// Names the credentials Secret the UI created for the destination. A Secret
+// the user brought is never recorded here, so it is never deleted.
+const UI_CREATED_SECRET_ANNOTATION =
+  'monitoring.openeverest.io/ui-created-credentials-secret';
 
 // The kind in the name keeps a destination's Secret apart from those of a
 // backup storage or an Instance with the same name.
@@ -85,46 +89,62 @@ export const getRotatedCredentialsSecretName = (
   return `${base.slice(0, MAX_SECRET_NAME_LENGTH - suffix.length - 1)}-${suffix}`;
 };
 
-// Secrets the form names: monitoring-destination-<destination>-credentials, or
-// with a rotation suffix. Any other Secret was brought by the user and is never
-// deleted.
-export const isFormCreatedCredentialsSecret = (
-  destinationName: string,
-  secretName: string
-) => {
-  const base = getDefaultCredentialsSecretName(destinationName);
-  return (
-    secretName === base ||
-    (secretName.startsWith(`${base}-`) &&
-      /^[a-z0-9]+$/.test(secretName.slice(base.length + 1)))
-  );
-};
-
 export const getCredentialsSecretName = (destination: MonitoringDestination) =>
   destination.spec.authentication?.credentialsSecretRef?.name;
 
-// A Secret the form created for the destination may go once no other
-// destination of the namespace references it.
-export const isCredentialsSecretRemovable = (
+// The destination's credentials Secret, when the UI created it.
+export const getUiCreatedCredentialsSecretName = (
+  destination: MonitoringDestination
+): string | undefined => {
+  const secretName = getCredentialsSecretName(destination);
+  return secretName &&
+    destination.metadata?.annotations?.[UI_CREATED_SECRET_ANNOTATION] ===
+      secretName
+    ? secretName
+    : undefined;
+};
+
+// Records the Secret the UI created for the destination, or clears the record.
+export const withUiCreatedCredentialsSecret = <
+  Metadata extends { annotations?: Record<string, string> },
+>(
+  metadata: Metadata,
+  secretName: string | undefined
+): Metadata => {
+  const annotations = Object.fromEntries(
+    Object.entries(metadata.annotations ?? {}).filter(
+      ([key]) => key !== UI_CREATED_SECRET_ANNOTATION
+    )
+  );
+  if (secretName) {
+    annotations[UI_CREATED_SECRET_ANNOTATION] = secretName;
+  }
+  return {
+    ...metadata,
+    annotations: Object.keys(annotations).length > 0 ? annotations : undefined,
+  };
+};
+
+export const isSecretUsedByOtherDestination = (
   destinationName: string,
   secretName: string,
   namespaceDestinations: MonitoringDestination[]
 ) =>
-  isFormCreatedCredentialsSecret(destinationName, secretName) &&
-  !namespaceDestinations.some(
+  namespaceDestinations.some(
     (other) =>
       getDestinationName(other) !== destinationName &&
       getCredentialsSecretName(other) === secretName
   );
 
-// The credentials Secret that goes with the destination on delete.
+// The credentials Secret that goes with the destination on delete: one the UI
+// created that no other destination of the namespace references.
 export const getSecretDeletedWithDestination = (
   destination: MonitoringDestination,
   namespaceDestinations: MonitoringDestination[]
 ): string | undefined => {
-  const secretName = getCredentialsSecretName(destination);
+  const secretName = getUiCreatedCredentialsSecretName(destination);
   return secretName &&
-    isCredentialsSecretRemovable(
+    !isSecretUsedByOtherDestination(
       getDestinationName(destination),
       secretName,
       namespaceDestinations

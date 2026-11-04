@@ -45,6 +45,8 @@ import {
   getCredentialsSecretName,
   getDefaultCredentialsSecretName,
   getRotatedCredentialsSecretName,
+  getUiCreatedCredentialsSecretName,
+  withUiCreatedCredentialsSecret,
 } from 'utils/monitoring-destinations';
 import {
   CREDENTIALS_SECTION_KEY,
@@ -260,7 +262,7 @@ const toCredentialsSecretWrite = (
       action,
       name: getRotatedCredentialsSecretName(values.name),
       stringData,
-      previousName: original && getCredentialsSecretName(original),
+      previousName: original && getUiCreatedCredentialsSecretName(original),
     };
   }
   return {
@@ -302,6 +304,11 @@ export const buildSaveRequest = ({
     ? (credentialsSecret?.name ??
       (original && getCredentialsSecretName(original)))
     : undefined;
+  const uiCreatedSecretName = credentialsSecret
+    ? credentialsSecret.action === 'reuse'
+      ? undefined
+      : credentialsSecret.name
+    : original && getUiCreatedCredentialsSecretName(original);
 
   return {
     namespace: values.namespace,
@@ -309,7 +316,10 @@ export const buildSaveRequest = ({
     credentialsSecret,
     destination: {
       ...(original && { apiVersion: original.apiVersion, kind: original.kind }),
-      metadata: original ? { ...original.metadata } : { name: values.name },
+      metadata: withUiCreatedCredentialsSecret(
+        original ? { ...original.metadata } : { name: values.name },
+        secretName ? uiCreatedSecretName : undefined
+      ),
       spec: {
         classRef: { name: values.className },
         authentication: {

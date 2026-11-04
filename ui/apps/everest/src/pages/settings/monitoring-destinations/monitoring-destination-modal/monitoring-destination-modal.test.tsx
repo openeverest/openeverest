@@ -173,7 +173,13 @@ describe('MonitoringDestinationModal', () => {
       'main',
       'team-a',
       {
-        metadata: { name: 'pmm-prod' },
+        metadata: {
+          name: 'pmm-prod',
+          annotations: {
+            'monitoring.openeverest.io/ui-created-credentials-secret':
+              'monitoring-destination-pmm-prod-credentials',
+          },
+        },
         spec: {
           classRef: { name: 'pmm' },
           authentication: {

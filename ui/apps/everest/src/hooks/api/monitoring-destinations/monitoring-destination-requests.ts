@@ -23,7 +23,7 @@ import {
   getDestinationName,
   getSecretDeletedWithDestination,
   isCredentialsSecretFor,
-  isCredentialsSecretRemovable,
+  isSecretUsedByOtherDestination,
 } from 'utils/monitoring-destinations';
 
 export interface MonitoringDestinationRequests {
@@ -43,6 +43,8 @@ export interface MonitoringDestinationRequests {
 // create: a new Secret; replace: a new Secret under a fresh name that takes
 // over from previousName (there is no Secret update, and switching names
 // leaves no moment without credentials); reuse: an existing Secret as it is.
+// previousName is set only for a Secret the UI created, never one the user
+// brought.
 export type CredentialsSecretWrite =
   | {
       action: 'create';
@@ -88,8 +90,7 @@ const ignoreNotFound = (error: unknown) => {
 };
 
 // The replaced Secret goes once the destination no longer references it, if
-// the form created it and no other destination uses it. Best effort: the
-// save has already succeeded.
+// no other destination uses it. Best effort: the save has already succeeded.
 const deleteReplacedSecret = async (
   destinationName: string,
   secretName: string,
@@ -98,7 +99,7 @@ const deleteReplacedSecret = async (
   try {
     const namespaceDestinations = await requests.listDestinations();
     if (
-      isCredentialsSecretRemovable(
+      !isSecretUsedByOtherDestination(
         destinationName,
         secretName,
         namespaceDestinations

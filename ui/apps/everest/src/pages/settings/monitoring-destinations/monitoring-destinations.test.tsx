@@ -65,7 +65,14 @@ vi.mock('hooks/api/monitoring-destinations', async (importOriginal) => {
     {
       data: [
         {
-          metadata: { name: 'pmm-prod', namespace: 'team-a' },
+          metadata: {
+            name: 'pmm-prod',
+            namespace: 'team-a',
+            annotations: {
+              'monitoring.openeverest.io/ui-created-credentials-secret':
+                'monitoring-destination-pmm-prod-credentials',
+            },
+          },
           spec: {
             classRef: { name: 'pmm' },
             authentication: {
@@ -209,7 +216,10 @@ describe('MonitoringDestinations', () => {
         expect.objectContaining({
           namespace: 'team-a',
           destination: expect.objectContaining({
-            metadata: { name: 'pmm-prod', namespace: 'team-a' },
+            metadata: expect.objectContaining({
+              name: 'pmm-prod',
+              namespace: 'team-a',
+            }),
           }),
         }),
         expect.anything()
