@@ -5728,6 +5728,22 @@ components:
                                     type: object
                                     x-kubernetes-map-type: atomic
                                 type: object
+                              clientCertificateSecretRef:
+                                description: |-
+                                  ClientCertificateSecretRef references a kubernetes.io/tls Secret
+                                  (keys tls.crt and tls.key) the scraper presents as a client
+                                  certificate, for an endpoint that requires mutual TLS.
+                                properties:
+                                  name:
+                                    description: Name of the referenced Secret.
+                                    maxLength: 253
+                                    minLength: 1
+                                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                                x-kubernetes-map-type: atomic
                               insecureSkipVerify:
                                 description: InsecureSkipVerify disables verification
                                   of the server certificate.
