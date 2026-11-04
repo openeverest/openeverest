@@ -26,10 +26,9 @@ import { usePresetFormSync } from '../preset-selection';
 import { DbWizardType } from '../database-form-schema';
 
 interface PresetSource {
-  resolvedPreset: ClusterInstancePreset | null;
+  selectedPreset: ClusterInstancePreset | null;
   presetName: string;
   presetSelected: boolean;
-  namespace: string | undefined;
 }
 
 interface UseDatabaseFormSyncArgs {
@@ -58,16 +57,15 @@ export const useDatabaseFormSync = ({
   reset,
   getValues,
 }: UseDatabaseFormSyncArgs) => {
-  // Source 1 — preset: populates the form from the resolved preset and reverts
+  // Source 1 — preset: populates the form from the selected preset and reverts
   // on clear. Owns topology while a preset is selected.
   usePresetFormSync({
     mode,
     uiSchema,
     defaultValues,
     defaultTopology,
-    resolvedPreset: preset.resolvedPreset,
+    selectedPreset: preset.selectedPreset,
     presetName: preset.presetName,
-    namespace: preset.namespace,
     reset,
     getValues,
   });

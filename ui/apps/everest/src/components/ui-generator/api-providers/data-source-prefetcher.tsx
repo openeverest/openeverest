@@ -82,10 +82,12 @@ const PrefetchItem = ({
   provider,
   namespace,
   fieldPaths,
+  autoSelect,
 }: {
   provider: string;
   namespace: string;
   fieldPaths: string[];
+  autoSelect: boolean;
 }) => {
   const cluster = useClusterName();
   const { options, isLoading } = useProviderOptions(provider, {
@@ -95,7 +97,7 @@ const PrefetchItem = ({
   const { getValues, setValue } = useFormContext();
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || !autoSelect) return;
 
     for (const path of fieldPaths) {
       const nextValue = getReconciledDataSourceValue(getValues(path), options);
@@ -104,7 +106,7 @@ const PrefetchItem = ({
         setValue(path, nextValue, { shouldValidate: true });
       }
     }
-  }, [isLoading, options, fieldPaths, getValues, setValue]);
+  }, [isLoading, autoSelect, options, fieldPaths, getValues, setValue]);
 
   return null;
 };
@@ -112,11 +114,14 @@ const PrefetchItem = ({
 type DataSourcePrefetcherProps = {
   sections: Record<string, Section>;
   namespace?: string;
+  // When false, options are still prefetched but no value is written.
+  autoSelect?: boolean;
 };
 
 export const DataSourcePrefetcher = ({
   sections,
   namespace,
+  autoSelect = true,
 }: DataSourcePrefetcherProps) => {
   const dataSources = useMemo(() => collectDataSources(sections), [sections]);
   const switches = useWatch({ name: TOGGLEABLE_SWITCHES_KEY });
@@ -154,6 +159,7 @@ export const DataSourcePrefetcher = ({
             provider={provider}
             namespace={namespace}
             fieldPaths={fieldPaths}
+            autoSelect={autoSelect}
           />
         </ComponentErrorBoundary>
       ))}

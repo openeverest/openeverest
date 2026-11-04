@@ -16,6 +16,7 @@ import { providerRegistry } from './registry';
 import { useMonitoringConfigsOptions } from 'hooks/api/monitoring/useMonitoringConfigsOptions';
 import { useStorageClassesOptions } from 'hooks/api/kubernetesClusters/useStorageClassesOptions';
 import { MonitoringEmptyFallback } from './fallbacks';
+import { Messages } from './providers.messages';
 
 providerRegistry.register('monitoringConfigs', {
   description: 'MonitoringConfig names in the current namespace.',
@@ -27,4 +28,5 @@ providerRegistry.register('storageClasses', {
   description: 'StorageClass names available on the cluster.',
   useOptions: useStorageClassesOptions,
   emptyStateFallback: null,
+  unsetValueHint: Messages.storageClassesUnsetValueHint,
 });

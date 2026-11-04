@@ -69,23 +69,12 @@ test.describe('Instance Preset tests', () => {
   
   test('create instance using preset', async ({request}) => {
     await test.step('create instance from preset', async () => {
-      // First, resolve the preset to get the complete instance spec
-      const resolveResponse = await request.get(
-        `/v1/clusters/${CLUSTER_NAME}/cluster-instance-presets/${PRESET_NAME}/resolve?namespace=${EVEREST_CI_NAMESPACE}`
+      const presetResponse = await request.get(
+        `/v1/clusters/${CLUSTER_NAME}/cluster-instance-presets/${PRESET_NAME}`
       );
 
-      await checkError(resolveResponse);
-      const preset = await resolveResponse.json();
-
-      // Inline parameters are untouched by resolution; storage defaults are filled
-      // with the cluster's default storage class.
-      expect(preset.spec.components.engine.parameters.configuration).toBe(
-        'key = value\n'
-      );
-      const infoResponse = await request.get('/v1/cluster-info');
-      await checkError(infoResponse);
-      const clusterInfo = await infoResponse.json();
-      expect(preset.spec.components.engine.storage.storageClass).toBe(clusterInfo.storageClassNames[0]);
+      await checkError(presetResponse);
+      const preset = await presetResponse.json();
 
       // Copy the preset spec and add annotation
       const instancePayload = {

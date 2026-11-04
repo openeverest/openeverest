@@ -107,7 +107,6 @@ type InstanceHandler interface {
 type ClusterInstancePresetHandler interface {
 	ListClusterInstancePresets(ctx context.Context, cluster string, provider string) (*corev1alpha1.ClusterInstancePresetList, error)
 	GetClusterInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.ClusterInstancePreset, error)
-	ResolveClusterInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.ClusterInstancePreset, error)
 }
 
 // InstancePresetHandler provides methods for handling operations on namespace-scoped instance presets.
@@ -206,7 +205,15 @@ type ConfigMapHandler interface {
 // SecretHandler provides methods for handling operations on secrets.
 type SecretHandler interface {
 	CreateSecret(ctx context.Context, cluster, namespace string, secret *corev1.Secret) (*corev1.Secret, error)
-	ListSecrets(ctx context.Context, cluster, namespace, provider, definition string) (*corev1.SecretList, error)
+	ListSecrets(ctx context.Context, cluster, namespace string, filter SecretFilter) (*corev1.SecretList, error)
 	GetSecret(ctx context.Context, cluster, namespace, name string) (*corev1.Secret, error)
 	DeleteSecret(ctx context.Context, cluster, namespace, name string) error
+}
+
+// SecretFilter selects Secrets by the labels that name their definition.
+// Empty fields match any value.
+type SecretFilter struct {
+	Provider        string
+	MonitoringClass string
+	Definition      string
 }

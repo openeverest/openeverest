@@ -1703,9 +1703,9 @@ func (_m *MockHandler) ListProviders(ctx context.Context, cluster string) (*core
 	return r0, r1
 }
 
-// ListSecrets provides a mock function with given fields: ctx, cluster, namespace, provider, definition
-func (_m *MockHandler) ListSecrets(ctx context.Context, cluster string, namespace string, provider string, definition string) (*v1.SecretList, error) {
-	ret := _m.Called(ctx, cluster, namespace, provider, definition)
+// ListSecrets provides a mock function with given fields: ctx, cluster, namespace, filter
+func (_m *MockHandler) ListSecrets(ctx context.Context, cluster string, namespace string, filter SecretFilter) (*v1.SecretList, error) {
+	ret := _m.Called(ctx, cluster, namespace, filter)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListSecrets")
@@ -1713,19 +1713,19 @@ func (_m *MockHandler) ListSecrets(ctx context.Context, cluster string, namespac
 
 	var r0 *v1.SecretList
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) (*v1.SecretList, error)); ok {
-		return rf(ctx, cluster, namespace, provider, definition)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, SecretFilter) (*v1.SecretList, error)); ok {
+		return rf(ctx, cluster, namespace, filter)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) *v1.SecretList); ok {
-		r0 = rf(ctx, cluster, namespace, provider, definition)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, SecretFilter) *v1.SecretList); ok {
+		r0 = rf(ctx, cluster, namespace, filter)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1.SecretList)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string) error); ok {
-		r1 = rf(ctx, cluster, namespace, provider, definition)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, SecretFilter) error); ok {
+		r1 = rf(ctx, cluster, namespace, filter)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1786,36 +1786,6 @@ func (_m *MockHandler) PatchInstance(ctx context.Context, cluster string, namesp
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, []byte) error); ok {
 		r1 = rf(ctx, cluster, namespace, name, patch)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// ResolveClusterInstancePreset provides a mock function with given fields: ctx, cluster, name, namespace
-func (_m *MockHandler) ResolveClusterInstancePreset(ctx context.Context, cluster string, name string, namespace string) (*corev1alpha1.ClusterInstancePreset, error) {
-	ret := _m.Called(ctx, cluster, name, namespace)
-
-	if len(ret) == 0 {
-		panic("no return value specified for ResolveClusterInstancePreset")
-	}
-
-	var r0 *corev1alpha1.ClusterInstancePreset
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) (*corev1alpha1.ClusterInstancePreset, error)); ok {
-		return rf(ctx, cluster, name, namespace)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string) *corev1alpha1.ClusterInstancePreset); ok {
-		r0 = rf(ctx, cluster, name, namespace)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*corev1alpha1.ClusterInstancePreset)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
-		r1 = rf(ctx, cluster, name, namespace)
 	} else {
 		r1 = ret.Error(1)
 	}
