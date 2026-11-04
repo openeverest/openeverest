@@ -17,6 +17,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -31,6 +32,8 @@ import (
 	"github.com/openeverest/openeverest/v2/internal/tokenregistry"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/events"
+	"github.com/openeverest/openeverest/v2/pkg/oidc"
+	"github.com/openeverest/openeverest/v2/pkg/session"
 )
 
 const (
@@ -55,6 +58,8 @@ func (e *EverestServer) CreateAuthToken(ctx echo.Context) error {
 		return e.handlePasswordGrant(ctx, params)
 	case api.AuthTokenRequestGrantTypeRefreshToken:
 		return e.handleRefreshTokenGrant(ctx, params)
+	case api.AuthTokenRequestGrantTypeTokenExchange:
+		return e.handleTokenExchangeGrant(ctx, params)
 	}
 	return ctx.JSON(http.StatusBadRequest, api.Error{
 		Message: pointer.To(fmt.Sprintf("Unsupported grant_type %q", params.GrantType)),
@@ -151,6 +156,100 @@ func (e *EverestServer) handleRefreshTokenGrant(ctx echo.Context, params api.Aut
 	e.attemptsStore.CleanupVisitor(ctx.RealIP())
 
 	return e.respondWithTokens(ctx, rec.OwnerSubject, newRefreshToken, fromCookie || useCookieDelivery(params))
+}
+
+// handleTokenExchangeGrant exchanges an OIDC access token (JWT or opaque) for an Everest-signed
+// access JWT (RFC 8693). See resolveSSOIdentity for how the OIDC token is validated.
+//
+// No refresh token is issued: the IdP is consulted only at exchange time, so the short access
+// JWT TTL bounds how long a user disabled in the IdP keeps API access. The client renews its
+// IdP session and exchanges the new IdP token instead.
+func (e *EverestServer) handleTokenExchangeGrant(ctx echo.Context, params api.AuthTokenRequest) error {
+	if e.oidcProvider == nil {
+		return ctx.JSON(http.StatusBadRequest, api.Error{
+			Message: new("OIDC is not configured"),
+		})
+	}
+
+	if ok, _ := e.ssoAttemptsStore.Allow(ctx.RealIP()); !ok {
+		return ctx.JSON(http.StatusTooManyRequests, api.Error{
+			Message: new("Too many token exchange attempts"),
+		})
+	}
+
+	if params.SubjectToken == nil || *params.SubjectToken == "" {
+		return ctx.JSON(http.StatusBadRequest, api.Error{
+			Message: new("subject_token is required for the token-exchange grant"),
+		})
+	}
+	if params.SubjectTokenType != nil && *params.SubjectTokenType != api.AuthTokenRequestSubjectTokenTypeAccessToken {
+		return ctx.JSON(http.StatusBadRequest, api.Error{
+			Message: new(fmt.Sprintf("Unsupported subject_token_type %q", *params.SubjectTokenType)),
+		})
+	}
+
+	c := ctx.Request().Context()
+	userInfo, err := e.resolveSSOIdentity(c, *params.SubjectToken)
+	if err != nil {
+		e.l.Debugf("SSO token exchange failed: %v", err)
+		e.ssoAttemptsStore.IncreaseTimeout(ctx.RealIP())
+		return ctx.JSON(http.StatusUnauthorized, api.Error{
+			Message: new("Invalid OIDC token"),
+		})
+	}
+
+	accessToken, err := e.mintSSOAccessToken(userInfo)
+	if err != nil {
+		e.l.Errorf("failed to create SSO access token: %v", err)
+		return errInternalTokenIssue(ctx)
+	}
+
+	e.ssoAttemptsStore.CleanupVisitor(ctx.RealIP())
+
+	return ctx.JSON(http.StatusOK, api.AuthTokenResponse{
+		AccessToken: accessToken,
+		TokenType:   api.AuthTokenResponseTokenTypeBearer,
+		ExpiresIn:   int(e.config.AccessTokenTTL.Seconds()),
+	})
+}
+
+// mintSSOAccessToken signs an Everest access JWT for an identity validated by the OIDC provider.
+func (e *EverestServer) mintSSOAccessToken(userInfo *oidc.UserInfo) (string, error) {
+	uniqueID, err := uuid.NewRandom()
+	if err != nil {
+		return "", err
+	}
+
+	issuerURL := e.oidcProvider.OriginalIssuer
+	if issuerURL == "" {
+		issuerURL = e.oidcProvider.Issuer
+	}
+
+	return e.sessionMgr.CreateSSO(
+		userInfo.Subject, int64(e.config.AccessTokenTTL.Seconds()), uniqueID.String(), issuerURL,
+		session.SSOIdentity{
+			Email:             userInfo.Email,
+			Name:              userInfo.Name,
+			PreferredUsername: userInfo.PreferredUsername,
+			Groups:            userInfo.Groups,
+		},
+	)
+}
+
+// resolveSSOIdentity validates an OIDC access token and returns the identity it represents.
+// A JWT signed by the provider is verified locally against its JWKS, the same check the JWT
+// middleware applies; this keeps working for IdPs whose UserInfo endpoint rejects tokens
+// minted for a custom API audience (e.g. Entra ID). Opaque or locally unverifiable tokens
+// (e.g. Authentik HS256 tokens) are validated by the provider's UserInfo endpoint instead.
+func (e *EverestServer) resolveSSOIdentity(ctx context.Context, token string) (*oidc.UserInfo, error) {
+	if e.oidcKeyFunc != nil {
+		info, err := oidc.UserInfoFromJWT(token, e.oidcKeyFunc)
+		if err == nil {
+			return info, nil
+		}
+		e.l.Debugf("SSO token is not a locally verifiable JWT, using UserInfo: %v", err)
+	}
+	return oidc.FetchUserInfo(ctx, e.oidcProvider.UserInfoURL, token)
 }
 
 // respondWithTokens mints an access JWT for the user and writes the token response,

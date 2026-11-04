@@ -83,9 +83,13 @@ type EverestServer struct {
 	sessionMgr    *session.Manager
 	tokenRegistry *tokenregistry.Registry
 	attemptsStore *RateLimiterMemoryStore
-	handler       handlers.Handler
-	oidcProvider  *oidc.ProviderConfig
-	eventHub      *events.Hub
+	// ssoAttemptsStore is separate so SSO renewals neither consume nor penalize password logins.
+	ssoAttemptsStore *RateLimiterMemoryStore
+	handler          handlers.Handler
+	oidcProvider     *oidc.ProviderConfig
+	// oidcKeyFunc verifies provider-signed JWTs; nil when OIDC is not configured.
+	oidcKeyFunc jwt.Keyfunc
+	eventHub    *events.Hub
 }
 
 var errFailedToReadRequestBody = errors.New("failed to read request body")
@@ -142,7 +146,8 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 		},
 	}))
 	echoServer.Use(echomiddleware.RateLimiter(echomiddleware.NewRateLimiterMemoryStore(rate.Limit(c.APIRequestsRateLimit))))
-	store := newPasswordGrantLimiter(c.LoginRateLimit)
+	store := newGrantRateLimiter(c.LoginRateLimit)
+	ssoStore := newGrantRateLimiter(c.SSOTokenExchangeRateLimit)
 
 	sessionManagerClient, err := createSessionManagerClient(ctx, l, kubeConnector.Namespace())
 	if err != nil {
@@ -167,16 +172,17 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 	}
 
 	e := &EverestServer{
-		config:        c,
-		l:             l,
-		echo:          echoServer,
-		kubeConnector: kubeConnector,
-		kubeStreamer:  kubeStreamer,
-		sessionMgr:    sessMgr,
-		tokenRegistry: tokenRegistry,
-		attemptsStore: store,
-		oidcProvider:  oidcProvider,
-		eventHub:      events.NewHub(l, kubeConnector, events.NewRingBuffer(c.EventBufferMaxEvents, c.EventBufferMaxAge)),
+		config:           c,
+		l:                l,
+		echo:             echoServer,
+		kubeConnector:    kubeConnector,
+		kubeStreamer:     kubeStreamer,
+		sessionMgr:       sessMgr,
+		tokenRegistry:    tokenRegistry,
+		attemptsStore:    store,
+		ssoAttemptsStore: ssoStore,
+		oidcProvider:     oidcProvider,
+		eventHub:         events.NewHub(l, kubeConnector, events.NewRingBuffer(c.EventBufferMaxEvents, c.EventBufferMaxAge)),
 	}
 	e.echo.HTTPErrorHandler = e.errorHandlerChain()
 
@@ -420,13 +426,13 @@ func newHandlerChain(hs ...handlers.Handler) handlers.Handler { //nolint:ireturn
 }
 
 func (e *EverestServer) newJWTKeyFunc(ctx context.Context) (jwt.Keyfunc, error) {
-	var oidcKeyFn jwt.Keyfunc
 	if e.oidcProvider != nil {
 		fn, err := e.oidcProvider.NewKeyFunc(ctx)
 		if err != nil {
 			return nil, errors.Join(err, errors.New("failed to get OIDC key function"))
 		}
-		oidcKeyFn = fn
+		// Also used by the SSO token exchange to verify provider-signed JWTs.
+		e.oidcKeyFunc = fn
 	}
 
 	return func(token *jwt.Token) (any, error) {
@@ -444,8 +450,8 @@ func (e *EverestServer) newJWTKeyFunc(ctx context.Context) (jwt.Keyfunc, error) 
 		}
 		// XXX: currently we use OIDC only, but once we have multiple protocols supported,
 		// we should have a way to select which KeyFunc to use.
-		if oidcKeyFn != nil {
-			return oidcKeyFn(token)
+		if e.oidcKeyFunc != nil {
+			return e.oidcKeyFunc(token)
 		}
 		return nil, errors.New("no key found for token")
 	}, nil
@@ -573,7 +579,7 @@ func (e *EverestServer) getBodyFromContext(ctx echo.Context, into any) error {
 	return nil
 }
 
-func newPasswordGrantLimiter(limit int) *RateLimiterMemoryStore {
+func newGrantRateLimiter(limit int) *RateLimiterMemoryStore {
 	return NewRateLimiterMemoryStoreWithConfig(RateLimiterMemoryStoreConfig{
 		Rate: rate.Limit(limit),
 	})

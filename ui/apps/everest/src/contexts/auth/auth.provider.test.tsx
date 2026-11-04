@@ -60,6 +60,7 @@ vi.mock('api/session-token', () => ({
     mockGetAccessTokenExpiry(...args),
   clearAccessToken: vi.fn(),
   refreshSession: (...args: unknown[]) => mockRefreshSession(...args),
+  setSsoTokenRefresher: vi.fn(),
 }));
 
 // Mock notistack
