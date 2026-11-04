@@ -64,6 +64,15 @@ export const getK8sResource = async (
   }
 };
 
+export const getK8sResourcesByLabel = async (
+  resourceType: string,
+  labelSelector: string,
+  namespace: string
+) => {
+  const command = `kubectl get --namespace ${namespace} ${resourceType} -l ${labelSelector} -ojson`;
+  return JSON.parse(execSync(command).toString()).items;
+};
+
 export const deleteAllK8sPVCs = async (namespace: string) => {
   try {
     const command = `kubectl delete --namespace ${namespace} pvc --all --timeout=30s || true`;
@@ -89,10 +98,11 @@ export const getK8sNodes = async () => {
 export const addLabelToK8sNode = async (
   nodeName: string,
   labelKey: string,
-  labelValue: string
+  labelValue: string,
+  overwrite = false
 ) => {
   try {
-    const command = `kubectl label nodes ${nodeName} ${labelKey}=${labelValue}`;
+    const command = `kubectl label nodes ${nodeName} ${labelKey}=${labelValue}${overwrite ? ' --overwrite' : ''}`;
     execSync(command);
     console.log(`Label ${labelKey}=${labelValue} added to node ${nodeName}`);
   } catch (error) {

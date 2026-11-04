@@ -12,23 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { execSync } from 'child_process';
+import { expect, Locator, Page, test } from '@playwright/test';
+import { EVEREST_CI_NAMESPACES, TIMEOUTS } from '@e2e/constants';
 import {
-  APIRequestContext,
-  expect,
-  Locator,
-  Page,
-  request as apiRequest,
-  test,
-} from '@playwright/test';
-import {
-  EVEREST_CI_CLUSTER,
-  EVEREST_CI_NAMESPACES,
-  TIMEOUTS,
-} from '@e2e/constants';
-import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
-import {
-  moveForward,
+  moveForwardTo,
   openDbCreationForm,
   populateBasicInformation,
   populateEngineResources,
@@ -36,6 +23,18 @@ import {
 } from '@e2e/utils/db-wizard';
 import { waitForStatus } from '@e2e/utils/table';
 import { ensureLoggedInOnDatabasesPage } from '@e2e/utils/db-clusters-list';
+import {
+  deleteInstanceAndWait,
+  deleteInstanceQuietly,
+  getInstance,
+} from '@e2e/utils/instance';
+import {
+  addLabelToK8sNode,
+  getK8sNodes,
+  getK8sResource,
+  getK8sResourcesByLabel,
+  removeLabelFromK8sNode,
+} from '@e2e/utils/kubernetes';
 
 const PXC_PROVIDER_NAME = 'percona-xtradb-cluster';
 const namespace = EVEREST_CI_NAMESPACES.EVEREST_UI;
@@ -44,7 +43,9 @@ const NODE_LABEL_VALUE = 'affinity';
 const MISSING_NODE_LABEL_KEY = 'e2e.openeverest.io/no-such-node';
 const HOSTNAME_TOPOLOGY_KEY = 'kubernetes.io/hostname';
 
-type Condition = { key: string; operator: string; values?: string[] };
+type Operator = 'In' | 'Exists';
+
+type Condition = { key: string; operator: Operator; values?: string[] };
 
 interface Pod {
   spec: { nodeName?: string };
@@ -59,81 +60,20 @@ type RuleGroup = {
 };
 
 // Matches the operator labels of the rule editor (AffinityOperatorValue).
-const OPERATOR_LABELS: Record<string, string> = {
+const OPERATOR_LABELS: Record<Operator, string> = {
   In: 'in',
   Exists: 'exists',
 };
 
-const instancePath = (name: string) =>
-  `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/instances/${name}`;
+const getPxcSpec = async (name: string) =>
+  (await getK8sResource('pxc', name, namespace)).spec;
 
-const authHeaders = async () => ({
-  Authorization: `Bearer ${await getCITokenFromLocalStorage()}`,
-});
-
-const kubectlJson = (args: string) =>
-  JSON.parse(execSync(`kubectl ${args} -o json`).toString());
-
-const getInstance = async (request: APIRequestContext, name: string) => {
-  const response = await request.get(instancePath(name), {
-    headers: await authHeaders(),
-  });
-  expect(response.ok()).toBeTruthy();
-  return response.json();
-};
-
-const getPxcSpec = (name: string) =>
-  kubectlJson(`-n ${namespace} get pxc ${name}`).spec;
-
-const getPods = (name: string, component: string): Pod[] =>
-  kubectlJson(
-    `-n ${namespace} get pods -l app.kubernetes.io/instance=${name},app.kubernetes.io/component=${component}`
-  ).items;
-
-const deleteInstanceAndWait = async (
-  request: APIRequestContext,
-  name: string
-) => {
-  const response = await request.delete(instancePath(name), {
-    headers: await authHeaders(),
-  });
-  expect([204, 404]).toContain(response.status());
-  await expect
-    .poll(
-      async () =>
-        (
-          await request.get(instancePath(name), {
-            headers: await authHeaders(),
-          })
-        ).status(),
-      { timeout: TIMEOUTS.FiveMinutes, intervals: [2000, 5000] }
-    )
-    .toBe(404);
-};
-
-// Best-effort: serial mode skips the remaining tests after a failure, so the
-// cluster must not outlive the suite and starve the shared release node.
-const deleteInstanceQuietly = async (name: string) => {
-  try {
-    const ctx = await apiRequest.newContext({
-      baseURL: process.env.EVEREST_URL || 'http://localhost:8080',
-    });
-    await ctx.delete(instancePath(name), { headers: await authHeaders() });
-    await ctx.dispose();
-  } catch {
-    // Leftovers are removed by the next run's pre-create delete.
-  }
-};
-
-const moveForwardTo = async (page: Page, target: Locator) => {
-  for (let step = 0; step < 8; step += 1) {
-    if (await target.isVisible().catch(() => false)) {
-      return;
-    }
-    await moveForward(page);
-  }
-  await expect(target).toBeVisible();
-};
+const getPods = (name: string, component: string): Promise<Pod[]> =>
+  getK8sResourcesByLabel(
+    'pods',
+    `app.kubernetes.io/instance=${name},app.kubernetes.io/component=${component}`,
+    namespace
+  );
 
 const selectOption = async (page: Page, combobox: Locator, name: string) => {
   await combobox.click();
@@ -289,30 +229,34 @@ test.describe.serial(
     };
     let targetNode: string;
 
-    test.beforeAll(() => {
-      targetNode = execSync(
-        `kubectl get nodes -l '!node-role.kubernetes.io/control-plane' -o jsonpath='{.items[0].metadata.name}'`
-      )
-        .toString()
-        .trim();
+    test.beforeAll(async () => {
+      [targetNode] = await getK8sNodes();
       expect(targetNode).toBeTruthy();
-      execSync(
-        `kubectl label node ${targetNode} ${NODE_LABEL_KEY}=${NODE_LABEL_VALUE} --overwrite`
+      await addLabelToK8sNode(
+        targetNode,
+        NODE_LABEL_KEY,
+        NODE_LABEL_VALUE,
+        true
       );
     });
 
+    // Serial mode skips the rest after a failure; the cluster must not starve the shared node.
     test.afterAll(async () => {
-      await deleteInstanceQuietly(clusterName);
+      await deleteInstanceQuietly(
+        test.info().project.use.baseURL,
+        namespace,
+        clusterName
+      );
       if (targetNode) {
-        execSync(`kubectl label node ${targetNode} ${NODE_LABEL_KEY}-`);
+        await removeLabelFromK8sNode(targetNode, NODE_LABEL_KEY);
       }
     });
 
-    test('Create a database whose engine requires the labelled node', async ({
+    test('Create an instance whose engine requires the labelled node', async ({
       page,
       request,
     }) => {
-      await deleteInstanceAndWait(request, clusterName);
+      await deleteInstanceAndWait(request, namespace, clusterName);
       await createPxcWithEngineRule(page, clusterName, {
         condition: engineCondition,
       });
@@ -324,18 +268,19 @@ test.describe.serial(
     test('The rule reaches the Instance and the PXC resource', async ({
       request,
     }) => {
-      const instance = await getInstance(request, clusterName);
+      const instance = await getInstance(request, namespace, clusterName);
       expect(
-        instance.spec.components.engine.schedulingPolicy.affinity.nodeAffinity
+        instance.spec.components?.engine?.schedulingPolicy?.affinity
+          ?.nodeAffinity
       ).toEqual(nodeAffinityTerm(engineCondition));
 
       expect(
-        getPxcSpec(clusterName).pxc.affinity.advanced.nodeAffinity
+        (await getPxcSpec(clusterName)).pxc?.affinity?.advanced?.nodeAffinity
       ).toEqual(nodeAffinityTerm(engineCondition));
     });
 
     test('Engine pods run only on the labelled node', async () => {
-      const pods = getPods(clusterName, 'pxc');
+      const pods = await getPods(clusterName, 'pxc');
       expect(pods.length).toBe(1);
       for (const pod of pods) {
         expect(pod.spec.nodeName).toBe(targetNode);
@@ -366,22 +311,24 @@ test.describe.serial(
       await expect
         .poll(
           async () =>
-            (await getInstance(request, clusterName)).spec.components.proxy
-              .schedulingPolicy?.affinity?.podAntiAffinity
+            (await getInstance(request, namespace, clusterName)).spec.components
+              ?.proxy?.schedulingPolicy?.affinity?.podAntiAffinity
               ?.preferredDuringSchedulingIgnoredDuringExecution,
           { timeout: TIMEOUTS.OneMinute }
         )
         .toEqual([proxyAntiAffinity]);
 
-      const instance = await getInstance(request, clusterName);
+      const instance = await getInstance(request, namespace, clusterName);
       expect(
-        instance.spec.components.engine.schedulingPolicy.affinity.nodeAffinity
+        instance.spec.components?.engine?.schedulingPolicy?.affinity
+          ?.nodeAffinity
       ).toEqual(nodeAffinityTerm(engineCondition));
 
       await expect
         .poll(
-          () =>
-            getPxcSpec(clusterName).haproxy.affinity?.advanced?.podAntiAffinity
+          async () =>
+            (await getPxcSpec(clusterName)).haproxy?.affinity?.advanced
+              ?.podAntiAffinity
               ?.preferredDuringSchedulingIgnoredDuringExecution,
           { timeout: TIMEOUTS.ThreeMinutes }
         )
@@ -419,14 +366,18 @@ test.describe.serial(
     const clusterName = 'pxc-1-unschedulable';
 
     test.afterAll(async () => {
-      await deleteInstanceQuietly(clusterName);
+      await deleteInstanceQuietly(
+        test.info().project.use.baseURL,
+        namespace,
+        clusterName
+      );
     });
 
-    test('Create a database whose engine requires a node that does not exist', async ({
+    test('Create an instance whose engine requires a node that does not exist', async ({
       page,
       request,
     }) => {
-      await deleteInstanceAndWait(request, clusterName);
+      await deleteInstanceAndWait(request, namespace, clusterName);
       await createPxcWithEngineRule(page, clusterName, {
         condition: { key: MISSING_NODE_LABEL_KEY, operator: 'Exists' },
       });
@@ -442,8 +393,8 @@ test.describe.serial(
     }) => {
       await expect
         .poll(
-          () =>
-            getPods(clusterName, 'pxc').some((pod) =>
+          async () =>
+            (await getPods(clusterName, 'pxc')).some((pod) =>
               pod.status.conditions?.some(
                 (c) => c.type === 'PodScheduled' && c.reason === 'Unschedulable'
               )
@@ -482,14 +433,16 @@ test.describe.serial(
       await expect
         .poll(
           async () =>
-            (await getInstance(request, clusterName)).spec.components.engine
-              .schedulingPolicy?.affinity?.nodeAffinity,
+            (await getInstance(request, namespace, clusterName)).spec.components
+              ?.engine?.schedulingPolicy?.affinity?.nodeAffinity,
           { timeout: TIMEOUTS.OneMinute }
         )
         .toBeUndefined();
       await expect
         .poll(
-          () => getPxcSpec(clusterName).pxc.affinity?.advanced?.nodeAffinity,
+          async () =>
+            (await getPxcSpec(clusterName)).pxc?.affinity?.advanced
+              ?.nodeAffinity,
           { timeout: TIMEOUTS.ThreeMinutes }
         )
         .toBeUndefined();
@@ -498,7 +451,7 @@ test.describe.serial(
     // The Pending engine pod is never recreated:
     // https://github.com/openeverest/provider-percona-xtradb-cluster/issues/49
     test.fixme(
-      'The database recovers once the rule is gone',
+      'The instance recovers once the rule is gone',
       async ({ page }) => {
         await ensureLoggedInOnDatabasesPage(page);
         await waitForStatus(
