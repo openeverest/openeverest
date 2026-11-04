@@ -18,6 +18,29 @@ cases:
                   interval: { uiType: number, path: spec.monitoring.interval, fieldParams: { label: Interval } }
     issues: []
 
+  - name: a toggleable group with a hoisted gate switch is a valid toggleable
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              monitoring:
+                uiType: group
+                groupType: toggleable
+                components:
+                  enabled:
+                    uiType: toggle
+                    gate: true
+                    path: spec.monitoring.enabled
+                    fieldParams:
+                      label: Enable monitoring
+                  url:
+                    uiType: text
+                    path: spec.monitoring.url
+                    fieldParams:
+                      label: URL
+    issues: []
+
   - name: independent toggleable groups are all valid
     uiSchema:
       replicaSet:

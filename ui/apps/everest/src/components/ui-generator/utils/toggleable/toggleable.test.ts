@@ -321,3 +321,191 @@ describe('switched-off toggleable paths', () => {
     ).toEqual([`${TOGGLEABLE_SWITCHES_KEY}.advanced~outer`]);
   });
 });
+
+describe('toggleable group gate switch (#3290)', () => {
+  const monitoringWithGate: ComponentGroup = {
+    uiType: 'group',
+    groupType: GroupType.Toggleable,
+    label: 'Monitoring',
+    components: {
+      enabled: {
+        uiType: FieldType.Toggle,
+        path: 'spec.monitoring.enabled',
+        gate: true,
+        fieldParams: { label: 'Enable monitoring' },
+      },
+      interval: {
+        uiType: FieldType.Number,
+        path: 'spec.monitoring.interval',
+        fieldParams: { label: 'Interval' },
+      },
+    },
+    componentsOrder: ['enabled', 'interval'],
+  };
+
+  it('Gate Hoist: names switch after gate path and excludes gate path from childPaths', () => {
+    const res = preprocess({ monitoring: monitoringWithGate });
+    const meta = metaOf(groupAt(res, 'monitoring'));
+    expect(meta.switchName).toBe('spec.monitoring.enabled');
+    expect(meta.gatePath).toBe('spec.monitoring.enabled');
+    expect(meta.gateKey).toBe('enabled');
+    expect(meta.childPaths).toEqual(['spec.monitoring.interval']);
+    // Verify gate key is removed from componentsOrder
+    expect(groupAt(res, 'monitoring').componentsOrder).toEqual(['interval']);
+  });
+
+  describe('Gate Validation', () => {
+    it('rejects gate: true on a non-toggle component', () => {
+      expect(() =>
+        preprocess({
+          monitoring: {
+            uiType: 'group',
+            groupType: GroupType.Toggleable,
+            components: {
+              interval: {
+                uiType: FieldType.Number,
+                path: 'spec.monitoring.interval',
+                gate: true,
+                fieldParams: { label: 'Interval' },
+              },
+            },
+          },
+        })
+      ).toThrowError(/Only toggle components can be gate switches/);
+    });
+
+    it('rejects gate: true outside a toggleable group (section root)', () => {
+      expect(() =>
+        preprocess({
+          enabled: {
+            uiType: FieldType.Toggle,
+            path: 'spec.monitoring.enabled',
+            gate: true,
+            fieldParams: { label: 'Enable' },
+          },
+        })
+      ).toThrowError(/placed outside a toggleable group/);
+    });
+
+    it('rejects gate: true in a bordered group', () => {
+      expect(() =>
+        preprocess({
+          monitoring: {
+            uiType: 'group',
+            groupType: GroupType.Bordered,
+            components: {
+              enabled: {
+                uiType: FieldType.Toggle,
+                path: 'spec.monitoring.enabled',
+                gate: true,
+                fieldParams: { label: 'Enable' },
+              },
+            },
+          },
+        })
+      ).toThrowError(/placed outside a toggleable group/);
+    });
+
+    it('rejects more than one gate per group', () => {
+      expect(() =>
+        preprocess({
+          monitoring: {
+            uiType: 'group',
+            groupType: GroupType.Toggleable,
+            components: {
+              gate1: {
+                uiType: FieldType.Toggle,
+                path: 'spec.monitoring.gate1',
+                gate: true,
+                fieldParams: { label: 'Gate 1' },
+              },
+              gate2: {
+                uiType: FieldType.Toggle,
+                path: 'spec.monitoring.gate2',
+                gate: true,
+                fieldParams: { label: 'Gate 2' },
+              },
+            },
+          },
+        })
+      ).toThrowError(/more than one gate component/);
+    });
+  });
+
+  describe('Load from Gate', () => {
+    const res = preprocess({ monitoring: monitoringWithGate });
+    const meta = metaOf(groupAt(res, 'monitoring'));
+
+    it('initializes switch to ON when instance has enabled: true', () => {
+      const instance = {
+        spec: { monitoring: { enabled: true, interval: 30 } },
+      };
+      expect(isToggleableOnInInstance(meta, instance)).toBe(true);
+
+      const values = extractInstanceValues(res, instance, FormMode.Edit);
+      expect(isToggleableOn(values, meta.switchName)).toBe(true);
+    });
+
+    it('initializes switch to OFF when instance has enabled: false', () => {
+      const instance = {
+        spec: { monitoring: { enabled: false, interval: 30 } },
+      };
+      expect(isToggleableOnInInstance(meta, instance)).toBe(false);
+
+      const values = extractInstanceValues(res, instance, FormMode.Edit);
+      expect(isToggleableOn(values, meta.switchName)).toBe(false);
+    });
+  });
+
+  describe('Gate Kept When Off', () => {
+    const res = preprocess({ monitoring: monitoringWithGate });
+
+    it('deletes child values from payload when OFF but preserves gate switch false value', () => {
+      const formValues = {
+        spec: {
+          monitoring: {
+            enabled: false,
+            interval: 30,
+          },
+          name: 'test-db',
+        },
+      };
+
+      const result = postprocessSchemaData(formValues, {
+        schema: { replicaSet: { sections: res } },
+        selectedTopology: 'replicaSet',
+      });
+
+      expect(result).toEqual({
+        spec: {
+          monitoring: { enabled: false },
+          name: 'test-db',
+        },
+      });
+    });
+
+    it('preserves both gate and child values when ON', () => {
+      const formValues = {
+        spec: {
+          monitoring: {
+            enabled: true,
+            interval: 30,
+          },
+          name: 'test-db',
+        },
+      };
+
+      const result = postprocessSchemaData(formValues, {
+        schema: { replicaSet: { sections: res } },
+        selectedTopology: 'replicaSet',
+      });
+
+      expect(result).toEqual({
+        spec: {
+          monitoring: { enabled: true, interval: 30 },
+          name: 'test-db',
+        },
+      });
+    });
+  });
+});

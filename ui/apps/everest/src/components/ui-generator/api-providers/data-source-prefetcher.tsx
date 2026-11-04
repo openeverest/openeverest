@@ -120,11 +120,15 @@ export const DataSourcePrefetcher = ({
 }: DataSourcePrefetcherProps) => {
   const dataSources = useMemo(() => collectDataSources(sections), [sections]);
   const switches = useWatch({ name: TOGGLEABLE_SWITCHES_KEY });
+  const allValues = useWatch();
 
   // A provider is mounted only while some of its fields are reachable, so a
   // switched-off section triggers no request.
   const reachable = useMemo(() => {
-    const values = { [TOGGLEABLE_SWITCHES_KEY]: switches };
+    const values = {
+      ...(allValues || {}),
+      [TOGGLEABLE_SWITCHES_KEY]: switches,
+    };
     return dataSources.flatMap(({ provider, fields }) => {
       const reachableFields = fields.filter(
         ({ switchName }) => !switchName || isToggleableOn(values, switchName)
@@ -135,7 +139,7 @@ export const DataSourcePrefetcher = ({
       );
       return [{ provider, fieldPaths }];
     });
-  }, [dataSources, switches]);
+  }, [dataSources, switches, allValues]);
 
   if (!namespace) return null;
 

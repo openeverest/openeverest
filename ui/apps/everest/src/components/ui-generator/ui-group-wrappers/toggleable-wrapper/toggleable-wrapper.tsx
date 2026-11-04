@@ -63,11 +63,13 @@ export const ToggleableWrapper = ({
         switchName && (
           <SwitchInput
             name={switchName}
-            label={Messages.switchLabel}
+            label={toggleable?.gateLabel ?? Messages.switchLabel}
             // Forms whose defaults were built before the schema (e.g. live
             // schema editing) have no switch value; keep the Switch controlled.
             controllerProps={{ name: switchName, defaultValue: false }}
+            formControlLabelProps={{ disabled: toggleable?.disabled }}
             switchFieldProps={{
+              disabled: toggleable?.disabled,
               onChange: (_event, checked) => {
                 enabledByUser.current = checked;
               },

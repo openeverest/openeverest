@@ -221,6 +221,7 @@ type ComponentCommonFields = {
   modes?: ComponentModeOverrides;
   _normalized?: NormalizedPathMeta;
   dataSource?: DataSource;
+  gate?: boolean;
 };
 
 export type ModeAwareValidation<T extends CommonValidation> = T & {
@@ -290,10 +291,14 @@ export type ComponentGroup = {
 };
 
 export interface ToggleableMeta {
-  // Form-only switch field, e.g. `toggleable-switches.advanced~monitoring`.
+  // Form-only switch field (e.g. `toggleable-switches.advanced~monitoring`) or gate field path (e.g. `spec.monitoring.enabled`).
   switchName: string;
-  // Every API path written by fields nested (at any depth) inside the group.
+  // Every API path written by fields nested (at any depth) inside the group (excluding gate path if gated).
   childPaths: string[];
+  gatePath?: string;
+  gateKey?: string;
+  gateLabel?: string;
+  disabled?: boolean;
 }
 
 // What UIGroup forwards to every groupType wrapper.

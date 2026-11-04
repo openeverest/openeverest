@@ -35,11 +35,14 @@ type Rule string
 
 // Rules checked by Validate; see README.md for their exact conditions.
 const (
-	RuleToggleableUnsafeKey    Rule = "toggleable-unsafe-key"
-	RuleToggleableNoFields     Rule = "toggleable-no-fields"
-	RuleToggleableNested       Rule = "toggleable-nested"
-	RuleToggleableOverlap      Rule = "toggleable-overlap"
-	RuleToggleableCELUnguarded Rule = "toggleable-cel-unguarded"
+	RuleToggleableUnsafeKey     Rule = "toggleable-unsafe-key"
+	RuleToggleableNoFields      Rule = "toggleable-no-fields"
+	RuleToggleableNested        Rule = "toggleable-nested"
+	RuleToggleableOverlap       Rule = "toggleable-overlap"
+	RuleToggleableCELUnguarded  Rule = "toggleable-cel-unguarded"
+	RuleToggleableGateOutside   Rule = "toggleable-gate-outside"
+	RuleToggleableGateNonToggle Rule = "toggleable-gate-non-toggle"
+	RuleToggleableGateDuplicate Rule = "toggleable-gate-duplicate"
 )
 
 // Issue is a single problem found in a UI schema.
@@ -90,6 +93,7 @@ func Validate(in Input) []Issue {
 			continue
 		}
 		issues = append(issues, validateToggleables(topology, sections)...)
+		issues = append(issues, validateGates(topology, sections)...)
 	}
 	slices.SortStableFunc(issues, func(a, b Issue) int {
 		return cmp.Or(
@@ -284,7 +288,8 @@ func (w *toggleableWalker) recordToggleable(children map[string]any, currentPath
 		})
 		return false
 	}
-	w.toggleables = append(w.toggleables, toggleable{key: groupKey, paths: paths})
+	childPaths := getToggleableChildPaths(children)
+	w.toggleables = append(w.toggleables, toggleable{key: groupKey, paths: childPaths})
 	return true
 }
 
@@ -508,4 +513,102 @@ func normalizePaths(path any) []string {
 
 func sortedKeys[V any](m map[string]V) []string {
 	return slices.Sorted(maps.Keys(m))
+}
+
+// getToggleableChildPaths returns the API paths of a group that are deleted when switched off.
+// If the group has a gate toggle, the gate component's path is excluded.
+func getToggleableChildPaths(children map[string]any) []string {
+	var paths []string
+	for _, key := range sortedKeys(children) {
+		item, _ := children[key].(map[string]any)
+		gate, _ := item["gate"].(bool)
+		uiType, _ := item["uiType"].(string)
+		if gate && uiType == "toggle" {
+			continue
+		}
+		switch uiType {
+		case uiTypeGroup, uiTypeHidden:
+			if subChildren, ok := item["components"].(map[string]any); ok {
+				paths = append(paths, getPaths(subChildren)...)
+			}
+		default:
+			paths = append(paths, normalizePaths(item["path"])...)
+		}
+	}
+	return paths
+}
+
+// validateGates checks that components with gate: true satisfy:
+// 1. uiType is "toggle" (RuleToggleableGateNonToggle)
+// 2. directly inside a group with groupType: "toggleable" (RuleToggleableGateOutside)
+// 3. at most one gate per toggleable group (RuleToggleableGateDuplicate)
+func validateGates(topology string, sections map[string]any) []Issue {
+	var issues []Issue
+	for _, secKey := range sortedKeys(sections) {
+		section, _ := sections[secKey].(map[string]any)
+		components, _ := section["components"].(map[string]any)
+		issues = append(issues, walkGateComponents(topology, components, secKey, "", false)...)
+	}
+	return issues
+}
+
+func walkGateComponents(topology string, components map[string]any, parentPath string, groupKey string, isToggleable bool) []Issue {
+	var issues []Issue
+	gateCount := 0
+
+	for _, key := range sortedKeys(components) {
+		item, _ := components[key].(map[string]any)
+		currentPath := key
+		if parentPath != "" {
+			currentPath = parentPath + "." + key
+		}
+
+		uiType, _ := item["uiType"].(string)
+		if (uiType == uiTypeGroup || uiType == uiTypeHidden) && item["components"] != nil {
+			children, _ := item["components"].(map[string]any)
+			groupType, _ := item["groupType"].(string)
+			isChildToggleable := uiType == uiTypeGroup && groupType == groupTypeToggleable
+			issues = append(issues, walkGateComponents(topology, children, currentPath, currentPath, isChildToggleable)...)
+			continue
+		}
+
+		gate, _ := item["gate"].(bool)
+		if !gate {
+			continue
+		}
+
+		if uiType != "toggle" {
+			issues = append(issues, Issue{
+				Rule:     RuleToggleableGateNonToggle,
+				Topology: topology,
+				Group:    groupKey,
+				Field:    currentPath,
+				Message:  fmt.Sprintf("component %q has gate: true but uiType is %q; only toggle components can be gate switches", key, uiType),
+			})
+			continue
+		}
+
+		if !isToggleable {
+			issues = append(issues, Issue{
+				Rule:     RuleToggleableGateOutside,
+				Topology: topology,
+				Group:    groupKey,
+				Field:    currentPath,
+				Message:  fmt.Sprintf("component %q has gate: true but is placed outside a toggleable group", key),
+			})
+			continue
+		}
+
+		gateCount++
+		if gateCount > 1 {
+			issues = append(issues, Issue{
+				Rule:     RuleToggleableGateDuplicate,
+				Topology: topology,
+				Group:    groupKey,
+				Field:    currentPath,
+				Message:  fmt.Sprintf("toggleable group %q has more than one gate component", groupKey),
+			})
+		}
+	}
+	return issues
 }

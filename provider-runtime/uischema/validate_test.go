@@ -76,3 +76,159 @@ func TestValidateIgnoresMalformedTopologies(t *testing.T) {
 		"sharded":    map[string]any{"sections": []any{}},
 	}}))
 }
+
+func TestValidateGateRules(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name     string
+		uiSchema map[string]any
+		want     []expectedIssue
+	}{
+		{
+			name: "valid gate switch in toggleable group",
+			uiSchema: map[string]any{
+				"replicaSet": map[string]any{
+					"sections": map[string]any{
+						"advanced": map[string]any{
+							"components": map[string]any{
+								"monitoring": map[string]any{
+									"uiType":    "group",
+									"groupType": "toggleable",
+									"components": map[string]any{
+										"enabled": map[string]any{
+											"uiType": "toggle",
+											"gate":   true,
+											"path":   "spec.monitoring.enabled",
+										},
+										"url": map[string]any{
+											"uiType": "text",
+											"path":   "spec.monitoring.url",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []expectedIssue{},
+		},
+		{
+			name: "gate outside toggleable group rejected",
+			uiSchema: map[string]any{
+				"replicaSet": map[string]any{
+					"sections": map[string]any{
+						"advanced": map[string]any{
+							"components": map[string]any{
+								"standalone": map[string]any{
+									"uiType": "toggle",
+									"gate":   true,
+									"path":   "spec.enabled",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []expectedIssue{
+				{
+					Rule:     RuleToggleableGateOutside,
+					Topology: "replicaSet",
+					Group:    "",
+					Field:    "advanced.standalone",
+				},
+			},
+		},
+		{
+			name: "gate on non-toggle rejected",
+			uiSchema: map[string]any{
+				"replicaSet": map[string]any{
+					"sections": map[string]any{
+						"advanced": map[string]any{
+							"components": map[string]any{
+								"monitoring": map[string]any{
+									"uiType":    "group",
+									"groupType": "toggleable",
+									"components": map[string]any{
+										"url": map[string]any{
+											"uiType": "text",
+											"gate":   true,
+											"path":   "spec.monitoring.url",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []expectedIssue{
+				{
+					Rule:     RuleToggleableGateNonToggle,
+					Topology: "replicaSet",
+					Group:    "advanced.monitoring",
+					Field:    "advanced.monitoring.url",
+				},
+			},
+		},
+		{
+			name: "multiple gates in toggleable group rejected",
+			uiSchema: map[string]any{
+				"replicaSet": map[string]any{
+					"sections": map[string]any{
+						"advanced": map[string]any{
+							"components": map[string]any{
+								"monitoring": map[string]any{
+									"uiType":    "group",
+									"groupType": "toggleable",
+									"components": map[string]any{
+										"gate1": map[string]any{
+											"uiType": "toggle",
+											"gate":   true,
+											"path":   "spec.monitoring.enabled1",
+										},
+										"gate2": map[string]any{
+											"uiType": "toggle",
+											"gate":   true,
+											"path":   "spec.monitoring.enabled2",
+										},
+										"url": map[string]any{
+											"uiType": "text",
+											"path":   "spec.monitoring.url",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []expectedIssue{
+				{
+					Rule:     RuleToggleableGateDuplicate,
+					Topology: "replicaSet",
+					Group:    "advanced.monitoring",
+					Field:    "advanced.monitoring.gate2",
+				},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			issues := Validate(Input{UISchema: tc.uiSchema})
+			got := make([]expectedIssue, 0, len(issues))
+			for _, issue := range issues {
+				assert.NotEmpty(t, issue.Message)
+				got = append(got, expectedIssue{
+					Rule:     issue.Rule,
+					Topology: issue.Topology,
+					Group:    issue.Group,
+					Field:    issue.Field,
+				})
+			}
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}

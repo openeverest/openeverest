@@ -56,6 +56,10 @@ export const buildDefaultsFromComponents = (
       Object.assign(result, nestedDefaults);
     } else {
       const component = item as Component;
+      if (component.gate && !buildOnlySchemaDefaults) {
+        result[fieldId] = false;
+        return;
+      }
       const schemaDefault = getSchemaDefault(component);
       if (schemaDefault !== undefined) {
         result[fieldId] = schemaDefault;
