@@ -634,6 +634,49 @@ func TestRBAC_Instance(t *testing.T) {
 				),
 				wantErr: ErrInsufficientPermissions,
 			},
+			{
+				desc:    "has create and deploy without provider read",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "db1",
+						Namespace:   "ns1",
+						Annotations: map[string]string{"openeverest.io/cluster-instance-preset": "standard-mysql"},
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "8.0", // Matches preset exactly
+					},
+				},
+				policy: newPolicy(
+					"p, role:developer, instances, create, prod/ns1/*",
+					"p, role:developer, instances, deploy, prod/ns1/*",
+					"p, role:developer, cluster-instance-presets, read, prod/*",
+					"g, bob, role:developer",
+				),
+			},
+			{
+				desc:    "has create and deploy without provider read, with customization",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "db1",
+						Namespace:   "ns1",
+						Annotations: map[string]string{"openeverest.io/cluster-instance-preset": "standard-mysql"},
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "9.0", // Different from preset!
+					},
+				},
+				policy: newPolicy(
+					"p, role:developer, instances, create, prod/ns1/*",
+					"p, role:developer, instances, deploy, prod/ns1/*",
+					"p, role:developer, cluster-instance-presets, read, prod/*",
+					"g, bob, role:developer",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
 		}
 
 		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
@@ -825,6 +868,49 @@ func TestRBAC_Instance(t *testing.T) {
 				},
 				policy: newPolicy(
 					"p, role:developer, instances, deploy, prod/ns1/*",
+					"g, bob, role:developer",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "has create and deploy without provider read",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "db1",
+						Namespace:   "ns1",
+						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "8.0", // Matches preset exactly
+					},
+				},
+				policy: newPolicy(
+					"p, role:developer, instances, create, prod/ns1/*",
+					"p, role:developer, instances, deploy, prod/ns1/*",
+					"p, role:developer, instance-presets, read, prod/*/*",
+					"g, bob, role:developer",
+				),
+			},
+			{
+				desc:    "has create and deploy without provider read, with customization",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "db1",
+						Namespace:   "ns1",
+						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "9.0", // Different from preset!
+					},
+				},
+				policy: newPolicy(
+					"p, role:developer, instances, create, prod/ns1/*",
+					"p, role:developer, instances, deploy, prod/ns1/*",
+					"p, role:developer, instance-presets, read, prod/*/*",
 					"g, bob, role:developer",
 				),
 				wantErr: ErrInsufficientPermissions,

@@ -73,8 +73,21 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 	// If user has create permission on Instance, allow any customization
 	err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionCreate, object)
 	if err == nil {
-		if err := h.ensureInstanceReferencesAuthorized(ctx, cluster, instance.GetNamespace(), instance.GetName(), nil, instance.Spec, true); err != nil {
+		err = h.ensureInstanceReferencesAuthorized(ctx, cluster, instance.GetNamespace(), instance.GetName(), nil, instance.Spec, true)
+		if err == nil {
+			return h.next.CreateInstance(ctx, cluster, instance)
+		}
+		if !errors.Is(err, ErrInsufficientPermissions) {
 			return nil, err
+		}
+
+		// The create rules deny a reference, but the same request may still be
+		// allowed as a deploy from a preset.
+		if deployErr := h.authorizeDeploy(ctx, cluster, instance, object); deployErr != nil {
+			if errors.Is(deployErr, ErrInsufficientPermissions) {
+				return nil, err
+			}
+			return nil, deployErr
 		}
 		return h.next.CreateInstance(ctx, cluster, instance)
 	}
@@ -83,18 +96,28 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 		return nil, fmt.Errorf("enforce create permission failed: %w", err)
 	}
 
+	if err = h.authorizeDeploy(ctx, cluster, instance, object); err != nil {
+		return nil, err
+	}
+
+	return h.next.CreateInstance(ctx, cluster, instance)
+}
+
+// authorizeDeploy checks that the user may create the instance as a deploy
+// from the preset it is annotated with.
+func (h *rbacHandler) authorizeDeploy(ctx context.Context, cluster string, instance *corev1alpha1.Instance, object string) error {
 	// If user does not have deploy permission, reject.
 	// instances:deploy implies backups:create and restores:create on the new
 	// instance for the schedules, PITR and data source the preset pins: they are
 	// keyed on the instance, which does not exist when the preset is written.
-	if err = h.enforce(ctx, rbac.ResourceInstances, rbac.ActionDeploy, object); err != nil {
-		return nil, err
+	if err := h.enforce(ctx, rbac.ResourceInstances, rbac.ActionDeploy, object); err != nil {
+		return err
 	}
 
 	// The preset vouches for the references it pins, but not for the user
 	// secret: whose credentials to seed is the requester's own choice.
-	if err = h.ensureUserSecretReadable(ctx, cluster, instance.GetNamespace(), nil, instance.Spec); err != nil {
-		return nil, err
+	if err := h.ensureUserSecretReadable(ctx, cluster, instance.GetNamespace(), nil, instance.Spec); err != nil {
+		return err
 	}
 
 	var instancePreset, clusterInstancePreset string
@@ -107,31 +130,25 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 	case instancePreset != "":
 		// User must have read permission on the InstancePreset
 		presetObj := rbac.ClusterNamespacedObjectName(cluster, instance.GetNamespace(), instancePreset)
-		if err = h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionRead, presetObj); err != nil {
-			return nil, err
+		if err := h.enforce(ctx, rbac.ResourceInstancePresets, rbac.ActionRead, presetObj); err != nil {
+			return err
 		}
 
 		// User has deploy permission, check instance matches preset exactly
-		if err = h.ensureMatchesInstancePreset(ctx, cluster, instance, instancePreset); err != nil {
-			return nil, err
-		}
+		return h.ensureMatchesInstancePreset(ctx, cluster, instance, instancePreset)
 	case clusterInstancePreset != "":
 		// User must have read permission on the ClusterInstancePreset
 		clusterPresetObj := rbac.ClusterObjectName(cluster, clusterInstancePreset)
-		if err = h.enforce(ctx, rbac.ResourceClusterInstancePresets, rbac.ActionRead, clusterPresetObj); err != nil {
-			return nil, err
+		if err := h.enforce(ctx, rbac.ResourceClusterInstancePresets, rbac.ActionRead, clusterPresetObj); err != nil {
+			return err
 		}
 
 		// User has deploy permission, check instance matches preset exactly
-		if err = h.ensureMatchesClusterInstancePreset(ctx, cluster, instance, clusterInstancePreset); err != nil {
-			return nil, err
-		}
+		return h.ensureMatchesClusterInstancePreset(ctx, cluster, instance, clusterInstancePreset)
 	default:
 		// no preset specified
-		return nil, ErrInsufficientPermissions
+		return ErrInsufficientPermissions
 	}
-
-	return h.next.CreateInstance(ctx, cluster, instance)
 }
 
 // UpdateInstance updates an instance, gated by RBAC.
