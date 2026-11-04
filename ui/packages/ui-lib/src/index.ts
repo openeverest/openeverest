@@ -105,6 +105,8 @@ export * from './masonry-columns';
 export * from './show-more-dialog';
 export { default as ShowMoreDialog } from './show-more-dialog';
 
+export * from './overflow-tooltip';
+
 export * from './form/inputs/file';
 export { default as FileInput } from './form/inputs/file';
 
