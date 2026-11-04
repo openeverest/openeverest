@@ -23,6 +23,9 @@ import {
 } from '@mui/material';
 import type { ProviderTileCardProps } from './provider-tile-card.types';
 import {
+  availableCardFooterEndSx,
+  availableCardHeaderSx,
+  availableExpandedSx,
   bodyAnchorSx,
   cardActionAreaSx,
   cardContentSx,
@@ -34,6 +37,7 @@ import {
   descriptionSx,
   expandedSx,
   headerAvatarSx,
+  installedCardSx,
 } from '../provider-tiles.constants';
 import { TileActionArea } from '../tile-action-area';
 
@@ -82,7 +86,7 @@ export const ProviderTileCard = ({
           </Box>
         )}
       </CardContent>
-      <Box className="provider-tile-footer" sx={cardFooterEndSx}>
+      <Box sx={isAvailable ? availableCardFooterEndSx : cardFooterEndSx}>
         {footer}
       </Box>
     </>
@@ -90,7 +94,7 @@ export const ProviderTileCard = ({
 
   const content = (
     <>
-      <Box className="provider-tile-header" sx={cardHeaderSx}>
+      <Box sx={isAvailable ? availableCardHeaderSx : cardHeaderSx}>
         <Avatar
           src={meta?.icon}
           variant="rounded"
@@ -108,8 +112,7 @@ export const ProviderTileCard = ({
             tail already conveys the content. */}
         {active && (
           <Box
-            className="provider-tile-expanded"
-            sx={expandedSx}
+            sx={isAvailable ? availableExpandedSx : expandedSx}
             aria-hidden="true"
           >
             {renderTail(true)}
@@ -124,10 +127,7 @@ export const ProviderTileCard = ({
       // Paper ignores `elevation` for non-default variants such as `dashed`.
       elevation={0}
       variant={isAvailable ? 'dashed' : undefined}
-      className={
-        isAvailable ? 'provider-tile-available' : 'provider-tile-installed'
-      }
-      sx={cardSx}
+      sx={isAvailable ? cardSx : installedCardSx}
       onMouseEnter={activate}
       onMouseLeave={() => setActive(false)}
       onFocus={activate}

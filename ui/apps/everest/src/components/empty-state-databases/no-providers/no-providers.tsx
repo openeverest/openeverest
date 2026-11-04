@@ -17,15 +17,19 @@ import { Box, Button, Typography } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { PLUGIN_HUB_NAME } from 'api/extension-catalog';
 import { usePlugins } from 'contexts/plugins';
-import { Messages } from '../messages';
 import { gridSx } from 'components/empty-state-databases/provider-tiles/provider-tiles.constants';
+import { Messages } from '../messages';
 import {
   EXTENSION_HUB_WEBSITE_URL,
   HUB_PROVIDERS_SUB_PATH,
   SPOTLIGHT_LIMIT,
   SPOTLIGHT_PREFERRED_PROVIDERS,
 } from './no-providers.constants';
-import { buildHubLink, pickSpotlightProviders } from './no-providers.utils';
+import {
+  buildHubLink,
+  isSuggestible,
+  pickSpotlightProviders,
+} from './no-providers.utils';
 import { AvailableProviderTile } from './available-provider-tile';
 import { BrowseHubTile } from './browse-hub-tile';
 import type { NoProvidersProps } from './no-providers.types';
@@ -39,15 +43,15 @@ export const NoProviders = ({ catalogProviders }: NoProvidersProps) => {
   const hubUiAvailable = plugins.some(
     (plugin) => plugin.name === PLUGIN_HUB_NAME
   );
-  const spotlight = useMemo(
-    () =>
-      pickSpotlightProviders(
-        catalogProviders,
-        SPOTLIGHT_LIMIT,
-        SPOTLIGHT_PREFERRED_PROVIDERS
-      ),
-    [catalogProviders]
-  );
+  const { spotlight, moreCount } = useMemo(() => {
+    const picked = pickSpotlightProviders(
+      catalogProviders,
+      SPOTLIGHT_LIMIT,
+      SPOTLIGHT_PREFERRED_PROVIDERS
+    );
+    const suggestibleCount = catalogProviders.filter(isSuggestible).length;
+    return { spotlight: picked, moreCount: suggestibleCount - picked.length };
+  }, [catalogProviders]);
 
   return (
     <>
@@ -70,7 +74,7 @@ export const NoProviders = ({ catalogProviders }: NoProvidersProps) => {
             />
           ))}
           <BrowseHubTile
-            moreCount={catalogProviders.length - spotlight.length}
+            moreCount={moreCount}
             link={buildHubLink(hubUiAvailable, HUB_PROVIDERS_SUB_PATH)}
           />
         </Box>
@@ -83,7 +87,7 @@ export const NoProviders = ({ catalogProviders }: NoProvidersProps) => {
           endIcon={<OpenInNewIcon />}
           data-testid="browse-extension-hub-button"
         >
-          {Messages.browseHub}
+          {Messages.browseExtensionHub}
         </Button>
       )}
     </>

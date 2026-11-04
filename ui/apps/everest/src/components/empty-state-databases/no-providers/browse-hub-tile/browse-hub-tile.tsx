@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import { Card, Typography } from '@mui/material';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { cardSx } from 'components/empty-state-databases/provider-tiles/provider-tiles.constants';
 import { TileActionArea } from 'components/empty-state-databases/provider-tiles/tile-action-area';
 import { Messages } from 'components/empty-state-databases/messages';
@@ -21,6 +20,7 @@ import {
   browseTileContentSx,
   inlineIconLabelSx,
 } from '../no-providers.constants';
+import { TileLinkIcon } from '../tile-link-icon';
 import type { BrowseHubTileProps } from './browse-hub-tile.types';
 
 export const BrowseHubTile = ({ moreCount, link }: BrowseHubTileProps) => (
@@ -41,8 +41,10 @@ export const BrowseHubTile = ({ moreCount, link }: BrowseHubTileProps) => (
         color="primary"
         sx={inlineIconLabelSx}
       >
-        {Messages.browseHub}
-        <ArrowForwardIcon fontSize="small" aria-hidden="true" />
+        {'href' in link
+          ? Messages.browseExtensionHub
+          : Messages.browsePluginHub}
+        <TileLinkIcon link={link} />
       </Typography>
     </TileActionArea>
   </Card>

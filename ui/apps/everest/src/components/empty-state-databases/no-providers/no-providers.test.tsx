@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import type { ResolvedExtensionMeta } from 'shared-types/extension-catalog.types';
 import { TestWrapper } from 'utils/test';
 import { NoProviders } from './no-providers';
@@ -65,6 +65,22 @@ describe('NoProviders', () => {
     const browseTile = screen.getByTestId('browse-extension-hub-tile');
     expect(browseTile).toHaveAttribute('href', '/plugins/plugin-hub/providers');
     expect(browseTile).toHaveTextContent('+2 more providers');
+    expect(browseTile).toHaveTextContent('Browse Plugin Hub');
+    expect(
+      within(browseTile).getByTestId('ArrowForwardIcon')
+    ).toBeInTheDocument();
+  });
+
+  it('leaves deprecated providers out of the "more providers" count', () => {
+    renderNoProviders([
+      ...catalog.slice(0, 3),
+      { name: 'old-db', displayName: 'Old DB', maturity: 'deprecated' },
+      { name: 'old-ai', displayName: 'Old AI', maturity: 'deprecated' },
+    ]);
+
+    expect(screen.getByTestId('browse-extension-hub-tile')).toHaveTextContent(
+      /\+1 more provider(?!s)/
+    );
   });
 
   it('links to the public Extension Hub when the plugin-hub UI is not loaded', () => {
@@ -74,6 +90,11 @@ describe('NoProviders', () => {
     const tile = screen.getByTestId('available-provider-tile-postgres');
     expect(tile).toHaveAttribute('href', EXTENSION_HUB_WEBSITE_URL);
     expect(tile).toHaveAttribute('target', '_blank');
+    expect(within(tile).getByTestId('OpenInNewIcon')).toBeInTheDocument();
+
+    const browseTile = screen.getByTestId('browse-extension-hub-tile');
+    expect(browseTile).toHaveTextContent('Browse Extension Hub');
+    expect(within(browseTile).getByTestId('OpenInNewIcon')).toBeInTheDocument();
   });
 
   it('falls back to a single Extension Hub link without a catalog', () => {

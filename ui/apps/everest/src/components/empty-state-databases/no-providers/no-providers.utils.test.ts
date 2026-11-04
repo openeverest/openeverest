@@ -13,8 +13,7 @@
 // limitations under the License.
 
 import type { ResolvedExtensionMeta } from 'shared-types/extension-catalog.types';
-import { buildHubLink, pickSpotlightProviders } from './no-providers.utils';
-import { EXTENSION_HUB_WEBSITE_URL } from './no-providers.constants';
+import { pickSpotlightProviders } from './no-providers.utils';
 
 const provider = (
   name: string,
@@ -110,19 +109,5 @@ describe('pickSpotlightProviders', () => {
     const providers = [provider('a'), provider('b', { verified: true })];
     pickSpotlightProviders(providers, 2);
     expect(names(providers)).toEqual(['a', 'b']);
-  });
-});
-
-describe('buildHubLink', () => {
-  it('routes into the plugin-hub UI when it is registered', () => {
-    expect(buildHubLink(true, 'providers/valkey')).toEqual({
-      to: '/plugins/plugin-hub/providers/valkey',
-    });
-  });
-
-  it('falls back to the public Extension Hub otherwise', () => {
-    expect(buildHubLink(false, 'providers/valkey')).toEqual({
-      href: EXTENSION_HUB_WEBSITE_URL,
-    });
   });
 });

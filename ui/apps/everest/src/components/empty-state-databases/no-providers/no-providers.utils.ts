@@ -27,6 +27,9 @@ const MATURITY_RANK: Record<ExtensionMaturity, number> = {
   deprecated: 3,
 };
 
+export const isSuggestible = (provider: ResolvedExtensionMeta) =>
+  provider.maturity !== 'deprecated';
+
 const maturityRank = (provider: ResolvedExtensionMeta) =>
   MATURITY_RANK[provider.maturity ?? 'alpha'];
 
@@ -42,9 +45,7 @@ export const pickSpotlightProviders = (
   limit: number,
   preferredNames: string[] = []
 ): ResolvedExtensionMeta[] => {
-  const eligible = providers.filter(
-    (provider) => provider.maturity !== 'deprecated'
-  );
+  const eligible = providers.filter(isSuggestible);
   const preferred = preferredNames.flatMap(
     (name) => eligible.find((provider) => provider.name === name) ?? []
   );

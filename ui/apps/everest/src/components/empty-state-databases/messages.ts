@@ -19,7 +19,8 @@ export const Messages = {
   noProvidersBody:
     'No providers are installed yet. Install one to create databases, storage or AI services.',
   howToInstall: 'How to install',
-  browseHub: 'Browse Extension Hub',
+  browsePluginHub: 'Browse Plugin Hub',
+  browseExtensionHub: 'Browse Extension Hub',
   moreProviders: (count: number) =>
     `+${count} more ${count === 1 ? 'provider' : 'providers'}`,
 };
