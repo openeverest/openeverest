@@ -16,21 +16,27 @@ import { useMemo } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { useMonitoringClassesForProvider } from 'hooks/api/monitoring-classes';
 import { useMonitoringDestinations } from 'hooks/api/monitoring-destinations';
+import { useProviders } from 'hooks/api/providers/useProviders';
 import {
+  finalizeMonitoringEntries,
   MONITORING_DESTINATIONS_FIELD,
   parseMonitoringDestinations,
+  useMonitoringInstanceForms,
 } from 'pages/database-form/database-form-body/steps/monitoring-step';
-import { Instance } from 'shared-types/api.types';
+import { Instance, Provider } from 'shared-types/api.types';
 import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
-import { getInstanceMonitoringDestinationNames } from 'utils/monitoring-destinations';
 import { MonitoringDisruption } from '../monitoring-edit-modal.types';
-import { getMonitoringDisruption } from '../monitoring-edit-modal.utils';
+import {
+  getMonitoringDisruption,
+  hasSingleReplicaMonitoredComponent,
+} from '../monitoring-edit-modal.utils';
 
 const NO_CLASSES: MonitoringClass[] = [];
 const NO_DESTINATIONS: MonitoringDestination[] = [];
+const NO_PROVIDERS: Provider[] = [];
 
 // The disruption the destinations picked in the form cause, compared with
 // those the Instance has now.
@@ -45,19 +51,34 @@ export const useMonitoringDisruption = (
     useMonitoringClassesForProvider(provider);
   const { data: destinations = NO_DESTINATIONS } =
     useMonitoringDestinations(namespace);
+  const { data: providers = NO_PROVIDERS } = useProviders();
+  const instanceForms = useMonitoringInstanceForms(namespace, provider);
 
   return useMemo(
     () =>
       getMonitoringDisruption({
-        before: getInstanceMonitoringDestinationNames(instance),
-        after: parseMonitoringDestinations(entries).map(
-          (entry) => entry.destinationRef.name
+        before: instance.spec?.monitoring?.destinations ?? [],
+        // Compared as they would be saved, so an untouched entry is no change.
+        after: finalizeMonitoringEntries(
+          parseMonitoringDestinations(entries),
+          instanceForms
         ),
         destinations,
         classes,
         provider,
-        engineReplicas: instance.spec?.components?.engine?.replicas,
+        hasSingleReplica: hasSingleReplicaMonitoredComponent(
+          instance,
+          providers.find((p) => p.metadata?.name === provider)
+        ),
       }),
-    [instance, entries, destinations, classes, provider]
+    [
+      instance,
+      entries,
+      instanceForms,
+      destinations,
+      classes,
+      provider,
+      providers,
+    ]
   );
 };

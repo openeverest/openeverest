@@ -15,10 +15,12 @@
 import {
   deepClone,
   deleteByPathAndEmptyParents,
+  isPlainObject,
   setByPath,
 } from 'components/ui-generator/utils/object-path';
-import { Instance } from 'shared-types/api.types';
+import { Instance, Provider } from 'shared-types/api.types';
 import {
+  InstanceMonitoringDestination,
   InstanceMonitoringDestinationPayload,
   MonitoringClass,
   MonitoringDestination,
@@ -26,6 +28,7 @@ import {
 import {
   getMonitoringClassName,
   getMonitoringClassTitle,
+  restartsPods,
 } from 'utils/monitoring-classes';
 import { getDestinationName } from 'utils/monitoring-destinations';
 import {
@@ -35,38 +38,74 @@ import {
 
 const INSTANCE_MONITORING_DESTINATIONS_PATH = 'spec.monitoring.destinations';
 
-const restartsPods = (monitoringClass: MonitoringClass, provider: string) =>
-  monitoringClass.status?.providers?.some(
-    (entry) => entry.name === provider && entry.disruption === 'RollingRestart'
-  ) ?? false;
+type MonitoringEntry = Pick<InstanceMonitoringDestination, 'destinationRef'> & {
+  parameters?: unknown;
+};
 
-// Adding or removing a destination whose class rolls the pods for this
-// provider restarts the database.
+const withSortedKeys = (_key: string, value: unknown) =>
+  isPlainObject(value)
+    ? Object.fromEntries(
+        Object.entries(value).sort(([a], [b]) => a.localeCompare(b))
+      )
+    : value;
+
+const isSameParameters = (a: unknown, b: unknown) =>
+  JSON.stringify(a ?? {}, withSortedKeys) ===
+  JSON.stringify(b ?? {}, withSortedKeys);
+
+const toChanges = (before: MonitoringEntry[], after: MonitoringEntry[]) => {
+  const toParameters = (entries: MonitoringEntry[]) =>
+    new Map(entries.map((entry) => [entry.destinationRef.name, entry.parameters]));
+  const was = toParameters(before);
+  const now = toParameters(after);
+  return [
+    ...[...now.keys()]
+      .filter((name) => !was.has(name))
+      .map((name) => ({ name, change: MonitoringChange.Enable })),
+    ...[...was.keys()]
+      .filter((name) => !now.has(name))
+      .map((name) => ({ name, change: MonitoringChange.Remove })),
+    ...[...now]
+      .filter(
+        ([name, parameters]) =>
+          was.has(name) && !isSameParameters(was.get(name), parameters)
+      )
+      .map(([name]) => ({ name, change: MonitoringChange.Update })),
+  ];
+};
+
+// A rolling restart takes a component down when it runs a single replica.
+export const hasSingleReplicaMonitoredComponent = (
+  instance: Instance,
+  provider: Provider | undefined
+) => {
+  const monitoredTypes = Object.keys(
+    provider?.spec?.monitoring?.componentTypes ?? {}
+  );
+  return Object.values(instance.spec?.components ?? {}).some(
+    ({ type, replicas }) =>
+      !!type && monitoredTypes.includes(type) && replicas === 1
+  );
+};
+
+// Any change to an entry of a class that rolls the pods for this provider
+// restarts the database: adding, removing or changing its parameters.
 export const getMonitoringDisruption = ({
   before,
   after,
   destinations,
   classes,
   provider,
-  engineReplicas,
+  hasSingleReplica,
 }: {
-  before: string[];
-  after: string[];
+  before: MonitoringEntry[];
+  after: MonitoringEntry[];
   destinations: MonitoringDestination[];
   classes: MonitoringClass[];
   provider: string;
-  engineReplicas: number | undefined;
+  hasSingleReplica: boolean;
 }): MonitoringDisruption => {
-  const changes = [
-    ...after
-      .filter((name) => !before.includes(name))
-      .map((name) => ({ name, change: MonitoringChange.Enable })),
-    ...before
-      .filter((name) => !after.includes(name))
-      .map((name) => ({ name, change: MonitoringChange.Remove })),
-  ];
-
-  const restarts = changes.flatMap(({ name, change }) => {
+  const restarts = toChanges(before, after).flatMap(({ name, change }) => {
     const className = destinations.find(
       (destination) => getDestinationName(destination) === name
     )?.spec.classRef.name;
@@ -88,7 +127,7 @@ export const getMonitoringDisruption = ({
 
   return {
     restarts: uniqueRestarts,
-    singleReplica: uniqueRestarts.length > 0 && engineReplicas === 1,
+    singleReplica: uniqueRestarts.length > 0 && hasSingleReplica,
   };
 };
 

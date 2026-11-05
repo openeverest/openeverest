@@ -70,11 +70,25 @@ vi.mock('hooks/api/db-instances/useUpdateDbInstance', () => ({
   useUpdateDbInstanceWithConflictRetry: () => ({ mutate: mocks.mutate }),
 }));
 
+vi.mock('hooks/api/providers/useProviders', () => {
+  const providers = {
+    data: [
+      {
+        metadata: { name: 'percona-server-mongodb' },
+        spec: {
+          monitoring: { componentTypes: { mongod: { kind: 'mongodb' } } },
+        },
+      },
+    ],
+  };
+  return { useProviders: () => providers };
+});
+
 const instance: Instance = {
   metadata: { name: 'orders-db', namespace: 'team-a', resourceVersion: '3' },
   spec: {
     providerRef: { name: 'percona-server-mongodb' },
-    components: { engine: { replicas: 1 } },
+    components: { engine: { type: 'mongod', replicas: 1 } },
     monitoring: {
       destinations: [
         { name: 'coroot', destinationRef: { name: 'coroot' } },
