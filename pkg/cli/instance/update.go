@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
@@ -163,6 +164,11 @@ func (iu *Updater) patch(ctx context.Context, c *client.ClientWithResponses, opt
 	)
 	if err != nil {
 		return nil, fmt.Errorf("patch instance request failed: %w", err)
+	}
+
+	warnings, _ := utilnet.ParseWarningHeaders(resp.HTTPResponse.Header.Values("Warning"))
+	for _, w := range warnings {
+		output.PrintWarn(w.Text, iu.l, iu.config.Pretty)
 	}
 
 	switch resp.StatusCode() {

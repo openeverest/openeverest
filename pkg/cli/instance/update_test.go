@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // newUpdateServer serves the provider, the instance GET and the instance PATCH.
@@ -133,6 +134,29 @@ func TestUpdate_PatchCarriesOnlyTheNamedFields(t *testing.T) {
 	opts := baseUpdateOpts()
 	opts.Set = []string{"components.engine.replicas=5"}
 	require.NoError(t, runUpdate(t, srv, opts))
+}
+
+func TestUpdate_DeniedPatchPrintsAPIWarnings(t *testing.T) {
+	t.Parallel()
+
+	srv := newUpdateServer(t, psmdbSpec(), func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Add("Warning", `299 - "backup class nightly not found"`)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		_, _ = w.Write([]byte(`{"message":"Instance.core.openeverest.io \"my-db\" is invalid","reason":"Invalid"}`))
+	})
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	opts := baseUpdateOpts()
+	opts.Set = []string{"components.engine.replicas=5"}
+	core, logs := observer.New(zap.WarnLevel)
+	err := NewUpdater(Config{}, zap.New(core).Sugar()).Run(context.Background(), opts, cfgPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "is invalid")
+	assert.Equal(t, 1, logs.FilterMessage("backup class nightly not found").Len())
 }
 
 func TestUpdate_SetNullSendsJSONNull(t *testing.T) {

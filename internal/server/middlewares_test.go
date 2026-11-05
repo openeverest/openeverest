@@ -23,7 +23,9 @@
 package server
 
 import (
+	"context"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 	"time"
@@ -33,7 +35,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/rest"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -154,6 +160,91 @@ func TestShouldAllowRequestDuringEngineUpgrade(t *testing.T) {
 			allow, err := e.shouldAllowRequestDuringEngineUpgrade(ctx)
 			require.NoError(t, err)
 			assert.Equal(t, tc.allow, allow)
+		})
+	}
+}
+
+func TestKubernetesWarnings(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		method      string
+		warnings    []string
+		err         error
+		wantCode    int
+		wantHeaders []string
+	}{
+		{
+			name:   "admitted write",
+			method: http.MethodPost,
+			warnings: []string{
+				`secret "db-creds" named by spec.userSecretRef not found`,
+				"backup class nightly not found",
+				`secret "db-creds" named by spec.userSecretRef not found`,
+			},
+			wantCode: http.StatusCreated,
+			wantHeaders: []string{
+				`299 - "secret \"db-creds\" named by spec.userSecretRef not found"`,
+				`299 - "backup class nightly not found"`,
+			},
+		},
+		{
+			name:     "denied write",
+			method:   http.MethodPatch,
+			warnings: []string{"backup class nightly not found"},
+			err: k8serrors.NewInvalid(
+				schema.GroupKind{Group: "core.openeverest.io", Kind: "Instance"}, "my-db",
+				field.ErrorList{field.Required(field.NewPath("spec", "topology", "type"), "")},
+			),
+			wantCode:    http.StatusUnprocessableEntity,
+			wantHeaders: []string{`299 - "backup class nightly not found"`},
+		},
+		{
+			name:     "write without warnings",
+			method:   http.MethodDelete,
+			wantCode: http.StatusCreated,
+		},
+		{
+			name:     "text a header cannot carry",
+			method:   http.MethodPut,
+			warnings: []string{"line one\nline two", "backup class nightly not found"},
+			wantCode: http.StatusCreated,
+			wantHeaders: []string{
+				`299 - "backup class nightly not found"`,
+			},
+		},
+		{
+			name:     "read",
+			method:   http.MethodGet,
+			warnings: []string{"backup class nightly not found"},
+			wantCode: http.StatusCreated,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			warningHandler := kubernetes.CollectingWarningHandler{Next: rest.NoWarnings{}}
+			handler := func(c echo.Context) error {
+				for _, text := range tt.warnings {
+					warningHandler.HandleWarningHeaderWithContext(c.Request().Context(), 299, "-", text)
+				}
+				if tt.err != nil {
+					return tt.err
+				}
+				return c.JSON(http.StatusCreated, struct{}{})
+			}
+			e := echo.New()
+			e.HTTPErrorHandler = everestErrorHandler(e.DefaultHTTPErrorHandler)
+			e.Any("/", handler, kubernetesWarnings)
+
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), tt.method, "/", nil))
+
+			assert.Equal(t, tt.wantCode, rec.Code)
+			assert.Equal(t, tt.wantHeaders, rec.Header().Values("Warning"))
 		})
 	}
 }

@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
@@ -548,6 +549,32 @@ func TestRun_HappyPath(t *testing.T) {
 		Cluster:   "main",
 	}, cfgPath)
 	assert.NoError(t, err)
+}
+
+func TestRun_PrintsAPIWarnings(t *testing.T) {
+	t.Parallel()
+
+	createHandler := func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Add("Warning", `299 - "secret \"db-creds\" named by spec.userSecretRef not found"`)
+		respondCreated(w)
+	}
+
+	srv := newRunServer(t, okProviderHandler, createHandler)
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	core, logs := observer.New(zap.WarnLevel)
+	opts := CreateOptions{
+		Name:      "my-db",
+		Namespace: "everest",
+		Provider:  "psmdb",
+		Cluster:   "main",
+	}
+	err := NewInstanceCreator(Config{}, zap.New(core).Sugar()).Run(context.Background(), opts, cfgPath)
+	require.NoError(t, err)
+	assert.Equal(t, 1, logs.FilterMessage(`secret "db-creds" named by spec.userSecretRef not found`).Len())
 }
 
 func TestRun_ProviderNotFound(t *testing.T) {
