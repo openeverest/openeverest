@@ -545,6 +545,12 @@ export const listSecretsWithFiltersRaw = async (request, provider: string, defin
   return await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets?provider=${provider}&definition=${definition}`)
 }
 
+export const listSecretsByMonitoringClass = async (request, monitoringClass: string, definition: string) => {
+  const response = await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets?monitoringClass=${monitoringClass}&definition=${definition}`)
+  await checkError(response)
+  return (await response.json())
+}
+
 export const deleteSecret = async (request, name) => {
   // Wait for deletion mark.
   await expect(async () => {

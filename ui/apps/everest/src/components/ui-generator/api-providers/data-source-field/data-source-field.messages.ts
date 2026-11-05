@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Preset-selection domain messages shared by the hook (resolve) and the card.
 export const Messages = {
-  resolveError: 'Failed to resolve the selected preset.',
+  loading: 'Loading...',
+  loadFailed: 'Failed to load options',
+  noOptions: 'No options available',
+  unavailableOption: (value: string) => `${value} (unavailable)`,
+  unavailableValueHint:
+    "Not found in the available options — it may have been deleted or you may not have access to it. It's kept unless you pick another one.",
+  unavailableLockedValueHint:
+    "Not found in the available options — it may have been deleted or you may not have access to it. It's kept as is.",
 };

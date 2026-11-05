@@ -30,8 +30,3 @@ func (h *validateHandler) ListClusterInstancePresets(ctx context.Context, cluste
 func (h *validateHandler) GetClusterInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.ClusterInstancePreset, error) {
 	return h.next.GetClusterInstancePreset(ctx, cluster, name)
 }
-
-// ResolveClusterInstancePreset proxies the request to the next handler.
-func (h *validateHandler) ResolveClusterInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.ClusterInstancePreset, error) {
-	return h.next.ResolveClusterInstancePreset(ctx, cluster, name, namespace)
-}

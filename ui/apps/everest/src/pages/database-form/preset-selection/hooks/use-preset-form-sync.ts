@@ -28,25 +28,23 @@ interface UsePresetFormSyncArgs {
   uiSchema: TopologyUISchemas;
   defaultValues: Record<string, unknown>;
   defaultTopology: string;
-  resolvedPreset: ClusterInstancePreset | null;
+  selectedPreset: ClusterInstancePreset | null;
   presetName: string;
-  namespace: string | undefined;
   reset: UseFormReset<DbWizardType>;
   getValues: UseFormGetValues<DbWizardType>;
 }
 
 // Populates the wizard form from the picked preset (so preview/fields reflect
 // it) and reverts to defaults when the preset is cleared. New mode only, and
-// idempotent per preset+namespace so it never clobbers the user's dbName /
+// idempotent per preset so it never clobbers the user's dbName /
 // namespace or edits made outside preset mode.
 export const usePresetFormSync = ({
   mode,
   uiSchema,
   defaultValues,
   defaultTopology,
-  resolvedPreset,
+  selectedPreset,
   presetName,
-  namespace,
   reset,
   getValues,
 }: UsePresetFormSyncArgs) => {
@@ -71,14 +69,13 @@ export const usePresetFormSync = ({
       return;
     }
 
-    // Wait until the spec is resolved for the current namespace.
-    if (!resolvedPreset) return;
+    // Wait until the picked preset is present in the loaded list.
+    if (!selectedPreset) return;
 
-    const key = `${presetName}::${namespace ?? ''}`;
-    if (appliedRef.current === key) return;
+    if (appliedRef.current === presetName) return;
 
     const presetTopology =
-      resolvedPreset.spec?.topology?.type ?? defaultTopology;
+      selectedPreset.spec?.topology?.type ?? defaultTopology;
     const sections = uiSchema[presetTopology]?.sections ?? {};
     // Build a complete, valid spec: extractInstanceValues in New mode reads the
     // preset value where present and falls back to the schema/type default
@@ -87,7 +84,7 @@ export const usePresetFormSync = ({
     const baseDefaults = getDefaultValues(uiSchema, presetTopology);
     const specValues = extractInstanceValues(
       sections,
-      { spec: resolvedPreset.spec },
+      { spec: selectedPreset.spec },
       mode
     );
     const { dbName, k8sNamespace, provider } = getValues();
@@ -103,15 +100,14 @@ export const usePresetFormSync = ({
       presetName,
     } as unknown as DbWizardType);
 
-    appliedRef.current = key;
+    appliedRef.current = presetName;
   }, [
     mode,
     uiSchema,
     defaultValues,
     defaultTopology,
-    resolvedPreset,
+    selectedPreset,
     presetName,
-    namespace,
     reset,
     getValues,
   ]);

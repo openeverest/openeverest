@@ -1,0 +1,4 @@
+# Docker uses this file instead of the root .dockerignore when building .oss-scanner/Dockerfile.
+# The root one only lets in what the release images need; the scanner needs the whole checkout.
+**/node_modules
+bin/

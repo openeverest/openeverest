@@ -32,7 +32,6 @@ var resourcePathMap = map[string]string{
 	"/clusters/:cluster/backup-classes/:backupClass":                          "backup-classes",
 	"/clusters/:cluster/cluster-instance-presets":                             "cluster-instance-presets",
 	"/clusters/:cluster/cluster-instance-presets/:name":                       "cluster-instance-presets",
-	"/clusters/:cluster/cluster-instance-presets/:name/resolve":               "cluster-instance-presets",
 	"/clusters/:cluster/monitoring-classes":                                   "monitoring-classes",
 	"/clusters/:cluster/monitoring-classes/:name":                             "monitoring-classes",
 	"/clusters/:cluster/namespaces":                                           "namespaces",

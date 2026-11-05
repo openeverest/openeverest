@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 )
 
 // CreateSecret creates a new secret in the specified namespace and cluster.
@@ -42,13 +43,16 @@ func (e *EverestServer) CreateSecret(c echo.Context, cluster, namespace string) 
 }
 
 // ListSecrets lists OpenEverest-managed secrets in the namespace, optionally filtered by
-// provider and definition. Only metadata is returned; secret data is never included.
+// the labels that name their definition. Only metadata is returned; secret data is never included.
 func (e *EverestServer) ListSecrets(c echo.Context, cluster, namespace string, params api.ListSecretsParams) error {
 	result, err := e.handler.ListSecrets(
 		c.Request().Context(),
 		cluster, namespace,
-		pointer.GetString(params.Provider),
-		pointer.GetString(params.Definition),
+		handlers.SecretFilter{
+			Provider:        pointer.GetString(params.Provider),
+			MonitoringClass: pointer.GetString(params.MonitoringClass),
+			Definition:      pointer.GetString(params.Definition),
+		},
 	)
 	if err != nil {
 		e.l.Errorf("ListSecrets failed: %v", err)

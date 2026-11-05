@@ -25,12 +25,17 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import type { Instance, Provider } from 'shared-types/api.types';
 import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
+import { Messages } from 'components/ui-generator/api-providers/data-source-field/data-source-field.messages';
+import { Messages as ProvidersMessages } from 'components/ui-generator/api-providers/providers.messages';
 import SectionEditModal from './section-edit-modal';
 
-const { mutate } = vi.hoisted(() => ({ mutate: vi.fn() }));
+const { mutate, clusterInfo } = vi.hoisted(() => {
+  const clusterInfoResult: { data?: { storageClassNames: string[] } } = {};
+  return { mutate: vi.fn(), clusterInfo: clusterInfoResult };
+});
 
 vi.mock('hooks/api/kubernetesClusters/useKubernetesClusterInfo', () => ({
-  useKubernetesClusterInfo: () => ({ data: undefined }),
+  useKubernetesClusterInfo: () => clusterInfo,
 }));
 
 vi.mock('hooks/api/db-instances/useUpdateDbInstance', () => ({
@@ -213,5 +218,107 @@ describe('SectionEditModal toggleable group', () => {
     await waitFor(() => expect(mutate).toHaveBeenCalled());
     // No `monitoring: {}` left behind either.
     expect(mutate.mock.calls[0][0].spec).toEqual({ other: 'kept' });
+  });
+});
+
+describe('SectionEditModal dataSource field disabled on edit', () => {
+  const { sections } = preprocessSchema({
+    replicaSet: {
+      sections: {
+        advanced: {
+          label: 'Advanced',
+          components: {
+            storageClass: {
+              uiType: FieldType.Select,
+              path: 'spec.storageClass',
+              fieldParams: {
+                label: 'Storage class',
+                modes: { [FormMode.Edit]: { disabled: true } },
+              },
+              dataSource: { provider: 'storageClasses' },
+            },
+            interval: makeNumber('spec.interval', 'Interval'),
+          },
+        },
+      },
+    },
+  }).replicaSet;
+
+  const renderModal = (spec: Record<string, unknown>) => {
+    const instance = {
+      metadata: { name: 'test-db', namespace: 'ns' },
+      spec,
+    } as unknown as Instance;
+
+    render(
+      <TestWrapper>
+        <SectionEditModal
+          sectionKey="advanced"
+          sections={sections}
+          instance={instance}
+          provider={{ spec: {} } as Provider}
+          namespace="ns"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+        />
+      </TestWrapper>
+    );
+  };
+
+  beforeEach(() => {
+    mutate.mockClear();
+    clusterInfo.data = { storageClassNames: ['standard'] };
+  });
+
+  afterEach(() => {
+    clusterInfo.data = undefined;
+    vi.restoreAllMocks();
+  });
+
+  it.each([
+    ['unset', {}],
+    ['missing from the options', { storageClass: 'deleted-class' }],
+  ])(
+    'saves another field without touching a storage class that is %s',
+    async (_case, storedStorageClass) => {
+      renderModal({ interval: 30, ...storedStorageClass });
+
+      fireEvent.change(screen.getByLabelText('Interval'), {
+        target: { value: '60' },
+      });
+      const saveButton = screen.getByTestId('form-dialog-save');
+      await waitFor(() => expect(saveButton).toBeEnabled());
+      fireEvent.click(saveButton);
+
+      await waitFor(() => expect(mutate).toHaveBeenCalled());
+      expect(mutate.mock.calls[0][0].spec).toEqual({
+        interval: 60,
+        ...storedStorageClass,
+      });
+    }
+  );
+
+  it('shows a stored storage class missing from the options as unavailable', () => {
+    const warn = vi.spyOn(console, 'warn');
+
+    renderModal({ interval: 30, storageClass: 'deleted-class' });
+
+    expect(
+      screen.getByText(Messages.unavailableOption('deleted-class'))
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(Messages.unavailableLockedValueHint)
+    ).toBeInTheDocument();
+    expect(warn).not.toHaveBeenCalledWith(
+      expect.stringContaining('out-of-range')
+    );
+  });
+
+  it('explains what an unset storage class means', () => {
+    renderModal({ interval: 30 });
+
+    expect(
+      screen.getByText(ProvidersMessages.storageClassesUnsetValueHint)
+    ).toBeInTheDocument();
   });
 });
