@@ -15,6 +15,7 @@
 package validation
 
 import (
+	"encoding/json"
 	"fmt"
 	"maps"
 	"slices"
@@ -94,17 +95,55 @@ func checkComponent(
 	}
 
 	var errs field.ErrorList
-	if component.Type != "" && component.Type != declared.Type {
-		errs = append(errs, field.NotSupported(path.Child("type"), component.Type, []string{declared.Type}))
+	componentType := declared.Type
+	if component.Type != "" {
+		if allowed := allowedTypes(spec, declared, topology, name); slices.Contains(allowed, component.Type) {
+			componentType = component.Type
+		} else {
+			errs = append(errs, field.NotSupported(path.Child("type"), component.Type, allowed))
+		}
 	}
 	if component.Version == "" {
 		return errs, ""
 	}
-	err, warning := checkComponentVersion(path.Child("version"), component.Version, spec.ComponentTypes[declared.Type])
+	err, warning := checkComponentVersion(path.Child("version"), component.Version, spec.ComponentTypes[componentType])
 	if err != nil {
 		errs = append(errs, err)
 	}
 	return errs, warning
+}
+
+// allowedTypes returns the types an Instance may give the component: the type
+// the Provider declares, unless the topology's supportedFields declare type,
+// in which case its enum, or without one every type in the catalog.
+func allowedTypes(
+	spec *v1alpha1.ProviderSpec,
+	declared v1alpha1.Component,
+	topology *v1alpha1.Topology,
+	name string,
+) []string {
+	if topology == nil {
+		return []string{declared.Type}
+	}
+	supported := topology.Components[name].SupportedFields
+	if supported == nil || supported.OpenAPIV3Schema == nil {
+		return []string{declared.Type}
+	}
+	property, ok := supported.OpenAPIV3Schema.Properties["type"]
+	if !ok {
+		return []string{declared.Type}
+	}
+	if len(property.Enum) == 0 {
+		return slices.Sorted(maps.Keys(spec.ComponentTypes))
+	}
+	types := make([]string, 0, len(property.Enum))
+	for _, value := range property.Enum {
+		var t string
+		if json.Unmarshal(value.Raw, &t) == nil {
+			types = append(types, t)
+		}
+	}
+	return types
 }
 
 // checkComponentVersion returns an error when version is not in the

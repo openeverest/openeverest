@@ -16,6 +16,7 @@ package validation
 
 import (
 	"fmt"
+	"maps"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -36,6 +37,12 @@ componentTypes:
     versions:
     - {version: "7.0.1", image: "mongod:7.0.1"}
     - {version: "6.0.1", image: "mongod:6.0.1", deprecated: true, removedInVersion: "0.9"}
+  mongos:
+    versions:
+    - {version: "7.0.2", image: "mongos:7.0.2"}
+  pbm:
+    versions:
+    - {version: "2.0.0", image: "pbm:2.0.0"}
 components:
   engine:
     type: mongod
@@ -77,8 +84,17 @@ topologies:
           numShards: {type: integer, minimum: 1}
     components:
       engine: {}
-      proxy: {}
-      configServer: {}
+      proxy:
+        supportedFields:
+          openAPIV3Schema:
+            properties:
+              type: {enum: [mongod, mongos]}
+              version: {}
+      configServer:
+        supportedFields:
+          openAPIV3Schema:
+            properties:
+              type: {}
 `
 
 func testProvider(t *testing.T) *v1alpha1.Provider {
@@ -106,6 +122,18 @@ func replicaSet(mutate func(*v1alpha1.Instance)) *v1alpha1.Instance {
 	if mutate != nil {
 		mutate(in)
 	}
+	return in
+}
+
+// sharded returns a sharded Instance with every component, overridden by components.
+func sharded(components map[string]v1alpha1.ComponentSpec) *v1alpha1.Instance {
+	in := &v1alpha1.Instance{Spec: v1alpha1.InstanceSpec{
+		Topology: &v1alpha1.TopologySpec{Type: "sharded"},
+		Components: map[string]v1alpha1.ComponentSpec{
+			"engine": {}, "proxy": {}, "configServer": {},
+		},
+	}}
+	maps.Copy(in.Spec.Components, components)
 	return in
 }
 
@@ -235,6 +263,33 @@ func TestRun(t *testing.T) {
 				`spec.components[engine].version: Unsupported value: "5.0.0": supported values: "7.0.1", "6.0.1"`,
 				`spec.components[monitor]: Unsupported value: "monitor": supported values: "configServer", "engine", "proxy"`,
 				"spec.components[configServer]: Required value: the sharded topology requires this component",
+			},
+		},
+		{
+			name: "a type the topology lets the Instance choose",
+			instance: sharded(map[string]v1alpha1.ComponentSpec{
+				"proxy":        {Type: "mongos", Version: "7.0.2"},
+				"configServer": {Type: "pbm"},
+			}),
+		},
+		{
+			name: "a chosen type outside the enum or the catalog",
+			instance: sharded(map[string]v1alpha1.ComponentSpec{
+				"proxy":        {Type: "pbm"},
+				"configServer": {Type: "mysqld"},
+			}),
+			want: []string{
+				`spec.components[configServer].type: Unsupported value: "mysqld": supported values: "mongod", "mongos", "pbm"`,
+				`spec.components[proxy].type: Unsupported value: "pbm": supported values: "mongod", "mongos"`,
+			},
+		},
+		{
+			name: "a chosen type's own versions",
+			instance: sharded(map[string]v1alpha1.ComponentSpec{
+				"proxy": {Type: "mongos", Version: "7.0.1"},
+			}),
+			want: []string{
+				`spec.components[proxy].version: Unsupported value: "7.0.1": supported values: "7.0.2"`,
 			},
 		},
 		{
