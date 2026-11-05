@@ -60,6 +60,16 @@ its errors name the Instance field that refers to the object and report the
 Instance with reason `InvalidReference`, and the check runs again every minute,
 since the object can change without an event on the Instance.
 
+With `reconciler.WithAdmission()`, the same checks and `Validate` also run in
+an admission webhook, so a write is rejected before it is persisted. The
+webhook also rejects a backup class that exists but doesn't fit the Instance:
+one that runs backups as Jobs, doesn't list the provider, or whose limits or
+PITR schema the backup configuration breaks. On an update, `Validate` gets the
+previous Instance as `Old`, and errors the stored Instance already had do not
+block the write. Objects the Instance names that are missing, or whose
+contents `ValidateReferences` rejects, come back as warnings and never block a
+write: they may be created after the Instance.
+
 Test `Validate` with `controller/validationtest`, which runs the same checks
 against the `provider-spec.yaml` your chart publishes, with Instance fixtures
 and no cluster.
