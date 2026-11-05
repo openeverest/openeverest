@@ -23,6 +23,12 @@ print('Frontend Build enabled: {0}'.format(enable_frontend))
 enable_plugin_hub = config_yaml.get('enablePluginHub', True)
 print('Plugin Hub enabled: {0}'.format(enable_plugin_hub))
 
+# One-click install/upgrade/uninstall from the Plugin Hub UI (binds the
+# plugin-hub pod to cluster-admin). On by default; set to false to opt out.
+enable_plugin_hub_installer = config_yaml.get('enablePluginHubInstaller', True)
+if enable_plugin_hub:
+    print('Plugin Hub installer enabled: {0}'.format(enable_plugin_hub_installer))
+
 # Set to true to self-install the VictoriaMetrics operator + kube-state-metrics
 # in the dev cluster (opt-in, since the 'everest' chart no longer bundles them;
 # see percona-helm-charts/charts/pmm/README.md for the equivalent manual setup).
@@ -211,6 +217,8 @@ everest_helm_set = [
 ]
 if not enable_plugin_hub:
     everest_helm_set.append('plugins.hub.enabled=false')
+elif not enable_plugin_hub_installer:
+    everest_helm_set.append('plugin-hub.installer.enabled=false')
 
 everest_yaml = helm(
     everest_chart_dir,
