@@ -77,6 +77,12 @@ test.describe('Instance PATCH', () => {
     expect(response.status()).toBe(422);
     expect(await response.text()).toContain('spec.replicaz');
 
+    const body = await response.json();
+    expect(body.reason).toBe('Invalid');
+    expect(body.causes).toEqual(
+      expect.arrayContaining([expect.objectContaining({message: expect.stringContaining('spec.replicaz')})]),
+    );
+
     const after = await request.get(instanceURL);
     await checkError(after);
     expect((await after.json()).spec.replicaz).toBeUndefined();

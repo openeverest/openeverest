@@ -25,7 +25,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 func TestEverestErrorHandler_Conflict(t *testing.T) {
@@ -99,6 +101,88 @@ func TestEverestErrorHandler_Conflict(t *testing.T) {
 			handler(tt.err, c)
 
 			require.Equal(t, http.StatusConflict, rec.Code)
+			assert.JSONEq(t, tt.want, rec.Body.String())
+		})
+	}
+}
+
+func TestEverestErrorHandler_Invalid(t *testing.T) {
+	t.Parallel()
+
+	instanceKind := schema.GroupKind{Group: "core.openeverest.io", Kind: "Instance"}
+
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			name: "every field is a cause",
+			err: k8serrors.NewInvalid(instanceKind, "my-db", field.ErrorList{
+				field.Invalid(field.NewPath("spec", "components").Key("hidden").Child("replicas"), 1, "replicas in body should be a multiple of 2"),
+				field.Required(field.NewPath("spec", "topology", "type"), ""),
+			}),
+			want: `{
+				"message": "Instance.core.openeverest.io \"my-db\" is invalid: [spec.components[hidden].replicas: Invalid value: 1: replicas in body should be a multiple of 2, spec.topology.type: Required value]",
+				"reason": "Invalid",
+				"causes": [
+					{
+						"reason": "FieldValueInvalid",
+						"message": "Invalid value: 1: replicas in body should be a multiple of 2",
+						"field": "spec.components[hidden].replicas"
+					},
+					{
+						"reason": "FieldValueRequired",
+						"message": "Required value",
+						"field": "spec.topology.type"
+					}
+				]
+			}`,
+		},
+		{
+			name: "strict decoding drops the object",
+			err: k8serrors.NewInvalid(schema.GroupKind{}, "", field.ErrorList{
+				field.Invalid(field.NewPath("patch"), `{"spec":{"replicaz":3}}`, `strict decoding error: unknown field "spec.replicaz"`),
+			}),
+			want: `{
+				"message": "strict decoding error: unknown field \"spec.replicaz\"",
+				"reason": "Invalid",
+				"causes": [
+					{
+						"reason": "FieldValueInvalid",
+						"message": "strict decoding error: unknown field \"spec.replicaz\"",
+						"field": "patch"
+					}
+				]
+			}`,
+		},
+		{
+			name: "no details",
+			err: &k8serrors.StatusError{ErrStatus: metav1.Status{
+				Status:  metav1.StatusFailure,
+				Code:    http.StatusUnprocessableEntity,
+				Reason:  metav1.StatusReasonInvalid,
+				Message: "the object is invalid",
+			}},
+			want: `{
+				"message": "the object is invalid",
+				"reason": "Invalid"
+			}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			e := echo.New()
+			rec := httptest.NewRecorder()
+			c := e.NewContext(httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil), rec)
+
+			handler := everestErrorHandler(e.DefaultHTTPErrorHandler)
+			handler(tt.err, c)
+
+			require.Equal(t, http.StatusUnprocessableEntity, rec.Code)
 			assert.JSONEq(t, tt.want, rec.Body.String())
 		})
 	}
