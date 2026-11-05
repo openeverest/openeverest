@@ -148,6 +148,12 @@ test.describe.serial(
     const clusterName = `${db}-${size}-pitr`;
     const namespace = EVEREST_CI_NAMESPACES.EVEREST_UI;
     const baseBackupName = `dembkp-${db}-${size}`;
+    // Keep PXC's generated restore Job labels within 63 bytes.
+    const restoredClusterNames = [
+      `${clusterName}-date`,
+      `${clusterName}-latest`,
+    ];
+    let seedRestoreTime: PitrTime;
     let storageClasses: string[] = [];
     // Start of the latest insert batch; the PITR waits below poll until the
     // recovery window covers it.
@@ -174,10 +180,12 @@ test.describe.serial(
         const ctx = await apiRequest.newContext({
           baseURL: process.env.EVEREST_URL || 'http://localhost:8080',
         });
-        await ctx.delete(
-          `/v1/clusters/main/namespaces/${namespace}/instances/${clusterName}`,
-          { headers: { Authorization: `Bearer ${cleanupToken}` } }
-        );
+        for (const name of [...restoredClusterNames, clusterName]) {
+          await ctx.delete(
+            `/v1/clusters/main/namespaces/${namespace}/instances/${name}`,
+            { headers: { Authorization: `Bearer ${cleanupToken}` } }
+          );
+        }
         await ctx.dispose();
       } catch {
         // Teardown must never fail the suite; any leftover cluster is removed by
@@ -266,37 +274,28 @@ test.describe.serial(
     }) => {
       expect(storageClasses.length).toBeGreaterThan(0);
 
-      const cleanupResponse = await request.delete(
-        `/v1/clusters/main/namespaces/${namespace}/instances/${clusterName}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      expect([204, 404]).toContain(cleanupResponse.status());
+      for (const name of [...restoredClusterNames, clusterName]) {
+        const instancePath = `/v1/clusters/main/namespaces/${namespace}/instances/${name}`;
+        const headers = {
+          Authorization: `Bearer ${await getCITokenFromLocalStorage()}`,
+        };
+        const cleanupResponse = await request.delete(instancePath, { headers });
+        expect([204, 404]).toContain(cleanupResponse.status());
 
-      // Wait for old cluster disappearance so reconciliation starts from a
-      // clean state and does not inherit stale references.
-      await expect
-        .poll(
-          async () => {
-            const response = await request.get(
-              `/v1/clusters/main/namespaces/${namespace}/instances/${clusterName}`,
-              {
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                },
-              }
-            );
-            return response.status();
-          },
-          {
-            timeout: 180000,
-            intervals: [2000, 5000, 5000],
-          }
-        )
-        .toBe(404);
+        await expect
+          .poll(
+            async () =>
+              (
+                await request.get(instancePath, {
+                  headers: {
+                    Authorization: `Bearer ${await getCITokenFromLocalStorage()}`,
+                  },
+                })
+              ).status(),
+            { timeout: 180000, intervals: [2000, 5000, 5000] }
+          )
+          .toBe(404);
+      }
 
       await expect
         .poll(
@@ -676,127 +675,168 @@ test.describe.serial(
       expect(result.trim()).toBe('1\n2\n3\n4\n5\n6\n7\n8');
     });
 
-    // -----------------------------------------------------------------------
-    // DEFERRED: PITR restore to a NEW cluster (seed). Kept verbatim (v1) as a
-    // reference to port later. Scope: docs/ui/testing/pitr-golden-e2e-plan.md
-    // (§1, §4: "restore-to-new-cluster → separate branch"). Revisit in the
-    // dedicated seed PR.
-    // When reviving for v2: replace the v1 restore interaction
-    // (radio-option-fromPITR → CalendarIcon → OK) with the v2 recoveryTarget
-    // controls used in the in-place golden above (radio-option-latest /
-    // radio-option-date + date-time-picker-point-in-time-date), and collapse
-    // the per-engine branches to the PXC reference.
-    //
-    // test(`PITR restore to new cluster [${db} size ${size}]`, async ({
-    //   page,
-    // }) => {
-    //   await test.step('Create a backup to restore from', async () => {
-    //     await gotoDbClusterBackups(page, clusterName);
-    //     await clickOnDemandBackup(page);
-    //     await page
-    //       .getByTestId('text-input-name')
-    //       .fill(baseBackupName + '-new-cluster');
-    //     await expect(page.getByTestId('text-input-name')).not.toBeEmpty();
-    //     if (db !== 'psmdb') {
-    //       // PSMDB uses the same storage location for PITR and backups
-    //       await page.getByTestId('text-input-storage-location').click();
-    //       await page
-    //         .getByRole('option', { name: `${backupStorage}` })
-    //         .click();
-    //     }
-    //     await expect(
-    //       page.getByTestId('text-input-storage-location')
-    //     ).toHaveValue(backupStorage);
-    //     await page.getByTestId('form-dialog-create').click();
-    //     await waitForStatus(
-    //       page,
-    //       baseBackupName + '-new-cluster',
-    //       'Succeeded',
-    //       360000
-    //     );
-    //   });
-    //
-    //   await test.step('Add some data after the backup', async () => {
-    //     await insertTestDB(
-    //       clusterName,
-    //       namespace,
-    //       ['9'],
-    //       ['1', '2', '3', '4', '5', '6', '7', '8', '9']
-    //     );
-    //     // for PG we need one more transaction to be able to restore to the previous one
-    //     if (db == 'postgresql') {
-    //       await insertTestDB(
-    //         clusterName,
-    //         namespace,
-    //         ['10'],
-    //         ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
-    //       );
-    //     }
-    //   });
-    //
-    //   await test.step('Wait for binlogs to be uploaded', async () => {
-    //     await page.waitForTimeout(60000);
-    //   });
-    //
-    //   let newClusterName: string;
-    //   await test.step('Create DB from latest PITR', async () => {
-    //     await page.goto('databases');
-    //     await findDbAndClickActions(
-    //       page,
-    //       clusterName,
-    //       'Create DB from a backup'
-    //     );
-    //     await page.getByTestId('radio-option-fromPITR').click({ timeout: 5000 });
-    //     await expect(page.getByTestId('radio-option-fromPITR')).toBeChecked({
-    //       timeout: 5000,
-    //     });
-    //     await expect(
-    //       page.getByPlaceholder('DD/MM/YYYY at hh:mm:ss')
-    //     ).toBeVisible({ timeout: 5000 });
-    //     await expect(
-    //       page.getByPlaceholder('DD/MM/YYYY at hh:mm:ss')
-    //     ).not.toBeEmpty({ timeout: 5000 });
-    //     // Submit and open DB creation wizard
-    //     await page.getByTestId('CalendarIcon').click();
-    //     await page.getByRole('button', { name: 'OK' }).click();
-    //     await page.getByTestId('form-dialog-create').click({ timeout: 5000 });
-    //     const currentUrl = page.url();
-    //     expect(currentUrl).toContain('/databases/new');
-    //     newClusterName = await page
-    //       .getByTestId('text-input-db-name')
-    //       .inputValue();
-    //     expect(newClusterName).not.toBe('');
-    //     await goToLastStepByStepAndSubmit(page, 5000);
-    //   });
-    //
-    //   await test.step('Wait for the new cluster to be created and ready', async () => {
-    //     await page.goto('/databases');
-    //     if (db !== 'postgresql') {
-    //       await waitForStatus(page, newClusterName, 'Initializing', 30000);
-    //     }
-    //     await waitForStatus(page, newClusterName, 'Restoring', 660000);
-    //     await waitForStatus(page, newClusterName, 'Up', 900000);
-    //   });
-    //
-    //   await test.step('Verify the restore was successful', async () => {
-    //     // PG does not create a DBR object when restoring to new cluster.
-    //     if (db !== 'postgresql') {
-    //       await gotoDbClusterRestores(page, newClusterName);
-    //       await waitForStatus(page, newClusterName, 'Succeeded', 120000);
-    //     }
-    //   });
-    //
-    //   await test.step('Verify the data in the new cluster', async () => {
-    //     const result = await queryTestDB(newClusterName, namespace);
-    //     expect(result.trim()).toBe('1\n2\n3\n4\n5\n6\n7\n8\n9');
-    //   });
-    //
-    //   await test.step('Delete the restored cluster', async () => {
-    //     await deleteDbCluster(page, newClusterName);
-    //     await waitForStatus(page, newClusterName, 'Deleting', 15000);
-    //     await waitForDelete(page, newClusterName, 240000);
-    //   });
-    // });
-    // -----------------------------------------------------------------------
+    test('Prepare source data for PITR restores to new databases', async ({
+      page,
+      request,
+    }) => {
+      await createDemandBackup(page, `${baseBackupName}-seed`);
+      await insertTestDB(
+        clusterName,
+        namespace,
+        ['9'],
+        ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+      );
+      // PXC's --stop-datetime is second-granular and exclusive, so keep the
+      // recorded point strictly between the two committed inserts.
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      seedRestoreTime = getCurrentPITRTime();
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await insertTestDB(
+        clusterName,
+        namespace,
+        ['10'],
+        ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
+      );
+      await waitForPitrWindowToCover(request, new Date());
+    });
+
+    for (const { recoveryTarget, expectedData } of [
+      { recoveryTarget: 'date', expectedData: '1\n2\n3\n4\n5\n6\n7\n8\n9' },
+      {
+        recoveryTarget: 'latest',
+        expectedData: '1\n2\n3\n4\n5\n6\n7\n8\n9\n10',
+      },
+    ]) {
+      test(`PITR restore to a new database (${recoveryTarget}) [${db} size ${size}]`, async ({
+        page,
+        request,
+      }) => {
+        const restoredClusterName = `${clusterName}-${recoveryTarget}`;
+        const instancePath = `/v1/clusters/main/namespaces/${namespace}/instances`;
+        const sourceResponse = await request.get(
+          `${instancePath}/${clusterName}`,
+          {
+            headers: {
+              Authorization: `Bearer ${await getCITokenFromLocalStorage()}`,
+            },
+          }
+        );
+        expect(sourceResponse.ok()).toBeTruthy();
+        const sourceBefore = await sourceResponse.json();
+        expect(sourceBefore.metadata.uid).toBeTruthy();
+
+        try {
+          await test.step('Carry the PITR target through the restore wizard', async () => {
+            await page.goto('/databases');
+            await findDbAndClickActions(
+              page,
+              clusterName,
+              'Create DB from a backup'
+            );
+            await page.getByTestId('radio-option-fromPITR').click();
+            await expect(
+              page.getByTestId('radio-option-fromPITR')
+            ).toBeChecked();
+            await expect(page.getByTestId('radio-option-latest')).toBeChecked();
+
+            let date: string | undefined;
+            if (recoveryTarget === 'date') {
+              await page.getByTestId('radio-option-date').click();
+              const dateInput = page.getByPlaceholder('DD/MM/YYYY at hh:mm:ss');
+              await dateInput.fill(getFormattedPITRTime(seedRestoreTime));
+              await dateInput.press('Tab');
+              await expect(dateInput).toHaveValue(
+                getFormattedPITRTime(seedRestoreTime)
+              );
+              date = new Date(
+                Number(seedRestoreTime.year),
+                Number(seedRestoreTime.month) - 1,
+                Number(seedRestoreTime.day),
+                Number(seedRestoreTime.hour),
+                Number(seedRestoreTime.minute),
+                Number(seedRestoreTime.second)
+              )
+                .toISOString()
+                .replace('.000Z', 'Z');
+            }
+
+            await page.getByTestId('form-dialog-create').click();
+            await page.waitForURL('**/databases/new');
+            await page
+              .getByTestId('text-input-db-name')
+              .fill(restoredClusterName);
+
+            const createResponse = page.waitForResponse(
+              (response) =>
+                response.request().method() === 'POST' &&
+                response.url().endsWith(instancePath)
+            );
+            await submitWizard(page);
+            const response = await createResponse;
+            expect(response.ok(), await response.text()).toBeTruthy();
+            expect(response.request().postDataJSON()).toHaveProperty(
+              'spec.dataSource',
+              {
+                type: 'PointInTime',
+                pointInTime: {
+                  recoveryTarget,
+                  source: {
+                    instanceRef: { name: clusterName },
+                    storageRef: { name: backupStorage },
+                  },
+                  ...(date ? { date } : {}),
+                },
+              }
+            );
+          });
+
+          await test.step('Verify the recovered data and unchanged source', async () => {
+            await page.goto('/databases');
+            await waitForStatus(page, restoredClusterName, 'Ready', 900000);
+            expect(
+              (await queryTestDB(restoredClusterName, namespace)).trim()
+            ).toBe(expectedData);
+            expect((await queryTestDB(clusterName, namespace)).trim()).toBe(
+              '1\n2\n3\n4\n5\n6\n7\n8\n9\n10'
+            );
+
+            const sourceAfter = await request.get(
+              `${instancePath}/${clusterName}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${await getCITokenFromLocalStorage()}`,
+                },
+              }
+            );
+            expect(sourceAfter.ok()).toBeTruthy();
+            const source = await sourceAfter.json();
+            expect(source.metadata.uid).toBe(sourceBefore.metadata.uid);
+            expect(source.spec).toEqual(sourceBefore.spec);
+          });
+        } finally {
+          await test.step('Delete the restored database before the next case', async () => {
+            const restoredPath = `${instancePath}/${restoredClusterName}`;
+            const headers = {
+              Authorization: `Bearer ${await getCITokenFromLocalStorage()}`,
+            };
+            const response = await request.delete(restoredPath, { headers });
+            expect([204, 404]).toContain(response.status());
+            await expect
+              .poll(
+                async () =>
+                  (
+                    await request.get(restoredPath, {
+                      headers: {
+                        Authorization: `Bearer ${await getCITokenFromLocalStorage()}`,
+                      },
+                    })
+                  ).status(),
+                { timeout: 180000, intervals: [2000, 5000, 5000] }
+              )
+              .toBe(404);
+          });
+        }
+      });
+    }
   }
 );
