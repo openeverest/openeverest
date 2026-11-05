@@ -53,6 +53,8 @@ export interface MonitoringDestinationModalProps {
   classes: MonitoringClass[];
   // Namespaces the user may create destinations in.
   namespaces: string[];
+  // The class a new destination starts with.
+  className?: string;
   onClose: () => void;
 }
 
@@ -60,6 +62,7 @@ export interface MonitoringDestinationFormProps {
   original?: MonitoringDestination;
   classes: MonitoringClass[];
   namespaces: string[];
+  className?: string;
   // Set after a save was refused because the destination changed meanwhile.
   changedMeanwhile: boolean;
   onChangedMeanwhile: () => void;

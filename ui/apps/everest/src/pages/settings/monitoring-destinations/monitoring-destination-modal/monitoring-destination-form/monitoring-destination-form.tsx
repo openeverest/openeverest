@@ -44,6 +44,7 @@ export const MonitoringDestinationForm = ({
   original,
   classes,
   namespaces,
+  className,
   changedMeanwhile,
   onChangedMeanwhile,
   onClose,
@@ -58,8 +59,13 @@ export const MonitoringDestinationForm = ({
   );
   const defaultValues = useMemo(
     () =>
-      getFormDefaults({ original, namespace: namespaces[0] ?? '', classes }),
-    [original, namespaces, classes]
+      getFormDefaults({
+        original,
+        namespace: namespaces[0] ?? '',
+        classes,
+        className,
+      }),
+    [original, namespaces, classes, className]
   );
   // The class of an existing destination can't change, accepted or not.
   const selectableClasses = useMemo(
