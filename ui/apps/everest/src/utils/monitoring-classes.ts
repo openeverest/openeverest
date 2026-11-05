@@ -68,6 +68,18 @@ export const isMonitoringClassAccepted = (monitoringClass: MonitoringClass) =>
       condition.status === 'True'
   );
 
+// Whether any change to an entry of the class restarts the pods of the
+// provider's Instances, or of any provider's when none is given.
+export const restartsPods = (
+  monitoringClass: MonitoringClass,
+  provider?: string
+) =>
+  (monitoringClass.status?.providers ?? []).some(
+    (entry) =>
+      (!provider || entry.name === provider) &&
+      entry.disruption === 'RollingRestart'
+  );
+
 export const getMonitoringClassName = (monitoringClass: MonitoringClass) =>
   monitoringClass.metadata?.name ?? '';
 

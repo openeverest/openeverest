@@ -29,6 +29,7 @@ import {
   MonitoringClassDestinations,
   MonitoringSelection,
 } from '../monitoring-step.types';
+import { NoDestinationsAlert } from './no-destinations-alert/no-destinations-alert';
 
 interface MonitoringClassGroupProps {
   group: MonitoringClassDestinations;
@@ -40,7 +41,7 @@ export const MonitoringClassGroup = ({
   selection,
 }: MonitoringClassGroupProps) => (
   <Stack
-    gap={1.5}
+    gap={2}
     data-testid={`monitoring-class-${getMonitoringClassName(monitoringClass)}`}
   >
     <Box>
@@ -54,9 +55,10 @@ export const MonitoringClassGroup = ({
       )}
     </Box>
     {destinations.length === 0 ? (
-      <Typography variant="helperText" color="text.secondary">
-        {Messages.noDestinations(selection.namespace)}
-      </Typography>
+      <NoDestinationsAlert
+        monitoringClass={monitoringClass}
+        namespace={selection.namespace}
+      />
     ) : (
       <Box
         sx={{

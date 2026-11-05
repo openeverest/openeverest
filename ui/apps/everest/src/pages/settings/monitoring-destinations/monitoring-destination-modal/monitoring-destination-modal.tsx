@@ -23,6 +23,7 @@ export const MonitoringDestinationModal = ({
   target,
   classes,
   namespaces,
+  className,
   onClose,
 }: MonitoringDestinationModalProps) => {
   const [changedMeanwhile, setChangedMeanwhile] = useState(false);
@@ -53,6 +54,7 @@ export const MonitoringDestinationModal = ({
       original={original}
       classes={classes}
       namespaces={namespaces}
+      className={className}
       changedMeanwhile={changedMeanwhile}
       onChangedMeanwhile={() => {
         setChangedMeanwhile(true);

@@ -17,6 +17,7 @@ import { MonitoringChange } from './monitoring-edit-modal.types';
 const changeVerb: Record<MonitoringChange, string> = {
   [MonitoringChange.Enable]: 'Enabling',
   [MonitoringChange.Remove]: 'Removing',
+  [MonitoringChange.Update]: 'Changing',
 };
 
 export const Messages = {

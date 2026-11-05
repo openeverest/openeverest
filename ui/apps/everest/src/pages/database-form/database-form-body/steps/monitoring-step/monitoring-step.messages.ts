@@ -22,6 +22,7 @@ export const Messages = {
     'Choose where this database sends its monitoring data. You can send it to several systems at once.',
   noDestinations: (namespace: string) =>
     `No destinations of this system in the ${namespace} namespace yet.`,
+  addDestination: 'Add destination',
   state: {
     [MonitoringDestinationState.Ready]: 'Ready',
     [MonitoringDestinationState.Pending]: 'Waiting for its controller',

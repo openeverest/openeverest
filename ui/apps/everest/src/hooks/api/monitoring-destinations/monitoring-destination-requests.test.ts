@@ -50,8 +50,20 @@ const saved: MonitoringDestination = {
   spec: { classRef: { name: 'pmm' } },
 };
 
-const stored = (name: string, secretName?: string): MonitoringDestination => ({
-  metadata: { name },
+const stored = (
+  name: string,
+  secretName?: string,
+  uiCreated = false
+): MonitoringDestination => ({
+  metadata: {
+    name,
+    ...(uiCreated &&
+      secretName && {
+        annotations: {
+          'monitoring.openeverest.io/ui-created-credentials-secret': secretName,
+        },
+      }),
+  },
   spec: {
     classRef: { name: 'pmm' },
     authentication: {
@@ -216,11 +228,12 @@ describe('saveMonitoringDestination', () => {
     ]);
   });
 
-  it('keeps the old Secret when another destination uses it or the form did not create it', async () => {
-    const shared = setup([
+  it('keeps the old Secret when another destination uses it', async () => {
+    const { requests } = setup([
       stored('pmm', 'pmm-credentials-k2x9a'),
       stored('pmm-eu', 'pmm-credentials'),
     ]);
+
     await saveMonitoringDestination(
       {
         namespace: 'team-a',
@@ -228,22 +241,10 @@ describe('saveMonitoringDestination', () => {
         destination,
         credentialsSecret: rotation,
       },
-      shared.requests
+      requests
     );
 
-    const brought = setup([stored('pmm', 'pmm-credentials-k2x9a')]);
-    await saveMonitoringDestination(
-      {
-        namespace: 'team-a',
-        isEdit: true,
-        destination,
-        credentialsSecret: { ...rotation, previousName: 'team-pmm-token' },
-      },
-      brought.requests
-    );
-
-    expect(shared.requests.deleteSecret).not.toHaveBeenCalled();
-    expect(brought.requests.deleteSecret).not.toHaveBeenCalled();
+    expect(requests.deleteSecret).not.toHaveBeenCalled();
   });
 
   it('deletes the new Secret and keeps the old one when the update fails', async () => {
@@ -272,24 +273,9 @@ describe('saveMonitoringDestination', () => {
 });
 
 describe('deleteMonitoringDestination', () => {
-  it('deletes the destination and the Secret created with it', async () => {
+  it('deletes the destination and the Secret the UI created for it', async () => {
     const { calls, requests } = setup();
-    const pmm = stored('pmm', 'pmm-credentials');
-
-    await deleteMonitoringDestination(
-      { destination: pmm, namespaceDestinations: [pmm] },
-      requests
-    );
-
-    expect(calls).toEqual([
-      'deleteDestination pmm',
-      'deleteSecret pmm-credentials',
-    ]);
-  });
-
-  it('recognises a rotated credentials Secret as created by the form', async () => {
-    const { calls, requests } = setup();
-    const pmm = stored('pmm', 'pmm-credentials-k2x9a');
+    const pmm = stored('pmm', 'pmm-credentials-k2x9a', true);
 
     await deleteMonitoringDestination(
       { destination: pmm, namespaceDestinations: [pmm] },
@@ -302,24 +288,28 @@ describe('deleteMonitoringDestination', () => {
     ]);
   });
 
-  it('keeps a Secret another destination uses or the form did not name', async () => {
+  it('keeps a Secret the user brought, even under the default name', async () => {
     const { calls, requests } = setup();
-    const pmm = stored('pmm', 'pmm-credentials');
+    const reused = stored('pmm', 'pmm-credentials');
+
+    await deleteMonitoringDestination(
+      { destination: reused, namespaceDestinations: [reused] },
+      requests
+    );
+
+    expect(calls).toEqual(['deleteDestination pmm']);
+  });
+
+  it('keeps a Secret the UI created when another destination uses it', async () => {
+    const { calls, requests } = setup();
+    const pmm = stored('pmm', 'pmm-credentials', true);
     const sharing = stored('pmm-eu', 'pmm-credentials');
-    const custom = stored('pmm-us', 'shared-token');
 
     await deleteMonitoringDestination(
       { destination: pmm, namespaceDestinations: [pmm, sharing] },
       requests
     );
-    await deleteMonitoringDestination(
-      { destination: custom, namespaceDestinations: [custom] },
-      requests
-    );
 
-    expect(calls).toEqual([
-      'deleteDestination pmm',
-      'deleteDestination pmm-us',
-    ]);
+    expect(calls).toEqual(['deleteDestination pmm']);
   });
 });

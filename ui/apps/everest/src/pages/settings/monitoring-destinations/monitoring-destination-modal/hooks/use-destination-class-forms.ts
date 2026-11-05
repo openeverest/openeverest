@@ -14,7 +14,6 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
-import { toOpenApiParameterFormValues } from 'components/openapi-parameters-fields';
 import {
   MonitoringClass,
   MonitoringDestination,
@@ -28,6 +27,7 @@ import {
 import {
   getDestinationClassForms,
   getFormMode,
+  getNewDestinationClassDefaults,
 } from '../monitoring-destination-modal.utils';
 
 // The forms of the picked class and auth mode. Picking another class starts
@@ -59,24 +59,16 @@ export const useDestinationClassForms = (
       return;
     }
     previousClassName.current = className;
-    const authModes = monitoringClass?.spec.authModes ?? [];
-    const classForms = getDestinationClassForms(monitoringClass, '', formMode);
-    setValue(
-      DestinationFormFields.authMode,
-      authModes.length === 1 ? authModes[0].name : '',
-      { shouldValidate: true }
-    );
-    setValue(
-      DestinationFormFields.spec,
-      classForms.destination
-        ? getSectionFormDefaults(classForms.destination)
-        : {}
-    );
+    const defaults = getNewDestinationClassDefaults(monitoringClass);
+    setValue(DestinationFormFields.authMode, defaults.authMode, {
+      shouldValidate: true,
+    });
+    setValue(DestinationFormFields.spec, defaults.spec);
     setValue(
       DestinationFormFields.fallbackParameters,
-      toOpenApiParameterFormValues(undefined, classForms.parameterFields)
+      defaults.fallbackParameters
     );
-  }, [className, monitoringClass, formMode, setValue]);
+  }, [className, monitoringClass, setValue]);
 
   const previousAuthMode = useRef(authMode);
   useEffect(() => {

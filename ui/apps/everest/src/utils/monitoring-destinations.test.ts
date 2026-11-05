@@ -21,7 +21,6 @@ import {
   getDestinationAddress,
   getDestinationStatus,
   getRotatedCredentialsSecretName,
-  isFormCreatedCredentialsSecret,
 } from './monitoring-destinations';
 
 type Condition = {
@@ -181,19 +180,5 @@ describe('credentials Secret names', () => {
     expect(
       getRotatedCredentialsSecretName('x'.repeat(260), 'k2x9a')
     ).toHaveLength(253);
-  });
-
-  it('tells the Secrets the form created from those the user brought', () => {
-    expect(isFormCreatedCredentialsSecret('pmm', 'pmm-credentials')).toBe(true);
-    expect(isFormCreatedCredentialsSecret('pmm', 'pmm-credentials-k2x9a')).toBe(
-      true
-    );
-    expect(isFormCreatedCredentialsSecret('pmm', 'pmm-eu-credentials')).toBe(
-      false
-    );
-    expect(
-      isFormCreatedCredentialsSecret('pmm', 'pmm-credentials-old-token')
-    ).toBe(false);
-    expect(isFormCreatedCredentialsSecret('pmm', 'team-pmm-token')).toBe(false);
   });
 });

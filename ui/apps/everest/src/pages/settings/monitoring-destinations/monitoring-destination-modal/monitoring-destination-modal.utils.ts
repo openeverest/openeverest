@@ -45,6 +45,8 @@ import {
   getCredentialsSecretName,
   getDefaultCredentialsSecretName,
   getRotatedCredentialsSecretName,
+  getUiCreatedCredentialsSecretName,
+  withUiCreatedCredentialsSecret,
 } from 'utils/monitoring-destinations';
 import {
   CREDENTIALS_SECTION_KEY,
@@ -90,6 +92,33 @@ export const getDestinationClassForms = (
 export const getFormMode = (original: MonitoringDestination | undefined) =>
   original ? FormMode.Edit : FormMode.New;
 
+// The class-dependent fields of a new destination of the class.
+export const getNewDestinationClassDefaults = (
+  monitoringClass: MonitoringClass | undefined
+): Pick<
+  MonitoringDestinationFormValues,
+  'authMode' | 'spec' | 'fallbackParameters' | 'credentials'
+> => {
+  const authModes = monitoringClass?.spec.authModes ?? [];
+  const authMode = authModes.length === 1 ? authModes[0].name : '';
+  const forms = getDestinationClassForms(
+    monitoringClass,
+    authMode,
+    FormMode.New
+  );
+  return {
+    authMode,
+    spec: forms.destination ? getSectionFormDefaults(forms.destination) : {},
+    fallbackParameters: toOpenApiParameterFormValues(
+      undefined,
+      forms.parameterFields
+    ),
+    credentials: forms.credentials
+      ? getSectionFormDefaults(forms.credentials)
+      : {},
+  };
+};
+
 // Whether the save writes a credentials Secret: always for a new
 // Secret-backed destination, and on edit when the mode changes, the
 // destination has no Secret yet or the user replaces the credentials. A
@@ -129,10 +158,12 @@ export const getFormDefaults = ({
   original,
   namespace,
   classes,
+  className = '',
 }: {
   original?: MonitoringDestination;
   namespace: string;
   classes: MonitoringClass[];
+  className?: string;
 }): MonitoringDestinationFormValues => {
   const empty: MonitoringDestinationFormValues = {
     name: '',
@@ -149,13 +180,22 @@ export const getFormDefaults = ({
     caSecretKey: '',
   };
   if (!original) {
-    return empty;
+    const monitoringClass = classes.find(
+      (c) => getMonitoringClassName(c) === className
+    );
+    return monitoringClass
+      ? {
+          ...empty,
+          className,
+          ...getNewDestinationClassDefaults(monitoringClass),
+        }
+      : empty;
   }
 
-  const className = original.spec.classRef.name;
+  const originalClassName = original.spec.classRef.name;
   const authMode = original.spec.authentication?.mode ?? '';
   const forms = getDestinationClassForms(
-    classes.find((c) => getMonitoringClassName(c) === className),
+    classes.find((c) => getMonitoringClassName(c) === originalClassName),
     authMode,
     FormMode.Edit
   );
@@ -166,7 +206,7 @@ export const getFormDefaults = ({
     ...empty,
     name: original.metadata?.name ?? '',
     namespace: original.metadata?.namespace ?? namespace,
-    className,
+    className: originalClassName,
     authMode,
     credentials: forms.credentials
       ? getSectionFormDefaults(forms.credentials)
@@ -260,7 +300,7 @@ const toCredentialsSecretWrite = (
       action,
       name: getRotatedCredentialsSecretName(values.name),
       stringData,
-      previousName: original && getCredentialsSecretName(original),
+      previousName: original && getUiCreatedCredentialsSecretName(original),
     };
   }
   return {
@@ -302,6 +342,11 @@ export const buildSaveRequest = ({
     ? (credentialsSecret?.name ??
       (original && getCredentialsSecretName(original)))
     : undefined;
+  const uiCreatedSecretName = credentialsSecret
+    ? credentialsSecret.action === 'reuse'
+      ? undefined
+      : credentialsSecret.name
+    : original && getUiCreatedCredentialsSecretName(original);
 
   return {
     namespace: values.namespace,
@@ -309,7 +354,10 @@ export const buildSaveRequest = ({
     credentialsSecret,
     destination: {
       ...(original && { apiVersion: original.apiVersion, kind: original.kind }),
-      metadata: original ? { ...original.metadata } : { name: values.name },
+      metadata: withUiCreatedCredentialsSecret(
+        original ? { ...original.metadata } : { name: values.name },
+        secretName ? uiCreatedSecretName : undefined
+      ),
       spec: {
         classRef: { name: values.className },
         authentication: {
