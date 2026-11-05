@@ -598,13 +598,24 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 					Message: trimWebhookErrorText(statusError.Status().Message),
 				}
 			}
-		case k8serrors.IsForbidden(err),
-			k8serrors.IsInvalid(err):
+		case k8serrors.IsForbidden(err):
 			statusError := &k8serrors.StatusError{}
 			if errors.As(err, &statusError) {
 				err = &echo.HTTPError{
 					Code:    int(statusError.Status().Code),
 					Message: trimStrictDecodingError(trimWebhookErrorText(statusError.Status().Message)),
+				}
+			}
+		case k8serrors.IsInvalid(err):
+			statusError := &k8serrors.StatusError{}
+			if errors.As(err, &statusError) {
+				err = &echo.HTTPError{
+					Code: int(statusError.Status().Code),
+					Message: apiErrorBody{
+						Message: trimStrictDecodingError(trimWebhookErrorText(statusError.Status().Message)),
+						Reason:  string(metav1.StatusReasonInvalid),
+						Causes:  invalidCauses(statusError.Status().Details),
+					},
 				}
 			}
 		case k8serrors.IsAlreadyExists(err):
@@ -670,9 +681,22 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 // form `message`, so clients can map a failure to a specific input instead
 // of only showing a generic notification.
 type apiErrorBody struct {
-	Message string `json:"message"`
-	Reason  string `json:"reason,omitempty"`
-	Field   string `json:"field,omitempty"`
+	Message string               `json:"message"`
+	Reason  string               `json:"reason,omitempty"`
+	Field   string               `json:"field,omitempty"`
+	Causes  []metav1.StatusCause `json:"causes,omitempty"`
+}
+
+func invalidCauses(details *metav1.StatusDetails) []metav1.StatusCause {
+	if details == nil {
+		return nil
+	}
+	causes := make([]metav1.StatusCause, 0, len(details.Causes))
+	for _, c := range details.Causes {
+		c.Message = trimStrictDecodingError(c.Message)
+		causes = append(causes, c)
+	}
+	return causes
 }
 
 // conflictField maps a Kubernetes Conflict message to the object field whose
