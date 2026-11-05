@@ -22,6 +22,15 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
+// ListRestores returns list of restores that match the criteria.
+func (k *Kubernetes) ListRestores(ctx context.Context, opts ...ctrlclient.ListOption) (*backupv1alpha1.RestoreList, error) {
+	result := &backupv1alpha1.RestoreList{}
+	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 // GetRestore returns a specific restore by namespaced name.
 func (k *Kubernetes) GetRestore(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.Restore, error) {
 	result := &backupv1alpha1.Restore{}

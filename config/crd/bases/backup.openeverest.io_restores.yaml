@@ -330,6 +330,8 @@ spec:
         required:
         - spec
         type: object
+    selectableFields:
+    - jsonPath: .spec.instanceRef.name
     served: true
     storage: true
     subresources:

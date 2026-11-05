@@ -178,10 +178,8 @@ type KubernetesConnector interface {
 	RestartDeployment(ctx context.Context, key ctrlclient.ObjectKey) error
 	// WaitForRollout waits for rollout of deployment that matches the criteria.
 	WaitForRollout(ctx context.Context, key ctrlclient.ObjectKey) error
-	// ListInstanceBackups returns backups for the specified instance.
-	ListInstanceBackups(ctx context.Context, namespace, instance string) (*backupv1alpha1.BackupList, error)
-	// ListInstanceRestores returns restores performed for the specified instance.
-	ListInstanceRestores(ctx context.Context, namespace, instance string) (*backupv1alpha1.RestoreList, error)
+	// ListRestores returns list of restores that match the criteria.
+	ListRestores(ctx context.Context, opts ...ctrlclient.ListOption) (*backupv1alpha1.RestoreList, error)
 	// GetRestore returns a specific restore by namespaced name.
 	GetRestore(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.Restore, error)
 	// CreateRestore creates a new restore.

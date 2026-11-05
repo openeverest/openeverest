@@ -17,10 +17,17 @@ package k8s
 import (
 	"context"
 
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
 // ListInstanceBackups returns backups for the specified instance.
+// It selects on the spec.origin.instanceRef.name selectable field rather than
+// the instanceName label, which the controller only stamps asynchronously.
 func (h *k8sHandler) ListInstanceBackups(ctx context.Context, cluster, namespace, instance string) (*backupv1alpha1.BackupList, error) {
-	return h.kubeConnector.ListInstanceBackups(ctx, namespace, instance)
+	return h.kubeConnector.ListBackups(ctx,
+		ctrlclient.InNamespace(namespace),
+		ctrlclient.MatchingFields{"spec.origin.instanceRef.name": instance},
+	)
 }
