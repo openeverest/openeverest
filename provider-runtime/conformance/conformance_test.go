@@ -163,7 +163,7 @@ func TestBuildInstanceIncludesOptionalComponentsOnlyWhenAddressed(t *testing.T) 
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			instance, err := buildInstance(testSpec(), "test-provider", "simple", tt.path, nil)
+			instance, err := buildInstance(testSpec(), "test-provider", "simple", map[string]any{tt.path: nil})
 			require.NoError(t, err)
 
 			got := make([]string, 0, len(instance.Spec.Components))
@@ -178,7 +178,10 @@ func TestBuildInstanceIncludesOptionalComponentsOnlyWhenAddressed(t *testing.T) 
 func TestBuildInstanceSetsTheProbeValue(t *testing.T) {
 	t.Parallel()
 
-	instance, err := buildInstance(testSpec(), "test-provider", "simple", "spec.components.engine.replicas", int64(7919))
+	instance, err := buildInstance(
+		testSpec(), "test-provider", "simple",
+		map[string]any{"spec.components.engine.replicas": int64(7919)},
+	)
 	require.NoError(t, err)
 
 	engine := instance.Spec.Components["engine"]
