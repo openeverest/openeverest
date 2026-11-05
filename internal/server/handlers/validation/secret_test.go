@@ -35,6 +35,20 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
+// testCA is a self-signed CA certificate whose private key was discarded.
+const testCA = `-----BEGIN CERTIFICATE-----
+MIIBrDCCAVOgAwIBAgIUejvO8eGXCMbLRlBEfeQEBiosadMwCgYIKoZIzj0EAwIw
+IzEhMB8GA1UEAwwYb3BlbmV2ZXJlc3QgYXBpLXRlc3RzIENBMCAXDTI2MTEwMzE3
+MDQxMloYDzIxMjYxMDEwMTcwNDEyWjAjMSEwHwYDVQQDDBhvcGVuZXZlcmVzdCBh
+cGktdGVzdHMgQ0EwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQqq+Kp1HErWpL/
+1n0yHhczVyLmSvTDwIyP1rEsT3UIs/qglJbhQV+fo8kJGGJQMS3Jv30eQuZuBdJ7
+yk+IDeK3o2MwYTAdBgNVHQ4EFgQUb8ftw05oROj/5tA/eVtG+Twr6SEwHwYDVR0j
+BBgwFoAUb8ftw05oROj/5tA/eVtG+Twr6SEwDwYDVR0TAQH/BAUwAwEB/zAOBgNV
+HQ8BAf8EBAMCAgQwCgYIKoZIzj0EAwIDRwAwRAIgSIr4/5J7cFJB2zaDx34qdFlU
+jmb44BMPZLYDV0lCycICIFsNRStO8nvLnG+ZVfaBva8Bfoj28ZJTEgQexukz41yl
+-----END CERTIFICATE-----
+`
+
 func TestCreateSecret_Validation(t *testing.T) {
 	t.Parallel()
 
@@ -128,7 +142,7 @@ func TestCreateSecret_Validation(t *testing.T) {
 				Type:       corev1.SecretTypeOpaque,
 				StringData: userCredentials,
 			},
-			err: "openeverest.io/definition needs one of openeverest.io/provider, openeverest.io/monitoring-class",
+			err: `openeverest.io/definition "database-credentials" needs one of openeverest.io/provider, openeverest.io/monitoring-class`,
 		},
 		{
 			name: "missing definition label fails",
@@ -191,6 +205,27 @@ func TestCreateSecret_Validation(t *testing.T) {
 				Type: corev1.SecretTypeServiceAccountToken,
 			},
 			err: `Secrets of type "kubernetes.io/service-account-token" cannot be created`,
+		},
+		{
+			name: "CA bundle without a source label is created",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   "backup-storage-minio-ca",
+					Labels: map[string]string{common.OpenEverestDefinitionLabel: common.OpenEverestCABundleDefinition},
+				},
+				StringData: map[string]string{"ca.crt": testCA},
+			},
+		},
+		{
+			name: "CA bundle without a certificate fails",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   "backup-storage-minio-ca",
+					Labels: map[string]string{common.OpenEverestDefinitionLabel: common.OpenEverestCABundleDefinition},
+				},
+				StringData: map[string]string{"ca.crt": "not a certificate"},
+			},
+			err: `key "ca.crt": no PEM certificate found`,
 		},
 		{
 			name: "invalid secret name fails",
