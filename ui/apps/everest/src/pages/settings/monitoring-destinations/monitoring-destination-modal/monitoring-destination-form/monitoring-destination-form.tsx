@@ -39,6 +39,7 @@ import {
   getFormDefaults,
 } from '../monitoring-destination-modal.utils';
 import { TlsFields } from '../tls-fields/tls-fields';
+import { RestartNotice } from '../restart-notice/restart-notice';
 
 export const MonitoringDestinationForm = ({
   original,
@@ -128,6 +129,14 @@ export const MonitoringDestinationForm = ({
         <>
           {changedMeanwhile && (
             <Alert severity="warning">{Messages.changedMeanwhile}</Alert>
+          )}
+          {original && (
+            <RestartNotice
+              destination={original}
+              monitoringClass={classes.find(
+                (c) => getMonitoringClassName(c) === original.spec.classRef.name
+              )}
+            />
           )}
           <TextInput
             name={DestinationFormFields.name}

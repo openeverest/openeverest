@@ -23,6 +23,7 @@ export interface MonitoringEditModalProps {
 export enum MonitoringChange {
   Enable = 'enable',
   Remove = 'remove',
+  Update = 'update',
 }
 
 // What saving the new destinations does to the running database.

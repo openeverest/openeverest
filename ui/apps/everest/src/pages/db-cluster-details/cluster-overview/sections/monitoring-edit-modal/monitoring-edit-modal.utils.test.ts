@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Instance } from 'shared-types/api.types';
+import { Instance, Provider } from 'shared-types/api.types';
 import {
   MonitoringClass,
   MonitoringDestination,
@@ -20,6 +20,7 @@ import {
 import { MonitoringChange } from './monitoring-edit-modal.types';
 import {
   getMonitoringDisruption,
+  hasSingleReplicaMonitoredComponent,
   withMonitoringDestinations,
 } from './monitoring-edit-modal.utils';
 
@@ -59,34 +60,61 @@ const destinations = [
   destination('prom', 'prometheus'),
 ];
 
+const entry = (name: string, parameters?: Record<string, unknown>) => ({
+  destinationRef: { name },
+  parameters,
+});
+
 const disruption = (
   before: string[],
   after: string[],
-  engineReplicas?: number
+  hasSingleReplica = false
 ) =>
   getMonitoringDisruption({
-    before,
-    after,
+    before: before.map((name) => entry(name)),
+    after: after.map((name) => entry(name)),
     destinations,
     classes,
     provider: PROVIDER,
-    engineReplicas,
+    hasSingleReplica,
   });
 
 describe('getMonitoringDisruption', () => {
   it('warns when an added or removed class rolls the pods of the provider', () => {
-    expect(disruption([], ['pmm-a'], 3)).toEqual({
+    expect(disruption([], ['pmm-a'])).toEqual({
       restarts: [{ change: MonitoringChange.Enable, classTitle: 'PMM' }],
       singleReplica: false,
     });
-    expect(disruption(['pmm-a', 'coroot'], ['coroot'], 1)).toEqual({
+    expect(disruption(['pmm-a', 'coroot'], ['coroot'], true)).toEqual({
       restarts: [{ change: MonitoringChange.Remove, classTitle: 'PMM' }],
       singleReplica: true,
     });
   });
 
+  it('warns when the parameters of a kept entry change, in any key order', () => {
+    const change = (
+      before: Record<string, unknown>,
+      after: Record<string, unknown>
+    ) =>
+      getMonitoringDisruption({
+        before: [entry('pmm-a', before)],
+        after: [entry('pmm-a', after)],
+        destinations,
+        classes,
+        provider: PROVIDER,
+        hasSingleReplica: false,
+      }).restarts;
+
+    expect(change({ cpu: '1' }, { cpu: '2' })).toEqual([
+      { change: MonitoringChange.Update, classTitle: 'PMM' },
+    ]);
+    expect(change({ cpu: '1', memory: '1G' }, { memory: '1G', cpu: '1' })).toEqual(
+      []
+    );
+  });
+
   it('stays quiet for kept destinations and classes without a restart', () => {
-    expect(disruption(['pmm-a'], ['pmm-a', 'coroot'], 1)).toEqual({
+    expect(disruption(['pmm-a'], ['pmm-a', 'coroot'], true)).toEqual({
       restarts: [],
       singleReplica: false,
     });
@@ -94,6 +122,40 @@ describe('getMonitoringDisruption', () => {
       restarts: [],
       singleReplica: false,
     });
+  });
+});
+
+describe('hasSingleReplicaMonitoredComponent', () => {
+  const provider: Provider = {
+    metadata: { name: PROVIDER },
+    spec: { monitoring: { componentTypes: { mongod: { kind: 'mongodb' } } } },
+  };
+  const withComponents = (
+    components: NonNullable<Instance['spec']>['components']
+  ): Instance => ({
+    metadata: { name: 'db' },
+    spec: { providerRef: { name: PROVIDER }, components },
+  });
+
+  it('looks only at components the provider monitors', () => {
+    expect(
+      hasSingleReplicaMonitoredComponent(
+        withComponents({
+          engine: { type: 'mongod', replicas: 1 },
+          backupAgent: { type: 'backup', replicas: 1 },
+        }),
+        provider
+      )
+    ).toBe(true);
+    expect(
+      hasSingleReplicaMonitoredComponent(
+        withComponents({
+          engine: { type: 'mongod', replicas: 3 },
+          backupAgent: { type: 'backup', replicas: 1 },
+        }),
+        provider
+      )
+    ).toBe(false);
   });
 });
 
