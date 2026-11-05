@@ -6130,6 +6130,15 @@ export interface components {
                                         name: string;
                                     };
                                 };
+                                /**
+                                 * @description ClientCertificateSecretRef references a kubernetes.io/tls Secret
+                                 *     (keys tls.crt and tls.key) the scraper presents as a client
+                                 *     certificate, for an endpoint that requires mutual TLS.
+                                 */
+                                clientCertificateSecretRef?: {
+                                    /** @description Name of the referenced Secret. */
+                                    name: string;
+                                };
                                 /** @description InsecureSkipVerify disables verification of the server certificate. */
                                 insecureSkipVerify?: boolean;
                                 /** @description ServerName overrides the expected server name. */

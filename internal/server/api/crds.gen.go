@@ -4465,6 +4465,14 @@ type Instance struct {
 							} `json:"secretKeyRef,omitempty"`
 						} `json:"ca,omitempty"`
 
+						// ClientCertificateSecretRef ClientCertificateSecretRef references a kubernetes.io/tls Secret
+						// (keys tls.crt and tls.key) the scraper presents as a client
+						// certificate, for an endpoint that requires mutual TLS.
+						ClientCertificateSecretRef *struct {
+							// Name Name of the referenced Secret.
+							Name string `json:"name"`
+						} `json:"clientCertificateSecretRef,omitempty"`
+
 						// InsecureSkipVerify InsecureSkipVerify disables verification of the server certificate.
 						InsecureSkipVerify *bool `json:"insecureSkipVerify,omitempty"`
 
