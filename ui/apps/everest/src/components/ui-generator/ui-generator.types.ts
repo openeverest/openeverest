@@ -117,7 +117,13 @@ export type SelectFieldParams =
     })
   | (SelectFieldParamsBase & {
       optionsPath: string;
-      optionsPathConfig: { labelPath: string; valuePath: string };
+      optionsPathConfig: {
+        labelPath: string;
+        valuePath: string;
+        // Provider path (e.g. spec.defaultVersion) whose value names the option
+        // pre-selected on create. Written by `provider-sdk generate`.
+        defaultValuePath?: string;
+      };
       options?: never;
     });
 

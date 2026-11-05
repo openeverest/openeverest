@@ -163,6 +163,7 @@ classDiagram
   SelectFieldParams <|-- SelectStaticOptions
   SelectFieldParams <|-- SelectDynamicOptions
   note for SelectFieldParams "options XOR optionsPath + optionsPathConfig"
+  note for SelectDynamicOptions "optionsPathConfig: labelPath, valuePath, defaultValuePath? (create-only pre-selection)"
 ```
 
 ## Level 3 — validation (by field type, mode-aware)
@@ -241,4 +242,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-21
+- Last updated: 2026-10-31

@@ -351,6 +351,7 @@ uiSchema:
               optionsPathConfig:
                 labelPath: "version"
                 valuePath: "version"
+                defaultValuePath: "spec.componentTypes.mongod.defaultVersion"
             validation:
               required: true
       resources:
@@ -457,6 +458,7 @@ uiSchema:
               optionsPathConfig:
                 labelPath: "version"
                 valuePath: "version"
+                defaultValuePath: "spec.componentTypes.mongod.defaultVersion"
             validation:
               required: true
       resources:

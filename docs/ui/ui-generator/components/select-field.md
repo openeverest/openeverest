@@ -21,7 +21,11 @@ A dropdown selection field that allows users to choose one option from a predefi
 - `path` OR `id`: Data path or unique identifier (**Required**)
 - `fieldParams`: Configuration object with the following properties:
   - `label`: Display label for the field
-  - `options`: Array of objects with `{ label: string, value: string }` format (**Required**)
+  - `options`: Array of objects with `{ label: string, value: string }` format (**Required** unless `optionsPath` is set)
+  - `optionsPath`: Path into the Provider object of an array to build the options from (e.g. `spec.versions`). Use instead of `options`
+  - `optionsPathConfig`: Required with `optionsPath`:
+    - `labelPath` / `valuePath`: Paths inside each array item for the option label and value
+    - `defaultValuePath` (optional): Provider path whose value names the option to pre-select when creating (e.g. `spec.defaultVersion`). `provider-sdk generate` writes it for version pickers
   - `defaultValue`: Default selected value (must match one of the option values)
   - `disabled`: Whether the field is disabled (default: `false`)
   - `autoFocus`: Automatically focus this field on render
@@ -177,6 +181,7 @@ In this example, the `self` keyword refers to the current field's value. The val
 - **Optional fields** (default): Default value is empty string (`''`). Form is valid even when no selection is made. When combined with `displayEmpty: true`, a "None" option is automatically added to allow clearing the selection.
 - **Required fields**: User must select a value from the options. Empty string is not allowed. Form validation fails until a value is selected with error message "Field is required".
 - **Default values**: If no `defaultValue` is specified, the field starts with an empty selection. The `defaultValue` must match one of the option values; invalid default values will cause form validation to fail.
+- **Default for `optionsPath` selects**: On create, the pre-selected option is the schema's `defaultValue` if set, otherwise the option named by `optionsPathConfig.defaultValuePath`, otherwise the first option. A `defaultValuePath` that names a value outside the options falls back to the first option (with a warning in dev builds). Edit shows the instance's value and restore/import follow the source, so the provider default is not applied there.
 - **Empty options**: If the `options` array is empty, the select displays a "No options" message and validates as optional string.
 - **Auto-injected empty option**: When a field is optional AND `displayEmpty: true`, an empty option (value: `""`, label: "None") is automatically added to the beginning of the options list, unless you've already provided one.
 
