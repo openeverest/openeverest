@@ -346,8 +346,12 @@ func GetUser(ctx context.Context) (User, error) {
 		return User{}, errors.Join(err, errors.New("failed to get issuer from claims"))
 	}
 
+	// Built-in tokens carry sub="<user>:<capability>". SSO tokens carry the raw OIDC subject,
+	// which may itself contain colons and must not be truncated into another identity.
 	if issuer == session.SessionManagerClaimsIssuer {
-		subject = strings.Split(subject, ":")[0]
+		if _, isSSO := claims[session.OIDCIssuerClaim].(string); !isSSO {
+			subject = strings.Split(subject, ":")[0]
+		}
 	}
 
 	groups := getScopeValues(claims, []string{"groups"})
