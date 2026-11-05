@@ -115,6 +115,9 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 									Name string `json:"name"`
 								} `json:"secretKeyRef,omitempty"`
 							} `json:"ca,omitempty"`
+							ClientCertificateSecretRef *struct {
+								Name string `json:"name"`
+							} `json:"clientCertificateSecretRef,omitempty"`
 							InsecureSkipVerify *bool   `json:"insecureSkipVerify,omitempty"`
 							ServerName         *string `json:"serverName,omitempty"`
 						} `json:"tls,omitempty"`
@@ -334,6 +337,9 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 									Name string `json:"name"`
 								} `json:"secretKeyRef,omitempty"`
 							} `json:"ca,omitempty"`
+							ClientCertificateSecretRef *struct {
+								Name string `json:"name"`
+							} `json:"clientCertificateSecretRef,omitempty"`
 							InsecureSkipVerify *bool   `json:"insecureSkipVerify,omitempty"`
 							ServerName         *string `json:"serverName,omitempty"`
 						} `json:"tls,omitempty"`
@@ -446,6 +452,9 @@ func minimalInst() *client.Instance {
 									Name string `json:"name"`
 								} `json:"secretKeyRef,omitempty"`
 							} `json:"ca,omitempty"`
+							ClientCertificateSecretRef *struct {
+								Name string `json:"name"`
+							} `json:"clientCertificateSecretRef,omitempty"`
 							InsecureSkipVerify *bool   `json:"insecureSkipVerify,omitempty"`
 							ServerName         *string `json:"serverName,omitempty"`
 						} `json:"tls,omitempty"`
