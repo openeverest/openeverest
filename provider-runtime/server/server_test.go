@@ -53,7 +53,7 @@ func TestServerReadinessEndpoint(t *testing.T) {
 	t.Parallel()
 
 	port := freePort(t)
-	srv := NewServer(ServerConfig{Port: port}, nil)
+	srv := NewServer(ServerConfig{Port: port})
 
 	ctx := t.Context()
 	go func() { _ = srv.Start(ctx) }()
