@@ -91,6 +91,7 @@ vi.mock('hooks/api/monitoring-classes', () => {
         authModes: [{ name: 'Anonymous' }],
       },
       status: {
+        conditions: [{ type: 'Accepted', status: 'True' }],
         providers: [
           { name: 'percona-server-mongodb', mode: 'ExtensionManaged' },
         ],
@@ -141,8 +142,27 @@ vi.mock('hooks/api/monitoring-destinations', () => {
     isLoading: false,
     isSuccess: true,
   };
-  return { useMonitoringDestinations: () => result };
+  const save = { mutate: () => {}, isPending: false };
+  const noDestination = {};
+  return {
+    useMonitoringDestinations: () => result,
+    useMonitoringDestination: () => noDestination,
+    useSaveMonitoringDestination: () => save,
+    SecretAlreadyExistsError: class extends Error {},
+  };
 });
+
+vi.mock(
+  'pages/settings/monitoring-destinations/hooks/use-monitoring-destination-permissions',
+  () => {
+    const permissions = {
+      createNamespaces: ['team-a'],
+      updateNamespaces: ['team-a'],
+      deleteNamespaces: ['team-a'],
+    };
+    return { useMonitoringDestinationPermissions: () => permissions };
+  }
+);
 
 const SelectedValue = () => {
   const value = useWatch({ name: MONITORING_DESTINATIONS_FIELD });
@@ -202,6 +222,24 @@ describe('MonitoringStep', () => {
     ).toHaveTextContent(
       'No destinations of this system in the team-a namespace yet.'
     );
+  });
+
+  it('creates a destination of an empty system in place, in its class and namespace', async () => {
+    render(
+      <Wrapper>
+        <MonitoringStep />
+      </Wrapper>
+    );
+
+    fireEvent.click(
+      within(
+        screen.getByTestId('no-monitoring-destinations-victoriametrics')
+      ).getByRole('button', { name: 'Add destination' })
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('VictoriaMetrics')).toBeInTheDocument();
+    expect(within(dialog).getByDisplayValue('team-a')).toBeInTheDocument();
   });
 
   it('writes spec.monitoring.destinations entries when cards are toggled', () => {

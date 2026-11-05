@@ -1,0 +1,61 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import { useState } from 'react';
+import ActionableAlert from 'components/actionable-alert';
+import { useMonitoringDestinationPermissions } from 'pages/settings/monitoring-destinations/hooks/use-monitoring-destination-permissions';
+import { MonitoringDestinationModal } from 'pages/settings/monitoring-destinations/monitoring-destination-modal/monitoring-destination-modal';
+import { MonitoringClass } from 'shared-types/monitoring-destinations.types';
+import {
+  getMonitoringClassName,
+  isMonitoringClassAccepted,
+} from 'utils/monitoring-classes';
+import { Messages } from '../../monitoring-step.messages';
+
+interface NoDestinationsAlertProps {
+  monitoringClass: MonitoringClass;
+  namespace: string;
+}
+
+export const NoDestinationsAlert = ({
+  monitoringClass,
+  namespace,
+}: NoDestinationsAlertProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const { createNamespaces } = useMonitoringDestinationPermissions();
+  const className = getMonitoringClassName(monitoringClass);
+  const canCreate =
+    isMonitoringClassAccepted(monitoringClass) &&
+    createNamespaces.includes(namespace);
+
+  return (
+    <>
+      <ActionableAlert
+        message={Messages.noDestinations(namespace)}
+        buttonMessage={Messages.addDestination}
+        data-testid={`no-monitoring-destinations-${className}`}
+        onClick={() => setIsOpen(true)}
+        {...(!canCreate && { action: undefined })}
+      />
+      {isOpen && (
+        <MonitoringDestinationModal
+          classes={[monitoringClass]}
+          namespaces={[namespace]}
+          className={className}
+          onClose={() => setIsOpen(false)}
+        />
+      )}
+    </>
+  );
+};

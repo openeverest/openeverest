@@ -105,6 +105,42 @@ describe('getKeptCredentialsSecretName', () => {
   });
 });
 
+describe('getFormDefaults', () => {
+  const pmm: MonitoringClass = {
+    metadata: { name: 'pmm' },
+    spec: {
+      authModes: [
+        { name: 'ServiceAccountToken', credentials: { required: ['token'] } },
+      ],
+    },
+  };
+
+  it('starts a new destination in the given class, with its only auth mode', () => {
+    const defaults = getFormDefaults({
+      namespace: 'team-a',
+      classes: [pmm],
+      className: 'pmm',
+    });
+
+    expect(defaults).toMatchObject({
+      namespace: 'team-a',
+      className: 'pmm',
+      authMode: 'ServiceAccountToken',
+    });
+    expect(defaults.credentials).toHaveProperty('token');
+  });
+
+  it('leaves the auth mode to the user when the class has several', () => {
+    expect(
+      getFormDefaults({
+        namespace: 'team-a',
+        classes: [prometheus],
+        className: 'prometheus',
+      })
+    ).toMatchObject({ className: 'prometheus', authMode: '' });
+  });
+});
+
 describe('buildSaveRequest', () => {
   it('builds a Secret from the mode keys when the class has no credentials form', () => {
     const request = buildSaveRequest({
