@@ -91,7 +91,8 @@ flowchart TD
 - **`extractInstanceValues`** — reads values from the instance (by `sourcePath`). In edit it uses
   **only** the instance, so edit doesn't inject defaults; in restore and for a preset it falls back
   to schema defaults. A field hidden in the mode has no `sourcePath`, so restore doesn't copy its
-  value from the source.
+  value from the source. A `quantity` field is read through `readQuantity` into a number in
+  `unit` (or cores / bytes when `unit` is omitted).
 - **Toggleable switches** — `false` on create; when values come from an instance or preset, on
   if any of the group's `childPaths` has a value.
 
@@ -118,7 +119,8 @@ flowchart TD
 - **`UIGroup`** — picks the wrapper by `groupType`. `ToggleableWrapper` mounts the body only
   while the switch is on; turning it on focuses the first field without validating untouched ones.
 - **`UIComponent`** — maps `uiType` to a concrete input (`@percona/ui-lib`: SelectInput / TextInput /
-  SwitchInput …).
+  SwitchInput …). `quantity` reuses the number TextInput; the adornment is `unitLabel ?? unit`,
+  and `step` defaults to `'any'`.
 
 **Principle:** every component is isolated by `ComponentErrorBoundary` — a single failing field doesn't break the form.
 
@@ -187,7 +189,11 @@ Read-only and disabled fields keep their value.
     switch, e.g. `spec.components.mixCoord` after switching Milvus cluster → standalone). Paths shared with the selected topology, or nested under/over one of its paths, are
     kept; values no topology binds (`dbName`, `backup`, …) are untouched.
   - **`extractMultiPathMappings` / `applyMultiPathMappings`** — one value → all `targetPaths`.
-  - **`extractBadgeMappings` / `applyBadgesToFormData`** — unit suffix (`8` → `8Gi`).
+  - **`extractQuantityMappings` / `applyQuantitiesToFormData`** — number in `unit` → quantity
+    string (`10` → `"10Gi"`). When `originalData` is set and the form number still equals the
+    stored quantity, the stored string is kept (`"10240Mi"` stays). Runs before badges.
+  - **`extractBadgeMappings` / `applyBadgesToFormData`** — unit suffix (`8` → `8Gi`). Skips
+    `quantity` fields (they use `unit`, not `badge` / `badgeToApi`).
   - **`getInactiveToggleablePaths`** — returns the `childPaths` of switched-off toggleable groups;
     they are deleted together with the form-only `toggleable-switches` key.
   - **`removeEmptyFieldValues`** — strip `undefined` / `null` / `""`.
@@ -201,8 +207,10 @@ flowchart TD
   OVERVIEW["Overview page"] --> EDITABLE["isSectionEditable(section, Edit)"]
   EDITABLE --> MODAL["SectionEditModal"]
   MODAL --> MODE["applyModeOverrides(sections, Edit)"]
-  MODE --> ZOD_EDIT["buildSectionZodSchema(sectionKey, editSections,<br/>{ formMode: Edit, originalData: instance })"]
   MODE --> VALUES["extractInstanceValues(editSections, instance)"]
+  VALUES --> ORIGINAL["originalDataForCel =<br/>stripBadges(deepMerge(instance, defaultValues))"]
+  ORIGINAL --> ZOD_EDIT["buildSectionZodSchema(…, { originalData })"]
+  MODE --> ZOD_EDIT
   ZOD_EDIT --> FORM["FormDialog + UIGenerator"]
   VALUES --> FORM
   FORM --> SUBMIT["submit"]
@@ -213,6 +221,10 @@ flowchart TD
 The edit modal reuses the same `UIGenerator` but validates only the target section via
 `buildSectionZodSchema`; other fields pass through `.passthrough()`, while CEL dependencies are
 collected from all sections.
+
+CEL's `original` is built from the same read as the form (`extractInstanceValues`), so a
+`quantity` disk rule like `size >= original.size` compares numbers (`10 >= 10`), not
+`10 >= "10240Mi"`. Legacy `badgeToApi` fields are still stripped on top.
 
 The update replaces the whole instance and `deepMerge` keeps keys missing from the form, so
 `mergeSectionEdit` deletes the paths of switched-off toggleable groups explicitly, with parents
@@ -268,6 +280,7 @@ components:
 | CEL validation             | `utils/schema-builder/cel-validation/`                     |
 | Defaults                   | `utils/default-values/`                                    |
 | Instance values            | `utils/default-values/extract-instance-values.ts`          |
+| Quantity codec             | `utils/quantity/`                                          |
 | Section editability        | `utils/section-editable/is-section-editable.ts`            |
 | Renderer                   | `utils/component-renderer/render-component.tsx`            |
 | UI component mapper        | `ui-component/`                                            |
@@ -291,4 +304,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-02
+- Last updated: 2026-11-06
