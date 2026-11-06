@@ -23,6 +23,8 @@ import { addZeroToSingleDigit } from 'components/time-selection/time-selection.u
 
 export const Messages = {
   title: 'Summary',
+  monitoring: 'Monitoring',
+  noMonitoring: 'Not configured',
 };
 
 export const getTimeSelectionPreviewMessage = ({

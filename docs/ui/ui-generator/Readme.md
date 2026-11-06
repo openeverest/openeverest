@@ -284,11 +284,12 @@ schema describes. Spell the real sub-structure below that root, so the schema al
 value lands. The host supplies the root (the form field is `<root>.<path>`) and never injects keys
 between the root and the path.
 
-| Schema              | Root                 | Example `path`                    |
-| ------------------- | -------------------- | --------------------------------- |
-| Topology            | the Instance         | `spec.components.engine.replicas` |
-| Backup class `pitr` | one storage's `pitr` | `parameters.timeBetweenUploads`   |
-| Secret definition   | the secret's data    | `MONGODB_USER`                    |
+| Schema                      | Root                                        | Example `path`                      |
+| --------------------------- | ------------------------------------------- | ----------------------------------- |
+| Topology                    | the Instance                                | `spec.components.engine.replicas`   |
+| Backup class `pitr`         | one storage's `pitr`                        | `parameters.timeBetweenUploads`     |
+| Secret definition           | the secret's data                           | `MONGODB_USER`                      |
+| Monitoring class `instance` | one entry of `spec.monitoring.destinations` | `parameters.resources.requests.cpu` |
 
 - ❌ `path: spec.backup.storages[].pitr.parameters.timeBetweenUploads`
 
