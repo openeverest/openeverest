@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -132,8 +133,18 @@ func (c *versionServiceClient) GetSupportedEngineVersions(ctx context.Context, o
 			return semver.Segments()[0] == 5 //nolint:mnd
 		})
 	}
-	slices.Sort(result)
+	slices.SortFunc(result, compareVersions)
 	return result, nil
+}
+
+// compareVersions compares version strings already validated by GetSupportedEngineVersions.
+func compareVersions(a, b string) int {
+	av, _ := goversion.NewVersion(a)
+	bv, _ := goversion.NewVersion(b)
+	if order := av.Compare(bv); order != 0 {
+		return order
+	}
+	return strings.Compare(a, b)
 }
 
 // GetEverestMetadata returns the Everest metadata from the version service.
