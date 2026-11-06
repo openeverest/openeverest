@@ -120,7 +120,7 @@ flowchart TD
   while the switch is on; turning it on focuses the first field without validating untouched ones.
 - **`UIComponent`** — maps `uiType` to a concrete input (`@percona/ui-lib`: SelectInput / TextInput /
   SwitchInput …). `quantity` reuses the number TextInput; the adornment is `unitLabel ?? unit`,
-  and `step` defaults to `'any'`.
+  and omitting `step` applies HTML `step="any"`.
 
 **Principle:** every component is isolated by `ComponentErrorBoundary` — a single failing field doesn't break the form.
 

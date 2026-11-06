@@ -31,9 +31,8 @@ Prefer `quantity` over `number` + `badge` / `badgeToApi` for resource fields.
     (`m`, `k`, `M`, `G`, `T`, `P`, `E`, `Ki`, `Mi`, `Gi`, `Ti`, `Pi`, `Ei`).
     Omit for CPU in cores (writes `"0.5"`, not `"500m"`).
   - `unitLabel`: End-adornment / overview label; falls back to `unit` (e.g. `"cores"`)
-  - `step`: Increment for arrow buttons. Defaults to `"any"` so fractional values
-    are accepted without every provider setting a step. Use a number (e.g. `0.1`, `1`)
-    when you want fixed steps.
+  - `step`: Increment for arrow buttons (e.g. `0.1`, `1`). Omit to accept any
+    fractional value (`step="any"` is applied for you — do not set `"any"` in the schema).
 - `validation` (optional): Same numeric rules as [number](number-field.md). All
   bounds (`min` / `max` / `gt` / `lt`) and CEL expressions see the **number in
   `unit`**, not the raw API string:
@@ -62,7 +61,7 @@ Validates that input is numeric (same coerced-number Zod schema as `number`).
 ## Validation Auto-Mapping:
 
 Same HTML `min` / `max` mapping as [number](number-field.md#validation-auto-mapping).
-`step` defaults to `"any"`.
+Omitting `step` applies HTML `step="any"`.
 
 ## Examples:
 

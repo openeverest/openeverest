@@ -172,7 +172,7 @@ classDiagram
   SelectFieldParams <|-- SelectStaticOptions
   SelectFieldParams <|-- SelectDynamicOptions
   note for SelectFieldParams "options XOR optionsPath + optionsPathConfig"
-  note for QuantityFieldParams "unit is a Kubernetes suffix; step defaults to any"
+  note for QuantityFieldParams "unit is a Kubernetes suffix; omit step for any fractional value"
 ```
 
 ## Level 3 — validation (by field type, mode-aware)

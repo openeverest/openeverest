@@ -98,7 +98,7 @@ interface CommonFieldParams {
 }
 
 export interface NumberFieldParams extends CommonFieldParams {
-  step?: number | 'any';
+  step?: number;
   placeholder?: string;
 }
 
@@ -113,8 +113,8 @@ export interface QuantityFieldParams
   unit?: kubernetesUnit;
   // End-adornment / display label falls back to `unit` (e.g. "cores").
   unitLabel?: string;
-  // Defaults to `'any'` so fractional values are accepted without per-field step.
-  step?: number | 'any';
+  // Omit to accept "any" fractional value.
+  step?: number;
   placeholder?: string;
 }
 
