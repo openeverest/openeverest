@@ -117,13 +117,9 @@ func (e *EverestServer) checkOperatorUpgradeState(next echo.HandlerFunc) echo.Ha
 	}
 }
 
-// kubernetesWarnings returns the warnings the Kubernetes API raises during a write as Warning headers.
+// kubernetesWarnings returns the warnings the Kubernetes API raises while handling a request as Warning headers.
 func kubernetesWarnings(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		if !slices.Contains([]string{http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete}, c.Request().Method) {
-			return next(c)
-		}
-
 		ctx, collector := kubernetes.WithWarningCollector(c.Request().Context())
 		c.SetRequest(c.Request().WithContext(ctx))
 		res := c.Response()

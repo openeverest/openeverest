@@ -7865,8 +7865,8 @@ export interface components {
     requestBodies: never;
     headers: {
         /**
-         * @description A warning Kubernetes returned while handling the write, such as an admission webhook reporting that a Secret the Instance names does not exist yet.
-         *     The header is repeated once per distinct warning and its value has the `299 - "<text>"` form of RFC 7234.
+         * @description A warning Kubernetes returned while handling the request, such as an admission webhook reporting that a Secret the Instance names does not exist yet.
+         *     The header is repeated once per distinct warning, and each value has Kubernetes' warning format, `299 - "<text>"`, the `Warning` field of RFC 7234.
          * @example 299 - "secret \"db-credentials\" named by spec.userSecretRef not found"
          */
         Warning: string;
