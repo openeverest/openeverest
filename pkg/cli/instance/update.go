@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
@@ -165,13 +166,18 @@ func (iu *Updater) patch(ctx context.Context, c *client.ClientWithResponses, opt
 		return nil, fmt.Errorf("patch instance request failed: %w", err)
 	}
 
+	warnings, _ := utilnet.ParseWarningHeaders(resp.HTTPResponse.Header.Values("Warning"))
+	for _, w := range warnings {
+		output.PrintWarn(w.Text, iu.l, iu.config.Pretty)
+	}
+
 	switch resp.StatusCode() {
 	case http.StatusOK:
 		return resp.JSON200, nil
 	case http.StatusNotFound:
 		return nil, fmt.Errorf("instance %q not found in namespace %q", opts.Name, opts.Namespace)
 	default:
-		if msg, ok := clienterr.Message(resp.JSON415, resp.JSONDefault); ok {
+		if msg, ok := clienterr.Message(resp.JSON415, clienterr.FromAPIError(resp.JSON422), resp.JSONDefault); ok {
 			return nil, fmt.Errorf("server error: %s", msg)
 		}
 		return nil, fmt.Errorf("unexpected response updating instance %q: %s", opts.Name, resp.Status())

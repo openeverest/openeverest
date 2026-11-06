@@ -1141,13 +1141,33 @@ export interface components {
          */
         APIError: components["schemas"]["Error"] & {
             /**
-             * @description Machine-readable reason for the conflict.
+             * @description Machine-readable reason for the error.
              * @example AlreadyExists
              */
             reason: string;
             /**
              * @description The field path that caused the conflict.
              * @example metadata.name
+             */
+            field?: string;
+            /** @description Every field that failed validation, on a 422. */
+            causes?: components["schemas"]["APIErrorCause"][];
+        };
+        /** @description One field that failed validation. */
+        APIErrorCause: {
+            /**
+             * @description Machine-readable kind of failure.
+             * @example FieldValueInvalid
+             */
+            reason?: string;
+            /**
+             * @description What is wrong with the field.
+             * @example Invalid value: 1: replicas in body should be a multiple of 2
+             */
+            message?: string;
+            /**
+             * @description The path of the field.
+             * @example spec.components[hidden].replicas
              */
             field?: string;
         };
@@ -6130,6 +6150,15 @@ export interface components {
                                         name: string;
                                     };
                                 };
+                                /**
+                                 * @description ClientCertificateSecretRef references a kubernetes.io/tls Secret
+                                 *     (keys tls.crt and tls.key) the scraper presents as a client
+                                 *     certificate, for an endpoint that requires mutual TLS.
+                                 */
+                                clientCertificateSecretRef?: {
+                                    /** @description Name of the referenced Secret. */
+                                    name: string;
+                                };
                                 /** @description InsecureSkipVerify disables verification of the server certificate. */
                                 insecureSkipVerify?: boolean;
                                 /** @description ServerName overrides the expected server name. */
@@ -7834,7 +7863,14 @@ export interface components {
     responses: never;
     parameters: never;
     requestBodies: never;
-    headers: never;
+    headers: {
+        /**
+         * @description A warning Kubernetes returned while handling the request, such as an admission webhook reporting that a Secret the Instance names does not exist yet.
+         *     The header is repeated once per distinct warning, and each value has Kubernetes' warning format, `299 - "<text>"`, the `Warning` field of RFC 7234.
+         * @example 299 - "secret \"db-credentials\" named by spec.userSecretRef not found"
+         */
+        Warning: string;
+    };
     pathItems: never;
 }
 export type $defs = Record<string, never>;
@@ -8394,6 +8430,15 @@ export interface operations {
                     "application/json": components["schemas"]["APIError"];
                 };
             };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -8518,6 +8563,15 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8801,6 +8855,7 @@ export interface operations {
             /** @description Instance created successfully */
             200: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -8810,6 +8865,7 @@ export interface operations {
             /** @description Instance created successfully */
             201: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -8837,6 +8893,16 @@ export interface operations {
             /** @description Conflict */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -8932,6 +8998,7 @@ export interface operations {
             /** @description Instance updated successfully */
             200: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -8959,6 +9026,16 @@ export interface operations {
             /** @description Conflict */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -9080,6 +9157,7 @@ export interface operations {
             /** @description Instance patched successfully */
             200: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -9120,6 +9198,16 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    Warning: components["headers"]["Warning"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -9466,6 +9554,15 @@ export interface operations {
                     "application/json": components["schemas"]["APIError"];
                 };
             };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -9707,6 +9804,15 @@ export interface operations {
                     "application/json": components["schemas"]["APIError"];
                 };
             };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -9872,6 +9978,15 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10121,6 +10236,15 @@ export interface operations {
                     "application/json": components["schemas"]["APIError"];
                 };
             };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -10254,6 +10378,15 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10410,6 +10543,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -10512,6 +10654,15 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10720,6 +10871,15 @@ export interface operations {
                     "application/json": components["schemas"]["APIError"];
                 };
             };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -10919,6 +11079,15 @@ export interface operations {
                     "application/json": components["schemas"]["APIError"];
                 };
             };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -11043,6 +11212,15 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11307,6 +11485,15 @@ export interface operations {
                     "application/json": components["schemas"]["APIError"];
                 };
             };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -11531,6 +11718,15 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

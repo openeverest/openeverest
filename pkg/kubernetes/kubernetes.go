@@ -44,6 +44,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
@@ -173,7 +174,12 @@ func NewInCluster(ctx context.Context, l *zap.SugaredLogger, cacheOptions *cache
 		}()
 	}
 
-	k8sclient, err := ctrlclient.New(restConfig, getKubernetesClientOptions(k8sCache))
+	clientConfig := rest.CopyConfig(restConfig)
+	// Next is the warning logger ctrlclient.New installs when the config sets none.
+	clientConfig.WarningHandlerWithContext = CollectingWarningHandler{
+		Next: ctrllog.NewKubeAPIWarningLogger(ctrllog.KubeAPIWarningLoggerOptions{}),
+	}
+	k8sclient, err := ctrlclient.New(clientConfig, getKubernetesClientOptions(k8sCache))
 	if err != nil {
 		return nil, err
 	}

@@ -819,6 +819,11 @@ const (
 	// ReasonValidationFailed indicates the provider rejected the spec. The
 	// message carries the provider's error.
 	ReasonValidationFailed = "ValidationFailed"
+
+	// ReasonInvalidReference indicates an object the Instance names exists but
+	// its contents don't fit the Instance, such as a user Secret missing a key
+	// the provider needs. The provider is not called.
+	ReasonInvalidReference = "InvalidReference"
 )
 
 // Reasons for the PodsScheduled condition.

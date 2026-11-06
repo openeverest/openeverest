@@ -220,10 +220,16 @@ export const fillScheduleModalForm = async (
     await page.getByRole('option', { name: backupStorage }).click();
   }
 
-  const retentionCopiesField = page.getByTestId('text-input-retention-copies');
-  await expect(retentionCopiesField).not.toBeEmpty();
-
-  await retentionCopiesField.fill(retention);
+  if (retention === '0') {
+    await page.getByTestId('radio-option-keep-all').click();
+  } else {
+    await page.getByTestId('radio-option-count').click();
+    const retentionCopiesField = page.getByTestId(
+      'text-input-retention-copies'
+    );
+    await expect(retentionCopiesField).not.toBeEmpty();
+    await retentionCopiesField.fill(retention);
+  }
 
   await createScheduleFromTimeOptions(page, timeOptions);
 };

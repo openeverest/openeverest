@@ -30,6 +30,7 @@ import (
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
@@ -185,11 +186,16 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 		return fmt.Errorf("create instance request failed: %w", err)
 	}
 
+	warnings, _ := utilnet.ParseWarningHeaders(resp.HTTPResponse.Header.Values("Warning"))
+	for _, w := range warnings {
+		output.PrintWarn(w.Text, ic.l, ic.config.Pretty)
+	}
+
 	if resp.StatusCode() != http.StatusOK && resp.StatusCode() != http.StatusCreated {
 		if resp.StatusCode() == http.StatusConflict {
 			return fmt.Errorf("instance %q already exists in namespace %q", opts.Name, opts.Namespace)
 		}
-		if msg, ok := clienterr.Message(resp.JSONDefault); ok {
+		if msg, ok := clienterr.Message(clienterr.FromAPIError(resp.JSON422), resp.JSONDefault); ok {
 			return fmt.Errorf("server error: %s", msg)
 		}
 		return fmt.Errorf("unexpected response creating instance: %s", resp.Status())
