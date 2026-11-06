@@ -16,11 +16,12 @@ import { FieldType, type TopologyUISchemas } from '../../ui-generator.types';
 import { walkTopologyComponents } from '../schema-walker';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
 import { deepClone, getByPath, setByPath } from '../object-path';
+import type { kubernetesUnit } from 'utils/k8ResourceParser';
 import { quantitiesEqual, writeQuantity } from './quantity';
 
 export type QuantityMapping = {
   path: string;
-  unit?: string;
+  unit?: kubernetesUnit;
 };
 
 export const extractQuantityMappings = (

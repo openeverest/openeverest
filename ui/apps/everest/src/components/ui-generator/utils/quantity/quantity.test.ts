@@ -48,14 +48,27 @@ describe('readQuantity', () => {
     it.each([
       ['10Gi', 10],
       ['10240Mi', 10],
+      ['1536Mi', 1.5],
       ['644245094400m', 0.6],
       ['1G', 10 ** 9 / 1024 ** 3],
+      ['1234567', 1234567 / 1024 ** 3],
     ] as const)('reads %j as %j Gi', (raw, expected) => {
       expect(readQuantity(raw, 'Gi')).toBe(expected);
     });
 
     it('reads a JSON integer as bytes into the target unit', () => {
       expect(readQuantity(10 * 1024 ** 3, 'Gi')).toBe(10);
+    });
+  });
+
+  describe('with unit m (bare numbers are base units)', () => {
+    it.each([
+      ['1', 1000],
+      ['1.5', 1500],
+      ['1000m', 1000],
+      [1, 1000],
+    ] as const)('reads %j as %j millicores', (raw, expected) => {
+      expect(readQuantity(raw, 'm')).toBe(expected);
     });
   });
 

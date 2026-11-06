@@ -15,17 +15,18 @@
 import {
   convertBytesToMemoryUnit,
   convertMemoryUnitToBytes,
-  cpuParser,
   isKubernetesMemoryUnit,
-  memoryParser,
+  type kubernetesUnit,
 } from 'utils/k8ResourceParser';
 
 // Form numbers that round-trip through Kubernetes milli-normalisation can differ
 // by a few ULPs; treat them as equal when they match to this absolute tolerance.
 const QUANTITY_EQUALITY_EPSILON = 1e-9;
 
-const MEMORY_SUFFIX_WITHOUT_MILLI =
-  /^(?<amount>[0-9.]+)(?<suffix>Ki|Mi|Gi|Ti|Pi|Ei|k|M|G|T|P|E)$/;
+// Kubernetes quantity: optional suffix is always a fraction/multiple of the base
+// unit (cores for CPU, bytes for memory) — the same multipliers apply to both.
+const QUANTITY_STRING =
+  /^(?<amount>[0-9.]+)(?<suffix>Ki|Mi|Gi|Ti|Pi|Ei|m|k|M|G|T|P|E)?$/;
 
 const isEmptyQuantity = (value: unknown): boolean =>
   value === undefined || value === null || value === '';
@@ -38,15 +39,40 @@ const formatAmount = (amount: number): string => {
   return String(parseFloat(amount.toPrecision(15)));
 };
 
+/** Parse a Kubernetes quantity string into its base unit (cores or bytes). */
+const parseToBaseUnit = (raw: string): number | undefined => {
+  const match = QUANTITY_STRING.exec(raw);
+  if (!match?.groups) {
+    return undefined;
+  }
+
+  const amount = parseFloat(match.groups.amount);
+  if (!Number.isFinite(amount)) {
+    return undefined;
+  }
+
+  const suffix = match.groups.suffix;
+  if (!suffix) {
+    // Bare number is already the base unit (Kubernetes canonical form).
+    return amount;
+  }
+
+  if (!isKubernetesMemoryUnit(suffix)) {
+    return undefined;
+  }
+
+  return convertMemoryUnitToBytes(amount, suffix);
+};
+
 /**
  * API → form: any Kubernetes quantity into a number in `unit`.
- * Without `unit`, CPU-style values become cores; memory-suffixed values become bytes.
- * Bare `m` without `unit` is millicores (CPU), not milli-bytes — memory fields
- * always declare `unit` (e.g. Gi), where `m` is milli-bytes.
+ * Without `unit`, the value stays in the base unit (cores / bytes).
+ * Bare numbers are always the base unit — Kubernetes itself emits them when
+ * it canonicalises (e.g. `"1000m"` → `"1"`).
  */
 export const readQuantity = (
   raw: unknown,
-  unit?: string
+  unit?: kubernetesUnit
 ): number | undefined => {
   if (isEmptyQuantity(raw)) {
     return undefined;
@@ -54,46 +80,37 @@ export const readQuantity = (
 
   const targetUnit = unit && isKubernetesMemoryUnit(unit) ? unit : undefined;
 
+  let base: number | undefined;
+
   if (typeof raw === 'number') {
     if (!Number.isFinite(raw)) {
       return undefined;
     }
-    // A JSON number is the base unit: cores (CPU) or bytes (memory).
-    return targetUnit ? convertBytesToMemoryUnit(raw, targetUnit) : raw;
-  }
-
-  if (typeof raw !== 'string') {
-    return undefined;
-  }
-
-  const trimmed = raw.trim();
-  if (trimmed === '') {
-    return undefined;
-  }
-
-  if (targetUnit) {
-    const { value } = memoryParser(trimmed, targetUnit);
-    return Number.isFinite(value) ? value : undefined;
-  }
-
-  // No unit: memory suffixes (except bare `m`) → bytes; otherwise → cores.
-  const memoryMatch = MEMORY_SUFFIX_WITHOUT_MILLI.exec(trimmed);
-  if (memoryMatch?.groups) {
-    const amount = parseFloat(memoryMatch.groups.amount);
-    const suffix = memoryMatch.groups.suffix;
-    if (Number.isFinite(amount) && suffix && isKubernetesMemoryUnit(suffix)) {
-      return convertMemoryUnitToBytes(amount, suffix);
+    base = raw;
+  } else if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (trimmed === '') {
+      return undefined;
     }
+    base = parseToBaseUnit(trimmed);
+  } else {
+    return undefined;
   }
 
-  const cores = cpuParser(trimmed);
-  return Number.isFinite(cores) ? cores : undefined;
+  if (base === undefined) {
+    return undefined;
+  }
+
+  return targetUnit ? convertBytesToMemoryUnit(base, targetUnit) : base;
 };
 
 /**
  * Form → API: always a quantity string. Fractional CPU is `"0.5"`, never a JSON float.
  */
-export const writeQuantity = (amount: number, unit?: string): string => {
+export const writeQuantity = (
+  amount: number,
+  unit?: kubernetesUnit
+): string => {
   const formatted = formatAmount(amount);
   return unit ? `${formatted}${unit}` : formatted;
 };
@@ -104,7 +121,7 @@ export const writeQuantity = (amount: number, unit?: string): string => {
  */
 export const formatQuantity = (
   rawOrNumber: unknown,
-  unit?: string,
+  unit?: kubernetesUnit,
   unitLabel?: string
 ): string | undefined => {
   const amount =
@@ -128,7 +145,7 @@ export const formatQuantity = (
 export const quantitiesEqual = (
   formAmount: unknown,
   storedRaw: unknown,
-  unit?: string
+  unit?: kubernetesUnit
 ): boolean => {
   if (isEmptyQuantity(formAmount)) {
     return isEmptyQuantity(storedRaw);
