@@ -308,6 +308,7 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	apiGroup.Use(blocklistMW)
 
 	apiGroup.Use(e.checkOperatorUpgradeState)
+	apiGroup.Use(kubernetesWarnings)
 	api.RegisterHandlers(apiGroup, e)
 
 	// Setup plugin proxy routes (outside OpenAPI validation).

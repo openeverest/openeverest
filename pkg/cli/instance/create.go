@@ -30,6 +30,7 @@ import (
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
@@ -183,6 +184,11 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 	)
 	if err != nil {
 		return fmt.Errorf("create instance request failed: %w", err)
+	}
+
+	warnings, _ := utilnet.ParseWarningHeaders(resp.HTTPResponse.Header.Values("Warning"))
+	for _, w := range warnings {
+		output.PrintWarn(w.Text, ic.l, ic.config.Pretty)
 	}
 
 	if resp.StatusCode() != http.StatusOK && resp.StatusCode() != http.StatusCreated {

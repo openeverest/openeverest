@@ -28,9 +28,11 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/unrolled/secure"
 	"github.com/unrolled/secure/cspbuilder"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/oidc"
 )
 
@@ -111,6 +113,24 @@ func (e *EverestServer) checkOperatorUpgradeState(next echo.HandlerFunc) echo.Ha
 				Message: new("Cannot perform this operation while the operator is upgrading"),
 			})
 		}
+		return next(c)
+	}
+}
+
+// kubernetesWarnings returns the warnings the Kubernetes API raises while handling a request as Warning headers.
+func kubernetesWarnings(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx, collector := kubernetes.WithWarningCollector(c.Request().Context())
+		c.SetRequest(c.Request().WithContext(ctx))
+		res := c.Response()
+		res.Before(func() {
+			for _, text := range collector.Warnings() {
+				// A text no header can carry is left to the server log.
+				if header, err := utilnet.NewWarningHeader(299, "-", text); err == nil {
+					res.Header().Add("Warning", header)
+				}
+			}
+		})
 		return next(c)
 	}
 }

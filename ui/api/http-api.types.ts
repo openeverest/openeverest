@@ -7863,7 +7863,14 @@ export interface components {
     responses: never;
     parameters: never;
     requestBodies: never;
-    headers: never;
+    headers: {
+        /**
+         * @description A warning Kubernetes returned while handling the request, such as an admission webhook reporting that a Secret the Instance names does not exist yet.
+         *     The header is repeated once per distinct warning, and each value has Kubernetes' warning format, `299 - "<text>"`, the `Warning` field of RFC 7234.
+         * @example 299 - "secret \"db-credentials\" named by spec.userSecretRef not found"
+         */
+        Warning: string;
+    };
     pathItems: never;
 }
 export type $defs = Record<string, never>;
@@ -8848,6 +8855,7 @@ export interface operations {
             /** @description Instance created successfully */
             200: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -8857,6 +8865,7 @@ export interface operations {
             /** @description Instance created successfully */
             201: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -8893,6 +8902,7 @@ export interface operations {
             /** @description Validation failed */
             422: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -8988,6 +8998,7 @@ export interface operations {
             /** @description Instance updated successfully */
             200: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -9024,6 +9035,7 @@ export interface operations {
             /** @description Validation failed */
             422: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -9145,6 +9157,7 @@ export interface operations {
             /** @description Instance patched successfully */
             200: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -9190,6 +9203,7 @@ export interface operations {
             /** @description Validation failed */
             422: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
