@@ -81,7 +81,7 @@ to override any Instance spec field using dot-notation paths rooted at the spec
     --version 8.0.12 --topology sharded
 
   # Print the instance that would be sent, or have the server validate it without creating it
-  everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb --dry-run
+  everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb --dry-run=client
   everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb --dry-run=server
 
   # Block until the instance is ready (Ctrl-C only stops waiting; the instance keeps provisioning)
@@ -115,7 +115,6 @@ func init() {
 	createCmd.Flags().StringVar(&createOpts.DryRun, cli.FlagInstanceDryRun, instancecli.DryRunNone,
 		`"client" prints the instance without sending it; "server" has the server validate it, without creating it`,
 	)
-	createCmd.Flags().Lookup(cli.FlagInstanceDryRun).NoOptDefVal = instancecli.DryRunClient
 
 	_ = createCmd.MarkFlagRequired(cli.FlagInstanceName)
 	_ = createCmd.MarkFlagRequired(cli.FlagInstanceNamespace)
