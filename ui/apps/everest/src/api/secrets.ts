@@ -41,6 +41,20 @@ export const createSecretFn = async (
   return response.data;
 };
 
+// Metadata only: the API never returns Secret data.
+export const getSecretFn = async (
+  cluster: string,
+  namespace: string,
+  name: string,
+  disableNotifications = false
+): Promise<Secret> => {
+  const response = await api.get<Secret>(
+    `clusters/${cluster}/namespaces/${namespace}/secrets/${name}`,
+    { disableNotifications }
+  );
+  return response.data;
+};
+
 export const deleteSecretFn = async (
   cluster: string,
   namespace: string,
