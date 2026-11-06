@@ -66,12 +66,14 @@ func UISchemaIsAccepted(t *testing.T, cfg Config) {
 		got := checkAccepted(t.Context(), cfg, spec, topology, fields)
 		if len(got.base) > 0 {
 			t.Errorf("UI schema cannot be checked, because validation rejects the Instance its form submits by default:\n  topology %s\n%s",
-				topology, formatErrors(got.base))
+				topology, formatErrors(got.base),
+			)
 			continue
 		}
 		for _, r := range got.rejected {
 			t.Errorf("UI schema offers a value this provider rejects:\n  topology %s\n    %s = %s\n%s",
-				topology, r.path, serialize(r.value), formatErrors(r.errs))
+				topology, r.path, serialize(r.value), formatErrors(r.errs),
+			)
 		}
 	}
 }
@@ -103,7 +105,7 @@ func (f uiField) values() []any {
 		return nil
 	}
 
-	candidates := make([]any, 0, len(f.FieldParams.Options)+3)
+	candidates := make([]any, 0, len(f.FieldParams.Options))
 	for _, option := range f.FieldParams.Options {
 		candidates = append(candidates, option.Value)
 	}
@@ -271,8 +273,8 @@ func checkAccepted(
 // submittedValues returns, per spec path, the values the form can write there
 // and the one it writes by default.
 func submittedValues(fields []uiField, unverifiable map[string]string) (map[string][]any, map[string]any) {
-	values := map[string][]any{}
-	defaults := map[string]any{}
+	values := make(map[string][]any)
+	defaults := make(map[string]any)
 	for _, f := range fields {
 		if _, skip := unverifiable[f.Path]; skip || !strings.HasPrefix(f.Path, "spec.") {
 			continue

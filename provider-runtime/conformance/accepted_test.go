@@ -61,7 +61,7 @@ func specOffering(t *testing.T, supported, fields string) *corev1alpha1.Provider
 		spec = specDeclaring(t, supported)
 	}
 
-	components := map[string]any{}
+	components := make(map[string]any)
 	require.NoError(t, yaml.Unmarshal([]byte(fields), &components))
 	raw, err := json.Marshal(map[string]any{
 		"simple": map[string]any{
@@ -236,10 +236,8 @@ disk:
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			got := checkOffering(t, Config{
-				Provider:     &rulesProvider{rules: tt.rules},
-				Unverifiable: tt.unverifiable,
-			}, specOffering(t, tt.supported, tt.fields))
+			cfg := Config{Provider: &rulesProvider{rules: tt.rules}, Unverifiable: tt.unverifiable}
+			got := checkOffering(t, cfg, specOffering(t, tt.supported, tt.fields))
 			require.Empty(t, got.base)
 
 			rejected := make([]string, 0, len(got.rejected))
