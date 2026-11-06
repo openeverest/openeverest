@@ -235,9 +235,7 @@ describe('SectionEditModal CEL validation', () => {
     await waitFor(() => {
       expect(saveButton).toBeEnabled();
     });
-    expect(
-      screen.queryByText(/CEL expression error/i)
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/CEL expression error/i)).not.toBeInTheDocument();
     expect(
       screen.queryByText('Disk size cannot be decreased')
     ).not.toBeInTheDocument();

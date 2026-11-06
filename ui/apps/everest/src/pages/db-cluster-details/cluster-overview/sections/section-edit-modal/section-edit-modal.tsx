@@ -74,7 +74,10 @@ const SectionEditModal = ({
   const originalDataForCel = useMemo(
     () =>
       stripBadgesFromData(
-        deepMerge(instance as unknown as Record<string, unknown>, defaultValues),
+        deepMerge(
+          instance as unknown as Record<string, unknown>,
+          defaultValues
+        ),
         extractBadgeMappingsFromSections(editSections)
       ),
     [instance, defaultValues, editSections]
