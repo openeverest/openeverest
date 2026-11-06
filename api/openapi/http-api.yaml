@@ -13,6 +13,11 @@ info:
     # Warnings
     A response carries one `Warning` header per distinct warning Kubernetes raised while handling the request, whether it succeeds or fails: an admission webhook warning on a write, for example, or the deprecation of a resource version.
     Each value has Kubernetes' warning format, `299 - "<text>"`, the `Warning` field of RFC 7234.
+
+    # Dry run
+    Writes that accept the `dryRun=All` query parameter run every check a real write would, including admission webhooks, and answer as it would, without persisting anything.
+    The response body is the object as it would be stored, and errors and `Warning` headers are those of the real write.
+    A write that does not accept the parameter rejects it with 400.
 tags:
   - name: Kubernetes
     description: Everything related to the Kubernetes Clusters
@@ -957,6 +962,7 @@ paths:
           description: The namespace where the instance will be created
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       requestBody:
         description: The instance object to be created
         required: true
@@ -1097,6 +1103,7 @@ paths:
           description: The name of the instance
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       requestBody:
         description: The instance object to be updated
         required: true
@@ -1176,6 +1183,7 @@ paths:
           description: The name of the instance
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       requestBody:
         description: |
           A partial Instance document. `status` and the `ownerReferences`, `finalizers`, `name` and `namespace` members of `metadata` are rejected.
@@ -3800,6 +3808,16 @@ components:
     BearerAuth:
       type: http
       scheme: bearer
+  parameters:
+    DryRun:
+      name: dryRun
+      in: query
+      required: false
+      description: |
+        `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything.
+      schema:
+        type: string
+        enum: [All]
   headers:
     Warning:
       description: |

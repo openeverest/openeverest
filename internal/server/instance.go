@@ -49,7 +49,7 @@ func (e *EverestServer) GetInstance(c echo.Context, cluster string, namespace st
 }
 
 // CreateInstance creates a new instance.
-func (e *EverestServer) CreateInstance(c echo.Context, cluster string, namespace string) error {
+func (e *EverestServer) CreateInstance(c echo.Context, cluster string, namespace string, _ api.CreateInstanceParams) error {
 	instance := &corev1alpha1.Instance{}
 	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
@@ -73,7 +73,7 @@ func (e *EverestServer) CreateInstance(c echo.Context, cluster string, namespace
 }
 
 // UpdateInstance updates an existing instance.
-func (e *EverestServer) UpdateInstance(c echo.Context, cluster string, namespace string, instance string) error {
+func (e *EverestServer) UpdateInstance(c echo.Context, cluster string, namespace string, instance string, _ api.UpdateInstanceParams) error {
 	inst := &corev1alpha1.Instance{}
 	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
@@ -98,7 +98,7 @@ func (e *EverestServer) UpdateInstance(c echo.Context, cluster string, namespace
 }
 
 // PatchInstance applies a merge patch to an existing instance.
-func (e *EverestServer) PatchInstance(c echo.Context, cluster string, namespace string, instance string) error {
+func (e *EverestServer) PatchInstance(c echo.Context, cluster string, namespace string, instance string, _ api.PatchInstanceParams) error {
 	patch, err := io.ReadAll(c.Request().Body)
 	if err != nil {
 		e.l.Errorf("PatchInstance: failed to read request body: %v", err)
