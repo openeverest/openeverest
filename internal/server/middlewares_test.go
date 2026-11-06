@@ -216,10 +216,11 @@ func TestKubernetesWarnings(t *testing.T) {
 			},
 		},
 		{
-			name:     "read",
-			method:   http.MethodGet,
-			warnings: []string{"backup class nightly not found"},
-			wantCode: http.StatusCreated,
+			name:        "read",
+			method:      http.MethodGet,
+			warnings:    []string{"core.openeverest.io/v1alpha1 Instance is deprecated"},
+			wantCode:    http.StatusCreated,
+			wantHeaders: []string{`299 - "core.openeverest.io/v1alpha1 Instance is deprecated"`},
 		},
 	}
 

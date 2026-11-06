@@ -11,8 +11,8 @@ info:
     The token can be obtained by using `everestctl token reset` which resets the token and prints it to the screen.
 
     # Warnings
-    A write (POST, PUT, PATCH or DELETE) carries one `Warning` response header per distinct warning Kubernetes raised while handling it, such as an admission webhook warning, whether the write succeeds or fails.
-    Each value has the `299 - "<text>"` form of RFC 7234.
+    A response carries one `Warning` header per distinct warning Kubernetes raised while handling the request, whether it succeeds or fails: an admission webhook warning on a write, for example, or the deprecation of a resource version.
+    Each value has Kubernetes' warning format, `299 - "<text>"`, the `Warning` field of RFC 7234.
 
     # Dry run
     Writes that accept the `dryRun=All` query parameter run every check a real write would, including admission webhooks, and answer as it would, without persisting anything.
@@ -3821,8 +3821,8 @@ components:
   headers:
     Warning:
       description: |
-        A warning Kubernetes returned while handling the write, such as an admission webhook reporting that a Secret the Instance names does not exist yet.
-        The header is repeated once per distinct warning and its value has the `299 - "<text>"` form of RFC 7234.
+        A warning Kubernetes returned while handling the request, such as an admission webhook reporting that a Secret the Instance names does not exist yet.
+        The header is repeated once per distinct warning, and each value has Kubernetes' warning format, `299 - "<text>"`, the `Warning` field of RFC 7234.
       schema:
         type: string
       example: '299 - "secret \"db-credentials\" named by spec.userSecretRef not found"'
