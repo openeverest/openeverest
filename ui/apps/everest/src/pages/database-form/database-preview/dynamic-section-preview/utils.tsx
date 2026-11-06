@@ -35,6 +35,21 @@ import { widgetSummaryRegistry } from 'pages/database-form/widget-registry';
 import { Messages } from './dynamic-section-preview.messages';
 import { WidgetPreview } from './widget-preview';
 
+// coerceNumberInputValue leaves an unparsable string (e.g. "1a" typed mid-edit)
+// in place instead of a number, so a Number field's value isn't always numeric.
+const isFiniteNumericValue = (value: unknown): boolean => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed !== '' && Number.isFinite(Number(trimmed));
+  }
+
+  return false;
+};
+
 const getPrimaryPath = (
   path: Component['path'] | undefined
 ): string | undefined => {
@@ -115,7 +130,18 @@ export const renderComponent = (
   } else if (typeof value === 'object' && !Array.isArray(value)) {
     displayValue = JSON.stringify(value);
   } else {
-    displayValue = String(value);
+    const badge = leafComponent.fieldParams?.badge;
+    // Matches the badge conditions the input applies in build-field-props.tsx:
+    // an endAdornment for Number and Select fields.
+    const isBadgeableType =
+      leafComponent.uiType === FieldType.Number ||
+      leafComponent.uiType === FieldType.Select;
+    const hasDisplayableValue =
+      leafComponent.uiType === FieldType.Number
+        ? isFiniteNumericValue(value)
+        : value !== '';
+    const showBadge = !!badge && isBadgeableType && hasDisplayableValue;
+    displayValue = showBadge ? `${value} ${badge}` : String(value);
   }
 
   const uniqueKey = `${parentPrefix || ''}:${primaryPath || componentKey}`;
