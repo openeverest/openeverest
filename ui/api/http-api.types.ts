@@ -7861,7 +7861,10 @@ export interface components {
         };
     };
     responses: never;
-    parameters: never;
+    parameters: {
+        /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+        DryRun: "All";
+    };
     requestBodies: never;
     headers: {
         /**
@@ -8835,7 +8838,10 @@ export interface operations {
     };
     createInstance: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -8976,7 +8982,10 @@ export interface operations {
     };
     updateInstance: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -9133,7 +9142,10 @@ export interface operations {
     };
     patchInstance: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */

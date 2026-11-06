@@ -20,9 +20,11 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"regexp"
 	"slices"
 	"strings"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/labstack/echo/v4"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
@@ -136,6 +138,36 @@ func kubernetesWarnings(next echo.HandlerFunc) echo.HandlerFunc {
 			}
 		})
 		return next(c)
+	}
+}
+
+var pathParam = regexp.MustCompile(`\{([^}]+)\}`)
+
+// dryRun runs the operations whose spec declares the dryRun query parameter with a dry-run context,
+// and rejects the parameter on any other operation, which would otherwise persist the write.
+func dryRun(swagger *openapi3.T, basePath string) echo.MiddlewareFunc {
+	supported := make(map[string]bool)
+	for path, item := range swagger.Paths.Map() {
+		for method, op := range item.Operations() {
+			if op.Parameters.GetByInAndName(openapi3.ParameterInQuery, "dryRun") != nil {
+				supported[method+" "+basePath+pathParam.ReplaceAllString(path, ":$1")] = true
+			}
+		}
+	}
+
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if !c.QueryParams().Has("dryRun") {
+				return next(c)
+			}
+			if !supported[c.Request().Method+" "+c.Path()] {
+				return c.JSON(http.StatusBadRequest, api.Error{
+					Message: new("dryRun is not supported by this endpoint"),
+				})
+			}
+			c.SetRequest(c.Request().WithContext(kubernetes.WithDryRun(c.Request().Context())))
+			return next(c)
+		}
 	}
 }
 

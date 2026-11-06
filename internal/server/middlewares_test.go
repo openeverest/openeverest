@@ -43,6 +43,7 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
@@ -245,6 +246,69 @@ func TestKubernetesWarnings(t *testing.T) {
 
 			assert.Equal(t, tt.wantCode, rec.Code)
 			assert.Equal(t, tt.wantHeaders, rec.Header().Values("Warning"))
+		})
+	}
+}
+
+func TestDryRun(t *testing.T) {
+	t.Parallel()
+
+	swagger, err := api.GetSpec()
+	require.NoError(t, err)
+
+	tests := []struct {
+		name       string
+		method     string
+		target     string
+		wantCode   int
+		wantDryRun bool
+	}{
+		{
+			name:       "operation declaring dryRun",
+			method:     http.MethodPost,
+			target:     "/v1/clusters/main/namespaces/ns/instances?dryRun=All",
+			wantCode:   http.StatusOK,
+			wantDryRun: true,
+		},
+		{
+			name:     "operation declaring dryRun, called without it",
+			method:   http.MethodPatch,
+			target:   "/v1/clusters/main/namespaces/ns/instances/db",
+			wantCode: http.StatusOK,
+		},
+		{
+			name:     "operation not declaring dryRun",
+			method:   http.MethodDelete,
+			target:   "/v1/clusters/main/namespaces/ns/instances/db?dryRun=All",
+			wantCode: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var gotDryRun *bool
+			handler := func(c echo.Context) error {
+				gotDryRun = new(kubernetes.IsDryRun(c.Request().Context()))
+				return c.NoContent(http.StatusOK)
+			}
+			e := echo.New()
+			g := e.Group("/v1", dryRun(swagger, "/v1"))
+			g.POST("/clusters/:cluster/namespaces/:namespace/instances", handler)
+			g.PATCH("/clusters/:cluster/namespaces/:namespace/instances/:instance", handler)
+			g.DELETE("/clusters/:cluster/namespaces/:namespace/instances/:instance", handler)
+
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), tt.method, tt.target, nil))
+
+			assert.Equal(t, tt.wantCode, rec.Code)
+			if tt.wantCode != http.StatusOK {
+				assert.Nil(t, gotDryRun, "the handler must not run")
+				return
+			}
+			require.NotNil(t, gotDryRun)
+			assert.Equal(t, tt.wantDryRun, *gotDryRun)
 		})
 	}
 }
