@@ -293,6 +293,7 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 			AuthenticationFunc: openapi3filter.NoopAuthenticationFunc,
 		},
 	}))
+	apiGroup.Use(dryRun(swagger, basePath)) //nolint:contextcheck // the middleware uses the per-request context by design
 
 	// Setup and use JWT middleware.
 	jwtMW, err := e.jwtMiddleWare(ctx)
