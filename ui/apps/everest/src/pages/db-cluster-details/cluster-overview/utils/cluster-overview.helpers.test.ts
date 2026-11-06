@@ -37,7 +37,13 @@ const numberField = (
 const quantityField = (
   path: string,
   label: string,
-  fieldParams: { unit?: string; unitLabel?: string } = {}
+  fieldParams: {
+    unit?: Extract<
+      Component,
+      { uiType: FieldType.Quantity }
+    >['fieldParams']['unit'];
+    unitLabel?: string;
+  } = {}
 ): Component => ({
   uiType: FieldType.Quantity,
   path,

@@ -17,6 +17,7 @@ import { TextFieldProps, SelectProps, SwitchProps } from '@mui/material';
 import { FieldType } from 'components/ui-generator/ui-generator.types';
 import { MappedFieldProps } from './get-mapped-params';
 import { coerceNumberInputValue } from './coerce-number-input-value';
+import { isNumberLikeField } from './is-number-like-field';
 
 export const buildFieldProps = (
   uiType: FieldType,
@@ -50,13 +51,10 @@ export const buildFieldProps = (
     isDisabled
   );
 
-  const isNumericInput =
-    uiType === FieldType.Number || uiType === FieldType.Quantity;
-
   return {
     ...(isDisabled ? { disabled: true } : {}),
     ...restMappedProps,
-    ...(isNumericInput
+    ...(isNumberLikeField(uiType)
       ? {
           controllerProps: {
             ...(restMappedProps.controllerProps as Record<string, unknown>),
@@ -103,7 +101,7 @@ const buildTextFieldProps = (
     ...(isDisabled ? { disabled: true } : {}),
   };
 
-  if (badge && (uiType === FieldType.Number || uiType === FieldType.Quantity)) {
+  if (badge && isNumberLikeField(uiType)) {
     return {
       ...base,
       InputProps: {

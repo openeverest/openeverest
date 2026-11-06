@@ -33,7 +33,7 @@ export type MappedFieldProps = {
   defaultValue?: unknown;
   options?: { label: string; value: string }[];
   helperText?: string;
-  step?: number;
+  step?: number | 'any';
 } & Record<string, unknown>;
 
 // Helper to filter out undefined values from an object
@@ -91,7 +91,7 @@ const mapNumberFieldParams = (
     if (validation?.int) {
       return 1;
     }
-    if (step !== undefined) {
+    if (typeof step === 'number') {
       return step;
     }
     return 0.000001;
@@ -138,15 +138,28 @@ const mapQuantityFieldParams = (
   fieldParams: QuantityFieldParams,
   validation?: ValidationMap[FieldType.Quantity]
 ) => {
-  const { unit, unitLabel, ...rest } = fieldParams;
+  const { unit, unitLabel, step = 'any', ...rest } = fieldParams;
 
-  return mapNumberFieldParams(
+  const mapped = mapNumberFieldParams(
     {
       ...rest,
+      ...(typeof step === 'number' ? { step } : {}),
       badge: unitLabel ?? unit,
     },
     validation
   );
+
+  const textFieldProps = mapped.textFieldProps ?? {};
+  return {
+    ...mapped,
+    textFieldProps: {
+      ...textFieldProps,
+      inputProps: {
+        ...textFieldProps.inputProps,
+        step,
+      },
+    },
+  };
 };
 
 const mapSelectFieldParams = (fieldParams: SelectFieldParams) => {

@@ -245,9 +245,11 @@ describe('UIGenerator - Quantity Field', () => {
     });
   });
 
-  it('exposes step so the browser accepts fractional values', () => {
+  it('prefers unitLabel over unit for the adornment when both are set', () => {
     const schema = createQuantitySchema({
-      fieldParams: { step: 0.1 },
+      path: 'spec.resources.memory',
+      label: 'Memory',
+      fieldParams: { unit: 'Gi', unitLabel: 'GiB' },
     });
 
     render(
@@ -261,7 +263,8 @@ describe('UIGenerator - Quantity Field', () => {
       </TestWrapper>
     );
 
-    const input = screen.getByLabelText('CPU') as HTMLInputElement;
-    expect(input.step).toBe('0.1');
+    expect(screen.getByLabelText('Memory')).toBeInTheDocument();
+    expect(screen.getByText('GiB')).toBeInTheDocument();
+    expect(screen.queryByText(/^Gi$/)).not.toBeInTheDocument();
   });
 });

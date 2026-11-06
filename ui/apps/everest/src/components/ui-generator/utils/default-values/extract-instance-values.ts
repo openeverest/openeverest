@@ -88,8 +88,6 @@ const extractFlat = (
     if (sourcePath) {
       const instanceValue = getByPath(instance, sourcePath);
       if (instanceValue !== undefined) {
-        // Quantity: API quantity → number in `unit` (or cores/bytes).
-        // Number + badgeToApi: strip / convert badge (unchanged).
         if (component.uiType === FieldType.Quantity) {
           result[fieldId] = readQuantity(
             instanceValue,
