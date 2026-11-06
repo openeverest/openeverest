@@ -55,6 +55,16 @@ How the `inside` flag passes to children:
 - Two fields inside the same group that write the same path do not overlap each other.
 - A toggleable inside a group that matched a rule is judged as if that outer group were plain.
 
+## Gate rules
+
+A component with `gate: true` is hoisted to become the toggleable group's heading switch, persisting its boolean state.
+
+| Rule | Condition |
+|------|-----------|
+| `toggleable-gate-outside` | component has `gate: true` but is placed outside a toggleable group |
+| `toggleable-gate-non-toggle` | component has `gate: true` but its `uiType` is not `toggle` |
+| `toggleable-gate-duplicate` | a toggleable group contains more than one component with `gate: true` |
+
 ## CEL rule: `toggleable-cel-unguarded`
 
 While a valid toggleable `g` is off, the UI evaluates CEL with every `p ∈ P(g)` removed. A CEL rule that reads `p` without checking it first then fails with a CEL error and blocks submit. Rules on fields inside `g` are skipped while it is off.

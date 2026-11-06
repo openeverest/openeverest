@@ -53,7 +53,7 @@ export const buildShapeFromComponents = (
     // Handle groups recursively
     if (item.uiType === 'group' && 'components' in item) {
       const toggleable = getToggleableMeta(item);
-      if (toggleable) {
+      if (toggleable && !toggleable.gatePath) {
         schemaShape[TOGGLEABLE_SWITCHES_KEY] = toggleableSwitchesSchema;
       }
       const groupResult = buildShapeFromComponents(
@@ -127,18 +127,7 @@ export const buildShapeFromComponents = (
       fieldSchema = baseSchema.optional();
     }
 
-    if (activeSwitch) {
-      toggleableFieldRules.push({
-        switchName: activeSwitch,
-        fieldId,
-        schema: fieldSchema,
-      });
-      // Still transforms valid values, but never fails on its own.
-      schemaShape[fieldId] = fieldSchema.or(z.any());
-      return;
-    }
-
-    if (activeSwitch) {
+    if (activeSwitch && fieldId !== activeSwitch) {
       toggleableFieldRules.push({
         switchName: activeSwitch,
         fieldId,

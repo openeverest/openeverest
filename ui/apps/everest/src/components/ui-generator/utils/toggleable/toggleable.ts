@@ -26,7 +26,11 @@ import {
   isSameOrNestedPath,
 } from '../object-path/object-path';
 import { walkLeafComponents } from '../schema-walker/schema-walker';
-import { getComponentTargetPaths } from '../preprocess/normalized-component';
+import {
+  getComponentSourcePath,
+  getComponentTargetPaths,
+} from '../preprocess/normalized-component';
+import { generateFieldId } from '../component-renderer/generate-field-id';
 import { getWidgetTargetPaths } from '../widget-targets';
 
 // Reserved root form key holding every toggleable group's form-only switch.
@@ -123,25 +127,58 @@ export const resolveToggleable = (
     return { degradeReason: 'unsafe-key', childScope: scope };
   }
 
-  const childPaths = getGroupPaths(item);
-  if (childPaths.length === 0) {
+  const allGroupPaths = getGroupPaths(item);
+  if (allGroupPaths.length === 0) {
     return { degradeReason: 'no-fields', childScope: scope };
   }
   if (scope.insideToggleable) {
     return { degradeReason: 'nested', childScope: scope };
   }
-  const ownUsage = countPaths(childPaths);
-  const overlappingPath = childPaths.find(
+  const ownUsage = countPaths(allGroupPaths);
+  const overlappingPath = allGroupPaths.find(
     (path) => (scope.pathUsage.get(path) ?? 0) > (ownUsage.get(path) ?? 0)
   );
   if (overlappingPath) {
     return { degradeReason: 'overlap', overlappingPath, childScope: scope };
   }
 
+  const gateEntry = Object.entries(item.components).find(
+    ([_, comp]) => 'uiType' in comp && (comp as Component).gate === true
+  );
+
+  let switchName: string;
+  let childPaths: string[];
+  let gatePath: string | undefined;
+  let gateKey: string | undefined;
+  let gateLabel: string | undefined;
+  let disabled: boolean | undefined;
+
+  if (gateEntry) {
+    const [key, comp] = gateEntry as [string, Component];
+    gateKey = key;
+    gatePath = getComponentSourcePath(comp) ?? generateFieldId(comp, key);
+    switchName = gatePath;
+    const gateTargetPaths = new Set(getComponentTargetPaths(comp));
+    childPaths = allGroupPaths.filter((p) => !gateTargetPaths.has(p));
+    gateLabel = comp.fieldParams?.label;
+    disabled = Boolean(
+      comp.fieldParams?.disabled ||
+      (comp.fieldParams as Record<string, unknown>)?.readOnly ||
+      (comp as { disabled?: boolean }).disabled
+    );
+  } else {
+    switchName = getToggleableSwitchName(groupKeyPath);
+    childPaths = allGroupPaths;
+  }
+
   return {
     meta: {
-      switchName: getToggleableSwitchName(groupKeyPath),
+      switchName,
       childPaths,
+      gatePath,
+      gateKey,
+      gateLabel,
+      disabled,
     },
     childScope: { ...scope, insideToggleable: true },
   };
@@ -176,8 +213,15 @@ export const collectToggleableMetas = (
 export const isToggleableOnInInstance = (
   meta: ToggleableMeta,
   instance: Record<string, unknown>
-): boolean =>
-  meta.childPaths.some((path) => !isEmptyFieldValue(getByPath(instance, path)));
+): boolean => {
+  if (meta.gatePath) {
+    const gateVal = getByPath(instance, meta.gatePath);
+    if (typeof gateVal === 'boolean') {
+      return gateVal;
+    }
+  }
+  return meta.childPaths.some((path) => !isEmptyFieldValue(getByPath(instance, path)));
+};
 
 export const isToggleableOn = (
   formValues: Record<string, unknown>,
@@ -222,3 +266,5 @@ export const getInactiveToggleablePaths = (
 export const toggleableSwitchesSchema = z
   .record(z.string(), z.boolean())
   .optional();
+
+export { validateGateComponents } from './validate-gate-components';

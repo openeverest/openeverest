@@ -219,6 +219,70 @@ describe('SectionEditModal toggleable group', () => {
     // No `monitoring: {}` left behind either.
     expect(mutate.mock.calls[0][0].spec).toEqual({ other: 'kept' });
   });
+  it('persists the gate switch false value when turned off on edit (#3290)', async () => {
+    mutate.mockClear();
+    const { sections } = preprocessSchema({
+      replicaSet: {
+        sections: {
+          advanced: {
+            label: 'Advanced',
+            components: {
+              monitoring: {
+                uiType: 'group',
+                groupType: GroupType.Toggleable,
+                label: 'Monitoring',
+                components: {
+                  enabled: {
+                    uiType: FieldType.Toggle,
+                    path: 'spec.monitoring.enabled',
+                    gate: true,
+                    fieldParams: { label: 'Enable monitoring' },
+                  },
+                  interval: makeNumber('spec.monitoring.interval', 'Interval'),
+                },
+              },
+            },
+          },
+        },
+      },
+    }).replicaSet;
+
+    const instance = {
+      metadata: { name: 'test-db', namespace: 'ns' },
+      spec: {
+        monitoring: { enabled: true, interval: 30 },
+        other: 'kept',
+      },
+    } as unknown as Instance;
+
+    render(
+      <TestWrapper>
+        <SectionEditModal
+          sectionKey="advanced"
+          sections={sections}
+          instance={instance}
+          provider={{ spec: {} } as Provider}
+          namespace="ns"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+        />
+      </TestWrapper>
+    );
+
+    const toggle = screen.getByRole('switch', { name: 'Enable Monitoring' });
+    expect(toggle).toBeChecked();
+
+    fireEvent.click(toggle);
+    const saveButton = screen.getByTestId('form-dialog-save');
+    await waitFor(() => expect(saveButton).toBeEnabled());
+    fireEvent.click(saveButton);
+
+    await waitFor(() => expect(mutate).toHaveBeenCalled());
+    expect(mutate.mock.calls[0][0].spec).toEqual({
+      monitoring: { enabled: false },
+      other: 'kept',
+    });
+  });
 });
 
 describe('SectionEditModal dataSource field disabled on edit', () => {

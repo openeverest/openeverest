@@ -31,6 +31,7 @@ import {
   ToggleableScope,
   createToggleableScope,
   resolveToggleable,
+  validateGateComponents,
 } from '../toggleable/toggleable';
 import { findUnguardedCelReferences } from '../toggleable/find-unguarded-cel-references';
 import { withWidgetTargets } from '../widget-targets';
@@ -71,16 +72,24 @@ const preprocessComponent = (
         `[UISchema] Toggleable group "${keyPath.join('.')}" ${warning}; rendering it as bordered.`
       );
     }
+        const preprocessedComponents = preprocessComponents(
+      item.components,
+      keyPath,
+      resolution.childScope,
+      providerObject
+    );
+
+    const keys = item.componentsOrder ?? Object.keys(item.components);
+    const componentsOrder = resolution.meta?.gateKey
+      ? keys.filter((key) => key !== resolution.meta!.gateKey)
+      : item.componentsOrder;
+
     return {
       ...item,
       ...(resolution.degradeReason && { groupType: GroupType.Bordered }),
       _toggleable: resolution.meta,
-      components: preprocessComponents(
-        item.components,
-        keyPath,
-        resolution.childScope,
-        providerObject
-      ),
+      componentsOrder,
+      components: preprocessedComponents,
     };
   }
 
@@ -169,6 +178,7 @@ export const preprocessSchema = (
   providerObject?: Provider,
   formMode?: FormMode
 ): TopologyUISchemas => {
+  validateGateComponents(schema);
   return Object.fromEntries(
     Object.entries(schema).map(([topologyKey, topology]) => {
       if (
