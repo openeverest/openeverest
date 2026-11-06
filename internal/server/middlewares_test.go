@@ -27,9 +27,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"testing"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/labstack/echo/v4"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/stretchr/testify/assert"
@@ -312,4 +314,75 @@ func TestDryRun(t *testing.T) {
 			assert.Equal(t, tt.wantDryRun, *gotDryRun)
 		})
 	}
+}
+
+// TestDryRunDecidedForEveryWrite makes every write either declare the dryRun
+// parameter or be listed as going without it, so a new write makes the choice.
+func TestDryRunDecidedForEveryWrite(t *testing.T) {
+	t.Parallel()
+
+	// Operation IDs of the writes without dryRun.
+	withoutDryRun := map[string]bool{
+		// Session tokens, not stored resources.
+		"CreateAuthToken": true,
+		"RevokeAuthToken": true,
+
+		"CreateBackup":                true,
+		"CreateBackupImport":          true,
+		"CreateBackupStorage":         true,
+		"CreateConfigMap":             true,
+		"CreateInstancePreset":        true,
+		"CreateMonitoringConfig":      true,
+		"CreateMonitoringDestination": true,
+		"CreateRestore":               true,
+		"CreateSecret":                true,
+		"DeleteBackup":                true,
+		"DeleteBackupImport":          true,
+		"DeleteBackupStorage":         true,
+		"DeleteConfigMap":             true,
+		"DeleteInstance":              true,
+		"DeleteInstancePreset":        true,
+		"DeleteMonitoringConfig":      true,
+		"DeleteMonitoringDestination": true,
+		"DeleteRestore":               true,
+		"DeleteSecret":                true,
+		"PatchBackupStorage":          true,
+		"UpdateBackupStorage":         true,
+		"UpdateInstancePreset":        true,
+		"UpdateMonitoringConfig":      true,
+		"UpdateMonitoringDestination": true,
+	}
+
+	swagger, err := api.GetSpec()
+	require.NoError(t, err)
+
+	var undecided, contradicted, unknown []string
+	writes := make(map[string]bool)
+	for _, item := range swagger.Paths.Map() {
+		for method, op := range item.Operations() {
+			if method == http.MethodGet {
+				continue
+			}
+			writes[op.OperationID] = true
+			declared := op.Parameters.GetByInAndName(openapi3.ParameterInQuery, "dryRun") != nil
+			switch {
+			case !declared && !withoutDryRun[op.OperationID]:
+				undecided = append(undecided, op.OperationID)
+			case declared && withoutDryRun[op.OperationID]:
+				contradicted = append(contradicted, op.OperationID)
+			}
+		}
+	}
+	for id := range withoutDryRun {
+		if !writes[id] {
+			unknown = append(unknown, id)
+		}
+	}
+	slices.Sort(undecided)
+	slices.Sort(contradicted)
+	slices.Sort(unknown)
+
+	assert.Empty(t, undecided, "writes that neither declare dryRun nor are listed in withoutDryRun")
+	assert.Empty(t, contradicted, "writes listed in withoutDryRun that declare dryRun")
+	assert.Empty(t, unknown, "withoutDryRun entries that name no write")
 }
