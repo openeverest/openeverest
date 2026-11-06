@@ -258,13 +258,19 @@ type MetricsEndpoint struct {
 	Params map[string][]string `json:"params,omitempty"`
 }
 
-// MetricsEndpointTLS describes how to verify an https endpoint.
+// MetricsEndpointTLS describes how to verify an https endpoint and, for an
+// endpoint that requires mutual TLS, the client certificate to present.
 type MetricsEndpointTLS struct {
 	common.TLSConfig `json:",inline"`
 
 	// ServerName overrides the expected server name.
 	// +optional
 	ServerName string `json:"serverName,omitempty"`
+	// ClientCertificateSecretRef references a kubernetes.io/tls Secret
+	// (keys tls.crt and tls.key) the scraper presents as a client
+	// certificate, for an endpoint that requires mutual TLS.
+	// +optional
+	ClientCertificateSecretRef *common.SecretRef `json:"clientCertificateSecretRef,omitempty"`
 }
 
 // MetricsEndpointAuth names the credential profile a scraper authenticates with.

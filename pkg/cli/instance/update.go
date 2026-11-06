@@ -171,7 +171,7 @@ func (iu *Updater) patch(ctx context.Context, c *client.ClientWithResponses, opt
 	case http.StatusNotFound:
 		return nil, fmt.Errorf("instance %q not found in namespace %q", opts.Name, opts.Namespace)
 	default:
-		if msg, ok := clienterr.Message(resp.JSON415, resp.JSONDefault); ok {
+		if msg, ok := clienterr.Message(resp.JSON415, clienterr.FromAPIError(resp.JSON422), resp.JSONDefault); ok {
 			return nil, fmt.Errorf("server error: %s", msg)
 		}
 		return nil, fmt.Errorf("unexpected response updating instance %q: %s", opts.Name, resp.Status())

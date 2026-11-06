@@ -117,6 +117,9 @@ Copy file dev/config.yaml.example to dev/config.yaml and:
 - Set the needed DB namespaces that will be created automatically.
 - (Mostly for FE devs) If you want to disable the Tilt frontend build, save time and avoid FE rebuilds (and, therefore, BE rebuilds), keeping the dev flow of using Vite, set `enableFrontendBuild: false`
 - Set `enablePluginHub: false` to skip deploying the OpenEverest Plugin Hub.
+- Set `enablePluginHubInstaller: false` to keep the Plugin Hub browse-only: this disables
+  one-click install/upgrade/uninstall of plugins from the UI (on by default) and drops the
+  plugin-hub cluster-admin binding.
 - Set `enableMonitoringStack: true` to also self-install the VictoriaMetrics operator
   and kube-state-metrics in the dev cluster (off by default), so Everest's
   MonitoringConfig/VMAgent flow has something to scrape. This mirrors the manual
