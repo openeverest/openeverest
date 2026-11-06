@@ -21,7 +21,10 @@ import { buildSectionZodSchema } from 'components/ui-generator/utils/schema-buil
 import { extractInstanceValues } from 'components/ui-generator/utils/default-values/extract-instance-values';
 import { applyModeOverrides } from 'components/ui-generator/utils/preprocess/apply-mode-overrides';
 import { mergeSectionEdit } from 'components/ui-generator/utils/postprocess/merge-section-edit';
-import { deepClone } from 'components/ui-generator/utils/object-path/object-path';
+import {
+  deepClone,
+  deepMerge,
+} from 'components/ui-generator/utils/object-path/object-path';
 import {
   extractBadgeMappingsFromSections,
   stripBadgesFromData,
@@ -55,25 +58,6 @@ const SectionEditModal = ({
 
   const section = editSections[sectionKey];
 
-  // Strip badge suffixes (e.g. "25Gi" → 25) from the original instance so that
-  // CEL numeric comparisons like `size >= original.size` work correctly.
-  const originalDataForCel = useMemo(() => {
-    const badgeMappings = extractBadgeMappingsFromSections(editSections);
-    return stripBadgesFromData(
-      instance as unknown as Record<string, unknown>,
-      badgeMappings
-    );
-  }, [editSections, instance]);
-
-  const { schema: zodSchema, celDependencyGroups } = useMemo(
-    () =>
-      buildSectionZodSchema(sectionKey, editSections, {
-        formMode: FormMode.Edit,
-        originalData: originalDataForCel,
-      }),
-    [sectionKey, editSections, originalDataForCel]
-  );
-
   const defaultValues = useMemo(
     () =>
       extractInstanceValues(
@@ -82,6 +66,27 @@ const SectionEditModal = ({
         FormMode.Edit
       ),
     [editSections, instance]
+  );
+
+  // CEL compares the form with `original`, so both are read the same way
+  // ("10240Mi" → 10, "500m" → 0.5). Legacy badgeToApi fields still read as
+  // strings ("10"), hence the badge strip on top.
+  const originalDataForCel = useMemo(
+    () =>
+      stripBadgesFromData(
+        deepMerge(instance as unknown as Record<string, unknown>, defaultValues),
+        extractBadgeMappingsFromSections(editSections)
+      ),
+    [instance, defaultValues, editSections]
+  );
+
+  const { schema: zodSchema, celDependencyGroups } = useMemo(
+    () =>
+      buildSectionZodSchema(sectionKey, editSections, {
+        formMode: FormMode.Edit,
+        originalData: originalDataForCel,
+      }),
+    [sectionKey, editSections, originalDataForCel]
   );
 
   const { mutate } = useUpdateDbInstanceWithConflictRetry(instance, {
