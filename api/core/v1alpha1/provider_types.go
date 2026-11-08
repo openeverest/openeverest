@@ -97,7 +97,22 @@ type VersionBundle struct {
 	Components map[string]string `json:"components,omitempty"`
 }
 
+// KindPattern validates every component kind. Kubebuilder markers cannot
+// reference constants, so the Pattern markers on ComponentType.Kind,
+// MetricsEndpoint.Kind, ConnectionEndpoint.Kind and the items of the
+// MonitoringClass requires.kinds must stay identical to it.
+const KindPattern = `^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
+
 type ComponentType struct {
+	// Kind is the shared classification of the software the component type
+	// runs (e.g. "mongodb", "mysql", "haproxy"), matched by monitoring class
+	// filters and set on the component's published monitoring endpoints.
+	// Databases use OpenTelemetry db.system.name values; unknown kinds are
+	// allowed. A type without a kind matches no kind filter.
+	// +kubebuilder:validation:Pattern=`^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
+	// +optional
+	Kind string `json:"kind,omitempty"`
+
 	// DefaultVersion names the entry in Versions used when neither the
 	// Instance nor a version bundle selects one.
 	// +optional

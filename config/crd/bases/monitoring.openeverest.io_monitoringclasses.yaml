@@ -106,6 +106,18 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+              controllerName:
+                description: |-
+                  ControllerName is the controller that claims the class and sets its
+                  Accepted condition, as GatewayClass.spec.controllerName: a
+                  domain-qualified path (e.g. "openeverest.io/monitoring-pmm"). One
+                  controller may claim several classes. Immutable.
+                maxLength: 253
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)+/[a-z0-9]([-a-z0-9._]*[a-z0-9])?$
+                type: string
+                x-kubernetes-validations:
+                - message: spec.controllerName is immutable
+                  rule: self == oldSelf
               description:
                 description: Description describes the monitoring technology.
                 type: string
@@ -167,6 +179,17 @@ spec:
                           Connection requires the component to accept native-protocol
                           connections from monitoring agents (connection: Supported).
                         type: boolean
+                      kinds:
+                        description: |-
+                          Kinds, when set, makes only the components whose type's kind
+                          (Provider.spec.componentTypes.<type>.kind) is listed eligible. Empty
+                          means any kind.
+                        items:
+                          pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
+                          type: string
+                        maxItems: 32
+                        type: array
+                        x-kubernetes-list-type: set
                       metrics:
                         description: |-
                           Metrics requires the component to expose OpenMetrics
@@ -229,6 +252,7 @@ spec:
                 x-kubernetes-preserve-unknown-fields: true
             required:
             - authModes
+            - controllerName
             type: object
             x-kubernetes-validations:
             - message: a MonitoringClass must declare at least one fulfilment block
