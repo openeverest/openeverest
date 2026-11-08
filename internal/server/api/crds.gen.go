@@ -4482,7 +4482,7 @@ type InstanceConnectionDetails struct {
 	// Port Port is the port number to connect to
 	Port *string `json:"port,omitempty"`
 
-	// Provider Provider is the provider that manages this instance
+	// Provider Provider is the name of the Provider that manages this instance, as in the Instance's spec.providerRef.name. The provider-runtime reconciler writes it; a value set by the provider is replaced.
 	Provider *string `json:"provider,omitempty"`
 
 	// Type Type is the type of database (e.g., mongodb, postgresql, mysql)

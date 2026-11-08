@@ -5549,7 +5549,9 @@ components:
           description: Port is the port number to connect to
           type: string
         provider:
-          description: Provider is the provider that manages this instance
+          description: Provider is the name of the Provider that manages this instance,
+            as in the Instance's spec.providerRef.name. The provider-runtime reconciler
+            writes it; a value set by the provider is replaced.
           type: string
         type:
           description: Type is the type of database (e.g., mongodb, postgresql, mysql)

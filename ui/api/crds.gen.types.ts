@@ -3725,7 +3725,7 @@ export interface components {
             password?: string;
             /** @description Port is the port number to connect to */
             port?: string;
-            /** @description Provider is the provider that manages this instance */
+            /** @description Provider is the name of the Provider that manages this instance, as in the Instance's spec.providerRef.name. The provider-runtime reconciler writes it; a value set by the provider is replaced. */
             provider?: string;
             /** @description Type is the type of database (e.g., mongodb, postgresql, mysql) */
             type?: string;
