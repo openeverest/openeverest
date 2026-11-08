@@ -145,3 +145,8 @@ spec:
       && self.parameters.endpointURL.startsWith(''http://''))'
     message: tls applies to https endpoints only, and endpointURL is http
     reason: InvalidParameters
+  - expression: '!has(self.parameters) || !has(self.parameters.endpointURL) || (isURL(self.parameters.endpointURL)
+      && (url(self.parameters.endpointURL).getPort().size() == 0 || (int(url(self.parameters.endpointURL).getPort())
+      >= 1 && int(url(self.parameters.endpointURL).getPort()) <= 65535)))'
+    message: endpointURL must be a URL whose port, if any, is between 1 and 65535
+    reason: InvalidParameters

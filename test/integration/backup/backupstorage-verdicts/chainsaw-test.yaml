@@ -1,0 +1,186 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: backupstorage-verdicts
+spec:
+  description: |
+    Core publishes BackupClass.status.providers and, once the class is
+    claimed, a verdict for it on every BackupStorage, including storages
+    created before the class.
+  timeouts:
+    apply: 10s
+    assert: 30s
+    delete: 30s
+  steps:
+    - name: storages-before-the-class
+      try:
+        - apply:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: bsv-credentials
+              type: Opaque
+              stringData:
+                AWS_ACCESS_KEY_ID: test-access-key
+                AWS_SECRET_ACCESS_KEY: test-secret-key
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bsv-aws
+              spec:
+                backupStorageClassRef:
+                  name: s3
+                location:
+                  objectStore:
+                    bucket: test-bucket
+                parameters:
+                  region: us-east-1
+                  endpointURL: https://s3.amazonaws.com
+                authentication:
+                  mode: AccessKey
+                  credentialsSecretRef:
+                    name: bsv-credentials
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bsv-gcs
+              spec:
+                backupStorageClassRef:
+                  name: s3
+                location:
+                  objectStore:
+                    bucket: test-bucket
+                parameters:
+                  region: auto
+                  endpointURL: https://storage.googleapis.com
+                  implementation: gcs
+                authentication:
+                  mode: AccessKey
+                  credentialsSecretRef:
+                    name: bsv-credentials
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bsv-gcs
+              status:
+                "(conditions[?type == 'Accepted'])":
+                  - status: "True"
+    - name: unclaimed-class-is-pending
+      try:
+        - apply:
+            resource:
+              apiVersion: core.openeverest.io/v1alpha1
+              kind: Provider
+              metadata:
+                name: bsv-provider
+                labels:
+                  app.kubernetes.io/managed-by: openeverest
+              spec:
+                componentTypes:
+                  engine:
+                    defaultVersion: 1.0.0
+                    versions:
+                      - image: fake/fake:1.0.0
+                        version: 1.0.0
+                components:
+                  engine:
+                    type: engine
+                topologies:
+                  replicaSet:
+                    components:
+                      engine:
+                        optional: false
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupClass
+              metadata:
+                name: bsv-no-gcs
+              spec:
+                executionMode: ProviderManaged
+                providerManaged:
+                  providerRef:
+                    name: bsv-provider
+                backupStorageClasses:
+                  - name: s3
+                    authModes: [AccessKey]
+                    parametersSchema:
+                      openAPIV3Schema:
+                        type: object
+                        properties:
+                          region: {type: string}
+                          endpointURL: {type: string}
+                          forcePathStyle: {type: boolean}
+                          implementation:
+                            type: string
+                            enum: [aws, minio, ceph, other]
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupClass
+              metadata:
+                name: bsv-no-gcs
+              status:
+                "(conditions[?type == 'Accepted'])":
+                  - status: Unknown
+                    reason: Pending
+                providers:
+                  - name: bsv-provider
+                    compatibility: Pending
+                    reason: ClassNotAccepted
+      catch:
+        - script:
+            content: kubectl get backupclass/bsv-no-gcs -o yaml
+    - name: claimed-class-gets-verdicts
+      try:
+        # What the provider's runtime does when it claims the class.
+        - script:
+            content: |
+              kubectl patch backupclass bsv-no-gcs --subresource=status --type=merge -p '{"status":{"conditions":[{"type":"Accepted","status":"True","reason":"Accepted","message":"claimed by the test","observedGeneration":1,"lastTransitionTime":"2026-01-01T00:00:00Z"}]}}'
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupClass
+              metadata:
+                name: bsv-no-gcs
+              status:
+                providers:
+                  - name: bsv-provider
+                    compatibility: Compatible
+                    classGeneration: 1
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bsv-aws
+              status:
+                "(backupClasses[?name == 'bsv-no-gcs'])":
+                  - compatibility: Compatible
+                    observed:
+                      classGeneration: 1
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bsv-gcs
+              status:
+                "(backupClasses[?name == 'bsv-no-gcs'])":
+                  - compatibility: Incompatible
+                    reason: ParameterUnsupported
+      catch:
+        - script:
+            content: kubectl get backupclass/bsv-no-gcs -o yaml; kubectl get backupstorage -n $NAMESPACE -o yaml
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
