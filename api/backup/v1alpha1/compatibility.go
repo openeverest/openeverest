@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package backupstorageclasses
+package v1alpha1
 
 import (
 	"fmt"
@@ -20,41 +20,42 @@ import (
 	"slices"
 
 	"k8s.io/apimachinery/pkg/types"
-
-	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
-// Compatibility is whether a BackupClass can write to a BackupStorage.
-type Compatibility struct {
+// StorageCompatibility is whether a BackupClass can write to a
+// BackupStorage.
+//
+// +kubebuilder:object:generate=false
+type StorageCompatibility struct {
 	Compatible bool
 	// Reason and Message say why the class cannot write to the storage.
 	Reason  string
 	Message string
 }
 
-// Compatible reports whether class can write to storage: the class's
+// CanWriteTo reports whether the class can write to storage: its
 // backupStorageClasses must list the storage's BackupStorageClass, and that
 // entry the storage's authentication mode. It is the only place the rule
 // lives.
-func Compatible(class *backupv1alpha1.BackupClass, storage *backupv1alpha1.BackupStorage) Compatibility {
+func (c *BackupClass) CanWriteTo(storage *BackupStorage) StorageCompatibility {
 	storageClass := storage.Spec.BackupStorageClassRef.Name
-	entry := class.Spec.FindBackupStorageClass(storageClass)
+	entry := c.Spec.FindBackupStorageClass(storageClass)
 	if entry == nil {
-		return Compatibility{
-			Reason:  backupv1alpha1.ReasonBackupStorageClassUnsupported,
-			Message: fmt.Sprintf("BackupClass %q cannot write to BackupStorageClass %q", class.Name, storageClass),
+		return StorageCompatibility{
+			Reason:  ReasonBackupStorageClassUnsupported,
+			Message: fmt.Sprintf("BackupClass %q cannot write to BackupStorageClass %q", c.Name, storageClass),
 		}
 	}
 	mode := storage.Spec.Authentication.Mode
 	if !slices.Contains(entry.AuthModes, mode) {
-		return Compatibility{
-			Reason: backupv1alpha1.ReasonAuthModeUnsupported,
+		return StorageCompatibility{
+			Reason: ReasonAuthModeUnsupported,
 			Message: fmt.Sprintf("BackupClass %q supports BackupStorageClass %q only with authentication modes %v, not %q",
-				class.Name, storageClass, entry.AuthModes, mode,
+				c.Name, storageClass, entry.AuthModes, mode,
 			),
 		}
 	}
-	return Compatibility{Compatible: true}
+	return StorageCompatibility{Compatible: true}
 }
 
 // backupsSegment separates backups from anything else kept in the bucket, so
@@ -66,7 +67,7 @@ const backupsSegment = "backups"
 // <prefix>/backups/<namespace>/<instance>/<instance-uid>/<storage>, without
 // the prefix when it is empty. Every executor writes there, so Instances, and
 // storages of one Instance, that share a bucket never share a path.
-func BackupPath(location backupv1alpha1.BackupStorageLocation, namespace, instance string, uid types.UID, storage string) string {
+func BackupPath(location BackupStorageLocation, namespace, instance string, uid types.UID, storage string) string {
 	var root string
 	if location.ObjectStore != nil {
 		root = location.ObjectStore.Prefix

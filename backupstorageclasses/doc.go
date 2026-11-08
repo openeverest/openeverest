@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package backupstorageclasses holds the Go types of the built-in
-// BackupStorageClasses and the decoders that turn a BackupStorage into them.
+// Package backupstorageclasses holds what the contracts of BackupStorageClasses
+// share: the errors their decoders return, strict decoding of a
+// BackupStorage's parameters and endpoint URL parsing. Each contract is a
+// subpackage, such as s3 for the s3 class.
 //
-// The parametersSchema of every built-in class is generated from these types
-// (make gen writes config/backupstorageclasses), so the schema a storage is
-// validated against and the decoder executors read it with cannot drift.
-// Every field of a class parameter type is a connection parameter and carries
-// the +openeverest:param=connection marker; the location (bucket, prefix) and
-// transport trust (tls) are typed on BackupStorage instead.
+// A contract is used by every executor of its class, inside OpenEverest or
+// not, so these packages import nothing from the rest of OpenEverest: they
+// take a BackupStorage's location and parameters as plain values. A test
+// enforces it, so a contract can move to a repository of its own unchanged.
 package backupstorageclasses
