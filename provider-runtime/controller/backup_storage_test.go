@@ -31,7 +31,8 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/backupstorageclasses"
+	"github.com/openeverest/openeverest/v2/backupstorageclasses"
+	"github.com/openeverest/openeverest/v2/backupstorageclasses/s3"
 )
 
 func newBackupStorageTestContext(t *testing.T, objs ...client.Object) *Context {
@@ -68,7 +69,7 @@ func acceptedBackupStorage(tls *common.TLSConfig) *backupv1alpha1.BackupStorage 
 	return &backupv1alpha1.BackupStorage{
 		ObjectMeta: metav1.ObjectMeta{Name: "s3-prod", Namespace: "ns"},
 		Spec: backupv1alpha1.BackupStorageSpec{
-			BackupStorageClassRef: common.ObjectRef{Name: backupstorageclasses.ClassS3},
+			BackupStorageClassRef: common.ObjectRef{Name: s3.ClassName},
 			Location:              backupv1alpha1.BackupStorageLocation{ObjectStore: &backupv1alpha1.ObjectStoreLocation{Bucket: "backups"}},
 			TLS:                   tls,
 		},
