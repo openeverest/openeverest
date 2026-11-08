@@ -301,7 +301,7 @@ func (cr *CreateRunner) createSecrets(ctx context.Context, c *client.ClientWithR
 func (cr *CreateRunner) createBackupStorage(
 	ctx context.Context, c *client.ClientWithResponses, opts CreateOptions, bs client.BackupStorage, secrets []string,
 ) (*client.BackupStorage, error) {
-	resp, err := c.CreateBackupStorageWithResponse(ctx, opts.Cluster, opts.Namespace, bs)
+	resp, err := c.CreateBackupStorageWithResponse(ctx, opts.Cluster, opts.Namespace, nil, bs)
 	if err != nil || resp.StatusCode() != http.StatusCreated {
 		cr.deleteSecrets(ctx, c, opts, secrets)
 	}

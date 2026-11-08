@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import {expect, test} from '@fixtures'
+import {EVEREST_CI_NAMESPACE} from '@root/constants';
 import * as th from '@tests/utils/api';
 
 const testPrefix = 'bsv2'
@@ -290,6 +291,71 @@ test.describe.parallel('Backup Storage V2 tests', () => {
       const response = await th.getBackupStorageClassRaw(request, 'does-not-exist')
       expect(response.status()).toBe(404)
     });
+  })
+
+  test('dryRun: writes answer as they would and store nothing', async ({request}) => {
+    const name = th.limitedSuffixedName(testPrefix + '-dry-run'),
+      payload = th.getBackupStoragePayload(name),
+      secretName = th.backupStorageCredentialsSecretName(name),
+      namespaceURL = `/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}`
+
+    try {
+      await test.step('create stores neither the credentials Secret nor the storage', async () => {
+        const secretResponse = await request.post(`${namespaceURL}/secrets?dryRun=All`, {
+            data: th.getBackupStorageCredentialsPayload(secretName),
+          }),
+          storageResponse = await request.post(`${namespaceURL}/backup-storages?dryRun=All`, {data: payload})
+
+        await th.checkError(secretResponse)
+        await th.checkError(storageResponse)
+        expect((await storageResponse.json()).metadata.name).toBe(name)
+
+        expect((await th.getSecretRaw(request, secretName)).status()).toBe(404)
+        expect((await th.getBackupStorageRaw(request, name)).status()).toBe(404)
+      });
+
+      await th.generateBackupStorage(request, payload)
+
+      await test.step('patch answers with the patched storage and stores nothing', async () => {
+        const response = await request.patch(`${namespaceURL}/backup-storages/${name}?dryRun=All`, {
+          data: {spec: {parameters: {region: 'eu-west-1'}}},
+          headers: {'Content-Type': 'application/merge-patch+json'},
+        })
+
+        await th.checkError(response)
+        expect((await response.json()).spec.parameters.region).toBe('eu-west-1')
+
+        expect((await th.getBackupStorage(request, name)).spec.parameters.region).toBe(payload.spec.parameters.region)
+      });
+
+      await test.step('update answers with the updated storage and stores nothing', async () => {
+        await expect(async () => {
+          // The controller writes status, so every attempt starts from the current resourceVersion.
+          const current = await th.getBackupStorage(request, name),
+            response = await request.put(`${namespaceURL}/backup-storages/${name}?dryRun=All`, {
+              data: {...current, spec: {...current.spec, parameters: {...current.spec.parameters, region: 'eu-west-1'}}},
+            })
+
+          await th.checkError(response)
+          expect((await response.json()).spec.parameters.region).toBe('eu-west-1')
+        }).toPass({
+          intervals: [1000],
+          timeout: 30 * 1000,
+        })
+
+        expect((await th.getBackupStorage(request, name)).spec.parameters.region).toBe(payload.spec.parameters.region)
+      });
+
+      await test.step('delete removes nothing', async () => {
+        const response = await request.delete(`${namespaceURL}/backup-storages/${name}?dryRun=All`)
+
+        expect(response.status()).toBe(204)
+
+        expect((await th.getBackupStorage(request, name)).metadata.deletionTimestamp).toBeUndefined()
+      });
+    } finally {
+      await th.deleteBackupStorage(request, name)
+    }
   })
 
   test('get: backup storage not found', async ({request}) => {

@@ -2287,6 +2287,7 @@ paths:
           description: The namespace where the backup storage will be created
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '201':
           description: Successful operation
@@ -2484,6 +2485,7 @@ paths:
           description: The name of the backup storage
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '200':
           description: Successful operation
@@ -2569,6 +2571,7 @@ paths:
           description: The name of the backup storage
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '200':
           description: Successful operation
@@ -2645,6 +2648,7 @@ paths:
           description: The name of the backup storage
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '204':
           description: Backup storage deleted successfully

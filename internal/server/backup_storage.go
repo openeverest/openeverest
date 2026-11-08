@@ -44,7 +44,7 @@ func (e *EverestServer) ListBackupStorages(c echo.Context, cluster, namespace st
 }
 
 // CreateBackupStorage creates a new backup storage.
-func (e *EverestServer) CreateBackupStorage(c echo.Context, cluster, namespace string) error {
+func (e *EverestServer) CreateBackupStorage(c echo.Context, cluster, namespace string, _ api.CreateBackupStorageParams) error {
 	bs := &backupv1alpha1.BackupStorage{}
 	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
@@ -76,7 +76,7 @@ func (e *EverestServer) GetBackupStorage(c echo.Context, cluster, namespace, nam
 }
 
 // PatchBackupStorage applies a merge patch to an existing backup storage.
-func (e *EverestServer) PatchBackupStorage(c echo.Context, cluster, namespace, name string) error {
+func (e *EverestServer) PatchBackupStorage(c echo.Context, cluster, namespace, name string, _ api.PatchBackupStorageParams) error {
 	patch, err := io.ReadAll(c.Request().Body)
 	if err != nil {
 		e.l.Errorf("PatchBackupStorage: failed to read request body: %v", err)
@@ -92,7 +92,7 @@ func (e *EverestServer) PatchBackupStorage(c echo.Context, cluster, namespace, n
 }
 
 // UpdateBackupStorage updates a backup storage.
-func (e *EverestServer) UpdateBackupStorage(c echo.Context, cluster, namespace, name string) error {
+func (e *EverestServer) UpdateBackupStorage(c echo.Context, cluster, namespace, name string, _ api.UpdateBackupStorageParams) error {
 	bs := &backupv1alpha1.BackupStorage{}
 	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
@@ -115,7 +115,7 @@ func (e *EverestServer) UpdateBackupStorage(c echo.Context, cluster, namespace, 
 }
 
 // DeleteBackupStorage deletes a backup storage.
-func (e *EverestServer) DeleteBackupStorage(c echo.Context, cluster, namespace, name string) error {
+func (e *EverestServer) DeleteBackupStorage(c echo.Context, cluster, namespace, name string, _ api.DeleteBackupStorageParams) error {
 	if err := e.handler.DeleteBackupStorage(c.Request().Context(), cluster, namespace, name); err != nil {
 		e.l.Errorf("DeleteBackupStorage failed: %v", err)
 		return err
