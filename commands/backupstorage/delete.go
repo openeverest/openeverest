@@ -62,7 +62,10 @@ is still pending server-side until those referrers are gone.`,
   everestctl backup-storage delete --name my-s3 --namespace everest --yes --wait --timeout 5m
 
   # Idempotent teardown: treat "already gone" as success
-  everestctl backup-storage delete --name my-s3 --namespace everest --yes --ignore-not-found`,
+  everestctl backup-storage delete --name my-s3 --namespace everest --yes --ignore-not-found
+
+  # Have the server check the delete without deleting anything (no prompt)
+  everestctl backup-storage delete --name my-s3 --namespace everest --dry-run=server`,
 		PreRun: deletePreRun,
 		Run:    deleteRun,
 	}
@@ -79,6 +82,9 @@ func init() {
 	deleteCmd.Flags().BoolVar(&deleteOpts.IgnoreNotFound, cli.FlagBackupStorageIgnoreNotFound, false, "Treat \"backup storage already gone\" as a successful delete instead of an error")
 	deleteCmd.Flags().BoolVar(&deleteOpts.Wait, cli.FlagBackupStorageWait, false, "Block until the backup storage is fully deleted (Ctrl-C cancels only the wait, not the deletion)")
 	deleteCmd.Flags().DurationVar(&deleteOpts.Timeout, cli.FlagBackupStorageTimeout, 5*time.Minute, "Maximum time to wait (only valid with --wait); must be positive")
+	deleteCmd.Flags().StringVar(&deleteOpts.DryRun, cli.FlagBackupStorageDryRun, cli.DryRunNone,
+		`"client" sends nothing; "server" has the server check the delete without deleting anything. Neither prompts`,
+	)
 
 	_ = deleteCmd.MarkFlagRequired(cli.FlagBackupStorageName)
 	_ = deleteCmd.MarkFlagRequired(cli.FlagBackupStorageNamespace)

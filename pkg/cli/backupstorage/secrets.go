@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
@@ -103,15 +104,21 @@ func readCAFile(path string) (string, error) {
 // labels that name its definition. refFlag is the flag that references an
 // existing Secret instead, for the conflict hint.
 func createSecret(
-	ctx context.Context, c *client.ClientWithResponses, cluster, namespace, name, refFlag string,
+	ctx context.Context, c *client.ClientWithResponses, opts CreateOptions, name, refFlag string,
 	labels, data map[string]string,
 ) error {
+	namespace := opts.Namespace
 	secret := client.Secret{
 		Metadata:   &client.ObjectMeta{Name: name, Namespace: namespace, Labels: labels},
 		Type:       new("Opaque"),
 		StringData: &data,
 	}
-	resp, err := c.CreateSecretWithResponse(ctx, cluster, namespace, nil, secret)
+	var params *client.CreateSecretParams
+	if opts.DryRun == cli.DryRunServer {
+		dryRun := client.CreateSecretParamsDryRunAll
+		params = &client.CreateSecretParams{DryRun: &dryRun}
+	}
+	resp, err := c.CreateSecretWithResponse(ctx, opts.Cluster, namespace, params, secret)
 	if err != nil {
 		return fmt.Errorf("create secret request failed: %w", err)
 	}
@@ -131,6 +138,10 @@ func createSecret(
 // failure is reported as a warning, and the cancellation that may have caused
 // the failure does not stop the cleanup.
 func (cr *CreateRunner) deleteSecrets(ctx context.Context, c *client.ClientWithResponses, opts CreateOptions, names []string) {
+	// A dry run stored none of them.
+	if cli.IsDryRun(opts.DryRun) {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupTimeout)
 	defer cancel()
 	for _, name := range names {

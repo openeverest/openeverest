@@ -21,11 +21,14 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 )
 
 func baseUpdateOptions() UpdateOptions {
@@ -215,4 +218,49 @@ func TestUpdateRun_ErrorResponses(t *testing.T) {
 			assert.Contains(t, err.Error(), tt.wantErr)
 		})
 	}
+}
+
+//nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
+func TestUpdateRun_ClientDryRun_SendsNothingAndPrintsThePatch(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		assert.Fail(t, "a client dry run must not contact the server")
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+	cfgPath := newConfigPath(t, srv.URL)
+
+	opts := baseUpdateOptions()
+	opts.CredentialsSecret = "my-s3-credentials-2"
+	opts.DryRun = cli.DryRunClient
+
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = NewUpdater(Config{}, zap.NewNop().Sugar()).Run(context.Background(), opts, cfgPath)
+	})
+	require.NoError(t, runErr)
+	assert.JSONEq(t, `{"spec":{"authentication":{"credentialsSecretRef":{"name":"my-s3-credentials-2"}}}}`, out)
+}
+
+func TestUpdateRun_ServerDryRunSendsDryRunAll(t *testing.T) {
+	t.Parallel()
+
+	var called atomic.Bool
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/clusters/main/namespaces/everest/backup-storages/my-s3", func(w http.ResponseWriter, r *http.Request) {
+		called.Store(true)
+		assert.Equal(t, "All", r.URL.Query().Get("dryRun"))
+		writeJSON(w, http.StatusOK, backupStorageWithName(t, "my-s3", "everest"))
+	})
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	opts := baseUpdateOptions()
+	opts.InsecureSkipTLSVerify = new(true)
+	opts.DryRun = cli.DryRunServer
+
+	err := NewUpdater(Config{Pretty: true}, zap.NewNop().Sugar()).Run(context.Background(), opts, newConfigPath(t, srv.URL))
+	require.NoError(t, err)
+	assert.True(t, called.Load())
 }

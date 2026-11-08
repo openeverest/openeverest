@@ -595,7 +595,7 @@ func TestRun_ClientDryRunSendsNothing(t *testing.T) {
 		Namespace: "everest",
 		Provider:  "psmdb",
 		Cluster:   "main",
-		DryRun:    DryRunClient,
+		DryRun:    cli.DryRunClient,
 	}
 	err := NewInstanceCreator(Config{}, zap.NewNop().Sugar()).Run(context.Background(), opts, cfgPath)
 	require.NoError(t, err)
@@ -620,7 +620,7 @@ func TestRun_ServerDryRunSendsDryRunAll(t *testing.T) {
 		Namespace: "everest",
 		Provider:  "psmdb",
 		Cluster:   "main",
-		DryRun:    DryRunServer,
+		DryRun:    cli.DryRunServer,
 	}
 	err := NewInstanceCreator(Config{}, zap.NewNop().Sugar()).Run(context.Background(), opts, cfgPath)
 	require.NoError(t, err)
@@ -635,7 +635,7 @@ func TestRun_DryRunWithWaitRejected(t *testing.T) {
 		Namespace: "everest",
 		Provider:  "psmdb",
 		Cluster:   "main",
-		DryRun:    DryRunServer,
+		DryRun:    cli.DryRunServer,
 		Wait:      true,
 	}
 	err := NewInstanceCreator(Config{}, zap.NewNop().Sugar()).Run(context.Background(), opts, filepath.Join(t.TempDir(), "config.yaml"))

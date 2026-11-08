@@ -28,6 +28,7 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/confirm"
@@ -47,6 +48,7 @@ type DeleteOptions struct {
 	IgnoreNotFound bool          // treat "backup storage already gone" (404) as a successful delete
 	Wait           bool          // block until the backup storage is fully deleted
 	Timeout        time.Duration // bounds --wait; must be positive
+	DryRun         string        // cli.DryRunClient sends nothing, cli.DryRunServer sends the delete with dryRun=All; neither prompts
 
 	// IsTerminal overrides the TTY check for the prompt. Set in tests.
 	IsTerminal func() bool
@@ -72,6 +74,16 @@ func NewDeleter(cfg Config, l *zap.SugaredLogger) *Deleter {
 // cancelled wait, see waitForDeletion. The Secrets the storage references
 // are left in place.
 func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) error {
+	if err := cli.CheckDryRun(opts.DryRun); err != nil {
+		return err
+	}
+	if cli.IsDryRun(opts.DryRun) && opts.Wait {
+		return fmt.Errorf("--dry-run cannot be combined with --wait")
+	}
+	if opts.DryRun == cli.DryRunClient {
+		return deletion.EmitDryRun(bd.config.Pretty, opts.DryRun, "backup storage", opts.Name, opts.Namespace)
+	}
+
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: bd.config.Pretty}, bd.l.Desugar().Sugar(), cfgPath, opts.Context)
 	if err != nil {
 		return err
@@ -81,13 +93,19 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 		return bd.emitAlreadyGone(opts)
 	}
 
-	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.JSON, IsTerminal: opts.IsTerminal}
-	msg := fmt.Sprintf("Delete backup storage %q in namespace %q?", opts.Name, opts.Namespace)
-	if err := confirm.YesNo(ctx, confirmOpts, msg); err != nil {
-		return err
+	var params *client.DeleteBackupStorageParams
+	if opts.DryRun == cli.DryRunServer {
+		dryRun := client.DeleteBackupStorageParamsDryRunAll
+		params = &client.DeleteBackupStorageParams{DryRun: &dryRun}
+	} else {
+		confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.JSON, IsTerminal: opts.IsTerminal}
+		msg := fmt.Sprintf("Delete backup storage %q in namespace %q?", opts.Name, opts.Namespace)
+		if err := confirm.YesNo(ctx, confirmOpts, msg); err != nil {
+			return err
+		}
 	}
 
-	resp, err := c.DeleteBackupStorageWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name, nil)
+	resp, err := c.DeleteBackupStorageWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name, params)
 	if err != nil {
 		return fmt.Errorf("delete backup storage request failed: %w", err)
 	}
@@ -99,6 +117,9 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 
 	if alreadyGone {
 		return bd.emitAlreadyGone(opts)
+	}
+	if opts.DryRun == cli.DryRunServer {
+		return deletion.EmitDryRun(bd.config.Pretty, opts.DryRun, "backup storage", opts.Name, opts.Namespace)
 	}
 	bd.l.Infof("deleted backup storage %q in namespace %q", opts.Name, opts.Namespace)
 

@@ -17,12 +17,14 @@ package backupstorage
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
 
 	"go.uber.org/zap"
+	"sigs.k8s.io/yaml"
 
 	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli"
@@ -44,6 +46,7 @@ type UpdateOptions struct {
 	CredentialsSecret     string
 	CASecret              string
 	InsecureSkipTLSVerify *bool
+	DryRun                string // cli.DryRunClient prints the patch without sending it, cli.DryRunServer sends it with dryRun=All
 }
 
 // Updater implements `backupstorage update` business logic.
@@ -63,6 +66,9 @@ func NewUpdater(cfg Config, l *zap.SugaredLogger) *Updater {
 
 // Run sends the changed fields as a single merge patch to the PatchBackupStorage endpoint where the server performs the read-merge-write.
 func (u *Updater) Run(ctx context.Context, opts UpdateOptions, cfgPath string) error {
+	if err := cli.CheckDryRun(opts.DryRun); err != nil {
+		return err
+	}
 	spec, err := buildSpecPatch(opts)
 	if err != nil {
 		return err
@@ -72,19 +78,31 @@ func (u *Updater) Run(ctx context.Context, opts UpdateOptions, cfgPath string) e
 			"--implementation, --auth-mode, --credentials-secret, --ca-secret or --insecure-skip-tls-verify")
 	}
 
+	patch := map[string]any{"spec": spec}
+	if opts.DryRun == cli.DryRunClient {
+		return u.emitClientDryRun(patch, opts.Name)
+	}
+
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: u.config.Pretty}, u.l.Desugar().Sugar(), cfgPath, opts.Context)
 	if err != nil {
 		return err
 	}
 
-	patch := map[string]any{"spec": spec}
-	resp, err := c.PatchBackupStorageWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name, nil, patch)
+	var params *client.PatchBackupStorageParams
+	if opts.DryRun == cli.DryRunServer {
+		dryRun := client.PatchBackupStorageParamsDryRunAll
+		params = &client.PatchBackupStorageParams{DryRun: &dryRun}
+	}
+	resp, err := c.PatchBackupStorageWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name, params, patch)
 	if err != nil {
 		return fmt.Errorf("patch backup storage request failed: %w", err)
 	}
 
 	switch resp.StatusCode() {
 	case http.StatusOK:
+		if opts.DryRun == cli.DryRunServer {
+			return u.emitServerDryRun(resp.JSON200, opts)
+		}
 		u.l.Infof("updated backup storage %q in namespace %q", opts.Name, opts.Namespace)
 		return u.emitUpdated(resp.JSON200, opts)
 	case http.StatusNotFound:
@@ -164,6 +182,38 @@ func (u *Updater) emitUpdated(updated *client.BackupStorage, opts UpdateOptions)
 	}
 	if updated == nil {
 		return fmt.Errorf("backup storage %q was updated but the server returned an unreadable response body", opts.Name)
+	}
+	return writeBackupStorageJSON(updated)
+}
+
+// emitClientDryRun prints the merge patch update would send: as YAML under a
+// header in pretty mode, as JSON otherwise.
+func (u *Updater) emitClientDryRun(patch map[string]any, name string) error {
+	if !u.config.Pretty {
+		if err := json.NewEncoder(os.Stdout).Encode(patch); err != nil {
+			return fmt.Errorf("failed to encode patch: %w", err)
+		}
+		return nil
+	}
+	out, err := yaml.Marshal(patch)
+	if err != nil {
+		return fmt.Errorf("failed to encode patch: %w", err)
+	}
+	_, _ = fmt.Fprint(os.Stdout, output.Info("Dry run for backup storage %q, nothing sent", name))
+	_, _ = os.Stdout.Write(out)
+	return nil
+}
+
+// emitServerDryRun reports an update the server accepted without persisting
+// it: a line in pretty mode, the backup storage it would have stored in JSON
+// mode.
+func (u *Updater) emitServerDryRun(updated *client.BackupStorage, opts UpdateOptions) error {
+	if u.config.Pretty {
+		_, _ = fmt.Fprint(os.Stdout, output.Success("Dry run for backup storage %q accepted by the server, nothing updated", opts.Name))
+		return nil
+	}
+	if updated == nil {
+		return fmt.Errorf("the server accepted the update of backup storage %q but returned an unreadable response body", opts.Name)
 	}
 	return writeBackupStorageJSON(updated)
 }
