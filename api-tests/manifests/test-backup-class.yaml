@@ -5,9 +5,10 @@ metadata:
 spec:
   displayName: Test Backup Class
   executionMode: ProviderManaged
+  providerManaged:
+    providerRef:
+      name: test-provider
   supportsImport: true
-  supportedProviders:
-    - test-provider
   backupStorageClasses:
     - name: s3
       authModes: [AccessKey]

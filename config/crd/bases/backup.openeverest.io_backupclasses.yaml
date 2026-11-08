@@ -16,7 +16,20 @@ spec:
     singular: backupclass
   scope: Cluster
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.executionMode
+      name: Mode
+      type: string
+    - jsonPath: .spec.providerManaged.providerRef.name
+      name: Provider
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Accepted")].reason
+      name: Accepted
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: BackupClass is the Schema for the backupclasses API
@@ -69,6 +82,45 @@ spec:
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                       type: string
+                    parametersSchema:
+                      description: |-
+                        ParametersSchema narrows the BackupStorageClass's parametersSchema to
+                        what the executor supports, typically the parameters of the contract
+                        version it was built with: a storage whose parameters it rejects
+                        cannot be used with the class. Absent adds no restriction.
+                      properties:
+                        openAPIV3Schema:
+                          description: |-
+                            OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                            parameters payload.
+                          x-kubernetes-preserve-unknown-fields: true
+                      type: object
+                    tls:
+                      description: |-
+                        TLS declares which settings of BackupStorage.spec.tls the executor
+                        honours. Absent means None for each: a storage that uses a setting the
+                        executor does not support cannot be used with the class, and a
+                        storage without spec.tls always can.
+                      properties:
+                        customCA:
+                          default: None
+                          description: |-
+                            CustomCA is whether the executor verifies the store against the CA
+                            bundle in spec.tls.ca.
+                          enum:
+                          - Supported
+                          - None
+                          type: string
+                        insecureSkipVerify:
+                          default: None
+                          description: |-
+                            InsecureSkipVerify is whether the executor can turn certificate
+                            verification off, as spec.tls.insecureSkipVerify asks.
+                          enum:
+                          - Supported
+                          - None
+                          type: string
+                      type: object
                   required:
                   - authModes
                   - name
@@ -88,8 +140,10 @@ spec:
               executionMode:
                 description: |-
                   ExecutionMode selects who executes the class's backup and restore
-                  operations. ProviderManaged is the only mode: the provider named in
-                  SupportedProviders executes them.
+                  operations, and discriminates the execution union: the member named
+                  after the mode is required, any other is forbidden. ProviderManaged is
+                  the only mode: the provider in providerManaged.providerRef executes
+                  them.
                 enum:
                 - ProviderManaged
                 type: string
@@ -121,11 +175,9 @@ spec:
                 type: object
               providerManaged:
                 description: |-
-                  ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
-                  schema is intentionally open: providers may surface capability
-                  information (e.g., whether PITR is supported, schedule expression
-                  dialect) without forcing a CRD change. Must be unset for any other
-                  execution mode.
+                  ProviderManaged is the member of the execution union for
+                  ExecutionMode=ProviderManaged: the provider that executes the class and
+                  what it supports. Required for that mode, forbidden for any other.
                 properties:
                   limits:
                     description: |-
@@ -174,11 +226,32 @@ spec:
                           parameters payload.
                         x-kubernetes-preserve-unknown-fields: true
                     type: object
+                  providerRef:
+                    description: |-
+                      ProviderRef names the Provider that claims and executes the class. It
+                      is immutable: moving a class to another provider is delete and
+                      recreate.
+                    properties:
+                      name:
+                        description: Name of the referenced object.
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                    required:
+                    - name
+                    type: object
+                    x-kubernetes-map-type: atomic
+                    x-kubernetes-validations:
+                    - message: providerRef is immutable
+                      rule: self == oldSelf
                   supportsPITR:
                     description: |-
                       SupportsPITR indicates whether this class supports point-in-time recovery.
                       Used by Restore validation when Restore.spec.dataSource.pitr is set.
                     type: boolean
+                required:
+                - providerRef
                 type: object
               restoreParametersSchema:
                 description: |-
@@ -192,14 +265,6 @@ spec:
                       parameters payload.
                     x-kubernetes-preserve-unknown-fields: true
                 type: object
-              supportedProviders:
-                description: |-
-                  SupportedProviders is the list of provider names that this backup class
-                  supports. The Instance.spec.provider must appear in this list for the
-                  class to be usable on that Instance.
-                items:
-                  type: string
-                type: array
               supportsImport:
                 description: |-
                   SupportsImport indicates whether the owner of this class can discover and
@@ -219,16 +284,29 @@ spec:
             - executionMode
             type: object
             x-kubernetes-validations:
+            - message: spec.providerManaged is required when executionMode is ProviderManaged
+              rule: self.executionMode != 'ProviderManaged' || has(self.providerManaged)
             - message: spec.providerManaged is only allowed when executionMode is
                 ProviderManaged
               rule: '!has(self.providerManaged) || self.executionMode == ''ProviderManaged'''
-            - message: a ProviderManaged BackupClass must support exactly one provider
-              rule: self.executionMode != 'ProviderManaged' || (has(self.supportedProviders)
-                && size(self.supportedProviders) == 1)
           status:
-            description: BackupClassStatus defines the observed state of BackupClass.
+            default:
+              conditions:
+              - lastTransitionTime: "1970-01-01T00:00:00Z"
+                message: Waiting for the executor to claim the class
+                reason: Pending
+                status: Unknown
+                type: Accepted
+            description: |-
+              BackupClassStatus defines the observed state of BackupClass. It has two
+              writers, each applying only its own fields with server-side apply: the
+              executor that claims the class owns the Accepted condition and core owns
+              providers.
             properties:
               conditions:
+                description: |-
+                  Conditions: Accepted, set by the class's executor when it claims the
+                  class, with the observedGeneration it judged.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.
@@ -286,6 +364,53 @@ spec:
                 type: array
                 x-kubernetes-list-map-keys:
                 - type
+                x-kubernetes-list-type: map
+              providers:
+                description: |-
+                  Providers is the compatibility of the class with each Provider that
+                  can execute it: for a ProviderManaged class, the Provider in
+                  providerManaged.providerRef. A Provider that is not listed is
+                  incompatible. Written by core.
+                items:
+                  description: |-
+                    BackupClassProviderCompatibility is the compatibility of a BackupClass
+                    with a Provider.
+                  properties:
+                    classGeneration:
+                      description: |-
+                        ClassGeneration is the generation of the class the entry was computed
+                        for. An entry for another generation counts as Pending.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    compatibility:
+                      description: Compatibility is whether Instances of the Provider
+                        can use the class.
+                      enum:
+                      - Compatible
+                      - Pending
+                      - Incompatible
+                      type: string
+                    message:
+                      description: Message is the human-readable detail of Reason.
+                      maxLength: 32768
+                      type: string
+                    name:
+                      description: Name is the Provider name.
+                      maxLength: 253
+                      type: string
+                    reason:
+                      description: Reason is why the class is not Compatible.
+                      maxLength: 1024
+                      type: string
+                  required:
+                  - compatibility
+                  - name
+                  type: object
+                maxItems: 64
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
                 x-kubernetes-list-type: map
             type: object
         required:

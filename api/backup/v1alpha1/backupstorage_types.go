@@ -19,6 +19,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 )
@@ -67,14 +68,70 @@ func (s *BackupStorageSpec) SecretNames() []string {
 	return names
 }
 
-// BackupStorageStatus defines the observed state of a BackupStorage.
+// BackupStorageStatus defines the observed state of a BackupStorage. Core
+// writes all of it.
 type BackupStorageStatus struct {
-	// Conditions: Accepted, written by core, and Deleting while a deleted
-	// storage waits for its referrers.
+	// Conditions: Accepted, and Deleting while a deleted storage waits for
+	// its referrers.
 	// +listType=map
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// BackupClasses is whether each Accepted BackupClass can write to the
+	// storage. Read an entry through CurrentVerdict, which treats an entry
+	// computed from other objects than the current ones as Pending.
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=64
+	// +optional
+	BackupClasses []BackupClassVerdict `json:"backupClasses,omitempty"`
+}
+
+// BackupClassVerdict is whether a BackupClass can write to a BackupStorage.
+type BackupClassVerdict struct {
+	// Name is the BackupClass name.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=253
+	Name string `json:"name"`
+	// Compatibility is whether the class can write to the storage.
+	// +kubebuilder:validation:Required
+	Compatibility Compatibility `json:"compatibility"`
+	// Reason is why the class cannot write to the storage, or not yet.
+	// +kubebuilder:validation:MaxLength=1024
+	// +optional
+	Reason string `json:"reason,omitempty"`
+	// Message is the human-readable detail of Reason.
+	// +kubebuilder:validation:MaxLength=32768
+	// +optional
+	Message string `json:"message,omitempty"`
+	// Observed identifies the objects the verdict was computed from.
+	// +kubebuilder:validation:Required
+	Observed BackupClassVerdictInputs `json:"observed"`
+}
+
+// BackupClassVerdictInputs identify the objects a BackupClassVerdict was
+// computed from, so a verdict that predates a change of any of them, or a
+// class deleted and recreated under the same name, is recognised as stale.
+type BackupClassVerdictInputs struct {
+	// StorageGeneration is the generation of the BackupStorage.
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	StorageGeneration int64 `json:"storageGeneration,omitempty"`
+	// ClassUID is the UID of the BackupClass.
+	// +optional
+	ClassUID types.UID `json:"classUID,omitempty"` //nolint:tagliatelle // UID, as in metadata.uid references
+	// ClassGeneration is the generation of the BackupClass.
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	ClassGeneration int64 `json:"classGeneration,omitempty"`
+	// StorageClassUID is the UID of the storage's BackupStorageClass.
+	// +optional
+	StorageClassUID types.UID `json:"storageClassUID,omitempty"` //nolint:tagliatelle // UID, as in metadata.uid references
+	// StorageClassGeneration is the generation of the storage's
+	// BackupStorageClass.
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	StorageClassGeneration int64 `json:"storageClassGeneration,omitempty"`
 }
 
 // BackupStorageLocation is where a BackupStorage keeps its backups. Exactly
@@ -142,6 +199,18 @@ const (
 	// ReasonBackupStorageClassUnsupported means a BackupClass does not list
 	// the storage's BackupStorageClass.
 	ReasonBackupStorageClassUnsupported = "BackupStorageClassUnsupported"
+	// ReasonParameterUnsupported means the parameters schema of a
+	// BackupClass's entry for the storage's class rejects its parameters.
+	ReasonParameterUnsupported = "ParameterUnsupported"
+	// ReasonTLSOptionUnsupported means the storage uses a setting of
+	// spec.tls the BackupClass does not honour.
+	ReasonTLSOptionUnsupported = "TLSOptionUnsupported"
+	// ReasonStorageNotAccepted means the storage is not Accepted yet, so no
+	// class can be judged against it.
+	ReasonStorageNotAccepted = "StorageNotAccepted"
+	// ReasonVerdictPending means core has not judged the storage against
+	// the class at their current generations yet.
+	ReasonVerdictPending = "VerdictPending"
 )
 
 // +kubebuilder:object:root=true

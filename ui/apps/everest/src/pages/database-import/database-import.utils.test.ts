@@ -42,9 +42,12 @@ const externalBackup = (
 
 const provider = (name: string): Provider => ({ metadata: { name }, spec: {} });
 
-const backupClass = (supportedProviders?: string[]): BackupClass => ({
+const backupClass = (provider?: string): BackupClass => ({
   metadata: { name: 'psmdb-pbm' },
-  spec: { executionMode: 'ProviderManaged', supportedProviders },
+  spec: {
+    executionMode: 'ProviderManaged',
+    providerManaged: provider ? { providerRef: { name: provider } } : undefined,
+  },
 });
 
 describe('getImportBackupRows', () => {
@@ -80,14 +83,14 @@ describe('getImportBackupRows', () => {
 describe('getClassProviders', () => {
   const providers = [provider('psmdb'), provider('pxc')];
 
-  it('keeps only the providers the class supports', () => {
-    expect(getClassProviders(backupClass(['psmdb']), providers)).toEqual([
+  it('keeps only the provider that executes the class', () => {
+    expect(getClassProviders(backupClass('psmdb'), providers)).toEqual([
       providers[0],
     ]);
   });
 
-  it('treats a class without supported providers as supporting all', () => {
-    expect(getClassProviders(backupClass(), providers)).toEqual(providers);
+  it('keeps no provider for a class no provider executes', () => {
+    expect(getClassProviders(backupClass(), providers)).toEqual([]);
   });
 
   it('returns nothing without a class', () => {

@@ -31,9 +31,8 @@ func class(limits *backupv1alpha1.BackupClassLimits) *backupv1alpha1.BackupClass
 	return &backupv1alpha1.BackupClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "pbm"},
 		Spec: backupv1alpha1.BackupClassSpec{
-			ExecutionMode:      backupv1alpha1.BackupExecutionModeProviderManaged,
-			SupportedProviders: backupv1alpha1.ProviderNameList{"mongo"},
-			ProviderManaged:    &backupv1alpha1.ProviderManagedSpec{Limits: limits},
+			ExecutionMode:   backupv1alpha1.BackupExecutionModeProviderManaged,
+			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{ProviderRef: apicommon.ObjectRef{Name: "mongo"}, Limits: limits},
 		},
 	}
 }
@@ -69,7 +68,7 @@ func TestIncompatibility(t *testing.T) {
 	assert.Nil(t, Incompatibility(class(nil), "mongo"))
 
 	err := Incompatibility(class(nil), "postgres")
-	assert.Equal(t, `spec.backup.classRef.name: Invalid value: "pbm": does not support provider postgres`, err.Error())
+	assert.Equal(t, `spec.backup.classRef.name: Invalid value: "pbm": is executed by provider mongo, not postgres`, err.Error())
 
 	other := class(nil)
 	other.Spec.ExecutionMode = otherMode
