@@ -10,6 +10,66 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-backup-openeverest-io-v1alpha1-backup
+  failurePolicy: Fail
+  name: vbackup-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - backup.openeverest.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    resources:
+    - backups
+  sideEffects: None
+  timeoutSeconds: 5
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-backup-openeverest-io-v1alpha1-backupimport
+  failurePolicy: Fail
+  name: vbackupimport-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - backup.openeverest.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    resources:
+    - backupimports
+  sideEffects: None
+  timeoutSeconds: 5
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-backup-openeverest-io-v1alpha1-restore
+  failurePolicy: Fail
+  name: vrestore-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - backup.openeverest.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    resources:
+    - restores
+  sideEffects: None
+  timeoutSeconds: 5
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-monitoring-openeverest-io-v1alpha1-monitoringconfig
   failurePolicy: Fail
   name: vmonitoringconfig-v1alpha1.kb.io

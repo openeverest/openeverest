@@ -66,36 +66,17 @@ func TestCreateRestore_Validation(t *testing.T) {
 	}
 	streamInstancePITR := newStreamInstance("pitr-class")
 	streamInstanceNoPITR := newStreamInstance("no-pitr-class")
-	pitrClass := &backupv1alpha1.BackupClass{
-		ObjectMeta: metav1.ObjectMeta{Name: "pitr-class"},
-		Spec: backupv1alpha1.BackupClassSpec{
-			ExecutionMode: backupv1alpha1.BackupExecutionModeProviderManaged,
-			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{
-				ProviderRef:  common.ObjectRef{Name: "test-provider"},
-				SupportsPITR: true,
-			},
-		},
-	}
-	noPitrClass := &backupv1alpha1.BackupClass{
-		ObjectMeta: metav1.ObjectMeta{Name: "no-pitr-class"},
-		Spec: backupv1alpha1.BackupClassSpec{
-			ExecutionMode: backupv1alpha1.BackupExecutionModeProviderManaged,
-			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{
-				ProviderRef:  common.ObjectRef{Name: "test-provider"},
-				SupportsPITR: false,
-			},
-		},
-	}
-	unsupportedProviderClass := &backupv1alpha1.BackupClass{
-		ObjectMeta: metav1.ObjectMeta{Name: "unsupported-provider-class"},
-		Spec: backupv1alpha1.BackupClassSpec{
-			ExecutionMode: backupv1alpha1.BackupExecutionModeProviderManaged,
-			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{
-				ProviderRef:  common.ObjectRef{Name: "other-provider"},
-				SupportsPITR: true,
-			},
-		},
-	}
+	pitrClass := judgedClass("pitr-class", "test-provider", backupv1alpha1.CompatibilityCompatible, "")
+	noPitrClass := judgedClass("no-pitr-class", "test-provider", backupv1alpha1.CompatibilityCompatible, "")
+	noPitrClass.Spec.ProviderManaged.SupportsPITR = false
+	unsupportedProviderClass := judgedClass("unsupported-provider-class", "other-provider", backupv1alpha1.CompatibilityCompatible, "")
+	pendingClass := judgedClass("pending-class", "test-provider", backupv1alpha1.CompatibilityPending, backupv1alpha1.ReasonClassNotAccepted)
+	streamStorage := judgedStorage("s1", namespace,
+		storageVerdict{class: pitrClass, compatibility: backupv1alpha1.CompatibilityCompatible},
+	)
+	incompatibleStreamStorage := judgedStorage("s1", namespace,
+		storageVerdict{class: pitrClass, compatibility: backupv1alpha1.CompatibilityIncompatible, reason: backupv1alpha1.ReasonTLSOptionUnsupported},
+	)
 	succeededBackup := &backupv1alpha1.Backup{
 		ObjectMeta: metav1.ObjectMeta{Name: "succeeded-backup", Namespace: namespace},
 		Spec:       backupv1alpha1.BackupSpec{ClassRef: common.ObjectRef{Name: "pitr-class"}},
@@ -109,6 +90,11 @@ func TestCreateRestore_Validation(t *testing.T) {
 	succeededBackupUnsupportedProvider := &backupv1alpha1.Backup{
 		ObjectMeta: metav1.ObjectMeta{Name: "succeeded-backup-unsupported-provider", Namespace: namespace},
 		Spec:       backupv1alpha1.BackupSpec{ClassRef: common.ObjectRef{Name: "unsupported-provider-class"}},
+		Status:     backupv1alpha1.BackupStatus{State: backupv1alpha1.BackupStateSucceeded},
+	}
+	succeededBackupPendingClass := &backupv1alpha1.Backup{
+		ObjectMeta: metav1.ObjectMeta{Name: "succeeded-backup-pending-class", Namespace: namespace},
+		Spec:       backupv1alpha1.BackupSpec{ClassRef: common.ObjectRef{Name: "pending-class"}},
 		Status:     backupv1alpha1.BackupStatus{State: backupv1alpha1.BackupStateSucceeded},
 	}
 	runningBackup := &backupv1alpha1.Backup{
@@ -163,6 +149,7 @@ func TestCreateRestore_Validation(t *testing.T) {
 		wantInvalidRequest bool   // true for validation failures (ErrInvalidRequest); false for infrastructure/runtime errors
 		getErrName         string // if set, a Get for an object with this name fails with getErr instead of hitting the fake client
 		getErr             error
+		wantWarnings       []string // substrings of the warnings an admitted Restore is created with
 	}{
 		{
 			name:               "missing backup fails",
@@ -204,12 +191,18 @@ func TestCreateRestore_Validation(t *testing.T) {
 			wantInvalidRequest: true,
 		},
 		{
-			name:               "class does not support instance's provider fails",
+			name:               "class not run by the instance's provider fails",
 			restore:            newRestore("succeeded-backup-unsupported-provider"),
 			objects:            []ctrlclient.Object{succeededBackupUnsupportedProvider, unsupportedProviderClass, instance},
-			err:                "provider not supported by backup class: class 'unsupported-provider-class', provider 'test-provider'",
-			wantSentinel:       controller.ErrProviderUnsupported,
+			err:                `backup class incompatible: BackupClass "unsupported-provider-class" is Incompatible with Provider "test-provider" (ProviderUnsupported)`,
+			wantSentinel:       controller.ErrBackupClassIncompatible,
 			wantInvalidRequest: true,
+		},
+		{
+			name:         "class not claimed yet passes with a warning",
+			restore:      newRestore("succeeded-backup-pending-class"),
+			objects:      []ctrlclient.Object{succeededBackupPendingClass, pendingClass, instance},
+			wantWarnings: []string{`BackupClass "pending-class" is Pending for Provider "test-provider" (ClassNotAccepted)`},
 		},
 		{
 			name:    "succeeded backup passes regardless of the class's PITR support",
@@ -236,8 +229,24 @@ func TestCreateRestore_Validation(t *testing.T) {
 		{
 			name:    "point-in-time requested, class supports PITR passes",
 			restore: newPITRRestore(backupv1alpha1.RecoveryTargetLatest, "s1"),
-			objects: []ctrlclient.Object{pitrClass, streamInstancePITR},
+			objects: []ctrlclient.Object{pitrClass, streamInstancePITR, streamStorage, s3StorageClass},
 			err:     "",
+		},
+		{
+			name:               "point-in-time from a storage the class cannot read fails",
+			restore:            newPITRRestore(backupv1alpha1.RecoveryTargetLatest, "s1"),
+			objects:            []ctrlclient.Object{pitrClass, streamInstancePITR, incompatibleStreamStorage, s3StorageClass},
+			err:                `backup storage incompatible: BackupStorage "s1" is Incompatible with BackupClass "pitr-class" (TLSOptionUnsupported)`,
+			wantSentinel:       controller.ErrBackupStorageIncompatible,
+			wantInvalidRequest: true,
+		},
+		{
+			name:               "point-in-time from a storage that does not exist fails",
+			restore:            newPITRRestore(backupv1alpha1.RecoveryTargetLatest, "s1"),
+			objects:            []ctrlclient.Object{pitrClass, streamInstancePITR},
+			err:                "backup storage 's1' does not exist",
+			wantSentinel:       controller.ErrBackupStorageNotFound,
+			wantInvalidRequest: true,
 		},
 		{
 			name:               "point-in-time on a storage without PITR enabled fails",
@@ -282,9 +291,11 @@ func TestCreateRestore_Validation(t *testing.T) {
 				next:          mockNext,
 			}
 
+			ctx, warnings := kubernetes.WithWarningCollector(ctx)
 			_, err := handler.CreateRestore(ctx, "prod", tt.restore)
 			if tt.err == "" {
 				require.NoError(t, err)
+				assertWarnings(t, tt.wantWarnings, warnings.Warnings())
 				return
 			}
 			require.ErrorContains(t, err, tt.err)

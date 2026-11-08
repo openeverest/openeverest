@@ -43,6 +43,7 @@ import (
 	backupcontroller "github.com/openeverest/openeverest/v2/internal/controller/backup"
 	plugincontroller "github.com/openeverest/openeverest/v2/internal/controller/extension"
 	monitoringcontroller "github.com/openeverest/openeverest/v2/internal/controller/monitoring"
+	webhookbackupv1alpha1 "github.com/openeverest/openeverest/v2/internal/webhook/backup/v1alpha1"
 	webhookmonitoringv1alpha1 "github.com/openeverest/openeverest/v2/internal/webhook/monitoring/v1alpha1"
 )
 
@@ -289,6 +290,18 @@ func main() {
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err := webhookmonitoringv1alpha1.SetupMonitoringConfigWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "Failed to create webhook", "webhook", "MonitoringConfig")
+			os.Exit(1)
+		}
+		if err := webhookbackupv1alpha1.SetupBackupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "Backup")
+			os.Exit(1)
+		}
+		if err := webhookbackupv1alpha1.SetupRestoreWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "Restore")
+			os.Exit(1)
+		}
+		if err := webhookbackupv1alpha1.SetupBackupImportWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "BackupImport")
 			os.Exit(1)
 		}
 	}

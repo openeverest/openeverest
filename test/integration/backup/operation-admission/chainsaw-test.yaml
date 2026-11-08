@@ -1,0 +1,582 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: operation-admission
+spec:
+  description: |
+    Core's validating webhook rejects a Backup, Restore or BackupImport whose
+    class or storage verdict is Incompatible, naming the reason, and admits
+    one whose verdicts are Pending with a warning. The verdicts are core's own,
+    computed from real objects: a class whose parameters schema excludes GCS,
+    a class its provider reports as SpecDrift, a class nobody claims yet and a
+    storage without credentials.
+  timeouts:
+    apply: 10s
+    assert: 30s
+    delete: 30s
+  steps:
+    - name: objects
+      try:
+        - apply:
+            resource:
+              apiVersion: core.openeverest.io/v1alpha1
+              kind: Provider
+              metadata:
+                name: oa-provider
+                labels:
+                  app.kubernetes.io/managed-by: openeverest
+              spec:
+                componentTypes:
+                  engine:
+                    defaultVersion: 1.0.0
+                    versions:
+                      - image: fake/fake:1.0.0
+                        version: 1.0.0
+                components:
+                  engine:
+                    type: engine
+                topologies:
+                  replicaSet:
+                    components:
+                      engine:
+                        optional: false
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupClass
+              metadata:
+                name: oa-no-gcs
+              spec:
+                executionMode: ProviderManaged
+                providerManaged:
+                  providerRef:
+                    name: oa-provider
+                  supportsPITR: true
+                supportsImport: true
+                backupStorageClasses:
+                  - name: s3
+                    authModes: [AccessKey]
+                    parametersSchema:
+                      openAPIV3Schema:
+                        type: object
+                        properties:
+                          region: {type: string}
+                          endpointURL: {type: string}
+                          forcePathStyle: {type: boolean}
+                          implementation:
+                            type: string
+                            enum: [aws, minio, ceph, other]
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupClass
+              metadata:
+                name: oa-drift
+              spec:
+                executionMode: ProviderManaged
+                providerManaged:
+                  providerRef:
+                    name: oa-provider
+                supportsImport: true
+                backupStorageClasses:
+                  - name: s3
+                    authModes: [AccessKey]
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupClass
+              metadata:
+                name: oa-pending
+              spec:
+                executionMode: ProviderManaged
+                providerManaged:
+                  providerRef:
+                    name: oa-provider
+                supportsImport: true
+                backupStorageClasses:
+                  - name: s3
+                    authModes: [AccessKey]
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupClass
+              metadata:
+                name: oa-no-import
+              spec:
+                executionMode: ProviderManaged
+                providerManaged:
+                  providerRef:
+                    name: oa-provider
+                backupStorageClasses:
+                  - name: s3
+                    authModes: [AccessKey]
+        - apply:
+            resource:
+              apiVersion: v1
+              kind: Secret
+              metadata:
+                name: oa-credentials
+              type: Opaque
+              stringData:
+                AWS_ACCESS_KEY_ID: test-access-key
+                AWS_SECRET_ACCESS_KEY: test-secret-key
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: oa-aws
+              spec:
+                backupStorageClassRef:
+                  name: s3
+                location:
+                  objectStore:
+                    bucket: test-bucket
+                parameters:
+                  region: us-east-1
+                  endpointURL: https://s3.amazonaws.com
+                authentication:
+                  mode: AccessKey
+                  credentialsSecretRef:
+                    name: oa-credentials
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: oa-gcs
+              spec:
+                backupStorageClassRef:
+                  name: s3
+                location:
+                  objectStore:
+                    bucket: test-bucket
+                parameters:
+                  region: auto
+                  endpointURL: https://storage.googleapis.com
+                  implementation: gcs
+                authentication:
+                  mode: AccessKey
+                  credentialsSecretRef:
+                    name: oa-credentials
+        # Not Accepted until its credentials Secret appears, which may happen
+        # without a change of the storage: its verdicts are Pending.
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: oa-no-credentials
+              spec:
+                backupStorageClassRef:
+                  name: s3
+                location:
+                  objectStore:
+                    bucket: test-bucket
+                parameters:
+                  region: us-east-1
+                  endpointURL: https://s3.amazonaws.com
+                authentication:
+                  mode: AccessKey
+                  credentialsSecretRef:
+                    name: oa-missing-credentials
+        - apply:
+            resource:
+              apiVersion: core.openeverest.io/v1alpha1
+              kind: Instance
+              metadata:
+                name: oa-db
+              spec:
+                providerRef:
+                  name: oa-provider
+                backup:
+                  enabled: true
+                  classRef:
+                    name: oa-no-gcs
+                  storages:
+                    - storageRef:
+                        name: oa-gcs
+                      pitr:
+                        enabled: true
+        - apply:
+            resource:
+              apiVersion: core.openeverest.io/v1alpha1
+              kind: Instance
+              metadata:
+                name: oa-elsewhere
+              spec:
+                providerRef:
+                  name: oa-other-provider
+    - name: verdicts
+      try:
+        # What the provider's runtime does when it claims its classes, and
+        # when it finds one of them edited.
+        - script:
+            content: |
+              set -e
+              accepted='{"status":{"conditions":[{"type":"Accepted","status":"True","reason":"Accepted","message":"claimed by the test","observedGeneration":1,"lastTransitionTime":"2026-01-01T00:00:00Z"}]}}'
+              kubectl patch backupclass oa-no-gcs --subresource=status --type=merge -p "$accepted"
+              kubectl patch backupclass oa-no-import --subresource=status --type=merge -p "$accepted"
+              kubectl patch backupclass oa-drift --subresource=status --type=merge -p '{"status":{"conditions":[{"type":"Accepted","status":"False","reason":"SpecDrift","message":"the class differs from the one the provider ships","observedGeneration":1,"lastTransitionTime":"2026-01-01T00:00:00Z"}]}}'
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupClass
+              metadata:
+                name: oa-no-gcs
+              status:
+                providers:
+                  - name: oa-provider
+                    compatibility: Compatible
+                    classGeneration: 1
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupClass
+              metadata:
+                name: oa-no-import
+              status:
+                providers:
+                  - name: oa-provider
+                    compatibility: Compatible
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupClass
+              metadata:
+                name: oa-drift
+              status:
+                providers:
+                  - name: oa-provider
+                    compatibility: Incompatible
+                    reason: SpecDrift
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupClass
+              metadata:
+                name: oa-pending
+              status:
+                providers:
+                  - name: oa-provider
+                    compatibility: Pending
+                    reason: ClassNotAccepted
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: oa-aws
+              status:
+                "(backupClasses[?name == 'oa-no-gcs'])":
+                  - compatibility: Compatible
+                "(backupClasses[?name == 'oa-no-import'])":
+                  - compatibility: Compatible
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: oa-gcs
+              status:
+                "(backupClasses[?name == 'oa-no-gcs'])":
+                  - compatibility: Incompatible
+                    reason: ParameterUnsupported
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: oa-no-credentials
+              status:
+                "(backupClasses[?name == 'oa-no-gcs'])":
+                  - compatibility: Pending
+                    reason: StorageNotAccepted
+      catch:
+        - script:
+            content: kubectl get backupclass oa-no-gcs oa-no-import oa-drift oa-pending -o yaml; kubectl get backupstorage -n $NAMESPACE -o yaml
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+    - name: backups
+      try:
+        - script:
+            content: |
+              kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'YAML'
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: Backup
+              metadata:
+                name: oa-compatible
+              spec:
+                origin: {type: Instance, instanceRef: {name: oa-db}}
+                classRef: {name: oa-no-gcs}
+                storageRef: {name: oa-aws}
+              YAML
+            check:
+              ($error): ~
+              (contains($stderr, 'Warning')): false
+        - script:
+            content: |
+              kubectl create -n "$NAMESPACE" -f - <<'YAML'
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: Backup
+              metadata:
+                name: oa-to-gcs
+              spec:
+                origin: {type: Instance, instanceRef: {name: oa-db}}
+                classRef: {name: oa-no-gcs}
+                storageRef: {name: oa-gcs}
+              YAML
+            check:
+              ($error != null): true
+              (contains($stderr, 'vbackup-v1alpha1.kb.io')): true
+              "(contains($stderr, 'backup storage incompatible: BackupStorage \"oa-gcs\" is Incompatible with BackupClass \"oa-no-gcs\" (ParameterUnsupported)'))": true
+        - script:
+            content: |
+              kubectl create -n "$NAMESPACE" -f - <<'YAML'
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: Backup
+              metadata:
+                name: oa-drifted
+              spec:
+                origin: {type: Instance, instanceRef: {name: oa-db}}
+                classRef: {name: oa-drift}
+                storageRef: {name: oa-aws}
+              YAML
+            check:
+              ($error != null): true
+              "(contains($stderr, 'backup class incompatible: BackupClass \"oa-drift\" is Incompatible with Provider \"oa-provider\" (SpecDrift)'))": true
+        - script:
+            content: |
+              kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'YAML'
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: Backup
+              metadata:
+                name: oa-other-provider
+              spec:
+                origin: {type: Instance, instanceRef: {name: oa-elsewhere}}
+                classRef: {name: oa-no-gcs}
+                storageRef: {name: oa-aws}
+              YAML
+            check:
+              ($error != null): true
+              "(contains($stderr, 'BackupClass \"oa-no-gcs\" is Incompatible with Provider \"oa-other-provider\" (ProviderUnsupported)'))": true
+        - script:
+            content: |
+              kubectl create -n "$NAMESPACE" -f - <<'YAML'
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: Backup
+              metadata:
+                name: oa-unclaimed
+              spec:
+                origin: {type: Instance, instanceRef: {name: oa-db}}
+                classRef: {name: oa-pending}
+                storageRef: {name: oa-aws}
+              YAML
+            check:
+              ($error): ~
+              "(contains($stderr, 'Warning: BackupClass \"oa-pending\" is Pending for Provider \"oa-provider\" (ClassNotAccepted)'))": true
+        - script:
+            content: |
+              kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'YAML'
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: Backup
+              metadata:
+                name: oa-storage-pending
+              spec:
+                origin: {type: Instance, instanceRef: {name: oa-db}}
+                classRef: {name: oa-no-gcs}
+                storageRef: {name: oa-no-credentials}
+              YAML
+            check:
+              ($error): ~
+              "(contains($stderr, 'Warning: BackupStorage \"oa-no-credentials\" is Pending for BackupClass \"oa-no-gcs\" (StorageNotAccepted)'))": true
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: Backup
+              metadata:
+                name: oa-unclaimed
+        - error:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: Backup
+              metadata:
+                name: oa-to-gcs
+        # Created outside chainsaw, so cleaned up here: it holds oa-aws.
+        - delete:
+            ref:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: Backup
+              name: oa-unclaimed
+      catch:
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+    - name: restores
+      try:
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: Backup
+              metadata:
+                name: oa-done
+              spec:
+                origin:
+                  type: Instance
+                  instanceRef:
+                    name: oa-db
+                classRef:
+                  name: oa-no-gcs
+                storageRef:
+                  name: oa-aws
+        # What the provider's runtime reports once the backup completes.
+        - script:
+            content: kubectl patch backup oa-done -n "$NAMESPACE" --subresource=status --type=merge -p '{"status":{"state":"Succeeded"}}'
+        - assert:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: Backup
+              metadata:
+                name: oa-done
+              status:
+                state: Succeeded
+        - script:
+            content: |
+              kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'YAML'
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: Restore
+              metadata:
+                name: oa-restore
+              spec:
+                instanceRef: {name: oa-db}
+                dataSource:
+                  type: Backup
+                  backup: {backupRef: {name: oa-done}}
+              YAML
+            check:
+              ($error): ~
+              (contains($stderr, 'Warning')): false
+        - script:
+            content: |
+              kubectl create -n "$NAMESPACE" -f - <<'YAML'
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: Restore
+              metadata:
+                name: oa-restore-elsewhere
+              spec:
+                instanceRef: {name: oa-elsewhere}
+                dataSource:
+                  type: Backup
+                  backup: {backupRef: {name: oa-done}}
+              YAML
+            check:
+              ($error != null): true
+              (contains($stderr, 'vrestore-v1alpha1.kb.io')): true
+              "(contains($stderr, 'BackupClass \"oa-no-gcs\" is Incompatible with Provider \"oa-other-provider\" (ProviderUnsupported)'))": true
+        - script:
+            content: |
+              kubectl create -n "$NAMESPACE" -f - <<'YAML'
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: Restore
+              metadata:
+                name: oa-restore-from-gcs
+              spec:
+                instanceRef: {name: oa-db}
+                dataSource:
+                  type: PointInTime
+                  pointInTime:
+                    source: {storageRef: {name: oa-gcs}}
+                    recoveryTarget: latest
+              YAML
+            check:
+              ($error != null): true
+              "(contains($stderr, 'BackupStorage \"oa-gcs\" is Incompatible with BackupClass \"oa-no-gcs\" (ParameterUnsupported)'))": true
+      catch:
+        - script:
+            content: kubectl get backup oa-done -n $NAMESPACE -o yaml
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100
+    - name: imports
+      try:
+        - script:
+            content: |
+              kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'YAML'
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupImport
+              metadata:
+                name: oa-import
+              spec:
+                classRef: {name: oa-no-gcs}
+                storageRef: {name: oa-aws}
+              YAML
+            check:
+              ($error): ~
+              (contains($stderr, 'Warning')): false
+        - script:
+            content: |
+              kubectl create -n "$NAMESPACE" -f - <<'YAML'
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupImport
+              metadata:
+                name: oa-import-unsupported
+              spec:
+                classRef: {name: oa-no-import}
+                storageRef: {name: oa-aws}
+              YAML
+            check:
+              ($error != null): true
+              (contains($stderr, 'vbackupimport-v1alpha1.kb.io')): true
+              (contains($stderr, 'backup import is not supported')): true
+        - script:
+            content: |
+              kubectl create -n "$NAMESPACE" -f - <<'YAML'
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupImport
+              metadata:
+                name: oa-import-gcs
+              spec:
+                classRef: {name: oa-no-gcs}
+                storageRef: {name: oa-gcs}
+              YAML
+            check:
+              ($error != null): true
+              "(contains($stderr, 'BackupStorage \"oa-gcs\" is Incompatible with BackupClass \"oa-no-gcs\" (ParameterUnsupported)'))": true
+        - script:
+            content: |
+              kubectl create -n "$NAMESPACE" -f - <<'YAML'
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupImport
+              metadata:
+                name: oa-import-drifted
+              spec:
+                classRef: {name: oa-drift}
+                storageRef: {name: oa-aws}
+              YAML
+            check:
+              ($error != null): true
+              "(contains($stderr, 'BackupClass \"oa-drift\" is Incompatible with Provider \"oa-provider\" (SpecDrift)'))": true
+        - script:
+            content: |
+              kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'YAML'
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupImport
+              metadata:
+                name: oa-import-unclaimed
+              spec:
+                classRef: {name: oa-pending}
+                storageRef: {name: oa-aws}
+              YAML
+            check:
+              ($error): ~
+              "(contains($stderr, 'Warning: BackupClass \"oa-pending\" is Pending for Provider \"oa-provider\" (ClassNotAccepted)'))": true
+      catch:
+        - podLogs:
+            namespace: openeverest-system
+            selector: control-plane=controller-manager
+            tail: 100

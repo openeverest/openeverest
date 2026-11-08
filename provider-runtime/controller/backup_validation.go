@@ -111,6 +111,16 @@ const (
 	// references a BackupClass whose owning provider cannot discover and import
 	// backups.
 	ErrBackupImportUnsupported referenceError = "backup import is not supported"
+
+	// ErrBackupClassIncompatible is a sentinel callers may wrap when the
+	// verdict core publishes on a BackupClass for the Provider that would
+	// execute an operation is Incompatible.
+	ErrBackupClassIncompatible referenceError = "backup class incompatible"
+
+	// ErrBackupStorageIncompatible is a sentinel callers may wrap when the
+	// verdict core publishes on a BackupStorage for the BackupClass that
+	// would read or write it is Incompatible.
+	ErrBackupStorageIncompatible referenceError = "backup storage incompatible"
 )
 
 // ValidateInstanceBackupAgainstClass enforces the generic limits declared on
