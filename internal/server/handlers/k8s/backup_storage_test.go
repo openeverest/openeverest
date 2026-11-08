@@ -93,12 +93,15 @@ func TestK8s_ListBackupStorages(t *testing.T) {
 	inOtherNamespace.Namespace = "ns2"
 	inOtherNamespace.Spec.Authentication.CredentialsSecretRef.Name = "shared-ca"
 
+	// The class verifies a store against a custom CA, which most storages
+	// here name.
+	customCA := &backupv1alpha1.BackupStorageTLSSupport{CustomCA: backupv1alpha1.TLSOptionSupported}
 	handler := newBackupStorageHandler(
 		&backupv1alpha1.BackupClass{
 			ObjectMeta: metav1.ObjectMeta{Name: "pbm"},
 			Spec: backupv1alpha1.BackupClassSpec{BackupStorageClasses: []backupv1alpha1.BackupStorageClassSupport{
-				{Name: "s3", AuthModes: []string{"AccessKey"}},
-				{Name: "gcs", AuthModes: []string{"AccessKey"}},
+				{Name: "s3", AuthModes: []string{"AccessKey"}, TLS: customCA},
+				{Name: "gcs", AuthModes: []string{"AccessKey"}, TLS: customCA},
 			}},
 		},
 		withCA(testBackupStorage("writable", "s3", "AccessKey"), "shared-ca"),

@@ -19,7 +19,12 @@ import (
 	"path"
 	"slices"
 
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 )
 
 // Compatibility is whether a class can be used with what it is judged
@@ -85,9 +90,11 @@ type StorageCompatibility struct {
 }
 
 // CanWriteTo reports whether the class can write to storage: its
-// backupStorageClasses must list the storage's BackupStorageClass, and that
-// entry the storage's authentication mode. It is the only place the rule
-// lives.
+// backupStorageClasses must list the storage's BackupStorageClass, that entry
+// the storage's authentication mode, the entry's parametersSchema must accept
+// the storage's parameters, and the entry's tls support every setting of the
+// storage's spec.tls. It is the only place the rule lives; core publishes its
+// result in BackupStorage.status.backupClasses.
 func (c *BackupClass) CanWriteTo(storage *BackupStorage) StorageCompatibility {
 	storageClass := storage.Spec.BackupStorageClassRef.Name
 	entry := c.Spec.FindBackupStorageClass(storageClass)
@@ -106,7 +113,52 @@ func (c *BackupClass) CanWriteTo(storage *BackupStorage) StorageCompatibility {
 			),
 		}
 	}
+	if entry.ParametersSchema != nil && entry.ParametersSchema.OpenAPIV3Schema != nil {
+		params := storage.Spec.Parameters
+		if params == nil {
+			params = &runtime.RawExtension{Raw: []byte("{}")}
+		}
+		if err := entry.ParametersSchema.Validate(params); err != nil {
+			return StorageCompatibility{
+				Reason:  ReasonParameterUnsupported,
+				Message: fmt.Sprintf("BackupClass %q does not support the parameters of the storage: %v", c.Name, err),
+			}
+		}
+	}
+	if setting := unsupportedTLSSetting(entry.TLS, storage.Spec.TLS); setting != "" {
+		return StorageCompatibility{
+			Reason:  ReasonTLSOptionUnsupported,
+			Message: fmt.Sprintf("BackupClass %q does not support tls.%s on BackupStorageClass %q", c.Name, setting, storageClass),
+		}
+	}
 	return StorageCompatibility{Compatible: true}
+}
+
+// unsupportedTLSSetting returns the setting of tls that support does not
+// honour, or "". An absent support block supports none.
+func unsupportedTLSSetting(support *BackupStorageTLSSupport, tls *common.TLSConfig) string {
+	if tls == nil {
+		return ""
+	}
+	var s BackupStorageTLSSupport
+	if support != nil {
+		s = *support
+	}
+	switch {
+	case tls.CA != nil && s.CustomCA != TLSOptionSupported:
+		return "ca"
+	case tls.InsecureSkipVerify && s.InsecureSkipVerify != TLSOptionSupported:
+		return "insecureSkipVerify"
+	}
+	return ""
+}
+
+// IsAccepted reports whether the class's executor claims it at its current
+// generation: an Accepted condition judged on an older generation does not
+// count.
+func (c *BackupClass) IsAccepted() bool {
+	cond := meta.FindStatusCondition(c.Status.Conditions, BackupClassConditionAccepted)
+	return cond != nil && cond.Status == metav1.ConditionTrue && cond.ObservedGeneration == c.Generation
 }
 
 // backupsSegment separates backups from anything else kept in the bucket, so

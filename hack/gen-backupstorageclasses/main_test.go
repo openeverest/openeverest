@@ -15,6 +15,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -64,4 +66,41 @@ func TestReasonFor(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestValidationsRejectTypographicQuotes(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	crd := `apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: bads.schema.backupstorageclasses.openeverest.io
+spec:
+  group: schema.backupstorageclasses.openeverest.io
+  names: {kind: Bad, plural: bads}
+  scope: Cluster
+  versions:
+  - name: v1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              parameters:
+                type: object
+                properties:
+                  port: {type: string}
+            x-kubernetes-validations:
+            - rule: "self.parameters.port == ` + "\u201d" + `"
+              message: m
+              fieldPath: .parameters.port
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "schema.backupstorageclasses.openeverest.io_bads.yaml"), []byte(crd), 0o600))
+	_, err := validations(dir, "Bad")
+	require.ErrorContains(t, err, "typographic quote")
 }

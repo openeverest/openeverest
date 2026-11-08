@@ -247,6 +247,9 @@ func validations(crdDir, kind string) ([]map[string]any, error) {
 			errs = append(errs, fmt.Errorf("%s: message is required", at))
 		case r.MessageExpression != "" || r.Reason != nil || r.OptionalOldSelf != nil:
 			errs = append(errs, fmt.Errorf("%s: messageExpression, reason and optionalOldSelf are not supported", at))
+		case strings.ContainsAny(r.Rule, "\u201c\u201d"):
+			// gofmt rewrites '' and `` in doc comments, markers included.
+			errs = append(errs, fmt.Errorf("%s: the rule contains a typographic quote; gofmt turned '' into one, write size(x) == 0 instead", at))
 		}
 		reason, err := reasonFor(view, r.FieldPath)
 		if err != nil {

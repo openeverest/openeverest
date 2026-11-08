@@ -25,9 +25,10 @@ spec:
                 required:
                 - endpointURL
                 - region
-            (length(validations)): 2
+            (length(validations)): 3
             (validations[0].reason): InvalidLocation
             (validations[1].reason): InvalidParameters
+            (validations[2].reason): InvalidParameters
   - name: auth-modes
     try:
     - script:
