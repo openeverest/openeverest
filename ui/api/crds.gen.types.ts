@@ -821,6 +821,29 @@ export interface components {
                  *     authentication mode.
                  */
                 uiSchema?: Record<string, never>;
+                /**
+                 * @description Validations are CEL rules every BackupStorage of the class must
+                 *     satisfy, for constraints parametersSchema cannot express, such as a
+                 *     naming rule on location.objectStore.bucket or a rule across parameters
+                 *     and tls. self is the BackupStorage's spec. A violation sets the
+                 *     storage's Accepted condition to False with the rule's reason,
+                 *     InvalidLocation or InvalidParameters, and its message.
+                 */
+                validations?: {
+                    /**
+                     * @description Expression is a CEL expression that is true for a valid object. self is
+                     *     the referencing object's spec, with its parameters typed by the class's
+                     *     parameters schema. oldSelf is not available.
+                     */
+                    expression: string;
+                    /** @description Message explains a violation to the user. */
+                    message: string;
+                    /**
+                     * @description Reason is the reason of the condition a violation sets on the
+                     *     referencing object. Each class kind lists the reasons it accepts.
+                     */
+                    reason: string;
+                }[];
             };
         };
         /** @description BackupStorageClassList is an object that contains the list of the existing backupstorageclasss. */

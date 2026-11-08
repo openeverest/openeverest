@@ -14,9 +14,11 @@
 
 // Command gen-backupstorageclasses writes the built-in BackupStorageClasses,
 // to config/backupstorageclasses for kustomize and to class.yaml in each
-// class's contract package, which embeds it. Their parametersSchema comes from
-// the CRDs controller-gen renders for the wrapper types in _schema; the rest
-// of each class is declared below.
+// class's contract package, which embeds it. Their parametersSchema and
+// validations come from the CRDs controller-gen renders for the wrapper types
+// in _schema: the parameters type gives the schema, and the XValidation
+// markers of the storage view type give the validations. The rest of each
+// class is declared below.
 package main
 
 import (
@@ -27,6 +29,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -54,6 +57,9 @@ type class struct {
 	// contractDir is the directory of the class's contract package.
 	contractDir string
 	schemaKind  string
+	// viewKind is the wrapper of the class's storage view, whose XValidation
+	// markers are the class's validations.
+	viewKind    string
 	displayName string
 	description string
 	authModes   []map[string]any
@@ -75,6 +81,7 @@ func builtinClasses() []class {
 		name:        s3.ClassName,
 		contractDir: "backupstorageclasses/s3",
 		schemaKind:  "S3",
+		viewKind:    "S3Storage",
 		displayName: "S3-compatible object storage",
 		description: "Amazon S3 and S3-compatible object stores such as MinIO, Ceph RGW and the GCS interoperability endpoint.",
 		authModes: []map[string]any{{
@@ -154,17 +161,27 @@ func run(crdDir, out string) error {
 		if err != nil {
 			return fmt.Errorf("class %s: %w", c.name, err)
 		}
+		spec := map[string]any{
+			"displayName":      c.displayName,
+			"description":      c.description,
+			"parametersSchema": map[string]any{"openAPIV3Schema": schema},
+			"authModes":        c.authModes,
+			"uiSchema":         c.uiSchema,
+		}
+		if c.viewKind != "" {
+			rules, err := validations(crdDir, c.viewKind)
+			if err != nil {
+				return fmt.Errorf("class %s: %w", c.name, err)
+			}
+			if len(rules) > 0 {
+				spec["validations"] = rules
+			}
+		}
 		obj := map[string]any{
 			"apiVersion": "backup.openeverest.io/v1alpha1",
 			"kind":       "BackupStorageClass",
 			"metadata":   map[string]any{"name": c.name},
-			"spec": map[string]any{
-				"displayName":      c.displayName,
-				"description":      c.description,
-				"parametersSchema": map[string]any{"openAPIV3Schema": schema},
-				"authModes":        c.authModes,
-				"uiSchema":         c.uiSchema,
-			},
+			"spec":       spec,
 		}
 		data, err := yaml.Marshal(obj)
 		if err != nil {
@@ -193,6 +210,81 @@ func run(crdDir, out string) error {
 
 // parametersSchema returns the spec schema of the wrapper CRD for kind.
 func parametersSchema(crdDir, kind string) (*apiextensionsv1.JSONSchemaProps, error) {
+	spec, err := wrappedSpec(crdDir, kind)
+	if err != nil {
+		return nil, err
+	}
+	if err := rejectCEL("spec", spec); err != nil {
+		return nil, err
+	}
+	return spec, nil
+}
+
+// Reasons of the validations of a BackupStorageClass.
+const (
+	reasonInvalidLocation   = "InvalidLocation"
+	reasonInvalidParameters = "InvalidParameters"
+)
+
+// validations returns the class validations the storage view wrapped by kind
+// declares: its root XValidation markers, each with a fieldPath that names
+// the field it judges and decides its reason. Rules on .location report
+// InvalidLocation, rules on .parameters or .tls InvalidParameters.
+func validations(crdDir, kind string) ([]map[string]any, error) {
+	view, err := wrappedSpec(crdDir, kind)
+	if err != nil {
+		return nil, err
+	}
+	var errs []error
+	for name, p := range view.Properties {
+		errs = append(errs, rejectCEL("spec."+name, &p))
+	}
+	rules := make([]map[string]any, 0, len(view.XValidations))
+	for i, r := range view.XValidations {
+		at := fmt.Sprintf("%s rule %d", kind, i)
+		switch {
+		case r.Message == "":
+			errs = append(errs, fmt.Errorf("%s: message is required", at))
+		case r.MessageExpression != "" || r.Reason != nil || r.OptionalOldSelf != nil:
+			errs = append(errs, fmt.Errorf("%s: messageExpression, reason and optionalOldSelf are not supported", at))
+		}
+		reason, err := reasonFor(view, r.FieldPath)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", at, err))
+			continue
+		}
+		rules = append(rules, map[string]any{"expression": r.Rule, "message": r.Message, "reason": reason})
+	}
+	return rules, errors.Join(errs...)
+}
+
+// reasonFor returns the reason of a rule whose fieldPath is path, which must
+// name a field of the view.
+func reasonFor(view *apiextensionsv1.JSONSchemaProps, path string) (string, error) {
+	segments := strings.Split(strings.TrimPrefix(path, "."), ".")
+	if !strings.HasPrefix(path, ".") || slices.Contains(segments, "") {
+		return "", fmt.Errorf("fieldPath %q must name the field the rule judges, such as .location.objectStore.bucket", path)
+	}
+	s := view
+	for _, seg := range segments {
+		p, ok := s.Properties[seg]
+		if !ok {
+			return "", fmt.Errorf("fieldPath %q: no field %q", path, seg)
+		}
+		s = &p
+	}
+	switch segments[0] {
+	case "location":
+		return reasonInvalidLocation, nil
+	case "parameters", "tls":
+		return reasonInvalidParameters, nil
+	default:
+		return "", fmt.Errorf("fieldPath %q: a rule judges location, parameters or tls", path)
+	}
+}
+
+// wrappedSpec returns the spec schema of the wrapper CRD for kind.
+func wrappedSpec(crdDir, kind string) (*apiextensionsv1.JSONSchemaProps, error) {
 	file := filepath.Join(crdDir, "schema.backupstorageclasses.openeverest.io_"+strings.ToLower(kind)+"s.yaml")
 	data, err := os.ReadFile(file) //nolint:gosec // a file controller-gen wrote for this generator
 	if err != nil {
@@ -210,14 +302,12 @@ func parametersSchema(crdDir, kind string) (*apiextensionsv1.JSONSchemaProps, er
 		return nil, fmt.Errorf("%s: no spec schema", file)
 	}
 	spec.Description = ""
-	if err := rejectCEL("spec", &spec); err != nil {
-		return nil, err
-	}
 	return &spec, nil
 }
 
 // rejectCEL fails on x-kubernetes-validations: parameters are validated by
-// gojsonschema, which cannot evaluate them.
+// gojsonschema, which cannot evaluate them, and the rules of a storage view
+// belong on the view itself, where self is the storage's spec.
 func rejectCEL(path string, s *apiextensionsv1.JSONSchemaProps) error {
 	if len(s.XValidations) > 0 {
 		return fmt.Errorf("%s: class parameter types must not carry XValidation markers", path)
