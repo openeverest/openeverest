@@ -308,9 +308,9 @@ func TestInstanceAdmissionBackupClass(t *testing.T) {
 			wantCauses: []string{"spec.backup.classRef.name"},
 		},
 		{
-			name:       "class that runs backups as Jobs",
+			name:       "class of another execution mode",
 			in:         admissionInstance(withBackup(true, "s3-a")),
-			class:      testBackupClass(backupv1alpha1.BackupExecutionModeJob, "test-provider"),
+			class:      testBackupClass(otherMode, "test-provider"),
 			wantCauses: []string{"spec.backup.classRef.name"},
 		},
 		{

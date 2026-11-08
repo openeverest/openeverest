@@ -71,10 +71,13 @@ func TestIncompatibility(t *testing.T) {
 	err := Incompatibility(class(nil), "postgres")
 	assert.Equal(t, `spec.backup.classRef.name: Invalid value: "pbm": does not support provider postgres`, err.Error())
 
-	jobs := class(nil)
-	jobs.Spec.ExecutionMode = backupv1alpha1.BackupExecutionModeJob
-	assert.Equal(t, "spec.backup.classRef.name", Incompatibility(jobs, "mongo").Field)
+	other := class(nil)
+	other.Spec.ExecutionMode = otherMode
+	assert.Equal(t, "spec.backup.classRef.name", Incompatibility(other, "mongo").Field)
 }
+
+// otherMode is an execution mode the provider runtime does not execute.
+const otherMode = backupv1alpha1.BackupExecutionMode("Other")
 
 func TestLimitErrors(t *testing.T) {
 	t.Parallel()

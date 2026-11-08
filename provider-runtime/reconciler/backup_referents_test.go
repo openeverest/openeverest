@@ -51,6 +51,9 @@ func (p *backupTestProvider) CleanupRestore(*controller.Context, *backupv1alpha1
 	return true, nil
 }
 
+// otherMode is an execution mode the provider runtime does not execute.
+const otherMode = backupv1alpha1.BackupExecutionMode("Other")
+
 func testBackupClass(mode backupv1alpha1.BackupExecutionMode, providers ...string) *backupv1alpha1.BackupClass {
 	return &backupv1alpha1.BackupClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "pbm"},
@@ -119,14 +122,14 @@ func TestReconcile_BackupReferents(t *testing.T) {
 			wantMessage: "backup class pbm not found",
 		},
 		{
-			name:   "Job-mode class",
+			name:   "class of another execution mode",
 			backup: withBackup(true, "s3-prod"),
 			objs: func() []client.Object {
-				return []client.Object{testBackupClass(backupv1alpha1.BackupExecutionModeJob), storage(), keys()}
+				return []client.Object{testBackupClass(otherMode), storage(), keys()}
 			},
 			wantReady:   metav1.ConditionFalse,
 			wantReason:  v1alpha1.ReasonBackupClassIncompatible,
-			wantMessage: "backup class pbm runs backups as Jobs and can't be an instance's backup class",
+			wantMessage: "backup class pbm is not ProviderManaged and can't be an instance's backup class",
 		},
 		{
 			name:   "class for another provider",
