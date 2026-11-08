@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package schema wraps the parameter types of the built-in
+// Package schema wraps the parameter and storage view types of the built-in
 // BackupStorageClasses in root types, so controller-gen renders their
 // kubebuilder markers into an OpenAPI schema. The leading underscore keeps the
 // package out of ./... and therefore out of config/crd.
@@ -36,4 +36,16 @@ type S3 struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec s3.Parameters `json:"spec"`
+}
+
+// S3Storage carries the view of an s3 BackupStorage the class's validations
+// are written against.
+//
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:scope=Cluster
+type S3Storage struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec s3.StorageView `json:"spec"`
 }
