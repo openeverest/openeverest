@@ -4374,7 +4374,9 @@ type Instance struct {
 					Container *string `json:"container,omitempty"`
 
 					// Kind Kind is the kind of the component's type
-					// (Provider.spec.componentTypes.<type>.kind).
+					// (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+					// A provider may leave it empty; an endpoint it computes with another
+					// kind is not published.
 					Kind string `json:"kind"`
 
 					// PodSelector PodSelector selects the pods serving the endpoint.
@@ -4450,7 +4452,9 @@ type Instance struct {
 					Component string `json:"component"`
 
 					// Kind Kind is the kind of the component's type
-					// (Provider.spec.componentTypes.<type>.kind).
+					// (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+					// A provider may leave it empty; an endpoint it computes with another
+					// kind is not published.
 					Kind string `json:"kind"`
 
 					// Params Params are extra scrape query parameters (e.g. target for /probe).

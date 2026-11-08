@@ -782,9 +782,16 @@ func TestValidateSources(t *testing.T) {
 			wantCredentials: credentials,
 		},
 		{
-			name:            "kind comes from the declared component type",
+			name:            "empty kind is set to the declared kind of the component type",
 			credentials:     credentials,
-			metrics:         []v1alpha1.MetricsEndpoint{with(func(ep *v1alpha1.MetricsEndpoint) { ep.Kind = "postgresql" })},
+			metrics:         []v1alpha1.MetricsEndpoint{with(func(ep *v1alpha1.MetricsEndpoint) { ep.Kind = "" })},
+			want:            []v1alpha1.MetricsEndpoint{valid},
+			wantCredentials: credentials,
+		},
+		{
+			name:            "kind other than the declared kind of the component type",
+			credentials:     credentials,
+			metrics:         []v1alpha1.MetricsEndpoint{valid, with(func(ep *v1alpha1.MetricsEndpoint) { ep.Kind = "postgresql" })},
 			want:            []v1alpha1.MetricsEndpoint{valid},
 			wantCredentials: credentials,
 		},
@@ -935,6 +942,37 @@ func TestReconcile_PublishesMonitoringStatus(t *testing.T) {
 	c := storedConfigured(t, r, "pmm")
 	require.NotNil(t, c)
 	assert.Equal(t, metav1.ConditionTrue, c.Status)
+}
+
+func TestReconcile_PublishesTheDeclaredKinds(t *testing.T) {
+	t.Parallel()
+	endpoint := func(component, kind string) v1alpha1.MetricsEndpoint {
+		return v1alpha1.MetricsEndpoint{
+			Component: component, Kind: kind, Port: intstr.FromString("metrics"),
+			PodSelector: map[string]string{controller.InstanceLabel: "orders"},
+		}
+	}
+	p := &monProvider{
+		readyTestProvider: readyTestProvider{status: controller.Ready()},
+		sources: &v1alpha1.MonitoringSources{Metrics: []v1alpha1.MetricsEndpoint{
+			endpoint("engine", ""),
+			endpoint("proxy", "haproxy"),
+			endpoint("proxy", "mysql"),
+		}},
+	}
+	in := monInstance("pmm")
+	r := newMonReconciler(t, p, monProviderObject(), in, pmmDestination(), pmmClass(),
+		monBinding("pmm", v1alpha1.MonitoringExecutionModeProviderManaged, accepted()),
+	)
+
+	got, err := reconcileAndGet(t, r)
+	require.NoError(t, err)
+
+	require.NotNil(t, got.Status.Monitoring)
+	require.NotNil(t, got.Status.Monitoring.Sources)
+	assert.Equal(t, []v1alpha1.MetricsEndpoint{endpoint("engine", "mysql"), endpoint("proxy", "haproxy")},
+		got.Status.Monitoring.Sources.Metrics,
+	)
 }
 
 func TestReconcile_RequiredSourcesIncludeRenderedIntegrations(t *testing.T) {
