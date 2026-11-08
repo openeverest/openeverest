@@ -488,6 +488,26 @@ type BaseProvider struct {
 	ProviderName string
 	SchemeFuncs  []func(*runtime.Scheme) error
 	WatchConfigs []WatchConfig
+
+	shippedBackupClasses []backupv1alpha1.BackupClass
+}
+
+// SetShippedBackupClasses records the BackupClasses the provider ships, the
+// classes provider-sdk generates from definition/backupclasses and embeds in
+// the binary. They are what the provider claims: a ProviderManaged class
+// naming the provider is Accepted when it matches one of them (spec 019
+// §4.2). The runtime stores them; claiming arrives in a later release.
+func (b *BaseProvider) SetShippedBackupClasses(classes []backupv1alpha1.BackupClass) {
+	b.shippedBackupClasses = make([]backupv1alpha1.BackupClass, len(classes))
+	for i := range classes {
+		classes[i].DeepCopyInto(&b.shippedBackupClasses[i])
+	}
+}
+
+// ShippedBackupClasses returns the classes recorded by
+// SetShippedBackupClasses.
+func (b *BaseProvider) ShippedBackupClasses() []backupv1alpha1.BackupClass {
+	return b.shippedBackupClasses
 }
 
 func (b *BaseProvider) Name() string {

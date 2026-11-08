@@ -1474,7 +1474,7 @@ paths:
       summary: List backup classes
       description: |
         This API lists all backup classes in the specified cluster.
-        Optionally filter by provider: only the classes whose `spec.supportedProviders` lists that provider are returned.
+        Optionally filter by provider: only the classes that provider executes (`spec.providerManaged.providerRef`) are returned.
       operationId: listBackupClasses
       parameters:
         - name: cluster
@@ -1486,7 +1486,7 @@ paths:
         - name: provider
           in: query
           required: false
-          description: Return only the backup classes that support the provider with this name
+          description: Return only the backup classes executed by the provider with this name
           schema:
             type: string
       responses:

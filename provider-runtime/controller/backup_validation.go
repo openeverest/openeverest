@@ -93,8 +93,8 @@ const (
 	ErrBackupNotSucceeded referenceError = "backup not succeeded"
 
 	// ErrProviderUnsupported is the sentinel returned by
-	// ValidateClassSupportsProvider when a BackupClass does not list a provider
-	// in its SupportedProviders.
+	// ValidateClassSupportsProvider when a BackupClass is not executed by a
+	// provider.
 	ErrProviderUnsupported referenceError = "provider not supported by backup class"
 
 	// ErrRestorePITRUnsupported is the sentinel returned by ValidateRestorePITR
@@ -188,11 +188,11 @@ func ValidateBackupSucceeded(backup *backupv1alpha1.Backup) error {
 	return nil
 }
 
-// ValidateClassSupportsProvider returns ErrProviderUnsupported unless bc
-// lists provider in its SupportedProviders. Callers are responsible for
-// fetching the BackupClass themselves.
+// ValidateClassSupportsProvider returns ErrProviderUnsupported unless
+// provider executes bc. Callers are responsible for fetching the BackupClass
+// themselves.
 func ValidateClassSupportsProvider(bc *backupv1alpha1.BackupClass, provider string) error {
-	if !bc.Spec.SupportedProviders.Has(provider) {
+	if bc.Spec.ExecutorProvider() != provider {
 		return fmt.Errorf("%w: class '%s', provider '%s'", ErrProviderUnsupported, bc.GetName(), provider)
 	}
 	return nil

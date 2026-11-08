@@ -237,9 +237,9 @@ func resolveBackupOwnership(
 	}
 
 	// External backups have no Instance to fetch. Ownership is derived
-	// from the class's SupportedProviders.
+	// from the class's executor.
 	if backup.Spec.Origin.Type == backupv1alpha1.BackupOriginTypeExternal {
-		return nil, bc, bc.Spec.SupportedProviders.Has(providerName), nil
+		return nil, bc, bc.Spec.ExecutorProvider() == providerName, nil
 	}
 
 	instance := &corev1alpha1.Instance{}
@@ -248,9 +248,9 @@ func resolveBackupOwnership(
 		Name:      backup.Spec.Origin.InstanceRef.Name,
 	}, instance); err != nil {
 		if apierrors.IsNotFound(err) {
-			// A ProviderManaged class lists exactly one provider, so it
-			// names the owner while the Instance is missing.
-			return nil, bc, bc.Spec.SupportedProviders.Has(providerName), nil
+			// A ProviderManaged class names its executor, so it names
+			// the owner while the Instance is missing.
+			return nil, bc, bc.Spec.ExecutorProvider() == providerName, nil
 		}
 		return nil, bc, false, fmt.Errorf("failed to get Instance: %w", err)
 	}

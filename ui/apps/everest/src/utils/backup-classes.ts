@@ -14,11 +14,8 @@
 
 import { BackupClass } from 'shared-types/backups.types';
 
-// A class without supportedProviders works with every provider.
+// A ProviderManaged class works only with the provider that executes it.
 export const backupClassSupportsProvider = (
   backupClass: BackupClass,
   provider: string
-): boolean => {
-  const supported = backupClass.spec.supportedProviders ?? [];
-  return supported.length === 0 || supported.includes(provider);
-};
+): boolean => backupClass.spec.providerManaged?.providerRef.name === provider;

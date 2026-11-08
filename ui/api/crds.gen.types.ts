@@ -306,6 +306,41 @@ export interface components {
                     authModes: string[];
                     /** @description Name of the BackupStorageClass. */
                     name: string;
+                    /**
+                     * @description ParametersSchema narrows the BackupStorageClass's parametersSchema to
+                     *     what the executor supports, typically the parameters of the contract
+                     *     version it was built with: a storage whose parameters it rejects
+                     *     cannot be used with the class. Absent adds no restriction.
+                     */
+                    parametersSchema?: {
+                        /**
+                         * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                         *     parameters payload.
+                         */
+                        openAPIV3Schema?: unknown;
+                    };
+                    /**
+                     * @description TLS declares which settings of BackupStorage.spec.tls the executor
+                     *     honours. Absent means None for each: a storage that uses a setting the
+                     *     executor does not support cannot be used with the class, and a
+                     *     storage without spec.tls always can.
+                     */
+                    tls?: {
+                        /**
+                         * @description CustomCA is whether the executor verifies the store against the CA
+                         *     bundle in spec.tls.ca.
+                         * @default None
+                         * @enum {string}
+                         */
+                        customCA?: "Supported" | "None";
+                        /**
+                         * @description InsecureSkipVerify is whether the executor can turn certificate
+                         *     verification off, as spec.tls.insecureSkipVerify asks.
+                         * @default None
+                         * @enum {string}
+                         */
+                        insecureSkipVerify?: "Supported" | "None";
+                    };
                 }[];
                 /** @description Description is the description of the backup class. */
                 description?: string;
@@ -313,8 +348,10 @@ export interface components {
                 displayName?: string;
                 /**
                  * @description ExecutionMode selects who executes the class's backup and restore
-                 *     operations. ProviderManaged is the only mode: the provider named in
-                 *     SupportedProviders executes them.
+                 *     operations, and discriminates the execution union: the member named
+                 *     after the mode is required, any other is forbidden. ProviderManaged is
+                 *     the only mode: the provider in providerManaged.providerRef executes
+                 *     them.
                  * @enum {string}
                  */
                 executionMode: "ProviderManaged";
@@ -343,11 +380,9 @@ export interface components {
                     openAPIV3Schema?: unknown;
                 };
                 /**
-                 * @description ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
-                 *     schema is intentionally open: providers may surface capability
-                 *     information (e.g., whether PITR is supported, schedule expression
-                 *     dialect) without forcing a CRD change. Must be unset for any other
-                 *     execution mode.
+                 * @description ProviderManaged is the member of the execution union for
+                 *     ExecutionMode=ProviderManaged: the provider that executes the class and
+                 *     what it supports. Required for that mode, forbidden for any other.
                  */
                 providerManaged?: {
                     /**
@@ -395,6 +430,15 @@ export interface components {
                         openAPIV3Schema?: unknown;
                     };
                     /**
+                     * @description ProviderRef names the Provider that claims and executes the class. It
+                     *     is immutable: moving a class to another provider is delete and
+                     *     recreate.
+                     */
+                    providerRef: {
+                        /** @description Name of the referenced object. */
+                        name: string;
+                    };
+                    /**
                      * @description SupportsPITR indicates whether this class supports point-in-time recovery.
                      *     Used by Restore validation when Restore.spec.dataSource.pitr is set.
                      */
@@ -413,12 +457,6 @@ export interface components {
                     openAPIV3Schema?: unknown;
                 };
                 /**
-                 * @description SupportedProviders is the list of provider names that this backup class
-                 *     supports. The Instance.spec.provider must appear in this list for the
-                 *     class to be usable on that Instance.
-                 */
-                supportedProviders?: string[];
-                /**
                  * @description SupportsImport indicates whether the owner of this class can discover and
                  *     import restorable backups already sitting in a BackupStorage.
                  */
@@ -432,8 +470,28 @@ export interface components {
                  */
                 uiSchema?: Record<string, never>;
             };
-            /** @description BackupClassStatus defines the observed state of BackupClass. */
+            /**
+             * @description BackupClassStatus defines the observed state of BackupClass. It has two
+             *     writers, each applying only its own fields with server-side apply: the
+             *     executor that claims the class owns the Accepted condition and core owns
+             *     providers.
+             * @default {
+             *       "conditions": [
+             *         {
+             *           "lastTransitionTime": "1970-01-01T00:00:00Z",
+             *           "message": "Waiting for the executor to claim the class",
+             *           "reason": "Pending",
+             *           "status": "Unknown",
+             *           "type": "Accepted"
+             *         }
+             *       ]
+             *     }
+             */
             status?: {
+                /**
+                 * @description Conditions: Accepted, set by the class's executor when it claims the
+                 *     class, with the observedGeneration it judged.
+                 */
                 conditions?: {
                     /**
                      * Format: date-time
@@ -468,6 +526,31 @@ export interface components {
                     status: "True" | "False" | "Unknown";
                     /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
                     type: string;
+                }[];
+                /**
+                 * @description Providers is the compatibility of the class with each Provider that
+                 *     can execute it: for a ProviderManaged class, the Provider in
+                 *     providerManaged.providerRef. A Provider that is not listed is
+                 *     incompatible. Written by core.
+                 */
+                providers?: {
+                    /**
+                     * Format: int64
+                     * @description ClassGeneration is the generation of the class the entry was computed
+                     *     for. An entry for another generation counts as Pending.
+                     */
+                    classGeneration?: number;
+                    /**
+                     * @description Compatibility is whether Instances of the Provider can use the class.
+                     * @enum {string}
+                     */
+                    compatibility: "Compatible" | "Pending" | "Incompatible";
+                    /** @description Message is the human-readable detail of Reason. */
+                    message?: string;
+                    /** @description Name is the Provider name. */
+                    name: string;
+                    /** @description Reason is why the class is not Compatible. */
+                    reason?: string;
                 }[];
             };
         };
@@ -710,11 +793,55 @@ export interface components {
                     insecureSkipVerify?: boolean;
                 };
             };
-            /** @description BackupStorageStatus defines the observed state of a BackupStorage. */
+            /**
+             * @description BackupStorageStatus defines the observed state of a BackupStorage. Core
+             *     writes all of it.
+             */
             status?: {
                 /**
-                 * @description Conditions: Accepted, written by core, and Deleting while a deleted
-                 *     storage waits for its referrers.
+                 * @description BackupClasses is whether each Accepted BackupClass can write to the
+                 *     storage. Read an entry through CurrentVerdict, which treats an entry
+                 *     computed from other objects than the current ones as Pending.
+                 */
+                backupClasses?: {
+                    /**
+                     * @description Compatibility is whether the class can write to the storage.
+                     * @enum {string}
+                     */
+                    compatibility: "Compatible" | "Pending" | "Incompatible";
+                    /** @description Message is the human-readable detail of Reason. */
+                    message?: string;
+                    /** @description Name is the BackupClass name. */
+                    name: string;
+                    /** @description Observed identifies the objects the verdict was computed from. */
+                    observed: {
+                        /**
+                         * Format: int64
+                         * @description ClassGeneration is the generation of the BackupClass.
+                         */
+                        classGeneration?: number;
+                        /** @description ClassUID is the UID of the BackupClass. */
+                        classUID?: string;
+                        /**
+                         * Format: int64
+                         * @description StorageClassGeneration is the generation of the storage's
+                         *     BackupStorageClass.
+                         */
+                        storageClassGeneration?: number;
+                        /** @description StorageClassUID is the UID of the storage's BackupStorageClass. */
+                        storageClassUID?: string;
+                        /**
+                         * Format: int64
+                         * @description StorageGeneration is the generation of the BackupStorage.
+                         */
+                        storageGeneration?: number;
+                    };
+                    /** @description Reason is why the class cannot write to the storage, or not yet. */
+                    reason?: string;
+                }[];
+                /**
+                 * @description Conditions: Accepted, and Deleting while a deleted storage waits for
+                 *     its referrers.
                  */
                 conditions?: {
                     /**
@@ -910,8 +1037,8 @@ export interface components {
                     /**
                      * @description ClassRef references the cluster-scoped BackupClass that the provider
                      *     should use to configure the engine. The class must have
-                     *     ExecutionMode=ProviderManaged and list the Instance's provider in its
-                     *     SupportedProviders.
+                     *     ExecutionMode=ProviderManaged and name the Instance's provider in
+                     *     providerManaged.providerRef.
                      */
                     classRef: {
                         /** @description Name of the referenced object. */
@@ -1936,7 +2063,7 @@ export interface components {
                  *
                  *     Only ProviderManaged BackupClasses are supported. The referenced Backup
                  *     must be in the same namespace, in Succeeded state, and its BackupClass
-                 *     must list the Instance's provider in SupportedProviders. Instance must
+                 *     must be executed by the Instance's provider. Instance must
                  *     also have backup enabled and include a storage entry that matches the
                  *     storage used by the source Backup so the provider can access the data.
                  */
@@ -2373,8 +2500,8 @@ export interface components {
                     /**
                      * @description ClassRef references the cluster-scoped BackupClass that the provider
                      *     should use to configure the engine. The class must have
-                     *     ExecutionMode=ProviderManaged and list the Instance's provider in its
-                     *     SupportedProviders.
+                     *     ExecutionMode=ProviderManaged and name the Instance's provider in
+                     *     providerManaged.providerRef.
                      */
                     classRef: {
                         /** @description Name of the referenced object. */
@@ -3399,7 +3526,7 @@ export interface components {
                  *
                  *     Only ProviderManaged BackupClasses are supported. The referenced Backup
                  *     must be in the same namespace, in Succeeded state, and its BackupClass
-                 *     must list the Instance's provider in SupportedProviders. Instance must
+                 *     must be executed by the Instance's provider. Instance must
                  *     also have backup enabled and include a storage entry that matches the
                  *     storage used by the source Backup so the provider can access the data.
                  */
@@ -3990,8 +4117,8 @@ export interface components {
                     /**
                      * @description ClassRef references the cluster-scoped BackupClass that the provider
                      *     should use to configure the engine. The class must have
-                     *     ExecutionMode=ProviderManaged and list the Instance's provider in its
-                     *     SupportedProviders.
+                     *     ExecutionMode=ProviderManaged and name the Instance's provider in
+                     *     providerManaged.providerRef.
                      */
                     classRef: {
                         /** @description Name of the referenced object. */
@@ -5016,7 +5143,7 @@ export interface components {
                  *
                  *     Only ProviderManaged BackupClasses are supported. The referenced Backup
                  *     must be in the same namespace, in Succeeded state, and its BackupClass
-                 *     must list the Instance's provider in SupportedProviders. Instance must
+                 *     must be executed by the Instance's provider. Instance must
                  *     also have backup enabled and include a storage entry that matches the
                  *     storage used by the source Backup so the provider can access the data.
                  */
@@ -6463,8 +6590,8 @@ export interface components {
                 };
                 /**
                  * @description InstanceRef references the Instance to restore into. The Instance
-                 *     must already exist in the same namespace and use a provider listed in
-                 *     the BackupClass's SupportedProviders.
+                 *     must already exist in the same namespace and use the provider that
+                 *     executes the BackupClass.
                  */
                 instanceRef: {
                     /** @description Name of the referenced object. */

@@ -207,12 +207,84 @@ spec:
             - location
             type: object
           status:
-            description: BackupStorageStatus defines the observed state of a BackupStorage.
+            description: |-
+              BackupStorageStatus defines the observed state of a BackupStorage. Core
+              writes all of it.
             properties:
+              backupClasses:
+                description: |-
+                  BackupClasses is whether each Accepted BackupClass can write to the
+                  storage. Read an entry through CurrentVerdict, which treats an entry
+                  computed from other objects than the current ones as Pending.
+                items:
+                  description: BackupClassVerdict is whether a BackupClass can write
+                    to a BackupStorage.
+                  properties:
+                    compatibility:
+                      description: Compatibility is whether the class can write to
+                        the storage.
+                      enum:
+                      - Compatible
+                      - Pending
+                      - Incompatible
+                      type: string
+                    message:
+                      description: Message is the human-readable detail of Reason.
+                      maxLength: 32768
+                      type: string
+                    name:
+                      description: Name is the BackupClass name.
+                      maxLength: 253
+                      type: string
+                    observed:
+                      description: Observed identifies the objects the verdict was
+                        computed from.
+                      properties:
+                        classGeneration:
+                          description: ClassGeneration is the generation of the BackupClass.
+                          format: int64
+                          minimum: 0
+                          type: integer
+                        classUID:
+                          description: ClassUID is the UID of the BackupClass.
+                          type: string
+                        storageClassGeneration:
+                          description: |-
+                            StorageClassGeneration is the generation of the storage's
+                            BackupStorageClass.
+                          format: int64
+                          minimum: 0
+                          type: integer
+                        storageClassUID:
+                          description: StorageClassUID is the UID of the storage's
+                            BackupStorageClass.
+                          type: string
+                        storageGeneration:
+                          description: StorageGeneration is the generation of the
+                            BackupStorage.
+                          format: int64
+                          minimum: 0
+                          type: integer
+                      type: object
+                    reason:
+                      description: Reason is why the class cannot write to the storage,
+                        or not yet.
+                      maxLength: 1024
+                      type: string
+                  required:
+                  - compatibility
+                  - name
+                  - observed
+                  type: object
+                maxItems: 64
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               conditions:
                 description: |-
-                  Conditions: Accepted, written by core, and Deleting while a deleted
-                  storage waits for its referrers.
+                  Conditions: Accepted, and Deleting while a deleted storage waits for
+                  its referrers.
                 items:
                   description: Condition contains details for one aspect of the current
                     state of this API Resource.

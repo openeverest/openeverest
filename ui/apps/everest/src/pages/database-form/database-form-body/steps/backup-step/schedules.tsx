@@ -37,6 +37,7 @@ import {
 import { ScheduleWizardMode, WizardMode } from 'shared-types/wizard.types';
 import { BackupStorageCRD } from 'shared-types/backupStorages.types';
 import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
+import { backupClassSupportsProvider } from 'utils/backup-classes';
 import { useClusterName } from 'hooks/api/useClusterName';
 
 /** Form field path where wizard stores the flat schedules array. */
@@ -67,13 +68,13 @@ export const Schedules = ({ backupStorages }: Props) => {
     watch(BACKUP_SCHEDULES_FIELD) ?? [];
 
   // A cluster can expose backup classes for several providers; pick the one
-  // whose supportedProviders matches this database's provider — not just the
-  // first in the list, which may belong to a different engine.
+  // this database's provider executes — not just the first in the list,
+  // which may belong to a different engine.
   const selectedClassName: string | undefined = watch(BACKUP_CLASS_REF_FIELD);
   const providerBackupClass = useMemo(
     () =>
-      backupClasses.find((bc) =>
-        bc.spec?.supportedProviders?.includes(provider)
+      backupClasses.find(
+        (bc) => bc.spec && backupClassSupportsProvider(bc, provider)
       ),
     [backupClasses, provider]
   );

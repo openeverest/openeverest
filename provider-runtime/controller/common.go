@@ -1178,7 +1178,7 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 			Done:    true,
 			State:   DataSourceStateFailed,
 			Reason:  v1alpha1.ReasonDataSourceClassUnsupported,
-			Message: fmt.Sprintf("BackupClass %q does not list provider %q in SupportedProviders", bc.Name, c.providerName),
+			Message: fmt.Sprintf("BackupClass %q is executed by provider %q, not %q", bc.Name, bc.Spec.ExecutorProvider(), c.providerName),
 		}
 		c.SetDataSourceStatus(s)
 		return s, nil

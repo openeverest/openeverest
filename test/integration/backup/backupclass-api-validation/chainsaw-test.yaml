@@ -1,0 +1,137 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: backupclass-api-validation
+spec:
+  steps:
+  - name: execution-union
+    try:
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'YAML'
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupClass
+          metadata:
+            name: bc-api-no-member
+          spec:
+            executionMode: ProviderManaged
+            backupStorageClasses:
+            - name: s3
+              authModes: [AccessKey]
+          YAML
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.providerManaged is required when executionMode is ProviderManaged')): true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'YAML'
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupClass
+          metadata:
+            name: bc-api-no-provider-ref
+          spec:
+            executionMode: ProviderManaged
+            providerManaged:
+              supportsPITR: true
+            backupStorageClasses:
+            - name: s3
+              authModes: [AccessKey]
+          YAML
+        check:
+          ($error != null): true
+          "(contains($stderr, 'spec.providerManaged.providerRef: Required value'))": true
+  - name: storage-class-entries
+    try:
+    - script:
+        content: |
+          kubectl create --dry-run=server -o jsonpath='{.spec.backupStorageClasses[0].tls}' -f - <<'YAML'
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupClass
+          metadata:
+            name: bc-api-tls-default
+          spec:
+            executionMode: ProviderManaged
+            providerManaged:
+              providerRef:
+                name: test-provider
+            backupStorageClasses:
+            - name: s3
+              authModes: [AccessKey]
+              parametersSchema:
+                openAPIV3Schema:
+                  type: object
+                  properties:
+                    endpointURL:
+                      type: string
+                      pattern: ^https://
+              tls: {}
+          YAML
+        check:
+          ($error): ~
+          (contains($stdout, '"customCA":"None"')): true
+          (contains($stdout, '"insecureSkipVerify":"None"')): true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'YAML'
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupClass
+          metadata:
+            name: bc-api-tls-value
+          spec:
+            executionMode: ProviderManaged
+            providerManaged:
+              providerRef:
+                name: test-provider
+            backupStorageClasses:
+            - name: s3
+              authModes: [AccessKey]
+              tls:
+                customCA: Partial
+          YAML
+        check:
+          ($error != null): true
+          (contains($stderr, 'Unsupported value')): true
+  - name: provider-ref-is-immutable
+    try:
+    - apply:
+        resource:
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupClass
+          metadata:
+            name: bc-api-immutable
+          spec:
+            executionMode: ProviderManaged
+            providerManaged:
+              providerRef:
+                name: test-provider
+            backupStorageClasses:
+            - name: s3
+              authModes: [AccessKey]
+    - assert:
+        resource:
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupClass
+          metadata:
+            name: bc-api-immutable
+          status:
+            (conditions[?type == 'Accepted']):
+            - status: Unknown
+              reason: Pending
+    - script:
+        content: |
+          kubectl patch backupclass bc-api-immutable --type=merge -p '{"spec":{"providerManaged":{"providerRef":{"name":"other-provider"}}}}'
+        check:
+          ($error != null): true
+          (contains($stderr, 'providerRef is immutable')): true
+    - script:
+        content: |
+          kubectl patch backupclass bc-api-immutable --type=merge -p '{"spec":{"displayName":"Relabelled"}}'
+        check:
+          ($error): ~
+    finally:
+    - delete:
+        ref:
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupClass
+          name: bc-api-immutable
