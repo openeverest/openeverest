@@ -23,6 +23,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -575,6 +576,71 @@ func TestRun_PrintsAPIWarnings(t *testing.T) {
 	err := NewInstanceCreator(Config{}, zap.New(core).Sugar()).Run(context.Background(), opts, cfgPath)
 	require.NoError(t, err)
 	assert.Equal(t, 1, logs.FilterMessage(`secret "db-creds" named by spec.userSecretRef not found`).Len())
+}
+
+func TestRun_ClientDryRunSendsNothing(t *testing.T) {
+	t.Parallel()
+
+	srv := newRunServer(t, okProviderHandler, func(w http.ResponseWriter, _ *http.Request) {
+		assert.Fail(t, "a client dry run must not send the instance")
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	opts := CreateOptions{
+		Name:      "my-db",
+		Namespace: "everest",
+		Provider:  "psmdb",
+		Cluster:   "main",
+		DryRun:    DryRunClient,
+	}
+	err := NewInstanceCreator(Config{}, zap.NewNop().Sugar()).Run(context.Background(), opts, cfgPath)
+	require.NoError(t, err)
+}
+
+func TestRun_ServerDryRunSendsDryRunAll(t *testing.T) {
+	t.Parallel()
+
+	var created atomic.Bool
+	srv := newRunServer(t, okProviderHandler, func(w http.ResponseWriter, r *http.Request) {
+		created.Store(true)
+		assert.Equal(t, "All", r.URL.Query().Get("dryRun"))
+		respondCreated(w)
+	})
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	opts := CreateOptions{
+		Name:      "my-db",
+		Namespace: "everest",
+		Provider:  "psmdb",
+		Cluster:   "main",
+		DryRun:    DryRunServer,
+	}
+	err := NewInstanceCreator(Config{}, zap.NewNop().Sugar()).Run(context.Background(), opts, cfgPath)
+	require.NoError(t, err)
+	assert.True(t, created.Load())
+}
+
+func TestRun_DryRunWithWaitRejected(t *testing.T) {
+	t.Parallel()
+
+	opts := CreateOptions{
+		Name:      "my-db",
+		Namespace: "everest",
+		Provider:  "psmdb",
+		Cluster:   "main",
+		DryRun:    DryRunServer,
+		Wait:      true,
+	}
+	err := NewInstanceCreator(Config{}, zap.NewNop().Sugar()).Run(context.Background(), opts, filepath.Join(t.TempDir(), "config.yaml"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--wait")
 }
 
 func TestRun_ProviderNotFound(t *testing.T) {

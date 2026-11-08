@@ -307,6 +307,9 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	}
 	apiGroup.Use(blocklistMW)
 
+	// After authentication, so an unauthenticated request gets 401 whatever its dryRun parameter.
+	apiGroup.Use(dryRun(swagger, basePath)) //nolint:contextcheck // the middleware uses the per-request context by design
+
 	apiGroup.Use(e.checkOperatorUpgradeState)
 	apiGroup.Use(kubernetesWarnings)
 	api.RegisterHandlers(apiGroup, e)

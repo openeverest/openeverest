@@ -323,9 +323,38 @@ func TestUpdate_DryRunDoesNotWrite(t *testing.T) {
 	defer srv.Close()
 
 	opts := baseUpdateOpts()
-	opts.DryRun = true
+	opts.DryRun = DryRunClient
 	opts.Set = []string{"components.engine.replicas=5"}
 	require.NoError(t, runUpdate(t, srv, opts))
+}
+
+func TestUpdate_ServerDryRunSendsDryRunAll(t *testing.T) {
+	t.Parallel()
+
+	var patched atomic.Bool
+	srv := newUpdateServer(t, psmdbSpec(), func(w http.ResponseWriter, r *http.Request) {
+		patched.Store(true)
+		assert.Equal(t, "All", r.URL.Query().Get("dryRun"))
+		writeInstance(w, psmdbSpec())
+	})
+	defer srv.Close()
+
+	opts := baseUpdateOpts()
+	opts.DryRun = DryRunServer
+	opts.Set = []string{"components.engine.replicas=5"}
+	require.NoError(t, runUpdate(t, srv, opts))
+	assert.True(t, patched.Load())
+}
+
+func TestUpdate_InvalidDryRunRejected(t *testing.T) {
+	t.Parallel()
+
+	opts := baseUpdateOpts()
+	opts.DryRun = "maybe"
+	opts.Set = []string{"components.engine.replicas=5"}
+	err := NewUpdater(Config{}, zap.NewNop().Sugar()).Run(context.Background(), opts, filepath.Join(t.TempDir(), "config.yaml"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--dry-run")
 }
 
 // A path already at the value being set is labelled, not printed as "3 -> 3" and

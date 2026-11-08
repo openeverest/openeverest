@@ -179,13 +179,13 @@ func NewInCluster(ctx context.Context, l *zap.SugaredLogger, cacheOptions *cache
 	clientConfig.WarningHandlerWithContext = CollectingWarningHandler{
 		Next: ctrllog.NewKubeAPIWarningLogger(ctrllog.KubeAPIWarningLoggerOptions{}),
 	}
-	k8sclient, err := ctrlclient.New(clientConfig, getKubernetesClientOptions(k8sCache))
+	k8sclient, err := ctrlclient.NewWithWatch(clientConfig, getKubernetesClientOptions(k8sCache))
 	if err != nil {
 		return nil, err
 	}
 
 	return &Kubernetes{
-		k8sClient:  k8sclient,
+		k8sClient:  withDryRun(k8sclient),
 		l:          l.With("component", "kubernetes"),
 		restConfig: restConfig,
 		namespace:  namespace,
