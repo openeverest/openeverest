@@ -114,6 +114,7 @@ func pmmClass() *monitoringv1alpha1.MonitoringClass {
 	return &monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "pmm"},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
+			ControllerName:  "openeverest.io/monitoring-pmm",
 			ProviderManaged: &monitoringv1alpha1.ProviderManagedFulfilment{Integration: "pmm"},
 		},
 	}
@@ -123,6 +124,7 @@ func extensionManagedClass(name string, metrics bool) *monitoringv1alpha1.Monito
 	return &monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
+			ControllerName: "openeverest.io/monitoring-" + name,
 			ExtensionManaged: &monitoringv1alpha1.ExtensionManagedFulfilment{
 				Requires: monitoringv1alpha1.SourceRequirements{Metrics: metrics},
 			},
@@ -279,7 +281,8 @@ func TestRequiredSources(t *testing.T) {
 
 			got, err := c.RequiredSources()
 			require.NoError(t, err)
-			assert.Equal(t, RequiredSources{Metrics: tc.wantMetrics, Integrations: tc.wantIntegrations}, got)
+			assert.Equal(t, tc.wantMetrics, got.Metrics)
+			assert.Equal(t, tc.wantIntegrations, got.Integrations)
 		})
 	}
 }

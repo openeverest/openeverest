@@ -222,6 +222,34 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              podMetadata:
+                description: |-
+                  PodMetadata is the pod metadata the class controller of an
+                  ExtensionManaged binding requests per component, written together
+                  with Configured. provider-runtime hands the annotations allowed by
+                  the class's spec.extensionManaged.podMetadata to the provider, which
+                  renders them on the component's pods.
+                items:
+                  description: ComponentPodMetadata is the metadata requested for
+                    one component's pods.
+                  properties:
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      description: Annotations to set on the component's pods.
+                      maxProperties: 32
+                      type: object
+                    component:
+                      description: Component is the Instance component name.
+                      type: string
+                  required:
+                  - component
+                  type: object
+                maxItems: 16
+                type: array
+                x-kubernetes-list-map-keys:
+                - component
+                x-kubernetes-list-type: map
             type: object
         required:
         - spec
