@@ -2967,6 +2967,7 @@ paths:
           description: The namespace where the monitoring destination will be created
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '201':
           description: Successful operation
@@ -3138,6 +3139,7 @@ paths:
           description: The name of the monitoring destination
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '200':
           description: Successful operation
@@ -3216,6 +3218,7 @@ paths:
           description: The name of the monitoring destination
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '204':
           description: Monitoring destination deleted successfully
