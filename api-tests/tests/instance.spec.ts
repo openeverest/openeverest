@@ -179,4 +179,18 @@ test.describe('Instance PATCH', () => {
     const after = await request.get(instanceURL);
     await checkError(after);
   });
+
+  test.describe('no authorization header', () => {
+    test.use({
+      extraHTTPHeaders: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+    });
+
+    test('authentication comes before the dryRun check', async ({request}) => {
+      const response = await request.delete(`${instanceURL}?dryRun=All`);
+      expect(response.status()).toBe(401);
+    });
+  });
 });

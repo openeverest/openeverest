@@ -293,7 +293,6 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 			AuthenticationFunc: openapi3filter.NoopAuthenticationFunc,
 		},
 	}))
-	apiGroup.Use(dryRun(swagger, basePath)) //nolint:contextcheck // the middleware uses the per-request context by design
 
 	// Setup and use JWT middleware.
 	jwtMW, err := e.jwtMiddleWare(ctx)
@@ -307,6 +306,9 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 		return err
 	}
 	apiGroup.Use(blocklistMW)
+
+	// After authentication, so an unauthenticated request gets 401 whatever its dryRun parameter.
+	apiGroup.Use(dryRun(swagger, basePath)) //nolint:contextcheck // the middleware uses the per-request context by design
 
 	apiGroup.Use(e.checkOperatorUpgradeState)
 	apiGroup.Use(kubernetesWarnings)
