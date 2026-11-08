@@ -28,7 +28,7 @@ import (
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
-func TestMonitoringKindPatternMatchesCRDs(t *testing.T) {
+func TestKindPatternMatchesCRDs(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -39,7 +39,7 @@ func TestMonitoringKindPatternMatchesCRDs(t *testing.T) {
 		{
 			name: "Provider componentTypes kind",
 			crd:  "core.openeverest.io_providers.yaml",
-			path: []string{"spec", "monitoring", "componentTypes", "{}", "kind"},
+			path: []string{"spec", "componentTypes", "{}", "kind"},
 		},
 		{
 			name: "Instance metrics endpoint kind",
@@ -51,14 +51,27 @@ func TestMonitoringKindPatternMatchesCRDs(t *testing.T) {
 			crd:  "core.openeverest.io_instances.yaml",
 			path: []string{"status", "monitoring", "sources", "connections", "[]", "kind"},
 		},
+		{
+			name: "MonitoringClass requires kinds",
+			crd:  "monitoring.openeverest.io_monitoringclasses.yaml",
+			path: []string{"spec", "extensionManaged", "requires", "kinds", "[]"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.Equal(t, corev1alpha1.MonitoringKindPattern, crdSchemaAt(t, tt.crd, tt.path).Pattern)
+			assert.Equal(t, corev1alpha1.KindPattern, crdSchemaAt(t, tt.crd, tt.path).Pattern)
 		})
 	}
+}
+
+func TestMonitoringComponentTypeHasNoKind(t *testing.T) {
+	t.Parallel()
+
+	schema := crdSchemaAt(t, "core.openeverest.io_providers.yaml", []string{"spec", "monitoring", "componentTypes", "{}"})
+	assert.NotContains(t, schema.Properties, "kind")
+	assert.Contains(t, schema.Properties, "podMetadata")
 }
 
 // crdSchemaAt walks a generated CRD schema: "[]" steps into list items,

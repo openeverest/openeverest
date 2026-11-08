@@ -5454,7 +5454,9 @@ components:
                               agents that address containers (e.g. Datadog Autodiscovery).
                             type: string
                           kind:
-                            description: Kind is the component's engine kind.
+                            description: |-
+                              Kind is the kind of the component's type
+                              (Provider.spec.componentTypes.<type>.kind).
                             pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
                             type: string
                           podSelector:
@@ -5611,7 +5613,9 @@ components:
                               (e.g. "engine", "proxy").
                             type: string
                           kind:
-                            description: Kind is the component's engine kind.
+                            description: |-
+                              Kind is the kind of the component's type
+                              (Provider.spec.componentTypes.<type>.kind).
                             pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
                             type: string
                           params:
@@ -8157,6 +8161,18 @@ components:
               x-kubernetes-list-map-keys:
               - name
               x-kubernetes-list-type: map
+            controllerName:
+              description: |-
+                ControllerName is the controller that claims the class and sets its
+                Accepted condition, as GatewayClass.spec.controllerName: a
+                domain-qualified path (e.g. "openeverest.io/monitoring-pmm"). One
+                controller may claim several classes. Immutable.
+              maxLength: 253
+              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)+/[a-z0-9]([-a-z0-9._]*[a-z0-9])?$
+              type: string
+              x-kubernetes-validations:
+              - message: spec.controllerName is immutable
+                rule: self == oldSelf
             description:
               description: Description describes the monitoring technology.
               type: string
@@ -8218,6 +8234,17 @@ components:
                         Connection requires the component to accept native-protocol
                         connections from monitoring agents (connection: Supported).
                       type: boolean
+                    kinds:
+                      description: |-
+                        Kinds, when set, makes only the components whose type's kind
+                        (Provider.spec.componentTypes.<type>.kind) is listed eligible. Empty
+                        means any kind.
+                      items:
+                        pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
+                        type: string
+                      maxItems: 32
+                      type: array
+                      x-kubernetes-list-type: set
                     metrics:
                       description: |-
                         Metrics requires the component to expose OpenMetrics
@@ -8280,6 +8307,7 @@ components:
               x-kubernetes-preserve-unknown-fields: true
           required:
           - authModes
+          - controllerName
           type: object
           x-kubernetes-validations:
           - message: a MonitoringClass must declare at least one fulfilment block
@@ -9217,6 +9245,15 @@ components:
                       DefaultVersion names the entry in Versions used when neither the
                       Instance nor a version bundle selects one.
                     type: string
+                  kind:
+                    description: |-
+                      Kind is the shared classification of the software the component type
+                      runs (e.g. "mongodb", "mysql", "haproxy"), matched by monitoring class
+                      filters and set on the component's published monitoring endpoints.
+                      Databases use OpenTelemetry db.system.name values; unknown kinds are
+                      allowed. A type without a kind matches no kind filter.
+                    pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
+                    type: string
                   versions:
                     items:
                       properties:
@@ -9293,8 +9330,9 @@ components:
               properties:
                 componentTypes:
                   additionalProperties:
-                    description: MonitoringComponentType declares what one component
-                      type exposes.
+                    description: |-
+                      MonitoringComponentType declares what one component type exposes. The
+                      component type's kind is declared on Provider.spec.componentTypes.
                     properties:
                       connection:
                         default: None
@@ -9305,12 +9343,6 @@ components:
                         - Supported
                         - None
                         type: string
-                      kind:
-                        description: |-
-                          Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
-                          follow OpenTelemetry db.system.name; unknown kinds are allowed.
-                        pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
-                        type: string
                       metrics:
                         default: None
                         description: Metrics states how the component exposes OpenMetrics.
@@ -9319,8 +9351,16 @@ components:
                         - Exporter
                         - None
                         type: string
-                    required:
-                    - kind
+                      podMetadata:
+                        default: None
+                        description: |-
+                          PodMetadata states whether the provider renders the pod annotations
+                          monitoring classes request (Context.MonitoringPodAnnotations) into the
+                          pods of the component type.
+                        enum:
+                        - Supported
+                        - None
+                        type: string
                     type: object
                   description: |-
                     ComponentTypes declares what each component type exposes, keyed by
@@ -9347,6 +9387,33 @@ components:
                         maxItems: 16
                         type: array
                         x-kubernetes-list-type: set
+                      destinationParametersSchema:
+                        description: |-
+                          DestinationParametersSchema is the schema of MonitoringDestination
+                          parameters in the integration contract version the provider was built
+                          with, generated by provider-sdk. Core will check destination parameters
+                          against it as well as against the class (spec 019 §4.4).
+                        properties:
+                          openAPIV3Schema:
+                            description: |-
+                              OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                              parameters payload.
+                            x-kubernetes-preserve-unknown-fields: true
+                        type: object
+                      instanceParametersSchema:
+                        description: |-
+                          InstanceParametersSchema is the schema of
+                          Instance.spec.monitoring.destinations[].parameters in the integration
+                          contract version the provider was built with, generated by
+                          provider-sdk. Core will check entry parameters against it as well as
+                          against the class (spec 019 §4.4).
+                        properties:
+                          openAPIV3Schema:
+                            description: |-
+                              OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                              parameters payload.
+                            x-kubernetes-preserve-unknown-fields: true
+                        type: object
                     type: object
                   description: |-
                     Integrations lists the operator-native monitoring integrations the

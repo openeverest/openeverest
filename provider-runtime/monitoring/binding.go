@@ -168,7 +168,10 @@ func IsAccepted(b *monitoringv1alpha1.MonitoringBinding) bool {
 	return cond != nil && cond.Status == metav1.ConditionTrue && cond.ObservedGeneration == b.Generation
 }
 
-// ClassIsAccepted reports whether a class has been claimed by its controller.
+// ClassIsAccepted reports whether a class has been claimed by its controller
+// at its current generation. An Accepted condition observed at another
+// generation is stale and counts as not accepted.
 func ClassIsAccepted(class *monitoringv1alpha1.MonitoringClass) bool {
-	return meta.IsStatusConditionTrue(class.Status.Conditions, monitoringv1alpha1.MonitoringClassConditionAccepted)
+	cond := meta.FindStatusCondition(class.Status.Conditions, monitoringv1alpha1.MonitoringClassConditionAccepted)
+	return cond != nil && cond.Status == metav1.ConditionTrue && cond.ObservedGeneration == class.Generation
 }

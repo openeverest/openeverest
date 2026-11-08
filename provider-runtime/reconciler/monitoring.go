@@ -467,8 +467,8 @@ func (r *ProviderReconciler) controlledCredentials(ctx context.Context, in *v1al
 }
 
 // validMetrics drops the endpoints the Provider declaration or the Instance
-// status schema rejects, sets each kind from its declared component type and
-// keeps at most maxMetricsEndpoints.
+// status schema rejects, sets each kind from its component type's declared
+// kind and keeps at most maxMetricsEndpoints.
 func validMetrics(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, credentials []v1alpha1.MonitoringCredential, metrics []v1alpha1.MetricsEndpoint, logger logr.Logger) []v1alpha1.MetricsEndpoint {
 	var declared map[string]v1alpha1.MonitoringComponentType
 	if spec.Monitoring != nil {
@@ -486,9 +486,12 @@ func validMetrics(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, credential
 			componentType = spec.Components[ep.Component].Type
 		}
 		decl, isDeclared := declared[componentType]
+		kind := spec.ComponentTypes[componentType].Kind
 		switch {
 		case !isDeclared:
 			logger.Info("Dropping metrics endpoint of an undeclared component type", "component", ep.Component, "type", componentType)
+		case kind == "":
+			logger.Info("Dropping metrics endpoint of a component type declared without a kind", "component", ep.Component, "type", componentType)
 		case decl.Metrics == v1alpha1.MetricsSourceNone:
 			logger.Info("Dropping metrics endpoint of a component type declared without metrics", "component", ep.Component, "type", componentType)
 		case ep.PodSelector[controller.InstanceLabel] != in.Name:
@@ -498,7 +501,7 @@ func validMetrics(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, credential
 		case ep.Auth != nil && !profiles[ep.Auth.CredentialProfile]:
 			logger.Info("Dropping metrics endpoint naming an unpublished credential profile", "component", ep.Component, "profile", ep.Auth.CredentialProfile)
 		default:
-			ep.Kind = decl.Kind
+			ep.Kind = kind
 			out = append(out, ep)
 		}
 	}
@@ -510,8 +513,8 @@ func validMetrics(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, credential
 }
 
 // validConnections drops the connection endpoints the Provider declaration
-// or the Instance status schema rejects, sets each kind from its declared
-// component type and keeps at most maxMetricsEndpoints.
+// or the Instance status schema rejects, sets each kind from its component
+// type's declared kind and keeps at most maxMetricsEndpoints.
 func validConnections(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, credentials []v1alpha1.MonitoringCredential, connections []v1alpha1.ConnectionEndpoint, logger logr.Logger) []v1alpha1.ConnectionEndpoint {
 	var declared map[string]v1alpha1.MonitoringComponentType
 	if spec.Monitoring != nil {
@@ -529,9 +532,12 @@ func validConnections(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, creden
 			componentType = spec.Components[ep.Component].Type
 		}
 		decl, isDeclared := declared[componentType]
+		kind := spec.ComponentTypes[componentType].Kind
 		switch {
 		case !isDeclared:
 			logger.Info("Dropping connection endpoint of an undeclared component type", "component", ep.Component, "type", componentType)
+		case kind == "":
+			logger.Info("Dropping connection endpoint of a component type declared without a kind", "component", ep.Component, "type", componentType)
 		case decl.Connection != v1alpha1.ConnectionSupported:
 			logger.Info("Dropping connection endpoint of a component type declared without connections", "component", ep.Component, "type", componentType)
 		case ep.PodSelector[controller.InstanceLabel] != in.Name:
@@ -539,7 +545,7 @@ func validConnections(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, creden
 		case ep.Auth != nil && !profiles[ep.Auth.CredentialProfile]:
 			logger.Info("Dropping connection endpoint naming an unpublished credential profile", "component", ep.Component, "profile", ep.Auth.CredentialProfile)
 		default:
-			ep.Kind = decl.Kind
+			ep.Kind = kind
 			out = append(out, ep)
 		}
 	}
