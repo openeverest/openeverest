@@ -30,7 +30,7 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/backupstorageclasses"
+	s3class "github.com/openeverest/openeverest/v2/backupstorageclasses/s3"
 )
 
 // NewS3Client builds an S3 client for a BackupStorage of the s3 class. It
@@ -44,8 +44,8 @@ func NewS3Client(
 	if storage == nil {
 		return nil, errors.New("nil BackupStorage")
 	}
-	if class := storage.Spec.BackupStorageClassRef.Name; class != backupstorageclasses.ClassS3 {
-		return nil, fmt.Errorf("BackupStorage %q is of BackupStorageClass %q; only %q is supported", storage.Name, class, backupstorageclasses.ClassS3)
+	if class := storage.Spec.BackupStorageClassRef.Name; class != s3class.ClassName {
+		return nil, fmt.Errorf("BackupStorage %q is of BackupStorageClass %q; only %q is supported", storage.Name, class, s3class.ClassName)
 	}
 
 	var data map[string][]byte
@@ -56,7 +56,7 @@ func NewS3Client(
 		}
 		data = secret.Data
 	}
-	params, creds, err := backupstorageclasses.S3From(storage.Spec.Location, storage.Spec.Parameters, storage.Spec.Authentication.Mode, data)
+	params, creds, err := decodeS3Storage(storage, storage.Spec.Authentication.Mode, data)
 	if err != nil {
 		return nil, fmt.Errorf("BackupStorage %q: %w", storage.Name, err)
 	}
@@ -75,7 +75,7 @@ func NewS3Client(
 	}
 	// S3-compatible gateways reject the checksums the SDK sends to Amazon S3
 	// by default.
-	whenRequired := params.EffectiveImplementation() != backupstorageclasses.S3ImplementationAWS
+	whenRequired := params.EffectiveImplementation() != s3class.ImplementationAWS
 	return s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.BaseEndpoint = aws.String(params.EndpointURL)
 		o.UsePathStyle = params.ForcePathStyle

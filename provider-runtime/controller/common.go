@@ -41,7 +41,7 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/backupstorageclasses"
+	s3class "github.com/openeverest/openeverest/v2/backupstorageclasses/s3"
 )
 
 // =============================================================================
@@ -870,16 +870,38 @@ func (c *Context) BackupStorageCredentials(bs *backupv1alpha1.BackupStorage) (st
 // BackupStorageS3 decodes a BackupStorage of the s3 class: its connection
 // parameters and the credentials of its authentication mode. Parameters the
 // runtime does not know are backupstorageclasses.ErrUnsupportedParameter.
-func (c *Context) BackupStorageS3(bs *backupv1alpha1.BackupStorage) (backupstorageclasses.S3, backupstorageclasses.S3Credentials, error) {
-	if class := bs.Spec.BackupStorageClassRef.Name; class != backupstorageclasses.ClassS3 {
-		return backupstorageclasses.S3{}, backupstorageclasses.S3Credentials{},
-			fmt.Errorf("BackupStorage %q is of BackupStorageClass %q, not %q", bs.Name, class, backupstorageclasses.ClassS3)
+func (c *Context) BackupStorageS3(bs *backupv1alpha1.BackupStorage) (s3class.Parameters, s3class.Credentials, error) {
+	if class := bs.Spec.BackupStorageClassRef.Name; class != s3class.ClassName {
+		return s3class.Parameters{}, s3class.Credentials{},
+			fmt.Errorf("BackupStorage %q is of BackupStorageClass %q, not %q", bs.Name, class, s3class.ClassName)
 	}
 	mode, data, err := c.BackupStorageCredentials(bs)
 	if err != nil {
-		return backupstorageclasses.S3{}, backupstorageclasses.S3Credentials{}, err
+		return s3class.Parameters{}, s3class.Credentials{}, err
 	}
-	return backupstorageclasses.S3From(bs.Spec.Location, bs.Spec.Parameters, mode, data)
+	return decodeS3Storage(bs, mode, data)
+}
+
+// decodeS3Storage decodes an s3 BackupStorage with the s3 contract, together
+// with the data of its credentials Secret for mode.
+func decodeS3Storage(bs *backupv1alpha1.BackupStorage, mode string, data map[string][]byte) (s3class.Parameters, s3class.Credentials, error) {
+	var location s3class.Location
+	if store := bs.Spec.Location.ObjectStore; store != nil {
+		location = s3class.Location{Bucket: store.Bucket, Prefix: store.Prefix}
+	}
+	var raw []byte
+	if bs.Spec.Parameters != nil {
+		raw = bs.Spec.Parameters.Raw
+	}
+	params, err := s3class.Decode(location, raw)
+	if err != nil {
+		return s3class.Parameters{}, s3class.Credentials{}, err
+	}
+	creds, err := s3class.DecodeCredentials(mode, data)
+	if err != nil {
+		return s3class.Parameters{}, s3class.Credentials{}, err
+	}
+	return params, creds, nil
 }
 
 // BackupsForInstance lists all Backup CRs in the instance namespace whose

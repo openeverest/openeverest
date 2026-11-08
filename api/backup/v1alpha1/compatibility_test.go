@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package backupstorageclasses_test
+package v1alpha1_test
 
 import (
 	"testing"
@@ -23,10 +23,10 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/backupstorageclasses"
+	"github.com/openeverest/openeverest/v2/backupstorageclasses/s3"
 )
 
-func TestCompatible(t *testing.T) {
+func TestCanWriteTo(t *testing.T) {
 	t.Parallel()
 
 	storage := func(class, mode string) *backupv1alpha1.BackupStorage {
@@ -53,12 +53,12 @@ func TestCompatible(t *testing.T) {
 		}
 	}
 	s3AccessKey := backupv1alpha1.BackupStorageClassSupport{
-		Name:      backupstorageclasses.ClassS3,
-		AuthModes: []string{backupstorageclasses.AuthModeAccessKey},
+		Name:      s3.ClassName,
+		AuthModes: []string{s3.AuthModeAccessKey},
 	}
 	s3Both := backupv1alpha1.BackupStorageClassSupport{
-		Name:      backupstorageclasses.ClassS3,
-		AuthModes: []string{backupstorageclasses.AuthModeAccessKey, common.AuthModeWorkloadIdentity},
+		Name:      s3.ClassName,
+		AuthModes: []string{s3.AuthModeAccessKey, common.AuthModeWorkloadIdentity},
 	}
 	thirdParty := backupv1alpha1.BackupStorageClassSupport{
 		Name:      "example.test.openeverest.io",
@@ -69,54 +69,54 @@ func TestCompatible(t *testing.T) {
 		name        string
 		class       *backupv1alpha1.BackupClass
 		storage     *backupv1alpha1.BackupStorage
-		want        backupstorageclasses.Compatibility
+		want        backupv1alpha1.StorageCompatibility
 		wantMessage string
 	}{
 		{
 			name:    "class and auth mode listed",
 			class:   backupClass(s3AccessKey),
-			storage: storage(backupstorageclasses.ClassS3, backupstorageclasses.AuthModeAccessKey),
-			want:    backupstorageclasses.Compatibility{Compatible: true},
+			storage: storage(s3.ClassName, s3.AuthModeAccessKey),
+			want:    backupv1alpha1.StorageCompatibility{Compatible: true},
 		},
 		{
 			name:    "auth mode among several listed",
 			class:   backupClass(thirdParty, s3Both),
-			storage: storage(backupstorageclasses.ClassS3, common.AuthModeWorkloadIdentity),
-			want:    backupstorageclasses.Compatibility{Compatible: true},
+			storage: storage(s3.ClassName, common.AuthModeWorkloadIdentity),
+			want:    backupv1alpha1.StorageCompatibility{Compatible: true},
 		},
 		{
 			name:        "storage class not listed",
 			class:       backupClass(s3AccessKey),
 			storage:     storage("example.test.openeverest.io", "Token"),
-			want:        backupstorageclasses.Compatibility{Reason: backupv1alpha1.ReasonBackupStorageClassUnsupported},
+			want:        backupv1alpha1.StorageCompatibility{Reason: backupv1alpha1.ReasonBackupStorageClassUnsupported},
 			wantMessage: `BackupClass "engine-native" cannot write to BackupStorageClass "example.test.openeverest.io"`,
 		},
 		{
 			name:        "auth mode not listed for the storage class",
 			class:       backupClass(s3AccessKey),
-			storage:     storage(backupstorageclasses.ClassS3, common.AuthModeWorkloadIdentity),
-			want:        backupstorageclasses.Compatibility{Reason: backupv1alpha1.ReasonAuthModeUnsupported},
+			storage:     storage(s3.ClassName, common.AuthModeWorkloadIdentity),
+			want:        backupv1alpha1.StorageCompatibility{Reason: backupv1alpha1.ReasonAuthModeUnsupported},
 			wantMessage: `BackupClass "engine-native" supports BackupStorageClass "s3" only with authentication modes [AccessKey], not "WorkloadIdentity"`,
 		},
 		{
 			name:        "auth mode listed only for another storage class",
 			class:       backupClass(s3AccessKey, thirdParty),
-			storage:     storage(backupstorageclasses.ClassS3, "Token"),
-			want:        backupstorageclasses.Compatibility{Reason: backupv1alpha1.ReasonAuthModeUnsupported},
+			storage:     storage(s3.ClassName, "Token"),
+			want:        backupv1alpha1.StorageCompatibility{Reason: backupv1alpha1.ReasonAuthModeUnsupported},
 			wantMessage: `BackupClass "engine-native" supports BackupStorageClass "s3" only with authentication modes [AccessKey], not "Token"`,
 		},
 		{
 			name:        "class lists no storage class",
 			class:       backupClass(),
-			storage:     storage(backupstorageclasses.ClassS3, backupstorageclasses.AuthModeAccessKey),
-			want:        backupstorageclasses.Compatibility{Reason: backupv1alpha1.ReasonBackupStorageClassUnsupported},
+			storage:     storage(s3.ClassName, s3.AuthModeAccessKey),
+			want:        backupv1alpha1.StorageCompatibility{Reason: backupv1alpha1.ReasonBackupStorageClassUnsupported},
 			wantMessage: `BackupClass "engine-native" cannot write to BackupStorageClass "s3"`,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := backupstorageclasses.Compatible(tt.class, tt.storage)
+			got := tt.class.CanWriteTo(tt.storage)
 			assert.Equal(t, tt.want.Compatible, got.Compatible)
 			assert.Equal(t, tt.want.Reason, got.Reason)
 			assert.Equal(t, tt.wantMessage, got.Message)
@@ -152,7 +152,7 @@ func TestBackupPath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, tt.want, backupstorageclasses.BackupPath(tt.location, "team-a", "orders", uid, "s3-primary"))
+			assert.Equal(t, tt.want, backupv1alpha1.BackupPath(tt.location, "team-a", "orders", uid, "s3-primary"))
 		})
 	}
 }

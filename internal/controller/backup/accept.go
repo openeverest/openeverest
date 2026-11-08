@@ -23,7 +23,8 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/backupstorageclasses"
+	"github.com/openeverest/openeverest/v2/backupstorageclasses"
+	"github.com/openeverest/openeverest/v2/backupstorageclasses/s3"
 )
 
 // SecretContent is a Secret as Accept sees it.
@@ -134,20 +135,28 @@ func classProblem(class *backupv1alpha1.BackupStorageClass) string {
 // acceptBuiltin applies the decoder of a built-in class, which knows rules
 // the schema cannot express.
 func acceptBuiltin(className string, in AcceptInput) (Verdict, bool) {
-	if className != backupstorageclasses.ClassS3 {
+	if className != s3.ClassName {
 		return Verdict{}, true
 	}
-	s3, err := backupstorageclasses.DecodeS3(in.Location, in.Parameters)
+	var location s3.Location
+	if store := in.Location.ObjectStore; store != nil {
+		location = s3.Location{Bucket: store.Bucket, Prefix: store.Prefix}
+	}
+	var raw []byte
+	if in.Parameters != nil {
+		raw = in.Parameters.Raw
+	}
+	params, err := s3.Decode(location, raw)
 	if errors.Is(err, backupstorageclasses.ErrInvalidLocation) {
 		return Verdict{Reason: backupv1alpha1.ReasonInvalidLocation, Message: err.Error()}, false
 	}
 	if err != nil {
 		return Verdict{Reason: backupv1alpha1.ReasonInvalidParameters, Message: err.Error()}, false
 	}
-	if ep, _ := s3.Endpoint(); !ep.Secure && in.TLS != nil && (in.TLS.CA != nil || in.TLS.InsecureSkipVerify) {
+	if ep, _ := params.Endpoint(); !ep.Secure && in.TLS != nil && (in.TLS.CA != nil || in.TLS.InsecureSkipVerify) {
 		return Verdict{
 			Reason:  backupv1alpha1.ReasonInvalidParameters,
-			Message: fmt.Sprintf("spec.tls is set but endpointURL %q is not https", s3.EndpointURL),
+			Message: fmt.Sprintf("spec.tls is set but endpointURL %q is not https", params.EndpointURL),
 		}, false
 	}
 	return Verdict{}, true
