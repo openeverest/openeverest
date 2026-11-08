@@ -65,17 +65,22 @@ func (p *backupTestProvider) CleanupRestore(*controller.Context, *backupv1alpha1
 // otherMode is an execution mode the provider runtime does not execute.
 const otherMode = backupv1alpha1.BackupExecutionMode("Other")
 
-func testBackupClass(mode backupv1alpha1.BackupExecutionMode, providers ...string) *backupv1alpha1.BackupClass {
-	return &backupv1alpha1.BackupClass{
+// testBackupClass returns a class of mode, executed by provider when one is
+// given.
+func testBackupClass(mode backupv1alpha1.BackupExecutionMode, provider ...string) *backupv1alpha1.BackupClass {
+	bc := &backupv1alpha1.BackupClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "pbm"},
 		Spec: backupv1alpha1.BackupClassSpec{
-			ExecutionMode:      mode,
-			SupportedProviders: providers,
+			ExecutionMode: mode,
 			BackupStorageClasses: []backupv1alpha1.BackupStorageClassSupport{
 				{Name: s3.ClassName, AuthModes: []string{s3.AuthModeAccessKey}},
 			},
 		},
 	}
+	if len(provider) > 0 {
+		bc.Spec.ProviderManaged = &backupv1alpha1.ProviderManagedSpec{ProviderRef: common.ObjectRef{Name: provider[0]}}
+	}
+	return bc
 }
 
 // testBackupStorage returns an s3 storage with an Accepted condition of the
@@ -174,7 +179,7 @@ func TestReconcile_BackupClassReferent(t *testing.T) {
 				return []client.Object{testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "other"), storage()}
 			},
 			wantReason:  v1alpha1.ReasonBackupClassIncompatible,
-			wantMessage: "backup class pbm does not support provider test-provider",
+			wantMessage: "backup class pbm is executed by provider other, not test-provider",
 		},
 	}
 

@@ -38,7 +38,7 @@ const CLASSES: BackupClass[] = [
     metadata: { name: 'psmdb-pbm' },
     spec: {
       executionMode: 'ProviderManaged',
-      supportedProviders: ['psmdb'],
+      providerManaged: { providerRef: { name: 'psmdb' } },
       supportsImport: true,
     },
   },

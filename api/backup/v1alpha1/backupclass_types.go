@@ -32,26 +32,23 @@ type BackupExecutionMode string
 
 const (
 	// BackupExecutionModeProviderManaged delegates backup and restore to the
-	// provider's reconciler, which typically configures an in-cluster agent
-	// (PBM, pgBackRest, Barman, ...) on the engine itself. The Backup and
-	// Restore CRs become trigger + status holders; the actual orchestration
-	// happens inside the provider's Sync loop.
+	// provider named in spec.providerManaged.providerRef, whose reconciler
+	// typically configures an in-cluster agent (PBM, pgBackRest, Barman, ...)
+	// on the engine itself. The Backup and Restore CRs become trigger and
+	// status holders; the orchestration happens inside the provider's Sync
+	// loop.
 	BackupExecutionModeProviderManaged BackupExecutionMode = "ProviderManaged"
 )
 
 // BackupClassSpec defines the desired state of BackupClass.
 //
+// +kubebuilder:validation:XValidation:rule="self.executionMode != 'ProviderManaged' || has(self.providerManaged)",message="spec.providerManaged is required when executionMode is ProviderManaged"
 // +kubebuilder:validation:XValidation:rule="!has(self.providerManaged) || self.executionMode == 'ProviderManaged'",message="spec.providerManaged is only allowed when executionMode is ProviderManaged"
-// +kubebuilder:validation:XValidation:rule="self.executionMode != 'ProviderManaged' || (has(self.supportedProviders) && size(self.supportedProviders) == 1)",message="a ProviderManaged BackupClass must support exactly one provider"
 type BackupClassSpec struct {
 	// DisplayName is a human-readable name for the backup class.
 	DisplayName string `json:"displayName,omitempty"`
 	// Description is the description of the backup class.
 	Description string `json:"description,omitempty"`
-	// SupportedProviders is the list of provider names that this backup class
-	// supports. The Instance.spec.provider must appear in this list for the
-	// class to be usable on that Instance.
-	SupportedProviders ProviderNameList `json:"supportedProviders,omitempty"`
 	// BackupStorageClasses lists the BackupStorageClasses the class's executor
 	// can write to, each with the authentication modes it supports. A
 	// BackupStorage is usable with the class only when both its class and
@@ -63,19 +60,19 @@ type BackupClassSpec struct {
 	// +listMapKey=name
 	BackupStorageClasses []BackupStorageClassSupport `json:"backupStorageClasses"`
 	// ExecutionMode selects who executes the class's backup and restore
-	// operations. ProviderManaged is the only mode: the provider named in
-	// SupportedProviders executes them.
+	// operations, and discriminates the execution union: the member named
+	// after the mode is required, any other is forbidden. ProviderManaged is
+	// the only mode: the provider in providerManaged.providerRef executes
+	// them.
 	// +kubebuilder:validation:Required
 	ExecutionMode BackupExecutionMode `json:"executionMode"`
 	// SupportsImport indicates whether the owner of this class can discover and
 	// import restorable backups already sitting in a BackupStorage.
 	// +optional
 	SupportsImport bool `json:"supportsImport,omitempty"`
-	// ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
-	// schema is intentionally open: providers may surface capability
-	// information (e.g., whether PITR is supported, schedule expression
-	// dialect) without forcing a CRD change. Must be unset for any other
-	// execution mode.
+	// ProviderManaged is the member of the execution union for
+	// ExecutionMode=ProviderManaged: the provider that executes the class and
+	// what it supports. Required for that mode, forbidden for any other.
 	// +optional
 	ProviderManaged *ProviderManagedSpec `json:"providerManaged,omitempty"`
 	// ParametersSchema declares the OpenAPI v3 schema describing the
@@ -103,10 +100,16 @@ type BackupClassSpec struct {
 	UISchema *runtime.RawExtension `json:"uiSchema,omitempty"`
 }
 
-// ProviderManagedSpec carries opaque hints for ExecutionMode="ProviderManaged"
-// classes. It mirrors the Config/RestoreConfig pattern: the field is opaque
-// to the runtime; providers interpret it.
+// ProviderManagedSpec is the ProviderManaged member of a BackupClass's
+// execution union.
 type ProviderManagedSpec struct {
+	// ProviderRef names the Provider that claims and executes the class. It
+	// is immutable: moving a class to another provider is delete and
+	// recreate.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="providerRef is immutable"
+	ProviderRef common.ObjectRef `json:"providerRef"`
+
 	// SupportsPITR indicates whether this class supports point-in-time recovery.
 	// Used by Restore validation when Restore.spec.dataSource.pitr is set.
 	// +optional
@@ -156,12 +159,13 @@ type BackupClassLimits struct {
 	MaxSchedulesPerStorage *int32 `json:"maxSchedulesPerStorage,omitempty"`
 }
 
-// ProviderNameList is a type alias for a list of provider names.
-type ProviderNameList []string
-
-// Has checks if the list contains the specified provider.
-func (e ProviderNameList) Has(provider string) bool {
-	return slices.Contains(e, provider)
+// ExecutorProvider returns the name of the Provider that executes the class,
+// or "" when its execution mode has none.
+func (s *BackupClassSpec) ExecutorProvider() string {
+	if s.ExecutionMode == BackupExecutionModeProviderManaged && s.ProviderManaged != nil {
+		return s.ProviderManaged.ProviderRef.Name
+	}
+	return ""
 }
 
 // BackupStorageClassSupport is a BackupStorageClass a BackupClass can write
@@ -181,6 +185,47 @@ type BackupStorageClassSupport struct {
 	// +kubebuilder:validation:items:Pattern=`^[A-Z][A-Za-z0-9]{0,62}$`
 	// +listType=set
 	AuthModes []string `json:"authModes"`
+	// ParametersSchema narrows the BackupStorageClass's parametersSchema to
+	// what the executor supports, typically the parameters of the contract
+	// version it was built with: a storage whose parameters it rejects
+	// cannot be used with the class. Absent adds no restriction.
+	// +optional
+	ParametersSchema *common.ParametersSchema `json:"parametersSchema,omitempty"`
+	// TLS declares which settings of BackupStorage.spec.tls the executor
+	// honours. Absent means None for each: a storage that uses a setting the
+	// executor does not support cannot be used with the class, and a
+	// storage without spec.tls always can.
+	// +optional
+	TLS *BackupStorageTLSSupport `json:"tls,omitempty"`
+}
+
+// TLSOptionSupport is whether an executor honours a setting of
+// BackupStorage.spec.tls.
+//
+// +kubebuilder:validation:Enum=Supported;None
+type TLSOptionSupport string
+
+// TLS option support levels.
+const (
+	// TLSOptionSupported means the executor honours the setting.
+	TLSOptionSupported = TLSOptionSupport("Supported")
+	// TLSOptionNone means the executor cannot honour the setting.
+	TLSOptionNone = TLSOptionSupport("None")
+)
+
+// BackupStorageTLSSupport is what an executor honours of
+// BackupStorage.spec.tls.
+type BackupStorageTLSSupport struct {
+	// CustomCA is whether the executor verifies the store against the CA
+	// bundle in spec.tls.ca.
+	// +kubebuilder:default=None
+	// +optional
+	CustomCA TLSOptionSupport `json:"customCA,omitempty"` //nolint:tagliatelle // CA, as in spec.tls.ca
+	// InsecureSkipVerify is whether the executor can turn certificate
+	// verification off, as spec.tls.insecureSkipVerify asks.
+	// +kubebuilder:default=None
+	// +optional
+	InsecureSkipVerify TLSOptionSupport `json:"insecureSkipVerify,omitempty"`
 }
 
 // FindBackupStorageClass returns the class's support entry for the
@@ -203,17 +248,81 @@ type BackupClassInstanceConstraints struct {
 	RequiredFields []string `json:"requiredFields,omitempty"`
 }
 
-// BackupClassStatus defines the observed state of BackupClass.
+// BackupClassStatus defines the observed state of BackupClass. It has two
+// writers, each applying only its own fields with server-side apply: the
+// executor that claims the class owns the Accepted condition and core owns
+// providers.
 type BackupClassStatus struct {
+	// Conditions: Accepted, set by the class's executor when it claims the
+	// class, with the observedGeneration it judged.
 	// +listType=map
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// Providers is the compatibility of the class with each Provider that
+	// can execute it: for a ProviderManaged class, the Provider in
+	// providerManaged.providerRef. A Provider that is not listed is
+	// incompatible. Written by core.
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=64
+	// +optional
+	Providers []BackupClassProviderCompatibility `json:"providers,omitempty"`
+}
+
+// BackupClass conditions and their reasons.
+const (
+	// BackupClassConditionAccepted reports whether the class's executor
+	// claims it. Its observedGeneration is the generation it judged.
+	BackupClassConditionAccepted = "Accepted"
+	// ReasonPending means no executor has claimed the class yet.
+	ReasonPending = "Pending"
+	// ReasonUnknownClass means the executor named by the class does not
+	// ship a class of that name.
+	ReasonUnknownClass = "UnknownClass"
+	// ReasonSpecDrift means the class's capabilities differ from those of
+	// the class its executor ships under that name.
+	ReasonSpecDrift = "SpecDrift"
+	// ReasonClassNotAccepted means the class is not Accepted at its current
+	// generation yet.
+	ReasonClassNotAccepted = "ClassNotAccepted"
+	// ReasonProviderNotFound means the Provider the class names does not
+	// exist.
+	ReasonProviderNotFound = "ProviderNotFound"
+)
+
+// BackupClassProviderCompatibility is the compatibility of a BackupClass
+// with a Provider.
+type BackupClassProviderCompatibility struct {
+	// Name is the Provider name.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=253
+	Name string `json:"name"`
+	// Compatibility is whether Instances of the Provider can use the class.
+	// +kubebuilder:validation:Required
+	Compatibility Compatibility `json:"compatibility"`
+	// Reason is why the class is not Compatible.
+	// +kubebuilder:validation:MaxLength=1024
+	// +optional
+	Reason string `json:"reason,omitempty"`
+	// Message is the human-readable detail of Reason.
+	// +kubebuilder:validation:MaxLength=32768
+	// +optional
+	Message string `json:"message,omitempty"`
+	// ClassGeneration is the generation of the class the entry was computed
+	// for. An entry for another generation counts as Pending.
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	ClassGeneration int64 `json:"classGeneration,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,shortName=bc
+// +kubebuilder:printcolumn:name="Mode",type="string",JSONPath=".spec.executionMode"
+// +kubebuilder:printcolumn:name="Provider",type="string",JSONPath=".spec.providerManaged.providerRef.name"
+// +kubebuilder:printcolumn:name="Accepted",type="string",JSONPath=".status.conditions[?(@.type==\"Accepted\")].reason"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // BackupClass is the Schema for the backupclasses API
 type BackupClass struct {
@@ -224,6 +333,7 @@ type BackupClass struct {
 	// +required
 	Spec BackupClassSpec `json:"spec"`
 	// +optional
+	// +kubebuilder:default={conditions: {{type: "Accepted", status: "Unknown", reason: "Pending", message: "Waiting for the executor to claim the class", lastTransitionTime: "1970-01-01T00:00:00Z"}}}
 	Status BackupClassStatus `json:"status,omitzero"`
 }
 

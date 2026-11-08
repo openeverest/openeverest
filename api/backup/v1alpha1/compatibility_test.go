@@ -156,3 +156,73 @@ func TestBackupPath(t *testing.T) {
 		})
 	}
 }
+
+func TestCurrentVerdict(t *testing.T) {
+	t.Parallel()
+
+	class := &backupv1alpha1.BackupClass{ObjectMeta: metav1.ObjectMeta{Name: "pbm", UID: "class-1", Generation: 3}}
+	storageClass := &backupv1alpha1.BackupStorageClass{ObjectMeta: metav1.ObjectMeta{Name: s3.ClassName, UID: "s3-1", Generation: 2}}
+	current := backupv1alpha1.BackupClassVerdictInputs{
+		StorageGeneration: 5, ClassUID: "class-1", ClassGeneration: 3, StorageClassUID: "s3-1", StorageClassGeneration: 2,
+	}
+	verdict := backupv1alpha1.BackupClassVerdict{
+		Name: "pbm", Compatibility: backupv1alpha1.CompatibilityIncompatible,
+		Reason: backupv1alpha1.ReasonTLSOptionUnsupported, Message: "no custom CA", Observed: current,
+	}
+	storage := func(verdicts ...backupv1alpha1.BackupClassVerdict) *backupv1alpha1.BackupStorage {
+		return &backupv1alpha1.BackupStorage{
+			ObjectMeta: metav1.ObjectMeta{Name: "store", Generation: 5},
+			Spec:       backupv1alpha1.BackupStorageSpec{BackupStorageClassRef: common.ObjectRef{Name: s3.ClassName}},
+			Status:     backupv1alpha1.BackupStorageStatus{BackupClasses: verdicts},
+		}
+	}
+	stale := func(mutate func(*backupv1alpha1.BackupClassVerdictInputs)) backupv1alpha1.BackupClassVerdict {
+		v := verdict
+		mutate(&v.Observed)
+		return v
+	}
+
+	assert.Equal(t, verdict, backupv1alpha1.CurrentVerdict(storage(verdict), class, storageClass), "current")
+
+	tests := []struct {
+		name         string
+		storage      *backupv1alpha1.BackupStorage
+		storageClass *backupv1alpha1.BackupStorageClass
+	}{
+		{name: "no verdict", storage: storage(), storageClass: storageClass},
+		{name: "verdict for another class", storage: storage(backupv1alpha1.BackupClassVerdict{Name: "other", Observed: current}), storageClass: storageClass},
+		{name: "storage changed", storage: storage(stale(func(o *backupv1alpha1.BackupClassVerdictInputs) { o.StorageGeneration = 4 })), storageClass: storageClass},
+		{name: "class changed", storage: storage(stale(func(o *backupv1alpha1.BackupClassVerdictInputs) { o.ClassGeneration = 2 })), storageClass: storageClass},
+		{name: "class recreated", storage: storage(stale(func(o *backupv1alpha1.BackupClassVerdictInputs) { o.ClassUID = "class-0" })), storageClass: storageClass},
+		{name: "storage class changed", storage: storage(stale(func(o *backupv1alpha1.BackupClassVerdictInputs) { o.StorageClassGeneration = 1 })), storageClass: storageClass},
+		{name: "storage class recreated", storage: storage(stale(func(o *backupv1alpha1.BackupClassVerdictInputs) { o.StorageClassUID = "s3-0" })), storageClass: storageClass},
+		{name: "storage class missing", storage: storage(verdict)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := backupv1alpha1.CurrentVerdict(tt.storage, class, tt.storageClass)
+			assert.Equal(t, "pbm", got.Name)
+			assert.Equal(t, backupv1alpha1.CompatibilityPending, got.Compatibility)
+			assert.Equal(t, backupv1alpha1.ReasonVerdictPending, got.Reason)
+			assert.NotEmpty(t, got.Message)
+		})
+	}
+}
+
+func TestExecutorProvider(t *testing.T) {
+	t.Parallel()
+
+	pm := &backupv1alpha1.ProviderManagedSpec{ProviderRef: common.ObjectRef{Name: "percona-server-mongodb"}}
+	for name, tt := range map[string]struct {
+		spec backupv1alpha1.BackupClassSpec
+		want string
+	}{
+		"provider managed":        {spec: backupv1alpha1.BackupClassSpec{ExecutionMode: backupv1alpha1.BackupExecutionModeProviderManaged, ProviderManaged: pm}, want: "percona-server-mongodb"},
+		"provider managed, empty": {spec: backupv1alpha1.BackupClassSpec{ExecutionMode: backupv1alpha1.BackupExecutionModeProviderManaged}},
+		"another mode":            {spec: backupv1alpha1.BackupClassSpec{ExecutionMode: "Other", ProviderManaged: pm}},
+	} {
+		assert.Equal(t, tt.want, tt.spec.ExecutorProvider(), name)
+	}
+}
