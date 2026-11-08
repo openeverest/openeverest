@@ -5442,6 +5442,8 @@ export interface components {
                      *     pods of bound Instances (status.podMetadata of its bindings), for
                      *     backends whose agents discover databases through pod annotations. The
                      *     provider renders them into the pod templates, which rolls the pods.
+                     *     When set, only component types declaring podMetadata: Supported are
+                     *     eligible.
                      */
                     podMetadata?: {
                         /**
@@ -5573,6 +5575,12 @@ export interface components {
                  *     Provider.
                  */
                 providers?: {
+                    /**
+                     * Format: int64
+                     * @description ClassGeneration is the class's metadata.generation the entry was
+                     *     computed for. An entry computed for another generation is stale.
+                     */
+                    classGeneration?: number;
                     /**
                      * @description Disruption is the worst that enabling the class does to the pods of
                      *     one of the Provider's Instances. Set when Mode is set.

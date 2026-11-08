@@ -225,14 +225,14 @@ func victoriaMetricsClass() *monitoringv1alpha1.MonitoringClass {
 }
 
 // annotationDiscoveryClass is a class whose agent connects to the databases
-// itself and discovers them through pod annotations (e.g. Coroot).
+// it understands and discovers them through pod annotations (e.g. Coroot).
 func annotationDiscoveryClass() *monitoringv1alpha1.MonitoringClass {
 	return claimed(&monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "coroot"},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
 			ControllerName: "openeverest.io/monitoring-coroot",
 			ExtensionManaged: &monitoringv1alpha1.ExtensionManagedFulfilment{
-				Requires:    monitoringv1alpha1.SourceRequirements{Connection: true},
+				Requires:    monitoringv1alpha1.SourceRequirements{Connection: true, Kinds: []string{"mongodb", "postgresql"}},
 				PodMetadata: &monitoringv1alpha1.PodMetadataPolicy{AnnotationPrefixes: []string{"coroot.com/"}},
 			},
 			AuthModes: []common.AuthMode{{Name: common.AuthModeAnonymous}},
@@ -284,7 +284,7 @@ func psmdbProvider() *corev1alpha1.Provider {
 		&corev1alpha1.ProviderMonitoring{
 			Integrations: pmmIntegration(),
 			ComponentTypes: map[string]corev1alpha1.MonitoringComponentType{
-				"mongod": {Metrics: corev1alpha1.MetricsSourceExporter, Connection: corev1alpha1.ConnectionSupported},
+				"mongod": {Metrics: corev1alpha1.MetricsSourceExporter, Connection: corev1alpha1.ConnectionSupported, PodMetadata: corev1alpha1.PodMetadataSupported},
 				"mongos": {Metrics: corev1alpha1.MetricsSourceExporter},
 			},
 		})

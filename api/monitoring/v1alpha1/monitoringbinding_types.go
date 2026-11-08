@@ -60,6 +60,13 @@ const (
 	ReasonIncompatible           = "Incompatible"
 	ReasonInvalidParameters      = "InvalidParameters"
 	ReasonAuthModeUnsupported    = "AuthModeUnsupported"
+	// ReasonKindUnsupported means the class lists requires.kinds and no
+	// component's kind is among them.
+	ReasonKindUnsupported = "KindUnsupported"
+	// ReasonPodMetadataUnsupported means the class requests pod metadata
+	// and no component meeting its other requirements declares
+	// podMetadata: Supported.
+	ReasonPodMetadataUnsupported = "PodMetadataUnsupported"
 )
 
 // ConfiguredReason is a reason of the Configured condition. The condition

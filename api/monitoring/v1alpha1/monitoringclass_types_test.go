@@ -18,7 +18,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 )
 
@@ -46,4 +48,22 @@ func TestPodMetadataPolicyAllowsAnnotation(t *testing.T) {
 			assert.Equal(t, tt.want, tt.policy.AllowsAnnotation(tt.key))
 		})
 	}
+}
+
+func TestCurrentProviderCompatibility(t *testing.T) {
+	t.Parallel()
+
+	class := &monitoringv1alpha1.MonitoringClass{
+		ObjectMeta: metav1.ObjectMeta{Generation: 3},
+		Status: monitoringv1alpha1.MonitoringClassStatus{Providers: []monitoringv1alpha1.ProviderCompatibility{
+			{Name: "current", Reason: monitoringv1alpha1.ReasonKindUnsupported, ClassGeneration: 3},
+			{Name: "stale", Mode: corev1alpha1.MonitoringExecutionModeExtensionManaged, ClassGeneration: 2},
+			{Name: "unversioned", Mode: corev1alpha1.MonitoringExecutionModeExtensionManaged},
+		}},
+	}
+
+	assert.Same(t, &class.Status.Providers[0], class.CurrentProviderCompatibility("current"))
+	assert.Nil(t, class.CurrentProviderCompatibility("stale"))
+	assert.Nil(t, class.CurrentProviderCompatibility("unversioned"))
+	assert.Nil(t, class.CurrentProviderCompatibility("missing"))
 }

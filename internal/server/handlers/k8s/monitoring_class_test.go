@@ -50,6 +50,12 @@ func TestK8s_ListMonitoringClasses_ProviderFilter(t *testing.T) {
 		),
 		class("unassessed"),
 	}
+	// Its only verdict was computed before the class's last spec change.
+	stale := class("stale",
+		monitoringv1alpha1.ProviderCompatibility{Name: "percona-xtradb-cluster", Mode: corev1alpha1.MonitoringExecutionModeExtensionManaged, ClassGeneration: 1},
+	)
+	stale.SetGeneration(2)
+	objs = append(objs, stale)
 	h := &k8sHandler{
 		kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), "ns1").WithKubernetesClient(
 			fake.NewClientBuilder().WithScheme(kubernetes.CreateScheme()).WithObjects(objs...).Build(),
@@ -61,8 +67,8 @@ func TestK8s_ListMonitoringClasses_ProviderFilter(t *testing.T) {
 		provider string
 		want     []string
 	}{
-		"no filter returns every class":                       {provider: "", want: []string{"pmm", "prometheus", "unassessed"}},
-		"provider with a mode on both classes":                {provider: "percona-xtradb-cluster", want: []string{"pmm", "prometheus"}},
+		"no filter returns every class":                       {provider: "", want: []string{"pmm", "prometheus", "stale", "unassessed"}},
+		"provider with a mode on two classes and a stale one": {provider: "percona-xtradb-cluster", want: []string{"pmm", "prometheus"}},
 		"incompatible entry and unassessed class are skipped": {provider: "percona-postgresql", want: []string{"pmm"}},
 		"unknown provider matches nothing":                    {provider: "percona-server-mongodb", want: []string{}},
 	}
