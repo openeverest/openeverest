@@ -33,6 +33,7 @@ import (
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
@@ -46,25 +47,6 @@ const (
 	componentsKey = "components"
 	nullValue     = "null"
 )
-
-// Values of --dry-run, named as kubectl names them.
-const (
-	DryRunNone   = "none"
-	DryRunClient = "client" // print what would be sent, without sending it
-	DryRunServer = "server" // send with dryRun=All: the server runs every check but persists nothing
-)
-
-func checkDryRun(mode string) error {
-	switch mode {
-	case "", DryRunNone, DryRunClient, DryRunServer:
-		return nil
-	}
-	return fmt.Errorf("invalid --dry-run value %q: must be %q, %q or %q", mode, DryRunNone, DryRunClient, DryRunServer)
-}
-
-func isDryRun(mode string) bool {
-	return mode == DryRunClient || mode == DryRunServer
-}
 
 type Config struct {
 	Pretty bool
@@ -84,7 +66,7 @@ type CreateOptions struct {
 	Set           []string      // dot-notation overrides e.g. "components.engine.replicas=3"; takes precedence over ValuesFile
 	Wait          bool          // block until the instance reaches the Ready phase
 	Timeout       time.Duration // bounds --wait; must be positive
-	DryRun        string        // DryRunClient prints the Instance without sending it, DryRunServer sends it with dryRun=All
+	DryRun        string        // cli.DryRunClient prints the Instance without sending it, cli.DryRunServer sends it with dryRun=All
 }
 
 type InstanceCreator struct {
@@ -108,10 +90,10 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 	if usesPreset && opts.Topology != "" {
 		return fmt.Errorf("--topology cannot be combined with --preset or --clusterpreset")
 	}
-	if err := checkDryRun(opts.DryRun); err != nil {
+	if err := cli.CheckDryRun(opts.DryRun); err != nil {
 		return err
 	}
-	if isDryRun(opts.DryRun) && opts.Wait {
+	if cli.IsDryRun(opts.DryRun) && opts.Wait {
 		return fmt.Errorf("--dry-run cannot be combined with --wait")
 	}
 
@@ -195,7 +177,7 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 	}
 
 	payload := buildPayload(opts.Name, opts.Provider, resolvedVersion, resolvedTopology, specOverrides, annotations)
-	if opts.DryRun == DryRunClient {
+	if opts.DryRun == cli.DryRunClient {
 		return ic.emitClientDryRun(payload, opts)
 	}
 
@@ -205,7 +187,7 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 	}
 
 	var params *client.CreateInstanceParams
-	if opts.DryRun == DryRunServer {
+	if opts.DryRun == cli.DryRunServer {
 		dryRun := client.CreateInstanceParamsDryRunAll
 		params = &client.CreateInstanceParams{DryRun: &dryRun}
 	}
@@ -242,7 +224,7 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 		created = resp.JSON200
 	}
 
-	if opts.DryRun == DryRunServer {
+	if opts.DryRun == cli.DryRunServer {
 		return ic.emitServerDryRun(created, opts)
 	}
 	ic.l.Infof("created instance %q in namespace %q", opts.Name, opts.Namespace)

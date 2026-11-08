@@ -58,7 +58,10 @@ delete-old, not an update.`,
     --endpoint-url https://s3.eu-west-1.amazonaws.com --region eu-west-1
 
   # Trust a private CA
-  everestctl bs update --name minio -n team-a --ca-secret minio-ca:ca.crt`,
+  everestctl bs update --name minio -n team-a --ca-secret minio-ca:ca.crt
+
+  # Have the server validate a change without applying it
+  everestctl bs update --name minio -n team-a --ca-secret minio-ca:ca.crt --dry-run=server`,
 		PreRun: updatePreRun,
 		Run:    updateRun,
 	}
@@ -71,6 +74,9 @@ func init() {
 	updateCmd.Flags().StringVarP(&updateOpts.Namespace, cli.FlagBackupStorageNamespace, "n", "", "Namespace the backup storage is in (required)")
 	updateCmd.Flags().StringVar(&updateOpts.Cluster, cli.FlagBackupStorageCluster, "main", "Cluster name")
 	updateCmd.Flags().StringVar(&updateOpts.Context, cli.FlagBackupStorageContext, "", "Context to use (default: current context)")
+	updateCmd.Flags().StringVar(&updateOpts.DryRun, cli.FlagBackupStorageDryRun, cli.DryRunNone,
+		`"client" prints the patch without sending it; "server" has the server validate it, without persisting it`,
+	)
 	addParameterFlags(updateCmd, &updateOpts.Parameters)
 	updateCmd.Flags().StringVar(&updateOpts.AuthMode, cli.FlagBackupStorageAuthMode, "", "Authentication mode, one of the class's authModes")
 	updateCmd.Flags().StringVar(&updateOpts.CredentialsSecret, cli.FlagBackupStorageCredentialsSecret, "", "Name of an existing Secret holding the credentials")

@@ -80,6 +80,11 @@ the ACCEPTED column of 'everestctl backup-storage list'.`,
     --parameter forcePathStyle=true --parameter implementation=minio \
     --credentials-file ./minio.env --ca-file ./minio-ca.pem
 
+  # Have the server validate the Secret and the backup storage without creating them
+  everestctl backup-storage create --name s3-prod -n team-a --bucket my-backups \
+    --region us-east-1 --endpoint-url https://s3.us-east-1.amazonaws.com \
+    --credentials-file ./s3.env --dry-run=server
+
   # Specific cluster and context
   everestctl backup-storage create --name s3-prod -n team-a --bucket my-backups \
     --region us-east-1 --endpoint-url https://s3.us-east-1.amazonaws.com \
@@ -106,6 +111,9 @@ func init() {
 	createCmd.Flags().BoolVar(&createOpts.InsecureSkipTLSVerify, cli.FlagBackupStorageInsecureSkipTLSVerify, false, "Do not verify the server certificate of the store")
 	createCmd.Flags().StringVar(&createOpts.Cluster, cli.FlagBackupStorageCluster, "main", "Cluster name")
 	createCmd.Flags().StringVar(&createOpts.Context, cli.FlagBackupStorageContext, "", "Context to use (default: current context)")
+	createCmd.Flags().StringVar(&createOpts.DryRun, cli.FlagBackupStorageDryRun, cli.DryRunNone,
+		`"client" prints the backup storage and the Secrets' keys without sending anything; "server" has the server validate them, without creating them`,
+	)
 
 	_ = createCmd.MarkFlagRequired(cli.FlagBackupStorageName)
 	_ = createCmd.MarkFlagRequired(cli.FlagBackupStorageNamespace)

@@ -20,11 +20,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 
 	"go.uber.org/zap"
+	"sigs.k8s.io/yaml"
 
 	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli"
@@ -52,6 +55,7 @@ type CreateOptions struct {
 	CASecret              string
 	CAFile                string
 	InsecureSkipTLSVerify bool
+	DryRun                string // cli.DryRunClient prints what would be sent, without sending it; cli.DryRunServer sends it with dryRun=All
 }
 
 // createRequest is a validated create: the BackupStorage to send and the
@@ -81,9 +85,15 @@ func NewCreateRunner(cfg Config, l *zap.SugaredLogger) *CreateRunner {
 // BackupStorage referencing them. The Secrets are deleted again if the
 // BackupStorage is not created.
 func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath string) error {
+	if err := cli.CheckDryRun(opts.DryRun); err != nil {
+		return err
+	}
 	req, err := newCreateRequest(opts)
 	if err != nil {
 		return err
+	}
+	if opts.DryRun == cli.DryRunClient {
+		return cr.emitClientDryRun(opts, req)
 	}
 
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: cr.config.Pretty}, cr.l.Desugar().Sugar(), cfgPath, opts.Context)
@@ -109,6 +119,9 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 		return err
 	}
 
+	if opts.DryRun == cli.DryRunServer {
+		return cr.emitServerDryRun(created, opts.Name, secrets)
+	}
 	cr.l.Infof("created backup storage %q in namespace %q", opts.Name, opts.Namespace)
 	return cr.emitCreated(created, opts.Name, secrets)
 }
@@ -274,7 +287,7 @@ func (cr *CreateRunner) createSecrets(ctx context.Context, c *client.ClientWithR
 			common.OpenEverestBackupStorageClassLabel: req.storage.Spec.BackupStorageClassRef.Name,
 			common.OpenEverestDefinitionLabel:         req.storage.Spec.Authentication.Mode,
 		}
-		if err := createSecret(ctx, c, opts.Cluster, opts.Namespace, name, cli.FlagBackupStorageCredentialsSecret,
+		if err := createSecret(ctx, c, opts, name, cli.FlagBackupStorageCredentialsSecret,
 			labels, req.credentials,
 		); err != nil {
 			return nil, err
@@ -286,7 +299,7 @@ func (cr *CreateRunner) createSecrets(ctx context.Context, c *client.ClientWithR
 		name := caSecretName(opts.Name)
 		labels := map[string]string{common.OpenEverestDefinitionLabel: common.OpenEverestCABundleDefinition}
 		data := map[string]string{defaultCAKey: req.caBundle}
-		if err := createSecret(ctx, c, opts.Cluster, opts.Namespace, name, cli.FlagBackupStorageCASecret, labels, data); err != nil {
+		if err := createSecret(ctx, c, opts, name, cli.FlagBackupStorageCASecret, labels, data); err != nil {
 			cr.deleteSecrets(ctx, c, opts, created)
 			return nil, err
 		}
@@ -301,7 +314,12 @@ func (cr *CreateRunner) createSecrets(ctx context.Context, c *client.ClientWithR
 func (cr *CreateRunner) createBackupStorage(
 	ctx context.Context, c *client.ClientWithResponses, opts CreateOptions, bs client.BackupStorage, secrets []string,
 ) (*client.BackupStorage, error) {
-	resp, err := c.CreateBackupStorageWithResponse(ctx, opts.Cluster, opts.Namespace, nil, bs)
+	var params *client.CreateBackupStorageParams
+	if opts.DryRun == cli.DryRunServer {
+		dryRun := client.CreateBackupStorageParamsDryRunAll
+		params = &client.CreateBackupStorageParams{DryRun: &dryRun}
+	}
+	resp, err := c.CreateBackupStorageWithResponse(ctx, opts.Cluster, opts.Namespace, params, bs)
 	if err != nil || resp.StatusCode() != http.StatusCreated {
 		cr.deleteSecrets(ctx, c, opts, secrets)
 	}
@@ -333,6 +351,43 @@ func (cr *CreateRunner) emitCreated(created *client.BackupStorage, name string, 
 			_, _ = fmt.Fprint(os.Stdout, output.Success("Secret %q created", secret))
 		}
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup storage %q created", name))
+		return nil
+	}
+	return writeBackupStorageJSON(created)
+}
+
+// emitClientDryRun prints what create would send: the backup storage, as
+// YAML under the names and keys of the Secrets it would create (never their
+// values) in pretty mode, as JSON otherwise.
+func (cr *CreateRunner) emitClientDryRun(opts CreateOptions, req createRequest) error {
+	if !cr.config.Pretty {
+		return writeBackupStorageJSON(&req.storage)
+	}
+	out, err := yaml.Marshal(req.storage)
+	if err != nil {
+		return fmt.Errorf("failed to encode backup storage: %w", err)
+	}
+	if req.credentials != nil {
+		keys := strings.Join(slices.Sorted(maps.Keys(req.credentials)), ", ")
+		_, _ = fmt.Fprint(os.Stdout, output.Info("Dry run for Secret %q with keys %s, nothing sent", credentialsSecretName(opts.Name), keys))
+	}
+	if req.caBundle != "" {
+		_, _ = fmt.Fprint(os.Stdout, output.Info("Dry run for Secret %q with key %s, nothing sent", caSecretName(opts.Name), defaultCAKey))
+	}
+	_, _ = fmt.Fprint(os.Stdout, output.Info("Dry run for backup storage %q, nothing sent", opts.Name))
+	_, _ = os.Stdout.Write(out)
+	return nil
+}
+
+// emitServerDryRun reports a create the server accepted without persisting
+// anything: a line per object in pretty mode, the backup storage it would
+// have stored in JSON mode.
+func (cr *CreateRunner) emitServerDryRun(created *client.BackupStorage, name string, secrets []string) error {
+	if cr.config.Pretty {
+		for _, secret := range secrets {
+			_, _ = fmt.Fprint(os.Stdout, output.Success("Dry run for Secret %q accepted by the server, nothing created", secret))
+		}
+		_, _ = fmt.Fprint(os.Stdout, output.Success("Dry run for backup storage %q accepted by the server, nothing created", name))
 		return nil
 	}
 	return writeBackupStorageJSON(created)

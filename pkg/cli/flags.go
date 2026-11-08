@@ -246,6 +246,8 @@ const (
 	FlagBackupStorageTimeout = "timeout"
 	// FlagBackupStorageIgnoreNotFound treats an already-deleted backup storage as success.
 	FlagBackupStorageIgnoreNotFound = "ignore-not-found"
+	// FlagBackupStorageDryRun previews create, update or delete: "client" prints the request, "server" sends it with dryRun=All.
+	FlagBackupStorageDryRun = "dry-run"
 
 	// `backup-class` flags.
 
