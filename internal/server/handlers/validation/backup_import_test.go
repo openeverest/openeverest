@@ -30,6 +30,7 @@ import (
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 func TestCreateBackupImport_Validation(t *testing.T) {
@@ -49,45 +50,74 @@ func TestCreateBackupImport_Validation(t *testing.T) {
 		}
 	}
 
+	importClass := judgedClass("import-class", "test-provider", backupv1alpha1.CompatibilityCompatible, "")
+	noImportClass := judgedClass("no-import-class", "test-provider", backupv1alpha1.CompatibilityCompatible, "")
+	noImportClass.Spec.SupportsImport = false
+	driftClass := judgedClass("drift-class", "test-provider", backupv1alpha1.CompatibilityIncompatible, backupv1alpha1.ReasonSpecDrift)
+	pendingClass := judgedClass("pending-class", "test-provider", backupv1alpha1.CompatibilityPending, backupv1alpha1.ReasonClassNotAccepted)
+	storage := judgedStorage("s1", "test-namespace",
+		storageVerdict{class: importClass, compatibility: backupv1alpha1.CompatibilityCompatible},
+		storageVerdict{class: noImportClass, compatibility: backupv1alpha1.CompatibilityCompatible},
+		storageVerdict{class: driftClass, compatibility: backupv1alpha1.CompatibilityCompatible},
+	)
+	gcsStorage := judgedStorage("gcs", "test-namespace",
+		storageVerdict{class: importClass, compatibility: backupv1alpha1.CompatibilityIncompatible, reason: backupv1alpha1.ReasonParameterUnsupported},
+	)
+
 	tests := map[string]struct {
 		backupImport *backupv1alpha1.BackupImport
 		importClass  *backupv1alpha1.BackupClass
 		storage      *backupv1alpha1.BackupStorage
 		err          string
+		wantSentinel error
+		wantWarnings []string
 	}{
 		"missing class": {
 			backupImport: newImport("missing-class", "s1"),
-			storage: &backupv1alpha1.BackupStorage{
-				ObjectMeta: metav1.ObjectMeta{Name: "s1", Namespace: "test-namespace"},
-			},
-			err: "backup class not found: 'missing-class'",
+			storage:      storage,
+			err:          "backup class not found: 'missing-class'",
+			wantSentinel: controller.ErrBackupClassNotFound,
 		},
 		"missing storage": {
 			backupImport: newImport("import-class", "missing-storage"),
-			importClass: &backupv1alpha1.BackupClass{
-				ObjectMeta: metav1.ObjectMeta{Name: "import-class"},
-				Spec: backupv1alpha1.BackupClassSpec{
-					ExecutionMode:   backupv1alpha1.BackupExecutionModeProviderManaged,
-					ProviderManaged: &backupv1alpha1.ProviderManagedSpec{ProviderRef: common.ObjectRef{Name: "test-provider"}},
-					SupportsImport:  true,
-				},
-			},
-			err: "backup storage not found: backup storage 'missing-storage' does not exist",
+			importClass:  importClass,
+			err:          "backup storage not found: backup storage 'missing-storage' does not exist",
+			wantSentinel: controller.ErrBackupStorageNotFound,
 		},
 		"class does not support import": {
 			backupImport: newImport("no-import-class", "s1"),
-			importClass: &backupv1alpha1.BackupClass{
-				ObjectMeta: metav1.ObjectMeta{Name: "no-import-class"},
-				Spec: backupv1alpha1.BackupClassSpec{
-					ExecutionMode:   backupv1alpha1.BackupExecutionModeProviderManaged,
-					ProviderManaged: &backupv1alpha1.ProviderManagedSpec{ProviderRef: common.ObjectRef{Name: "test-provider"}},
-					SupportsImport:  false,
-				},
+			importClass:  noImportClass,
+			storage:      storage,
+			err:          "backup import is not supported: class 'no-import-class'",
+			wantSentinel: controller.ErrBackupImportUnsupported,
+		},
+		"class its provider rejects": {
+			backupImport: newImport("drift-class", "s1"),
+			importClass:  driftClass,
+			storage:      storage,
+			err:          `backup class incompatible: BackupClass "drift-class" is Incompatible with Provider "test-provider" (SpecDrift)`,
+			wantSentinel: controller.ErrBackupClassIncompatible,
+		},
+		"storage the class cannot read": {
+			backupImport: newImport("import-class", "gcs"),
+			importClass:  importClass,
+			storage:      gcsStorage,
+			err:          `backup storage incompatible: BackupStorage "gcs" is Incompatible with BackupClass "import-class" (ParameterUnsupported)`,
+			wantSentinel: controller.ErrBackupStorageIncompatible,
+		},
+		"compatible": {
+			backupImport: newImport("import-class", "s1"),
+			importClass:  importClass,
+			storage:      storage,
+		},
+		"class not claimed yet": {
+			backupImport: newImport("pending-class", "s1"),
+			importClass:  pendingClass,
+			storage:      storage,
+			wantWarnings: []string{
+				`BackupClass "pending-class" is Pending for Provider "test-provider" (ClassNotAccepted)`,
+				`BackupStorage "s1" is Pending for BackupClass "pending-class" (VerdictPending)`,
 			},
-			storage: &backupv1alpha1.BackupStorage{
-				ObjectMeta: metav1.ObjectMeta{Name: "s1", Namespace: "test-namespace"},
-			},
-			err: "backup import is not supported: class 'no-import-class'",
 		},
 	}
 
@@ -97,7 +127,7 @@ func TestCreateBackupImport_Validation(t *testing.T) {
 
 			// Use DeepCopy to avoid race conditions since the fake client
 			// modifies the objects' ResourceVersion during Build().
-			var objs []ctrlclient.Object
+			objs := []ctrlclient.Object{s3StorageClass.DeepCopy()}
 			if tt.importClass != nil {
 				objs = append(objs, tt.importClass.DeepCopy())
 			}
@@ -125,15 +155,19 @@ func TestCreateBackupImport_Validation(t *testing.T) {
 				next:          mockNext,
 			}
 
+			ctx, warnings := kubernetes.WithWarningCollector(ctx)
 			_, err := handler.CreateBackupImport(ctx, "prod", tt.backupImport)
 			if tt.err != "" {
 				require.ErrorContains(t, err, tt.err)
 				require.ErrorIs(t, err, ErrInvalidRequest)
+				require.ErrorIs(t, err, tt.wantSentinel)
+				mockNext.AssertNotCalled(t, "CreateBackupImport", mock.Anything, mock.Anything, mock.Anything)
 
 				return
 			}
 
 			require.NoError(t, err)
+			assertWarnings(t, tt.wantWarnings, warnings.Warnings())
 		})
 	}
 }

@@ -45,6 +45,7 @@ import (
 	"github.com/openeverest/openeverest/v2/internal/controller/lifecycleevents"
 	monitoringcontroller "github.com/openeverest/openeverest/v2/internal/controller/monitoring"
 	"github.com/openeverest/openeverest/v2/internal/controller/secretusage"
+	webhookbackupv1alpha1 "github.com/openeverest/openeverest/v2/internal/webhook/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/events"
 )
 
@@ -298,14 +299,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	// No admission webhook is registered, but the webhook server keeps serving
-	// behind its Service and certificate for the webhooks to come.
-	// GetWebhookServer adds it to the manager only once, so registering a
-	// webhook later does not start a second server.
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		mgr.GetWebhookServer()
+		if err := webhookbackupv1alpha1.SetupBackupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "Backup")
+			os.Exit(1)
+		}
+		if err := webhookbackupv1alpha1.SetupRestoreWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "Restore")
+			os.Exit(1)
+		}
+		if err := webhookbackupv1alpha1.SetupBackupImportWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "BackupImport")
+			os.Exit(1)
+		}
 	}
-
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
