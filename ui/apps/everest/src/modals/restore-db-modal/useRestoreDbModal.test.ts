@@ -26,6 +26,7 @@ const mockCloseModal = vi.fn();
 
 const mockUseBackupsList = vi.fn();
 const mockUseDbInstance = vi.fn();
+const mockUseBackupStoragesByNamespace = vi.fn();
 const mockUseCreateInstanceRestore = vi.fn();
 const mockUseClusterName = vi.fn();
 const mockResolveRestoreAction = vi.fn();
@@ -51,6 +52,11 @@ vi.mock('hooks/api/backups/useBackups', () => ({
 
 vi.mock('hooks/api/db-instances', () => ({
   useDbInstance: (...args: unknown[]) => mockUseDbInstance(...args),
+}));
+
+vi.mock('hooks/api/backup-storages/useBackupStorages', () => ({
+  useBackupStoragesByNamespace: (...args: unknown[]) =>
+    mockUseBackupStoragesByNamespace(...args),
 }));
 
 vi.mock('hooks/api/restores/useInstanceRestores', async () => {
@@ -81,6 +87,7 @@ describe('useRestoreDbModal', () => {
     mockUseClusterName.mockReturnValue('main-cluster');
     mockUseBackupsList.mockReturnValue({ data: [], isLoading: false });
     mockUseDbInstance.mockReturnValue({ data: undefined });
+    mockUseBackupStoragesByNamespace.mockReturnValue({ data: [] });
     mockUseCreateInstanceRestore.mockReturnValue({
       mutate: mockMutate,
       isPending: false,
@@ -225,6 +232,51 @@ describe('useRestoreDbModal', () => {
     expect(result.current.succeededBackups.map((item) => item.name)).toEqual([
       'newer',
       'older',
+    ]);
+  });
+
+  it('only offers PITR storages the user can read', () => {
+    mockUseDbInstance.mockReturnValue({
+      data: {
+        status: {
+          backup: {
+            storages: [
+              {
+                name: 'readable-storage',
+                pitr: {
+                  available: true,
+                  earliest: '2026-07-29T08:00:00Z',
+                  latest: '2026-07-29T10:00:00Z',
+                },
+              },
+              {
+                name: 'unreadable-storage',
+                pitr: {
+                  available: true,
+                  earliest: '2026-07-29T08:00:00Z',
+                  latest: '2026-07-29T10:00:00Z',
+                },
+              },
+            ],
+          },
+        },
+      },
+    });
+    mockUseBackupStoragesByNamespace.mockReturnValue({
+      data: [{ metadata: { name: 'readable-storage' } }],
+    });
+
+    const { result } = renderHook(() =>
+      useRestoreDbModal({
+        instanceName: 'source-db',
+        namespace: 'ns-a',
+        isNewClusterMode: false,
+        closeModal: mockCloseModal,
+      })
+    );
+
+    expect(result.current.pitrStorages.map((storage) => storage.name)).toEqual([
+      'readable-storage',
     ]);
   });
 });

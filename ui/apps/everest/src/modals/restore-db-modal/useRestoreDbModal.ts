@@ -18,6 +18,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useBackupsList } from 'hooks/api/backups/useBackups';
 import { useDbInstance } from 'hooks/api/db-instances';
+import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages';
 import {
   getRestoresListQueryKey,
   useCreateInstanceRestore,
@@ -73,6 +74,7 @@ export const useRestoreDbModal = ({
   const { data: instance } = useDbInstance(namespace, instanceName, {
     enabled: !!instanceName,
   });
+  const { data: backupStorages = [] } = useBackupStoragesByNamespace(namespace);
 
   // PITR is offered — for both in-place restore and clone-to-new-DB — only once
   // the source instance's provider has reported a restorable window in status;
@@ -80,12 +82,18 @@ export const useRestoreDbModal = ({
   const pitrStorages = useMemo<RestorePitrStorageOption[]>(
     () =>
       (instance?.status?.backup?.storages ?? [])
-        .filter((storage) => storage.pitr)
+        .filter(
+          (storage) =>
+            storage.pitr &&
+            backupStorages.some(
+              (backupStorage) => backupStorage.metadata?.name === storage.name
+            )
+        )
         .map((storage) => ({
           name: storage.name,
           window: resolvePitrWindow(storage.pitr),
         })),
-    [instance]
+    [backupStorages, instance]
   );
 
   const succeededBackups = useMemo<RestorableBackupOption[]>(
