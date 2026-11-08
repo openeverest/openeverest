@@ -30,6 +30,7 @@ import (
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
@@ -45,6 +46,25 @@ const (
 	componentsKey = "components"
 	nullValue     = "null"
 )
+
+// Values of --dry-run, named as kubectl names them.
+const (
+	DryRunNone   = "none"
+	DryRunClient = "client" // print what would be sent, without sending it
+	DryRunServer = "server" // send with dryRun=All: the server runs every check but persists nothing
+)
+
+func checkDryRun(mode string) error {
+	switch mode {
+	case "", DryRunNone, DryRunClient, DryRunServer:
+		return nil
+	}
+	return fmt.Errorf("invalid --dry-run value %q: must be %q, %q or %q", mode, DryRunNone, DryRunClient, DryRunServer)
+}
+
+func isDryRun(mode string) bool {
+	return mode == DryRunClient || mode == DryRunServer
+}
 
 type Config struct {
 	Pretty bool
@@ -64,6 +84,7 @@ type CreateOptions struct {
 	Set           []string      // dot-notation overrides e.g. "components.engine.replicas=3"; takes precedence over ValuesFile
 	Wait          bool          // block until the instance reaches the Ready phase
 	Timeout       time.Duration // bounds --wait; must be positive
+	DryRun        string        // DryRunClient prints the Instance without sending it, DryRunServer sends it with dryRun=All
 }
 
 type InstanceCreator struct {
@@ -86,6 +107,12 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 	}
 	if usesPreset && opts.Topology != "" {
 		return fmt.Errorf("--topology cannot be combined with --preset or --clusterpreset")
+	}
+	if err := checkDryRun(opts.DryRun); err != nil {
+		return err
+	}
+	if isDryRun(opts.DryRun) && opts.Wait {
+		return fmt.Errorf("--dry-run cannot be combined with --wait")
 	}
 
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: ic.config.Pretty}, ic.l.Desugar().Sugar(), cfgPath, opts.Context)
@@ -168,21 +195,35 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 	}
 
 	payload := buildPayload(opts.Name, opts.Provider, resolvedVersion, resolvedTopology, specOverrides, annotations)
+	if opts.DryRun == DryRunClient {
+		return ic.emitClientDryRun(payload, opts)
+	}
 
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to serialize instance spec: %w", err)
 	}
 
+	var params *client.CreateInstanceParams
+	if opts.DryRun == DryRunServer {
+		dryRun := client.CreateInstanceParamsDryRunAll
+		params = &client.CreateInstanceParams{DryRun: &dryRun}
+	}
 	resp, err := c.CreateInstanceWithBodyWithResponse(
 		ctx,
 		opts.Cluster,
 		opts.Namespace,
+		params,
 		"application/json",
 		bytes.NewReader(body),
 	)
 	if err != nil {
 		return fmt.Errorf("create instance request failed: %w", err)
+	}
+
+	warnings, _ := utilnet.ParseWarningHeaders(resp.HTTPResponse.Header.Values("Warning"))
+	for _, w := range warnings {
+		output.PrintWarn(w.Text, ic.l, ic.config.Pretty)
 	}
 
 	if resp.StatusCode() != http.StatusOK && resp.StatusCode() != http.StatusCreated {
@@ -195,18 +236,52 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 		return fmt.Errorf("unexpected response creating instance: %s", resp.Status())
 	}
 
-	ic.l.Infof("created instance %q in namespace %q", opts.Name, opts.Namespace)
-
 	// The API returns the accepted Instance as JSON201 (or JSON200).
 	created := resp.JSON201
 	if created == nil {
 		created = resp.JSON200
 	}
 
+	if opts.DryRun == DryRunServer {
+		return ic.emitServerDryRun(created, opts)
+	}
+	ic.l.Infof("created instance %q in namespace %q", opts.Name, opts.Namespace)
+
 	if !opts.Wait {
 		return ic.emitCreated(created, opts)
 	}
 	return ic.waitForInstance(ctx, c, created, opts)
+}
+
+// emitClientDryRun prints the Instance create would send: as YAML under a
+// header in pretty mode, as the request body in JSON mode.
+func (ic *InstanceCreator) emitClientDryRun(payload map[string]any, opts CreateOptions) error {
+	if !ic.config.Pretty {
+		if err := json.NewEncoder(os.Stdout).Encode(payload); err != nil {
+			return fmt.Errorf("failed to encode instance: %w", err)
+		}
+		return nil
+	}
+	out, err := yaml.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to encode instance: %w", err)
+	}
+	_, _ = fmt.Fprint(os.Stdout, output.Info("Dry run for instance %q, nothing sent", opts.Name))
+	_, _ = os.Stdout.Write(out)
+	return nil
+}
+
+// emitServerDryRun reports a create the server accepted without persisting it:
+// a line in pretty mode, the Instance the server would have stored in JSON mode.
+func (ic *InstanceCreator) emitServerDryRun(created *client.Instance, opts CreateOptions) error {
+	if ic.config.Pretty {
+		_, _ = fmt.Fprint(os.Stdout, output.Success("Dry run for instance %q accepted by the server, nothing created", opts.Name))
+		return nil
+	}
+	if created == nil {
+		return fmt.Errorf("the server accepted instance %q but returned an unreadable response body", opts.Name)
+	}
+	return writeInstanceJSON(created)
 }
 
 // emitCreated reports a non-waiting create: a success line in pretty mode, or
