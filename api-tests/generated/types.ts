@@ -11029,7 +11029,10 @@ export interface operations {
     };
     createMonitoringDestination: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -11167,7 +11170,10 @@ export interface operations {
     };
     updateMonitoringDestination: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -11253,7 +11259,10 @@ export interface operations {
     };
     deleteMonitoringDestination: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
