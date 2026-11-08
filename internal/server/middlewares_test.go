@@ -327,12 +327,15 @@ func TestDryRunDecidedForEveryWrite(t *testing.T) {
 		"CreateAuthToken": true,
 		"RevokeAuthToken": true,
 
+		// They mint a PMM API key, a side effect outside Kubernetes that a dry run would not prevent.
+		"CreateMonitoringConfig": true,
+		"UpdateMonitoringConfig": true,
+
 		"CreateBackup":                true,
 		"CreateBackupImport":          true,
 		"CreateBackupStorage":         true,
 		"CreateConfigMap":             true,
 		"CreateInstancePreset":        true,
-		"CreateMonitoringConfig":      true,
 		"CreateMonitoringDestination": true,
 		"CreateRestore":               true,
 		"CreateSecret":                true,
@@ -349,7 +352,6 @@ func TestDryRunDecidedForEveryWrite(t *testing.T) {
 		"PatchBackupStorage":          true,
 		"UpdateBackupStorage":         true,
 		"UpdateInstancePreset":        true,
-		"UpdateMonitoringConfig":      true,
 		"UpdateMonitoringDestination": true,
 	}
 
