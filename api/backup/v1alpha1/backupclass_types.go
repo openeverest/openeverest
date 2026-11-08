@@ -17,7 +17,6 @@ package v1alpha1
 import (
 	"slices"
 
-	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -25,9 +24,10 @@ import (
 )
 
 // BackupExecutionMode selects how a BackupClass implements backup and restore
-// operations.
+// operations. It discriminates the class's execution union: every mode has a
+// member block named after it, and a new mode adds a value and a block.
 //
-// +kubebuilder:validation:Enum=ProviderManaged;Job
+// +kubebuilder:validation:Enum=ProviderManaged
 type BackupExecutionMode string
 
 const (
@@ -37,17 +37,10 @@ const (
 	// Restore CRs become trigger + status holders; the actual orchestration
 	// happens inside the provider's Sync loop.
 	BackupExecutionModeProviderManaged BackupExecutionMode = "ProviderManaged"
-
-	// BackupExecutionModeJob runs backup and restore operations as Kubernetes
-	// Jobs that talk to the database from outside (e.g., pg_dump, mysqldump).
-	// All execution detail lives under .spec.job.
-	BackupExecutionModeJob BackupExecutionMode = "Job"
 )
 
 // BackupClassSpec defines the desired state of BackupClass.
 //
-// +kubebuilder:validation:XValidation:rule="self.executionMode != 'Job' || has(self.job)",message="spec.job is required when executionMode is Job"
-// +kubebuilder:validation:XValidation:rule="!has(self.job) || self.executionMode == 'Job'",message="spec.job is only allowed when executionMode is Job"
 // +kubebuilder:validation:XValidation:rule="!has(self.providerManaged) || self.executionMode == 'ProviderManaged'",message="spec.providerManaged is only allowed when executionMode is ProviderManaged"
 // +kubebuilder:validation:XValidation:rule="self.executionMode != 'ProviderManaged' || (has(self.supportedProviders) && size(self.supportedProviders) == 1)",message="a ProviderManaged BackupClass must support exactly one provider"
 type BackupClassSpec struct {
@@ -59,7 +52,9 @@ type BackupClassSpec struct {
 	// supports. The Instance.spec.provider must appear in this list for the
 	// class to be usable on that Instance.
 	SupportedProviders ProviderNameList `json:"supportedProviders,omitempty"`
-	// ExecutionMode selects between job-based and provider-managed execution.
+	// ExecutionMode selects who executes the class's backup and restore
+	// operations. ProviderManaged is the only mode: the provider named in
+	// SupportedProviders executes them.
 	// +kubebuilder:validation:Required
 	ExecutionMode BackupExecutionMode `json:"executionMode"`
 	// SupportsImport indicates whether the owner of this class can discover and
@@ -69,8 +64,8 @@ type BackupClassSpec struct {
 	// ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
 	// schema is intentionally open: providers may surface capability
 	// information (e.g., whether PITR is supported, schedule expression
-	// dialect) without forcing a CRD change. Must be unset when
-	// ExecutionMode is "Job".
+	// dialect) without forcing a CRD change. Must be unset for any other
+	// execution mode.
 	// +optional
 	ProviderManaged *ProviderManagedSpec `json:"providerManaged,omitempty"`
 	// ParametersSchema declares the OpenAPI v3 schema describing the
@@ -96,44 +91,6 @@ type BackupClassSpec struct {
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	UISchema *runtime.RawExtension `json:"uiSchema,omitempty"`
-
-	// Job contains all execution detail for ExecutionMode="Job". Required
-	// when ExecutionMode is "Job"; must be unset when ExecutionMode is
-	// "ProviderManaged".
-	// +optional
-	Job *JobModeSpec `json:"job,omitempty"`
-}
-
-// JobModeSpec bundles everything the in-tree controller needs to run backup
-// and restore operations as Kubernetes Jobs in ExecutionMode="Job".
-type JobModeSpec struct {
-	// Backup describes the job spawned per Backup CR.
-	// +kubebuilder:validation:Required
-	Backup JobExecution `json:"backup"`
-	// Restore describes the job spawned per Restore CR. When unset, restores
-	// are not supported by this class.
-	// +optional
-	Restore *JobExecution `json:"restore,omitempty"`
-}
-
-// JobExecution bundles the Kubernetes resources the controller needs to spawn
-// to perform a single backup or restore operation in ExecutionMode="Job".
-type JobExecution struct {
-	// JobSpec is the specification of the backup or restore job.
-	// +kubebuilder:validation:Required
-	JobSpec *BackupJobSpec `json:"jobSpec"`
-	// CleanupJobSpec is the optional specification of a cleanup job that runs
-	// when the parent Backup or Restore CR is deleted.
-	// +optional
-	CleanupJobSpec *BackupJobSpec `json:"cleanupJobSpec,omitempty"`
-	// Permissions are namespace-scoped PolicyRules granted to the job pod via
-	// a generated Role and RoleBinding.
-	// +optional
-	Permissions []rbacv1.PolicyRule `json:"permissions,omitempty"`
-	// ClusterPermissions are cluster-scoped PolicyRules granted via a
-	// generated ClusterRole and ClusterRoleBinding.
-	// +optional
-	ClusterPermissions []rbacv1.PolicyRule `json:"clusterPermissions,omitempty"`
 }
 
 // ProviderManagedSpec carries opaque hints for ExecutionMode="ProviderManaged"
@@ -195,15 +152,6 @@ type ProviderNameList []string
 // Has checks if the list contains the specified provider.
 func (e ProviderNameList) Has(provider string) bool {
 	return slices.Contains(e, provider)
-}
-
-// BackupJobSpec defines the specification for the Kubernetes job.
-type BackupJobSpec struct {
-	// Image is the image of the backup class.
-	Image string `json:"image,omitempty"`
-	// Command is the command to run the backup class.
-	// +optional
-	Command []string `json:"command,omitempty"`
 }
 
 // BackupClassInstanceConstraints defines compatibility requirements and prerequisites

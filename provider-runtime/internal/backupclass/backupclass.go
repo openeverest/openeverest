@@ -33,7 +33,7 @@ func Incompatibility(bc *backupv1alpha1.BackupClass, provider string) *field.Err
 	classRefPath := field.NewPath("spec", "backup", "classRef", "name")
 	switch {
 	case bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged:
-		return field.Invalid(classRefPath, bc.Name, "runs backups as Jobs and can't be an instance's backup class")
+		return field.Invalid(classRefPath, bc.Name, "is not ProviderManaged and can't be an instance's backup class")
 	case !bc.Spec.SupportedProviders.Has(provider):
 		return field.Invalid(classRefPath, bc.Name, "does not support provider "+provider)
 	}
