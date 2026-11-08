@@ -579,6 +579,11 @@ func (in *BackupStorageClassSpec) DeepCopyInto(out *BackupStorageClassSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.Validations != nil {
+		in, out := &in.Validations, &out.Validations
+		*out = make([]commonv1alpha1.ClassValidation, len(*in))
+		copy(*out, *in)
+	}
 	if in.UISchema != nil {
 		in, out := &in.UISchema, &out.UISchema
 		*out = new(runtime.RawExtension)

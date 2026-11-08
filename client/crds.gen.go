@@ -1840,6 +1840,26 @@ type BackupStorageClass struct {
 		// spec.location, "storage" for spec.parameters and "credentials" keyed by
 		// authentication mode.
 		UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
+
+		// Validations Validations are CEL rules every BackupStorage of the class must
+		// satisfy, for constraints parametersSchema cannot express, such as a
+		// naming rule on location.objectStore.bucket or a rule across parameters
+		// and tls. self is the BackupStorage's spec. A violation sets the
+		// storage's Accepted condition to False with the rule's reason,
+		// InvalidLocation or InvalidParameters, and its message.
+		Validations *[]struct {
+			// Expression Expression is a CEL expression that is true for a valid object. self is
+			// the referencing object's spec, with its parameters typed by the class's
+			// parameters schema. oldSelf is not available.
+			Expression string `json:"expression"`
+
+			// Message Message explains a violation to the user.
+			Message string `json:"message"`
+
+			// Reason Reason is the reason of the condition a violation sets on the
+			// referencing object. Each class kind lists the reasons it accepts.
+			Reason string `json:"reason"`
+		} `json:"validations,omitempty"`
 	} `json:"spec"`
 }
 

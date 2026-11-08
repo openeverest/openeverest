@@ -134,3 +134,14 @@ spec:
       - endpointURL
       - implementation
       - forcePathStyle
+  validations:
+  - expression: has(self.location.objectStore) && self.location.objectStore.bucket.matches('^[a-z0-9][a-z0-9._-]{1,61}[a-z0-9]$')
+      && !self.location.objectStore.bucket.contains('..')
+    message: an s3 bucket name must be 3 to 63 lowercase letters, digits, '.', '-'
+      or '_', start and end with a letter or digit, and contain no '..'
+    reason: InvalidLocation
+  - expression: '!(has(self.tls) && (has(self.tls.ca) || (has(self.tls.insecureSkipVerify)
+      && self.tls.insecureSkipVerify)) && has(self.parameters) && has(self.parameters.endpointURL)
+      && self.parameters.endpointURL.startsWith(''http://''))'
+    message: tls applies to https endpoints only, and endpointURL is http
+    reason: InvalidParameters
