@@ -35,8 +35,8 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
+	"github.com/openeverest/openeverest/v2/backupstorageclasses/s3"
 	"github.com/openeverest/openeverest/v2/internal/controller/backup"
-	"github.com/openeverest/openeverest/v2/pkg/backupstorageclasses"
 )
 
 // builtinClass loads a generated class from config/backupstorageclasses.
@@ -73,7 +73,7 @@ func selfSignedPEM(t *testing.T) []byte {
 func TestAccept(t *testing.T) {
 	t.Parallel()
 
-	s3Class := builtinClass(t, backupstorageclasses.ClassS3)
+	s3Class := builtinClass(t, s3.ClassName)
 	ca := selfSignedPEM(t)
 
 	thirdParty := &backupv1alpha1.BackupStorageClass{
@@ -90,10 +90,10 @@ func TestAccept(t *testing.T) {
 	withBucketParam := thirdParty.DeepCopy()
 	withBucketParam.Spec.ParametersSchema.OpenAPIV3Schema.Properties["bucket"] = apiextensionsv1.JSONSchemaProps{Type: "string"}
 
-	accessKey := common.Authentication{Mode: backupstorageclasses.AuthModeAccessKey, CredentialsSecretRef: &common.SecretRef{Name: "creds"}}
+	accessKey := common.Authentication{Mode: s3.AuthModeAccessKey, CredentialsSecretRef: &common.SecretRef{Name: "creds"}}
 	keys := backup.SecretContent{Found: true, Data: map[string][]byte{
-		backupstorageclasses.KeyAWSAccessKeyID:     []byte("AKIA"),
-		backupstorageclasses.KeyAWSSecretAccessKey: []byte("secret"),
+		s3.KeyAWSAccessKeyID:     []byte("AKIA"),
+		s3.KeyAWSSecretAccessKey: []byte("secret"),
 	}}
 	caTLS := &common.TLSConfig{CA: &common.CABundleSource{SecretKeyRef: &common.SecretKeyRef{Name: "corp-ca", Key: "ca.crt"}}}
 	valid := backup.AcceptInput{
@@ -149,7 +149,7 @@ func TestAccept(t *testing.T) {
 		{name: "mode the class does not define", class: s3Class, in: with(func(in *backup.AcceptInput) { in.Authentication.Mode = "SASToken" }), wantReason: backupv1alpha1.ReasonAuthModeUnsupported},
 		{name: "credentials Secret missing", class: s3Class, in: with(func(in *backup.AcceptInput) { in.Credentials = backup.SecretContent{} }), wantReason: backupv1alpha1.ReasonCredentialsNotFound},
 		{name: "credentials key missing", class: s3Class, in: with(func(in *backup.AcceptInput) {
-			in.Credentials = backup.SecretContent{Found: true, Data: map[string][]byte{backupstorageclasses.KeyAWSAccessKeyID: []byte("AKIA")}}
+			in.Credentials = backup.SecretContent{Found: true, Data: map[string][]byte{s3.KeyAWSAccessKeyID: []byte("AKIA")}}
 		}), wantReason: backupv1alpha1.ReasonCredentialsNotFound},
 		{name: "CA Secret missing", class: s3Class, in: with(func(in *backup.AcceptInput) { in.CA = backup.SecretContent{} }), wantReason: backupv1alpha1.ReasonInvalidCABundle},
 		{name: "CA key not PEM", class: s3Class, in: with(func(in *backup.AcceptInput) {

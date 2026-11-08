@@ -28,7 +28,7 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/backupstorageclasses"
+	"github.com/openeverest/openeverest/v2/backupstorageclasses"
 )
 
 var (
@@ -109,7 +109,7 @@ func (c *Context) BackupStorages() ([]ResolvedBackupStorage, error) {
 			continue
 		}
 		rs.Storage = bs
-		rs.Path = backupstorageclasses.BackupPath(bs.Spec.Location, c.in.Namespace, c.in.Name, c.in.UID, name)
+		rs.Path = backupv1alpha1.BackupPath(bs.Spec.Location, c.in.Namespace, c.in.Name, c.in.UID, name)
 		rs.Reason, rs.Message = judgeBackupStorage(class, bs, rs.Path, recorded[name])
 		out = append(out, rs)
 	}
@@ -133,7 +133,7 @@ func judgeBackupStorage(class *backupv1alpha1.BackupClass, bs *backupv1alpha1.Ba
 			fmt.Sprintf("backup storage %s is not accepted: %s: %s", bs.Name, accepted.Reason, accepted.Message)
 	}
 	if class != nil {
-		if c := backupstorageclasses.Compatible(class, bs); !c.Compatible {
+		if c := class.CanWriteTo(bs); !c.Compatible {
 			return v1alpha1.ReasonBackupStorageIncompatible,
 				fmt.Sprintf("backup class %s cannot write to backup storage %s: %s", class.Name, bs.Name, c.Message)
 		}

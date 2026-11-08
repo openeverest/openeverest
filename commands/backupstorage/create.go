@@ -20,7 +20,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/openeverest/openeverest/v2/pkg/backupstorageclasses"
+	"github.com/openeverest/openeverest/v2/backupstorageclasses/s3"
 	"github.com/openeverest/openeverest/v2/pkg/cli"
 	backupstoragecli "github.com/openeverest/openeverest/v2/pkg/cli/backupstorage"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
@@ -94,11 +94,11 @@ the ACCEPTED column of 'everestctl backup-storage list'.`,
 func init() {
 	createCmd.Flags().StringVar(&createOpts.Name, cli.FlagBackupStorageName, "", "Backup storage name (required)")
 	createCmd.Flags().StringVarP(&createOpts.Namespace, cli.FlagBackupStorageNamespace, "n", "", "Namespace to create the backup storage in (required)")
-	createCmd.Flags().StringVar(&createOpts.Class, cli.FlagBackupStorageClass, backupstorageclasses.ClassS3, "BackupStorageClass, the object storage technology")
+	createCmd.Flags().StringVar(&createOpts.Class, cli.FlagBackupStorageClass, s3.ClassName, "BackupStorageClass, the object storage technology")
 	createCmd.Flags().StringVar(&createOpts.Bucket, cli.FlagBackupStorageBucket, "", "Bucket name (required)")
 	createCmd.Flags().StringVar(&createOpts.Prefix, cli.FlagBackupStoragePrefix, "", "Path within the bucket to write backups under, without leading or trailing slash")
 	addParameterFlags(createCmd, &createOpts.Parameters)
-	createCmd.Flags().StringVar(&createOpts.AuthMode, cli.FlagBackupStorageAuthMode, backupstorageclasses.AuthModeAccessKey, "Authentication mode, one of the class's authModes")
+	createCmd.Flags().StringVar(&createOpts.AuthMode, cli.FlagBackupStorageAuthMode, s3.AuthModeAccessKey, "Authentication mode, one of the class's authModes")
 	createCmd.Flags().StringVar(&createOpts.CredentialsSecret, cli.FlagBackupStorageCredentialsSecret, "", "Name of an existing Secret holding the credentials")
 	createCmd.Flags().StringVar(&createOpts.CredentialsFile, cli.FlagBackupStorageCredentialsFile, "", "File of KEY=VALUE lines to create the Secret backup-storage-<name>-credentials from")
 	createCmd.Flags().StringVar(&createOpts.CAFile, cli.FlagBackupStorageCAFile, "", "PEM CA bundle to create the Secret backup-storage-<name>-ca from")

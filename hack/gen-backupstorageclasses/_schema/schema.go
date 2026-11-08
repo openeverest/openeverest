@@ -24,7 +24,7 @@ package schema
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/openeverest/openeverest/v2/pkg/backupstorageclasses"
+	"github.com/openeverest/openeverest/v2/backupstorageclasses/s3"
 )
 
 // S3 carries the parameters of the s3 class.
@@ -35,5 +35,5 @@ type S3 struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec backupstorageclasses.S3 `json:"spec"`
+	Spec s3.Parameters `json:"spec"`
 }

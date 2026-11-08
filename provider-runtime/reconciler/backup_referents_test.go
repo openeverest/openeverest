@@ -29,7 +29,8 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/backupstorageclasses"
+	"github.com/openeverest/openeverest/v2/backupstorageclasses"
+	"github.com/openeverest/openeverest/v2/backupstorageclasses/s3"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
@@ -71,7 +72,7 @@ func testBackupClass(mode backupv1alpha1.BackupExecutionMode, providers ...strin
 			ExecutionMode:      mode,
 			SupportedProviders: providers,
 			BackupStorageClasses: []backupv1alpha1.BackupStorageClassSupport{
-				{Name: backupstorageclasses.ClassS3, AuthModes: []string{backupstorageclasses.AuthModeAccessKey}},
+				{Name: s3.ClassName, AuthModes: []string{s3.AuthModeAccessKey}},
 			},
 		},
 	}
@@ -83,10 +84,10 @@ func testBackupStorage(name, secret string, accepted metav1.ConditionStatus) *ba
 	bs := &backupv1alpha1.BackupStorage{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "team-a"},
 		Spec: backupv1alpha1.BackupStorageSpec{
-			BackupStorageClassRef: common.ObjectRef{Name: backupstorageclasses.ClassS3},
+			BackupStorageClassRef: common.ObjectRef{Name: s3.ClassName},
 			Location:              backupv1alpha1.BackupStorageLocation{ObjectStore: &backupv1alpha1.ObjectStoreLocation{Bucket: "backups", Prefix: "prod"}},
 			Authentication: common.Authentication{
-				Mode:                 backupstorageclasses.AuthModeAccessKey,
+				Mode:                 s3.AuthModeAccessKey,
 				CredentialsSecretRef: &common.SecretRef{Name: secret},
 			},
 		},

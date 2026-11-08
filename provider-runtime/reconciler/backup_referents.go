@@ -30,7 +30,6 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/backupstorageclasses"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 	"github.com/openeverest/openeverest/v2/provider-runtime/internal/backupclass"
 )
@@ -106,7 +105,7 @@ func instanceBackupPath(ctx context.Context, c client.Reader, in *v1alpha1.Insta
 	if err := c.Get(ctx, client.ObjectKey{Namespace: in.Namespace, Name: name}, storage); err != nil {
 		return "", client.IgnoreNotFound(err)
 	}
-	return backupstorageclasses.BackupPath(storage.Spec.Location, in.Namespace, in.Name, in.UID, name), nil
+	return backupv1alpha1.BackupPath(storage.Spec.Location, in.Namespace, in.Name, in.UID, name), nil
 }
 
 func backupStorageNames(in *v1alpha1.Instance) []string {

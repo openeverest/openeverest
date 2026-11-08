@@ -24,7 +24,6 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/backupstorageclasses"
 )
 
 // ListBackupStorages returns the backup storages in a namespace: only those
@@ -50,7 +49,7 @@ func (h *k8sHandler) ListBackupStorages(ctx context.Context, _, namespace, backu
 		if backupStorageClass != "" && bs.Spec.BackupStorageClassRef.Name != backupStorageClass {
 			continue
 		}
-		if class != nil && !backupstorageclasses.Compatible(class, &bs).Compatible {
+		if class != nil && !class.CanWriteTo(&bs).Compatible {
 			continue
 		}
 		filtered = append(filtered, bs)
