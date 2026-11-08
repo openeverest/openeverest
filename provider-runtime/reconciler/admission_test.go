@@ -272,9 +272,7 @@ func TestInstanceAdmissionBackupClass(t *testing.T) {
 	t.Parallel()
 	limited := func() *backupv1alpha1.BackupClass {
 		bc := testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "test-provider")
-		bc.Spec.ProviderManaged = &backupv1alpha1.ProviderManagedSpec{
-			Limits: &backupv1alpha1.BackupClassLimits{MaxStorages: new(int32(1))},
-		}
+		bc.Spec.ProviderManaged.Limits = &backupv1alpha1.BackupClassLimits{MaxStorages: new(int32(1))}
 		return bc
 	}
 	otherProvider := func() *backupv1alpha1.BackupClass {

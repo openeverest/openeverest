@@ -22,6 +22,57 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// Compatibility is whether a class can be used with what it is judged
+// against. Pending may still become Compatible without a change of either
+// object, such as when a late object appears or a controller catches up;
+// Incompatible needs one.
+//
+// +kubebuilder:validation:Enum=Compatible;Pending;Incompatible
+type Compatibility string
+
+// Compatibility levels.
+const (
+	CompatibilityCompatible   = Compatibility("Compatible")
+	CompatibilityPending      = Compatibility("Pending")
+	CompatibilityIncompatible = Compatibility("Incompatible")
+)
+
+// CurrentVerdict returns the storage's verdict for class, or a Pending one
+// with ReasonVerdictPending when there is none or it was computed from other
+// objects than storage, class and storageClass, the storage's
+// BackupStorageClass, nil when it does not exist. Read verdicts only through
+// it: a verdict is only as current as its inputs.
+func CurrentVerdict(storage *BackupStorage, class *BackupClass, storageClass *BackupStorageClass) BackupClassVerdict {
+	i := slices.IndexFunc(storage.Status.BackupClasses, func(v BackupClassVerdict) bool { return v.Name == class.Name })
+	if i < 0 {
+		return pendingVerdict(class.Name, fmt.Sprintf("BackupStorage %q has not been judged against BackupClass %q yet", storage.Name, class.Name))
+	}
+	v := storage.Status.BackupClasses[i]
+	if storageClass == nil {
+		return pendingVerdict(class.Name, fmt.Sprintf("BackupStorageClass %q of BackupStorage %q does not exist",
+			storage.Spec.BackupStorageClassRef.Name, storage.Name,
+		))
+	}
+	current := BackupClassVerdictInputs{
+		StorageGeneration:      storage.Generation,
+		ClassUID:               class.UID,
+		ClassGeneration:        class.Generation,
+		StorageClassUID:        storageClass.UID,
+		StorageClassGeneration: storageClass.Generation,
+	}
+	if v.Observed != current {
+		return pendingVerdict(class.Name, fmt.Sprintf(
+			"the verdict on BackupStorage %q for BackupClass %q predates a change of the storage, the class or its BackupStorageClass",
+			storage.Name, class.Name,
+		))
+	}
+	return v
+}
+
+func pendingVerdict(class, message string) BackupClassVerdict {
+	return BackupClassVerdict{Name: class, Compatibility: CompatibilityPending, Reason: ReasonVerdictPending, Message: message}
+}
+
 // StorageCompatibility is whether a BackupClass can write to a
 // BackupStorage.
 //

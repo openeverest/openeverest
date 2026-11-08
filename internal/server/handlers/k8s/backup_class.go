@@ -24,8 +24,8 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
-// ListBackupClasses returns the backup classes, only those that support
-// provider when it is set.
+// ListBackupClasses returns the backup classes, only those that provider
+// executes when it is set.
 func (h *k8sHandler) ListBackupClasses(ctx context.Context, _, provider string) (*backupv1alpha1.BackupClassList, error) {
 	list, err := h.kubeConnector.ListBackupClasses(ctx)
 	if err != nil || provider == "" {
@@ -33,7 +33,7 @@ func (h *k8sHandler) ListBackupClasses(ctx context.Context, _, provider string) 
 	}
 	filtered := make([]backupv1alpha1.BackupClass, 0, len(list.Items))
 	for _, bc := range list.Items {
-		if bc.Spec.SupportedProviders.Has(provider) {
+		if bc.Spec.ExecutorProvider() == provider {
 			filtered = append(filtered, bc)
 		}
 	}

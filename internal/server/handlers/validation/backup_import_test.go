@@ -67,9 +67,9 @@ func TestCreateBackupImport_Validation(t *testing.T) {
 			importClass: &backupv1alpha1.BackupClass{
 				ObjectMeta: metav1.ObjectMeta{Name: "import-class"},
 				Spec: backupv1alpha1.BackupClassSpec{
-					ExecutionMode:      backupv1alpha1.BackupExecutionModeProviderManaged,
-					SupportedProviders: backupv1alpha1.ProviderNameList{"test-provider"},
-					SupportsImport:     true,
+					ExecutionMode:   backupv1alpha1.BackupExecutionModeProviderManaged,
+					ProviderManaged: &backupv1alpha1.ProviderManagedSpec{ProviderRef: common.ObjectRef{Name: "test-provider"}},
+					SupportsImport:  true,
 				},
 			},
 			err: "backup storage not found: backup storage 'missing-storage' does not exist",
@@ -79,9 +79,9 @@ func TestCreateBackupImport_Validation(t *testing.T) {
 			importClass: &backupv1alpha1.BackupClass{
 				ObjectMeta: metav1.ObjectMeta{Name: "no-import-class"},
 				Spec: backupv1alpha1.BackupClassSpec{
-					ExecutionMode:      backupv1alpha1.BackupExecutionModeProviderManaged,
-					SupportedProviders: backupv1alpha1.ProviderNameList{"test-provider"},
-					SupportsImport:     false,
+					ExecutionMode:   backupv1alpha1.BackupExecutionModeProviderManaged,
+					ProviderManaged: &backupv1alpha1.ProviderManagedSpec{ProviderRef: common.ObjectRef{Name: "test-provider"}},
+					SupportsImport:  false,
 				},
 			},
 			storage: &backupv1alpha1.BackupStorage{

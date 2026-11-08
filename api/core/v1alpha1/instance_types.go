@@ -97,7 +97,7 @@ type InstanceSpec struct {
 	//
 	// Only ProviderManaged BackupClasses are supported. The referenced Backup
 	// must be in the same namespace, in Succeeded state, and its BackupClass
-	// must list the Instance's provider in SupportedProviders. Instance must
+	// must be executed by the Instance's provider. Instance must
 	// also have backup enabled and include a storage entry that matches the
 	// storage used by the source Backup so the provider can access the data.
 	// +optional
@@ -238,8 +238,8 @@ type InstanceBackupSpec struct {
 	Enabled bool `json:"enabled"`
 	// ClassRef references the cluster-scoped BackupClass that the provider
 	// should use to configure the engine. The class must have
-	// ExecutionMode=ProviderManaged and list the Instance's provider in its
-	// SupportedProviders.
+	// ExecutionMode=ProviderManaged and name the Instance's provider in
+	// providerManaged.providerRef.
 	// +kubebuilder:validation:Required
 	ClassRef common.ObjectRef `json:"classRef"`
 	// Storages registers BackupStorages on the engine. Each entry references
@@ -896,8 +896,8 @@ const (
 	ReasonBackupClassNotFound = "BackupClassNotFound"
 
 	// ReasonBackupClassIncompatible indicates the BackupClass named by
-	// spec.backup.classRef is not ProviderManaged or does not list the
-	// Instance's provider in spec.supportedProviders.
+	// spec.backup.classRef is not ProviderManaged or is executed by another
+	// provider than the Instance's.
 	ReasonBackupClassIncompatible = "BackupClassIncompatible"
 
 	// ReasonBackupStorageNotFound indicates a BackupStorage named in
@@ -995,8 +995,8 @@ const (
 	ReasonDataSourceStorageMismatch = "StorageMismatch"
 
 	// ReasonDataSourceClassUnsupported indicates the source Backup's
-	// BackupClass either does not exist, is not ProviderManaged, or does not
-	// list the target Instance's provider in SupportedProviders.
+	// BackupClass either does not exist, is not ProviderManaged, or is
+	// executed by another provider than the target Instance's.
 	ReasonDataSourceClassUnsupported = "BackupClassUnsupported"
 
 	// ReasonDataSourceUserSecretMismatch indicates the restore failed terminally

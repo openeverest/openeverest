@@ -332,7 +332,10 @@ func TestValidateClassSupportsProvider(t *testing.T) {
 
 	bc := &backupv1alpha1.BackupClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "bc"},
-		Spec:       backupv1alpha1.BackupClassSpec{SupportedProviders: backupv1alpha1.ProviderNameList{"postgresql"}},
+		Spec: backupv1alpha1.BackupClassSpec{
+			ExecutionMode:   backupv1alpha1.BackupExecutionModeProviderManaged,
+			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{ProviderRef: common.ObjectRef{Name: "postgresql"}},
+		},
 	}
 
 	require.NoError(t, ValidateClassSupportsProvider(bc, "postgresql"))

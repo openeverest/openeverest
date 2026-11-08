@@ -28,8 +28,8 @@ const mockBackupClasses = [
     metadata: { name: 'class-limited' },
     spec: {
       displayName: 'Limited Class',
-      supportedProviders: [],
       providerManaged: {
+        providerRef: { name: 'test-provider' },
         limits: { maxStorages: 1, maxSchedulesPerStorage: 2 },
       },
     },
@@ -38,8 +38,8 @@ const mockBackupClasses = [
     metadata: { name: 'class-generous' },
     spec: {
       displayName: 'Generous Class',
-      supportedProviders: [],
       providerManaged: {
+        providerRef: { name: 'test-provider' },
         limits: { maxStorages: 5, maxSchedulesPerStorage: 10 },
       },
     },

@@ -25,7 +25,6 @@ import (
 	"net/http"
 	"os"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/rodaine/table"
@@ -129,10 +128,10 @@ func backupClassName(bc *client.BackupClass) string {
 }
 
 func backupClassProvider(bc *client.BackupClass) string {
-	if bc.Spec.SupportedProviders == nil || len(*bc.Spec.SupportedProviders) == 0 {
+	if bc.Spec.ProviderManaged == nil || bc.Spec.ProviderManaged.ProviderRef.Name == "" {
 		return "-"
 	}
-	return strings.Join(*bc.Spec.SupportedProviders, ",")
+	return bc.Spec.ProviderManaged.ProviderRef.Name
 }
 
 func backupClassExecutionMode(bc *client.BackupClass) string {
