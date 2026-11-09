@@ -18,7 +18,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
@@ -225,4 +227,77 @@ func TestExecutorProvider(t *testing.T) {
 	} {
 		assert.Equal(t, tt.want, tt.spec.ExecutorProvider(), name)
 	}
+}
+
+func TestCurrentProviderVerdict(t *testing.T) {
+	t.Parallel()
+
+	class := func(generation int64, entries ...backupv1alpha1.BackupClassProviderCompatibility) *backupv1alpha1.BackupClass {
+		return &backupv1alpha1.BackupClass{
+			ObjectMeta: metav1.ObjectMeta{Name: "pbm", Generation: generation},
+			Status:     backupv1alpha1.BackupClassStatus{Providers: entries},
+		}
+	}
+	drift := backupv1alpha1.BackupClassProviderCompatibility{
+		Name: "psmdb", Compatibility: backupv1alpha1.CompatibilityIncompatible,
+		Reason: backupv1alpha1.ReasonSpecDrift, Message: "edited", ClassGeneration: 2,
+	}
+
+	assert.Equal(t, drift, backupv1alpha1.CurrentProviderVerdict(class(2, drift), "psmdb"), "the current entry")
+
+	tests := []struct {
+		name       string
+		class      *backupv1alpha1.BackupClass
+		want       backupv1alpha1.Compatibility
+		wantReason string
+	}{
+		{name: "entry of an older generation", class: class(3, drift), want: backupv1alpha1.CompatibilityPending, wantReason: backupv1alpha1.ReasonVerdictPending},
+		{name: "no entries yet", class: class(2), want: backupv1alpha1.CompatibilityPending, wantReason: backupv1alpha1.ReasonVerdictPending},
+		{
+			name: "only stale entries for others", class: class(3, backupv1alpha1.BackupClassProviderCompatibility{Name: "pxc", ClassGeneration: 2}),
+			want: backupv1alpha1.CompatibilityPending, wantReason: backupv1alpha1.ReasonVerdictPending,
+		},
+		{
+			name: "current entries for others only", class: class(2, backupv1alpha1.BackupClassProviderCompatibility{Name: "pxc", ClassGeneration: 2}),
+			want: backupv1alpha1.CompatibilityIncompatible, wantReason: backupv1alpha1.ReasonProviderUnsupported,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := backupv1alpha1.CurrentProviderVerdict(tt.class, "psmdb")
+			assert.Equal(t, "psmdb", got.Name)
+			assert.Equal(t, tt.want, got.Compatibility)
+			assert.Equal(t, tt.wantReason, got.Reason)
+			assert.Equal(t, tt.class.Generation, got.ClassGeneration)
+			assert.NotEmpty(t, got.Message)
+		})
+	}
+}
+
+func TestCanWriteToNamesTheUnsupportedParameter(t *testing.T) {
+	t.Parallel()
+
+	class := &backupv1alpha1.BackupClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "pbm"},
+		Spec: backupv1alpha1.BackupClassSpec{BackupStorageClasses: []backupv1alpha1.BackupStorageClassSupport{{
+			Name: s3.ClassName, AuthModes: []string{s3.AuthModeAccessKey},
+			ParametersSchema: &common.ParametersSchema{OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
+				Type: "object",
+				Properties: map[string]apiextensionsv1.JSONSchemaProps{
+					"implementation": {Type: "string", Enum: []apiextensionsv1.JSON{{Raw: []byte(`"aws"`)}}},
+				},
+			}},
+		}}},
+	}
+	storage := &backupv1alpha1.BackupStorage{Spec: backupv1alpha1.BackupStorageSpec{
+		BackupStorageClassRef: common.ObjectRef{Name: s3.ClassName},
+		Parameters:            &runtime.RawExtension{Raw: []byte(`{"implementation":"gcs"}`)},
+		Authentication:        common.Authentication{Mode: s3.AuthModeAccessKey},
+	}}
+	got := class.CanWriteTo(storage)
+	assert.Equal(t, backupv1alpha1.ReasonParameterUnsupported, got.Reason)
+	assert.Contains(t, got.Message, "implementation")
+	assert.NotContains(t, got.Message, "\n")
 }
