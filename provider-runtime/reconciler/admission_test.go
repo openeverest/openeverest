@@ -271,12 +271,20 @@ func (p *admissionBackupProvider) CleanupRestore(*controller.Context, *backupv1a
 func TestInstanceAdmissionBackupClass(t *testing.T) {
 	t.Parallel()
 	limited := func() *backupv1alpha1.BackupClass {
-		bc := testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "test-provider")
+		bc := compatibleBackupClass()
 		bc.Spec.ProviderManaged.Limits = &backupv1alpha1.BackupClassLimits{MaxStorages: new(int32(1))}
 		return bc
 	}
+	ours := func(c backupv1alpha1.Compatibility, reason string) *backupv1alpha1.BackupClass {
+		return judged(testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "test-provider"), "test-provider", c, reason)
+	}
 	otherProvider := func() *backupv1alpha1.BackupClass {
-		return testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "other")
+		return judged(testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "other"), "other", backupv1alpha1.CompatibilityCompatible, "")
+	}
+	stale := func() *backupv1alpha1.BackupClass {
+		bc := compatibleBackupClass()
+		bc.Generation = 2
+		return bc
 	}
 	storages := func() []client.Object {
 		return []client.Object{
@@ -300,15 +308,52 @@ func TestInstanceAdmissionBackupClass(t *testing.T) {
 			wantAllowed: true,
 		},
 		{
-			name:       "class of another provider",
+			// Only the published verdict decides: a mode this runtime does
+			// not know is no reason to reject (spec 019 §4.8 invariant 1).
+			name:        "compatible class of an execution mode the runtime does not know",
+			in:          admissionInstance(withBackup(true, "s3-a")),
+			class:       judged(testBackupClass(otherMode), "test-provider", backupv1alpha1.CompatibilityCompatible, ""),
+			wantAllowed: true,
+		},
+		{
+			name:        "pending class",
+			in:          admissionInstance(withBackup(true, "s3-a")),
+			class:       ours(backupv1alpha1.CompatibilityPending, backupv1alpha1.ReasonClassNotAccepted),
+			wantAllowed: true,
+			wantWarnings: []string{
+				"backup class pbm is pending for provider test-provider, which holds the instance until it is compatible: ClassNotAccepted",
+			},
+		},
+		{
+			name:        "class not judged yet",
+			in:          admissionInstance(withBackup(true, "s3-a")),
+			class:       testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "test-provider"),
+			wantAllowed: true,
+			wantWarnings: []string{
+				"backup class pbm is pending for provider test-provider, which holds the instance until it is compatible: " +
+					`VerdictPending: BackupClass "pbm" has not been judged for Provider "test-provider" at generation 1 yet`,
+			},
+		},
+		{
+			name:        "verdict for an older generation",
+			in:          admissionInstance(withBackup(true, "s3-a")),
+			class:       stale(),
+			wantAllowed: true,
+			wantWarnings: []string{
+				"backup class pbm is pending for provider test-provider, which holds the instance until it is compatible: " +
+					`VerdictPending: the verdict on BackupClass "pbm" for Provider "test-provider" predates generation 2 of the class`,
+			},
+		},
+		{
+			name:       "incompatible class",
 			in:         admissionInstance(withBackup(true, "s3-a")),
-			class:      otherProvider(),
+			class:      ours(backupv1alpha1.CompatibilityIncompatible, backupv1alpha1.ReasonSpecDrift),
 			wantCauses: []string{"spec.backup.classRef.name"},
 		},
 		{
-			name:       "class of another execution mode",
+			name:       "class of another provider",
 			in:         admissionInstance(withBackup(true, "s3-a")),
-			class:      testBackupClass(otherMode, "test-provider"),
+			class:      otherProvider(),
 			wantCauses: []string{"spec.backup.classRef.name"},
 		},
 		{
@@ -354,6 +399,27 @@ func TestInstanceAdmissionBackupClass(t *testing.T) {
 			assert.Equal(t, tc.wantWarnings, resp.Warnings)
 		})
 	}
+}
+
+func TestInstanceAdmissionIncompatibleClassMessage(t *testing.T) {
+	t.Parallel()
+	bc := testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "test-provider")
+	bc.Status.Providers = []backupv1alpha1.BackupClassProviderCompatibility{{
+		Name: "test-provider", Compatibility: backupv1alpha1.CompatibilityIncompatible, ClassGeneration: 1,
+		Reason: backupv1alpha1.ReasonSpecDrift, Message: "spec.supportsImport differs",
+	}}
+	a := newInstanceAdmission(&admissionBackupProvider{}, testProviderCR(), bc)
+
+	resp := a.Handle(t.Context(), admissionRequest(t, admissionInstance(withBackup(true)), nil))
+
+	assert.False(t, resp.Allowed)
+	require.NotNil(t, resp.Result)
+	require.NotNil(t, resp.Result.Details)
+	require.Len(t, resp.Result.Details.Causes, 1)
+	assert.Equal(t,
+		`Invalid value: "pbm": is incompatible with provider test-provider: SpecDrift: spec.supportsImport differs`,
+		resp.Result.Details.Causes[0].Message,
+	)
 }
 
 // admissionReferenceProvider is admissionTestProvider with ValidateReferences.

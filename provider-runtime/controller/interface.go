@@ -286,8 +286,9 @@ type FieldIndexProvider interface {
 //     restore.spec.instanceName so the provider can list backups/restores for
 //     a given Instance efficiently.
 //   - Starts ancillary reconcilers for Backup and Restore CRs that dispatch to
-//     SyncBackup/SyncRestore when the resolved BackupClass uses
-//     executionMode "ProviderManaged".
+//     SyncBackup/SyncRestore when the resolved BackupClass names this
+//     provider in spec.providerManaged.providerRef. Backups and Restores of
+//     classes executed by anyone else are ignored, never rejected.
 //
 // All methods receive the same *Context handle as ProviderInterface; helpers
 // such as Context.BackupStorage, Context.BackupClass and
@@ -492,11 +493,50 @@ type BaseProvider struct {
 	shippedBackupClasses []backupv1alpha1.BackupClass
 }
 
+// StatusFieldOwner returns the server-side-apply field manager under which
+// the runtime of the named provider writes the status it shares with other
+// writers: the fields it owns on Instance.status and the Accepted condition
+// of the BackupClasses the provider claims.
+func StatusFieldOwner(provider string) string {
+	return "openeverest-provider/" + provider
+}
+
+// ShippedBackupClassesProvider is implemented by every provider that embeds
+// BaseProvider. When ShippedBackupClasses returns classes, the runtime claims
+// every BackupClass whose spec.providerManaged.providerRef names the
+// provider (spec 019 §4.2): it server-side-applies the class's Accepted
+// condition, with the class generation it judged, under StatusFieldOwner:
+//   - True (Accepted) when the provider ships a class of that name with the
+//     same capabilities: the whole spec except displayName, description and
+//     uiSchema, compared after the CRD's defaults, so a class the API server
+//     defaulted is not drifted;
+//   - False (UnknownClass) when it ships none of that name;
+//   - False (SpecDrift) when the capabilities differ, naming the fields;
+//   - Unknown (NewerDefinition or OlderDefinition) when the class is stamped
+//     with another provider release (backupv1alpha1.ProviderVersionAnnotation)
+//     than the shipped class, as during an upgrade. An unstamped class is
+//     compared by capabilities.
+//
+// Classes naming another provider are ignored. Core publishes the outcome
+// in BackupClass.status.providers, which the runtime then reads: an Instance
+// whose class is not Compatible there is held (BackupClassPending) or
+// rejected (BackupClassIncompatible).
+//
+// The provider's RBAC must then grant, e.g. as these markers in its
+// internal/provider/rbac.go (the runtime also reads the BackupStorageClass of
+// each storage, to check that a storage's published verdict is current):
+//
+//	// +kubebuilder:rbac:groups=backup.openeverest.io,resources=backupclasses;backupstorageclasses,verbs=get;list;watch
+//	// +kubebuilder:rbac:groups=backup.openeverest.io,resources=backupclasses/status,verbs=patch
+type ShippedBackupClassesProvider interface {
+	ShippedBackupClasses() []backupv1alpha1.BackupClass
+}
+
 // SetShippedBackupClasses records the BackupClasses the provider ships, the
 // classes provider-sdk generates from definition/backupclasses and embeds in
 // the binary. They are what the provider claims: a ProviderManaged class
-// naming the provider is Accepted when it matches one of them (spec 019
-// §4.2). The runtime stores them; claiming arrives in a later release.
+// naming the provider is Accepted when it matches one of them (see
+// ShippedBackupClassesProvider).
 func (b *BaseProvider) SetShippedBackupClasses(classes []backupv1alpha1.BackupClass) {
 	b.shippedBackupClasses = make([]backupv1alpha1.BackupClass, len(classes))
 	for i := range classes {

@@ -42,6 +42,7 @@ import (
 	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	s3class "github.com/openeverest/openeverest/v2/backupstorageclasses/s3"
+	"github.com/openeverest/openeverest/v2/provider-runtime/internal/backupclass"
 )
 
 // =============================================================================
@@ -1105,9 +1106,9 @@ func (c *Context) GetDataSourceStatus() *DataSourceStatus {
 //
 // Behaviour when DataSource is set:
 //  1. Validate the source Backup (exists, Succeeded, BackupClass is
-//     ProviderManaged and supports the target provider, and the target
-//     Instance has a backup storage entry that matches the source Backup's
-//     storage).
+//     Compatible with the target provider in its status.providers, and the
+//     target Instance has a backup storage entry that matches the source
+//     Backup's storage).
 //  2. Create or update a Restore CR named "{instance}-datasource", owned by
 //     the Instance, with .spec.instanceRef pointing at the target Instance
 //     and .spec.dataSource.backup.backupRef pointing at the source Backup.
@@ -1147,8 +1148,8 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		return *waiting, nil
 	}
 
-	// 2. The resolved BackupClass must be ProviderManaged and support this
-	// Instance's provider.
+	// 2. The resolved BackupClass must be Compatible with this Instance's
+	// provider, as core publishes in its status.providers.
 	bc, err := c.BackupClass(origin.classRefName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -1163,22 +1164,23 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		}
 		return DataSourceStatus{}, fmt.Errorf("get BackupClass %q: %w", origin.classRefName, err)
 	}
-	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
+	v := backupclass.ProviderVerdict(bc, c.providerName)
+	if v.Compatibility == backupv1alpha1.CompatibilityIncompatible {
 		s := DataSourceStatus{
 			Done:    true,
 			State:   DataSourceStateFailed,
 			Reason:  v1alpha1.ReasonDataSourceClassUnsupported,
-			Message: fmt.Sprintf("BackupClass %q is %q; only ProviderManaged classes are supported for spec.dataSource", bc.Name, bc.Spec.ExecutionMode),
+			Message: fmt.Sprintf("BackupClass %q is incompatible with provider %q: %s", bc.Name, c.providerName, backupclass.VerdictDetail(v)),
 		}
 		c.SetDataSourceStatus(s)
 		return s, nil
 	}
-	if err := ValidateClassSupportsProvider(bc, c.providerName); err != nil {
+	if v.Compatibility == backupv1alpha1.CompatibilityPending {
 		s := DataSourceStatus{
-			Done:    true,
-			State:   DataSourceStateFailed,
-			Reason:  v1alpha1.ReasonDataSourceClassUnsupported,
-			Message: fmt.Sprintf("BackupClass %q is executed by provider %q, not %q", bc.Name, bc.Spec.ExecutorProvider(), c.providerName),
+			Done:    false,
+			State:   DataSourceStateWaiting,
+			Reason:  v1alpha1.ReasonDataSourceClassPending,
+			Message: fmt.Sprintf("BackupClass %q is pending for provider %q: %s", bc.Name, c.providerName, backupclass.VerdictDetail(v)),
 		}
 		c.SetDataSourceStatus(s)
 		return s, nil

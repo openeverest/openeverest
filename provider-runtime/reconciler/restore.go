@@ -35,9 +35,9 @@ import (
 const restoreRuntimeFinalizer = "everest.percona.com/restore-runtime-finalizer"
 
 // restoreRuntimeReconciler dispatches Restore CRs to the provider's
-// BackupProvider implementation. Restores whose resolved BackupClass uses
-// another execution mode or whose Instance belongs to a different provider are
-// skipped, mirroring the backup reconciler's behavior.
+// BackupProvider implementation. Restores whose resolved BackupClass is
+// executed by anyone else or whose Instance belongs to a different provider
+// are skipped, mirroring the backup reconciler's behavior.
 type restoreRuntimeReconciler struct {
 	client       client.Client
 	reader       client.Reader
@@ -207,7 +207,9 @@ func resolveRestoreOwnership(
 		}
 		return nil, nil, false, fmt.Errorf("failed to get BackupClass: %w", err)
 	}
-	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
+	// Only the classes this provider claims are executed here; any other
+	// class is left to its executor, never rejected.
+	if bc.Spec.ExecutorProvider() != providerName {
 		return nil, bc, false, nil
 	}
 	instance := &corev1alpha1.Instance{}
@@ -216,9 +218,9 @@ func resolveRestoreOwnership(
 		Name:      restore.Spec.InstanceRef.Name,
 	}, instance); err != nil {
 		if apierrors.IsNotFound(err) {
-			// A ProviderManaged class names its executor, so it names
-			// the owner while the Instance is missing.
-			return nil, bc, bc.Spec.ExecutorProvider() == providerName, nil
+			// The class names its executor, so it names the owner while
+			// the Instance is missing.
+			return nil, bc, true, nil
 		}
 		return nil, bc, false, fmt.Errorf("failed to get Instance: %w", err)
 	}
@@ -230,7 +232,7 @@ func resolveRestoreOwnership(
 
 // backupClassNameForRestore resolves the name of the class that describes how
 // the data being restored was written, which is what selects the reconciler via
-// its ExecutionMode:
+// the executor it names:
 //
 //   - type=Backup      -> the source Backup's classRef.
 //   - type=PointInTime -> the classRef of the Instance owning the stream, since

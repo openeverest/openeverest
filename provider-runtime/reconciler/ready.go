@@ -18,11 +18,19 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
+	"unicode"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/util/csaupgrade"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -30,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 // blocker is a verdict that keeps an Instance from being Ready whatever its
@@ -70,13 +79,126 @@ func setReadyCondition(in *v1alpha1.Instance, b *blocker, now metav1.Time) {
 	setCondition(in, v1alpha1.ConditionReady, metav1.ConditionFalse, string(phase), message, now)
 }
 
+// runtimeCondition reports whether the runtime writes Instance conditions
+// of type t. It applies only these: a condition of any other type has
+// another writer, such as core, and is left to it.
+func runtimeCondition(t string) bool {
+	switch t {
+	case v1alpha1.ConditionReady,
+		v1alpha1.ConditionBackupConfigured,
+		v1alpha1.ConditionDataSourceReady,
+		v1alpha1.ConditionConnectionDetailsReady,
+		v1alpha1.ConditionComponentVersionDeprecated,
+		v1alpha1.ConditionMaintenancePending,
+		v1alpha1.ConditionMonitoringConfigured,
+		v1alpha1.ConditionPodsScheduled,
+		v1alpha1.ConditionPodsReady:
+		return true
+	}
+	return false
+}
+
 // updateStatus records the observed generation and the Ready condition, then
-// writes the status.
+// applies the status.
 func (r *ProviderReconciler) updateStatus(ctx context.Context, in *v1alpha1.Instance, b *blocker) error {
 	in.Status.ObservedGeneration = in.Generation
 	setReadyCondition(in, b, metav1.Now())
-	return r.Client.Status().Update(ctx, in)
+	return r.applyStatus(ctx, in)
 }
+
+// applyStatus server-side-applies the status fields the runtime owns, every
+// field of in.Status but the conditions runtimeCondition does not list,
+// under the provider's status field owner, with in's resourceVersion as a
+// precondition. A field the runtime stops setting is removed, while the
+// fields other writers apply, and the fields this binary's types do not
+// know, are left alone (spec 019 §4.8 invariant 7). in's resourceVersion is
+// advanced to the written one.
+func (r *ProviderReconciler) applyStatus(ctx context.Context, in *v1alpha1.Instance) error {
+	owner := controller.StatusFieldOwner(r.provider.Name())
+	if err := r.adoptLegacyStatusFields(ctx, in, owner); err != nil {
+		return err
+	}
+	st := in.Status.DeepCopy()
+	st.Conditions = slices.DeleteFunc(st.Conditions, func(c metav1.Condition) bool { return !runtimeCondition(c.Type) })
+	status, err := runtime.DefaultUnstructuredConverter.ToUnstructured(st)
+	if err != nil {
+		return fmt.Errorf("convert the status of instance %s: %w", in.Name, err)
+	}
+	metadata := map[string]any{"name": in.Name, "namespace": in.Namespace}
+	if in.ResourceVersion != "" {
+		metadata["resourceVersion"] = in.ResourceVersion
+	}
+	u := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": v1alpha1.GroupVersion.String(),
+		"kind":       instanceKind,
+		"metadata":   metadata,
+		"status":     status,
+	}}
+	if err := r.Status().Apply(ctx, client.ApplyConfigurationFromUnstructured(u),
+		client.FieldOwner(owner), client.ForceOwnership,
+	); err != nil {
+		return err
+	}
+	if rv := u.GetResourceVersion(); rv != "" {
+		in.ResourceVersion = rv
+	}
+	return nil
+}
+
+// instanceKind is the kind of Instance objects.
+const instanceKind = "Instance"
+
+// adoptLegacyStatusFields hands the status fields that an earlier runtime
+// wrote with Update, under the client's default field manager, to owner, so
+// the applies under owner own them alone and remove them once the runtime
+// stops setting them. It patches the managed fields once per Instance and
+// advances in's resourceVersion.
+func (r *ProviderReconciler) adoptLegacyStatusFields(ctx context.Context, in *v1alpha1.Instance, owner string) error {
+	legacy := r.legacyFieldManager
+	if legacy == "" || !slices.ContainsFunc(in.ManagedFields, func(e metav1.ManagedFieldsEntry) bool {
+		return e.Manager == legacy && e.Operation == metav1.ManagedFieldsOperationUpdate && e.Subresource == statusSubresource
+	}) {
+		return nil
+	}
+	patch, err := csaupgrade.UpgradeManagedFieldsPatch(in, sets.New(legacy), owner, csaupgrade.Subresource(statusSubresource))
+	if err != nil || patch == nil {
+		return err
+	}
+	adopted := in.DeepCopy()
+	if err := r.Patch(ctx, adopted, client.RawPatch(types.JSONPatchType, patch)); err != nil {
+		return fmt.Errorf("adopt the status fields of field manager %s: %w", legacy, err)
+	}
+	in.ResourceVersion, in.ManagedFields = adopted.ResourceVersion, adopted.ManagedFields
+	return nil
+}
+
+// statusSubresource is the subresource managed fields record for status
+// writes.
+const statusSubresource = "status"
+
+// defaultFieldManager returns the field manager the API server records for
+// the writes that name none, made by a client with userAgent: its first
+// segment, up to 128 printable characters.
+func defaultFieldManager(userAgent string) string {
+	if userAgent == "" {
+		userAgent = rest.DefaultKubernetesUserAgent()
+	}
+	prefix, _, _ := strings.Cut(userAgent, "/")
+	var b strings.Builder
+	for _, c := range prefix {
+		if b.Len() >= maxFieldManagerLength {
+			break
+		}
+		if unicode.IsPrint(c) {
+			b.WriteRune(c)
+		}
+	}
+	return b.String()
+}
+
+// maxFieldManagerLength is the length the API server truncates field
+// managers to.
+const maxFieldManagerLength = 128
 
 // block reports b on the Instance without calling the provider. A new
 // Instance is left Pending.

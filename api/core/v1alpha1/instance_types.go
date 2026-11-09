@@ -896,9 +896,16 @@ const (
 	ReasonBackupClassNotFound = "BackupClassNotFound"
 
 	// ReasonBackupClassIncompatible indicates the BackupClass named by
-	// spec.backup.classRef is not ProviderManaged or is executed by another
-	// provider than the Instance's.
+	// spec.backup.classRef is Incompatible with the Instance's provider in
+	// its status.providers, or has no entry for it there.
 	ReasonBackupClassIncompatible = "BackupClassIncompatible"
+
+	// ReasonBackupClassPending indicates the compatibility of the BackupClass
+	// named by spec.backup.classRef with the Instance's provider is not
+	// published for the class's current generation yet, or is Pending, as
+	// while the provider has not claimed the class. The Instance is held
+	// until it is Compatible.
+	ReasonBackupClassPending = "BackupClassPending"
 
 	// ReasonBackupStorageNotFound indicates a BackupStorage named in
 	// spec.backup.storages does not exist in the Instance's namespace.
@@ -909,8 +916,17 @@ const (
 	ReasonBackupStorageNotAccepted = "BackupStorageNotAccepted"
 
 	// ReasonBackupStorageIncompatible indicates the Instance's BackupClass
-	// cannot write to a BackupStorage named in spec.backup.storages.
+	// cannot write to a BackupStorage named in spec.backup.storages: the
+	// storage's verdict for the class in status.backupClasses is
+	// Incompatible.
 	ReasonBackupStorageIncompatible = "BackupStorageIncompatible"
+
+	// ReasonBackupStorageVerdictPending indicates the verdict of a
+	// BackupStorage named in spec.backup.storages for the Instance's
+	// BackupClass is Pending, or predates a change of the storage, the class
+	// or its BackupStorageClass. The entry is held until core publishes a
+	// current verdict.
+	ReasonBackupStorageVerdictPending = "BackupStorageVerdictPending"
 
 	// ReasonBackupStorageLocationChanged indicates the path a storage entry
 	// renders to differs from the one recorded in status.backup.storages,
@@ -995,9 +1011,14 @@ const (
 	ReasonDataSourceStorageMismatch = "StorageMismatch"
 
 	// ReasonDataSourceClassUnsupported indicates the source Backup's
-	// BackupClass either does not exist, is not ProviderManaged, or is
-	// executed by another provider than the target Instance's.
+	// BackupClass either does not exist or is Incompatible with the target
+	// Instance's provider in its status.providers.
 	ReasonDataSourceClassUnsupported = "BackupClassUnsupported"
+
+	// ReasonDataSourceClassPending indicates the compatibility of the source
+	// Backup's BackupClass with the target Instance's provider is not
+	// published for the class's current generation yet, or is Pending.
+	ReasonDataSourceClassPending = "BackupClassPending"
 
 	// ReasonDataSourceUserSecretMismatch indicates the restore failed terminally
 	// because the credentials in the Secret named by spec.userSecretRef differ
