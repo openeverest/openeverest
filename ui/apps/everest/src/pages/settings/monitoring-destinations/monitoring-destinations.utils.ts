@@ -22,11 +22,23 @@ import {
   getMonitoringClassTitle,
 } from 'utils/monitoring-classes';
 import {
+  getAttachedInstancesCount,
   getDestinationAddress,
   getDestinationName,
   getDestinationStatus,
 } from 'utils/monitoring-destinations';
-import { MonitoringDestinationRow } from './monitoring-destinations.types';
+import {
+  DestinationUsage,
+  MonitoringDestinationRow,
+} from './monitoring-destinations.types';
+
+export const toDestinationUsage = (
+  destination: MonitoringDestination,
+  instances: string[]
+): DestinationUsage => ({
+  count: Math.max(getAttachedInstancesCount(destination), instances.length),
+  instances,
+});
 
 // Instance names per destination name, from one namespace's bindings.
 export const groupInstancesByDestination = (
@@ -65,7 +77,10 @@ export const toMonitoringDestinationRows = (
           : className,
         address: getDestinationAddress(destination, monitoringClass),
         status: getDestinationStatus(destination),
-        usedBy: instancesByDestination.get(name) ?? [],
+        usedBy: toDestinationUsage(
+          destination,
+          instancesByDestination.get(name) ?? []
+        ),
         raw: destination,
       };
     });

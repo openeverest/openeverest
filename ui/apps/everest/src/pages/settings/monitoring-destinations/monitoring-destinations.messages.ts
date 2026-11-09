@@ -13,6 +13,10 @@
 // limitations under the License.
 
 import { MonitoringDestinationState } from 'shared-types/monitoring-destinations.types';
+import { DestinationUsage } from './monitoring-destinations.types';
+
+const databases = (count: number) =>
+  count === 1 ? '1 database' : `${count} databases`;
 
 export const Messages = {
   add: 'Add destination',
@@ -30,11 +34,13 @@ export const Messages = {
     [MonitoringDestinationState.Ready]: 'Ready',
     [MonitoringDestinationState.Pending]: 'Pending',
     [MonitoringDestinationState.Failing]: 'Not ready',
+    [MonitoringDestinationState.Deleting]: 'Deleting',
   } satisfies Record<MonitoringDestinationState, string>,
   serverVersion: (version: string) => `v${version}`,
-  usedByCount: (count: number) =>
-    count === 1 ? '1 database' : `${count} databases`,
+  usedByCount: databases,
   usedByDialogTitle: (name: string) => `Databases using ${name}`,
+  hiddenInstances: (count: number) =>
+    `${databases(count)} you don't have access to`,
   edit: 'Edit',
   delete: 'Delete',
   cancel: 'Cancel',
@@ -45,10 +51,18 @@ export const Messages = {
   secretDeletedToo: (secret: string) =>
     `Its credentials Secret ${secret} is deleted with it.`,
   inUseHeader: 'Destination in use',
-  inUse: (name: string, instances: string[], shownLimit: number) => {
-    const shown = instances.slice(0, shownLimit).join(', ');
-    const more = instances.length - shownLimit;
-    const list = more > 0 ? `${shown} and ${more} more` : shown;
+  inUse: (
+    name: string,
+    { count, instances }: DestinationUsage,
+    shownLimit: number
+  ) => {
+    const shown = instances.slice(0, shownLimit);
+    if (shown.length === 0) {
+      return `${name} is used by ${databases(count)}. Remove it from them first.`;
+    }
+    const more = count - shown.length;
+    const list =
+      more > 0 ? `${shown.join(', ')} and ${more} more` : shown.join(', ');
     return `${name} is used by ${list}. Remove it from those databases first.`;
   },
 };

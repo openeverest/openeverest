@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   createMonitoringDestinationFn,
@@ -24,6 +25,7 @@ import { MONITORING_BINDINGS_QUERY_KEY } from 'hooks/api/monitoring-bindings';
 import { SECRETS_QUERY_KEY } from 'hooks/api/secrets';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { MonitoringDestination } from 'shared-types/monitoring-destinations.types';
+import { isDestinationInUseError } from 'utils/monitoring-destinations';
 import {
   deleteMonitoringDestination,
   MonitoringDestinationRequests,
@@ -105,4 +107,24 @@ export const useDeleteMonitoringDestination = () => {
       deleteMonitoringDestination(request, toRequests(cluster, namespace)),
     onSettled: (_data, _error, { namespace }) => invalidateNamespace(namespace),
   });
+};
+
+// Whether the server would delete the destination now: a dry run, so nothing
+// is deleted. Instances still listing it make the answer false.
+export const useCanDeleteMonitoringDestination = () => {
+  const cluster = useClusterName();
+
+  return useCallback(
+    (namespace: string, name: string): Promise<boolean> =>
+      deleteMonitoringDestinationFn(cluster, namespace, name, true).then(
+        () => true,
+        (error: unknown) => {
+          if (isDestinationInUseError(error)) {
+            return false;
+          }
+          throw error;
+        }
+      ),
+    [cluster]
+  );
 };

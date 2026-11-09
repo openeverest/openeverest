@@ -26,12 +26,12 @@ interface DeleteDestinationDialogProps {
 
 // A destination databases still use can't be deleted; the dialog names them.
 export const DeleteDestinationDialog = ({
-  deletion: { row, usedBy, secretDeletedToo },
+  deletion: { row, inUse, secretDeletedToo },
   isDeleting,
   onConfirm,
   onClose,
 }: DeleteDestinationDialogProps) =>
-  usedBy.length > 0 ? (
+  inUse ? (
     <ConfirmDialog
       open
       selectedId={row.name}
@@ -40,7 +40,7 @@ export const DeleteDestinationDialog = ({
       cancelMessage={Messages.close}
       submitMessage=""
     >
-      {Messages.inUse(row.name, usedBy, IN_USE_NAMES_SHOWN)}
+      {Messages.inUse(row.name, inUse, IN_USE_NAMES_SHOWN)}
     </ConfirmDialog>
   ) : (
     <ConfirmDialog

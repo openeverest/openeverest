@@ -26,11 +26,13 @@ export const Messages = {
     [MonitoringDestinationState.Ready]: 'Ready',
     [MonitoringDestinationState.Pending]: 'Waiting for its controller',
     [MonitoringDestinationState.Failing]: 'Not ready',
+    [MonitoringDestinationState.Deleting]: 'Being deleted',
   } satisfies Record<MonitoringDestinationState, string>,
   disabledReason: {
     [DestinationDisabledReason.LimitReached]: `A database can send to at most ${MAX_MONITORING_DESTINATIONS} destinations`,
     [DestinationDisabledReason.IntegrationTaken]:
       'Another destination of this system is already selected',
+    [DestinationDisabledReason.Deleting]: 'Being deleted',
   } satisfies Record<DestinationDisabledReason, string>,
   entryParameters: (destinationName: string) =>
     `Settings for ${destinationName}`,

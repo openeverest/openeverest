@@ -21,6 +21,7 @@ import { MonitoringSectionForm } from 'utils/monitoring-classes';
 export enum DestinationDisabledReason {
   LimitReached = 'limitReached',
   IntegrationTaken = 'integrationTaken',
+  Deleting = 'deleting',
 }
 
 export interface MonitoringClassDestinations {

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { AxiosError, AxiosHeaders } from 'axios';
 import { Secret } from 'shared-types/api.types';
 import {
   MonitoringClass,
@@ -25,6 +26,7 @@ import {
   getDestinationStatus,
   getRotatedCredentialsSecretName,
   isCredentialsSecretFor,
+  isDestinationInUseError,
   isFormCreatedCredentialsSecret,
 } from './monitoring-destinations';
 
@@ -131,6 +133,45 @@ describe('getDestinationStatus', () => {
     expect(getDestinationStatus(withStatus([])).state).toBe(
       MonitoringDestinationState.Pending
     );
+  });
+
+  it('is deleting once core holds a requested deletion', () => {
+    const destination = withStatus([
+      accepted,
+      { type: 'Ready', status: 'True', reason: 'Ready' },
+    ]);
+    destination.metadata = {
+      ...destination.metadata,
+      deletionTimestamp: '2026-01-02T00:00:00Z',
+    };
+
+    expect(getDestinationStatus(destination).state).toBe(
+      MonitoringDestinationState.Deleting
+    );
+  });
+});
+
+const httpError = (status: number, data: object) =>
+  new AxiosError('failed', String(status), undefined, undefined, {
+    status,
+    statusText: '',
+    data,
+    headers: {},
+    config: { headers: new AxiosHeaders() },
+  });
+
+describe('isDestinationInUseError', () => {
+  it('recognises only the 409 that refuses deleting a destination in use', () => {
+    expect(isDestinationInUseError(httpError(409, { reason: 'InUse' }))).toBe(
+      true
+    );
+    expect(
+      isDestinationInUseError(httpError(409, { reason: 'AlreadyExists' }))
+    ).toBe(false);
+    expect(isDestinationInUseError(httpError(403, { reason: 'InUse' }))).toBe(
+      false
+    );
+    expect(isDestinationInUseError(new Error('InUse'))).toBe(false);
   });
 });
 

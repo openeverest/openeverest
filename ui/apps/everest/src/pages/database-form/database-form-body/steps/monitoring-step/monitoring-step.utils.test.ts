@@ -292,6 +292,19 @@ describe('getDestinationDisabledReason', () => {
     expect(reasonFor(promB, [entry('prom-a')])).toBeUndefined();
   });
 
+  it('blocks adding a destination being deleted but keeps one already listed', () => {
+    const deleting: MonitoringDestination = {
+      ...promA,
+      metadata: {
+        ...promA.metadata,
+        deletionTimestamp: '2026-01-02T00:00:00Z',
+      },
+    };
+
+    expect(reasonFor(deleting, [])).toBe(DestinationDisabledReason.Deleting);
+    expect(reasonFor(deleting, [entry('prom-a')])).toBeUndefined();
+  });
+
   it('blocks a second destination of the same provider-managed integration', () => {
     expect(reasonFor(pmmB, [entry('pmm-a')])).toBe(
       DestinationDisabledReason.IntegrationTaken

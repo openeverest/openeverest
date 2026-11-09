@@ -18,6 +18,7 @@ export type GetProviders = CrdsGen.components['schemas']['ProviderList'];
 export type Provider = CrdsGen.components['schemas']['Provider'];
 export type Secret = HttpApi.components['schemas']['Secret'];
 export type SecretList = HttpApi.components['schemas']['SecretList'];
+export type APIError = HttpApi.components['schemas']['APIError'];
 export type SecretListFilter = NonNullable<
   HttpApi.operations['listSecrets']['parameters']['query']
 >;

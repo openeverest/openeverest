@@ -71,11 +71,11 @@ export const MonitoringDestinations = () => {
       {
         id: 'usedBy',
         header: Messages.columns.usedBy,
-        accessorFn: (row) => row.usedBy.length,
+        accessorFn: (row) => row.usedBy.count,
         Cell: ({ row }) => (
           <UsedByCell
             destination={row.original.name}
-            instances={row.original.usedBy}
+            usage={row.original.usedBy}
           />
         ),
       },
