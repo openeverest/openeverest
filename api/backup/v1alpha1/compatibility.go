@@ -213,12 +213,63 @@ const backupsSegment = "backups"
 // BackupPath is the path in the storage's location where an Instance writes
 // the backups of one storage entry:
 // <prefix>/backups/<namespace>/<instance>/<instance-uid>/<storage>, without
-// the prefix when it is empty. Every executor writes there, so Instances, and
-// storages of one Instance, that share a bucket never share a path.
+// the prefix when it is empty. Every executor writes there, laid out in its
+// BackupPathStyle (see BackupPathFor), so Instances, and storages of one
+// Instance, that share a bucket never share a path.
 func BackupPath(location BackupStorageLocation, namespace, instance string, uid types.UID, storage string) string {
-	var root string
-	if location.ObjectStore != nil {
-		root = location.ObjectStore.Prefix
+	return path.Join(locationPrefix(location), backupsSegment, namespace, instance, string(uid), storage)
+}
+
+func locationPrefix(location BackupStorageLocation) string {
+	if location.ObjectStore == nil {
+		return ""
 	}
-	return path.Join(root, backupsSegment, namespace, instance, string(uid), storage)
+	return location.ObjectStore.Prefix
+}
+
+// BackupPathStyle is how an executor lays out the path BackupPath returns in
+// the bucket.
+type BackupPathStyle string
+
+const (
+	// BackupPathNested lays the path out as nested directories, as
+	// BackupPath returns it. It is the default, and the empty style means
+	// it.
+	BackupPathNested = BackupPathStyle("Nested")
+	// BackupPathFlat lays the path out as one folder at the root of the
+	// bucket: the nested path with every "/" replaced by "_", e.g.
+	// prod_backups_team-a_orders_<uid>_s3-primary for the prefix prod. It
+	// is for engines that cannot write under a nested path, such as Medusa,
+	// which refuses a storage prefix containing "/". "_" cannot occur in a
+	// namespace, instance, UID or BackupStorage name, so distinct entries
+	// still get distinct folders. The folder is not under the storage's
+	// prefix: a lifecycle or replication rule on <prefix>/backups/ does not
+	// cover it, one on <prefix>_backups_ does.
+	BackupPathFlat = BackupPathStyle("Flat")
+)
+
+// Apply returns p, a path in the nested layout, laid out in the style. It is
+// idempotent: a path already in the style is returned as is.
+func (s BackupPathStyle) Apply(p string) string {
+	if s == BackupPathFlat {
+		return strings.ReplaceAll(p, "/", "_")
+	}
+	return p
+}
+
+// BackupPathFor is BackupPath laid out in style: the path an executor of
+// that style writes the backups of one storage entry to, and the one the
+// runtime records for it.
+func BackupPathFor(style BackupPathStyle, location BackupStorageLocation, namespace, instance string, uid types.UID, storage string) string {
+	return style.Apply(BackupPath(location, namespace, instance, uid, storage))
+}
+
+// BackupKeyPrefix returns the prefix that the object keys of the paths an
+// executor of style writes in location start with: <prefix>/ for the nested
+// style, <prefix>_ with every "/" of the prefix replaced by "_" for the flat
+// one, and nothing when the location has no prefix. An import lists the
+// keys under it, and records the path of each backup it finds relative to
+// it, as BackupOriginExternal.path.
+func BackupKeyPrefix(style BackupPathStyle, location BackupStorageLocation) string {
+	return strings.TrimSuffix(style.Apply(path.Join(locationPrefix(location), backupsSegment)), backupsSegment)
 }

@@ -14,7 +14,7 @@
 
 // Package backupclass checks an Instance's backup configuration against the
 // BackupClass it names, with Instance field paths, for the reconciler and the
-// admission webhook alike.
+// admission webhook alike, and judges the classes a provider claims.
 package backupclass
 
 import (
@@ -27,17 +27,24 @@ import (
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
-// Incompatibility returns why bc can't be the backup class of an Instance of
-// provider, or nil.
-func Incompatibility(bc *backupv1alpha1.BackupClass, provider string) *field.Error {
-	classRefPath := field.NewPath("spec", "backup", "classRef", "name")
-	switch {
-	case bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged:
-		return field.Invalid(classRefPath, bc.Name, "is not ProviderManaged and can't be an instance's backup class")
-	case bc.Spec.ExecutorProvider() != provider:
-		return field.Invalid(classRefPath, bc.Name, "is executed by provider "+bc.Spec.ExecutorProvider()+", not "+provider)
+// ProviderVerdict returns the compatibility of bc with provider that core
+// publishes in bc's status.providers for bc's current generation (spec 019
+// §4.2). A level other than Compatible and Incompatible, such as one a later
+// release adds, is reported as Pending: only a terminal verdict rejects.
+func ProviderVerdict(bc *backupv1alpha1.BackupClass, provider string) backupv1alpha1.BackupClassProviderCompatibility {
+	v := backupv1alpha1.CurrentProviderVerdict(bc, provider)
+	if v.Compatibility != backupv1alpha1.CompatibilityCompatible && v.Compatibility != backupv1alpha1.CompatibilityIncompatible {
+		v.Compatibility = backupv1alpha1.CompatibilityPending
 	}
-	return nil
+	return v
+}
+
+// VerdictDetail returns the reason and message of a verdict for messages.
+func VerdictDetail(v backupv1alpha1.BackupClassProviderCompatibility) string {
+	if v.Message == "" {
+		return v.Reason
+	}
+	return v.Reason + ": " + v.Message
 }
 
 // LimitErrors returns the limits bc declares that the backup configuration of

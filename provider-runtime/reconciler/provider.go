@@ -79,6 +79,9 @@ type ProviderReconciler struct {
 	kubeSystemUID atomic.Value // string, the cluster identity of monitoring sources
 	recorder      events.EventRecorder
 	warned        sync.Map // Instance UID -> the generation its warnings were recorded for
+	// legacyFieldManager is the field manager the runtime's status writes
+	// were recorded under before it applied them, whose fields it adopts.
+	legacyFieldManager string
 	client.Client
 }
 
@@ -265,11 +268,12 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 	}
 
 	r := &ProviderReconciler{
-		provider:  p,
-		manager:   mgr,
-		apiReader: mgr.GetAPIReader(),
-		recorder:  mgr.GetEventRecorder(p.Name() + "-provider"),
-		Client:    mgr.GetClient(),
+		provider:           p,
+		manager:            mgr,
+		apiReader:          mgr.GetAPIReader(),
+		recorder:           mgr.GetEventRecorder(p.Name() + "-provider"),
+		legacyFieldManager: defaultFieldManager(mgr.GetConfig().UserAgent),
+		Client:             mgr.GetClient(),
 	}
 
 	if options.serverConfig != nil {
@@ -282,7 +286,7 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 
 	// Register the BackupProvider-aware ancillary reconcilers when the
 	// provider implements the optional interface. These dispatch to
-	// SyncBackup/SyncRestore for ProviderManaged BackupClasses.
+	// SyncBackup/SyncRestore for the BackupClasses this provider executes.
 	if bp, ok := p.(controller.BackupProvider); ok {
 		if err := setupBackupReconciler(mgr, bp, p.Name()); err != nil {
 			return nil, fmt.Errorf("failed to setup backup reconciler: %w", err)
@@ -301,6 +305,14 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 	if bi, ok := p.(controller.BackupImporter); ok {
 		if err := setupBackupImportReconciler(mgr, bi, p.Name()); err != nil {
 			return nil, fmt.Errorf("failed to setup backup import reconciler: %w", err)
+		}
+	}
+
+	if sp, ok := p.(controller.ShippedBackupClassesProvider); ok {
+		if shipped := sp.ShippedBackupClasses(); len(shipped) > 0 {
+			if err := setupBackupClassClaimReconciler(mgr, p.Name(), shipped); err != nil {
+				return nil, fmt.Errorf("failed to setup backup class claim reconciler: %w", err)
+			}
 		}
 	}
 
@@ -357,11 +369,13 @@ func (r *ProviderReconciler) setup() error {
 	if r.isBackupProvider() {
 		b.Watches(&backupv1alpha1.BackupClass{},
 			handler.EnqueueRequestsFromMapFunc(r.instancesForBackupClass),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+			builder.WithPredicates(predicate.Or[client.Object](predicate.GenerationChangedPredicate{}, providersChanged())),
 		)
 		b.Watches(&backupv1alpha1.BackupStorage{},
 			handler.EnqueueRequestsFromMapFunc(r.instancesForBackupStorage),
-			builder.WithPredicates(predicate.Or[client.Object](predicate.GenerationChangedPredicate{}, acceptanceChanged())),
+			builder.WithPredicates(predicate.Or[client.Object](
+				predicate.GenerationChangedPredicate{}, acceptanceChanged(), verdictsChanged(),
+			)),
 		)
 		// Engines that mirror a storage's Secrets re-mirror on any change.
 		b.WatchesMetadata(&corev1.Secret{},
@@ -423,7 +437,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	}
 
 	// Create the Context handle
-	inCtx := controller.NewContext(ctx, r.Client, in, r.provider.Name())
+	inCtx := newContext(ctx, r.Client, in, r.provider, r.provider.Name())
 
 	// Handle deletion
 	if !in.GetDeletionTimestamp().IsZero() {
@@ -525,7 +539,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		logger.Error(err, "Preparing the instance for sync failed")
 		return reconcile.Result{}, err
 	}
-	syncCtx := controller.NewContext(ctx, r.Client, resolvedIn, r.provider.Name())
+	syncCtx := newContext(ctx, r.Client, resolvedIn, r.provider, r.provider.Name())
 	syncCtx.BlockMaintenance(r.breaker.blockedTokens(req.NamespacedName, approvedMaintenanceValue(in))...)
 	if ip, ok := r.provider.(controller.MonitoringIntegrationsProvider); ok {
 		syncCtx.SetMonitoringIntegrations(ip.MonitoringIntegrations()...)
