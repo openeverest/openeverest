@@ -224,8 +224,11 @@ type KubernetesConnector interface {
 	UpdateMonitoringDestination(ctx context.Context, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error)
 	// DeleteMonitoringDestination deletes a monitoring destination.
 	DeleteMonitoringDestination(ctx context.Context, obj *monitoringv1alpha1.MonitoringDestination) error
-	// DeleteMonitoringDestinations deletes all monitoring destinations that match the criteria.
-	DeleteMonitoringDestinations(ctx context.Context, opts ...ctrlclient.DeleteAllOfOption) error
+	// DeleteUnusedMonitoringDestinations deletes the monitoring destinations that
+	// match the criteria and that no Instance lists. The API server refuses
+	// deleting the others while they are in use (spec 015 §4.5): they go with
+	// their namespace, or stay with the Instances that use them.
+	DeleteUnusedMonitoringDestinations(ctx context.Context, opts ...ctrlclient.ListOption) error
 	// ListMonitoringBindings returns list of monitoring bindings that match the criteria.
 	ListMonitoringBindings(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringBindingList, error)
 	// GetMonitoringBinding returns a monitoring binding by name and namespace.

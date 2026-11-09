@@ -62,7 +62,22 @@ func (k *Kubernetes) DeleteMonitoringDestination(ctx context.Context, obj *monit
 	return k.k8sClient.Delete(ctx, obj)
 }
 
-// DeleteMonitoringDestinations deletes all monitoring destinations that match the criteria.
-func (k *Kubernetes) DeleteMonitoringDestinations(ctx context.Context, opts ...ctrlclient.DeleteAllOfOption) error {
-	return k.k8sClient.DeleteAllOf(ctx, &monitoringv1alpha1.MonitoringDestination{}, opts...)
+// DeleteUnusedMonitoringDestinations deletes the monitoring destinations that
+// match the criteria and that no Instance lists. The API server refuses
+// deleting the others while they are in use (spec 015 §4.5): they go with
+// their namespace, or stay with the Instances that use them.
+func (k *Kubernetes) DeleteUnusedMonitoringDestinations(ctx context.Context, opts ...ctrlclient.ListOption) error {
+	list, err := k.ListMonitoringDestinations(ctx, opts...)
+	if err != nil {
+		return err
+	}
+	for i := range list.Items {
+		if list.Items[i].Status.AttachedInstances > 0 {
+			continue
+		}
+		if err := k.DeleteMonitoringDestination(ctx, &list.Items[i]); ctrlclient.IgnoreNotFound(err) != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -175,9 +175,11 @@ func NewRemoveNamespaceSteps(namespace string, keepNs bool, k kubernetes.Kuberne
 			},
 		},
 		{
-			Desc: fmt.Sprintf("Deleting monitoring destinations in namespace '%s'", namespace),
+			// Destinations Instances still list are left: they go with the
+			// namespace, or stay with the Instances when it is kept.
+			Desc: fmt.Sprintf("Deleting unused monitoring destinations in namespace '%s'", namespace),
 			F: func(ctx context.Context) error {
-				return k.DeleteMonitoringDestinations(ctx, ctrlclient.InNamespace(namespace))
+				return k.DeleteUnusedMonitoringDestinations(ctx, ctrlclient.InNamespace(namespace))
 			},
 		},
 		{
