@@ -114,6 +114,9 @@ const (
 	// source: a key of Provider.spec.secrets or Provider.spec.configMaps, or an authentication
 	// mode of a MonitoringClass.
 	OpenEverestDefinitionLabel = "openeverest.io/definition"
+	// OpenEverestCABundleDefinition is the definition of a CA bundle Secret, the one definition
+	// core owns: the Secret carries no source label, and every key holds PEM CA certificates.
+	OpenEverestCABundleDefinition = "ca-bundle"
 
 	// InstancePresetAnnotation is the annotation key for the InstancePreset that an Instance was created from.
 	InstancePresetAnnotation = "openeverest.io/instance-preset"
