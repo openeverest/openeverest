@@ -3196,8 +3196,10 @@ paths:
       summary: Delete monitoring destination
       description: |
         This API deletes the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
-        Instances that still list it in `spec.monitoring.destinations` keep their current monitoring and report the destination as not found;
-        list them first with `GET .../monitoring-bindings?destination={name}`.
+        It is refused with `409` and reason `InUse` while Instances list the destination in `spec.monitoring.destinations` (`status.attachedInstances` above zero);
+        the message gives their number, and `GET .../monitoring-bindings?destination={name}` lists them.
+        With `dryRun=All` the answer is the same and nothing is deleted, so a client can ask before it deletes.
+        A deletion that is let through may leave the destination listed with `metadata.deletionTimestamp` set until no Instance lists it any more.
       operationId: deleteMonitoringDestination
       parameters:
         - name: cluster
@@ -3234,6 +3236,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Instances still use the destination (reason `InUse`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:

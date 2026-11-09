@@ -6151,7 +6151,12 @@ type MonitoringDestination struct {
 	// Status MonitoringDestinationStatus defines the observed state of
 	// MonitoringDestination.
 	Status *struct {
-		Conditions *[]struct {
+		// AttachedInstances AttachedInstances is the number of Instances in this namespace whose
+		// spec.monitoring.destinations lists this destination, whatever the
+		// state of their binding, including Instances being deleted. Written by
+		// core; deleting the destination is refused while it is above zero.
+		AttachedInstances *int32 `json:"attachedInstances,omitempty"`
+		Conditions        *[]struct {
 			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
 			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
 			LastTransitionTime time.Time `json:"lastTransitionTime"`

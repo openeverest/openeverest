@@ -5590,6 +5590,14 @@ export interface components {
              *     }
              */
             status?: {
+                /**
+                 * Format: int32
+                 * @description AttachedInstances is the number of Instances in this namespace whose
+                 *     spec.monitoring.destinations lists this destination, whatever the
+                 *     state of their binding, including Instances being deleted. Written by
+                 *     core; deleting the destination is refused while it is above zero.
+                 */
+                attachedInstances?: number;
                 conditions?: {
                     /**
                      * Format: date-time
