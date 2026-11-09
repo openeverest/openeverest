@@ -180,6 +180,10 @@ export const getDestinationDisabledReason = ({
   if (isDestinationSelected(selected, name)) {
     return undefined;
   }
+  // Listing it would hold core's deletion until the entry is removed again.
+  if (destination.metadata?.deletionTimestamp) {
+    return DestinationDisabledReason.Deleting;
+  }
   if (selected.length >= MAX_MONITORING_DESTINATIONS) {
     return DestinationDisabledReason.LimitReached;
   }

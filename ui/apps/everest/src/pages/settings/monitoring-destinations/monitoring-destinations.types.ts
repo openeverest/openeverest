@@ -17,20 +17,28 @@ import {
   MonitoringDestinationStatus,
 } from 'shared-types/monitoring-destinations.types';
 
+// Core's count, which includes Instances the user can't read, and the names
+// the user can read.
+export interface DestinationUsage {
+  count: number;
+  instances: string[];
+}
+
 export interface MonitoringDestinationRow {
   name: string;
   namespace: string;
   type: string;
   address?: string;
   status: MonitoringDestinationStatus;
-  usedBy: string[];
+  usedBy: DestinationUsage;
   raw: MonitoringDestination;
 }
 
-// A destination the user asked to delete, with who uses it right now.
+// A destination the user asked to delete. inUse is set when the server
+// refuses to delete it.
 export interface MonitoringDestinationDeletion {
   row: MonitoringDestinationRow;
-  usedBy: string[];
+  inUse?: DestinationUsage;
   // The credentials Secret deleted along with the destination.
   secretDeletedToo?: string;
 }

@@ -21,6 +21,7 @@ import { MonitoringSectionForm } from 'utils/monitoring-classes';
 export enum DestinationDisabledReason {
   LimitReached = 'limitReached',
   IntegrationTaken = 'integrationTaken',
+  Deleting = 'deleting',
 }
 
 // Why no destination can be offered, instead of an empty list.

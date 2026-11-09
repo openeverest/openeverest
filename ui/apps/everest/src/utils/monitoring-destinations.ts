@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { isAxiosError } from 'axios';
 import { Section } from 'components/ui-generator/ui-generator.types';
 import { SECRET_DEFINITION_LABEL } from 'components/ui-generator/secret-field/secret-create-modal/secret-create-modal.constants';
 import { getByPath } from 'components/ui-generator/utils/object-path';
-import { Instance, Secret } from 'shared-types/api.types';
+import { APIError, Instance, Secret } from 'shared-types/api.types';
 import {
   MonitoringBinding,
   MonitoringClass,
@@ -30,6 +31,17 @@ import { getMonitoringClassUiSchema } from './monitoring-classes';
 const ADDRESS_PARAMETER_PATH = 'parameters.url';
 // The Ready reason a class controller reports before its first check.
 const READY_PENDING_REASON = 'Pending';
+// Reason on the 409 that refuses deleting a destination Instances still list.
+const IN_USE_REASON = 'InUse';
+
+export const isDestinationInUseError = (error: unknown) =>
+  isAxiosError<APIError>(error) &&
+  error.response?.status === 409 &&
+  error.response.data?.reason === IN_USE_REASON;
+
+// Counted by core, so it includes Instances the user can't read.
+export const getAttachedInstancesCount = (destination: MonitoringDestination) =>
+  destination.status?.attachedInstances ?? 0;
 
 export const getDestinationName = (destination: MonitoringDestination) =>
   destination.metadata?.name ?? '';
@@ -174,6 +186,10 @@ export const getDestinationStatus = (
     (c) => c.type === MonitoringConditionType.Ready
   );
   const serverVersion = destination.status?.serverVersion || undefined;
+  // Core holds the deletion until no Instance lists the destination.
+  if (destination.metadata?.deletionTimestamp) {
+    return { state: MonitoringDestinationState.Deleting, serverVersion };
+  }
   const explainedBy = (
     state: MonitoringDestinationState,
     condition: (typeof conditions)[number] | undefined
