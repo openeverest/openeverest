@@ -65,11 +65,11 @@ func (p *backupTestProvider) CleanupRestore(*controller.Context, *backupv1alpha1
 // otherMode is an execution mode the provider runtime does not execute.
 const otherMode = backupv1alpha1.BackupExecutionMode("Other")
 
-// testBackupClass returns a class of mode, executed by provider when one is
-// given.
+// testBackupClass returns a class of mode at generation 1, executed by
+// provider when one is given. Core has not judged it yet.
 func testBackupClass(mode backupv1alpha1.BackupExecutionMode, provider ...string) *backupv1alpha1.BackupClass {
 	bc := &backupv1alpha1.BackupClass{
-		ObjectMeta: metav1.ObjectMeta{Name: "pbm"},
+		ObjectMeta: metav1.ObjectMeta{Name: "pbm", UID: "pbm-uid", Generation: 1},
 		Spec: backupv1alpha1.BackupClassSpec{
 			ExecutionMode: mode,
 			BackupStorageClasses: []backupv1alpha1.BackupStorageClassSupport{
@@ -83,8 +83,47 @@ func testBackupClass(mode backupv1alpha1.BackupExecutionMode, provider ...string
 	return bc
 }
 
+// judged returns bc with core's verdict for provider published at bc's
+// generation.
+func judged(bc *backupv1alpha1.BackupClass, provider string, c backupv1alpha1.Compatibility, reason string) *backupv1alpha1.BackupClass {
+	bc.Status.Providers = append(bc.Status.Providers, backupv1alpha1.BackupClassProviderCompatibility{
+		Name: provider, Compatibility: c, Reason: reason, ClassGeneration: bc.Generation,
+	})
+	return bc
+}
+
+// compatibleBackupClass returns the class test-provider executes, which
+// core published as Compatible with it.
+func compatibleBackupClass() *backupv1alpha1.BackupClass {
+	return judged(
+		testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "test-provider"),
+		"test-provider", backupv1alpha1.CompatibilityCompatible, "",
+	)
+}
+
+// testBackupStorageClass returns the s3 BackupStorageClass at generation 1.
+func testBackupStorageClass() *backupv1alpha1.BackupStorageClass {
+	return &backupv1alpha1.BackupStorageClass{ObjectMeta: metav1.ObjectMeta{Name: s3.ClassName, UID: "s3-uid", Generation: 1}}
+}
+
+// withStorageVerdict returns bs with core's verdict for the class of
+// testBackupClass, computed from the current storage, class and storage
+// class.
+func withStorageVerdict(bs *backupv1alpha1.BackupStorage, c backupv1alpha1.Compatibility, reason, message string) *backupv1alpha1.BackupStorage {
+	bs.Status.BackupClasses = []backupv1alpha1.BackupClassVerdict{{
+		Name: "pbm", Compatibility: c, Reason: reason, Message: message,
+		Observed: backupv1alpha1.BackupClassVerdictInputs{
+			StorageGeneration: bs.Generation,
+			ClassUID:          "pbm-uid", ClassGeneration: 1,
+			StorageClassUID: "s3-uid", StorageClassGeneration: 1,
+		},
+	}}
+	return bs
+}
+
 // testBackupStorage returns an s3 storage with an Accepted condition of the
-// given status, or none when accepted is empty.
+// given status, or none when accepted is empty. An accepted storage carries
+// core's Compatible verdict for the class of testBackupClass.
 func testBackupStorage(name, secret string, accepted metav1.ConditionStatus) *backupv1alpha1.BackupStorage {
 	bs := &backupv1alpha1.BackupStorage{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "team-a"},
@@ -107,6 +146,9 @@ func testBackupStorage(name, secret string, accepted metav1.ConditionStatus) *ba
 			Status: accepted,
 			Reason: reason,
 		}}
+	}
+	if accepted == metav1.ConditionTrue {
+		return withStorageVerdict(bs, backupv1alpha1.CompatibilityCompatible, "", "")
 	}
 	return bs
 }
@@ -166,20 +208,58 @@ func TestReconcile_BackupClassReferent(t *testing.T) {
 			wantMessage: "backup class pbm not found",
 		},
 		{
-			name: "class of another execution mode",
+			name: "class not judged yet",
 			objs: func() []client.Object {
-				return []client.Object{testBackupClass(otherMode), storage()}
+				return []client.Object{testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "test-provider"), storage()}
+			},
+			wantReason: v1alpha1.ReasonBackupClassPending,
+			wantMessage: `backup class pbm is pending for provider test-provider: VerdictPending: ` +
+				`BackupClass "pbm" has not been judged for Provider "test-provider" at generation 1 yet`,
+		},
+		{
+			name: "class not claimed yet",
+			objs: func() []client.Object {
+				return []client.Object{judged(
+					testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "test-provider"),
+					"test-provider", backupv1alpha1.CompatibilityPending, backupv1alpha1.ReasonClassNotAccepted,
+				), storage()}
+			},
+			wantReason:  v1alpha1.ReasonBackupClassPending,
+			wantMessage: "backup class pbm is pending for provider test-provider: ClassNotAccepted",
+		},
+		{
+			name: "verdict for an older generation",
+			objs: func() []client.Object {
+				bc := compatibleBackupClass()
+				bc.Generation = 2
+				return []client.Object{bc, storage()}
+			},
+			wantReason: v1alpha1.ReasonBackupClassPending,
+			wantMessage: `backup class pbm is pending for provider test-provider: VerdictPending: ` +
+				`the verdict on BackupClass "pbm" for Provider "test-provider" predates generation 2 of the class`,
+		},
+		{
+			name: "drifted class",
+			objs: func() []client.Object {
+				return []client.Object{judged(
+					testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "test-provider"),
+					"test-provider", backupv1alpha1.CompatibilityIncompatible, backupv1alpha1.ReasonSpecDrift,
+				), storage()}
 			},
 			wantReason:  v1alpha1.ReasonBackupClassIncompatible,
-			wantMessage: "backup class pbm is not ProviderManaged and can't be an instance's backup class",
+			wantMessage: "backup class pbm is incompatible with provider test-provider: SpecDrift",
 		},
 		{
 			name: "class for another provider",
 			objs: func() []client.Object {
-				return []client.Object{testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "other"), storage()}
+				return []client.Object{judged(
+					testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "other"),
+					"other", backupv1alpha1.CompatibilityCompatible, "",
+				), storage()}
 			},
-			wantReason:  v1alpha1.ReasonBackupClassIncompatible,
-			wantMessage: "backup class pbm is executed by provider other, not test-provider",
+			wantReason: v1alpha1.ReasonBackupClassIncompatible,
+			wantMessage: `backup class pbm is incompatible with provider test-provider: ProviderUnsupported: ` +
+				`BackupClass "pbm" does not run on Provider "test-provider"`,
 		},
 	}
 
@@ -211,16 +291,19 @@ func TestReconcile_BackupClassReferent(t *testing.T) {
 func TestReconcile_BackupStorageEntries(t *testing.T) {
 	t.Parallel()
 
-	compatible := func() client.Object {
-		return testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "test-provider")
-	}
-	keyless := func() client.Object {
-		bc := testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "test-provider")
-		bc.Spec.BackupStorageClasses[0].AuthModes = []string{"WorkloadIdentity"}
-		return bc
-	}
+	compatible := func() client.Object { return compatibleBackupClass() }
 	storage := func(name string, accepted metav1.ConditionStatus) func() client.Object {
 		return func() client.Object { return testBackupStorage(name, name+"-keys", accepted) }
+	}
+	judgedStorage := func(c backupv1alpha1.Compatibility, reason, message string) func() client.Object {
+		return func() client.Object {
+			return withStorageVerdict(testBackupStorage("s3-prod", "s3-prod-keys", metav1.ConditionTrue), c, reason, message)
+		}
+	}
+	staleStorage := func() client.Object {
+		bs := testBackupStorage("s3-prod", "s3-prod-keys", metav1.ConditionTrue)
+		bs.Status.BackupClasses[0].Observed.ClassGeneration = 0
+		return bs
 	}
 	const prodPath = "prod/backups/team-a/orders/orders-uid/s3-prod"
 
@@ -277,9 +360,33 @@ func TestReconcile_BackupStorageEntries(t *testing.T) {
 		{
 			name:     "backup class cannot write to the storage",
 			instance: withBackup(true, "s3-prod"),
-			objs:     []func() client.Object{keyless, storage("s3-prod", metav1.ConditionTrue)},
-			want:     map[string]want{"s3-prod": {reason: v1alpha1.ReasonBackupStorageIncompatible}},
-			ready:    v1alpha1.ReasonBackupStorageIncompatible,
+			objs: []func() client.Object{compatible, judgedStorage(
+				backupv1alpha1.CompatibilityIncompatible, backupv1alpha1.ReasonAuthModeUnsupported, "only AccessKey",
+			)},
+			want: map[string]want{"s3-prod": {
+				reason:  v1alpha1.ReasonBackupStorageIncompatible,
+				message: "backup class pbm cannot write to backup storage s3-prod: AuthModeUnsupported: only AccessKey",
+			}},
+			ready: v1alpha1.ReasonBackupStorageIncompatible,
+		},
+		{
+			name:     "storage verdict pending",
+			instance: withBackup(true, "s3-prod"),
+			objs: []func() client.Object{compatible, judgedStorage(
+				backupv1alpha1.CompatibilityPending, backupv1alpha1.ReasonStorageNotAccepted, "not yet",
+			)},
+			want: map[string]want{"s3-prod": {
+				reason:  v1alpha1.ReasonBackupStorageVerdictPending,
+				message: "backup storage s3-prod is Pending for backup class pbm: StorageNotAccepted: not yet",
+			}},
+			ready: v1alpha1.ReasonBackupStorageVerdictPending,
+		},
+		{
+			name:     "storage verdict for an older class",
+			instance: withBackup(true, "s3-prod"),
+			objs:     []func() client.Object{compatible, staleStorage},
+			want:     map[string]want{"s3-prod": {reason: v1alpha1.ReasonBackupStorageVerdictPending}},
+			ready:    v1alpha1.ReasonBackupStorageVerdictPending,
 		},
 		{
 			name:     "a held entry keeps its recorded location",
@@ -342,7 +449,7 @@ func TestReconcile_BackupStorageEntries(t *testing.T) {
 			}
 			in := readyTestInstance(tc.instance)
 			in.UID = "orders-uid"
-			objs := []client.Object{&v1alpha1.Provider{ObjectMeta: metav1.ObjectMeta{Name: "test-provider"}}, in}
+			objs := []client.Object{&v1alpha1.Provider{ObjectMeta: metav1.ObjectMeta{Name: "test-provider"}}, in, testBackupStorageClass()}
 			for _, o := range tc.objs {
 				objs = append(objs, o())
 			}

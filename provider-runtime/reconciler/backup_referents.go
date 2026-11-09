@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"slices"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,9 +43,11 @@ func (r *ProviderReconciler) isBackupProvider() bool {
 }
 
 // missingBackupReferent returns the BackupConfigured reason and message when
-// the backup class an Instance with backups enabled names is missing or
-// incompatible. Backup storages are judged per entry instead, so a bad
-// entry never blocks the rest of the Instance.
+// the backup class an Instance with backups enabled names is missing, or not
+// Compatible with the provider in its status.providers: an Incompatible class
+// is reported as such, a Pending one holds the Instance until it is
+// Compatible. Backup storages are judged per entry instead, so a bad entry
+// never blocks the rest of the Instance.
 func (r *ProviderReconciler) missingBackupReferent(ctx context.Context, in *v1alpha1.Instance) (blocker, error) {
 	spec := in.Spec.Backup
 	if spec == nil || !spec.Enabled || !r.isBackupProvider() {
@@ -64,10 +67,17 @@ func (r *ProviderReconciler) unusableBackupClass(ctx context.Context, className,
 			message: fmt.Sprintf("backup class %s not found", className),
 		}, nil
 	}
-	if err := backupclass.Incompatibility(class, providerName); err != nil {
+	v := backupclass.ProviderVerdict(class, providerName)
+	if v.Compatibility == backupv1alpha1.CompatibilityIncompatible {
 		return blocker{
 			reason:  v1alpha1.ReasonBackupClassIncompatible,
-			message: fmt.Sprintf("backup class %s %s", className, err.Detail),
+			message: fmt.Sprintf("backup class %s is incompatible with provider %s: %s", className, providerName, backupclass.VerdictDetail(v)),
+		}, nil
+	}
+	if v.Compatibility == backupv1alpha1.CompatibilityPending {
+		return blocker{
+			reason:  v1alpha1.ReasonBackupClassPending,
+			message: fmt.Sprintf("backup class %s is pending for provider %s: %s", className, providerName, backupclass.VerdictDetail(v)),
 		}, nil
 	}
 	return blocker{}, nil
@@ -158,6 +168,37 @@ func acceptanceChanged() predicate.Funcs {
 	return predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			return storageAccepted(e.ObjectOld) != storageAccepted(e.ObjectNew)
+		},
+		GenericFunc: func(event.GenericEvent) bool { return false },
+	}
+}
+
+// verdictsChanged passes BackupStorage updates that change the verdicts core
+// publishes in status.backupClasses, which judge the storage entries.
+func verdictsChanged() predicate.Funcs {
+	return predicate.Funcs{
+		CreateFunc: func(event.CreateEvent) bool { return false },
+		DeleteFunc: func(event.DeleteEvent) bool { return false },
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			o, ok1 := e.ObjectOld.(*backupv1alpha1.BackupStorage)
+			n, ok2 := e.ObjectNew.(*backupv1alpha1.BackupStorage)
+			return ok1 && ok2 && !equality.Semantic.DeepEqual(o.Status.BackupClasses, n.Status.BackupClasses)
+		},
+		GenericFunc: func(event.GenericEvent) bool { return false },
+	}
+}
+
+// providersChanged passes BackupClass updates that change the compatibility
+// core publishes in status.providers, which decides whether an Instance may
+// use the class.
+func providersChanged() predicate.Funcs {
+	return predicate.Funcs{
+		CreateFunc: func(event.CreateEvent) bool { return false },
+		DeleteFunc: func(event.DeleteEvent) bool { return false },
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			o, ok1 := e.ObjectOld.(*backupv1alpha1.BackupClass)
+			n, ok2 := e.ObjectNew.(*backupv1alpha1.BackupClass)
+			return ok1 && ok2 && !equality.Semantic.DeepEqual(o.Status.Providers, n.Status.Providers)
 		},
 		GenericFunc: func(event.GenericEvent) bool { return false },
 	}

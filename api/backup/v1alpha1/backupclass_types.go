@@ -283,6 +283,15 @@ const (
 	// ReasonSpecDrift means the class's capabilities differ from those of
 	// the class its executor ships under that name.
 	ReasonSpecDrift = "SpecDrift"
+	// ReasonNewerDefinition means the class is stamped with a newer release
+	// of its executor than the one running, as while the executor is being
+	// upgraded. The executor leaves Accepted Unknown until it runs that
+	// release.
+	ReasonNewerDefinition = "NewerDefinition"
+	// ReasonOlderDefinition means the class is stamped with an older release
+	// of its executor than the one running, as while the class is being
+	// upgraded. The executor leaves Accepted Unknown until the class is.
+	ReasonOlderDefinition = "OlderDefinition"
 	// ReasonClassNotAccepted means the class is not Accepted at its current
 	// generation yet.
 	ReasonClassNotAccepted = "ClassNotAccepted"
@@ -294,6 +303,13 @@ const (
 	// entry for it.
 	ReasonProviderUnsupported = "ProviderUnsupported"
 )
+
+// ProviderVersionAnnotation stamps a BackupClass a provider ships with the
+// provider release it belongs to, the appVersion of the provider chart. The
+// provider compares it with the stamp of the class it ships under that name
+// before comparing capabilities, so a class from another release is pending
+// during an upgrade rather than drifted.
+const ProviderVersionAnnotation = "openeverest.io/provider-version"
 
 // BackupClassProviderCompatibility is the compatibility of a BackupClass
 // with a Provider.

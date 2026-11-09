@@ -133,7 +133,9 @@ func (a *instanceAdmission) Handle(ctx context.Context, req admission.Request) a
 }
 
 // check runs the validation pipeline on in and checks it against the
-// BackupClass it names. A missing class is a warning.
+// BackupClass it names, reading the class's compatibility with the provider
+// from its status.providers: Incompatible is an error, a missing class or
+// one that is Pending a warning.
 func (a *instanceAdmission) check(
 	ctx context.Context, in, old *v1alpha1.Instance, provider *v1alpha1.Provider,
 ) (field.ErrorList, []string, error) {
@@ -151,8 +153,16 @@ func (a *instanceAdmission) check(
 		}
 		return errs, append(warnings, fmt.Sprintf("backup class %s not found", name)), nil
 	}
-	if err := backupclass.Incompatibility(class, a.provider.Name()); err != nil {
-		return append(errs, err), warnings, nil
+	v := backupclass.ProviderVerdict(class, a.provider.Name())
+	if v.Compatibility == backupv1alpha1.CompatibilityIncompatible {
+		return append(errs, field.Invalid(field.NewPath("spec", "backup", "classRef", "name"), name,
+			fmt.Sprintf("is incompatible with provider %s: %s", a.provider.Name(), backupclass.VerdictDetail(v)),
+		)), warnings, nil
+	}
+	if v.Compatibility == backupv1alpha1.CompatibilityPending {
+		warnings = append(warnings, fmt.Sprintf("backup class %s is pending for provider %s, which holds the instance until it is compatible: %s",
+			name, a.provider.Name(), backupclass.VerdictDetail(v),
+		))
 	}
 	errs = append(errs, backupclass.LimitErrors(in, class)...)
 	return append(errs, backupclass.PITRErrors(in, class)...), warnings, nil
