@@ -93,8 +93,8 @@ const (
 	ErrBackupNotSucceeded referenceError = "backup not succeeded"
 
 	// ErrProviderUnsupported is the sentinel returned by
-	// ValidateClassSupportsProvider when a BackupClass is not executed by a
-	// provider.
+	// ValidateClassSupportsProvider when core's published verdict on a
+	// BackupClass for a provider is Incompatible.
 	ErrProviderUnsupported referenceError = "provider not supported by backup class"
 
 	// ErrRestorePITRUnsupported is the sentinel returned by ValidateRestorePITR
@@ -188,12 +188,18 @@ func ValidateBackupSucceeded(backup *backupv1alpha1.Backup) error {
 	return nil
 }
 
-// ValidateClassSupportsProvider returns ErrProviderUnsupported unless
-// provider executes bc. Callers are responsible for fetching the BackupClass
-// themselves.
+// ValidateClassSupportsProvider returns ErrProviderUnsupported when the
+// verdict core publishes on bc for provider (bc's status.providers, read
+// through CurrentProviderVerdict) is Incompatible. A Pending verdict passes:
+// the class may still become compatible on its own, and the provider holds
+// the operation until it does. The class's execution mode is not consulted,
+// so a mode this build does not know passes on a Compatible verdict. Callers
+// are responsible for fetching the BackupClass themselves.
 func ValidateClassSupportsProvider(bc *backupv1alpha1.BackupClass, provider string) error {
-	if bc.Spec.ExecutorProvider() != provider {
-		return fmt.Errorf("%w: class '%s', provider '%s'", ErrProviderUnsupported, bc.GetName(), provider)
+	if v := backupclass.ProviderVerdict(bc, provider); v.Compatibility == backupv1alpha1.CompatibilityIncompatible {
+		return fmt.Errorf("%w: class '%s', provider '%s': %s",
+			ErrProviderUnsupported, bc.GetName(), provider, backupclass.VerdictDetail(v),
+		)
 	}
 	return nil
 }
