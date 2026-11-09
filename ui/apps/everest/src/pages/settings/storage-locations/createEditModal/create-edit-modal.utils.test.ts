@@ -289,6 +289,19 @@ describe('storageLocationSchema', () => {
       []
     );
     expect(
+      issuePaths(createValues({ ...customCA, caBundle: `\n${PEM}\n${PEM}` }))
+    ).toEqual([]);
+    expect(
+      issuePaths(
+        createValues({ ...customCA, caBundle: PEM.replace('MIIB', 'MI!B') })
+      )
+    ).toEqual(['caBundle']);
+    // Backtracks exponentially with a body that may span END/BEGIN lines.
+    const pathological = `-----BEGIN CERTIFICATE-----${'a-----END CERTIFICATE----------BEGIN CERTIFICATE-----'.repeat(30)}!`;
+    expect(
+      issuePaths(createValues({ ...customCA, caBundle: pathological }))
+    ).toEqual(['caBundle']);
+    expect(
       issuePaths(
         createValues({
           ...customCA,

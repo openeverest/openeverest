@@ -36,8 +36,10 @@ import { rfc_123_schema } from 'utils/common-validation';
 import { Messages } from '../storage-locations.messages';
 
 const PARAMETERS_PATH = 'parameters';
+// Certificate bodies are base64 (RFC 7468): without '-', a body cannot run
+// past its END line, which keeps matching linear.
 const PEM_BUNDLE_REGEX =
-  /^\s*(-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----\s*)+$/;
+  /^\s*(?:-----BEGIN CERTIFICATE-----[A-Za-z0-9+/=\s]+-----END CERTIFICATE-----\s*)+$/;
 
 export type ClassFieldType =
   | FieldType.Text
