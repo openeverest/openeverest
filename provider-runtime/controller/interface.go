@@ -383,6 +383,36 @@ type BackupMirror interface {
 	Mirror(ctx context.Context, c client.Client, operatorBackup client.Object) (*backupv1alpha1.Backup, error)
 }
 
+// BackupPathStyleProvider is an optional interface a provider implements
+// when its engine cannot write backups under the nested path the runtime
+// assigns to each storage entry,
+// <prefix>/backups/<namespace>/<instance>/<instance-uid>/<storage>. The
+// runtime then lays every backup path out in the returned style
+// (backupv1alpha1.BackupPathFlat: one folder at the root of the bucket, the
+// nested path with every "/" replaced by "_", for engines such as Medusa
+// that refuse a prefix containing "/"): ResolvedBackupStorage.Path, the
+// location it records in Instance.status.backup.storages, the
+// BackupStorageLocationChanged check, Backup.status.path, and
+// Context.BackupLocation. A location the runtime recorded in the nested
+// layout before the provider declared the flat one is read as its flat
+// form, so declaring it is not a location change. An import lists the keys
+// under backupv1alpha1.BackupKeyPrefix of the same style. Providers that do
+// not implement it, or return "", get backupv1alpha1.BackupPathNested.
+type BackupPathStyleProvider interface {
+	BackupPathStyle() backupv1alpha1.BackupPathStyle
+}
+
+// BackupPathStyleOf returns the BackupPathStyle of provider: the one it
+// declares through BackupPathStyleProvider, or BackupPathNested.
+func BackupPathStyleOf(provider any) backupv1alpha1.BackupPathStyle {
+	if p, ok := provider.(BackupPathStyleProvider); ok {
+		if style := p.BackupPathStyle(); style != "" {
+			return style
+		}
+	}
+	return backupv1alpha1.BackupPathNested
+}
+
 // =============================================================================
 // BACKUP IMPORTER (Optional interface for backup discovery / import)
 // =============================================================================

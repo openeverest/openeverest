@@ -437,7 +437,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	}
 
 	// Create the Context handle
-	inCtx := controller.NewContext(ctx, r.Client, in, r.provider.Name())
+	inCtx := newContext(ctx, r.Client, in, r.provider, r.provider.Name())
 
 	// Handle deletion
 	if !in.GetDeletionTimestamp().IsZero() {
@@ -539,7 +539,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		logger.Error(err, "Preparing the instance for sync failed")
 		return reconcile.Result{}, err
 	}
-	syncCtx := controller.NewContext(ctx, r.Client, resolvedIn, r.provider.Name())
+	syncCtx := newContext(ctx, r.Client, resolvedIn, r.provider, r.provider.Name())
 	syncCtx.BlockMaintenance(r.breaker.blockedTokens(req.NamespacedName, approvedMaintenanceValue(in))...)
 	if ip, ok := r.provider.(controller.MonitoringIntegrationsProvider); ok {
 		syncCtx.SetMonitoringIntegrations(ip.MonitoringIntegrations()...)

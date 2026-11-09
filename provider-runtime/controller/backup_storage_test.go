@@ -307,3 +307,116 @@ func TestBackupLocation(t *testing.T) {
 	}}}
 	assert.Equal(t, "team-a/legacy/2026-01-01", BackupLocation(imported, bs))
 }
+
+// flatStyleProvider declares the flat backup path style.
+type flatStyleProvider struct{}
+
+func (flatStyleProvider) BackupPathStyle() backupv1alpha1.BackupPathStyle {
+	return backupv1alpha1.BackupPathFlat
+}
+
+// emptyStyleProvider declares no style.
+type emptyStyleProvider struct{}
+
+func (emptyStyleProvider) BackupPathStyle() backupv1alpha1.BackupPathStyle { return "" }
+
+func TestBackupPathStyleOf(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, backupv1alpha1.BackupPathFlat, BackupPathStyleOf(flatStyleProvider{}))
+	assert.Equal(t, backupv1alpha1.BackupPathNested, BackupPathStyleOf(emptyStyleProvider{}))
+	assert.Equal(t, backupv1alpha1.BackupPathNested, BackupPathStyleOf(&BaseProvider{}))
+}
+
+// TestContextBackupLocation checks where a provider of each style finds a
+// backup's data: what the runtime recorded, laid out in the style, or for
+// an imported backup its path under the style's key prefix.
+func TestContextBackupLocation(t *testing.T) {
+	t.Parallel()
+
+	bs := acceptedBackupStorage(nil)
+	bs.Spec.Location.ObjectStore.Prefix = "team-a"
+	taken := func(path string) *backupv1alpha1.Backup {
+		return &backupv1alpha1.Backup{Status: backupv1alpha1.BackupStatus{Path: path}}
+	}
+	imported := func(path string) *backupv1alpha1.Backup {
+		return &backupv1alpha1.Backup{Spec: backupv1alpha1.BackupSpec{Origin: backupv1alpha1.BackupOrigin{
+			External: &backupv1alpha1.BackupOriginExternal{Path: path},
+		}}}
+	}
+
+	tests := []struct {
+		name   string
+		style  backupv1alpha1.BackupPathStyle
+		backup *backupv1alpha1.Backup
+		want   string
+	}{
+		{name: "nested, taken", backup: taken("team-a/backups/ns/orders/uid/s3-prod"), want: "team-a/backups/ns/orders/uid/s3-prod"},
+		{name: "nested, imported", backup: imported("legacy/2026-01-01"), want: "team-a/legacy/2026-01-01"},
+		{
+			name: "flat, taken", style: backupv1alpha1.BackupPathFlat,
+			backup: taken("team-a_backups_ns_orders_uid_s3-prod"), want: "team-a_backups_ns_orders_uid_s3-prod",
+		},
+		{
+			name: "flat, taken before the provider declared the style", style: backupv1alpha1.BackupPathFlat,
+			backup: taken("team-a/backups/ns/orders/uid/s3-prod"), want: "team-a_backups_ns_orders_uid_s3-prod",
+		},
+		{
+			name: "flat, imported", style: backupv1alpha1.BackupPathFlat,
+			backup: imported("backups_ns_orders_uid_s3-prod/node-1/2026-01-01"), want: "team-a_backups_ns_orders_uid_s3-prod/node-1/2026-01-01",
+		},
+		{name: "not recorded", style: backupv1alpha1.BackupPathFlat, backup: taken("")},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			c := newBackupStorageTestContext(t)
+			if tc.style != "" {
+				c.SetBackupPathStyle(tc.style)
+			}
+			assert.Equal(t, tc.want, c.BackupLocation(tc.backup, bs))
+		})
+	}
+}
+
+// TestBackupStorages_PathStyle checks that the path of each entry is laid
+// out in the provider's style, and that a location recorded in the nested
+// layout is not a change once the provider declares the flat one.
+func TestBackupStorages_PathStyle(t *testing.T) {
+	t.Parallel()
+
+	const nested = "backups/ns/orders/orders-uid/s3-prod"
+	tests := []struct {
+		name       string
+		style      backupv1alpha1.BackupPathStyle
+		recorded   string
+		wantPath   string
+		wantReason string
+	}{
+		{name: "nested by default", wantPath: nested},
+		{name: "flat", style: backupv1alpha1.BackupPathFlat, wantPath: "backups_ns_orders_orders-uid_s3-prod"},
+		{
+			name: "flat, recorded nested", style: backupv1alpha1.BackupPathFlat, recorded: nested,
+			wantPath: "backups_ns_orders_orders-uid_s3-prod",
+		},
+		{
+			name: "flat, recorded under another prefix", style: backupv1alpha1.BackupPathFlat, recorded: "old/" + nested,
+			wantPath: "backups_ns_orders_orders-uid_s3-prod", wantReason: v1alpha1.ReasonBackupStorageLocationChanged,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			c := newBackupStorageTestContext(t, acceptedBackupStorage(nil))
+			c.SetBackupPathStyle(tc.style)
+			if tc.recorded != "" {
+				c.in.Status.Backup = &v1alpha1.InstanceBackupStatus{Storages: []v1alpha1.InstanceBackupStorageStatus{{Name: "s3-prod", Location: tc.recorded}}}
+			}
+
+			storages, err := c.BackupStorages()
+			require.NoError(t, err)
+			require.Len(t, storages, 1)
+			assert.Equal(t, tc.wantPath, storages[0].Path)
+			assert.Equal(t, tc.wantReason, storages[0].Reason)
+		})
+	}
+}
