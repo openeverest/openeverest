@@ -50,8 +50,9 @@ func (h *validateHandler) CreateRestore(ctx context.Context, cluster string, res
 //   - type=Backup: the source Backup must exist and have Succeeded;
 //   - type=PointInTime: the Instance owning the stream must have a backup class
 //     configured, and must be archiving to the named storage;
-//   - the resolved read class must support the target Instance's provider, and
-//     must advertise PITR support when point-in-time recovery is requested.
+//   - the resolved read class must not be incompatible with the target
+//     Instance's provider (core's published verdict), and must advertise PITR
+//     support when point-in-time recovery is requested.
 //
 // The read class describes how the data was written and therefore how it must
 // be read. For type=Backup it comes from the source Backup; for

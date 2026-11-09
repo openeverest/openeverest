@@ -51,8 +51,8 @@ func (h *validateHandler) CreateBackup(ctx context.Context, cluster string, back
 }
 
 // validateBackupRefs rejects backups whose instanceRef, storageRef, or
-// classRef do not point to existing resources, or whose BackupClass does
-// not support the target Instance's provider.
+// classRef do not point to existing resources, or whose BackupClass core
+// has judged incompatible with the target Instance's provider.
 func (h *validateHandler) validateBackupRefs(ctx context.Context, backup *backupv1alpha1.Backup) error {
 	// External backups have no Instance to validate; their data
 	// already lives in the referenced BackupStorage.
