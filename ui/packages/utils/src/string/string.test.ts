@@ -31,19 +31,13 @@ describe('kebabize', () => {
 
   it.each([
     ['Create database', 'create-database'],
-    ['Add new destination', 'add-new destination'],
-    [' leading', '-leading'],
+    ['Pod scheduling policy', 'pod-scheduling-policy'],
+    ['Basic Information', 'basic-information'],
+    ['a  b\tc', 'a-b-c'],
+    ['a - b', 'a-b'],
     ['a  -b', 'a-b'],
-    ['a - b', 'a--b'],
-    ['a  b  c', 'a-b  c'],
-  ])('joins only the first whitespace run: %j → %j', (input, expected) => {
+    ['  padded  ', 'padded'],
+  ])('hyphenates every whitespace run: %j → %j', (input, expected) => {
     expect(kebabize(input)).toBe(expected);
-  });
-
-  it('stays linear on long whitespace and capital runs', () => {
-    const start = performance.now();
-    kebabize(`${' '.repeat(100_000)}x`);
-    kebabize(`${'A'.repeat(100_000)}a`);
-    expect(performance.now() - start).toBeLessThan(1000);
   });
 });

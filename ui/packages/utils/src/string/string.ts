@@ -30,35 +30,14 @@ const hyphenateCapitals = (str: string) =>
     })
     .join('');
 
-// Checks the hyphen after a run here, not in a lookahead, to stay linear.
-const replaceFirstWhitespace = (
-  str: string,
-  replacer: (run: string, beforeHyphen: boolean) => string
-) => {
-  let replaced = false;
-  return str.replace(/\s+/g, (run: string, offset: number) => {
-    if (replaced) {
-      return run;
-    }
-    const result = replacer(run, str[offset + run.length] === '-');
-    replaced = result !== run;
-    return result;
-  });
-};
-
-// Only the first whitespace run is joined: e2e data-testids rely on it.
-const kebabize = (str: string) =>
-  replaceFirstWhitespace(
-    replaceFirstWhitespace(hyphenateCapitals(str), (run, beforeHyphen) =>
-      beforeHyphen ? '' : run
-    ),
-    (run, beforeHyphen) => {
-      if (!beforeHyphen) {
-        return '-';
-      }
-      return run.length > 1 ? `-${run.slice(-1)}` : run;
-    }
+// A whitespace run becomes one hyphen, or disappears next to an existing one.
+const hyphenateWhitespace = (str: string) =>
+  str.replace(/\s+/g, (run: string, offset: number) =>
+    str[offset - 1] === '-' || str[offset + run.length] === '-' ? '' : '-'
   );
+
+const kebabize = (str: string) =>
+  hyphenateWhitespace(hyphenateCapitals(str.trim()));
 
 export const pluralize = (
   count: number,
