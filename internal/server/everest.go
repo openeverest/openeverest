@@ -593,8 +593,14 @@ func (e *EverestServer) errorHandlerChain() echo.HTTPErrorHandler {
 func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 	return func(err error, c echo.Context) {
 		echoErrTarget := &echo.HTTPError{}
+		inUseMessage, inUse := inUseDenialMessage(err)
 		switch {
 		case errors.As(err, &echoErrTarget):
+		case inUse:
+			err = &echo.HTTPError{
+				Code:    http.StatusConflict,
+				Message: apiErrorBody{Message: inUseMessage, Reason: reasonInUse},
+			}
 		case k8serrors.IsNotFound(err):
 			statusError := &k8serrors.StatusError{}
 			if errors.As(err, &statusError) {
@@ -744,6 +750,28 @@ var admissionDenial = regexp.MustCompile(
 // gave for denying a request.
 func trimWebhookErrorText(fullText string) string {
 	return admissionDenial.ReplaceAllString(fullText, "")
+}
+
+// reasonInUse is the reason of the 409 answering a deletion refused because
+// the object is still in use.
+const reasonInUse = "InUse"
+
+// inUsePolicy matches the name of a ValidatingAdmissionPolicy that refuses
+// deleting an object still in use (spec 015 §4.5): <resource>-in-use.<group>,
+// whatever prefix kustomize's namePrefix adds.
+var inUsePolicy = regexp.MustCompile(`ValidatingAdmissionPolicy '[^']*-in-use\.[^']*openeverest\.io'`)
+
+// inUseDenialMessage reports whether err is the denial of an in-use policy
+// and returns its message. A policy can only deny as Forbidden, which the
+// API also answers when the caller lacks a permission; an object in use is a
+// conflict with its current state the caller can resolve, hence a 409.
+func inUseDenialMessage(err error) (string, bool) {
+	statusError := &k8serrors.StatusError{}
+	if !errors.As(err, &statusError) || statusError.ErrStatus.Reason != metav1.StatusReasonForbidden ||
+		!inUsePolicy.MatchString(statusError.ErrStatus.Message) {
+		return "", false
+	}
+	return trimWebhookErrorText(statusError.ErrStatus.Message), true
 }
 
 // createSessionManagerClient creates a k8s client for a session manager.

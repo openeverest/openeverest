@@ -965,7 +965,7 @@ export interface paths {
         /**
          * Delete monitoring destination
          * @description This API deletes the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
-         *     It is refused with `403` while Instances list the destination in `spec.monitoring.destinations` (`status.attachedInstances` above zero);
+         *     It is refused with `409` and reason `InUse` while Instances list the destination in `spec.monitoring.destinations` (`status.attachedInstances` above zero);
          *     the message gives their number, and `GET .../monitoring-bindings?destination={name}` lists them.
          *     With `dryRun=All` the answer is the same and nothing is deleted, so a client can ask before it deletes.
          *     A deletion that is let through may leave the destination listed with `metadata.deletionTimestamp` set until no Instance lists it any more.
@@ -11131,7 +11131,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description The caller may not delete the destination, or Instances still use it */
+            /** @description Forbidden */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -11147,6 +11147,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Instances still use the destination (reason `InUse`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */

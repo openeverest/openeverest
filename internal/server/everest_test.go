@@ -115,28 +115,40 @@ func TestEverestErrorHandler_AdmissionDenial(t *testing.T) {
 		"(kubectl get monitoringbindings -n team-a -l monitoring.openeverest.io/destination=pmm-prod)"
 
 	tests := []struct {
-		name string
-		err  error
-		code int
-		want string
+		name       string
+		err        error
+		code       int
+		want       string
+		wantReason string
 	}{
 		{
-			name: "policy denial with binding",
+			name: "in-use policy denial is a conflict",
 			// admission.NewForbidden in the ValidatingAdmissionPolicy dispatcher of k8s.io/apiserver.
 			err: k8serrors.NewForbidden(destinations, "pmm-prod", errors.New(
 				"ValidatingAdmissionPolicy 'monitoringdestination-in-use.monitoring.openeverest.io' with binding "+
 					"'monitoringdestination-in-use.monitoring.openeverest.io' denied request: "+inUse,
 			)),
-			code: http.StatusForbidden,
-			want: inUse,
+			code:       http.StatusConflict,
+			want:       inUse,
+			wantReason: "InUse",
 		},
 		{
-			name: "policy denial without binding",
+			name: "in-use policy named with kustomize's prefix",
 			err: k8serrors.NewForbidden(destinations, "pmm-prod", errors.New(
-				"ValidatingAdmissionPolicy 'monitoringdestination-in-use.monitoring.openeverest.io' denied request: "+inUse,
+				"ValidatingAdmissionPolicy 'openeverest-monitoringdestination-in-use.monitoring.openeverest.io' with binding "+
+					"'openeverest-monitoringdestination-in-use.monitoring.openeverest.io' denied request: "+inUse,
+			)),
+			code:       http.StatusConflict,
+			want:       inUse,
+			wantReason: "InUse",
+		},
+		{
+			name: "other policy denial stays forbidden",
+			err: k8serrors.NewForbidden(destinations, "pmm-prod", errors.New(
+				"ValidatingAdmissionPolicy 'destination-naming.example.com' denied request: names must start with team-",
 			)),
 			code: http.StatusForbidden,
-			want: inUse,
+			want: "names must start with team-",
 		},
 		{
 			name: "webhook denial",
@@ -172,9 +184,11 @@ func TestEverestErrorHandler_AdmissionDenial(t *testing.T) {
 			require.Equal(t, tt.code, rec.Code)
 			var body struct {
 				Message string `json:"message"`
+				Reason  string `json:"reason"`
 			}
 			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 			assert.Equal(t, tt.want, body.Message)
+			assert.Equal(t, tt.wantReason, body.Reason)
 		})
 	}
 }

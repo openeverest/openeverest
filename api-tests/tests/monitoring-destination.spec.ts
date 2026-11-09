@@ -105,8 +105,8 @@ test.describe('Monitoring destination in use', () => {
         await test.step(`DELETE${query} is refused`, async () => {
           const response = await request.delete(`${url}/${name}${query}`)
 
-          expect(response.status()).toBe(403)
-          expect((await response.json()).message).toContain(inUse)
+          expect(response.status()).toBe(409)
+          expect(await response.json()).toMatchObject({reason: 'InUse', message: expect.stringContaining(inUse)})
 
           expect(await getDestination(request, name)).toMatchObject({status: {attachedInstances: 1}})
           expect((await getDestination(request, name)).metadata.deletionTimestamp).toBeUndefined()
