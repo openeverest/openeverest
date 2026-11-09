@@ -86,6 +86,7 @@ func TestCreateRestore_Validation(t *testing.T) {
 			},
 		},
 	}
+	// Core has judged the class: it runs on other-provider only.
 	unsupportedProviderClass := &backupv1alpha1.BackupClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "unsupported-provider-class"},
 		Spec: backupv1alpha1.BackupClassSpec{
@@ -95,6 +96,9 @@ func TestCreateRestore_Validation(t *testing.T) {
 				SupportsPITR: true,
 			},
 		},
+		Status: backupv1alpha1.BackupClassStatus{Providers: []backupv1alpha1.BackupClassProviderCompatibility{{
+			Name: "other-provider", Compatibility: backupv1alpha1.CompatibilityCompatible,
+		}}},
 	}
 	succeededBackup := &backupv1alpha1.Backup{
 		ObjectMeta: metav1.ObjectMeta{Name: "succeeded-backup", Namespace: namespace},

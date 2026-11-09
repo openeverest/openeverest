@@ -57,12 +57,16 @@ func TestCreateBackup_Validation(t *testing.T) {
 			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{ProviderRef: common.ObjectRef{Name: "test-provider"}},
 		},
 	}
+	// Core has judged the class: it runs on other-provider only.
 	unsupportedClass := &backupv1alpha1.BackupClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "unsupported-class"},
 		Spec: backupv1alpha1.BackupClassSpec{
 			ExecutionMode:   backupv1alpha1.BackupExecutionModeProviderManaged,
 			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{ProviderRef: common.ObjectRef{Name: "other-provider"}},
 		},
+		Status: backupv1alpha1.BackupClassStatus{Providers: []backupv1alpha1.BackupClassProviderCompatibility{{
+			Name: "other-provider", Compatibility: backupv1alpha1.CompatibilityCompatible,
+		}}},
 	}
 
 	scheme := runtime.NewScheme()
