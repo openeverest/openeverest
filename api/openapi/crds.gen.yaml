@@ -29,9 +29,7 @@ components:
               description: |-
                 ClassRef references the cluster-scoped BackupClass that defines how
                 this Backup is executed. The class's executionMode controls the runtime
-                path: Job classes are reconciled by the in-cluster Backup job
-                controller; ProviderManaged classes are reconciled by the provider's
-                runtime.
+                path; ProviderManaged classes are reconciled by the provider's runtime.
               properties:
                 name:
                   description: Name of the referenced object.
@@ -266,24 +264,7 @@ components:
                 started. Recorded for observability.
               enum:
               - ProviderManaged
-              - Job
               type: string
-            jobRef:
-              description: |-
-                JobRef references the Job that is running the backup.
-                Populated only for Job classes. Empty for external backups, which run
-                no Job.
-              properties:
-                name:
-                  description: Name of the referenced object.
-                  maxLength: 253
-                  minLength: 1
-                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                  type: string
-              required:
-              - name
-              type: object
-              x-kubernetes-map-type: atomic
             lastObservedGeneration:
               description: LastObservedGeneration is the last observed generation
                 of the Backup CR.
@@ -404,11 +385,12 @@ components:
               description: DisplayName is a human-readable name for the backup class.
               type: string
             executionMode:
-              description: ExecutionMode selects between job-based and provider-managed
-                execution.
+              description: |-
+                ExecutionMode selects who executes the class's backup and restore
+                operations. ProviderManaged is the only mode: the provider named in
+                SupportedProviders executes them.
               enum:
               - ProviderManaged
-              - Job
               type: string
             instanceConstraints:
               description: |-
@@ -423,295 +405,6 @@ components:
                   items:
                     type: string
                   type: array
-              type: object
-            job:
-              description: |-
-                Job contains all execution detail for ExecutionMode="Job". Required
-                when ExecutionMode is "Job"; must be unset when ExecutionMode is
-                "ProviderManaged".
-              properties:
-                backup:
-                  description: Backup describes the job spawned per Backup CR.
-                  properties:
-                    cleanupJobSpec:
-                      description: |-
-                        CleanupJobSpec is the optional specification of a cleanup job that runs
-                        when the parent Backup or Restore CR is deleted.
-                      properties:
-                        command:
-                          description: Command is the command to run the backup class.
-                          items:
-                            type: string
-                          type: array
-                        image:
-                          description: Image is the image of the backup class.
-                          type: string
-                      type: object
-                    clusterPermissions:
-                      description: |-
-                        ClusterPermissions are cluster-scoped PolicyRules granted via a
-                        generated ClusterRole and ClusterRoleBinding.
-                      items:
-                        description: |-
-                          PolicyRule holds information that describes a policy rule, but does not contain information
-                          about who the rule applies to or which namespace the rule applies to.
-                        properties:
-                          apiGroups:
-                            description: |-
-                              apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                              the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          nonResourceURLs:
-                            description: |-
-                              nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                              Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                              Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          resourceNames:
-                            description: resourceNames is an optional white list of
-                              names that the rule applies to.  An empty set means
-                              that everything is allowed.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          resources:
-                            description: resources is a list of resources this rule
-                              applies to. '*' represents all resources.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          verbs:
-                            description: verbs is a list of Verbs that apply to ALL
-                              the ResourceKinds contained in this rule. '*' represents
-                              all verbs.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                        required:
-                        - verbs
-                        type: object
-                      type: array
-                    jobSpec:
-                      description: JobSpec is the specification of the backup or restore
-                        job.
-                      properties:
-                        command:
-                          description: Command is the command to run the backup class.
-                          items:
-                            type: string
-                          type: array
-                        image:
-                          description: Image is the image of the backup class.
-                          type: string
-                      type: object
-                    permissions:
-                      description: |-
-                        Permissions are namespace-scoped PolicyRules granted to the job pod via
-                        a generated Role and RoleBinding.
-                      items:
-                        description: |-
-                          PolicyRule holds information that describes a policy rule, but does not contain information
-                          about who the rule applies to or which namespace the rule applies to.
-                        properties:
-                          apiGroups:
-                            description: |-
-                              apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                              the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          nonResourceURLs:
-                            description: |-
-                              nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                              Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                              Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          resourceNames:
-                            description: resourceNames is an optional white list of
-                              names that the rule applies to.  An empty set means
-                              that everything is allowed.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          resources:
-                            description: resources is a list of resources this rule
-                              applies to. '*' represents all resources.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          verbs:
-                            description: verbs is a list of Verbs that apply to ALL
-                              the ResourceKinds contained in this rule. '*' represents
-                              all verbs.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                        required:
-                        - verbs
-                        type: object
-                      type: array
-                  required:
-                  - jobSpec
-                  type: object
-                restore:
-                  description: |-
-                    Restore describes the job spawned per Restore CR. When unset, restores
-                    are not supported by this class.
-                  properties:
-                    cleanupJobSpec:
-                      description: |-
-                        CleanupJobSpec is the optional specification of a cleanup job that runs
-                        when the parent Backup or Restore CR is deleted.
-                      properties:
-                        command:
-                          description: Command is the command to run the backup class.
-                          items:
-                            type: string
-                          type: array
-                        image:
-                          description: Image is the image of the backup class.
-                          type: string
-                      type: object
-                    clusterPermissions:
-                      description: |-
-                        ClusterPermissions are cluster-scoped PolicyRules granted via a
-                        generated ClusterRole and ClusterRoleBinding.
-                      items:
-                        description: |-
-                          PolicyRule holds information that describes a policy rule, but does not contain information
-                          about who the rule applies to or which namespace the rule applies to.
-                        properties:
-                          apiGroups:
-                            description: |-
-                              apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                              the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          nonResourceURLs:
-                            description: |-
-                              nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                              Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                              Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          resourceNames:
-                            description: resourceNames is an optional white list of
-                              names that the rule applies to.  An empty set means
-                              that everything is allowed.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          resources:
-                            description: resources is a list of resources this rule
-                              applies to. '*' represents all resources.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          verbs:
-                            description: verbs is a list of Verbs that apply to ALL
-                              the ResourceKinds contained in this rule. '*' represents
-                              all verbs.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                        required:
-                        - verbs
-                        type: object
-                      type: array
-                    jobSpec:
-                      description: JobSpec is the specification of the backup or restore
-                        job.
-                      properties:
-                        command:
-                          description: Command is the command to run the backup class.
-                          items:
-                            type: string
-                          type: array
-                        image:
-                          description: Image is the image of the backup class.
-                          type: string
-                      type: object
-                    permissions:
-                      description: |-
-                        Permissions are namespace-scoped PolicyRules granted to the job pod via
-                        a generated Role and RoleBinding.
-                      items:
-                        description: |-
-                          PolicyRule holds information that describes a policy rule, but does not contain information
-                          about who the rule applies to or which namespace the rule applies to.
-                        properties:
-                          apiGroups:
-                            description: |-
-                              apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                              the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          nonResourceURLs:
-                            description: |-
-                              nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                              Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                              Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          resourceNames:
-                            description: resourceNames is an optional white list of
-                              names that the rule applies to.  An empty set means
-                              that everything is allowed.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          resources:
-                            description: resources is a list of resources this rule
-                              applies to. '*' represents all resources.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                          verbs:
-                            description: verbs is a list of Verbs that apply to ALL
-                              the ResourceKinds contained in this rule. '*' represents
-                              all verbs.
-                            items:
-                              type: string
-                            type: array
-                            x-kubernetes-list-type: atomic
-                        required:
-                        - verbs
-                        type: object
-                      type: array
-                  required:
-                  - jobSpec
-                  type: object
-              required:
-              - backup
               type: object
             parametersSchema:
               description: |-
@@ -730,8 +423,8 @@ components:
                 ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
                 schema is intentionally open: providers may surface capability
                 information (e.g., whether PITR is supported, schedule expression
-                dialect) without forcing a CRD change. Must be unset when
-                ExecutionMode is "Job".
+                dialect) without forcing a CRD change. Must be unset for any other
+                execution mode.
               properties:
                 limits:
                   description: |-
@@ -824,10 +517,6 @@ components:
           - executionMode
           type: object
           x-kubernetes-validations:
-          - message: spec.job is required when executionMode is Job
-            rule: self.executionMode != 'Job' || has(self.job)
-          - message: spec.job is only allowed when executionMode is Job
-            rule: '!has(self.job) || self.executionMode == ''Job'''
           - message: spec.providerManaged is only allowed when executionMode is ProviderManaged
             rule: '!has(self.providerManaged) || self.executionMode == ''ProviderManaged'''
           - message: a ProviderManaged BackupClass must support exactly one provider
@@ -1332,9 +1021,8 @@ components:
                 Backup configures the backup feature for this Instance. When enabled,
                 the provider's reconciler is given the resolved BackupClass and storage
                 list so it can configure the engine accordingly (sidecars, agent
-                configuration, etc.). Required for ProviderManaged BackupClasses; Job
-                classes do not need an entry here because they read directly from
-                individual Backup CRs.
+                configuration, etc.). Required to back up the Instance with its
+                ProviderManaged BackupClass.
               properties:
                 classRef:
                   description: |-
@@ -3524,9 +3212,8 @@ components:
                 Backup configures the backup feature for this Instance. When enabled,
                 the provider's reconciler is given the resolved BackupClass and storage
                 list so it can configure the engine accordingly (sidecars, agent
-                configuration, etc.). Required for ProviderManaged BackupClasses; Job
-                classes do not need an entry here because they read directly from
-                individual Backup CRs.
+                configuration, etc.). Required to back up the Instance with its
+                ProviderManaged BackupClass.
               properties:
                 classRef:
                   description: |-
@@ -5728,6 +5415,22 @@ components:
                                     type: object
                                     x-kubernetes-map-type: atomic
                                 type: object
+                              clientCertificateSecretRef:
+                                description: |-
+                                  ClientCertificateSecretRef references a kubernetes.io/tls Secret
+                                  (keys tls.crt and tls.key) the scraper presents as a client
+                                  certificate, for an endpoint that requires mutual TLS.
+                                properties:
+                                  name:
+                                    description: Name of the referenced Secret.
+                                    maxLength: 253
+                                    minLength: 1
+                                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                                x-kubernetes-map-type: atomic
                               insecureSkipVerify:
                                 description: InsecureSkipVerify disables verification
                                   of the server certificate.
@@ -5932,9 +5635,8 @@ components:
                 Backup configures the backup feature for this Instance. When enabled,
                 the provider's reconciler is given the resolved BackupClass and storage
                 list so it can configure the engine accordingly (sidecars, agent
-                configuration, etc.). Required for ProviderManaged BackupClasses; Job
-                classes do not need an entry here because they read directly from
-                individual Backup CRs.
+                configuration, etc.). Required to back up the Instance with its
+                ProviderManaged BackupClass.
               properties:
                 classRef:
                   description: |-
@@ -9772,23 +9474,7 @@ components:
                 started. Recorded for observability.
               enum:
               - ProviderManaged
-              - Job
               type: string
-            jobRef:
-              description: |-
-                JobRef references the Job that is running the restore.
-                Populated only for Job classes.
-              properties:
-                name:
-                  description: Name of the referenced object.
-                  maxLength: 253
-                  minLength: 1
-                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                  type: string
-              required:
-              - name
-              type: object
-              x-kubernetes-map-type: atomic
             lastObservedGeneration:
               description: LastObservedGeneration is the last observed generation
                 of the Restore CR.

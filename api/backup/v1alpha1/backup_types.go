@@ -31,9 +31,7 @@ type BackupSpec struct {
 	Origin BackupOrigin `json:"origin"`
 	// ClassRef references the cluster-scoped BackupClass that defines how
 	// this Backup is executed. The class's executionMode controls the runtime
-	// path: Job classes are reconciled by the in-cluster Backup job
-	// controller; ProviderManaged classes are reconciled by the provider's
-	// runtime.
+	// path; ProviderManaged classes are reconciled by the provider's runtime.
 	// +kubebuilder:validation:Required
 	ClassRef common.ObjectRef `json:"classRef"`
 	// StorageRef references a BackupStorage in the same namespace that
@@ -193,11 +191,6 @@ type BackupStatus struct {
 	// operator-native backup object.
 	// +optional
 	OperatorBackupRef *common.TypedObjectRef `json:"operatorBackupRef,omitempty"`
-	// JobRef references the Job that is running the backup.
-	// Populated only for Job classes. Empty for external backups, which run
-	// no Job.
-	// +optional
-	JobRef *common.ObjectRef `json:"jobRef,omitempty"`
 	// StartedAt is the time when the backup started.
 	// For external backups this mirrors spec.origin.external.startedAt.
 	// +optional

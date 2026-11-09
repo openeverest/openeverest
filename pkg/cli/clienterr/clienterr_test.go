@@ -40,3 +40,14 @@ func TestMessage(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, first, msg)
 }
+
+func TestFromAPIError(t *testing.T) {
+	t.Parallel()
+	invalid := "invalid"
+	msg, ok := clienterr.Message(clienterr.FromAPIError(&client.APIError{Message: &invalid, Reason: "Invalid"}))
+	require.True(t, ok)
+	assert.Equal(t, invalid, msg)
+
+	_, ok = clienterr.Message(clienterr.FromAPIError(nil))
+	assert.False(t, ok)
+}

@@ -9,6 +9,15 @@ info:
     All requests to Everest API require `Authorization: Bearer <token>` header with a valid token in plain-text.
     
     The token can be obtained by using `everestctl token reset` which resets the token and prints it to the screen.
+
+    # Warnings
+    A response carries one `Warning` header per distinct warning Kubernetes raised while handling the request, whether it succeeds or fails: an admission webhook warning on a write, for example, or the deprecation of a resource version.
+    Each value has Kubernetes' warning format, `299 - "<text>"`, the `Warning` field of RFC 7234.
+
+    # Dry run
+    Writes that accept the `dryRun=All` query parameter run every check a real write would, including admission webhooks, and answer as it would, without persisting anything.
+    The response body is the object as it would be stored, and errors and `Warning` headers are those of the real write.
+    A write that does not accept the parameter rejects it with 400.
 tags:
   - name: Kubernetes
     description: Everything related to the Kubernetes Clusters
@@ -464,62 +473,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  '/clusters/{cluster}/cluster-instance-presets/{name}/resolve':
-    x-everest-resource-name: cluster-instance-presets
-    get:
-      tags:
-        - Preset
-      summary: Resolve cluster instance preset with namespace defaults and default StorageClass of the cluster
-      description: |
-        This API resolves the cluster instance preset specified by the `name` in the specified `cluster`.
-        This endpoint is useful when creating instances from cluster instance presets, as it provides a
-        fully-populated preset with all namespace defaults, and default StorageClass of the cluster
-        if it has empty StorageClass.
-      operationId: resolveClusterInstancePreset
-      parameters:
-        - name: cluster
-          in: path
-          required: true
-          description: The name of the cluster
-          schema:
-            type: string
-        - name: name
-          in: path
-          required: true
-          description: The name of the cluster instance preset
-          schema:
-            type: string
-        - name: namespace
-          in: query
-          required: true
-          description: The namespace for which to resolve default values
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Resolved cluster instance preset with namespace defaults
-          content:
-            application/json:
-              schema:
-                $ref: 'crds.gen.yaml#/components/schemas/ClusterInstancePreset'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Cluster instance preset not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        default:
-          description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/namespaces/{namespace}/instance-presets':
     x-everest-resource-name: instance-presets
     get:
@@ -616,6 +569,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
           content:
             application/json:
               schema:
@@ -740,6 +699,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
           content:
             application/json:
               schema:
@@ -997,6 +962,7 @@ paths:
           description: The namespace where the instance will be created
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       requestBody:
         description: The instance object to be created
         required: true
@@ -1007,12 +973,18 @@ paths:
       responses:
         '200':
           description: Instance created successfully
+          headers:
+            Warning:
+              $ref: '#/components/headers/Warning'
           content:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
         '201':
           description: Instance created successfully
+          headers:
+            Warning:
+              $ref: '#/components/headers/Warning'
           content:
             application/json:
               schema:
@@ -1031,6 +1003,15 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
+          headers:
+            Warning:
+              $ref: '#/components/headers/Warning'
           content:
             application/json:
               schema:
@@ -1122,6 +1103,7 @@ paths:
           description: The name of the instance
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       requestBody:
         description: The instance object to be updated
         required: true
@@ -1132,6 +1114,9 @@ paths:
       responses:
         '200':
           description: Instance updated successfully
+          headers:
+            Warning:
+              $ref: '#/components/headers/Warning'
           content:
             application/json:
               schema:
@@ -1150,6 +1135,15 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
+          headers:
+            Warning:
+              $ref: '#/components/headers/Warning'
           content:
             application/json:
               schema:
@@ -1189,6 +1183,7 @@ paths:
           description: The name of the instance
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       requestBody:
         description: |
           A partial Instance document. `status` and the `ownerReferences`, `finalizers`, `name` and `namespace` members of `metadata` are rejected.
@@ -1201,6 +1196,9 @@ paths:
       responses:
         '200':
           description: Instance patched successfully
+          headers:
+            Warning:
+              $ref: '#/components/headers/Warning'
           content:
             application/json:
               schema:
@@ -1229,6 +1227,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation failed
+          headers:
+            Warning:
+              $ref: '#/components/headers/Warning'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1650,6 +1657,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1876,6 +1889,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -2032,6 +2051,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
           content:
             application/json:
               schema:
@@ -2203,6 +2228,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
           content:
             application/json:
               schema:
@@ -2384,6 +2415,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -2452,6 +2489,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
           content:
             application/json:
               schema:
@@ -2575,6 +2618,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
           content:
             application/json:
               schema:
@@ -2728,6 +2777,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
           content:
             application/json:
               schema:
@@ -2896,7 +2951,7 @@ paths:
       description: |
         This API creates a new monitoring destination in the specified namespace and cluster.
         Only `metadata.name`, `metadata.generateName`, `metadata.labels`, `metadata.annotations` and `spec` are taken from the request; the namespace is the one in the path.
-        Credentials are never part of the payload: create the Secret through the secrets API and reference it in `spec.authentication.credentialsSecretRef`, together with the `spec.authentication.mode` of the monitoring class it holds the keys of. A CA bundle is referenced the same way in `spec.tls.ca.secretKeyRef`. Referencing a Secret requires `read` on it.
+        Credentials are never part of the payload: create the Secret through the secrets API, labelled `openeverest.io/monitoring-class: <class>` and `openeverest.io/definition: <mode>`, and reference it in `spec.authentication.credentialsSecretRef`, together with the `spec.authentication.mode` of the monitoring class it holds the keys of. A CA bundle is referenced in `spec.tls.ca.secretKeyRef`. Referencing a Secret requires `read` on it.
         `spec.classRef` requires `read` on the monitoring class it names.
       operationId: createMonitoringDestination
       parameters:
@@ -2912,6 +2967,7 @@ paths:
           description: The namespace where the monitoring destination will be created
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '201':
           description: Successful operation
@@ -2939,6 +2995,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
           content:
             application/json:
               schema:
@@ -3077,6 +3139,7 @@ paths:
           description: The name of the monitoring destination
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '200':
           description: Successful operation
@@ -3104,6 +3167,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
           content:
             application/json:
               schema:
@@ -3149,6 +3218,7 @@ paths:
           description: The name of the monitoring destination
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '204':
           description: Monitoring destination deleted successfully
@@ -3330,6 +3400,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -3497,6 +3573,15 @@ paths:
       description: |
         This API creates a new Secret in the specified namespace and cluster.
         The Secret is labeled as managed by OpenEverest.
+
+        The Secret names the object that defines its shape with exactly one source label, and the definition within that source with `openeverest.io/definition`:
+
+        | Source label | `openeverest.io/definition` | Checked against |
+        |---|---|---|
+        | `openeverest.io/provider: <provider>` | a key of the Provider's `spec.secrets` | the definition's `type` and `parametersSchema` |
+        | `openeverest.io/monitoring-class: <class>` | an authentication mode of the MonitoringClass, e.g. `ServiceAccountToken` | type `Opaque` and the keys the mode requires |
+
+        The name follows the Kubernetes rules for Secret names. Client-supplied owner references and finalizers are dropped. Secrets of type `kubernetes.io/service-account-token` or `bootstrap.kubernetes.io/token` are refused.
       operationId: createSecret
       parameters:
         - name: cluster
@@ -3549,6 +3634,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -3562,7 +3653,7 @@ paths:
       description: |
         This API lists OpenEverest-managed Secrets in the specified namespace and cluster.
         Only metadata is returned; secret data is never included.
-        Optionally filter by provider and definition.
+        Optionally filter by the labels that name the Secret's definition.
       operationId: listSecrets
       parameters:
         - name: cluster
@@ -3580,13 +3671,19 @@ paths:
         - name: provider
           in: query
           required: false
-          description: Filter secrets by provider name
+          description: Filter secrets by the provider that defines them (`openeverest.io/provider`)
+          schema:
+            type: string
+        - name: monitoringClass
+          in: query
+          required: false
+          description: Filter secrets by the MonitoringClass that defines them (`openeverest.io/monitoring-class`)
           schema:
             type: string
         - name: definition
           in: query
           required: false
-          description: Filter secrets by definition
+          description: Filter secrets by definition (`openeverest.io/definition`)
           schema:
             type: string
       responses:
@@ -3714,6 +3811,24 @@ components:
     BearerAuth:
       type: http
       scheme: bearer
+  parameters:
+    DryRun:
+      name: dryRun
+      in: query
+      required: false
+      description: |
+        `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything.
+      schema:
+        type: string
+        enum: [All]
+  headers:
+    Warning:
+      description: |
+        A warning Kubernetes returned while handling the request, such as an admission webhook reporting that a Secret the Instance names does not exist yet.
+        The header is repeated once per distinct warning, and each value has Kubernetes' warning format, `299 - "<text>"`, the `Warning` field of RFC 7234.
+      schema:
+        type: string
+      example: '299 - "secret \"db-credentials\" named by spec.userSecretRef not found"'
   schemas:
     Error:
       type: object
@@ -3731,14 +3846,35 @@ components:
           properties:
             reason:
               type: string
-              description: Machine-readable reason for the conflict.
+              description: Machine-readable reason for the error.
               example: AlreadyExists
             field:
               type: string
               description: The field path that caused the conflict.
               example: metadata.name
+            causes:
+              type: array
+              description: Every field that failed validation, on a 422.
+              items:
+                $ref: '#/components/schemas/APIErrorCause'
           required:
             - reason
+    APIErrorCause:
+      type: object
+      description: One field that failed validation.
+      properties:
+        reason:
+          type: string
+          description: Machine-readable kind of failure.
+          example: FieldValueInvalid
+        message:
+          type: string
+          description: What is wrong with the field.
+          example: 'Invalid value: 1: replicas in body should be a multiple of 2'
+        field:
+          type: string
+          description: The path of the field.
+          example: spec.components[hidden].replicas
     SecretList:
       type: object
       description: A list of OpenEverest-managed Secrets (metadata only).

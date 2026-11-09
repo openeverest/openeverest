@@ -177,10 +177,6 @@ type RestoreStatus struct {
 	// for ProviderManaged classes.
 	// +optional
 	OperatorRestoreRef *common.TypedObjectRef `json:"operatorRestoreRef,omitempty"`
-	// JobRef references the Job that is running the restore.
-	// Populated only for Job classes.
-	// +optional
-	JobRef *common.ObjectRef `json:"jobRef,omitempty"`
 	// StartedAt is the time when the restore started.
 	// +optional
 	StartedAt *metav1.Time `json:"startedAt,omitempty"`

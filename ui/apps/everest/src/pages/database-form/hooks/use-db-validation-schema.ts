@@ -19,11 +19,16 @@ import { ZodTypeAny } from 'zod';
 
 export const useDbValidationSchema = (
   dbInstances: DbInstanceName[],
-  openApiValidationSchema?: ZodTypeAny
+  openApiValidationSchema?: ZodTypeAny,
+  stepsValidationSchema?: ZodTypeAny
 ) => {
   const schema = useMemo(() => {
-    return getDBWizardSchema(dbInstances, openApiValidationSchema);
-  }, [dbInstances, openApiValidationSchema]);
+    return getDBWizardSchema(
+      dbInstances,
+      openApiValidationSchema,
+      stepsValidationSchema
+    );
+  }, [dbInstances, openApiValidationSchema, stepsValidationSchema]);
 
   return schema;
 };

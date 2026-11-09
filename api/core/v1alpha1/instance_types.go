@@ -64,9 +64,8 @@ type InstanceSpec struct {
 	// Backup configures the backup feature for this Instance. When enabled,
 	// the provider's reconciler is given the resolved BackupClass and storage
 	// list so it can configure the engine accordingly (sidecars, agent
-	// configuration, etc.). Required for ProviderManaged BackupClasses; Job
-	// classes do not need an entry here because they read directly from
-	// individual Backup CRs.
+	// configuration, etc.). Required to back up the Instance with its
+	// ProviderManaged BackupClass.
 	// +optional
 	Backup *InstanceBackupSpec `json:"backup,omitempty"`
 
@@ -819,6 +818,11 @@ const (
 	// ReasonValidationFailed indicates the provider rejected the spec. The
 	// message carries the provider's error.
 	ReasonValidationFailed = "ValidationFailed"
+
+	// ReasonInvalidReference indicates an object the Instance names exists but
+	// its contents don't fit the Instance, such as a user Secret missing a key
+	// the provider needs. The provider is not called.
+	ReasonInvalidReference = "InvalidReference"
 )
 
 // Reasons for the PodsScheduled condition.

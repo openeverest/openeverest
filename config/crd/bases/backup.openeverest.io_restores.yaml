@@ -260,23 +260,7 @@ spec:
                   started. Recorded for observability.
                 enum:
                 - ProviderManaged
-                - Job
                 type: string
-              jobRef:
-                description: |-
-                  JobRef references the Job that is running the restore.
-                  Populated only for Job classes.
-                properties:
-                  name:
-                    description: Name of the referenced object.
-                    maxLength: 253
-                    minLength: 1
-                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
-                    type: string
-                required:
-                - name
-                type: object
-                x-kubernetes-map-type: atomic
               lastObservedGeneration:
                 description: LastObservedGeneration is the last observed generation
                   of the Restore CR.

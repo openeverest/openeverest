@@ -30,9 +30,7 @@ export interface components {
                 /**
                  * @description ClassRef references the cluster-scoped BackupClass that defines how
                  *     this Backup is executed. The class's executionMode controls the runtime
-                 *     path: Job classes are reconciled by the in-cluster Backup job
-                 *     controller; ProviderManaged classes are reconciled by the provider's
-                 *     runtime.
+                 *     path; ProviderManaged classes are reconciled by the provider's runtime.
                  */
                 classRef: {
                     /** @description Name of the referenced object. */
@@ -196,16 +194,7 @@ export interface components {
                  *     started. Recorded for observability.
                  * @enum {string}
                  */
-                executionMode?: "ProviderManaged" | "Job";
-                /**
-                 * @description JobRef references the Job that is running the backup.
-                 *     Populated only for Job classes. Empty for external backups, which run
-                 *     no Job.
-                 */
-                jobRef?: {
-                    /** @description Name of the referenced object. */
-                    name: string;
-                };
+                executionMode?: "ProviderManaged";
                 /**
                  * Format: int64
                  * @description LastObservedGeneration is the last observed generation of the Backup CR.
@@ -301,10 +290,12 @@ export interface components {
                 /** @description DisplayName is a human-readable name for the backup class. */
                 displayName?: string;
                 /**
-                 * @description ExecutionMode selects between job-based and provider-managed execution.
+                 * @description ExecutionMode selects who executes the class's backup and restore
+                 *     operations. ProviderManaged is the only mode: the provider named in
+                 *     SupportedProviders executes them.
                  * @enum {string}
                  */
-                executionMode: "ProviderManaged" | "Job";
+                executionMode: "ProviderManaged";
                 /**
                  * @description InstanceConstraints defines compatibility requirements that must be
                  *     satisfied by an Instance before this backup class can be used with it.
@@ -316,148 +307,6 @@ export interface components {
                      *     For example, ".spec.engine.type" or ".spec.dataSource.dataImport.config.someField".
                      */
                     requiredFields?: string[];
-                };
-                /**
-                 * @description Job contains all execution detail for ExecutionMode="Job". Required
-                 *     when ExecutionMode is "Job"; must be unset when ExecutionMode is
-                 *     "ProviderManaged".
-                 */
-                job?: {
-                    /** @description Backup describes the job spawned per Backup CR. */
-                    backup: {
-                        /**
-                         * @description CleanupJobSpec is the optional specification of a cleanup job that runs
-                         *     when the parent Backup or Restore CR is deleted.
-                         */
-                        cleanupJobSpec?: {
-                            /** @description Command is the command to run the backup class. */
-                            command?: string[];
-                            /** @description Image is the image of the backup class. */
-                            image?: string;
-                        };
-                        /**
-                         * @description ClusterPermissions are cluster-scoped PolicyRules granted via a
-                         *     generated ClusterRole and ClusterRoleBinding.
-                         */
-                        clusterPermissions?: {
-                            /**
-                             * @description apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                             *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                             */
-                            apiGroups?: string[];
-                            /**
-                             * @description nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                             *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                             *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                             */
-                            nonResourceURLs?: string[];
-                            /** @description resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
-                            resourceNames?: string[];
-                            /** @description resources is a list of resources this rule applies to. '*' represents all resources. */
-                            resources?: string[];
-                            /** @description verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
-                            verbs: string[];
-                        }[];
-                        /** @description JobSpec is the specification of the backup or restore job. */
-                        jobSpec: {
-                            /** @description Command is the command to run the backup class. */
-                            command?: string[];
-                            /** @description Image is the image of the backup class. */
-                            image?: string;
-                        };
-                        /**
-                         * @description Permissions are namespace-scoped PolicyRules granted to the job pod via
-                         *     a generated Role and RoleBinding.
-                         */
-                        permissions?: {
-                            /**
-                             * @description apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                             *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                             */
-                            apiGroups?: string[];
-                            /**
-                             * @description nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                             *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                             *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                             */
-                            nonResourceURLs?: string[];
-                            /** @description resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
-                            resourceNames?: string[];
-                            /** @description resources is a list of resources this rule applies to. '*' represents all resources. */
-                            resources?: string[];
-                            /** @description verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
-                            verbs: string[];
-                        }[];
-                    };
-                    /**
-                     * @description Restore describes the job spawned per Restore CR. When unset, restores
-                     *     are not supported by this class.
-                     */
-                    restore?: {
-                        /**
-                         * @description CleanupJobSpec is the optional specification of a cleanup job that runs
-                         *     when the parent Backup or Restore CR is deleted.
-                         */
-                        cleanupJobSpec?: {
-                            /** @description Command is the command to run the backup class. */
-                            command?: string[];
-                            /** @description Image is the image of the backup class. */
-                            image?: string;
-                        };
-                        /**
-                         * @description ClusterPermissions are cluster-scoped PolicyRules granted via a
-                         *     generated ClusterRole and ClusterRoleBinding.
-                         */
-                        clusterPermissions?: {
-                            /**
-                             * @description apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                             *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                             */
-                            apiGroups?: string[];
-                            /**
-                             * @description nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                             *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                             *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                             */
-                            nonResourceURLs?: string[];
-                            /** @description resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
-                            resourceNames?: string[];
-                            /** @description resources is a list of resources this rule applies to. '*' represents all resources. */
-                            resources?: string[];
-                            /** @description verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
-                            verbs: string[];
-                        }[];
-                        /** @description JobSpec is the specification of the backup or restore job. */
-                        jobSpec: {
-                            /** @description Command is the command to run the backup class. */
-                            command?: string[];
-                            /** @description Image is the image of the backup class. */
-                            image?: string;
-                        };
-                        /**
-                         * @description Permissions are namespace-scoped PolicyRules granted to the job pod via
-                         *     a generated Role and RoleBinding.
-                         */
-                        permissions?: {
-                            /**
-                             * @description apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                             *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                             */
-                            apiGroups?: string[];
-                            /**
-                             * @description nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                             *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                             *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                             */
-                            nonResourceURLs?: string[];
-                            /** @description resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
-                            resourceNames?: string[];
-                            /** @description resources is a list of resources this rule applies to. '*' represents all resources. */
-                            resources?: string[];
-                            /** @description verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
-                            verbs: string[];
-                        }[];
-                    };
                 };
                 /**
                  * @description ParametersSchema declares the OpenAPI v3 schema describing the
@@ -475,8 +324,8 @@ export interface components {
                  * @description ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
                  *     schema is intentionally open: providers may surface capability
                  *     information (e.g., whether PITR is supported, schedule expression
-                 *     dialect) without forcing a CRD change. Must be unset when
-                 *     ExecutionMode is "Job".
+                 *     dialect) without forcing a CRD change. Must be unset for any other
+                 *     execution mode.
                  */
                 providerManaged?: {
                     /**
@@ -871,9 +720,8 @@ export interface components {
                  * @description Backup configures the backup feature for this Instance. When enabled,
                  *     the provider's reconciler is given the resolved BackupClass and storage
                  *     list so it can configure the engine accordingly (sidecars, agent
-                 *     configuration, etc.). Required for ProviderManaged BackupClasses; Job
-                 *     classes do not need an entry here because they read directly from
-                 *     individual Backup CRs.
+                 *     configuration, etc.). Required to back up the Instance with its
+                 *     ProviderManaged BackupClass.
                  */
                 backup?: {
                     /**
@@ -2335,9 +2183,8 @@ export interface components {
                  * @description Backup configures the backup feature for this Instance. When enabled,
                  *     the provider's reconciler is given the resolved BackupClass and storage
                  *     list so it can configure the engine accordingly (sidecars, agent
-                 *     configuration, etc.). Required for ProviderManaged BackupClasses; Job
-                 *     classes do not need an entry here because they read directly from
-                 *     individual Backup CRs.
+                 *     configuration, etc.). Required to back up the Instance with its
+                 *     ProviderManaged BackupClass.
                  */
                 backup?: {
                     /**
@@ -3803,6 +3650,15 @@ export interface components {
                                         name: string;
                                     };
                                 };
+                                /**
+                                 * @description ClientCertificateSecretRef references a kubernetes.io/tls Secret
+                                 *     (keys tls.crt and tls.key) the scraper presents as a client
+                                 *     certificate, for an endpoint that requires mutual TLS.
+                                 */
+                                clientCertificateSecretRef?: {
+                                    /** @description Name of the referenced Secret. */
+                                    name: string;
+                                };
                                 /** @description InsecureSkipVerify disables verification of the server certificate. */
                                 insecureSkipVerify?: boolean;
                                 /** @description ServerName overrides the expected server name. */
@@ -3931,9 +3787,8 @@ export interface components {
                  * @description Backup configures the backup feature for this Instance. When enabled,
                  *     the provider's reconciler is given the resolved BackupClass and storage
                  *     list so it can configure the engine accordingly (sidecars, agent
-                 *     configuration, etc.). Required for ProviderManaged BackupClasses; Job
-                 *     classes do not need an entry here because they read directly from
-                 *     individual Backup CRs.
+                 *     configuration, etc.). Required to back up the Instance with its
+                 *     ProviderManaged BackupClass.
                  */
                 backup?: {
                     /**
@@ -6466,15 +6321,7 @@ export interface components {
                  *     started. Recorded for observability.
                  * @enum {string}
                  */
-                executionMode?: "ProviderManaged" | "Job";
-                /**
-                 * @description JobRef references the Job that is running the restore.
-                 *     Populated only for Job classes.
-                 */
-                jobRef?: {
-                    /** @description Name of the referenced object. */
-                    name: string;
-                };
+                executionMode?: "ProviderManaged";
                 /**
                  * Format: int64
                  * @description LastObservedGeneration is the last observed generation of the Restore CR.

@@ -18,48 +18,38 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
-	"github.com/percona/everest-operator/utils"
 	corev1 "k8s.io/api/core/v1"
-	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+	k8svalidation "k8s.io/apimachinery/pkg/util/validation"
 
-	"github.com/openeverest/openeverest/v2/pkg/common"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
+	"github.com/openeverest/openeverest/v2/internal/secretdefinition"
+	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 )
 
 // CreateSecret validates the secret request and proxies it to the next handler.
+// The Secret must name its definition with the labels secretdefinition
+// describes, and match it.
 func (h *validateHandler) CreateSecret(ctx context.Context, cluster, namespace string, secret *corev1.Secret) (*corev1.Secret, error) {
-	if err := utils.ValidateEverestResourceName(secret.GetName(), "name"); err != nil {
-		return nil, errors.Join(ErrInvalidRequest, err)
+	if errs := k8svalidation.IsDNS1123Subdomain(secret.GetName()); len(errs) > 0 {
+		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("invalid name %q: %s", secret.GetName(), strings.Join(errs, "; ")))
 	}
 
-	definition := secret.GetLabels()[common.OpenEverestDefinitionLabel]
-	if definition == "" {
-		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("missing %s label", common.OpenEverestDefinitionLabel))
-	}
-
-	providerName := secret.GetLabels()[common.OpenEverestProviderLabel]
-	if providerName == "" {
-		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("missing %s label", common.OpenEverestProviderLabel))
-	}
-
-	// Fetch the provider for validation.
-	provider, err := h.kubeConnector.GetProvider(ctx, ctrlclient.ObjectKey{Name: providerName})
-	if err != nil {
-		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("failed to get provider %q: %w", providerName, err))
-	}
-
-	// Validate secret data against the schema.
-	if err := controller.ValidateSecretSchema(secret, &provider.Spec); err != nil {
-		return nil, errors.Join(ErrInvalidRequest, err)
+	if err := secretdefinition.Validate(ctx, h.kubeConnector, secret); err != nil {
+		if errors.Is(err, secretdefinition.ErrInvalidLabels) ||
+			errors.Is(err, secretdefinition.ErrSourceNotFound) ||
+			errors.Is(err, secretdefinition.ErrInvalidSecret) {
+			return nil, errors.Join(ErrInvalidRequest, err)
+		}
+		return nil, err
 	}
 
 	return h.next.CreateSecret(ctx, cluster, namespace, secret)
 }
 
 // ListSecrets proxies the request to the next handler.
-func (h *validateHandler) ListSecrets(ctx context.Context, cluster, namespace, provider, definition string) (*corev1.SecretList, error) {
-	return h.next.ListSecrets(ctx, cluster, namespace, provider, definition)
+func (h *validateHandler) ListSecrets(ctx context.Context, cluster, namespace string, filter handlers.SecretFilter) (*corev1.SecretList, error) {
+	return h.next.ListSecrets(ctx, cluster, namespace, filter)
 }
 
 // GetSecret proxies the request to the next handler.
