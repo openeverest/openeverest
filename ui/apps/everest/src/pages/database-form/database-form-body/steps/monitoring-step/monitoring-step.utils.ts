@@ -24,10 +24,11 @@ import {
   InstanceMonitoringDestination,
   InstanceMonitoringDestinationPayload,
   MonitoringClass,
-  MonitoringConditionType,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
+import { getDestinationName } from 'utils/monitoring-destinations';
 import {
+  getMonitoringClassName,
   getMonitoringClassUiSchema,
   getSectionFormDefaults,
   getSectionFormZodSchema,
@@ -43,7 +44,6 @@ import {
 } from './monitoring-step.constants';
 import {
   DestinationDisabledReason,
-  DestinationReadiness,
   MonitoringClassDestinations,
 } from './monitoring-step.types';
 
@@ -62,15 +62,6 @@ export const parseMonitoringDestinations = (
 ): InstanceMonitoringDestination[] =>
   Array.isArray(value) ? value.filter(isInstanceMonitoringDestination) : [];
 
-export const getDestinationName = (destination: MonitoringDestination) =>
-  destination.metadata?.name ?? '';
-
-export const getMonitoringClassName = (monitoringClass: MonitoringClass) =>
-  monitoringClass.metadata?.name ?? '';
-
-export const getMonitoringClassTitle = (monitoringClass: MonitoringClass) =>
-  monitoringClass.spec.displayName || getMonitoringClassName(monitoringClass);
-
 // Keeps the order of the classes and lists every class, including those
 // without a destination in the namespace yet.
 export const groupDestinationsByClass = (
@@ -85,37 +76,6 @@ export const groupDestinationsByClass = (
         getMonitoringClassName(monitoringClass)
     ),
   }));
-
-export const getDestinationReadiness = (
-  destination: MonitoringDestination
-): DestinationReadiness => {
-  const conditions = destination.status?.conditions ?? [];
-  const accepted = conditions.find(
-    (c) => c.type === MonitoringConditionType.Accepted
-  );
-  const ready = conditions.find(
-    (c) => c.type === MonitoringConditionType.Ready
-  );
-
-  if (accepted?.status === 'False' || ready?.status === 'False') {
-    return DestinationReadiness.NotReady;
-  }
-  if (ready?.status === 'True') {
-    return DestinationReadiness.Ready;
-  }
-  return DestinationReadiness.Pending;
-};
-
-// The backend address, when the class keeps it in a url parameter.
-export const getDestinationSummary = (
-  destination: MonitoringDestination
-): string | undefined => {
-  const parameters: unknown = destination.spec.parameters;
-  if (!isPlainObject(parameters)) {
-    return undefined;
-  }
-  return typeof parameters.url === 'string' ? parameters.url : undefined;
-};
 
 const toDnsLabel = (name: string) =>
   name
