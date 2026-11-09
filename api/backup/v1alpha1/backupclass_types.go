@@ -289,6 +289,10 @@ const (
 	// ReasonProviderNotFound means the Provider the class names does not
 	// exist.
 	ReasonProviderNotFound = "ProviderNotFound"
+	// ReasonProviderUnsupported means the class does not run on a Provider:
+	// status.providers, computed for the class's current generation, has no
+	// entry for it.
+	ReasonProviderUnsupported = "ProviderUnsupported"
 )
 
 // BackupClassProviderCompatibility is the compatibility of a BackupClass

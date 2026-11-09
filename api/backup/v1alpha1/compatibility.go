@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"path"
 	"slices"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,6 +75,48 @@ func CurrentVerdict(storage *BackupStorage, class *BackupClass, storageClass *Ba
 	return v
 }
 
+// CurrentProviderVerdict returns the class's verdict for Instances of
+// provider from status.providers. An entry computed for another generation of
+// the class counts as Pending with ReasonVerdictPending, and so does a
+// provider absent from a list core has not computed for the current
+// generation yet. A provider absent from a current list is Incompatible with
+// ReasonProviderUnsupported: the class does not run on it. Read
+// status.providers only through it.
+func CurrentProviderVerdict(class *BackupClass, provider string) BackupClassProviderCompatibility {
+	current := func(e BackupClassProviderCompatibility) bool { return e.ClassGeneration == class.Generation }
+	i := slices.IndexFunc(class.Status.Providers, func(e BackupClassProviderCompatibility) bool { return e.Name == provider })
+	switch {
+	case i >= 0 && current(class.Status.Providers[i]):
+		return class.Status.Providers[i]
+	case i >= 0:
+		return pendingProviderVerdict(class, provider, fmt.Sprintf(
+			"the verdict on BackupClass %q for Provider %q predates generation %d of the class",
+			class.Name, provider, class.Generation,
+		))
+	case slices.ContainsFunc(class.Status.Providers, current):
+		return BackupClassProviderCompatibility{
+			Name:            provider,
+			Compatibility:   CompatibilityIncompatible,
+			Reason:          ReasonProviderUnsupported,
+			Message:         fmt.Sprintf("BackupClass %q does not run on Provider %q", class.Name, provider),
+			ClassGeneration: class.Generation,
+		}
+	}
+	return pendingProviderVerdict(class, provider, fmt.Sprintf(
+		"BackupClass %q has not been judged for Provider %q at generation %d yet", class.Name, provider, class.Generation,
+	))
+}
+
+func pendingProviderVerdict(class *BackupClass, provider, message string) BackupClassProviderCompatibility {
+	return BackupClassProviderCompatibility{
+		Name:            provider,
+		Compatibility:   CompatibilityPending,
+		Reason:          ReasonVerdictPending,
+		Message:         message,
+		ClassGeneration: class.Generation,
+	}
+}
+
 func pendingVerdict(class, message string) BackupClassVerdict {
 	return BackupClassVerdict{Name: class, Compatibility: CompatibilityPending, Reason: ReasonVerdictPending, Message: message}
 }
@@ -120,8 +163,10 @@ func (c *BackupClass) CanWriteTo(storage *BackupStorage) StorageCompatibility {
 		}
 		if err := entry.ParametersSchema.Validate(params); err != nil {
 			return StorageCompatibility{
-				Reason:  ReasonParameterUnsupported,
-				Message: fmt.Sprintf("BackupClass %q does not support the parameters of the storage: %v", c.Name, err),
+				Reason: ReasonParameterUnsupported,
+				Message: fmt.Sprintf("BackupClass %q does not support the parameters of the storage: %s",
+					c.Name, strings.ReplaceAll(err.Error(), "\n", ": "),
+				),
 			}
 		}
 	}
