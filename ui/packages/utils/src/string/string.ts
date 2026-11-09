@@ -12,14 +12,53 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const kebabize = (str: string) =>
+const isUpperCase = (char = '') => char >= 'A' && char <= 'Z';
+const isLowerCase = (char = '') => char >= 'a' && char <= 'z';
+
+// A capital starts a word unless it continues an acronym: myURLParser → my-url-parser.
+const hyphenateCapitals = (str: string) =>
   str
-    .replace(
-      /[A-Z]+(?![a-z])|[A-Z]/g,
-      ($, ofs) => (ofs ? '-' : '') + $.toLowerCase()
-    )
-    .replace(/\s+(?=[-])/, '')
-    .replace(/\s+(?![-])/, '-');
+    .split('')
+    .map((char, index) => {
+      if (!isUpperCase(char)) {
+        return char;
+      }
+      const startsWord =
+        index > 0 &&
+        (!isUpperCase(str[index - 1]) || isLowerCase(str[index + 1]));
+      return (startsWord ? '-' : '') + char.toLowerCase();
+    })
+    .join('');
+
+// Checks the hyphen after a run here, not in a lookahead, to stay linear.
+const replaceFirstWhitespace = (
+  str: string,
+  replacer: (run: string, beforeHyphen: boolean) => string
+) => {
+  let replaced = false;
+  return str.replace(/\s+/g, (run: string, offset: number) => {
+    if (replaced) {
+      return run;
+    }
+    const result = replacer(run, str[offset + run.length] === '-');
+    replaced = result !== run;
+    return result;
+  });
+};
+
+// Only the first whitespace run is joined: e2e data-testids rely on it.
+const kebabize = (str: string) =>
+  replaceFirstWhitespace(
+    replaceFirstWhitespace(hyphenateCapitals(str), (run, beforeHyphen) =>
+      beforeHyphen ? '' : run
+    ),
+    (run, beforeHyphen) => {
+      if (!beforeHyphen) {
+        return '-';
+      }
+      return run.length > 1 ? `-${run.slice(-1)}` : run;
+    }
+  );
 
 export const pluralize = (
   count: number,
