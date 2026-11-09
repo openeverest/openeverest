@@ -32,6 +32,9 @@ spec:
     - jsonPath: .status.serverVersion
       name: Version
       type: string
+    - jsonPath: .status.attachedInstances
+      name: Instances
+      type: integer
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -176,6 +179,15 @@ spec:
               MonitoringDestinationStatus defines the observed state of
               MonitoringDestination.
             properties:
+              attachedInstances:
+                description: |-
+                  AttachedInstances is the number of Instances in this namespace whose
+                  spec.monitoring.destinations lists this destination, whatever the
+                  state of their binding, including Instances being deleted. Written by
+                  core; deleting the destination is refused while it is above zero.
+                format: int32
+                minimum: 0
+                type: integer
               conditions:
                 items:
                   description: Condition contains details for one aspect of the current

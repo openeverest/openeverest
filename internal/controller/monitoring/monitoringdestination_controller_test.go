@@ -30,8 +30,12 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/events"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
@@ -39,14 +43,33 @@ import (
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 )
 
+// newDestinationReconciler reads Instances through c both cached and live.
+func newDestinationReconciler(c client.Client) (*DestinationReconciler, *events.FakeRecorder) {
+	rec := events.NewFakeRecorder(10)
+	return &DestinationReconciler{Client: c, APIReader: c, Recorder: rec}, rec
+}
+
 func reconcileDestination(t *testing.T, c client.Client, name string) *monitoringv1alpha1.MonitoringDestination {
 	t.Helper()
+	r, _ := newDestinationReconciler(c)
+	return runDestinationReconcile(t, r, name)
+}
+
+func runDestinationReconcile(t *testing.T, r *DestinationReconciler, name string) *monitoringv1alpha1.MonitoringDestination {
+	t.Helper()
 	key := types.NamespacedName{Namespace: testNamespace, Name: name}
-	_, err := (&DestinationReconciler{Client: c}).Reconcile(t.Context(), ctrl.Request{NamespacedName: key})
+	_, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: key})
 	require.NoError(t, err)
 	dst := &monitoringv1alpha1.MonitoringDestination{}
-	require.NoError(t, c.Get(t.Context(), key, dst))
+	require.NoError(t, r.Get(t.Context(), key, dst))
 	return dst
+}
+
+// namedInstance is newInstance under another name and namespace.
+func namedInstance(name, namespace string, entries ...corev1alpha1.InstanceMonitoringDestination) *corev1alpha1.Instance {
+	in := newInstance(pxcProvider(), entries...)
+	in.Name, in.Namespace, in.UID = name, namespace, types.UID(name+"-uid")
+	return in
 }
 
 func TestDestinationReconcilerAccepted(t *testing.T) {
@@ -171,34 +194,186 @@ func TestDestinationReconcilerAccepted(t *testing.T) {
 			assert.Equal(t, tt.wantReason, accepted.Reason)
 			assert.Contains(t, accepted.Message, tt.wantMessage)
 			assert.Equal(t, int64(2), accepted.ObservedGeneration)
-			assert.Empty(t, dst.Finalizers)
+			assert.Equal(t, []string{monitoringv1alpha1.InUseProtectionFinalizer}, dst.Finalizers)
 		})
 	}
 }
 
-func TestDestinationInUseIsDeletedImmediately(t *testing.T) {
+func TestDestinationReconcilerCountsAttachedInstances(t *testing.T) {
+	t.Parallel()
+	beingDeleted := namedInstance("payments", testNamespace, entry("metrics", "prom"))
+	beingDeleted.Finalizers = []string{"test.openeverest.io/hold"}
+	beingDeleted.DeletionTimestamp = &metav1.Time{Time: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
+
+	tests := []struct {
+		name      string
+		instances []client.Object
+		want      int32
+	}{
+		{name: "no Instance", want: 0},
+		{
+			name:      "one Instance",
+			instances: []client.Object{namedInstance("orders", testNamespace, entry("metrics", "prom"))},
+			want:      1,
+		},
+		{
+			name: "an Instance being deleted still counts",
+			instances: []client.Object{
+				namedInstance("orders", testNamespace, entry("metrics", "prom")),
+				beingDeleted,
+			},
+			want: 2,
+		},
+		{
+			name: "Instances listing another destination or in another namespace do not count",
+			instances: []client.Object{
+				namedInstance("orders", testNamespace, entry("metrics", "pmm-prod")),
+				namedInstance("orders", "team-b", entry("metrics", "prom")),
+			},
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			c := newFakeClient(t, append([]client.Object{prometheusClass(), newDestination("prom", "prometheus")}, tt.instances...)...)
+
+			dst := reconcileDestination(t, c, "prom")
+
+			assert.Equal(t, tt.want, dst.Status.AttachedInstances)
+			assert.Equal(t, monitoringv1alpha1.ReasonAccepted, findAccepted(t, dst.Status.Conditions).Reason)
+		})
+	}
+}
+
+func TestDestinationReconcilerCountFollowsInstances(t *testing.T) {
+	t.Parallel()
+	c := newFakeClient(t, prometheusClass(), newDestination("prom", "prometheus"), newInstance(pxcProvider(), entry("metrics", "prom")))
+
+	require.Equal(t, int32(1), reconcileDestination(t, c, "prom").Status.AttachedInstances)
+
+	updateInstance(t, c, func(in *corev1alpha1.Instance) { in.Spec.Monitoring = nil })
+	dst := reconcileDestination(t, c, "prom")
+
+	assert.Equal(t, int32(0), dst.Status.AttachedInstances)
+	// The count and Accepted go in one apply, so neither prunes the other.
+	assert.Equal(t, monitoringv1alpha1.ReasonAccepted, findAccepted(t, dst.Status.Conditions).Reason)
+}
+
+func TestDestinationDeletionWaitsForInstances(t *testing.T) {
 	t.Parallel()
 	c := newFakeClient(t, pxcProvider(), prometheusClass(), newDestination("prom", "prometheus"),
 		newInstance(pxcProvider(), entry("metrics", "prom")),
 	)
-	reconcileInstance(t, c)
-	dst := reconcileDestination(t, c, "prom")
-	require.Empty(t, dst.Finalizers)
+	r, rec := newDestinationReconciler(c)
+	key := types.NamespacedName{Namespace: testNamespace, Name: "prom"}
 
+	dst := runDestinationReconcile(t, r, "prom")
 	require.NoError(t, c.Delete(t.Context(), dst))
-	err := c.Get(t.Context(), client.ObjectKeyFromObject(dst), &monitoringv1alpha1.MonitoringDestination{})
-	require.True(t, apierrors.IsNotFound(err), "destination still present: %v", err)
 
-	requests := (&BindingReconciler{Client: c}).enqueueInstancesForDestination(t.Context(), dst)
-	assert.Equal(t, []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: testInstance}}}, requests)
+	dst = runDestinationReconcile(t, r, "prom")
+	assert.False(t, dst.DeletionTimestamp.IsZero())
+	assert.Equal(t, []string{monitoringv1alpha1.InUseProtectionFinalizer}, dst.Finalizers)
+	assert.Equal(t, int32(1), dst.Status.AttachedInstances)
+	require.Len(t, rec.Events, 1)
+	assert.Equal(t, "Warning DeletionBlocked deletion waits for 1 Instance(s) to stop using it: orders", <-rec.Events)
 
 	reconcileInstance(t, c)
-	b := getBinding(t, c, "metrics")
-	accepted := findAccepted(t, b.Status.Conditions)
+	accepted := findAccepted(t, getBinding(t, c, "metrics").Status.Conditions)
 	assert.Equal(t, metav1.ConditionFalse, accepted.Status)
-	assert.Equal(t, monitoringv1alpha1.ReasonDestinationNotFound, accepted.Reason)
-	assert.Equal(t, corev1alpha1.MonitoringExecutionModeExtensionManaged, b.Spec.ExecutionMode)
-	assert.Equal(t, &common.ObjectRef{Name: "prometheus"}, b.Spec.ClassRef)
+	assert.Equal(t, monitoringv1alpha1.ReasonDestinationTerminating, accepted.Reason)
+	assert.Equal(t, `MonitoringDestination "prom" is being deleted; remove this entry to let the deletion finish`, accepted.Message)
+
+	updateInstance(t, c, func(in *corev1alpha1.Instance) { in.Spec.Monitoring = nil })
+	_, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: key})
+	require.NoError(t, err)
+
+	err = c.Get(t.Context(), key, &monitoringv1alpha1.MonitoringDestination{})
+	require.True(t, apierrors.IsNotFound(err), "destination still present: %v", err)
+	assert.Empty(t, rec.Events)
+}
+
+func TestDestinationDeletionReadsInstancesFromTheAPIServer(t *testing.T) {
+	t.Parallel()
+	// The cache has not seen the Instance yet; the API server has.
+	cached := newFakeClient(t, prometheusClass(), newDestination("prom", "prometheus"))
+	live := newFakeClient(t, newInstance(pxcProvider(), entry("metrics", "prom")))
+	rec := events.NewFakeRecorder(10)
+	r := &DestinationReconciler{Client: cached, APIReader: live, Recorder: rec}
+
+	dst := runDestinationReconcile(t, r, "prom")
+	require.Equal(t, int32(0), dst.Status.AttachedInstances)
+	require.NoError(t, cached.Delete(t.Context(), dst))
+
+	dst = runDestinationReconcile(t, r, "prom")
+
+	assert.Equal(t, []string{monitoringv1alpha1.InUseProtectionFinalizer}, dst.Finalizers)
+	assert.Equal(t, int32(1), dst.Status.AttachedInstances)
+	assert.Len(t, rec.Events, 1)
+}
+
+func TestEnqueueDestinationsOfInstance(t *testing.T) {
+	t.Parallel()
+	before := newInstance(pxcProvider(), entry("pmm", "pmm-prod"), entry("prom", "prom"))
+	after := newInstance(pxcProvider(), entry("prom", "prom"), entry("vm", "victoria"))
+	requests := func(names ...string) []reconcile.Request {
+		reqs := make([]reconcile.Request, 0, len(names))
+		for _, name := range names {
+			reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{Namespace: testNamespace, Name: name}})
+		}
+		return reqs
+	}
+
+	tests := []struct {
+		name string
+		send func(handler.EventHandler, workqueue.TypedRateLimitingInterface[reconcile.Request])
+		want []reconcile.Request
+	}{
+		{
+			name: "create enqueues every destination listed",
+			send: func(h handler.EventHandler, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+				h.Create(t.Context(), event.CreateEvent{Object: before}, q)
+			},
+			want: requests("pmm-prod", "prom"),
+		},
+		{
+			name: "update enqueues the destinations added and removed",
+			send: func(h handler.EventHandler, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+				h.Update(t.Context(), event.UpdateEvent{ObjectOld: before, ObjectNew: after}, q)
+			},
+			want: requests("pmm-prod", "victoria"),
+		},
+		{
+			name: "update that keeps the destinations enqueues nothing",
+			send: func(h handler.EventHandler, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+				h.Update(t.Context(), event.UpdateEvent{ObjectOld: after, ObjectNew: after.DeepCopy()}, q)
+			},
+		},
+		{
+			name: "delete enqueues every destination listed",
+			send: func(h handler.EventHandler, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+				h.Delete(t.Context(), event.DeleteEvent{Object: after}, q)
+			},
+			want: requests("prom", "victoria"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			q := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
+			defer q.ShutDown()
+
+			tt.send(enqueueDestinationsOfInstance(), q)
+
+			var got []reconcile.Request
+			for q.Len() > 0 {
+				req, _ := q.Get()
+				got = append(got, req)
+				q.Done(req)
+			}
+			assert.ElementsMatch(t, tt.want, got)
+		})
+	}
 }
 
 func TestDestinationReconcilerEnqueuesDestinationsUsingSecret(t *testing.T) {

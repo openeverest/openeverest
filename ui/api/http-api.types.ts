@@ -965,8 +965,10 @@ export interface paths {
         /**
          * Delete monitoring destination
          * @description This API deletes the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
-         *     Instances that still list it in `spec.monitoring.destinations` keep their current monitoring and report the destination as not found;
-         *     list them first with `GET .../monitoring-bindings?destination={name}`.
+         *     It is refused with `403` while Instances list the destination in `spec.monitoring.destinations` (`status.attachedInstances` above zero);
+         *     the message gives their number, and `GET .../monitoring-bindings?destination={name}` lists them.
+         *     With `dryRun=All` the answer is the same and nothing is deleted, so a client can ask before it deletes.
+         *     A deletion that is let through may leave the destination listed with `metadata.deletionTimestamp` set until no Instance lists it any more.
          */
         delete: operations["deleteMonitoringDestination"];
         options?: never;
@@ -7508,6 +7510,14 @@ export interface components {
              *     }
              */
             status?: {
+                /**
+                 * Format: int32
+                 * @description AttachedInstances is the number of Instances in this namespace whose
+                 *     spec.monitoring.destinations lists this destination, whatever the
+                 *     state of their binding, including Instances being deleted. Written by
+                 *     core; deleting the destination is refused while it is above zero.
+                 */
+                attachedInstances?: number;
                 conditions?: {
                     /**
                      * Format: date-time
@@ -11121,7 +11131,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Forbidden */
+            /** @description The caller may not delete the destination, or Instances still use it */
             403: {
                 headers: {
                     [name: string]: unknown;

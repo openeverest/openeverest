@@ -41,35 +41,6 @@ import (
 	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
 )
 
-// instanceMonitoringDestinationField indexes Instances by every
-// spec.monitoring.destinations[].destinationRef.name.
-const instanceMonitoringDestinationField = ".spec.monitoring.destinations.destinationRef.name"
-
-const destinationKind = "MonitoringDestination"
-
-// instanceMonitoringDestinationNames is the extractor for
-// instanceMonitoringDestinationField.
-func instanceMonitoringDestinationNames(obj client.Object) []string {
-	in, ok := obj.(*corev1alpha1.Instance)
-	if !ok {
-		return nil
-	}
-	entries := instanceMonitoringDestinations(in)
-	names := make([]string, 0, len(entries))
-	for _, e := range entries {
-		names = append(names, e.DestinationRef.Name)
-	}
-	return names
-}
-
-// instanceMonitoringDestinations returns the Instance's destination entries.
-func instanceMonitoringDestinations(in *corev1alpha1.Instance) []corev1alpha1.InstanceMonitoringDestination {
-	if in.Spec.Monitoring == nil {
-		return nil
-	}
-	return in.Spec.Monitoring.Destinations
-}
-
 // BindingReconciler materialises one MonitoringBinding per
 // Instance.spec.monitoring.destinations[] entry and owns the bindings' spec
 // and Accepted condition. It never touches Instance status.
@@ -79,15 +50,9 @@ type BindingReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// SetupWithManager registers the Instance index on
-// spec.monitoring.destinations[].destinationRef.name and sets up the
-// controller.
+// SetupWithManager sets up the controller. The Instance index it lists by is
+// registered by SetupIndexes.
 func (r *BindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1alpha1.Instance{},
-		instanceMonitoringDestinationField, instanceMonitoringDestinationNames,
-	); err != nil {
-		return fmt.Errorf("indexing instance by monitoring destination: %w", err)
-	}
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("MonitoringBinding").
 		For(&corev1alpha1.Instance{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
@@ -333,6 +298,13 @@ func (r *BindingReconciler) resolveClass(
 		}
 		return nil, nil, rejection(existing, nil, monitoringv1alpha1.ReasonDestinationNotFound,
 			fmt.Sprintf("MonitoringDestination %q not found", entry.DestinationRef.Name),
+		), nil
+	}
+	if !dst.DeletionTimestamp.IsZero() {
+		// Its deletion completes once no Instance lists it; the hold rule keeps
+		// what is already configured meanwhile.
+		return nil, nil, rejection(existing, nil, monitoringv1alpha1.ReasonDestinationTerminating,
+			fmt.Sprintf("MonitoringDestination %q is being deleted; remove this entry to let the deletion finish", dst.Name),
 		), nil
 	}
 	if existing != nil && existing.Spec.ClassRef != nil && existing.Spec.ClassRef.Name != dst.Spec.ClassRef.Name {

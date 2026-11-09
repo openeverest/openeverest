@@ -16,6 +16,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -102,6 +103,78 @@ func TestEverestErrorHandler_Conflict(t *testing.T) {
 
 			require.Equal(t, http.StatusConflict, rec.Code)
 			assert.JSONEq(t, tt.want, rec.Body.String())
+		})
+	}
+}
+
+func TestEverestErrorHandler_AdmissionDenial(t *testing.T) {
+	t.Parallel()
+
+	destinations := schema.GroupResource{Group: "monitoring.openeverest.io", Resource: "monitoringdestinations"}
+	inUse := "in use by 1 database; remove the destination from them first " +
+		"(kubectl get monitoringbindings -n team-a -l monitoring.openeverest.io/destination=pmm-prod)"
+
+	tests := []struct {
+		name string
+		err  error
+		code int
+		want string
+	}{
+		{
+			name: "policy denial with binding",
+			// admission.NewForbidden in the ValidatingAdmissionPolicy dispatcher of k8s.io/apiserver.
+			err: k8serrors.NewForbidden(destinations, "pmm-prod", errors.New(
+				"ValidatingAdmissionPolicy 'monitoringdestination-in-use.monitoring.openeverest.io' with binding "+
+					"'monitoringdestination-in-use.monitoring.openeverest.io' denied request: "+inUse,
+			)),
+			code: http.StatusForbidden,
+			want: inUse,
+		},
+		{
+			name: "policy denial without binding",
+			err: k8serrors.NewForbidden(destinations, "pmm-prod", errors.New(
+				"ValidatingAdmissionPolicy 'monitoringdestination-in-use.monitoring.openeverest.io' denied request: "+inUse,
+			)),
+			code: http.StatusForbidden,
+			want: inUse,
+		},
+		{
+			name: "webhook denial",
+			// webhookerrors.ToStatusErr in k8s.io/apiserver.
+			err: &k8serrors.StatusError{ErrStatus: metav1.Status{
+				Status:  metav1.StatusFailure,
+				Code:    http.StatusForbidden,
+				Reason:  metav1.StatusReasonForbidden,
+				Message: `admission webhook "vinstance.percona-server-mongodb.openeverest.io" denied the request: replicas must be odd`,
+			}},
+			code: http.StatusForbidden,
+			want: "replicas must be odd",
+		},
+		{
+			name: "other forbidden error unchanged",
+			err:  k8serrors.NewForbidden(destinations, "pmm-prod", errors.New("namespace team-a is being terminated")),
+			code: http.StatusForbidden,
+			want: `monitoringdestinations.monitoring.openeverest.io "pmm-prod" is forbidden: namespace team-a is being terminated`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			e := echo.New()
+			rec := httptest.NewRecorder()
+			c := e.NewContext(httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/", nil), rec)
+
+			handler := everestErrorHandler(e.DefaultHTTPErrorHandler)
+			handler(tt.err, c)
+
+			require.Equal(t, tt.code, rec.Code)
+			var body struct {
+				Message string `json:"message"`
+			}
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+			assert.Equal(t, tt.want, body.Message)
 		})
 	}
 }

@@ -27,6 +27,7 @@ import (
 	"io/fs"
 	"net/http"
 	"path"
+	"regexp"
 	"slices"
 	"strings"
 	"text/template"
@@ -732,11 +733,17 @@ func trimStrictDecodingError(fullText string) string {
 	return fullText
 }
 
+// admissionDenial matches what the API server writes before the message of
+// an admission webhook or ValidatingAdmissionPolicy that denied a request,
+// including the resource and name it puts first when the denial is Forbidden.
+var admissionDenial = regexp.MustCompile(
+	`^(?:\S+ "[^"]*" is forbidden: )?(?:admission webhook "[^"]*" denied the request|ValidatingAdmissionPolicy '[^']*'(?: with binding '[^']*')? denied request): `,
+)
+
+// trimWebhookErrorText keeps only the message an admission webhook or policy
+// gave for denying a request.
 func trimWebhookErrorText(fullText string) string {
-	monitoringWebhookPrefix := `admission webhook "vmonitoringconfig-v1alpha1.everest.percona.com" denied the request: `
-	loadBalancerConfigWebhookPrefix := `admission webhook "vloadbalancerconfig-v1alpha1.everest.percona.com" denied the request: `
-	dbcWebhookPrefix := `admission webhook "vdatabasecluster-v1alpha1.everest.percona.com" denied the request: `
-	return strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(fullText, loadBalancerConfigWebhookPrefix), monitoringWebhookPrefix), dbcWebhookPrefix)
+	return admissionDenial.ReplaceAllString(fullText, "")
 }
 
 // createSessionManagerClient creates a k8s client for a session manager.

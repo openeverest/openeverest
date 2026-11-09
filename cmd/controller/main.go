@@ -16,6 +16,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"os"
@@ -231,8 +232,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := monitoringcontroller.SetupIndexes(context.Background(), mgr); err != nil {
+		setupLog.Error(err, "Failed to register monitoring indexes")
+		os.Exit(1)
+	}
+
 	if err := (&monitoringcontroller.DestinationReconciler{
-		Client: mgr.GetClient(),
+		Client:    mgr.GetClient(),
+		APIReader: mgr.GetAPIReader(),
+		Recorder:  mgr.GetEventRecorder("openeverest-monitoringdestination"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "MonitoringDestination")
 		os.Exit(1)
