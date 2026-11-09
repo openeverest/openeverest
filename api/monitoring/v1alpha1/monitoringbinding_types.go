@@ -51,6 +51,7 @@ const (
 const (
 	ReasonAccepted               = "Accepted"
 	ReasonDestinationNotFound    = "DestinationNotFound"
+	ReasonDestinationTerminating = "DestinationTerminating"
 	ReasonClassNotFound          = "ClassNotFound"
 	ReasonClassNotAccepted       = "ClassNotAccepted"
 	ReasonProviderNotFound       = "ProviderNotFound"

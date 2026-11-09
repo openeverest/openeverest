@@ -37,7 +37,7 @@ func (e *EverestServer) ListMonitoringDestinations(c echo.Context, cluster, name
 }
 
 // CreateMonitoringDestination creates a new monitoring destination.
-func (e *EverestServer) CreateMonitoringDestination(c echo.Context, cluster, namespace string) error {
+func (e *EverestServer) CreateMonitoringDestination(c echo.Context, cluster, namespace string, _ api.CreateMonitoringDestinationParams) error {
 	destination := &monitoringv1alpha1.MonitoringDestination{}
 	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
@@ -68,7 +68,7 @@ func (e *EverestServer) GetMonitoringDestination(c echo.Context, cluster, namesp
 }
 
 // UpdateMonitoringDestination updates a monitoring destination.
-func (e *EverestServer) UpdateMonitoringDestination(c echo.Context, cluster, namespace, name string) error {
+func (e *EverestServer) UpdateMonitoringDestination(c echo.Context, cluster, namespace, name string, _ api.UpdateMonitoringDestinationParams) error {
 	destination := &monitoringv1alpha1.MonitoringDestination{}
 	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
@@ -89,7 +89,7 @@ func (e *EverestServer) UpdateMonitoringDestination(c echo.Context, cluster, nam
 }
 
 // DeleteMonitoringDestination deletes a monitoring destination.
-func (e *EverestServer) DeleteMonitoringDestination(c echo.Context, cluster, namespace, name string) error {
+func (e *EverestServer) DeleteMonitoringDestination(c echo.Context, cluster, namespace, name string, _ api.DeleteMonitoringDestinationParams) error {
 	if err := e.handler.DeleteMonitoringDestination(c.Request().Context(), cluster, namespace, name); err != nil {
 		e.l.Errorf("DeleteMonitoringDestination failed: %v", err)
 		return err

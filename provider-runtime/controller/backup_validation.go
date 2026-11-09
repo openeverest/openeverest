@@ -212,8 +212,7 @@ func ValidateBackupImportSupported(bc *backupv1alpha1.BackupClass) error {
 // Restore are acceptable for the given BackupClass:
 //   - When the resolved class is ProviderManaged, PITR may only be requested
 //     if the class advertises .spec.providerManaged.supportsPITR.
-//   - Job-mode classes have no PITR capability declaration; they are not
-//     gated here.
+//   - Classes of any other execution mode are not gated here.
 //
 // A nil class or a Restore that is not requesting point-in-time recovery
 // passes. The CRD's CEL rule already requires date when recoveryTarget is

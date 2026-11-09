@@ -801,9 +801,9 @@ func (c *Context) BackupClassForInstance() (*backupv1alpha1.BackupClass, error) 
 }
 
 // BackupClassLimits returns the limits declared by the BackupClass referenced
-// by the Instance, or nil when the class is Job-mode, has no limits set, or
-// the Instance has no backup configuration. The returned pointer aliases the
-// BackupClass; callers must not mutate it.
+// by the Instance, or nil when the class is not ProviderManaged, has no limits
+// set, or the Instance has no backup configuration. The returned pointer
+// aliases the BackupClass; callers must not mutate it.
 func (c *Context) BackupClassLimits() (*backupv1alpha1.BackupClassLimits, error) {
 	bc, err := c.BackupClassForInstance()
 	if err != nil || bc == nil {
@@ -1436,9 +1436,9 @@ func RequestsForInstancesMatching(ctx context.Context, c client.Client, provider
 // the creator on spec.origin.external and mirrored to status here. The state is
 // set to Succeeded when those timestamps are present.
 //
-// Both Job-mode and ProviderManaged backups share this reconciliation of backup
-// status; there is no engine specific logic to validate an external backup to
-// set the state.
+// Every execution mode shares this reconciliation of backup status; there
+// is no engine specific logic to validate an external backup to set the
+// state.
 func ReconcileExternalBackupStatus(backup *backupv1alpha1.Backup) {
 	external := backup.Spec.Origin.External
 	if external == nil {

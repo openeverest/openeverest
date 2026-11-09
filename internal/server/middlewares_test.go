@@ -27,9 +27,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 	"testing"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/labstack/echo/v4"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/stretchr/testify/assert"
@@ -43,6 +45,7 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
@@ -248,4 +251,137 @@ func TestKubernetesWarnings(t *testing.T) {
 			assert.Equal(t, tt.wantHeaders, rec.Header().Values("Warning"))
 		})
 	}
+}
+
+func TestDryRun(t *testing.T) {
+	t.Parallel()
+
+	swagger, err := api.GetSpec()
+	require.NoError(t, err)
+
+	tests := []struct {
+		name       string
+		method     string
+		target     string
+		wantCode   int
+		wantDryRun bool
+	}{
+		{
+			name:       "operation declaring dryRun",
+			method:     http.MethodPost,
+			target:     "/v1/clusters/main/namespaces/ns/instances?dryRun=All",
+			wantCode:   http.StatusOK,
+			wantDryRun: true,
+		},
+		{
+			name:     "operation declaring dryRun, called without it",
+			method:   http.MethodPatch,
+			target:   "/v1/clusters/main/namespaces/ns/instances/db",
+			wantCode: http.StatusOK,
+		},
+		{
+			name:     "operation not declaring dryRun",
+			method:   http.MethodDelete,
+			target:   "/v1/clusters/main/namespaces/ns/instances/db?dryRun=All",
+			wantCode: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var gotDryRun *bool
+			handler := func(c echo.Context) error {
+				gotDryRun = new(kubernetes.IsDryRun(c.Request().Context()))
+				return c.NoContent(http.StatusOK)
+			}
+			e := echo.New()
+			g := e.Group("/v1", dryRun(swagger, "/v1"))
+			g.POST("/clusters/:cluster/namespaces/:namespace/instances", handler)
+			g.PATCH("/clusters/:cluster/namespaces/:namespace/instances/:instance", handler)
+			g.DELETE("/clusters/:cluster/namespaces/:namespace/instances/:instance", handler)
+
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), tt.method, tt.target, nil))
+
+			assert.Equal(t, tt.wantCode, rec.Code)
+			if tt.wantCode != http.StatusOK {
+				assert.Nil(t, gotDryRun, "the handler must not run")
+				return
+			}
+			require.NotNil(t, gotDryRun)
+			assert.Equal(t, tt.wantDryRun, *gotDryRun)
+		})
+	}
+}
+
+// TestDryRunDecidedForEveryWrite makes every write either declare the dryRun
+// parameter or be listed as going without it, so a new write makes the choice.
+func TestDryRunDecidedForEveryWrite(t *testing.T) {
+	t.Parallel()
+
+	// Operation IDs of the writes without dryRun.
+	withoutDryRun := map[string]bool{
+		// Session tokens, not stored resources.
+		"CreateAuthToken": true,
+		"RevokeAuthToken": true,
+
+		// They mint a PMM API key, a side effect outside Kubernetes that a dry run would not prevent.
+		"CreateMonitoringConfig": true,
+		"UpdateMonitoringConfig": true,
+
+		"CreateBackup":           true,
+		"CreateBackupImport":     true,
+		"CreateBackupStorage":    true,
+		"CreateConfigMap":        true,
+		"CreateInstancePreset":   true,
+		"CreateRestore":          true,
+		"CreateSecret":           true,
+		"DeleteBackup":           true,
+		"DeleteBackupImport":     true,
+		"DeleteBackupStorage":    true,
+		"DeleteConfigMap":        true,
+		"DeleteInstance":         true,
+		"DeleteInstancePreset":   true,
+		"DeleteMonitoringConfig": true,
+		"DeleteRestore":          true,
+		"DeleteSecret":           true,
+		"PatchBackupStorage":     true,
+		"UpdateBackupStorage":    true,
+		"UpdateInstancePreset":   true,
+	}
+
+	swagger, err := api.GetSpec()
+	require.NoError(t, err)
+
+	var undecided, contradicted, unknown []string
+	writes := make(map[string]bool)
+	for _, item := range swagger.Paths.Map() {
+		for method, op := range item.Operations() {
+			if method == http.MethodGet {
+				continue
+			}
+			writes[op.OperationID] = true
+			declared := op.Parameters.GetByInAndName(openapi3.ParameterInQuery, "dryRun") != nil
+			switch {
+			case !declared && !withoutDryRun[op.OperationID]:
+				undecided = append(undecided, op.OperationID)
+			case declared && withoutDryRun[op.OperationID]:
+				contradicted = append(contradicted, op.OperationID)
+			}
+		}
+	}
+	for id := range withoutDryRun {
+		if !writes[id] {
+			unknown = append(unknown, id)
+		}
+	}
+	slices.Sort(undecided)
+	slices.Sort(contradicted)
+	slices.Sort(unknown)
+
+	assert.Empty(t, undecided, "writes that neither declare dryRun nor are listed in withoutDryRun")
+	assert.Empty(t, contradicted, "writes listed in withoutDryRun that declare dryRun")
+	assert.Empty(t, unknown, "withoutDryRun entries that name no write")
 }
