@@ -64,23 +64,28 @@ const (
 	backupStorageClassField = ".spec.backupStorageClassRef.name"
 )
 
-// BackupStorageReconciler owns the status of BackupStorages: Accepted, and
-// Deleting while a deleted storage waits for its referrers.
+// BackupStorageReconciler owns the status of BackupStorages: Accepted,
+// Deleting while a deleted storage waits for its referrers, and the verdict of
+// every Accepted BackupClass on the storage.
 type BackupStorageReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+
+	validations validationCache
 }
 
 // +kubebuilder:rbac:groups=backup.openeverest.io,resources=backupstorages,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=backup.openeverest.io,resources=backupstorages/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=backup.openeverest.io,resources=backupstorages/finalizers,verbs=update
 // +kubebuilder:rbac:groups=backup.openeverest.io,resources=backupstorageclasses,verbs=get;list;watch
+// +kubebuilder:rbac:groups=backup.openeverest.io,resources=backupclasses,verbs=get;list;watch
 // +kubebuilder:rbac:groups=backup.openeverest.io,resources=backups;restores;backupimports,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core.openeverest.io,resources=instances,verbs=get;list;watch
 
-// Reconcile publishes whether the storage is valid for its class, and holds a
-// deleted storage until nothing references it.
+// Reconcile publishes whether the storage is valid for its class and which
+// BackupClasses can write to it, and holds a deleted storage until nothing
+// references it.
 func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	bs := &backupv1alpha1.BackupStorage{}
 	if err := r.Get(ctx, req.NamespacedName, bs); err != nil {
@@ -94,10 +99,15 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	accepted, err := r.acceptedCondition(ctx, bs)
+	accepted, storageClass, err := r.acceptedCondition(ctx, bs)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	classes := &backupv1alpha1.BackupClassList{}
+	if err := r.List(ctx, classes); err != nil {
+		return ctrl.Result{}, fmt.Errorf("list BackupClasses: %w", err)
+	}
+	verdicts := storageVerdicts(bs, accepted, classes.Items, storageClass)
 	conditions := []metav1.Condition{accepted}
 	if !bs.GetDeletionTimestamp().IsZero() && controllerutil.ContainsFinalizer(bs, backupStorageFinalizer) {
 		referrers, err := r.referrersOf(ctx, bs.Namespace, bs.Name)
@@ -116,7 +126,7 @@ func (r *BackupStorageReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			backupv1alpha1.ReasonWaitingForReferrers, "still referenced by "+strings.Join(referrers, ", "),
 		))
 	}
-	return ctrl.Result{}, r.applyStatus(ctx, bs, conditions)
+	return ctrl.Result{}, r.applyStatus(ctx, bs, conditions, verdicts)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -130,6 +140,8 @@ func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Named("backup-backupstorage").
 		Watches(&backupv1alpha1.BackupStorageClass{},
 			handler.EnqueueRequestsFromMapFunc(r.storagesMatching(backupStorageClassField, false))).
+		Watches(&backupv1alpha1.BackupClass{},
+			handler.EnqueueRequestsFromMapFunc(r.allStorages)).
 		Watches(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.storagesMatching(backupStorageSecretsField, true))).
 		Watches(&corev1alpha1.Instance{},
@@ -143,16 +155,19 @@ func (r *BackupStorageReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// acceptedCondition judges the storage against its class.
-func (r *BackupStorageReconciler) acceptedCondition(ctx context.Context, bs *backupv1alpha1.BackupStorage) (metav1.Condition, error) {
+// acceptedCondition judges the storage against its class, which it returns,
+// nil when the class does not exist.
+func (r *BackupStorageReconciler) acceptedCondition(
+	ctx context.Context, bs *backupv1alpha1.BackupStorage,
+) (metav1.Condition, *backupv1alpha1.BackupStorageClass, error) {
 	class := &backupv1alpha1.BackupStorageClass{}
 	if err := r.Get(ctx, types.NamespacedName{Name: bs.Spec.BackupStorageClassRef.Name}, class); err != nil {
 		if !apierrors.IsNotFound(err) {
-			return metav1.Condition{}, fmt.Errorf("get BackupStorageClass %q: %w", bs.Spec.BackupStorageClassRef.Name, err)
+			return metav1.Condition{}, nil, fmt.Errorf("get BackupStorageClass %q: %w", bs.Spec.BackupStorageClassRef.Name, err)
 		}
 		return rtmonitoring.NewCondition(bs, backupv1alpha1.BackupStorageConditionAccepted, metav1.ConditionFalse,
 			backupv1alpha1.ReasonClassNotFound, fmt.Sprintf("BackupStorageClass %q not found", bs.Spec.BackupStorageClassRef.Name),
-		), nil
+		), nil, nil
 	}
 	in := AcceptInput{
 		Location:       bs.Spec.Location,
@@ -163,20 +178,25 @@ func (r *BackupStorageReconciler) acceptedCondition(ctx context.Context, bs *bac
 	var err error
 	if ref := bs.Spec.Authentication.CredentialsSecretRef; ref != nil {
 		if in.Credentials, err = r.secretContent(ctx, bs.Namespace, ref.Name); err != nil {
-			return metav1.Condition{}, err
+			return metav1.Condition{}, nil, err
 		}
 	}
 	if t := bs.Spec.TLS; t != nil && t.CA != nil && t.CA.SecretKeyRef != nil {
 		if in.CA, err = r.secretContent(ctx, bs.Namespace, t.CA.SecretKeyRef.Name); err != nil {
-			return metav1.Condition{}, err
+			return metav1.Condition{}, nil, err
 		}
+	}
+	// A class whose validations do not compile is left to Accept, which
+	// reports it.
+	if rules, err := r.validations.rules(class); err == nil {
+		in.Rules = rules
 	}
 	v := Accept(class, in)
 	status := metav1.ConditionFalse
 	if v.Accepted() {
 		status = metav1.ConditionTrue
 	}
-	return rtmonitoring.NewCondition(bs, backupv1alpha1.BackupStorageConditionAccepted, status, v.Reason, v.Message), nil
+	return rtmonitoring.NewCondition(bs, backupv1alpha1.BackupStorageConditionAccepted, status, v.Reason, v.Message), class, nil
 }
 
 func (r *BackupStorageReconciler) secretContent(ctx context.Context, namespace, name string) (SecretContent, error) {
@@ -191,9 +211,11 @@ func (r *BackupStorageReconciler) secretContent(ctx context.Context, namespace, 
 }
 
 // applyStatus server-side-applies every status field core owns, so a
-// condition left out (Deleting once the storage is no longer referenced) is
-// removed.
-func (r *BackupStorageReconciler) applyStatus(ctx context.Context, bs *backupv1alpha1.BackupStorage, conditions []metav1.Condition) error {
+// condition or verdict left out (Deleting once the storage is no longer
+// referenced, the verdict of a deleted class) is removed.
+func (r *BackupStorageReconciler) applyStatus(
+	ctx context.Context, bs *backupv1alpha1.BackupStorage, conditions []metav1.Condition, verdicts []backupv1alpha1.BackupClassVerdict,
+) error {
 	conds := make([]any, 0, len(conditions))
 	for _, cond := range conditions {
 		cond.LastTransitionTime = metav1.Now()
@@ -206,8 +228,17 @@ func (r *BackupStorageReconciler) applyStatus(ctx context.Context, bs *backupv1a
 		}
 		conds = append(conds, raw)
 	}
+	classes := make([]any, 0, len(verdicts))
+	for i := range verdicts {
+		raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&verdicts[i])
+		if err != nil {
+			return fmt.Errorf("convert verdict: %w", err)
+		}
+		classes = append(classes, raw)
+	}
 	return rtmonitoring.ApplyStatus(ctx, r.Client, bs, backupStorageFieldOwner, map[string]any{
-		"conditions": conds,
+		"conditions":    conds,
+		"backupClasses": classes,
 	})
 }
 
@@ -346,6 +377,17 @@ func (r *BackupStorageReconciler) storagesMatching(field string, namespaced bool
 		}
 		return storageRequests(list)
 	}
+}
+
+// allStorages maps a BackupClass to every BackupStorage: each holds a verdict
+// for every Accepted class.
+func (r *BackupStorageReconciler) allStorages(ctx context.Context, obj client.Object) []reconcile.Request {
+	list := &backupv1alpha1.BackupStorageList{}
+	if err := r.List(ctx, list); err != nil {
+		logf.FromContext(ctx).Error(err, "List BackupStorages to enqueue", "backupClass", obj.GetName())
+		return nil
+	}
+	return storageRequests(list)
 }
 
 func storageRequests(list *backupv1alpha1.BackupStorageList) []reconcile.Request {
