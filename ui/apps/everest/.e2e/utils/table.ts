@@ -91,7 +91,11 @@ export const confirmDeletion = async (
     (response) => response.request().method() === 'DELETE'
   );
   await page.getByTestId(confirmButtonTestId).click();
-  expect((await deleteResponse).ok()).toBe(true);
+  const response = await deleteResponse;
+  expect(
+    response.ok(),
+    `DELETE ${response.url()} returned ${response.status()}`
+  ).toBe(true);
 };
 
 /**
