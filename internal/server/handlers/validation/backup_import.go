@@ -16,14 +16,9 @@ package validation
 
 import (
 	"context"
-	"errors"
-	"fmt"
-
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
+	"github.com/openeverest/openeverest/v2/internal/backupadmission"
 )
 
 // ListBackupImports proxies the request to the next handler.
@@ -36,53 +31,14 @@ func (h *validateHandler) GetBackupImport(ctx context.Context, cluster, namespac
 	return h.next.GetBackupImport(ctx, cluster, namespace, name)
 }
 
-// CreateBackupImport validates the BackupImport's referenced resources before creating it.
+// CreateBackupImport rejects a BackupImport that cannot run, or that references an object that does not exist, before
+// creating it.
 func (h *validateHandler) CreateBackupImport(ctx context.Context, cluster string, backupImport *backupv1alpha1.BackupImport) (*backupv1alpha1.BackupImport, error) {
-	if err := h.validateBackupImportRefs(ctx, backupImport); err != nil {
-		if isValidationError(err) {
-			return nil, errors.Join(ErrInvalidRequest, err)
-		}
+	d, err := backupadmission.Import(ctx, h.kubeConnector, backupImport)
+	if err := admitOperation(ctx, d, err); err != nil {
 		return nil, err
 	}
 	return h.next.CreateBackupImport(ctx, cluster, backupImport)
-}
-
-// validateBackupImportRefs rejects backup imports whose classRef or storageRef
-// do not point to existing resources.
-func (h *validateHandler) validateBackupImportRefs(ctx context.Context, backupImport *backupv1alpha1.BackupImport) error {
-	backupClass, err := h.kubeConnector.GetBackupClass(ctx, ctrlclient.ObjectKey{
-		Name: backupImport.Spec.ClassRef.Name,
-	})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf(
-				"%w: '%s'",
-				controller.ErrBackupClassNotFound,
-				backupImport.Spec.ClassRef.Name,
-			)
-		}
-		return fmt.Errorf("failed to get backup class '%s': %w", backupImport.Spec.ClassRef.Name, err)
-	}
-
-	if err := controller.ValidateBackupImportSupported(backupClass); err != nil {
-		return err
-	}
-
-	if _, err := h.kubeConnector.GetBackupStorage(ctx, ctrlclient.ObjectKey{
-		Namespace: backupImport.GetNamespace(),
-		Name:      backupImport.Spec.StorageRef.Name,
-	}); err != nil {
-		if k8serrors.IsNotFound(err) {
-			return fmt.Errorf(
-				"%w: backup storage '%s' does not exist",
-				controller.ErrBackupStorageNotFound,
-				backupImport.Spec.StorageRef.Name,
-			)
-		}
-		return fmt.Errorf("failed to get backup storage '%s': %w", backupImport.Spec.StorageRef.Name, err)
-	}
-
-	return nil
 }
 
 // DeleteBackupImport proxies the request to the next handler.

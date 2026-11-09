@@ -43,6 +43,7 @@ import (
 	backupcontroller "github.com/openeverest/openeverest/v2/internal/controller/backup"
 	plugincontroller "github.com/openeverest/openeverest/v2/internal/controller/extension"
 	monitoringcontroller "github.com/openeverest/openeverest/v2/internal/controller/monitoring"
+	webhookbackupv1alpha1 "github.com/openeverest/openeverest/v2/internal/webhook/backup/v1alpha1"
 	webhookmonitoringv1alpha1 "github.com/openeverest/openeverest/v2/internal/webhook/monitoring/v1alpha1"
 )
 
@@ -174,17 +175,11 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "d5bfff76.openeverest.io",
-		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
-		// when the Manager ends. This requires the binary to immediately end when the
-		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
-		// speeds up voluntary leader transitions as the new leader don't have to wait
-		// LeaseDuration time first.
-		//
-		// In the default scaffold provided, the program ends immediately after
-		// the manager stops, so would be fine to enable this option. However,
-		// if you are doing or is intended to do any operation such as perform cleanups
-		// after the manager stops then its usage might be unsafe.
-		// LeaderElectionReleaseOnCancel: true,
+		// The leader steps down when the Manager ends, so a rolling update of
+		// several replicas hands the controllers over at once instead of after
+		// LeaseDuration. This is safe because the program ends as soon as the
+		// Manager stops: nothing runs after mgr.Start returns.
+		LeaderElectionReleaseOnCancel: true,
 	})
 	if err != nil {
 		setupLog.Error(err, "Failed to start manager")
@@ -285,10 +280,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+	enableWebhooks := os.Getenv("ENABLE_WEBHOOKS") != "false"
+	if enableWebhooks {
 		if err := webhookmonitoringv1alpha1.SetupMonitoringConfigWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "Failed to create webhook", "webhook", "MonitoringConfig")
+			os.Exit(1)
+		}
+		if err := webhookbackupv1alpha1.SetupBackupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "Backup")
+			os.Exit(1)
+		}
+		if err := webhookbackupv1alpha1.SetupRestoreWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "Restore")
+			os.Exit(1)
+		}
+		if err := webhookbackupv1alpha1.SetupBackupImportWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "BackupImport")
 			os.Exit(1)
 		}
 	}
@@ -301,6 +308,14 @@ func main() {
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		setupLog.Error(err, "Failed to set up ready check")
 		os.Exit(1)
+	}
+	// The webhook server runs on every replica, leader or not, so a replica is
+	// ready to receive admission requests once it serves them.
+	if enableWebhooks {
+		if err := mgr.AddReadyzCheck("webhook", mgr.GetWebhookServer().StartedChecker()); err != nil {
+			setupLog.Error(err, "Failed to set up webhook ready check")
+			os.Exit(1)
+		}
 	}
 
 	setupLog.Info("Starting manager")

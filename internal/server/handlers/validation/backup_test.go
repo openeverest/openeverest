@@ -47,22 +47,30 @@ func TestCreateBackup_Validation(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "test-instance", Namespace: namespace},
 		Spec:       corev1alpha1.InstanceSpec{ProviderRef: common.ObjectRef{Name: "test-provider"}},
 	}
-	storage := &backupv1alpha1.BackupStorage{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-storage", Namespace: namespace},
-	}
-	supportedClass := &backupv1alpha1.BackupClass{
-		ObjectMeta: metav1.ObjectMeta{Name: "supported-class"},
-		Spec: backupv1alpha1.BackupClassSpec{
-			ExecutionMode:   backupv1alpha1.BackupExecutionModeProviderManaged,
-			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{ProviderRef: common.ObjectRef{Name: "test-provider"}},
-		},
-	}
-	unsupportedClass := &backupv1alpha1.BackupClass{
-		ObjectMeta: metav1.ObjectMeta{Name: "unsupported-class"},
-		Spec: backupv1alpha1.BackupClassSpec{
-			ExecutionMode:   backupv1alpha1.BackupExecutionModeProviderManaged,
-			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{ProviderRef: common.ObjectRef{Name: "other-provider"}},
-		},
+	supportedClass := judgedClass("supported-class", "test-provider", backupv1alpha1.CompatibilityCompatible, "")
+	unsupportedClass := judgedClass("unsupported-class", "other-provider", backupv1alpha1.CompatibilityCompatible, "")
+	driftClass := judgedClass("drift-class", "test-provider", backupv1alpha1.CompatibilityIncompatible, backupv1alpha1.ReasonSpecDrift)
+	pendingClass := judgedClass("pending-class", "test-provider", backupv1alpha1.CompatibilityPending, backupv1alpha1.ReasonClassNotAccepted)
+	storage := judgedStorage("test-storage", namespace,
+		storageVerdict{class: supportedClass, compatibility: backupv1alpha1.CompatibilityCompatible},
+		storageVerdict{class: unsupportedClass, compatibility: backupv1alpha1.CompatibilityCompatible},
+		storageVerdict{class: driftClass, compatibility: backupv1alpha1.CompatibilityCompatible},
+	)
+	gcsStorage := judgedStorage("gcs-storage", namespace,
+		storageVerdict{class: supportedClass, compatibility: backupv1alpha1.CompatibilityIncompatible, reason: backupv1alpha1.ReasonParameterUnsupported},
+	)
+	newBackup := func(name, class, storage string) *backupv1alpha1.Backup {
+		return &backupv1alpha1.Backup{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+			Spec: backupv1alpha1.BackupSpec{
+				Origin: backupv1alpha1.BackupOrigin{
+					Type:        backupv1alpha1.BackupOriginTypeInstance,
+					InstanceRef: &common.ObjectRef{Name: "test-instance"},
+				},
+				StorageRef: common.ObjectRef{Name: storage},
+				ClassRef:   common.ObjectRef{Name: class},
+			},
+		}
 	}
 
 	scheme := runtime.NewScheme()
@@ -80,6 +88,7 @@ func TestCreateBackup_Validation(t *testing.T) {
 		wantInvalidRequest bool   // true for validation failures (ErrInvalidRequest); false for infrastructure/runtime errors
 		getErrName         string // if set, a Get for an object with this name fails with getErr instead of hitting the fake client
 		getErr             error
+		wantWarnings       []string // substrings of the warnings an admitted Backup is created with
 	}{
 		{
 			name: "instance not found fails",
@@ -136,22 +145,37 @@ func TestCreateBackup_Validation(t *testing.T) {
 			wantInvalidRequest: true,
 		},
 		{
-			name: "class not supporting provider fails",
-			backup: &backupv1alpha1.Backup{
-				ObjectMeta: metav1.ObjectMeta{Name: "b4", Namespace: namespace},
-				Spec: backupv1alpha1.BackupSpec{
-					Origin: backupv1alpha1.BackupOrigin{
-						Type:        backupv1alpha1.BackupOriginTypeInstance,
-						InstanceRef: &common.ObjectRef{Name: "test-instance"},
-					},
-					StorageRef: common.ObjectRef{Name: "test-storage"},
-					ClassRef:   common.ObjectRef{Name: "unsupported-class"},
-				},
-			},
-			objects:            []ctrlclient.Object{instance, storage, unsupportedClass},
-			err:                "provider not supported by backup class: class 'unsupported-class', provider 'test-provider'",
-			wantSentinel:       controller.ErrProviderUnsupported,
+			name:               "class not run by the instance's provider fails",
+			backup:             newBackup("b4", "unsupported-class", "test-storage"),
+			objects:            []ctrlclient.Object{instance, storage, unsupportedClass, s3StorageClass},
+			err:                `backup class incompatible: BackupClass "unsupported-class" is Incompatible with Provider "test-provider" (ProviderUnsupported)`,
+			wantSentinel:       controller.ErrBackupClassIncompatible,
 			wantInvalidRequest: true,
+		},
+		{
+			name:               "class its provider rejects fails",
+			backup:             newBackup("b7", "drift-class", "test-storage"),
+			objects:            []ctrlclient.Object{instance, storage, driftClass, s3StorageClass},
+			err:                `BackupClass "drift-class" is Incompatible with Provider "test-provider" (SpecDrift)`,
+			wantSentinel:       controller.ErrBackupClassIncompatible,
+			wantInvalidRequest: true,
+		},
+		{
+			name:               "storage the class cannot write to fails",
+			backup:             newBackup("b8", "supported-class", "gcs-storage"),
+			objects:            []ctrlclient.Object{instance, gcsStorage, supportedClass, s3StorageClass},
+			err:                `backup storage incompatible: BackupStorage "gcs-storage" is Incompatible with BackupClass "supported-class" (ParameterUnsupported)`,
+			wantSentinel:       controller.ErrBackupStorageIncompatible,
+			wantInvalidRequest: true,
+		},
+		{
+			name:    "class not claimed yet passes with warnings",
+			backup:  newBackup("b9", "pending-class", "test-storage"),
+			objects: []ctrlclient.Object{instance, storage, pendingClass, s3StorageClass},
+			wantWarnings: []string{
+				`BackupClass "pending-class" is Pending for Provider "test-provider" (ClassNotAccepted)`,
+				`BackupStorage "test-storage" is Pending for BackupClass "pending-class" (VerdictPending)`,
+			},
 		},
 		{
 			name: "instance lookup server error fails",
@@ -185,7 +209,7 @@ func TestCreateBackup_Validation(t *testing.T) {
 					ClassRef:   common.ObjectRef{Name: "supported-class"},
 				},
 			},
-			objects: []ctrlclient.Object{instance, storage, supportedClass},
+			objects: []ctrlclient.Object{instance, storage, supportedClass, s3StorageClass},
 			err:     "",
 		},
 	}
@@ -223,9 +247,11 @@ func TestCreateBackup_Validation(t *testing.T) {
 				next:          mockNext,
 			}
 
+			ctx, warnings := kubernetes.WithWarningCollector(ctx)
 			_, err := handler.CreateBackup(ctx, cluster, tt.backup)
 			if tt.err == "" {
 				require.NoError(t, err)
+				assertWarnings(t, tt.wantWarnings, warnings.Warnings())
 				return
 			}
 			require.ErrorContains(t, err, tt.err)
