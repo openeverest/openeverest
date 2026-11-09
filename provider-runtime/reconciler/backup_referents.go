@@ -108,14 +108,24 @@ func missingBackupStorage(ctx context.Context, c client.Reader, namespace, name 
 }
 
 // instanceBackupPath returns the directory in the bucket of the BackupStorage
-// name that the Instance writes its backups to, or "" while the storage does
-// not exist.
-func instanceBackupPath(ctx context.Context, c client.Reader, in *v1alpha1.Instance, name string) (string, error) {
+// name that the Instance writes its backups to, laid out in style, or ""
+// while the storage does not exist.
+func instanceBackupPath(
+	ctx context.Context, c client.Reader, in *v1alpha1.Instance, name string, style backupv1alpha1.BackupPathStyle,
+) (string, error) {
 	storage := &backupv1alpha1.BackupStorage{}
 	if err := c.Get(ctx, client.ObjectKey{Namespace: in.Namespace, Name: name}, storage); err != nil {
 		return "", client.IgnoreNotFound(err)
 	}
-	return backupv1alpha1.BackupPath(storage.Spec.Location, in.Namespace, in.Name, in.UID, name), nil
+	return backupv1alpha1.BackupPathFor(style, storage.Spec.Location, in.Namespace, in.Name, in.UID, name), nil
+}
+
+// newContext returns the Context the runtime hands provider for in, with
+// the provider's backup path style.
+func newContext(ctx context.Context, c client.Client, in *v1alpha1.Instance, provider any, providerName string) *controller.Context {
+	cc := controller.NewContext(ctx, c, in, providerName)
+	cc.SetBackupPathStyle(controller.BackupPathStyleOf(provider))
+	return cc
 }
 
 func backupStorageNames(in *v1alpha1.Instance) []string {

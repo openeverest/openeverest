@@ -15,6 +15,7 @@
 package v1alpha1_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -155,6 +156,79 @@ func TestBackupPath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			assert.Equal(t, tt.want, backupv1alpha1.BackupPath(tt.location, "team-a", "orders", uid, "s3-primary"))
+		})
+	}
+}
+
+func TestBackupPathFor(t *testing.T) {
+	t.Parallel()
+
+	const uid = types.UID("0f8fad5b-d9cb-469f-a165-70867728950e")
+	location := func(prefix string) backupv1alpha1.BackupStorageLocation {
+		return backupv1alpha1.BackupStorageLocation{ObjectStore: &backupv1alpha1.ObjectStoreLocation{Bucket: "team-a-backups", Prefix: prefix}}
+	}
+	tests := []struct {
+		name          string
+		style         backupv1alpha1.BackupPathStyle
+		prefix        string
+		wantPath      string
+		wantKeyPrefix string
+	}{
+		{
+			name:          "nested without prefix",
+			style:         backupv1alpha1.BackupPathNested,
+			wantPath:      "backups/team-a/orders/0f8fad5b-d9cb-469f-a165-70867728950e/s3-primary",
+			wantKeyPrefix: "",
+		},
+		{
+			name:          "nested with nested prefix",
+			style:         backupv1alpha1.BackupPathNested,
+			prefix:        "prod/eu-west/",
+			wantPath:      "prod/eu-west/backups/team-a/orders/0f8fad5b-d9cb-469f-a165-70867728950e/s3-primary",
+			wantKeyPrefix: "prod/eu-west/",
+		},
+		{
+			name:          "the empty style is nested",
+			prefix:        "prod",
+			wantPath:      "prod/backups/team-a/orders/0f8fad5b-d9cb-469f-a165-70867728950e/s3-primary",
+			wantKeyPrefix: "prod/",
+		},
+		{
+			name:          "flat without prefix",
+			style:         backupv1alpha1.BackupPathFlat,
+			wantPath:      "backups_team-a_orders_0f8fad5b-d9cb-469f-a165-70867728950e_s3-primary",
+			wantKeyPrefix: "",
+		},
+		{
+			name:          "flat with nested prefix",
+			style:         backupv1alpha1.BackupPathFlat,
+			prefix:        "prod/eu-west/",
+			wantPath:      "prod_eu-west_backups_team-a_orders_0f8fad5b-d9cb-469f-a165-70867728950e_s3-primary",
+			wantKeyPrefix: "prod_eu-west_",
+		},
+		{
+			name:          "flat with a prefix holding underscores",
+			style:         backupv1alpha1.BackupPathFlat,
+			prefix:        "team_a",
+			wantPath:      "team_a_backups_team-a_orders_0f8fad5b-d9cb-469f-a165-70867728950e_s3-primary",
+			wantKeyPrefix: "team_a_",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			loc := location(tt.prefix)
+			got := backupv1alpha1.BackupPathFor(tt.style, loc, "team-a", "orders", uid, "s3-primary")
+			assert.Equal(t, tt.wantPath, got)
+			assert.Equal(t, got, tt.style.Apply(got), "Apply is idempotent")
+			assert.Equal(t, tt.wantKeyPrefix, backupv1alpha1.BackupKeyPrefix(tt.style, loc))
+			assert.True(t, strings.HasPrefix(got, backupv1alpha1.BackupKeyPrefix(tt.style, loc)))
+			if tt.style == backupv1alpha1.BackupPathFlat {
+				// The folder provider-cassandra renders as the Medusa prefix
+				// since provider-cassandra#40.
+				assert.Equal(t, strings.ReplaceAll(backupv1alpha1.BackupPath(loc, "team-a", "orders", uid, "s3-primary"), "/", "_"), got)
+				assert.NotContains(t, got, "/")
+			}
 		})
 	}
 }

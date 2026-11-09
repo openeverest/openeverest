@@ -106,6 +106,10 @@ type Context struct {
 	// backupStorageRejections holds the verdicts staged with
 	// RejectBackupStorage, keyed by BackupStorage name.
 	backupStorageRejections map[string]backupStorageRejection
+
+	// backupPathStyle is how the provider lays out backup paths, set by
+	// the runtime from BackupPathStyleProvider.
+	backupPathStyle backupv1alpha1.BackupPathStyle
 }
 
 // NewContext creates a new Context handle (used internally by the reconciler).

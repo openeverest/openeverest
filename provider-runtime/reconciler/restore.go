@@ -94,7 +94,7 @@ func (r *restoreRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.
 		// only performs namespace-scoped Get/Delete and does not access Instance fields.
 		cleanupInst := &corev1alpha1.Instance{}
 		cleanupInst.Namespace = restore.Namespace
-		inCtx := controller.NewContext(ctx, r.client, cleanupInst, r.providerName)
+		inCtx := newContext(ctx, r.client, cleanupInst, r.provider, r.providerName)
 		done, cerr := r.provider.CleanupRestore(inCtx, restore)
 		if cerr != nil {
 			if controller.IsWaitError(cerr) {
@@ -137,7 +137,7 @@ func (r *restoreRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.
 		return reconcile.Result{}, nil
 	}
 
-	inCtx := controller.NewContext(ctx, r.client, instance, r.providerName)
+	inCtx := newContext(ctx, r.client, instance, r.provider, r.providerName)
 
 	if controllerutil.AddFinalizer(restore, restoreRuntimeFinalizer) {
 		if err := r.client.Update(ctx, restore); err != nil {

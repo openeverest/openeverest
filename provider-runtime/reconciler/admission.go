@@ -199,7 +199,7 @@ func (a *instanceAdmission) referenceWarnings(ctx context.Context, in *v1alpha1.
 		return missing
 	}
 
-	errs, err := rv.ValidateReferences(controller.NewContext(ctx, a.client, in, a.provider.Name()))
+	errs, err := rv.ValidateReferences(newContext(ctx, a.client, in, a.provider, a.provider.Name()))
 	if err != nil {
 		logger.Info("Skipping the reference checks", "reason", err.Error())
 		return nil

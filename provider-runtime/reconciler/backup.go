@@ -140,7 +140,7 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return r.reconcileWithoutInstance(ctx, backup, bc)
 	}
 
-	inCtx := controller.NewContext(ctx, r.client, instance, r.providerName)
+	inCtx := newContext(ctx, r.client, instance, r.provider, r.providerName)
 
 	if !backup.DeletionTimestamp.IsZero() {
 		if !controllerutil.ContainsFinalizer(backup, backupRuntimeFinalizer) {
@@ -191,7 +191,8 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 	}
 
 	if backup.Status.Path == "" {
-		if backup.Status.Path, err = instanceBackupPath(ctx, r.client, instance, backup.Spec.StorageRef.Name); err != nil {
+		backup.Status.Path, err = instanceBackupPath(ctx, r.client, instance, backup.Spec.StorageRef.Name, inCtx.BackupPathStyle())
+		if err != nil {
 			return reconcile.Result{}, err
 		}
 	}
