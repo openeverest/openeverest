@@ -62,6 +62,16 @@ export enum FieldType {
   Toggle = 'toggle',
   Hidden = 'hidden',
   Secret = 'secret',
+  Array = 'array',
+}
+
+// The API shape an array field writes.
+export enum ArrayOutputType {
+  Object = 'object',
+}
+
+export enum ArrayItemType {
+  KeyValue = 'keyValue',
 }
 
 export enum WidgetType {
@@ -166,6 +176,12 @@ export interface TextFieldParams extends CommonFieldParams {
   margin?: 'none' | 'dense' | 'normal';
 }
 
+export interface ArrayFieldParams extends CommonFieldParams {
+  addButtonLabel?: string;
+  // In the API shape, e.g. a map for outputType object.
+  defaultValue?: Record<string, string>;
+}
+
 // Toggles are always optional booleans, so `required` is unsupported. Typing it
 // as `never` forbids setting it (a compile error), while keeping the property
 // present so the generic validation pipeline can still read
@@ -182,6 +198,7 @@ export type FieldParamsMap = {
   [FieldType.Toggle]: ToggleFieldParams;
   [FieldType.Hidden]: CommonFieldParams;
   [FieldType.Secret]: SecretFieldParams;
+  [FieldType.Array]: ArrayFieldParams;
 };
 
 type PathOrId =
@@ -226,6 +243,18 @@ export type NumberValidation = CommonValidation & {
   safe?: boolean;
 };
 
+// `required` means at least one row. CEL on the whole array waits for `self`
+// support, so it is forbidden for now, like regex.
+export type ArrayValidation = Omit<
+  CommonValidation,
+  'regex' | 'celExpressions'
+> & {
+  regex?: never;
+  celExpressions?: never;
+  minItems?: number;
+  maxItems?: number;
+};
+
 export type ValidationMap = {
   [FieldType.Number]: NumberValidation;
   [FieldType.Quantity]: NumberValidation;
@@ -234,6 +263,7 @@ export type ValidationMap = {
   [FieldType.Toggle]: ToggleValidation;
   [FieldType.Hidden]: CommonValidation;
   [FieldType.Secret]: CommonValidation;
+  [FieldType.Array]: ArrayValidation;
 };
 
 type ComponentCommonFields = {
@@ -247,13 +277,34 @@ export type ModeAwareValidation<T extends CommonValidation> = T & {
   modes?: Partial<Record<FormMode, T & { inheritShared?: boolean }>>;
 };
 
-type FieldComponent = {
-  [K in keyof FieldParamsMap]: ComponentCommonFields & {
+type FieldComponentOf<K extends keyof FieldParamsMap> =
+  ComponentCommonFields & {
     uiType: K;
     validation?: ModeAwareValidation<ValidationMap[K]>;
     fieldParams: FieldParamsMap[K];
   } & PathOrId;
-}[keyof FieldParamsMap];
+
+type ScalarFieldType = Exclude<keyof FieldParamsMap, FieldType.Array>;
+
+type FieldComponent = {
+  [K in ScalarFieldType]: FieldComponentOf<K>;
+}[ScalarFieldType];
+
+// A key/value row: two text fields whose params and validation are those of
+// `text`, except CEL, which a row can't evaluate yet. A key is always required.
+export interface KeyValueItemTemplate {
+  uiType: ArrayItemType.KeyValue;
+  fieldParams?: { key?: TextFieldParams; value?: TextFieldParams };
+  validation?: {
+    key?: Omit<TextValidation, 'celExpressions'>;
+    value?: Omit<TextValidation, 'celExpressions'>;
+  };
+}
+
+export type ArrayComponent = FieldComponentOf<FieldType.Array> & {
+  outputType: ArrayOutputType;
+  itemTemplate: KeyValueItemTemplate;
+};
 
 export interface WidgetTarget {
   // Display key, e.g. the Instance component the value belongs to.
@@ -272,10 +323,13 @@ export type WidgetComponent = ComponentCommonFields & {
   // A pure marker widget (e.g. podSchedulingPolicy) binds no value.
 } & (PathOrId | { path?: never; id?: never });
 
-export type Component = FieldComponent | WidgetComponent;
+export type Component = FieldComponent | ArrayComponent | WidgetComponent;
 
 export const isWidgetComponent = (item: Component): item is WidgetComponent =>
   item.uiType === WIDGET_UI_TYPE;
+
+export const isArrayComponent = (item: Component): item is ArrayComponent =>
+  item.uiType === FieldType.Array;
 
 // Narrows an opaque API payload (e.g. a CRD's uiSchema) to a section.
 export const isSection = (value: unknown): value is Section =>

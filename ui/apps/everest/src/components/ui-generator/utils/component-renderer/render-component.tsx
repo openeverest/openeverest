@@ -30,6 +30,7 @@ import {
 } from 'components/ui-generator/api-providers';
 import { ComponentErrorBoundary } from 'components/ui-generator/component-error-boundary';
 import { SecretField } from 'components/ui-generator/secret-field';
+import { ArrayField } from 'components/ui-generator/array-field';
 import { joinPath } from '../object-path';
 
 export type RenderComponentProps = {
@@ -66,6 +67,8 @@ export const renderComponent = ({
     })
   ) : item.uiType === FieldType.Secret ? (
     <SecretField item={item} name={fieldName} />
+  ) : item.uiType === FieldType.Array ? (
+    <ArrayField item={item} name={fieldName} />
   ) : hasDataSource(item as Component) ? (
     <ComponentErrorBoundary key={fieldName} componentName={name}>
       <DataSourceField item={item as ComponentWithDataSource} name={fieldName}>

@@ -27,6 +27,7 @@ export const UI_TYPE_DEFAULT_VALUE: Partial<Record<FieldType, unknown>> = {
   [FieldType.Toggle]: false,
   [FieldType.Hidden]: undefined,
   [FieldType.Secret]: '',
+  [FieldType.Array]: [],
 };
 
 export const componentGroupMap: Record<
@@ -47,6 +48,8 @@ export const muiComponentMap: Record<FieldType, React.ElementType> = {
   [FieldType.Hidden]: () => null,
   // Rendered by SecretField, never through UIComponent.
   [FieldType.Secret]: () => null,
+  // Rendered by ArrayField, never through UIComponent.
+  [FieldType.Array]: () => null,
 };
 
 export const zodRuleMapByType: Record<FieldType, Record<string, string>> = {
@@ -92,6 +95,7 @@ export const zodRuleMapByType: Record<FieldType, Record<string, string>> = {
     // Hidden fields don't need validation
   },
   [FieldType.Secret]: {},
+  [FieldType.Array]: {},
 };
 
 export const getZodRulesForFieldType = (
@@ -137,4 +141,5 @@ export const ZOD_SCHEMA_MAP: Record<FieldType, z.ZodTypeAny> = {
   [FieldType.Toggle]: z.boolean(),
   [FieldType.Hidden]: z.any(),
   [FieldType.Secret]: z.string(),
+  [FieldType.Array]: z.array(z.unknown()),
 };

@@ -19,10 +19,7 @@ import {
   toOpenApiParameterFormValues,
 } from 'components/openapi-parameters-fields';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
-import {
-  deepMerge,
-  isPlainObject,
-} from 'components/ui-generator/utils/object-path';
+import { isPlainObject } from 'components/ui-generator/utils/object-path';
 import {
   CredentialsSecretWrite,
   SaveMonitoringDestinationRequest,
@@ -39,6 +36,7 @@ import {
   getMonitoringClassName,
   getMonitoringClassUiSchema,
   getSectionFormDefaults,
+  getSectionFormValues,
   isSecretBackedAuthMode,
   postprocessSectionForm,
   toMonitoringSectionForm,
@@ -245,7 +243,7 @@ export const getFormDefaults = ({
       ? getSectionFormDefaults(forms.credentials)
       : {},
     spec: forms.destination
-      ? deepMerge(getSectionFormDefaults(forms.destination), {
+      ? getSectionFormValues(forms.destination, {
           parameters: isPlainObject(parameters) ? parameters : {},
         })
       : {},

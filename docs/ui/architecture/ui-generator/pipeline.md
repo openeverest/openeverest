@@ -64,6 +64,10 @@ flowchart TD
   - **`buildShapeFromComponents`** — `ZOD_SCHEMA_MAP[uiType]` (base zod type) +
     `applyValidationFromSchema` (min/max/regex/required/…) + CEL expression collection. A field
     without `validation` is optional, like a validated field without `required: true`.
+    An `array` field gets `buildArrayFieldSchema` (`utils/array-field/`) even without
+    `validation`: it validates the rows the form keeps — `text` rules on each key and value, a
+    unique key, a key in every filled row, and `required` / `minItems` / `maxItems` on filled
+    rows. Empty rows pass.
   - **`convertToNestedSchema`** — flat fields → nested `z.object`. A parent object is optional when
     all of its fields are, so edit mode accepts an instance that lacks it (e.g. no
     `spec.components.engine.parameters` when Engine configuration is unset).
@@ -84,6 +88,11 @@ flowchart TD
 
 - Collects initial values from `fieldParams.defaultValue` (create). A `secret` field never takes
   one: a Secret is namespaced, while the schema is cluster-wide (`getSchemaDefault`).
+- **Array fields** keep rows (`[{ key, value }]`) in the form, while the schema's `defaultValue`
+  and the instance hold the API shape (a map). `getSchemaDefault` and `extractInstanceValues`
+  convert it with `objectToRows` (`utils/array-field/`); `writeArrayFieldsInApiShape` converts
+  back in postprocess. Zod transforms can't do it: the create wizard runs the generated schema in
+  a `superRefine`, so its output never reaches submit.
 - **Topology switch** (create wizard, no preset) — `useDatabaseFormSync` drops the previous
   topology's values with `dropOtherTopologyValues` (`utils/topology-scope/`), then merges the new
   topology's defaults over the rest (`mergeTopologyDefaults`). Switching back therefore starts from
@@ -113,6 +122,8 @@ flowchart TD
 - **`renderComponent({ item, name, root })`** — recursive traversal:
   - `group` / `hidden` → recurse into nested `components`;
   - leaf → `generateFieldId(item, name)` joined with `root` (form field name) →
+    - `secret` → `SecretField`; `array` → `ArrayField` (ui-lib `KeyValueArray`, which shows the
+      list's own error and re-validates all rows when a key changes);
     - has `dataSource` → `<ComponentErrorBoundary><DataSourceField><UIComponent/></DataSourceField></ComponentErrorBoundary>`
       (the wrapper loads options through `api-providers/registry` and sets a default via `useEffect`);
     - otherwise → `<ComponentErrorBoundary><UIComponent/></ComponentErrorBoundary>`.
@@ -188,6 +199,9 @@ Read-only and disabled fields keep their value.
     topologies' paths, walking all sections regardless of `sectionsOrder` (leftovers from a topology
     switch, e.g. `spec.components.mixCoord` after switching Milvus cluster → standalone). Paths shared with the selected topology, or nested under/over one of its paths, are
     kept; values no topology binds (`dbName`, `backup`, …) are untouched.
+  - **`writeArrayFieldsInApiShape`** — an `array` field's rows → its map at the source path;
+    empty rows are dropped, and no filled row leaves the path unset. Runs before multi-path, so
+    targets get the map.
   - **`extractMultiPathMappings` / `applyMultiPathMappings`** — one value → all `targetPaths`.
   - **`extractQuantityMappings` / `applyQuantitiesToFormData`** — number in `unit` → quantity
     string (`10` → `"10Gi"`). When `originalData` is set and the form number still equals the
@@ -214,7 +228,7 @@ flowchart TD
   ZOD_EDIT --> FORM["FormDialog + UIGenerator"]
   VALUES --> FORM
   FORM --> SUBMIT["submit"]
-  SUBMIT --> MERGE["mergeSectionEdit:<br/>postprocessSchemaData → deepMerge into spec<br/>→ delete switched-off toggleable paths<br/>(and parents left empty)"]
+  SUBMIT --> MERGE["mergeSectionEdit:<br/>postprocessSchemaData → deepMerge into spec<br/>→ delete switched-off toggleable paths<br/>(and parents left empty)<br/>→ replace widget and array values whole"]
   MERGE --> UPDATE["useUpdateDbInstanceWithConflictRetry"]
 ```
 
@@ -228,7 +242,8 @@ CEL's `original` is built from the same read as the form (`extractInstanceValues
 
 The update replaces the whole instance and `deepMerge` keeps keys missing from the form, so
 `mergeSectionEdit` deletes the paths of switched-off toggleable groups explicitly, with parents
-left empty.
+left empty. Widget and array values are written whole for the same reason: a map entry removed
+in the form would otherwise survive the merge.
 
 ## Cross-cutting principles
 
@@ -289,6 +304,8 @@ components:
 | Toggleable groups          | `utils/toggleable/toggleable.ts`                           |
 | Toggleable validation      | `utils/schema-builder/apply-toggleable-validation.ts`      |
 | Section edit merge         | `utils/postprocess/merge-section-edit.ts`                  |
+| Array fields (rows ↔ map) | `utils/array-field/`                                       |
+| Array field render         | `array-field/array-field.tsx`                              |
 | Topology scope             | `utils/topology-scope/topology-scope.ts`                   |
 | Object path                | `utils/object-path/object-path.ts`                         |
 | API provider registry      | `api-providers/registry.ts`                                |

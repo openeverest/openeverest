@@ -17,6 +17,7 @@
   - [FieldParams-level modes](#fieldparams-level-modes)
   - [Validation-level modes](#validation-level-modes)
 - Field Types
+  - [Array Field](components/array-field.md)
   - [Number Field](components/number-field.md)
   - [Quantity Field](components/quantity-field.md)
   - [Secret Field](components/secret-field.md)
@@ -303,7 +304,8 @@ Settings shows a destination's address only when the `destination` form writes `
 
 No absolute paths and no array segments (`[]`): an empty `[]` has no index to bind to, and
 an absolute path hard-codes the resource shape so the section can't be reused elsewhere.
-Array binding is not supported yet — see [Known Limitations](known-limitations.md).
+To edit a map, use an [array field](components/array-field.md); binding into an array is not
+supported yet — see [Known Limitations](known-limitations.md#arrays).
 
 ### Components Order
 

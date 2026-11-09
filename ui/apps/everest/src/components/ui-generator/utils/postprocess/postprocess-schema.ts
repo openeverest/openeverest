@@ -36,6 +36,7 @@ import {
   TOGGLEABLE_SWITCHES_KEY,
   getInactiveToggleablePaths,
 } from '../toggleable/toggleable';
+import { getArrayFieldPaths, writeArrayFieldsInApiShape } from '../array-field';
 
 export type PostprocessInput = Record<string, unknown>;
 
@@ -216,7 +217,16 @@ export const postprocessSchemaData = (
         )
       : formValues;
 
-  const mapped = applyMultiPathMappings(scoped, allMappings);
+  const sections =
+    options?.schema && options.selectedTopology
+      ? options.schema[options.selectedTopology]?.sections
+      : undefined;
+  const inApiShape = deepClone(scoped);
+  Object.values(sections ?? {}).forEach(({ components }) =>
+    writeArrayFieldsInApiShape(inApiShape, getArrayFieldPaths(components))
+  );
+
+  const mapped = applyMultiPathMappings(inApiShape, allMappings);
 
   const coerced =
     options?.schema && options.selectedTopology
@@ -241,10 +251,6 @@ export const postprocessSchemaData = (
       : [];
   const withBadges = applyBadgesToFormData(withQuantities, badgeMappings);
 
-  const sections =
-    options?.schema && options.selectedTopology
-      ? options.schema[options.selectedTopology]?.sections
-      : undefined;
   const withoutInactive = deepClone(withBadges);
   (sections ? getInactiveToggleablePaths(sections, formValues) : []).forEach(
     (path) => deleteByPath(withoutInactive, path)

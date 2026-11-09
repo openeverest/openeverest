@@ -17,11 +17,13 @@ import {
   Component,
   ComponentGroup,
   FormMode,
+  isArrayComponent,
   isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { ZOD_SCHEMA_MAP } from 'components/ui-generator/constants';
 import { generateFieldId } from '../component-renderer/generate-field-id';
 import { getComponentSourcePath } from '../preprocess/normalized-component';
+import { buildArrayFieldSchema } from '../array-field';
 import { applyValidationFromSchema } from './apply-from-schema';
 import { resolveValidationForMode } from '../validation/resolve-validation-for-mode';
 import {
@@ -101,8 +103,13 @@ export const buildShapeFromComponents = (
 
     let fieldSchema: z.ZodTypeAny;
 
-    // Apply validation rules if present
-    if (resolvedValidation) {
+    if (isArrayComponent(component)) {
+      // Rows are validated even without rules: a map can't hold a key twice.
+      fieldSchema = buildArrayFieldSchema(
+        component,
+        resolveValidationForMode(component.validation, formMode)
+      );
+    } else if (resolvedValidation) {
       // Create a component with resolved (flat) validation for the downstream pipeline
       const resolvedComponent = {
         ...component,

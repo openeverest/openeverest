@@ -21,9 +21,13 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import { preprocessSection } from 'components/ui-generator/utils/preprocess/preprocess-section';
 import { getDefaultValues } from 'components/ui-generator/utils/default-values';
+import { extractInstanceValues } from 'components/ui-generator/utils/default-values/extract-instance-values';
 import { buildSectionZodSchema } from 'components/ui-generator/utils/schema-builder';
 import { postprocessSchemaData } from 'components/ui-generator/utils/postprocess/postprocess-schema';
-import { isPlainObject } from 'components/ui-generator/utils/object-path';
+import {
+  deepMerge,
+  isPlainObject,
+} from 'components/ui-generator/utils/object-path';
 import {
   MonitoringClass,
   MonitoringConditionType,
@@ -120,6 +124,17 @@ export const toMonitoringSectionForm = (
 export const getSectionFormDefaults = (
   form: MonitoringSectionForm
 ): Record<string, unknown> => getDefaultValues(form.schema, form.sectionKey);
+
+// Saved values over the defaults, in the form's shape (an array's map becomes
+// rows). Values the schema doesn't own are kept, so a save doesn't drop them.
+export const getSectionFormValues = (
+  form: MonitoringSectionForm,
+  saved: Record<string, unknown>
+): Record<string, unknown> =>
+  deepMerge(
+    deepMerge(getSectionFormDefaults(form), saved),
+    extractInstanceValues(form.sections, saved, FormMode.Edit)
+  );
 
 export const getSectionFormZodSchema = (
   form: MonitoringSectionForm,

@@ -49,7 +49,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  CMP["Component"] --> UT["uiType<br/>(number, quantity, select, text, toggle, secret, hidden)"]
+  CMP["Component"] --> UT["uiType<br/>(number, quantity, select, text, toggle, secret, array, hidden)"]
   CMP --> PID{"path | id"}
   CMP --> TP2["techPreview? 🛠️"]
   CMP --> DS2["dataSource?"]
@@ -66,6 +66,25 @@ flowchart TD
 - **`path` | `id`** — `path` (`string` | `string[]`) writes to the API; an array is a multi-path (`[0]` is the source, all entries are targets). `id` has no API binding and is used only for validation / CEL.
 - **`dataSource.provider`** — a key in the open runtime registry (`register()`), not a closed enum.
 - **`modes?`** — `{ [FormMode]: { uiType? } }`; the create wizard runs in `import` when it creates a database from an imported backup.
+
+## Level 2 — Array (repeatable leaf)
+
+```mermaid
+flowchart TD
+  A["Array"] --> AU["uiType: array"]
+  A --> AO["outputType<br/>(object; array 🛠️)"]
+  A --> AI["itemTemplate"]
+  AI --> AIU["uiType<br/>(keyValue; scalar 🛠️, group 🛠️)"]
+  AI --> AIP["fieldParams? { key?, value? }<br/>(TextFieldParams)"]
+  AI --> AIV["validation? { key?, value? }<br/>(TextValidation without CEL)"]
+```
+
+- **One field, one `path`** — the array writes its whole value to `path`; paths inside a row
+  are the row's own (`key`, `value`), never schema paths.
+- **`outputType`** is the API shape, `itemTemplate` the row. `object` + `keyValue` is a map;
+  the other combinations are planned in [#1959](https://github.com/openeverest/openeverest/issues/1959).
+- **`keyValue`** is a preset of two `text` fields: their params and rules are `text`'s.
+- **Unique keys** are implied by `outputType: object` and can't be switched off.
 
 ## Level 2 — Widget (host-rendered leaf)
 
@@ -161,6 +180,10 @@ classDiagram
   class HiddenFieldParams {
     <<CommonFieldParams>>
   }
+  class ArrayFieldParams {
+    addButtonLabel?
+    defaultValue? map
+  }
   CommonFieldParams <|-- NumberFieldParams
   CommonFieldParams <|-- QuantityFieldParams
   CommonFieldParams <|-- TextFieldParams
@@ -168,6 +191,7 @@ classDiagram
   CommonFieldParams <|-- ToggleFieldParams
   CommonFieldParams <|-- SecretFieldParams
   CommonFieldParams <|-- HiddenFieldParams
+  CommonFieldParams <|-- ArrayFieldParams
   TextFieldParams --> TextType : type
   SelectFieldParams <|-- SelectStaticOptions
   SelectFieldParams <|-- SelectDynamicOptions
@@ -220,12 +244,21 @@ classDiagram
   class HiddenValidation {
     <<CommonValidation>>
   }
+  class ArrayValidation {
+    required?
+    minItems?
+    maxItems?
+    modes?
+    regex? never
+    celExpressions? never
+  }
   CommonValidation <|-- NumberValidation
   NumberValidation <|-- QuantityValidation
   CommonValidation <|-- TextValidation
   CommonValidation <|-- SelectValidation
   CommonValidation <|-- ToggleValidation
   CommonValidation <|-- HiddenValidation
+  CommonValidation <|-- ArrayValidation
 ```
 
 - **modes (mode-aware)** — `{ [FormMode]: <same rules> + inheritShared? }`.
@@ -233,6 +266,8 @@ classDiagram
 - **`select` / `hidden`** — common rules only.
 - **`secret`** — `text` rules; the value is the Secret's name.
 - **`quantity`** — same numeric rules as `number`; bounds and CEL see the number in `unit`.
+- **`array`** — rules on the count of filled rows; `required` means at least one. CEL waits for
+  `self` support.
 
 ## Cross-Cutting Concepts
 
@@ -256,4 +291,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-06
+- Last updated: 2026-11-13
