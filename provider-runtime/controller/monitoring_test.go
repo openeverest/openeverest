@@ -50,7 +50,16 @@ func monitoringTestContext(t *testing.T, in *v1alpha1.Instance, objs ...client.O
 			Integrations: map[string]v1alpha1.MonitoringIntegration{"pmm": {}},
 		}},
 	}
-	c := fake.NewClientBuilder().WithScheme(s).WithObjects(append(objs, provider)...).Build()
+	// The fake client stamps the objects it is seeded with, and parallel
+	// subtests may share them: seed copies.
+	seeded := make([]client.Object, 0, len(objs)+1)
+	for _, o := range objs {
+		obj, ok := o.DeepCopyObject().(client.Object)
+		require.True(t, ok, "%T is not a client.Object", o)
+		seeded = append(seeded, obj)
+	}
+	seeded = append(seeded, provider)
+	c := fake.NewClientBuilder().WithScheme(s).WithObjects(seeded...).Build()
 	return NewContext(t.Context(), c, in, "test-provider")
 }
 
