@@ -157,10 +157,11 @@ func TestValidMetricsTakesKindFromComponentType(t *testing.T) {
 		}
 	}
 
-	got := validMetrics(in, spec, nil, []v1alpha1.MetricsEndpoint{
+	endpoints := []v1alpha1.MetricsEndpoint{
 		endpoint("engine", "mysql"),
 		endpoint("hidden", "mongodb"),
-	}, logr.Discard())
+	}
+	got := validMetrics(in, spec, nil, endpoints, logr.Discard())
 
 	assert.Equal(t, []v1alpha1.MetricsEndpoint{endpoint("engine", "mongodb")}, got)
 }
