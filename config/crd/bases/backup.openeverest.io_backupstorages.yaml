@@ -29,6 +29,14 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Accepted")].reason
       name: Accepted
       type: string
+    - jsonPath: .spec.authentication.credentialsSecretRef.name
+      name: Credentials
+      priority: 1
+      type: string
+    - jsonPath: .spec.tls.ca.secretKeyRef.name
+      name: CA
+      priority: 1
+      type: string
     - jsonPath: .spec.tls.insecureSkipVerify
       name: Insecure
       priority: 1
@@ -347,6 +355,10 @@ spec:
         required:
         - spec
         type: object
+    selectableFields:
+    - jsonPath: .spec.backupStorageClassRef.name
+    - jsonPath: .spec.authentication.credentialsSecretRef.name
+    - jsonPath: .spec.tls.ca.secretKeyRef.name
     served: true
     storage: true
     subresources:

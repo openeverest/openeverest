@@ -307,13 +307,13 @@ export const getBackupStorageRaw = async (request, name) => {
   return await request.get(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`)
 }
 
-export const listBackupStorages = async (request, params: {backupClass?: string, backupStorageClass?: string} = {}) => {
+export const listBackupStorages = async (request, params: {backupClass?: string, backupStorageClass?: string, secret?: string} = {}) => {
   const response = await listBackupStoragesRaw(request, params)
   await checkError(response)
   return (await response.json())
 }
 
-export const listBackupStoragesRaw = async (request, params: {backupClass?: string, backupStorageClass?: string} = {}) => {
+export const listBackupStoragesRaw = async (request, params: {backupClass?: string, backupStorageClass?: string, secret?: string} = {}) => {
   return await request.get(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages`, {params: params})
 }
 

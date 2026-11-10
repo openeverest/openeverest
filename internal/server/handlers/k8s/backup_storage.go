@@ -17,6 +17,9 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,38 +27,82 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 )
 
-// ListBackupStorages returns the backup storages in a namespace: only those
-// backupClass can write to, and only those of backupStorageClass, when set.
-func (h *k8sHandler) ListBackupStorages(ctx context.Context, _, namespace, backupClass, backupStorageClass string) (*backupv1alpha1.BackupStorageList, error) {
-	list, err := h.kubeConnector.ListBackupStorages(ctx, ctrlclient.InNamespace(namespace))
-	if err != nil || (backupClass == "" && backupStorageClass == "") {
+// Field selectors of the BackupStorage selectable fields.
+const (
+	backupStorageClassField             = "spec.backupStorageClassRef.name"
+	backupStorageCredentialsSecretField = "spec.authentication.credentialsSecretRef.name"
+	backupStorageCASecretField          = "spec.tls.ca.secretKeyRef.name" //nolint:gosec // a field path, not a credential
+)
+
+// ListBackupStorages returns the backup storages in a namespace that match the
+// filter. The backup storage class and Secret filters are evaluated by the API
+// server through the CRD's selectable fields; the backup class filter is
+// computed here from the class's spec.backupStorageClasses.
+func (h *k8sHandler) ListBackupStorages(ctx context.Context, _, namespace string, filter handlers.BackupStorageFilter) (*backupv1alpha1.BackupStorageList, error) {
+	fields := ctrlclient.MatchingFields{}
+	if filter.BackupStorageClass != "" {
+		fields[backupStorageClassField] = filter.BackupStorageClass
+	}
+	list, err := h.listBackupStorages(ctx, namespace, fields, filter.Secret)
+	if err != nil || filter.BackupClass == "" {
 		return list, err
 	}
-	var class *backupv1alpha1.BackupClass
-	if backupClass != "" {
-		class, err = h.kubeConnector.GetBackupClass(ctx, types.NamespacedName{Name: backupClass})
-		if apierrors.IsNotFound(err) {
-			list.Items = []backupv1alpha1.BackupStorage{}
-			return list, nil
-		}
-		if err != nil {
-			return nil, fmt.Errorf("get BackupClass %q: %w", backupClass, err)
-		}
+	class, err := h.kubeConnector.GetBackupClass(ctx, types.NamespacedName{Name: filter.BackupClass})
+	if apierrors.IsNotFound(err) {
+		list.Items = []backupv1alpha1.BackupStorage{}
+		return list, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get BackupClass %q: %w", filter.BackupClass, err)
 	}
 	filtered := make([]backupv1alpha1.BackupStorage, 0, len(list.Items))
 	for _, bs := range list.Items {
-		if backupStorageClass != "" && bs.Spec.BackupStorageClassRef.Name != backupStorageClass {
-			continue
+		if class.CanWriteTo(&bs).Compatible {
+			filtered = append(filtered, bs)
 		}
-		if class != nil && !class.CanWriteTo(&bs).Compatible {
-			continue
-		}
-		filtered = append(filtered, bs)
 	}
 	list.Items = filtered
 	return list, nil
+}
+
+// listBackupStorages lists the storages matching fields and, when secret is
+// set, referencing it. A field selector cannot express "or", so a storage that
+// references the Secret as credentials and one that references it as CA bundle
+// come from two lists, merged and deduplicated.
+func (h *k8sHandler) listBackupStorages(ctx context.Context, namespace string, fields ctrlclient.MatchingFields, secret string) (*backupv1alpha1.BackupStorageList, error) {
+	if secret == "" {
+		opts := []ctrlclient.ListOption{ctrlclient.InNamespace(namespace)}
+		if len(fields) > 0 {
+			opts = append(opts, fields)
+		}
+		return h.kubeConnector.ListBackupStorages(ctx, opts...)
+	}
+	merged := &backupv1alpha1.BackupStorageList{Items: []backupv1alpha1.BackupStorage{}}
+	seen := make(map[string]bool)
+	for i, field := range []string{backupStorageCredentialsSecretField, backupStorageCASecretField} {
+		selector := maps.Clone(fields)
+		selector[field] = secret
+		list, err := h.kubeConnector.ListBackupStorages(ctx, ctrlclient.InNamespace(namespace), selector)
+		if err != nil {
+			return nil, err
+		}
+		if i == 0 {
+			merged.TypeMeta, merged.ListMeta = list.TypeMeta, list.ListMeta
+		}
+		for _, bs := range list.Items {
+			if !seen[bs.GetName()] {
+				seen[bs.GetName()] = true
+				merged.Items = append(merged.Items, bs)
+			}
+		}
+	}
+	slices.SortFunc(merged.Items, func(a, b backupv1alpha1.BackupStorage) int {
+		return strings.Compare(a.GetName(), b.GetName())
+	})
+	return merged, nil
 }
 
 // GetBackupStorage returns a backup storage by name and namespace.

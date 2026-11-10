@@ -261,6 +261,69 @@ spec:
             selector: control-plane=controller-manager
             tail: 100
 
+    # The selectable fields find the storages that use a Secret or a class.
+    - name: selectable-fields
+      try:
+        - apply:
+            resource:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              metadata:
+                name: bs-test-shared-ca
+              spec:
+                backupStorageClassRef:
+                  name: s3
+                location:
+                  objectStore:
+                    bucket: test-bucket
+                parameters:
+                  region: us-east-1
+                  endpointURL: https://s3.amazonaws.com
+                authentication:
+                  mode: AccessKey
+                  credentialsSecretRef:
+                    name: bs-test-late-secret-credentials
+                tls:
+                  ca:
+                    secretKeyRef:
+                      name: bs-test-credentials
+                      key: ca.crt
+        - script:
+            content: |
+              kubectl get backupstorages -n "$NAMESPACE" -o jsonpath='{.items[*].metadata.name}' \
+                --field-selector spec.authentication.credentialsSecretRef.name=bs-test-credentials
+            check:
+              ($error): ~
+              ($stdout): bs-test bs-test-missing-class bs-test-no-region
+        - script:
+            content: |
+              kubectl get backupstorages -n "$NAMESPACE" -o jsonpath='{.items[*].metadata.name}' \
+                --field-selector spec.tls.ca.secretKeyRef.name=bs-test-credentials
+            check:
+              ($error): ~
+              ($stdout): bs-test-shared-ca
+        - script:
+            content: |
+              kubectl get backupstorages -n "$NAMESPACE" -o jsonpath='{.items[*].metadata.name}' \
+                --field-selector spec.backupStorageClassRef.name=does-not-exist
+            check:
+              ($error): ~
+              ($stdout): bs-test-missing-class
+        - script:
+            content: kubectl get backupstorage bs-test-shared-ca -n "$NAMESPACE" -o wide --no-headers
+            check:
+              ($error): ~
+              (contains($stdout, 'bs-test-late-secret-credentials')): true
+              (contains($stdout, 'bs-test-credentials')): true
+        - delete:
+            ref:
+              apiVersion: backup.openeverest.io/v1alpha1
+              kind: BackupStorage
+              name: bs-test-shared-ca
+      catch:
+        - script:
+            content: kubectl get backupstorages -n $NAMESPACE -o wide
+
     - name: immutable-fields
       try:
         - script:

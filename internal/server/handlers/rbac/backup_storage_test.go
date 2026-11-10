@@ -183,7 +183,7 @@ func TestRBAC_BackupStorageV2(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				list, err := h.ListBackupStorages(ctx, tc.cluster, tc.ns, "", "")
+				list, err := h.ListBackupStorages(ctx, tc.cluster, tc.ns, handlers.BackupStorageFilter{})
 				require.NoError(t, err)
 				assert.Condition(t, func() bool {
 					return tc.assert(list)

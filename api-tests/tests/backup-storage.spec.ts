@@ -223,6 +223,54 @@ test.describe.parallel('Backup Storage V2 tests', () => {
     }
   })
 
+  test('list: by a Secret the storages reference', async ({request}) => {
+    // Storages are stored as sent, so they need not be Accepted for the filter: no Secret is created.
+    const viaCredentials = th.limitedSuffixedName(testPrefix + '-sec-creds'),
+      viaCA = th.limitedSuffixedName(testPrefix + '-sec-ca'),
+      viaBoth = th.limitedSuffixedName(testPrefix + '-sec-both'),
+      unrelated = th.limitedSuffixedName(testPrefix + '-sec-other'),
+      shared = th.limitedSuffixedName(testPrefix + '-shared'),
+      withRefs = (name: string, credentials: string, ca?: string) => {
+        const payload = th.getBackupStoragePayload(name)
+        payload.spec.authentication.credentialsSecretRef.name = credentials
+        if (ca) {
+          (payload.spec as {tls: object}).tls = {ca: {secretKeyRef: {name: ca, key: 'ca.crt'}}}
+        }
+        return payload
+      },
+      storages = [
+        withRefs(viaCredentials, shared),
+        withRefs(viaCA, th.backupStorageCredentialsSecretName(viaCA), shared),
+        withRefs(viaBoth, shared, shared),
+        withRefs(unrelated, th.backupStorageCredentialsSecretName(unrelated)),
+      ]
+
+    try {
+      for (const payload of storages) {
+        await th.checkError(await th.createBackupStorageRaw(request, payload))
+      }
+
+      await test.step('as credentials or as CA bundle, each storage once', async () => {
+        const listed = names(await th.listBackupStorages(request, {secret: shared}))
+
+        expect([...listed].sort()).toEqual([viaBoth, viaCA, viaCredentials].sort())
+      });
+
+      await test.step('together with the backup storage class filter', async () => {
+        expect(names(await th.listBackupStorages(request, {secret: shared, backupStorageClass: 's3'}))).toContain(viaCA)
+        expect(names(await th.listBackupStorages(request, {secret: shared, backupStorageClass: 'does-not-exist'}))).toEqual([])
+      });
+
+      await test.step('a Secret no storage references', async () => {
+        expect(names(await th.listBackupStorages(request, {secret: `${shared}-unused`}))).toEqual([])
+      });
+    } finally {
+      for (const payload of storages) {
+        await th.deleteBackupStorage(request, payload.metadata.name)
+      }
+    }
+  })
+
   test('backup storage classes', async ({request}) => {
     await test.step('list backup storage classes', async () => {
       const classes = await th.listBackupStorageClasses(request)

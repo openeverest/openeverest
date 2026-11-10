@@ -1283,9 +1283,9 @@ func (_m *MockHandler) ListBackupStorageClasses(ctx context.Context, cluster str
 	return r0, r1
 }
 
-// ListBackupStorages provides a mock function with given fields: ctx, cluster, namespace, backupClass, backupStorageClass
-func (_m *MockHandler) ListBackupStorages(ctx context.Context, cluster string, namespace string, backupClass string, backupStorageClass string) (*v1alpha1.BackupStorageList, error) {
-	ret := _m.Called(ctx, cluster, namespace, backupClass, backupStorageClass)
+// ListBackupStorages provides a mock function with given fields: ctx, cluster, namespace, filter
+func (_m *MockHandler) ListBackupStorages(ctx context.Context, cluster string, namespace string, filter BackupStorageFilter) (*v1alpha1.BackupStorageList, error) {
+	ret := _m.Called(ctx, cluster, namespace, filter)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListBackupStorages")
@@ -1293,19 +1293,19 @@ func (_m *MockHandler) ListBackupStorages(ctx context.Context, cluster string, n
 
 	var r0 *v1alpha1.BackupStorageList
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) (*v1alpha1.BackupStorageList, error)); ok {
-		return rf(ctx, cluster, namespace, backupClass, backupStorageClass)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, BackupStorageFilter) (*v1alpha1.BackupStorageList, error)); ok {
+		return rf(ctx, cluster, namespace, filter)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, string) *v1alpha1.BackupStorageList); ok {
-		r0 = rf(ctx, cluster, namespace, backupClass, backupStorageClass)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, BackupStorageFilter) *v1alpha1.BackupStorageList); ok {
+		r0 = rf(ctx, cluster, namespace, filter)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*v1alpha1.BackupStorageList)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, string) error); ok {
-		r1 = rf(ctx, cluster, namespace, backupClass, backupStorageClass)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, BackupStorageFilter) error); ok {
+		r1 = rf(ctx, cluster, namespace, filter)
 	} else {
 		r1 = ret.Error(1)
 	}

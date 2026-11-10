@@ -220,8 +220,13 @@ const (
 // +kubebuilder:printcolumn:name="Bucket",type="string",JSONPath=".spec.location.objectStore.bucket"
 // +kubebuilder:printcolumn:name="Auth",type="string",JSONPath=".spec.authentication.mode"
 // +kubebuilder:printcolumn:name="Accepted",type="string",JSONPath=".status.conditions[?(@.type==\"Accepted\")].reason"
+// +kubebuilder:printcolumn:name="Credentials",type="string",JSONPath=".spec.authentication.credentialsSecretRef.name",priority=1
+// +kubebuilder:printcolumn:name="CA",type="string",JSONPath=".spec.tls.ca.secretKeyRef.name",priority=1
 // +kubebuilder:printcolumn:name="Insecure",type="boolean",JSONPath=".spec.tls.insecureSkipVerify",priority=1
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:selectablefield:JSONPath=".spec.backupStorageClassRef.name"
+// +kubebuilder:selectablefield:JSONPath=".spec.authentication.credentialsSecretRef.name"
+// +kubebuilder:selectablefield:JSONPath=".spec.tls.ca.secretKeyRef.name"
 
 // BackupStorage is the Schema for the backupstorages API.
 type BackupStorage struct {

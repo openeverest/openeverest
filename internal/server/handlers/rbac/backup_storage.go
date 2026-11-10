@@ -25,13 +25,14 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	valhandler "github.com/openeverest/openeverest/v2/internal/server/handlers/validation"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
 // ListBackupStorages returns backup storages filtered by RBAC permissions.
-func (h *rbacHandler) ListBackupStorages(ctx context.Context, cluster, namespace, backupClass, backupStorageClass string) (*backupv1alpha1.BackupStorageList, error) {
-	list, err := h.next.ListBackupStorages(ctx, cluster, namespace, backupClass, backupStorageClass)
+func (h *rbacHandler) ListBackupStorages(ctx context.Context, cluster, namespace string, filter handlers.BackupStorageFilter) (*backupv1alpha1.BackupStorageList, error) {
+	list, err := h.next.ListBackupStorages(ctx, cluster, namespace, filter)
 	if err != nil {
 		return nil, fmt.Errorf("ListBackupStorages failed: %w", err)
 	}

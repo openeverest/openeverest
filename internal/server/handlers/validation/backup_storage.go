@@ -18,11 +18,12 @@ import (
 	"context"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 )
 
 // ListBackupStorages proxies the request to the next handler.
-func (h *validateHandler) ListBackupStorages(ctx context.Context, cluster, namespace, backupClass, backupStorageClass string) (*backupv1alpha1.BackupStorageList, error) {
-	return h.next.ListBackupStorages(ctx, cluster, namespace, backupClass, backupStorageClass)
+func (h *validateHandler) ListBackupStorages(ctx context.Context, cluster, namespace string, filter handlers.BackupStorageFilter) (*backupv1alpha1.BackupStorageList, error) {
+	return h.next.ListBackupStorages(ctx, cluster, namespace, filter)
 }
 
 // ListBackupStorageClasses proxies the request to the next handler.

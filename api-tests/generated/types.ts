@@ -809,7 +809,7 @@ export interface paths {
         /**
          * List backup storages
          * @description This API lists all backup storages in the specified namespace and cluster.
-         *     Optionally filter by the backup class that can write to them, or by their backup storage class.
+         *     Optionally filter by the backup class that can write to them, by their backup storage class, or by a Secret they reference.
          */
         get: operations["listBackupStorages"];
         put?: never;
@@ -10638,6 +10638,8 @@ export interface operations {
                 backupClass?: string;
                 /** @description Return only the backup storages of this backup storage class */
                 backupStorageClass?: string;
+                /** @description Return only the backup storages that reference this Secret, as credentials or as CA bundle. These are the CRD's selectable fields `spec.authentication.credentialsSecretRef.name` and `spec.tls.ca.secretKeyRef.name`, which `kubectl get backupstorages --field-selector` accepts too. */
+                secret?: string;
             };
             header?: never;
             path: {

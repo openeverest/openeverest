@@ -28,6 +28,7 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
@@ -46,10 +47,31 @@ func testBackupStorage(name, class, mode string) *backupv1alpha1.BackupStorage {
 	}
 }
 
+// newBackupStorageHandler serves objs through a fake client that indexes the
+// BackupStorage selectable fields, as the API server does.
 func newBackupStorageHandler(objs ...ctrlclient.Object) *k8sHandler {
+	storage := &backupv1alpha1.BackupStorage{}
 	fakeClient := fake.NewClientBuilder().
 		WithScheme(kubernetes.CreateScheme()).
 		WithObjects(objs...).
+		WithIndex(storage, backupStorageClassField, func(o ctrlclient.Object) []string {
+			bs, _ := o.(*backupv1alpha1.BackupStorage)
+			return []string{bs.Spec.BackupStorageClassRef.Name}
+		}).
+		WithIndex(storage, backupStorageCredentialsSecretField, func(o ctrlclient.Object) []string {
+			bs, _ := o.(*backupv1alpha1.BackupStorage)
+			if ref := bs.Spec.Authentication.CredentialsSecretRef; ref != nil {
+				return []string{ref.Name}
+			}
+			return []string{""}
+		}).
+		WithIndex(storage, backupStorageCASecretField, func(o ctrlclient.Object) []string {
+			bs, _ := o.(*backupv1alpha1.BackupStorage)
+			if bs.Spec.TLS != nil && bs.Spec.TLS.CA != nil && bs.Spec.TLS.CA.SecretKeyRef != nil {
+				return []string{bs.Spec.TLS.CA.SecretKeyRef.Name}
+			}
+			return []string{""}
+		}).
 		Build()
 	return &k8sHandler{
 		kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), "ns1").WithKubernetesClient(fakeClient),
@@ -57,8 +79,18 @@ func newBackupStorageHandler(objs ...ctrlclient.Object) *k8sHandler {
 	}
 }
 
+// withCA returns bs with its CA bundle in the Secret named name.
+func withCA(bs *backupv1alpha1.BackupStorage, name string) *backupv1alpha1.BackupStorage {
+	bs.Spec.TLS = &common.TLSConfig{CA: &common.CABundleSource{SecretKeyRef: &common.SecretKeyRef{Name: name, Key: "ca.crt"}}}
+	return bs
+}
+
 func TestK8s_ListBackupStorages(t *testing.T) {
 	t.Parallel()
+
+	inOtherNamespace := testBackupStorage("other-namespace", "s3", "AccessKey")
+	inOtherNamespace.Namespace = "ns2"
+	inOtherNamespace.Spec.Authentication.CredentialsSecretRef.Name = "shared-ca"
 
 	handler := newBackupStorageHandler(
 		&backupv1alpha1.BackupClass{
@@ -68,32 +100,45 @@ func TestK8s_ListBackupStorages(t *testing.T) {
 				{Name: "gcs", AuthModes: []string{"AccessKey"}},
 			}},
 		},
-		testBackupStorage("writable", "s3", "AccessKey"),
+		withCA(testBackupStorage("writable", "s3", "AccessKey"), "shared-ca"),
 		testBackupStorage("refused", "s3", "WorkloadIdentity"),
-		testBackupStorage("other-class", "gcs", "AccessKey"),
+		withCA(testBackupStorage("other-class", "gcs", "AccessKey"), "shared-ca"),
+		// Its own CA as credentials too: listed once.
+		withCA(testBackupStorage("self", "s3", "AccessKey"), "self-creds"),
+		inOtherNamespace,
 	)
 
 	tests := []struct {
-		name               string
-		backupClass        string
-		backupStorageClass string
-		want               []string
+		name   string
+		filter handlers.BackupStorageFilter
+		want   []string
 	}{
-		{name: "no filter", want: []string{"other-class", "refused", "writable"}},
-		{name: "by backup class", backupClass: "pbm", want: []string{"other-class", "writable"}},
-		{name: "by backup storage class", backupStorageClass: "s3", want: []string{"refused", "writable"}},
-		{name: "by both", backupClass: "pbm", backupStorageClass: "s3", want: []string{"writable"}},
-		{name: "unknown backup class", backupClass: "nope", want: []string{}},
+		{name: "no filter", want: []string{"other-class", "refused", "self", "writable"}},
+		{name: "by backup class", filter: handlers.BackupStorageFilter{BackupClass: "pbm"}, want: []string{"other-class", "self", "writable"}},
+		{name: "by backup storage class", filter: handlers.BackupStorageFilter{BackupStorageClass: "s3"}, want: []string{"refused", "self", "writable"}},
+		{name: "by both classes", filter: handlers.BackupStorageFilter{BackupClass: "pbm", BackupStorageClass: "s3"}, want: []string{"self", "writable"}},
+		{name: "unknown backup class", filter: handlers.BackupStorageFilter{BackupClass: "nope"}, want: []string{}},
+		{name: "by credentials Secret", filter: handlers.BackupStorageFilter{Secret: "refused-creds"}, want: []string{"refused"}},
+		{name: "by CA Secret", filter: handlers.BackupStorageFilter{Secret: "shared-ca"}, want: []string{"other-class", "writable"}},
+		{name: "by a Secret used as both", filter: handlers.BackupStorageFilter{Secret: "self-creds"}, want: []string{"self"}},
+		{name: "by Secret and backup storage class", filter: handlers.BackupStorageFilter{Secret: "shared-ca", BackupStorageClass: "s3"}, want: []string{"writable"}},
+		{name: "by Secret and backup class", filter: handlers.BackupStorageFilter{Secret: "refused-creds", BackupClass: "pbm"}, want: []string{}},
+		{name: "by an unused Secret", filter: handlers.BackupStorageFilter{Secret: "nope"}, want: []string{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			list, err := handler.ListBackupStorages(context.Background(), "prod", "ns1", tt.backupClass, tt.backupStorageClass)
+			list, err := handler.ListBackupStorages(context.Background(), "prod", "ns1", tt.filter)
 			require.NoError(t, err)
 			names := make([]string, 0, len(list.Items))
 			for _, bs := range list.Items {
 				names = append(names, bs.Name)
+			}
+			if tt.filter.Secret != "" {
+				// Merged lists come back sorted, like a single list.
+				assert.Equal(t, tt.want, names)
+				return
 			}
 			assert.ElementsMatch(t, tt.want, names)
 		})
