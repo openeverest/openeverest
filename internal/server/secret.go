@@ -73,6 +73,23 @@ func (e *EverestServer) GetSecret(c echo.Context, cluster, namespace, name strin
 	return c.JSON(http.StatusOK, result)
 }
 
+// UpdateSecret replaces the data of the secret specified by name (returns metadata only, no data).
+func (e *EverestServer) UpdateSecret(c echo.Context, cluster, namespace, name string, _ api.UpdateSecretParams) error {
+	secret := &corev1.Secret{}
+	if err := c.Bind(secret); err != nil {
+		e.l.Errorf("UpdateSecret: failed to bind request body: %v", err)
+		return err
+	}
+
+	result, err := e.handler.UpdateSecret(c.Request().Context(), cluster, namespace, name, secret)
+	if err != nil {
+		e.l.Errorf("UpdateSecret failed: %v", err)
+		return err
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
 // DeleteSecret deletes the secret specified by name in the namespace and cluster.
 func (e *EverestServer) DeleteSecret(c echo.Context, cluster, namespace, name string, _ api.DeleteSecretParams) error {
 	if err := e.handler.DeleteSecret(c.Request().Context(), cluster, namespace, name); err != nil {

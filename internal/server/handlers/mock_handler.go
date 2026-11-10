@@ -1948,6 +1948,36 @@ func (_m *MockHandler) UpdateMonitoringDestination(ctx context.Context, cluster 
 	return r0, r1
 }
 
+// UpdateSecret provides a mock function with given fields: ctx, cluster, namespace, name, secret
+func (_m *MockHandler) UpdateSecret(ctx context.Context, cluster string, namespace string, name string, secret *v1.Secret) (*v1.Secret, error) {
+	ret := _m.Called(ctx, cluster, namespace, name, secret)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateSecret")
+	}
+
+	var r0 *v1.Secret
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, *v1.Secret) (*v1.Secret, error)); ok {
+		return rf(ctx, cluster, namespace, name, secret)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, *v1.Secret) *v1.Secret); ok {
+		r0 = rf(ctx, cluster, namespace, name, secret)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1.Secret)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, *v1.Secret) error); ok {
+		r1 = rf(ctx, cluster, namespace, name, secret)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // NewMockHandler creates a new instance of MockHandler. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockHandler(t interface {

@@ -16,6 +16,7 @@ package validation
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -270,4 +271,173 @@ func TestCreateSecret_Validation(t *testing.T) {
 			mockNext.AssertNotCalled(t, "CreateSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 		})
 	}
+}
+
+func TestUpdateSecret_Validation(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	namespace := "test-namespace"
+	cluster := "test-cluster"
+
+	class := &monitoringv1alpha1.MonitoringClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "pmm"},
+		Spec: monitoringv1alpha1.MonitoringClassSpec{
+			AuthModes: []commonv1alpha1.AuthMode{{
+				Name:        "ServiceAccountToken",
+				Credentials: &commonv1alpha1.CredentialKeys{Required: []string{"token"}},
+			}},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, monitoringv1alpha1.AddToScheme(scheme))
+
+	classLabels := map[string]string{
+		common.OpenEverestDefinitionLabel:      "ServiceAccountToken",
+		common.OpenEverestMonitoringClassLabel: "pmm",
+	}
+	storedLabels := map[string]string{
+		common.OpenEverestManagedLabel:         "true",
+		common.OpenEverestDefinitionLabel:      "ServiceAccountToken",
+		common.OpenEverestMonitoringClassLabel: "pmm",
+	}
+	newToken := map[string]string{"token": "glsa_new"}
+
+	tests := []struct {
+		name   string
+		stored *corev1.Secret
+		secret *corev1.Secret
+		err    string
+	}{
+		{
+			name:   "new data without metadata is accepted",
+			secret: &corev1.Secret{StringData: newToken},
+		},
+		{
+			name: "the labels and type the Secret was created with are accepted",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Labels: classLabels},
+				Type:       corev1.SecretTypeOpaque,
+				StringData: newToken,
+			},
+		},
+		{
+			name: "the labels a GET returns are accepted",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Labels: storedLabels},
+				Data:       map[string][]byte{"token": []byte("glsa_new")},
+			},
+		},
+		{
+			name: "a changed definition label is refused",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{
+					common.OpenEverestDefinitionLabel:      "BasicAuth",
+					common.OpenEverestMonitoringClassLabel: "pmm",
+				}},
+				StringData: newToken,
+			},
+			err: `label "openeverest.io/definition" differs from the stored Secret`,
+		},
+		{
+			name: "an added label is refused",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"team": "a"}},
+				StringData: newToken,
+			},
+			err: `label "team" differs from the stored Secret`,
+		},
+		{
+			name: "a changed type is refused",
+			secret: &corev1.Secret{
+				Type:       corev1.SecretTypeBasicAuth,
+				StringData: newToken,
+			},
+			err: `type can't change from "Opaque" to "kubernetes.io/basic-auth"`,
+		},
+		{
+			name:   "new data is checked against the definition",
+			secret: &corev1.Secret{StringData: map[string]string{"orgID": "1"}},
+			err:    `missing key "token"`,
+		},
+		{
+			name: "a CA bundle is checked against the core definition",
+			stored: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{
+					common.OpenEverestManagedLabel:    "true",
+					common.OpenEverestDefinitionLabel: "ca-bundle",
+				}},
+				Type: corev1.SecretTypeOpaque,
+			},
+			secret: &corev1.Secret{StringData: map[string]string{"ca.crt": "not a certificate"}},
+			err:    `key "ca.crt": no PEM certificate found`,
+		},
+		{
+			name: "a valid CA bundle is accepted",
+			stored: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{
+					common.OpenEverestManagedLabel:    "true",
+					common.OpenEverestDefinitionLabel: "ca-bundle",
+				}},
+				Type: corev1.SecretTypeOpaque,
+			},
+			secret: &corev1.Secret{StringData: map[string]string{"ca.crt": testCA}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			stored := tt.stored
+			if stored == nil {
+				stored = &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Labels: storedLabels},
+					Type:       corev1.SecretTypeOpaque,
+				}
+			}
+			stored.Name = "credentials"
+			stored.Namespace = namespace
+
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(class.DeepCopy()).Build()
+			mockNext := &handlers.MockHandler{}
+			mockNext.On("GetSecret", mock.Anything, cluster, namespace, "credentials").Return(stored, nil)
+			mockNext.On("UpdateSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+				Return(stored, nil)
+
+			handler := &validateHandler{
+				log:           zap.NewNop().Sugar(),
+				kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).WithKubernetesClient(fakeClient),
+				next:          mockNext,
+			}
+
+			_, err := handler.UpdateSecret(ctx, cluster, namespace, "credentials", tt.secret)
+			if tt.err == "" {
+				require.NoError(t, err)
+				mockNext.AssertCalled(t, "UpdateSecret", mock.Anything, cluster, namespace, "credentials", tt.secret)
+				return
+			}
+			require.ErrorIs(t, err, ErrInvalidRequest)
+			require.ErrorContains(t, err, tt.err)
+			mockNext.AssertNotCalled(t, "UpdateSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+		})
+	}
+}
+
+func TestUpdateSecret_ValidationPassesLookupErrors(t *testing.T) {
+	t.Parallel()
+
+	errLookup := errors.New("lookup failed")
+	mockNext := &handlers.MockHandler{}
+	mockNext.On("GetSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errLookup)
+
+	handler := &validateHandler{log: zap.NewNop().Sugar(), next: mockNext}
+
+	_, err := handler.UpdateSecret(context.Background(), "test-cluster", "test-namespace", "missing",
+		&corev1.Secret{StringData: map[string]string{"token": "glsa_new"}},
+	)
+	require.ErrorIs(t, err, errLookup)
+	mockNext.AssertNotCalled(t, "UpdateSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
