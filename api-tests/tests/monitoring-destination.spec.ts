@@ -124,4 +124,66 @@ test.describe('Monitoring destination in use', () => {
       await request.delete(`${instancesURL}/${instanceName}`)
     }
   })
+
+  test('deleting it right after the Instance listing it is let through', async ({request, cli}) => {
+    const name = th.limitedSuffixedName('md-with-db'),
+      instanceName = th.limitedSuffixedName('md-with-db-db'),
+      // The test provider runs no controller; this finalizer keeps the deleted Instance as a provider's does while the engine tears down.
+      setFinalizers = (finalizers: string[] | null) => cli.exec(
+        `kubectl patch instances.core.openeverest.io ${instanceName} -n ${EVEREST_CI_NAMESPACE} --type=merge -p '${JSON.stringify({metadata: {finalizers}})}'`,
+      ),
+      presetSpec = await getPresetSpec(request)
+
+    try {
+      await th.checkError(await request.post(url, {data: {metadata: {name}, spec: {classRef: {name: 'pmm'}}}}))
+      await th.checkError(await request.post(instancesURL, {
+        data: {
+          metadata: {name: instanceName},
+          spec: {...presetSpec, monitoring: {destinations: [{name: 'metrics', destinationRef: {name}}]}},
+        },
+      }))
+      await (await setFinalizers(['test.openeverest.io/hold'])).assertSuccess()
+
+      await expect(async () => {
+        expect((await getDestination(request, name)).status?.attachedInstances).toBe(1)
+      }).toPass({intervals: [1000], timeout: TIMEOUTS.ThirtySeconds})
+
+      // What the UI does: delete the Instance, then its destination.
+      await th.checkError(await request.delete(`${instancesURL}/${instanceName}`))
+
+      await test.step('DELETE of the destination answers 204 within seconds', async () => {
+        await expect(async () => {
+          expect((await request.delete(`${url}/${name}`)).status()).toBe(204)
+        }).toPass({intervals: [500], timeout: TIMEOUTS.TenSeconds})
+      });
+
+      await test.step('the deletion waits for the Instance, and the count says so', async () => {
+        await expect(async () => {
+          expect(await getDestination(request, name)).toMatchObject({
+            metadata: {deletionTimestamp: expect.any(String)},
+            status: {attachedInstances: 1},
+          })
+        }).toPass({intervals: [1000], timeout: TIMEOUTS.ThirtySeconds})
+      });
+
+      await test.step('DELETE of the destination being deleted answers 204 again', async () => {
+        expect((await request.delete(`${url}/${name}`)).status()).toBe(204)
+      });
+
+      await test.step('both go once the Instance does', async () => {
+        await (await setFinalizers(null)).assertSuccess()
+
+        await expect(async () => {
+          expect((await request.get(`${instancesURL}/${instanceName}`)).status()).toBe(404)
+          expect((await request.get(`${url}/${name}`)).status()).toBe(404)
+        }).toPass({intervals: [1000], timeout: TIMEOUTS.ThirtySeconds})
+      });
+    } finally {
+      await setFinalizers(null)
+      await request.delete(`${instancesURL}/${instanceName}`)
+      await expect(async () => {
+        expect([204, 404]).toContain((await request.delete(`${url}/${name}`)).status())
+      }).toPass({intervals: [1000], timeout: TIMEOUTS.ThirtySeconds})
+    }
+  })
 });

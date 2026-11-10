@@ -149,11 +149,109 @@ spec:
           metadata:
             name: in-use
 
+  - name: an-instance-and-its-destination-deleted-together
+    try:
+    # The Instance's own finalizer keeps it terminating, as a provider's does
+    # while the engine tears down.
+    - script:
+        content: |
+          kubectl apply -n $NAMESPACE -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: together
+          spec:
+            classRef:
+              name: in-use-test
+          ---
+          apiVersion: core.openeverest.io/v1alpha1
+          kind: Instance
+          metadata:
+            name: payments
+            finalizers:
+            - test.openeverest.io/hold
+          spec:
+            providerRef:
+              name: test-provider
+            monitoring:
+              destinations:
+              - name: metrics
+                destinationRef:
+                  name: together
+          EOF
+        check:
+          ($error): ~
+    - assert:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: together
+            finalizers:
+            - monitoring.openeverest.io/in-use-protection
+          status:
+            attachedInstances: 1
+    - script:
+        content: kubectl delete instance payments -n $NAMESPACE --wait=false
+        check:
+          ($error): ~
+    # An Instance being deleted stops counting while the destination is live.
+    - assert:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: together
+          status:
+            attachedInstances: 0
+    - script:
+        content: kubectl delete monitoringdestination together -n $NAMESPACE --wait=false
+        check:
+          ($error): ~
+    # The finalizer holds the deletion for the Instance, and the count, read
+    # uncached, states what it waits for.
+    - assert:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: together
+            (deletionTimestamp != null): true
+            finalizers:
+            - monitoring.openeverest.io/in-use-protection
+          status:
+            attachedInstances: 1
+    - script:
+        content: kubectl delete monitoringdestination together -n $NAMESPACE --wait=false
+        check:
+          ($error): ~
+    - script:
+        content: kubectl patch instance payments -n $NAMESPACE --type=merge -p '{"metadata":{"finalizers":null}}'
+        check:
+          ($error): ~
+    - error:
+        resource:
+          apiVersion: core.openeverest.io/v1alpha1
+          kind: Instance
+          metadata:
+            name: payments
+    - error:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: together
+    finally:
+    - script:
+        content: kubectl patch instance payments -n $NAMESPACE --type=merge -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+
   - name: a-namespace-being-deleted-is-exempt
     try:
-    # The Instance's own finalizer keeps it, and so the count, while the
-    # namespace is being deleted: the namespace controller's deletion of the
-    # destination must still be admitted.
+    # stale's count says 1 although nothing lists it, and nothing requeues it
+    # before the namespace controller deletes it, so only the exemption can
+    # admit that deletion. kept is listed by an Instance whose own finalizer
+    # keeps it while the namespace is being deleted: the destination's
+    # deletion waits for it.
     - script:
         timeout: 2m
         content: |
@@ -165,6 +263,14 @@ spec:
           kind: MonitoringDestination
           metadata:
             name: kept
+          spec:
+            classRef:
+              name: in-use-test
+          ---
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: stale
           spec:
             classRef:
               name: in-use-test
@@ -185,6 +291,8 @@ spec:
                   name: kept
           EOF
           kubectl wait -n $NS monitoringdestination/kept --for=jsonpath='{.status.attachedInstances}'=1 --timeout=30s
+          kubectl wait -n $NS monitoringdestination/stale --for=jsonpath='{.status.attachedInstances}'=0 --timeout=30s
+          kubectl patch monitoringdestination stale -n $NS --subresource=status --type=merge -p '{"status":{"attachedInstances":1}}'
           kubectl delete namespace $NS --wait=false
           for _ in $(seq 30); do
             deleting=$(kubectl get monitoringdestination kept -n $NS -o jsonpath='{.metadata.deletionTimestamp}')
@@ -192,6 +300,7 @@ spec:
             sleep 1
           done
           [ -n "$deleting" ] || { echo "the destination was not deleted with its namespace" >&2; exit 1; }
+          kubectl wait -n $NS monitoringdestination/stale --for=delete --timeout=30s
           # Still held for the Instance, then released once it goes.
           kubectl get monitoringdestination kept -n $NS
           kubectl patch instance payments -n $NS --type=merge -p '{"metadata":{"finalizers":null}}'

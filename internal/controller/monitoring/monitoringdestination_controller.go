@@ -118,8 +118,7 @@ func (r *DestinationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err := guard.Protect(ctx, dst); err != nil {
 		return ctrl.Result{}, err
 	}
-	deleting := !dst.DeletionTimestamp.IsZero()
-	attached, err := r.attachedInstances(ctx, dst, deleting)
+	attached, err := r.attachedInstances(ctx, dst)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -127,10 +126,10 @@ func (r *DestinationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if deleting {
+	if !dst.DeletionTimestamp.IsZero() {
 		// Before the status apply, which changes the resourceVersion the
 		// finalizer patch is locked on.
-		if _, err := guard.Release(ctx, dst, attached); err != nil {
+		if _, err := guard.Release(ctx, dst, attached.Referrers); err != nil {
 			return ctrl.Result{}, err
 		}
 		if len(dst.Finalizers) == 0 {
@@ -141,38 +140,42 @@ func (r *DestinationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// One apply for every status field this owner writes: a second apply
 	// would prune the first one's fields.
 	if err := rtmonitoring.ApplyCondition(ctx, r.Client, dst, dst.Status.Conditions, rtmonitoring.MaterializerFieldOwner, cond,
-		map[string]any{"attachedInstances": int64(len(attached))},
+		map[string]any{"attachedInstances": int64(attached.Count)},
 	); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	return ctrl.Result{}, nil
 }
 
-// attachedInstances returns the names of the Instances whose spec lists dst,
-// including Instances being deleted. live reads the API server instead of
-// the cache, which may lag it.
-func (r *DestinationReconciler) attachedInstances(ctx context.Context, dst *monitoringv1alpha1.MonitoringDestination, live bool) ([]string, error) {
-	instances := &corev1alpha1.InstanceList{}
-	var err error
-	if live {
-		// The API server cannot select custom resources by this field.
-		err = r.APIReader.List(ctx, instances, client.InNamespace(dst.Namespace))
-	} else {
-		err = r.List(ctx, instances,
-			client.InNamespace(dst.Namespace),
-			client.MatchingFieldsSelector{Selector: fields.OneTermEqualSelector(instanceMonitoringDestinationField, dst.Name)},
-		)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("list Instances using MonitoringDestination %q: %w", dst.Name, err)
-	}
-	var names []string
-	for i := range instances.Items {
-		if slices.Contains(destinationNames(&instances.Items[i]), dst.Name) {
-			names = append(names, instances.Items[i].Name)
+// attachedInstances finds the Instances whose spec lists dst and counts them
+// by inuse.Count. While dst is not being deleted, they are read from the
+// cache by the Instance index and those being deleted are left out of the
+// count; once it is, they are read from the API server, which the cache may
+// lag, and all of them count.
+func (r *DestinationReconciler) attachedInstances(ctx context.Context, dst *monitoringv1alpha1.MonitoringDestination) (inuse.Usage, error) {
+	return inuse.Measure(ctx, dst, func(ctx context.Context, live bool) ([]*corev1alpha1.Instance, error) {
+		instances := &corev1alpha1.InstanceList{}
+		var err error
+		if live {
+			// The API server cannot select custom resources by this field.
+			err = r.APIReader.List(ctx, instances, client.InNamespace(dst.Namespace))
+		} else {
+			err = r.List(ctx, instances,
+				client.InNamespace(dst.Namespace),
+				client.MatchingFieldsSelector{Selector: fields.OneTermEqualSelector(instanceMonitoringDestinationField, dst.Name)},
+			)
 		}
-	}
-	return names, nil
+		if err != nil {
+			return nil, fmt.Errorf("list Instances using MonitoringDestination %q: %w", dst.Name, err)
+		}
+		var listing []*corev1alpha1.Instance
+		for i := range instances.Items {
+			if slices.Contains(destinationNames(&instances.Items[i]), dst.Name) {
+				listing = append(listing, &instances.Items[i])
+			}
+		}
+		return listing, nil
+	})
 }
 
 // acceptedCondition: class found, parameters valid against its schema,
@@ -299,8 +302,9 @@ func (r *DestinationReconciler) enqueueDestinationsForSecret(ctx context.Context
 // enqueueDestinationsOfInstance enqueues the MonitoringDestinations whose
 // attachedInstances an Instance event can change: every destination a
 // created or deleted Instance lists and, on update, those it started or
-// stopped listing. Mapping only the new object would miss the destination
-// an update stopped listing.
+// stopped listing, plus every destination it lists once its deletion
+// starts, since an Instance being deleted stops counting. Mapping only the
+// new object would miss the destination an update stopped listing.
 func enqueueDestinationsOfInstance() handler.Funcs {
 	enqueue := func(q workqueue.TypedRateLimitingInterface[reconcile.Request], namespace string, names []string) {
 		for _, name := range names {
@@ -312,9 +316,12 @@ func enqueueDestinationsOfInstance() handler.Funcs {
 			enqueue(q, e.Object.GetNamespace(), instanceMonitoringDestinationNames(e.Object))
 		},
 		UpdateFunc: func(_ context.Context, e event.UpdateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-			enqueue(q, e.ObjectNew.GetNamespace(), symmetricDifference(
-				instanceMonitoringDestinationNames(e.ObjectOld), instanceMonitoringDestinationNames(e.ObjectNew),
-			))
+			newNames := instanceMonitoringDestinationNames(e.ObjectNew)
+			names := symmetricDifference(instanceMonitoringDestinationNames(e.ObjectOld), newNames)
+			if e.ObjectOld.GetDeletionTimestamp().IsZero() && !e.ObjectNew.GetDeletionTimestamp().IsZero() {
+				names = append(names, newNames...)
+			}
+			enqueue(q, e.ObjectNew.GetNamespace(), names)
 		},
 		DeleteFunc: func(_ context.Context, e event.DeleteEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 			enqueue(q, e.Object.GetNamespace(), instanceMonitoringDestinationNames(e.Object))

@@ -909,10 +909,12 @@ export interface paths {
         /**
          * Delete monitoring destination
          * @description This API deletes the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
-         *     It is refused with `409` and reason `InUse` while Instances list the destination in `spec.monitoring.destinations` (`status.attachedInstances` above zero);
+         *     It is refused with `409` and reason `InUse` while Instances that are not being deleted list the destination in `spec.monitoring.destinations` (`status.attachedInstances` above zero);
          *     the message gives their number, and `GET .../monitoring-bindings?destination={name}` lists them.
          *     With `dryRun=All` the answer is the same and nothing is deleted, so a client can ask before it deletes.
-         *     A deletion that is let through may leave the destination listed with `metadata.deletionTimestamp` set until no Instance lists it any more.
+         *     An Instance being deleted does not count, so a destination can be deleted right after the Instances that list it. Core counts their deletion within moments; until it has, the answer is still `409`, so a client deleting both retries briefly.
+         *     A deletion that is let through leaves the destination listed with `metadata.deletionTimestamp` set until no Instance lists it any more, those being deleted included; `status.attachedInstances` then counts them.
+         *     Deleting a destination that is already being deleted answers `204` again.
          */
         delete: operations["deleteMonitoringDestination"];
         options?: never;
@@ -7536,8 +7538,12 @@ export interface components {
                  * Format: int32
                  * @description AttachedInstances is the number of Instances in this namespace whose
                  *     spec.monitoring.destinations lists this destination, whatever the
-                 *     state of their binding, including Instances being deleted. Written by
-                 *     core; deleting the destination is refused while it is above zero.
+                 *     state of their binding. While the destination is not being deleted,
+                 *     Instances being deleted are left out, so an Instance and then its
+                 *     destination can be deleted right away; once the destination is being
+                 *     deleted, they count too, and the number is what its deletion waits
+                 *     for. Written by core; deleting the destination is refused while it is
+                 *     above zero.
                  */
                 attachedInstances?: number;
                 conditions?: {

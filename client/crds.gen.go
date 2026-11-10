@@ -6336,8 +6336,12 @@ type MonitoringDestination struct {
 	Status *struct {
 		// AttachedInstances AttachedInstances is the number of Instances in this namespace whose
 		// spec.monitoring.destinations lists this destination, whatever the
-		// state of their binding, including Instances being deleted. Written by
-		// core; deleting the destination is refused while it is above zero.
+		// state of their binding. While the destination is not being deleted,
+		// Instances being deleted are left out, so an Instance and then its
+		// destination can be deleted right away; once the destination is being
+		// deleted, they count too, and the number is what its deletion waits
+		// for. Written by core; deleting the destination is refused while it is
+		// above zero.
 		AttachedInstances *int32 `json:"attachedInstances,omitempty"`
 		Conditions        *[]struct {
 			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
