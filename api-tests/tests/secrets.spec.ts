@@ -396,32 +396,46 @@ test.describe('Secret dryRun', () => {
   })
 })
 
-test.describe('Secret update', () => {
-  test('replaces the data and keeps the definition', async ({request}) => {
+test.describe('Secret patch', () => {
+  test('sets and removes data keys and keeps everything else', async ({request}) => {
     const url = `/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets`,
-      name = th.suffixedName('secret-update'),
-      rotated = {stringData: {token: 'glsa_rotated'}}
+      name = th.suffixedName('secret-patch'),
+      patch = async (target: string, data: object, contentType = 'application/merge-patch+json') =>
+        await request.patch(`${url}/${target}`, {data, headers: {'Content-Type': contentType}})
 
     try {
-      const created = await th.createSecretWithData(request, monitoringSecret(name, 'ServiceAccountToken')),
-        version = created.metadata.resourceVersion
+      const created = await th.createSecretWithData(request, monitoringSecret(name, 'ServiceAccountToken', {
+        stringData: {token: 'glsa_test-token', orgID: '1'},
+      }))
+      let version = created.metadata.resourceVersion
 
       await test.step('dry run changes nothing', async () => {
-        const response = await request.put(`${url}/${name}?dryRun=All`, {data: rotated})
+        const response = await request.patch(`${url}/${name}?dryRun=All`, {
+          data: {metadata: {resourceVersion: version}, stringData: {token: 'glsa_rotated'}},
+          headers: {'Content-Type': 'application/merge-patch+json'},
+        })
 
         expect(response.status()).toBe(200)
         expect((await th.getSecret(request, name)).metadata.resourceVersion).toBe(version)
       })
 
-      await test.step('update replaces the data and returns only metadata', async () => {
-        const response = await request.put(`${url}/${name}`, {data: {...rotated, metadata: {resourceVersion: version}}}),
-          updated = await response.json()
+      await test.step('a patch without a resourceVersion is refused', async () => {
+        const response = await patch(name, {stringData: {token: 'glsa_rotated'}})
+
+        expect(response.status()).toBe(400)
+        expect((await response.json()).message).toContain('metadata.resourceVersion is required')
+      })
+
+      await test.step('a patch sets the keys it sends and keeps the others', async () => {
+        // Without token the Secret would miss a required key, so this passes only if token is kept.
+        const response = await patch(name, {metadata: {resourceVersion: version}, stringData: {orgID: '2'}}),
+          patched = await response.json()
 
         expect(response.status()).toBe(200)
-        expect(updated.data).toBeUndefined()
-        expect(updated.stringData).toBeUndefined()
-        expect(updated.metadata.resourceVersion).not.toBe(version)
-        expect(updated.metadata.labels).toMatchObject({
+        expect(patched.data).toBeUndefined()
+        expect(patched.stringData).toBeUndefined()
+        expect(patched.metadata.resourceVersion).not.toBe(version)
+        expect(patched.metadata.labels).toMatchObject({
           'openeverest.io/managed': 'true',
           'openeverest.io/monitoring-class': monitoringClass,
           'openeverest.io/definition': 'ServiceAccountToken',
@@ -429,23 +443,32 @@ test.describe('Secret update', () => {
       })
 
       await test.step('a stale resourceVersion is refused', async () => {
-        const response = await request.put(`${url}/${name}`, {data: {...rotated, metadata: {resourceVersion: version}}})
+        const response = await patch(name, {metadata: {resourceVersion: version}, stringData: {token: 'glsa_rotated'}})
 
         expect(response.status()).toBe(409)
+        version = (await th.getSecret(request, name)).metadata.resourceVersion
       })
 
-      await test.step('the new data is checked against the definition', async () => {
-        const response = await request.put(`${url}/${name}`, {data: {stringData: {orgID: '1'}}})
+      await test.step('removing a required key is refused', async () => {
+        const response = await patch(name, {metadata: {resourceVersion: version}, data: {token: null}})
 
         expect(response.status()).toBe(400)
         expect((await response.json()).message).toContain('missing key "token"')
       })
 
+      await test.step('a Secret returned by GET changes nothing when sent back', async () => {
+        const current = await th.getSecret(request, name),
+          response = await patch(name, current as object)
+
+        expect(response.status()).toBe(200)
+        expect((await th.getSecret(request, name)).metadata.resourceVersion).toBe(current.metadata.resourceVersion)
+      })
+
       await test.step('the definition labels cannot change', async () => {
-        const response = await request.put(`${url}/${name}`, {
-          data: {
-            ...rotated,
-            metadata: {labels: {'openeverest.io/monitoring-class': monitoringClass, 'openeverest.io/definition': 'BasicAuth'}},
+        const response = await patch(name, {
+          metadata: {
+            resourceVersion: version,
+            labels: {'openeverest.io/monitoring-class': monitoringClass, 'openeverest.io/definition': 'BasicAuth'},
           },
         })
 
@@ -453,10 +476,76 @@ test.describe('Secret update', () => {
         expect((await response.json()).message).toContain('differs from the stored Secret')
       })
 
+      await test.step('a member a Secret does not have is refused', async () => {
+        const response = await patch(name, {metadata: {resourceVersion: version}, stringdata: {token: 'glsa_rotated'}})
+
+        expect(response.status()).toBe(400)
+        expect((await response.json()).message).toContain('unknown field "stringdata"')
+      })
+
+      await test.step('only a merge patch is accepted', async () => {
+        const response = await patch(name, {metadata: {resourceVersion: version}}, 'application/json')
+
+        expect(response.status()).toBe(415)
+      })
+
       await test.step('a missing Secret is not found', async () => {
-        const response = await request.put(`${url}/${th.suffixedName('secret-missing')}`, {data: rotated})
+        const response = await patch(th.suffixedName('secret-missing'), {
+          metadata: {resourceVersion: '1'},
+          stringData: {token: 'glsa_rotated'},
+        })
 
         expect(response.status()).toBe(404)
+      })
+    } finally {
+      await th.deleteSecret(request, name)
+    }
+  })
+})
+
+test.describe('Secret responses', () => {
+  test('leave out the metadata that can hold or reveal the data', async ({request}) => {
+    const name = th.suffixedName('secret-view'),
+      // What client-side kubectl apply and External Secrets write; only the openeverest.io annotation may come back.
+      annotations = {
+        'kubectl.kubernetes.io/last-applied-configuration': JSON.stringify({stringData: {token: 'glsa_test-token'}}),
+        'reconcile.external-secrets.io/data-hash': 'glsa_hash',
+        'openeverest.io/note': 'kept',
+      },
+      expectView = (response: unknown) => {
+        const secret = response as {metadata: {annotations?: object, managedFields?: object}}
+
+        expect(secret.metadata.annotations).toEqual({'openeverest.io/note': 'kept'})
+        expect(secret.metadata.managedFields).toBeUndefined()
+        expect(JSON.stringify(secret)).not.toContain('glsa_')
+      }
+
+    try {
+      await test.step('create', async () => {
+        const secret = monitoringSecret(name, 'ServiceAccountToken')
+
+        expectView(await th.createSecretWithData(request, {...secret, metadata: {...secret.metadata, annotations}}))
+      })
+
+      await test.step('get', async () => {
+        expectView(await th.getSecret(request, name))
+      })
+
+      await test.step('list', async () => {
+        const list = await th.listSecretsByMonitoringClass(request, monitoringClass, 'ServiceAccountToken')
+
+        expectView(list.items.find(s => s.metadata.name === name))
+      })
+
+      await test.step('patch', async () => {
+        const version = (await th.getSecret(request, name)).metadata.resourceVersion,
+          response = await request.patch(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets/${name}`, {
+            data: {metadata: {resourceVersion: version}, stringData: {token: 'glsa_rotated'}},
+            headers: {'Content-Type': 'application/merge-patch+json'},
+          })
+
+        expect(response.status()).toBe(200)
+        expectView(await response.json())
       })
     } finally {
       await th.deleteSecret(request, name)

@@ -207,7 +207,7 @@ type SecretHandler interface {
 	CreateSecret(ctx context.Context, cluster, namespace string, secret *corev1.Secret) (*corev1.Secret, error)
 	ListSecrets(ctx context.Context, cluster, namespace string, filter SecretFilter) (*corev1.SecretList, error)
 	GetSecret(ctx context.Context, cluster, namespace, name string) (*corev1.Secret, error)
-	UpdateSecret(ctx context.Context, cluster, namespace, name string, secret *corev1.Secret) (*corev1.Secret, error)
+	PatchSecret(ctx context.Context, cluster, namespace, name string, patch []byte) (*corev1.Secret, error)
 	DeleteSecret(ctx context.Context, cluster, namespace, name string) error
 }
 

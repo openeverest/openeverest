@@ -1793,6 +1793,36 @@ func (_m *MockHandler) PatchInstance(ctx context.Context, cluster string, namesp
 	return r0, r1
 }
 
+// PatchSecret provides a mock function with given fields: ctx, cluster, namespace, name, patch
+func (_m *MockHandler) PatchSecret(ctx context.Context, cluster string, namespace string, name string, patch []byte) (*v1.Secret, error) {
+	ret := _m.Called(ctx, cluster, namespace, name, patch)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PatchSecret")
+	}
+
+	var r0 *v1.Secret
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, []byte) (*v1.Secret, error)); ok {
+		return rf(ctx, cluster, namespace, name, patch)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, []byte) *v1.Secret); ok {
+		r0 = rf(ctx, cluster, namespace, name, patch)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*v1.Secret)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, []byte) error); ok {
+		r1 = rf(ctx, cluster, namespace, name, patch)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // SetNext provides a mock function with given fields: h
 func (_m *MockHandler) SetNext(h Handler) {
 	_m.Called(h)
@@ -1941,36 +1971,6 @@ func (_m *MockHandler) UpdateMonitoringDestination(ctx context.Context, cluster 
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, *monitoringv1alpha1.MonitoringDestination) error); ok {
 		r1 = rf(ctx, cluster, namespace, name, destination)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// UpdateSecret provides a mock function with given fields: ctx, cluster, namespace, name, secret
-func (_m *MockHandler) UpdateSecret(ctx context.Context, cluster string, namespace string, name string, secret *v1.Secret) (*v1.Secret, error) {
-	ret := _m.Called(ctx, cluster, namespace, name, secret)
-
-	if len(ret) == 0 {
-		panic("no return value specified for UpdateSecret")
-	}
-
-	var r0 *v1.Secret
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, *v1.Secret) (*v1.Secret, error)); ok {
-		return rf(ctx, cluster, namespace, name, secret)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, *v1.Secret) *v1.Secret); ok {
-		r0 = rf(ctx, cluster, namespace, name, secret)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*v1.Secret)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, *v1.Secret) error); ok {
-		r1 = rf(ctx, cluster, namespace, name, secret)
 	} else {
 		r1 = ret.Error(1)
 	}

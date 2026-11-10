@@ -16,8 +16,13 @@ package k8s
 
 import (
 	"context"
+	"errors"
+	"maps"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
@@ -27,7 +32,7 @@ import (
 // CreateSecret creates a Secret and labels it as managed by OpenEverest.
 // Definition labels supplied by the caller are preserved; owner references
 // and finalizers are not, since OpenEverest manages the Secret's lifecycle.
-// Secret contents are stripped so only metadata is returned.
+// The response is the Secret's secretView.
 func (h *k8sHandler) CreateSecret(ctx context.Context, _ string, namespace string, secret *corev1.Secret) (*corev1.Secret, error) {
 	if secret.Labels == nil {
 		secret.Labels = map[string]string{}
@@ -42,11 +47,11 @@ func (h *k8sHandler) CreateSecret(ctx context.Context, _ string, namespace strin
 		return nil, err
 	}
 
-	return stripSecretData(res), nil
+	return secretView(res), nil
 }
 
-// ListSecrets lists OpenEverest-managed secrets matching the filter.
-// Secret contents are stripped so only metadata is returned.
+// ListSecrets lists OpenEverest-managed secrets matching the filter, each as
+// its secretView.
 func (h *k8sHandler) ListSecrets(ctx context.Context, _ string, namespace string, filter handlers.SecretFilter) (*corev1.SecretList, error) {
 	selector := ctrlclient.MatchingLabels{common.OpenEverestManagedLabel: "true"}
 	if filter.Provider != "" {
@@ -64,17 +69,14 @@ func (h *k8sHandler) ListSecrets(ctx context.Context, _ string, namespace string
 		return nil, err
 	}
 
-	// Never expose secret contents in list responses.
 	for i := range list.Items {
-		list.Items[i] = *stripSecretData(&list.Items[i])
+		list.Items[i] = *secretView(&list.Items[i])
 	}
 
 	return list, nil
 }
 
-// GetSecret returns the secret specified by name. Secret contents are stripped
-// so only metadata is returned.
-// Secret contents are stripped so only metadata is returned.
+// GetSecret returns the secretView of the secret specified by name.
 func (h *k8sHandler) GetSecret(ctx context.Context, _ string, namespace, name string) (*corev1.Secret, error) {
 	secret, err := h.kubeConnector.GetSecret(ctx, ctrlclient.ObjectKey{
 		Name:      name,
@@ -88,13 +90,19 @@ func (h *k8sHandler) GetSecret(ctx context.Context, _ string, namespace, name st
 		return nil, ErrNotFound
 	}
 
-	return stripSecretData(secret), nil
+	return secretView(secret), nil
 }
 
-// UpdateSecret replaces the data of the managed Secret named by the path and
-// keeps everything else from the stored Secret. Secret contents are stripped
-// so only metadata is returned.
-func (h *k8sHandler) UpdateSecret(ctx context.Context, _ string, namespace, name string, secret *corev1.Secret) (*corev1.Secret, error) {
+// PatchSecret applies the data of a merge patch to the managed Secret named by
+// the path, on the condition that it is still at the resourceVersion the patch
+// carries. The patch sent to Kubernetes holds that precondition and the data
+// keys, nothing else. The response is the patched Secret's secretView.
+func (h *k8sHandler) PatchSecret(ctx context.Context, _ string, namespace, name string, patch []byte) (*corev1.Secret, error) {
+	p, err := handlers.ParseSecretPatch(patch)
+	if err != nil {
+		return nil, errors.Join(ErrInvalidRequest, err)
+	}
+
 	stored, err := h.kubeConnector.GetSecret(ctx, ctrlclient.ObjectKey{
 		Name:      name,
 		Namespace: namespace,
@@ -107,19 +115,19 @@ func (h *k8sHandler) UpdateSecret(ctx context.Context, _ string, namespace, name
 		return nil, ErrNotFound
 	}
 
-	// The client's version, when it sends one, so a stale document is refused.
-	if rv := secret.GetResourceVersion(); rv != "" {
-		stored.ResourceVersion = rv
+	dataPatch, err := p.DataMergePatch()
+	if err != nil {
+		return nil, err
 	}
-	stored.Data = secret.Data
-	stored.StringData = secret.StringData
-
-	res, err := h.kubeConnector.UpdateSecret(ctx, stored)
+	res, err := h.kubeConnector.PatchSecret(ctx,
+		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name}},
+		ctrlclient.RawPatch(types.MergePatchType, dataPatch),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	return stripSecretData(res), nil
+	return secretView(res), nil
 }
 
 // DeleteSecret deletes the secret specified by name in the namespace.
@@ -145,10 +153,49 @@ func isManagedSecret(secret *corev1.Secret) bool {
 	return secret.Labels[common.OpenEverestManagedLabel] == "true"
 }
 
-// stripSecretData removes the contents of a secret, leaving only metadata.
-func stripSecretData(secret *corev1.Secret) *corev1.Secret {
-	secret.Data = nil
-	secret.StringData = nil
-
-	return secret
+// secretView returns what the HTTP API shows of a Secret: its identity, labels,
+// owners, type and the annotations OpenEverest owns. It is an allowlist because
+// the data does not only live in data and stringData: client-side kubectl apply
+// copies the whole Secret into the last-applied-configuration annotation,
+// managedFields names every key, and other tools keep hashes of the data in
+// their own annotations.
+func secretView(secret *corev1.Secret) *corev1.Secret {
+	view := &corev1.Secret{
+		TypeMeta: secret.TypeMeta,
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              secret.Name,
+			Namespace:         secret.Namespace,
+			UID:               secret.UID,
+			ResourceVersion:   secret.ResourceVersion,
+			CreationTimestamp: secret.CreationTimestamp,
+			DeletionTimestamp: secret.DeletionTimestamp,
+			Labels:            maps.Clone(secret.Labels),
+		},
+		Type:      secret.Type,
+		Immutable: secret.Immutable,
+	}
+	for _, ref := range secret.OwnerReferences {
+		view.OwnerReferences = append(view.OwnerReferences, metav1.OwnerReference{
+			APIVersion: ref.APIVersion,
+			Kind:       ref.Kind,
+			Name:       ref.Name,
+			UID:        ref.UID,
+			Controller: ref.Controller,
+		})
+	}
+	for key, value := range secret.Annotations {
+		if isOpenEverestKey(key) {
+			metav1.SetMetaDataAnnotation(&view.ObjectMeta, key, value)
+		}
+	}
+	return view
 }
+
+// isOpenEverestKey reports whether a label or annotation key is in the
+// openeverest.io domain or one of its subdomains.
+func isOpenEverestKey(key string) bool {
+	prefix, _, found := strings.Cut(key, "/")
+	return found && (prefix == openEverestDomain || strings.HasSuffix(prefix, "."+openEverestDomain))
+}
+
+const openEverestDomain = "openeverest.io"
