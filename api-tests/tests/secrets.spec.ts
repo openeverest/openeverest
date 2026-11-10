@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import {expect, test} from '@fixtures'
+import {EVEREST_CI_NAMESPACE} from '@root/constants';
 import * as th from '@tests/utils/api';
 
 const secretName1 = 'test-secret-name-1'
@@ -350,5 +351,47 @@ test.describe.parallel('CA bundle Secrets', () => {
 
       expect((await th.getSecretRaw(request, name)).status()).toBe(404)
     })
+  })
+})
+
+test.describe('Secret dryRun', () => {
+  test('writes answer as they would and store nothing', async ({request}) => {
+    const url = `/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets`,
+      name = th.suffixedName('secret-dry-run'),
+      payload = monitoringSecret(name, 'ServiceAccountToken')
+
+    try {
+      await test.step('create stores nothing', async () => {
+        const response = await request.post(`${url}?dryRun=All`, {data: payload}),
+          created = await response.json()
+
+        expect(response.status()).toBe(201)
+        expect(created.metadata.name).toBe(name)
+        expect(created.data).toBeUndefined()
+
+        expect((await th.getSecretRaw(request, name)).status()).toBe(404)
+      })
+
+      await test.step('create checks the Secret against its definition', async () => {
+        const response = await request.post(`${url}?dryRun=All`, {
+          data: monitoringSecret(name, 'ServiceAccountToken', {stringData: {orgID: '1'}}),
+        })
+
+        expect(response.status()).toBe(400)
+        expect((await response.json()).message).toContain('missing key "token"')
+      })
+
+      await th.createSecretWithData(request, payload)
+
+      await test.step('delete removes nothing', async () => {
+        const response = await request.delete(`${url}/${name}?dryRun=All`)
+
+        expect(response.status()).toBe(204)
+
+        expect((await th.getSecret(request, name)).metadata.deletionTimestamp).toBeUndefined()
+      })
+    } finally {
+      await th.deleteSecret(request, name)
+    }
   })
 })
