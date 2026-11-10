@@ -23,12 +23,13 @@ import (
 	"reflect"
 
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
 // ListMonitoringDestinations returns monitoring destinations filtered by RBAC permissions.
-func (h *rbacHandler) ListMonitoringDestinations(ctx context.Context, cluster, namespace, class string) (*monitoringv1alpha1.MonitoringDestinationList, error) {
-	list, err := h.next.ListMonitoringDestinations(ctx, cluster, namespace, class)
+func (h *rbacHandler) ListMonitoringDestinations(ctx context.Context, cluster, namespace string, params *api.ListMonitoringDestinationsParams) (*monitoringv1alpha1.MonitoringDestinationList, error) {
+	list, err := h.next.ListMonitoringDestinations(ctx, cluster, namespace, params)
 	if err != nil {
 		return nil, fmt.Errorf("ListMonitoringDestinations failed: %w", err)
 	}

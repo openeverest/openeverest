@@ -868,7 +868,16 @@ export interface paths {
         /**
          * List monitoring destinations
          * @description This API lists all monitoring destinations in the specified namespace and cluster.
-         *     Optionally filter by monitoring class: only the destinations whose `spec.classRef.name` is that class are returned.
+         *
+         *     The filters are field selectors passed through to Kubernetes, so they return the same destinations as
+         *     `kubectl get monitoringdestinations --field-selector <field>=<value>`:
+         *     - `class` returns the destinations whose `spec.classRef.name` is that class;
+         *     - `secret` returns the destinations that reference that Secret, either as their credentials
+         *       (`spec.authentication.credentialsSecretRef.name`) or as their CA bundle (`spec.tls.ca.secretKeyRef.name`),
+         *       each destination once.
+         *
+         *     When both are set, a destination must match both. Like any list, the result holds only the destinations
+         *     the caller may read.
          */
         get: operations["listMonitoringDestinations"];
         put?: never;
@@ -10564,8 +10573,13 @@ export interface operations {
     listMonitoringDestinations: {
         parameters: {
             query?: {
-                /** @description Return only the monitoring destinations of the monitoring class with this name */
+                /** @description Return only the monitoring destinations of the monitoring class with this name (`spec.classRef.name`) */
                 class?: string;
+                /**
+                 * @description Return only the monitoring destinations that reference the Secret with this name, as their credentials
+                 *     (`spec.authentication.credentialsSecretRef.name`) or as their CA bundle (`spec.tls.ca.secretKeyRef.name`)
+                 */
+                secret?: string;
             };
             header?: never;
             path: {

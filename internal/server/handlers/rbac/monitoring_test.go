@@ -29,6 +29,7 @@ import (
 
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/plugintoken"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
@@ -260,7 +261,7 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 				t.Parallel()
 
 				h, _ := newHandler(t, tc.policy)
-				list, err := h.ListMonitoringDestinations(ctx, "prod", "ns1", "")
+				list, err := h.ListMonitoringDestinations(ctx, "prod", "ns1", nil)
 				require.NoError(t, err)
 
 				names := make([]string, 0, len(list.Items))
@@ -270,6 +271,19 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 				assert.ElementsMatch(t, tc.want, names)
 			})
 		}
+	})
+
+	t.Run("ListMonitoringDestinations passes the filters on and filters the result", func(t *testing.T) {
+		t.Parallel()
+
+		h, next := newHandler(t, newPolicy("p, role:test, monitoring-destinations, read, prod/ns1/pmm-prod", "g, bob, role:test"))
+		params := &api.ListMonitoringDestinationsParams{Class: new("pmm"), Secret: new("pmm-credentials")}
+		list, err := h.ListMonitoringDestinations(ctx, "prod", "ns1", params)
+		require.NoError(t, err)
+
+		require.Len(t, list.Items, 1)
+		assert.Equal(t, "pmm-prod", list.Items[0].Name)
+		next.AssertCalled(t, "ListMonitoringDestinations", mock.Anything, "prod", "ns1", params)
 	})
 
 	t.Run("GetMonitoringDestination", func(t *testing.T) {
@@ -673,7 +687,7 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 		h, _ := newHandler(t, newPolicy("g, "+plugin+", role:admin"))
 		pluginCtx := testUserContext(rbac.User{Subject: plugin})
 
-		list, err := h.ListMonitoringDestinations(pluginCtx, "prod", "ns1", "")
+		list, err := h.ListMonitoringDestinations(pluginCtx, "prod", "ns1", nil)
 		require.NoError(t, err)
 		assert.Len(t, list.Items, 2)
 
