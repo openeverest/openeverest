@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,13 +14,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Drawn from crypto.getRandomValues: these suffixes end up in resource names,
+// Secret names included. Not crypto.randomUUID, which only exists in secure
+// contexts and the UI may be served over plain HTTP.
 export const generateShortUID = (): string => {
-  const firstPart = `000${((Math.random() * 46656) | 0).toString(36)}`.slice(
-    -3
-  );
-  const secondPart = `000${((Math.random() * 46656) | 0).toString(36)}`.slice(
-    -3
-  );
-
-  return `${firstPart}${secondPart}`.slice(0, 3);
+  const [n] = crypto.getRandomValues(new Uint32Array(1));
+  return n.toString(36).padStart(3, '0').slice(-3);
 };

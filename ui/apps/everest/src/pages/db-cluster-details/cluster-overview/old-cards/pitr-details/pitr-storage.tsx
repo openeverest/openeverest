@@ -13,19 +13,14 @@
 // limitations under the License.
 
 import { DbType } from '@percona/types';
-import { AutoCompleteAutoFill } from 'components/auto-complete-auto-fill/auto-complete-auto-fill';
-import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages';
+import BackupStoragesInput from 'components/backup-storages-input';
 import { useFormContext } from 'react-hook-form';
 import { DbCluster } from 'shared-types/dbCluster.types';
 import { PitrEditFields } from './edit-pitr.types';
-import { Messages } from './edit-pitr.messages';
 
 const PitrStorage = ({ dbCluster }: { dbCluster: DbCluster }) => {
   const { watch } = useFormContext();
   const [pitrEnabled] = watch([PitrEditFields.enabled]);
-
-  const { data: backupStorages = [], isFetching: loadingBackupStorages } =
-    useBackupStoragesByNamespace(dbCluster.metadata.namespace);
 
   const dbType = dbCluster.spec.engine.type as unknown as DbType;
 
@@ -36,13 +31,11 @@ const PitrStorage = ({ dbCluster }: { dbCluster: DbCluster }) => {
   // TODO v2 check type condition usage
   if (dbType === DbType.Mysql) {
     return (
-      <AutoCompleteAutoFill
+      <BackupStoragesInput
         name={PitrEditFields.storageLocation}
-        label={Messages.enablePITR}
-        loading={loadingBackupStorages}
-        options={backupStorages}
-        isRequired
-        enableFillFirst
+        namespace={dbCluster.metadata.namespace}
+        schedules={[]}
+        autoFillProps={{ isRequired: true }}
       />
     );
   }

@@ -16,6 +16,7 @@
 
 import { test as teardown } from '@playwright/test';
 import { getCITokenFromLocalStorage } from '../utils/localStorage';
+import { backupStorageCredentialsSecretName } from '../utils/backup-storage';
 import { EVEREST_CI_CLUSTER, getBucketNamespacesMap } from '../constants';
 
 teardown.describe.serial('Backup Storage teardown', () => {
@@ -23,17 +24,20 @@ teardown.describe.serial('Backup Storage teardown', () => {
     const token = await getCITokenFromLocalStorage();
     const promises: Promise<unknown>[] = [];
     const bucketNamespacesMap = getBucketNamespacesMap();
+    const headers = { Authorization: `Bearer ${token}` };
 
     bucketNamespacesMap.forEach(async ([bucket, namespace]) => {
+      const namespaceUrl = `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}`;
       promises.push(
-        request.delete(
-          `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/backup-storages/${bucket}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        )
+        (async () => {
+          await request.delete(`${namespaceUrl}/backup-storages/${bucket}`, {
+            headers,
+          });
+          await request.delete(
+            `${namespaceUrl}/secrets/${backupStorageCredentialsSecretName(bucket)}`,
+            { headers }
+          );
+        })()
       );
     });
     await Promise.all(promises);
