@@ -821,7 +821,18 @@ export interface paths {
         /**
          * List backup storages
          * @description This API lists all backup storages in the specified namespace and cluster.
-         *     Optionally filter by the backup class that can write to them, or by their backup storage class.
+         *
+         *     `backupStorageClass` and `secret` are field selectors passed through to Kubernetes, so they return the same storages as
+         *     `kubectl get backupstorages --field-selector <field>=<value>`:
+         *     - `backupStorageClass` returns the storages whose `spec.backupStorageClassRef.name` is that class;
+         *     - `secret` returns the storages that reference that Secret, either as their credentials
+         *       (`spec.authentication.credentialsSecretRef.name`) or as their CA bundle (`spec.tls.ca.secretKeyRef.name`),
+         *       each storage once.
+         *
+         *     `backupClass` returns the storages that backup class can write to, per its `spec.backupStorageClasses`.
+         *
+         *     When several are set, a storage must match all of them. Like any list, the result holds only the storages
+         *     the caller may read.
          */
         get: operations["listBackupStorages"];
         put?: never;
@@ -10549,8 +10560,13 @@ export interface operations {
             query?: {
                 /** @description Return only the backup storages this backup class can write to, per its `spec.backupStorageClasses` */
                 backupClass?: string;
-                /** @description Return only the backup storages of this backup storage class */
+                /** @description Return only the backup storages of the backup storage class with this name (`spec.backupStorageClassRef.name`) */
                 backupStorageClass?: string;
+                /**
+                 * @description Return only the backup storages that reference the Secret with this name, as their credentials
+                 *     (`spec.authentication.credentialsSecretRef.name`) or as their CA bundle (`spec.tls.ca.secretKeyRef.name`)
+                 */
+                secret?: string;
             };
             header?: never;
             path: {
