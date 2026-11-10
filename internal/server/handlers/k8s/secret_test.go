@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -236,6 +237,114 @@ func TestGetSecret(t *testing.T) {
 			assert.Nil(t, result.StringData)
 		})
 	}
+}
+
+func TestUpdateSecret(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	namespace := "test-namespace"
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+
+	labels := map[string]string{
+		common.OpenEverestManagedLabel:         "true",
+		common.OpenEverestMonitoringClassLabel: "pmm",
+		common.OpenEverestDefinitionLabel:      "ServiceAccountToken",
+	}
+	stored := func(name string, labels map[string]string) *corev1.Secret {
+		return &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name,
+				Namespace:   namespace,
+				Labels:      labels,
+				Annotations: map[string]string{"example.com/note": "kept"},
+			},
+			Type: corev1.SecretTypeOpaque,
+			Data: map[string][]byte{"token": []byte("old"), "orgID": []byte("1")},
+		}
+	}
+	newHandler := func(objs ...ctrlclient.Object) (*k8sHandler, ctrlclient.Client) {
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
+		return &k8sHandler{
+			kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).WithKubernetesClient(fakeClient),
+			log:           zap.NewNop().Sugar(),
+		}, fakeClient
+	}
+	get := func(t *testing.T, c ctrlclient.Client, name string) *corev1.Secret {
+		t.Helper()
+		secret := &corev1.Secret{}
+		require.NoError(t, c.Get(ctx, ctrlclient.ObjectKey{Namespace: namespace, Name: name}, secret))
+		return secret
+	}
+
+	t.Run("replaces the data and keeps the rest of the stored Secret", func(t *testing.T) {
+		t.Parallel()
+
+		handler, c := newHandler(stored("pmm-credentials", labels))
+		result, err := handler.UpdateSecret(ctx, "", namespace, "pmm-credentials", &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "other-name",
+				Labels:          map[string]string{"team": "a"},
+				Annotations:     map[string]string{"example.com/note": "replaced"},
+				OwnerReferences: []metav1.OwnerReference{{APIVersion: "v1", Kind: "ConfigMap", Name: "owner", UID: "1"}},
+			},
+			Type: corev1.SecretTypeBasicAuth,
+			Data: map[string][]byte{"token": []byte("new")},
+		})
+		require.NoError(t, err)
+		assert.Nil(t, result.Data)
+		assert.Nil(t, result.StringData)
+
+		got := get(t, c, "pmm-credentials")
+		assert.Equal(t, map[string][]byte{"token": []byte("new")}, got.Data, "keys left out are removed")
+		assert.Equal(t, labels, got.Labels)
+		assert.Equal(t, map[string]string{"example.com/note": "kept"}, got.Annotations)
+		assert.Empty(t, got.OwnerReferences)
+		assert.Equal(t, corev1.SecretTypeOpaque, got.Type)
+	})
+
+	t.Run("updates with the resourceVersion the client sent", func(t *testing.T) {
+		t.Parallel()
+
+		handler, c := newHandler(stored("pmm-credentials", labels))
+		current := get(t, c, "pmm-credentials").ResourceVersion
+
+		_, err := handler.UpdateSecret(ctx, "", namespace, "pmm-credentials", &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{ResourceVersion: current},
+			Data:       map[string][]byte{"token": []byte("new")},
+		})
+		require.NoError(t, err)
+
+		_, err = handler.UpdateSecret(ctx, "", namespace, "pmm-credentials", &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{ResourceVersion: current},
+			Data:       map[string][]byte{"token": []byte("newer")},
+		})
+		require.True(t, k8serrors.IsConflict(err), "a stale resourceVersion must be refused, got %v", err)
+		assert.Equal(t, []byte("new"), get(t, c, "pmm-credentials").Data["token"])
+	})
+
+	t.Run("refuses a Secret the API does not manage", func(t *testing.T) {
+		t.Parallel()
+
+		handler, c := newHandler(stored("unmanaged", nil))
+		_, err := handler.UpdateSecret(ctx, "", namespace, "unmanaged", &corev1.Secret{
+			Data: map[string][]byte{"token": []byte("new")},
+		})
+		require.ErrorIs(t, err, ErrNotFound)
+		assert.Equal(t, []byte("old"), get(t, c, "unmanaged").Data["token"])
+	})
+
+	t.Run("reports a missing Secret as not found", func(t *testing.T) {
+		t.Parallel()
+
+		handler, _ := newHandler()
+		_, err := handler.UpdateSecret(ctx, "", namespace, "missing", &corev1.Secret{
+			Data: map[string][]byte{"token": []byte("new")},
+		})
+		require.True(t, k8serrors.IsNotFound(err), "got %v", err)
+	})
 }
 
 func TestListSecrets(t *testing.T) {

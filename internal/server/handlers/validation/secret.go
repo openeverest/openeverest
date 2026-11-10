@@ -18,6 +18,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,16 +37,56 @@ func (h *validateHandler) CreateSecret(ctx context.Context, cluster, namespace s
 		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("invalid name %q: %s", secret.GetName(), strings.Join(errs, "; ")))
 	}
 
-	if err := secretdefinition.Validate(ctx, h.kubeConnector, secret); err != nil {
-		if errors.Is(err, secretdefinition.ErrInvalidLabels) ||
-			errors.Is(err, secretdefinition.ErrSourceNotFound) ||
-			errors.Is(err, secretdefinition.ErrInvalidSecret) {
-			return nil, errors.Join(ErrInvalidRequest, err)
-		}
+	if err := h.validateSecretDefinition(ctx, secret); err != nil {
 		return nil, err
 	}
 
 	return h.next.CreateSecret(ctx, cluster, namespace, secret)
+}
+
+// UpdateSecret refuses a request that would change the Secret's definition,
+// checks the new data against it, and proxies to the next handler.
+func (h *validateHandler) UpdateSecret(ctx context.Context, cluster, namespace, name string, secret *corev1.Secret) (*corev1.Secret, error) {
+	stored, err := h.next.GetSecret(ctx, cluster, namespace, name)
+	if err != nil {
+		return nil, err
+	}
+
+	if secret.Type != "" && secret.Type != stored.Type {
+		return nil, errors.Join(ErrInvalidRequest,
+			fmt.Errorf("type can't change from %q to %q; create a new Secret instead", stored.Type, secret.Type),
+		)
+	}
+	for _, key := range slices.Sorted(maps.Keys(secret.GetLabels())) {
+		if value, found := stored.GetLabels()[key]; !found || value != secret.GetLabels()[key] {
+			return nil, errors.Join(ErrInvalidRequest,
+				fmt.Errorf("label %q differs from the stored Secret; an update keeps the labels, create a new Secret to change them", key),
+			)
+		}
+	}
+
+	candidate := stored.DeepCopy()
+	candidate.Data = secret.Data
+	candidate.StringData = secret.StringData
+	if err := h.validateSecretDefinition(ctx, candidate); err != nil {
+		return nil, err
+	}
+
+	return h.next.UpdateSecret(ctx, cluster, namespace, name, secret)
+}
+
+// validateSecretDefinition checks secret against the definition its labels
+// name, as an invalid request when the labels or the Secret are at fault.
+func (h *validateHandler) validateSecretDefinition(ctx context.Context, secret *corev1.Secret) error {
+	if err := secretdefinition.Validate(ctx, h.kubeConnector, secret); err != nil {
+		if errors.Is(err, secretdefinition.ErrInvalidLabels) ||
+			errors.Is(err, secretdefinition.ErrSourceNotFound) ||
+			errors.Is(err, secretdefinition.ErrInvalidSecret) {
+			return errors.Join(ErrInvalidRequest, err)
+		}
+		return err
+	}
+	return nil
 }
 
 // ListSecrets proxies the request to the next handler.

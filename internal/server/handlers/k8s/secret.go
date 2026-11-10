@@ -84,11 +84,42 @@ func (h *k8sHandler) GetSecret(ctx context.Context, _ string, namespace, name st
 		return nil, err
 	}
 
-	if v, ok := secret.Labels[common.OpenEverestManagedLabel]; !ok || v != "true" {
+	if !isManagedSecret(secret) {
 		return nil, ErrNotFound
 	}
 
 	return stripSecretData(secret), nil
+}
+
+// UpdateSecret replaces the data of the managed Secret named by the path and
+// keeps everything else from the stored Secret. Secret contents are stripped
+// so only metadata is returned.
+func (h *k8sHandler) UpdateSecret(ctx context.Context, _ string, namespace, name string, secret *corev1.Secret) (*corev1.Secret, error) {
+	stored, err := h.kubeConnector.GetSecret(ctx, ctrlclient.ObjectKey{
+		Name:      name,
+		Namespace: namespace,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if !isManagedSecret(stored) {
+		return nil, ErrNotFound
+	}
+
+	// The client's version, when it sends one, so a stale document is refused.
+	if rv := secret.GetResourceVersion(); rv != "" {
+		stored.ResourceVersion = rv
+	}
+	stored.Data = secret.Data
+	stored.StringData = secret.StringData
+
+	res, err := h.kubeConnector.UpdateSecret(ctx, stored)
+	if err != nil {
+		return nil, err
+	}
+
+	return stripSecretData(res), nil
 }
 
 // DeleteSecret deletes the secret specified by name in the namespace.
@@ -101,11 +132,17 @@ func (h *k8sHandler) DeleteSecret(ctx context.Context, _ string, namespace, name
 		return err
 	}
 
-	if v, ok := secret.Labels[common.OpenEverestManagedLabel]; !ok || v != "true" {
+	if !isManagedSecret(secret) {
 		return ErrNotFound
 	}
 
 	return h.kubeConnector.DeleteSecret(ctx, secret)
+}
+
+// isManagedSecret reports whether the HTTP API manages secret, i.e. it carries
+// the label CreateSecret sets.
+func isManagedSecret(secret *corev1.Secret) bool {
+	return secret.Labels[common.OpenEverestManagedLabel] == "true"
 }
 
 // stripSecretData removes the contents of a secret, leaving only metadata.

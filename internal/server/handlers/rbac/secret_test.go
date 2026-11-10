@@ -58,6 +58,7 @@ func TestRBAC_Secret(t *testing.T) {
 		h.On("ListSecrets", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(secrets, nil)
 		h.On("GetSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&secrets.Items[0], nil)
 		h.On("CreateSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&secrets.Items[0], nil)
+		h.On("UpdateSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&secrets.Items[0], nil)
 		h.On("DeleteSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		return h
@@ -320,6 +321,78 @@ func TestRBAC_Secret(t *testing.T) {
 				result, err := h.CreateSecret(ctx, tc.cluster, "ns1", req)
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
+				} else {
+					require.NoError(t, err)
+					assert.Equal(t, "secret-prod", result.Name)
+				}
+			})
+		}
+	})
+
+	t.Run("UpdateSecret", func(t *testing.T) {
+		t.Parallel()
+
+		testCases := []struct {
+			desc    string
+			cluster string
+			policy  string
+			wantErr error
+		}{
+			{
+				desc:    "admin",
+				cluster: "prod",
+				policy:  newPolicy("g, bob, role:admin"),
+			},
+			{
+				desc:    "has update permission",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, secrets, update, prod/ns1/secret-prod",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:    "has create and delete but not update",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, secrets, create, prod/ns1/secret-prod",
+					"p, role:test, secrets, delete, prod/ns1/secret-prod",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "update on another secret",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, secrets, update, prod/ns1/secret-staging",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+		}
+
+		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"}) //nolint:staticcheck
+		for _, tc := range testCases {
+			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+				k8sMock := newConfigMapMock(tc.policy)
+				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
+				require.NoError(t, err)
+				next := mockSecret()
+
+				h := &rbacHandler{
+					next:       next,
+					log:        zap.NewNop().Sugar(),
+					enforcer:   enf,
+					userGetter: testUserGetter,
+				}
+
+				req := &corev1.Secret{StringData: map[string]string{"token": "new"}}
+				result, err := h.UpdateSecret(ctx, tc.cluster, "ns1", "secret-prod", req)
+				if tc.wantErr != nil {
+					require.ErrorIs(t, err, tc.wantErr)
+					next.AssertNotCalled(t, "UpdateSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 				} else {
 					require.NoError(t, err)
 					assert.Equal(t, "secret-prod", result.Name)

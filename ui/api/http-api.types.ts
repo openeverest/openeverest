@@ -958,7 +958,7 @@ export interface paths {
          * Update monitoring destination
          * @description This API replaces the labels, annotations and `spec` of the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
          *     Include `metadata.resourceVersion` from the object being replaced to make the update fail with 409 if the monitoring destination has changed since; without it, the destination is replaced whatever its current version.
-         *     `spec.classRef` is immutable and requires `read` on the monitoring class it names. Credentials are never part of the payload: update the Secret named by `spec.authentication.credentialsSecretRef` instead. Referencing a Secret, as credentials or as `spec.tls.ca.secretKeyRef`, requires `read` on it.
+         *     `spec.classRef` is immutable and requires `read` on the monitoring class it names. Credentials are never part of the payload: update the Secret named by `spec.authentication.credentialsSecretRef` instead, with `PUT .../secrets/{name}`. Referencing a Secret, as credentials or as `spec.tls.ca.secretKeyRef`, requires `read` on it.
          */
         put: operations["updateMonitoringDestination"];
         post?: never;
@@ -1120,7 +1120,15 @@ export interface paths {
          *     Note: Secret data is NOT included in the response for security reasons. Only metadata is returned.
          */
         get: operations["getSecret"];
-        put?: never;
+        /**
+         * Update secret
+         * @description This API replaces the data of the OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`, for instance to rotate credentials without renaming the Secret.
+         *     `data` and `stringData` together become the Secret's data: keys left out are removed. The new data is checked against the Secret's definition, as on create.
+         *     The definition can't change: `type` and `metadata.labels`, when sent, must match the stored Secret, and labels left out are kept. The rest of `metadata` is kept from the stored Secret.
+         *     Include `metadata.resourceVersion` from the Secret being replaced to make the update fail with 409 if the Secret has changed since; without it, the data is replaced whatever the current version.
+         *     A Secret marked `immutable` can't be updated. Only metadata is returned; secret data is never included.
+         */
+        put: operations["updateSecret"];
         post?: never;
         /**
          * Delete secret
@@ -11841,6 +11849,95 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateSecret: {
+        parameters: {
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the secret */
+                namespace: string;
+                /** @description The name of the secret */
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** @description The secret object with the new data */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Secret"];
+            };
+        };
+        responses: {
+            /** @description Secret updated successfully (metadata only) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Secret"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Secret not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Internal server error */

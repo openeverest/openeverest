@@ -395,3 +395,71 @@ test.describe('Secret dryRun', () => {
     }
   })
 })
+
+test.describe('Secret update', () => {
+  test('replaces the data and keeps the definition', async ({request}) => {
+    const url = `/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets`,
+      name = th.suffixedName('secret-update'),
+      rotated = {stringData: {token: 'glsa_rotated'}}
+
+    try {
+      const created = await th.createSecretWithData(request, monitoringSecret(name, 'ServiceAccountToken')),
+        version = created.metadata.resourceVersion
+
+      await test.step('dry run changes nothing', async () => {
+        const response = await request.put(`${url}/${name}?dryRun=All`, {data: rotated})
+
+        expect(response.status()).toBe(200)
+        expect((await th.getSecret(request, name)).metadata.resourceVersion).toBe(version)
+      })
+
+      await test.step('update replaces the data and returns only metadata', async () => {
+        const response = await request.put(`${url}/${name}`, {data: {...rotated, metadata: {resourceVersion: version}}}),
+          updated = await response.json()
+
+        expect(response.status()).toBe(200)
+        expect(updated.data).toBeUndefined()
+        expect(updated.stringData).toBeUndefined()
+        expect(updated.metadata.resourceVersion).not.toBe(version)
+        expect(updated.metadata.labels).toMatchObject({
+          'openeverest.io/managed': 'true',
+          'openeverest.io/monitoring-class': monitoringClass,
+          'openeverest.io/definition': 'ServiceAccountToken',
+        })
+      })
+
+      await test.step('a stale resourceVersion is refused', async () => {
+        const response = await request.put(`${url}/${name}`, {data: {...rotated, metadata: {resourceVersion: version}}})
+
+        expect(response.status()).toBe(409)
+      })
+
+      await test.step('the new data is checked against the definition', async () => {
+        const response = await request.put(`${url}/${name}`, {data: {stringData: {orgID: '1'}}})
+
+        expect(response.status()).toBe(400)
+        expect((await response.json()).message).toContain('missing key "token"')
+      })
+
+      await test.step('the definition labels cannot change', async () => {
+        const response = await request.put(`${url}/${name}`, {
+          data: {
+            ...rotated,
+            metadata: {labels: {'openeverest.io/monitoring-class': monitoringClass, 'openeverest.io/definition': 'BasicAuth'}},
+          },
+        })
+
+        expect(response.status()).toBe(400)
+        expect((await response.json()).message).toContain('differs from the stored Secret')
+      })
+
+      await test.step('a missing Secret is not found', async () => {
+        const response = await request.put(`${url}/${th.suffixedName('secret-missing')}`, {data: rotated})
+
+        expect(response.status()).toBe(404)
+      })
+    } finally {
+      await th.deleteSecret(request, name)
+    }
+  })
+})
