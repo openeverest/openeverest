@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -98,7 +99,7 @@ func (h *k8sHandler) GetSecret(ctx context.Context, _ string, namespace, name st
 	}
 
 	if !secretdefinition.Labelled(secret.GetLabels()) {
-		return nil, ErrNotFound
+		return nil, secretNotFound(name)
 	}
 
 	return secretView(secret), nil
@@ -125,7 +126,7 @@ func (h *k8sHandler) PatchSecret(ctx context.Context, _ string, namespace, name 
 	}
 
 	if !secretdefinition.Labelled(stored.GetLabels()) {
-		return nil, ErrNotFound
+		return nil, secretNotFound(name)
 	}
 	if err := secretdefinition.Writable(stored); err != nil {
 		return nil, err
@@ -160,13 +161,20 @@ func (h *k8sHandler) DeleteSecret(ctx context.Context, _ string, namespace, name
 	}
 
 	if !secretdefinition.Labelled(secret.GetLabels()) {
-		return ErrNotFound
+		return secretNotFound(name)
 	}
 	if err := secretdefinition.Writable(secret); err != nil && !errors.Is(err, secretdefinition.ErrManagedOutside) {
 		return err
 	}
 
 	return h.kubeConnector.DeleteSecret(ctx, secret)
+}
+
+// secretNotFound answers for a Secret the API does not serve, one without
+// definition labels, exactly as Kubernetes answers for a missing one, so the
+// API reveals nothing about Secrets it does not serve.
+func secretNotFound(name string) error {
+	return k8serrors.NewNotFound(corev1.Resource("secrets"), name)
 }
 
 // secretView returns what the HTTP API shows of a Secret: its identity, labels,

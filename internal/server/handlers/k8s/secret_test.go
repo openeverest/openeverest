@@ -216,7 +216,7 @@ func TestGetSecret(t *testing.T) {
 					"password": []byte("secret123"),
 				},
 			},
-			expectedError: "not managed by OpenEverest",
+			expectedError: `secrets "secret-unlabelled" not found`,
 		},
 	}
 
@@ -353,7 +353,8 @@ func TestPatchSecret(t *testing.T) {
 		_, err := handler.PatchSecret(ctx, "", namespace, "unmanaged",
 			[]byte(`{"metadata": {"resourceVersion": "`+current+`"}, "stringData": {"token": "new"}}`),
 		)
-		require.ErrorIs(t, err, ErrNotFound)
+		require.True(t, k8serrors.IsNotFound(err), "got %v", err)
+		require.EqualError(t, err, `secrets "unmanaged" not found`)
 		assert.Equal(t, []byte("old"), get(t, c, "unmanaged").Data["token"])
 	})
 
@@ -788,6 +789,7 @@ func TestSecretVerbsByManager(t *testing.T) {
 		Controller: new(true),
 	}
 	notController := metav1.OwnerReference{APIVersion: "v1", Kind: "ConfigMap", Name: "inventory", UID: "2222"}
+	notFound := k8serrors.NewNotFound(corev1.Resource("secrets"), "pmm-credentials")
 
 	errManagedByController := &secretdefinition.ManagedByControllerError{Kind: "ExternalSecret", Name: "pmm-source"}
 
@@ -829,16 +831,16 @@ func TestSecretVerbsByManager(t *testing.T) {
 		},
 		{
 			name:    "unlabelled",
-			get:     ErrNotFound,
-			patch:   ErrNotFound,
-			deleted: ErrNotFound,
+			get:     notFound,
+			patch:   notFound,
+			deleted: notFound,
 		},
 		{
 			name:    "created through the API, then stripped of its definition",
 			labels:  map[string]string{common.OpenEverestManagedLabel: "true", common.OpenEverestMonitoringClassLabel: "pmm"},
-			get:     ErrNotFound,
-			patch:   ErrNotFound,
-			deleted: ErrNotFound,
+			get:     notFound,
+			patch:   notFound,
+			deleted: notFound,
 		},
 	}
 
@@ -852,6 +854,8 @@ func TestSecretVerbsByManager(t *testing.T) {
 			var byController *secretdefinition.ManagedByControllerError
 			require.ErrorAs(t, err, &byController)
 			assert.Equal(t, wantByController, byController)
+		case k8serrors.IsNotFound(want):
+			assert.Equal(t, want, err)
 		default:
 			require.ErrorIs(t, err, want)
 		}
@@ -934,4 +938,59 @@ func TestDeleteSecretNotFound(t *testing.T) {
 
 	err := handler.DeleteSecret(context.Background(), "", "test-namespace", "missing")
 	require.True(t, k8serrors.IsNotFound(err), "got %v", err)
+}
+
+// TestUnlabelledSecretAnswersAsMissing checks that the API reveals nothing
+// about a Secret it does not serve: every verb answers for an unlabelled
+// Secret exactly as for a missing one.
+func TestUnlabelledSecretAnswersAsMissing(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	namespace := "test-namespace"
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+
+	newHandler := func(objs ...ctrlclient.Object) *k8sHandler {
+		return &k8sHandler{
+			kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).
+				WithKubernetesClient(fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()),
+			log: zap.NewNop().Sugar(),
+		}
+	}
+	unlabelled := newHandler(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "db-credentials",
+			Namespace: namespace,
+			Labels:    map[string]string{common.OpenEverestManagedLabel: "true"},
+		},
+		Data: map[string][]byte{"password": []byte("s3cr3t")},
+	})
+	missing := newHandler()
+
+	verbs := map[string]func(h *k8sHandler) error{
+		"get": func(h *k8sHandler) error {
+			_, err := h.GetSecret(ctx, "", namespace, "db-credentials")
+			return err
+		},
+		"patch": func(h *k8sHandler) error {
+			_, err := h.PatchSecret(ctx, "", namespace, "db-credentials",
+				[]byte(`{"metadata": {"resourceVersion": "1"}, "stringData": {"password": "new"}}`),
+			)
+			return err
+		},
+		"delete": func(h *k8sHandler) error {
+			return h.DeleteSecret(ctx, "", namespace, "db-credentials")
+		},
+	}
+
+	for name, verb := range verbs {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			want := verb(missing)
+			require.True(t, k8serrors.IsNotFound(want), "got %v", want)
+			assert.Equal(t, want, verb(unlabelled))
+		})
+	}
 }

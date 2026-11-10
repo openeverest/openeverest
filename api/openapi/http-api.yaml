@@ -3430,7 +3430,7 @@ paths:
         - Secret
       summary: Get secret
       description: |
-        This API gets the labelled Secret specified by the `name` in the specified `namespace` and `cluster`, whoever created it. A Secret without the labels that name a definition (see list) is not found.
+        This API gets the labelled Secret specified by the `name` in the specified `namespace` and `cluster`, whoever created it. A Secret without the labels that name a definition (see list) is not found, with the same answer as a missing Secret, here and on patch and delete.
         The response never carries the Secret's data. It holds `type`, `immutable` and these members of `metadata`: `name`, `namespace`, `uid`, `resourceVersion`, `creationTimestamp`, `deletionTimestamp`, `labels`, `ownerReferences` (without `blockOwnerDeletion`), and the annotations whose key is in the `openeverest.io` domain or one of its subdomains.
         Any other metadata, such as `managedFields` and annotations written by kubectl or other tools, is left out because it can hold or reveal the data.
       operationId: getSecret

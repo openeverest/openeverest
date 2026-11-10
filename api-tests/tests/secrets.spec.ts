@@ -14,7 +14,7 @@
 
 import {expect, test} from '@fixtures'
 import {CliHelper} from '@helpers/cliHelper'
-import {APIRequestContext} from '@playwright/test'
+import {APIRequestContext, APIResponse} from '@playwright/test'
 import {EVEREST_CI_NAMESPACE} from '@root/constants';
 import * as th from '@tests/utils/api';
 
@@ -668,8 +668,20 @@ test.describe.parallel('Secrets written outside the API', () => {
     }
   })
 
-  test('an unlabelled Secret is not found', async ({request, cli}) => {
-    const name = th.suffixedName('secret-unlabelled')
+  test('an unlabelled Secret answers as a missing one', async ({request, cli}) => {
+    const name = th.suffixedName('secret-unlabelled'),
+      missing = th.suffixedName('secret-missing'),
+      // What the API answers for a Secret, with the name made generic.
+      answers = async (secret: string) => await Promise.all([
+        th.getSecretRaw(request, secret),
+        rotate(request, secret),
+        th.deleteSecretRaw(request, secret),
+      ].map(async (pending: Promise<APIResponse>) => {
+        const response = await pending,
+          {message} = (await response.json()) as {message: string}
+
+        return {status: response.status(), message: message.replace(secret, '<name>')}
+      }))
 
     try {
       // openeverest.io/managed alone does not make a Secret visible.
@@ -681,10 +693,11 @@ test.describe.parallel('Secrets written outside the API', () => {
         stringData: {token: 'glsa_test-token'},
       })
 
-      expect((await th.getSecretRaw(request, name)).status()).toBe(404)
+      const unlabelled = await answers(name)
+
+      expect(unlabelled.map((answer) => answer.status)).toEqual([404, 404, 404])
+      expect(unlabelled).toEqual(await answers(missing))
       expect(names(await th.listSecrets(request))).not.toContain(name)
-      expect((await rotate(request, name)).status()).toBe(404)
-      expect((await th.deleteSecretRaw(request, name)).status()).toBe(404)
 
       await kubectl(cli, `get secret ${name}`)
     }
