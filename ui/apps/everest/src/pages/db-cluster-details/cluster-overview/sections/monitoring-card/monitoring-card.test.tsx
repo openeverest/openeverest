@@ -17,7 +17,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Instance } from 'shared-types/api.types';
 import { TestWrapper } from 'utils/test';
 import { MonitoringCard } from './monitoring-card';
-import { MONITORING_CONFIGURED_CONDITION } from './monitoring-card.constants';
+import { MONITORING_READY_CONDITION } from './monitoring-card.constants';
 import { ConditionStatus } from './monitoring-card.types';
 
 const mocks = vi.hoisted(() => ({ classes: { data: [{}] } }));
@@ -30,8 +30,13 @@ vi.mock('hooks/rbac', () => {
   return { useRBACPermissions: () => permissions };
 });
 
-const condition = (status: ConditionStatus, reason: string, message = '') => ({
-  type: MONITORING_CONFIGURED_CONDITION,
+const condition = (
+  type: string,
+  status: ConditionStatus,
+  reason: string,
+  message = ''
+) => ({
+  type,
   status,
   reason,
   message,
@@ -51,16 +56,32 @@ const monitoredInstance: Instance = {
   },
   status: {
     conditions: [
-      condition('False', 'DestinationNotConfigured', '1 of 2 not configured'),
+      condition(
+        MONITORING_READY_CONDITION,
+        'False',
+        'MonitoringNotReady',
+        'pmm: DestinationNotReady; prometheus: Pending'
+      ),
     ],
     monitoring: {
       destinations: [
         {
           name: 'pmm',
           mode: 'ProviderManaged',
-          configured: 'False',
-          reason: 'AgentNotRegistered',
-          message: 'pmm-client could not reach the server',
+          conditions: [
+            condition(
+              'Configured',
+              'True',
+              'AgentTLSNotVerified',
+              'pmm-client does not verify the server certificate'
+            ),
+            condition(
+              'Ready',
+              'False',
+              'DestinationNotReady',
+              'MonitoringDestination "pmm-prod" is not Ready (Unauthorized)'
+            ),
+          ],
         },
       ],
     },
@@ -81,15 +102,16 @@ describe('MonitoringCard', () => {
     renderCard(monitoredInstance);
 
     expect(
-      screen.getByTestId('monitoring-configured-overview-section')
+      screen.getByTestId('monitoring-ready-overview-section')
     ).toHaveTextContent(
-      'Not configuredDetailsDestinationNotConfigured: 1 of 2 not configured'
+      'Not readyDetailsMonitoringNotReady: pmm: DestinationNotReady; prometheus: Pending'
     );
     const pmm = screen.getByTestId('monitoring-pmm-overview-section');
     expect(pmm).toHaveTextContent('pmm-prod');
+    expect(pmm).toHaveTextContent('Not ready');
     expect(pmm).toHaveTextContent('Provider-managed');
     expect(pmm).toHaveTextContent(
-      'AgentNotRegistered: pmm-client could not reach the server'
+      'DestinationNotReady: MonitoringDestination "pmm-prod" is not Ready (Unauthorized)'
     );
     expect(
       within(

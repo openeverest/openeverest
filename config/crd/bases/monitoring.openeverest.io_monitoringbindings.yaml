@@ -32,6 +32,9 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Configured")].reason
       name: Configured
       type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].reason
+      name: Ready
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date

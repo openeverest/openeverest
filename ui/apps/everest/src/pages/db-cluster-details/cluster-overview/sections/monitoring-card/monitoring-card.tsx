@@ -21,10 +21,10 @@ import { MonitoringClass } from 'shared-types/monitoring-destinations.types';
 import OverviewSection from '../../overview-section';
 import OverviewSectionRow from '../../overview-section-row';
 import { MonitoringEditModal } from '../monitoring-edit-modal/monitoring-edit-modal';
-import { ConfiguredStatus } from './configured-status/configured-status';
 import { Messages } from './monitoring-card.messages';
 import { MonitoringCardProps } from './monitoring-card.types';
 import { getMonitoringOverview } from './monitoring-card.utils';
+import { ReadyStatus } from './ready-status/ready-status';
 
 const NO_CLASSES: MonitoringClass[] = [];
 
@@ -42,7 +42,7 @@ export const MonitoringCard = ({
     'instances',
     `${namespace}/${instance.metadata?.name ?? ''}`
   );
-  const { configured, entries } = useMemo(
+  const { ready, entries } = useMemo(
     () => getMonitoringOverview(instance),
     [instance]
   );
@@ -77,16 +77,16 @@ export const MonitoringCard = ({
             </OverviewSection>
           ) : (
             <>
-              {configured && (
-                <OverviewSection dataTestId="monitoring-configured">
+              {ready && (
+                <OverviewSection dataTestId="monitoring-ready">
                   <OverviewSectionRow
                     label={Messages.status}
-                    content={<ConfiguredStatus status={configured.status} />}
+                    content={<ReadyStatus status={ready.status} />}
                   />
-                  {configured.details && (
+                  {ready.details && (
                     <OverviewSectionRow
                       label={Messages.details}
-                      content={configured.details}
+                      content={ready.details}
                     />
                   )}
                 </OverviewSection>
@@ -99,7 +99,7 @@ export const MonitoringCard = ({
                 >
                   <OverviewSectionRow
                     label={Messages.status}
-                    content={<ConfiguredStatus status={entry.configured} />}
+                    content={<ReadyStatus status={entry.ready} />}
                   />
                   {entry.mode && (
                     <OverviewSectionRow

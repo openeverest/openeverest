@@ -552,6 +552,27 @@ func (e InstanceStatusConditionsStatus) Valid() bool {
 	}
 }
 
+// Defines values for InstanceStatusMonitoringDestinationsConditionsStatus.
+const (
+	InstanceStatusMonitoringDestinationsConditionsStatusFalse   InstanceStatusMonitoringDestinationsConditionsStatus = "False"
+	InstanceStatusMonitoringDestinationsConditionsStatusTrue    InstanceStatusMonitoringDestinationsConditionsStatus = "True"
+	InstanceStatusMonitoringDestinationsConditionsStatusUnknown InstanceStatusMonitoringDestinationsConditionsStatus = "Unknown"
+)
+
+// Valid indicates whether the value is a known member of the InstanceStatusMonitoringDestinationsConditionsStatus enum.
+func (e InstanceStatusMonitoringDestinationsConditionsStatus) Valid() bool {
+	switch e {
+	case InstanceStatusMonitoringDestinationsConditionsStatusFalse:
+		return true
+	case InstanceStatusMonitoringDestinationsConditionsStatusTrue:
+		return true
+	case InstanceStatusMonitoringDestinationsConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for InstanceStatusMonitoringDestinationsMode.
 const (
 	InstanceStatusMonitoringDestinationsModeExtensionManaged InstanceStatusMonitoringDestinationsMode = "ExtensionManaged"
@@ -4335,21 +4356,40 @@ type Instance struct {
 		Monitoring *struct {
 			// Destinations Destinations has one entry per spec.monitoring.destinations[] entry.
 			Destinations *[]struct {
-				// Configured Configured mirrors the binding's Configured condition; False when the
-				// binding is not Accepted, Unknown while it is missing or pending.
-				Configured *string `json:"configured,omitempty"`
+				// Conditions Conditions are the entry's Configured and Ready conditions.
+				Conditions *[]struct {
+					// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+					// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+					LastTransitionTime time.Time `json:"lastTransitionTime"`
 
-				// Message Message is the human-readable detail for Configured.
-				Message *string `json:"message,omitempty"`
+					// Message message is a human readable message indicating details about the transition.
+					// This may be an empty string.
+					Message string `json:"message"`
+
+					// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+					// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+					// with respect to the current state of the instance.
+					ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+					// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+					// Producers of specific condition types may define expected values and meanings for this field,
+					// and whether the values are considered a guaranteed API.
+					// The value should be a CamelCase string.
+					// This field may not be empty.
+					Reason string `json:"reason"`
+
+					// Status status of the condition, one of True, False, Unknown.
+					Status InstanceStatusMonitoringDestinationsConditionsStatus `json:"status"`
+
+					// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+					Type string `json:"type"`
+				} `json:"conditions,omitempty"`
 
 				// Mode Mode is the resolved execution mode.
 				Mode *InstanceStatusMonitoringDestinationsMode `json:"mode,omitempty"`
 
 				// Name Name matches spec.monitoring.destinations[].name.
 				Name string `json:"name"`
-
-				// Reason Reason is the machine-readable reason for Configured.
-				Reason *string `json:"reason,omitempty"`
 			} `json:"destinations,omitempty"`
 
 			// Sources Sources is the per-Instance publication of the provider's monitoring
@@ -4624,6 +4664,9 @@ type InstanceStatusBackupStoragesPitrState string
 
 // InstanceStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstanceStatusConditionsStatus string
+
+// InstanceStatusMonitoringDestinationsConditionsStatus status of the condition, one of True, False, Unknown.
+type InstanceStatusMonitoringDestinationsConditionsStatus string
 
 // InstanceStatusMonitoringDestinationsMode Mode is the resolved execution mode.
 type InstanceStatusMonitoringDestinationsMode string

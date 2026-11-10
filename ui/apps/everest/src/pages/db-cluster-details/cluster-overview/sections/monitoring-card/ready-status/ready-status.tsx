@@ -14,16 +14,16 @@
 
 import { Typography } from '@mui/material';
 import StatusField from 'components/status-field';
-import { CONFIGURED_TO_STATUS } from '../monitoring-card.constants';
+import { READY_TO_STATUS } from '../monitoring-card.constants';
 import { Messages } from '../monitoring-card.messages';
 import { ConditionStatus } from '../monitoring-card.types';
 
-interface ConfiguredStatusProps {
+interface ReadyStatusProps {
   status: ConditionStatus;
 }
 
-export const ConfiguredStatus = ({ status }: ConfiguredStatusProps) => (
-  <StatusField status={status} statusMap={CONFIGURED_TO_STATUS}>
-    <Typography variant="body2">{Messages.configured[status]}</Typography>
+export const ReadyStatus = ({ status }: ReadyStatusProps) => (
+  <StatusField status={status} statusMap={READY_TO_STATUS}>
+    <Typography variant="body2">{Messages.ready[status]}</Typography>
   </StatusField>
 );

@@ -44,6 +44,8 @@ const (
 	// MaterializerFieldOwner owns MonitoringBinding.spec and the Accepted
 	// condition on bindings and destinations.
 	MaterializerFieldOwner = "openeverest.io/binding-materializer"
+	// ReadinessFieldOwner owns the Ready condition on bindings.
+	ReadinessFieldOwner = "openeverest.io/binding-readiness"
 	// CompatibilityFieldOwner owns MonitoringClass.status.providers.
 	CompatibilityFieldOwner = "openeverest.io/monitoring-compatibility"
 )
