@@ -502,3 +502,53 @@ test.describe('Secret patch', () => {
     }
   })
 })
+
+test.describe('Secret responses', () => {
+  test('leave out the metadata that can hold or reveal the data', async ({request}) => {
+    const name = th.suffixedName('secret-view'),
+      // What client-side kubectl apply and External Secrets write; only the openeverest.io annotation may come back.
+      annotations = {
+        'kubectl.kubernetes.io/last-applied-configuration': JSON.stringify({stringData: {token: 'glsa_test-token'}}),
+        'reconcile.external-secrets.io/data-hash': 'glsa_hash',
+        'openeverest.io/note': 'kept',
+      },
+      expectView = (response: unknown) => {
+        const secret = response as {metadata: {annotations?: object, managedFields?: object}}
+
+        expect(secret.metadata.annotations).toEqual({'openeverest.io/note': 'kept'})
+        expect(secret.metadata.managedFields).toBeUndefined()
+        expect(JSON.stringify(secret)).not.toContain('glsa_')
+      }
+
+    try {
+      await test.step('create', async () => {
+        const secret = monitoringSecret(name, 'ServiceAccountToken')
+
+        expectView(await th.createSecretWithData(request, {...secret, metadata: {...secret.metadata, annotations}}))
+      })
+
+      await test.step('get', async () => {
+        expectView(await th.getSecret(request, name))
+      })
+
+      await test.step('list', async () => {
+        const list = await th.listSecretsByMonitoringClass(request, monitoringClass, 'ServiceAccountToken')
+
+        expectView(list.items.find(s => s.metadata.name === name))
+      })
+
+      await test.step('patch', async () => {
+        const version = (await th.getSecret(request, name)).metadata.resourceVersion,
+          response = await request.patch(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets/${name}`, {
+            data: {metadata: {resourceVersion: version}, stringData: {token: 'glsa_rotated'}},
+            headers: {'Content-Type': 'application/merge-patch+json'},
+          })
+
+        expect(response.status()).toBe(200)
+        expectView(await response.json())
+      })
+    } finally {
+      await th.deleteSecret(request, name)
+    }
+  })
+})
