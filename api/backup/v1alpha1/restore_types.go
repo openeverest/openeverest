@@ -24,8 +24,8 @@ import (
 // RestoreSpec defines the desired state of Restore.
 type RestoreSpec struct {
 	// InstanceRef references the Instance to restore into. The Instance
-	// must already exist in the same namespace and use a provider listed in
-	// the BackupClass's SupportedProviders.
+	// must already exist in the same namespace and use the provider that
+	// executes the BackupClass.
 	// +kubebuilder:validation:Required
 	InstanceRef common.ObjectRef `json:"instanceRef"`
 	// DataSource identifies the data to restore from. The same type is used

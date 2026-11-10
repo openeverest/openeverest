@@ -34,8 +34,8 @@ func Incompatibility(bc *backupv1alpha1.BackupClass, provider string) *field.Err
 	switch {
 	case bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged:
 		return field.Invalid(classRefPath, bc.Name, "is not ProviderManaged and can't be an instance's backup class")
-	case !bc.Spec.SupportedProviders.Has(provider):
-		return field.Invalid(classRefPath, bc.Name, "does not support provider "+provider)
+	case bc.Spec.ExecutorProvider() != provider:
+		return field.Invalid(classRefPath, bc.Name, "is executed by provider "+bc.Spec.ExecutorProvider()+", not "+provider)
 	}
 	return nil
 }

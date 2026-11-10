@@ -15,98 +15,218 @@
 package v1alpha1
 
 import (
+	"slices"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 )
 
-// BackupStorageType is the type of object storage backing a BackupStorage.
-//
-// +kubebuilder:validation:Enum=s3
-type BackupStorageType string
-
-const (
-	// BackupStorageTypeS3 indicates an S3-compatible object store.
-	BackupStorageTypeS3 BackupStorageType = "s3"
-)
-
-// BackupStorageSpec defines the desired state of a BackupStorage.
-//
-// A BackupStorage is a reusable, namespaced reference to an object store
-// (today only S3-compatible) plus the credentials needed to talk to it.
-// It is referenced by name from:
-//
-//   - Instance.spec.backup.storages[].storageRef
-//   - Backup.spec.storageRef
-//
-// Decoupling storage from individual Backup CRs makes provider-managed
-// backups (e.g. PBM, pgBackRest) practical: the provider can register a
-// fixed set of storages on the engine without recomputing them from a
-// dynamic list of Backup CRs.
+// BackupStorageSpec defines the desired state of a BackupStorage: an object
+// store, of the technology a BackupStorageClass describes, that backups are
+// written to. It is referenced by name from Instance.spec.backup.storages,
+// Backup.spec.storageRef, Restore point-in-time sources and BackupImports.
 type BackupStorageSpec struct {
-	// Type is the object storage type. Today only "s3" is supported.
+	// BackupStorageClassRef names the BackupStorageClass, the object storage
+	// technology.
 	// +kubebuilder:validation:Required
-	Type BackupStorageType `json:"type"`
-
-	// S3 contains S3-compatible storage configuration.
-	// Required when Type is "s3".
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="backupStorageClassRef is immutable"
+	BackupStorageClassRef common.ObjectRef `json:"backupStorageClassRef"`
+	// Location is where backups are kept. Engines treat it as their catalog,
+	// so it cannot change: create a new BackupStorage instead.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="location is immutable"
+	Location BackupStorageLocation `json:"location"`
+	// Parameters are the connection parameters of the technology, validated
+	// against the class's parametersSchema.
+	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
-	S3 *BackupStorageS3Spec `json:"s3,omitempty"`
+	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
+	// Authentication names one of the class's authModes and, for every mode
+	// but WorkloadIdentity, the Secret in the same namespace holding that
+	// mode's credentials keys.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self.mode != 'Anonymous'",message="a BackupStorage cannot use the Anonymous authentication mode"
+	Authentication common.Authentication `json:"authentication"`
+	// TLS is how executors verify the server certificate of the store.
+	// Absent means the system trust store.
+	// +optional
+	TLS *common.TLSConfig `json:"tls,omitempty"`
 }
 
-// BackupStorageS3Spec defines an S3-compatible object store.
-type BackupStorageS3Spec struct {
-	// Bucket is the name of the S3 bucket.
+// SecretNames returns the names of the Secrets the storage references.
+func (s *BackupStorageSpec) SecretNames() []string {
+	var names []string
+	if ref := s.Authentication.CredentialsSecretRef; ref != nil {
+		names = append(names, ref.Name)
+	}
+	if s.TLS != nil && s.TLS.CA != nil && s.TLS.CA.SecretKeyRef != nil && !slices.Contains(names, s.TLS.CA.SecretKeyRef.Name) {
+		names = append(names, s.TLS.CA.SecretKeyRef.Name)
+	}
+	return names
+}
+
+// BackupStorageStatus defines the observed state of a BackupStorage. Core
+// writes all of it.
+type BackupStorageStatus struct {
+	// Conditions: Accepted, and Deleting while a deleted storage waits for
+	// its referrers.
+	// +listType=map
+	// +listMapKey=type
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// BackupClasses is whether each Accepted BackupClass can write to the
+	// storage. Read an entry through CurrentVerdict, which treats an entry
+	// computed from other objects than the current ones as Pending.
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=64
+	// +optional
+	BackupClasses []BackupClassVerdict `json:"backupClasses,omitempty"`
+}
+
+// BackupClassVerdict is whether a BackupClass can write to a BackupStorage.
+type BackupClassVerdict struct {
+	// Name is the BackupClass name.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=253
+	Name string `json:"name"`
+	// Compatibility is whether the class can write to the storage.
+	// +kubebuilder:validation:Required
+	Compatibility Compatibility `json:"compatibility"`
+	// Reason is why the class cannot write to the storage, or not yet.
+	// +kubebuilder:validation:MaxLength=1024
+	// +optional
+	Reason string `json:"reason,omitempty"`
+	// Message is the human-readable detail of Reason.
+	// +kubebuilder:validation:MaxLength=32768
+	// +optional
+	Message string `json:"message,omitempty"`
+	// Observed identifies the objects the verdict was computed from.
+	// +kubebuilder:validation:Required
+	Observed BackupClassVerdictInputs `json:"observed"`
+}
+
+// BackupClassVerdictInputs identify the objects a BackupClassVerdict was
+// computed from, so a verdict that predates a change of any of them, or a
+// class deleted and recreated under the same name, is recognised as stale.
+type BackupClassVerdictInputs struct {
+	// StorageGeneration is the generation of the BackupStorage.
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	StorageGeneration int64 `json:"storageGeneration,omitempty"`
+	// ClassUID is the UID of the BackupClass.
+	// +optional
+	ClassUID types.UID `json:"classUID,omitempty"` //nolint:tagliatelle // UID, as in metadata.uid references
+	// ClassGeneration is the generation of the BackupClass.
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	ClassGeneration int64 `json:"classGeneration,omitempty"`
+	// StorageClassUID is the UID of the storage's BackupStorageClass.
+	// +optional
+	StorageClassUID types.UID `json:"storageClassUID,omitempty"` //nolint:tagliatelle // UID, as in metadata.uid references
+	// StorageClassGeneration is the generation of the storage's
+	// BackupStorageClass.
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	StorageClassGeneration int64 `json:"storageClassGeneration,omitempty"`
+}
+
+// BackupStorageLocation is where a BackupStorage keeps its backups. Exactly
+// one member is set; objectStore is the only member so far.
+type BackupStorageLocation struct {
+	// ObjectStore is a bucket, and a prefix within it, in an object store.
+	// +kubebuilder:validation:Required
+	ObjectStore *ObjectStoreLocation `json:"objectStore"`
+}
+
+// ObjectStoreLocation is a bucket, and a prefix within it, in an object store.
+type ObjectStoreLocation struct {
+	// Bucket is the bucket, or the container for technologies that call it
+	// so.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:Pattern=`^[^/]+$`
 	Bucket string `json:"bucket"`
-
-	// Region is the region of the S3 bucket.
-	// +kubebuilder:validation:Required
-	Region string `json:"region"`
-
-	// EndpointURL is the endpoint URL of the S3-compatible service.
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:XValidation:rule="isURL(self)",message="endpointURL must be a valid URL"
-	EndpointURL string `json:"endpointURL"`
-
-	// VerifyTLS enables TLS certificate verification.
-	// Defaults to true.
-	//
-	// +kubebuilder:default:=true
+	// Prefix is the path within the bucket under which backups are written,
+	// without leading or trailing slash.
+	// +kubebuilder:validation:MaxLength=512
+	// +kubebuilder:validation:Pattern=`^([^/]+(/[^/]+)*)?$`
+	// +kubebuilder:validation:XValidation:rule="!self.split('/').exists(s, s == '.' || s == '..')",message="prefix must not contain '.' or '..' segments"
 	// +optional
-	VerifyTLS *bool `json:"verifyTLS,omitempty"`
-
-	// ForcePathStyle forces path-style URLs (bucket name in the path
-	// instead of the host). Defaults to false.
-	//
-	// +kubebuilder:default:=false
-	// +optional
-	ForcePathStyle *bool `json:"forcePathStyle,omitempty"`
-
-	// CredentialsSecretRef references the Secret in the same namespace
-	// that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
-	// +kubebuilder:validation:Required
-	CredentialsSecretRef common.SecretRef `json:"credentialsSecretRef"`
-
-	// AccessKeyID is a write-only convenience input. When set, a webhook
-	// stores it in the Secret named by CredentialsSecretRef and clears
-	// this field. It is never persisted on the BackupStorage object.
-	// +optional
-	AccessKeyID string `json:"accessKeyId,omitempty"`
-
-	// SecretAccessKey is a write-only convenience input. See AccessKeyID.
-	// +optional
-	SecretAccessKey string `json:"secretAccessKey,omitempty"`
+	Prefix string `json:"prefix,omitempty"`
 }
 
-// BackupStorageStatus defines the observed state of a BackupStorage.
-type BackupStorageStatus struct{}
+// BackupStorage conditions and their reasons.
+const (
+	// BackupStorageConditionAccepted reports whether the storage is valid for
+	// its BackupStorageClass. It does not test that the store is reachable.
+	BackupStorageConditionAccepted = "Accepted"
+
+	// ReasonAccepted means the storage is valid for its class.
+	ReasonAccepted = "Accepted"
+	// ReasonClassNotFound means the referenced BackupStorageClass does not
+	// exist.
+	ReasonClassNotFound = "ClassNotFound"
+	// ReasonInvalidClass means the BackupStorageClass itself breaks a rule
+	// every class must follow.
+	ReasonInvalidClass = "InvalidClass"
+	// ReasonInvalidLocation means spec.location is not a kind of location
+	// the technology has, or breaks one of its naming rules.
+	ReasonInvalidLocation = "InvalidLocation"
+	// ReasonInvalidParameters means spec.parameters is rejected by the class.
+	ReasonInvalidParameters = "InvalidParameters"
+	// ReasonAuthModeUnsupported means the class has no authentication mode
+	// named by spec.authentication.mode.
+	ReasonAuthModeUnsupported = "AuthModeUnsupported"
+	// ReasonCredentialsNotFound means the credentials Secret, or a key the
+	// authentication mode requires, is missing.
+	ReasonCredentialsNotFound = "CredentialsNotFound"
+	// ReasonInvalidCABundle means the CA bundle named by spec.tls.ca is
+	// missing or holds no PEM certificate.
+	ReasonInvalidCABundle = "InvalidCABundle"
+
+	// BackupStorageConditionDeleting is True while a deleted storage waits
+	// for its referrers to go.
+	BackupStorageConditionDeleting = "Deleting"
+	// ReasonWaitingForReferrers means Instances, Backups, Restores or
+	// BackupImports still reference the storage.
+	ReasonWaitingForReferrers = "WaitingForReferrers"
+
+	// ReasonBackupStorageClassUnsupported means a BackupClass does not list
+	// the storage's BackupStorageClass.
+	ReasonBackupStorageClassUnsupported = "BackupStorageClassUnsupported"
+	// ReasonParameterUnsupported means the parameters schema of a
+	// BackupClass's entry for the storage's class rejects its parameters.
+	ReasonParameterUnsupported = "ParameterUnsupported"
+	// ReasonTLSOptionUnsupported means the storage uses a setting of
+	// spec.tls the BackupClass does not honour.
+	ReasonTLSOptionUnsupported = "TLSOptionUnsupported"
+	// ReasonStorageNotAccepted means the storage is not Accepted yet, so no
+	// class can be judged against it.
+	ReasonStorageNotAccepted = "StorageNotAccepted"
+	// ReasonVerdictPending means core has not judged the storage against
+	// the class at their current generations yet.
+	ReasonVerdictPending = "VerdictPending"
+)
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=bstor
-// +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type"
-// +kubebuilder:printcolumn:name="Bucket",type="string",JSONPath=".spec.s3.bucket"
+// +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.backupStorageClassRef.name"
+// +kubebuilder:printcolumn:name="Bucket",type="string",JSONPath=".spec.location.objectStore.bucket"
+// +kubebuilder:printcolumn:name="Auth",type="string",JSONPath=".spec.authentication.mode"
+// +kubebuilder:printcolumn:name="Accepted",type="string",JSONPath=".status.conditions[?(@.type==\"Accepted\")].reason"
+// +kubebuilder:printcolumn:name="Credentials",type="string",JSONPath=".spec.authentication.credentialsSecretRef.name",priority=1
+// +kubebuilder:printcolumn:name="CA",type="string",JSONPath=".spec.tls.ca.secretKeyRef.name",priority=1
+// +kubebuilder:printcolumn:name="Insecure",type="boolean",JSONPath=".spec.tls.insecureSkipVerify",priority=1
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:selectablefield:JSONPath=".spec.backupStorageClassRef.name"
+// +kubebuilder:selectablefield:JSONPath=".spec.authentication.credentialsSecretRef.name"
+// +kubebuilder:selectablefield:JSONPath=".spec.tls.ca.secretKeyRef.name"
 
 // BackupStorage is the Schema for the backupstorages API.
 type BackupStorage struct {

@@ -301,6 +301,13 @@ components:
               - name
               type: object
               x-kubernetes-map-type: atomic
+            path:
+              description: |-
+                Path is the directory in the BackupStorage's bucket the source
+                Instance writes its backups to, recorded when the backup starts so
+                restores resolve after the Instance is gone. Empty for external
+                backups, whose path is spec.origin.external.path.
+              type: string
             size:
               description: |-
                 Size is the size of the backup data as reported by the engine.
@@ -378,6 +385,83 @@ components:
         spec:
           description: BackupClassSpec defines the desired state of BackupClass.
           properties:
+            backupStorageClasses:
+              description: |-
+                BackupStorageClasses lists the BackupStorageClasses the class's executor
+                can write to, each with the authentication modes it supports. A
+                BackupStorage is usable with the class only when both its class and
+                its authentication mode are listed.
+              items:
+                description: |-
+                  BackupStorageClassSupport is a BackupStorageClass a BackupClass can write
+                  to.
+                properties:
+                  authModes:
+                    description: |-
+                      AuthModes are the authentication modes of that class the executor
+                      supports.
+                    items:
+                      pattern: ^[A-Z][A-Za-z0-9]{0,62}$
+                      type: string
+                    maxItems: 16
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: set
+                  name:
+                    description: Name of the BackupStorageClass.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                  parametersSchema:
+                    description: |-
+                      ParametersSchema narrows the BackupStorageClass's parametersSchema to
+                      what the executor supports, typically the parameters of the contract
+                      version it was built with: a storage whose parameters it rejects
+                      cannot be used with the class. Absent adds no restriction.
+                    properties:
+                      openAPIV3Schema:
+                        description: |-
+                          OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                          parameters payload.
+                        x-kubernetes-preserve-unknown-fields: true
+                    type: object
+                  tls:
+                    description: |-
+                      TLS declares which settings of BackupStorage.spec.tls the executor
+                      honours. Absent means None for each: a storage that uses a setting the
+                      executor does not support cannot be used with the class, and a
+                      storage without spec.tls always can.
+                    properties:
+                      customCA:
+                        default: None
+                        description: |-
+                          CustomCA is whether the executor verifies the store against the CA
+                          bundle in spec.tls.ca.
+                        enum:
+                        - Supported
+                        - None
+                        type: string
+                      insecureSkipVerify:
+                        default: None
+                        description: |-
+                          InsecureSkipVerify is whether the executor can turn certificate
+                          verification off, as spec.tls.insecureSkipVerify asks.
+                        enum:
+                        - Supported
+                        - None
+                        type: string
+                    type: object
+                required:
+                - authModes
+                - name
+                type: object
+              maxItems: 16
+              minItems: 1
+              type: array
+              x-kubernetes-list-map-keys:
+              - name
+              x-kubernetes-list-type: map
             description:
               description: Description is the description of the backup class.
               type: string
@@ -387,8 +471,10 @@ components:
             executionMode:
               description: |-
                 ExecutionMode selects who executes the class's backup and restore
-                operations. ProviderManaged is the only mode: the provider named in
-                SupportedProviders executes them.
+                operations, and discriminates the execution union: the member named
+                after the mode is required, any other is forbidden. ProviderManaged is
+                the only mode: the provider in providerManaged.providerRef executes
+                them.
               enum:
               - ProviderManaged
               type: string
@@ -420,11 +506,9 @@ components:
               type: object
             providerManaged:
               description: |-
-                ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
-                schema is intentionally open: providers may surface capability
-                information (e.g., whether PITR is supported, schedule expression
-                dialect) without forcing a CRD change. Must be unset for any other
-                execution mode.
+                ProviderManaged is the member of the execution union for
+                ExecutionMode=ProviderManaged: the provider that executes the class and
+                what it supports. Required for that mode, forbidden for any other.
               properties:
                 limits:
                   description: |-
@@ -473,11 +557,32 @@ components:
                         parameters payload.
                       x-kubernetes-preserve-unknown-fields: true
                   type: object
+                providerRef:
+                  description: |-
+                    ProviderRef names the Provider that claims and executes the class. It
+                    is immutable: moving a class to another provider is delete and
+                    recreate.
+                  properties:
+                    name:
+                      description: Name of the referenced object.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - name
+                  type: object
+                  x-kubernetes-map-type: atomic
+                  x-kubernetes-validations:
+                  - message: providerRef is immutable
+                    rule: self == oldSelf
                 supportsPITR:
                   description: |-
                     SupportsPITR indicates whether this class supports point-in-time recovery.
                     Used by Restore validation when Restore.spec.dataSource.pitr is set.
                   type: boolean
+              required:
+              - providerRef
               type: object
             restoreParametersSchema:
               description: |-
@@ -491,14 +596,6 @@ components:
                     parameters payload.
                   x-kubernetes-preserve-unknown-fields: true
               type: object
-            supportedProviders:
-              description: |-
-                SupportedProviders is the list of provider names that this backup class
-                supports. The Instance.spec.provider must appear in this list for the
-                class to be usable on that Instance.
-              items:
-                type: string
-              type: array
             supportsImport:
               description: |-
                 SupportsImport indicates whether the owner of this class can discover and
@@ -514,18 +611,32 @@ components:
               type: object
               x-kubernetes-preserve-unknown-fields: true
           required:
+          - backupStorageClasses
           - executionMode
           type: object
           x-kubernetes-validations:
+          - message: spec.providerManaged is required when executionMode is ProviderManaged
+            rule: self.executionMode != 'ProviderManaged' || has(self.providerManaged)
           - message: spec.providerManaged is only allowed when executionMode is ProviderManaged
             rule: '!has(self.providerManaged) || self.executionMode == ''ProviderManaged'''
-          - message: a ProviderManaged BackupClass must support exactly one provider
-            rule: self.executionMode != 'ProviderManaged' || (has(self.supportedProviders)
-              && size(self.supportedProviders) == 1)
         status:
-          description: BackupClassStatus defines the observed state of BackupClass.
+          default:
+            conditions:
+            - lastTransitionTime: "1970-01-01T00:00:00Z"
+              message: Waiting for the executor to claim the class
+              reason: Pending
+              status: Unknown
+              type: Accepted
+          description: |-
+            BackupClassStatus defines the observed state of BackupClass. It has two
+            writers, each applying only its own fields with server-side apply: the
+            executor that claims the class owns the Accepted condition and core owns
+            providers.
           properties:
             conditions:
+              description: |-
+                Conditions: Accepted, set by the class's executor when it claims the
+                class, with the observedGeneration it judged.
               items:
                 description: Condition contains details for one aspect of the current
                   state of this API Resource.
@@ -583,6 +694,53 @@ components:
               type: array
               x-kubernetes-list-map-keys:
               - type
+              x-kubernetes-list-type: map
+            providers:
+              description: |-
+                Providers is the compatibility of the class with each Provider that
+                can execute it: for a ProviderManaged class, the Provider in
+                providerManaged.providerRef. A Provider that is not listed is
+                incompatible. Written by core.
+              items:
+                description: |-
+                  BackupClassProviderCompatibility is the compatibility of a BackupClass
+                  with a Provider.
+                properties:
+                  classGeneration:
+                    description: |-
+                      ClassGeneration is the generation of the class the entry was computed
+                      for. An entry for another generation counts as Pending.
+                    format: int64
+                    minimum: 0
+                    type: integer
+                  compatibility:
+                    description: Compatibility is whether Instances of the Provider
+                      can use the class.
+                    enum:
+                    - Compatible
+                    - Pending
+                    - Incompatible
+                    type: string
+                  message:
+                    description: Message is the human-readable detail of Reason.
+                    maxLength: 32768
+                    type: string
+                  name:
+                    description: Name is the Provider name.
+                    maxLength: 253
+                    type: string
+                  reason:
+                    description: Reason is why the class is not Compatible.
+                    maxLength: 1024
+                    type: string
+                required:
+                - compatibility
+                - name
+                type: object
+              maxItems: 64
+              type: array
+              x-kubernetes-list-map-keys:
+              - name
               x-kubernetes-list-type: map
           type: object
       required:
@@ -864,38 +1022,21 @@ components:
           $ref: '#/components/schemas/ObjectMeta'
         spec:
           description: |-
-            BackupStorageSpec defines the desired state of a BackupStorage.
-
-            A BackupStorage is a reusable, namespaced reference to an object store
-            (today only S3-compatible) plus the credentials needed to talk to it.
-            It is referenced by name from:
-
-              - Instance.spec.backup.storages[].storageRef
-              - Backup.spec.storageRef
-
-            Decoupling storage from individual Backup CRs makes provider-managed
-            backups (e.g. PBM, pgBackRest) practical: the provider can register a
-            fixed set of storages on the engine without recomputing them from a
-            dynamic list of Backup CRs.
+            BackupStorageSpec defines the desired state of a BackupStorage: an object
+            store, of the technology a BackupStorageClass describes, that backups are
+            written to. It is referenced by name from Instance.spec.backup.storages,
+            Backup.spec.storageRef, Restore point-in-time sources and BackupImports.
           properties:
-            s3:
+            authentication:
               description: |-
-                S3 contains S3-compatible storage configuration.
-                Required when Type is "s3".
+                Authentication names one of the class's authModes and, for every mode
+                but WorkloadIdentity, the Secret in the same namespace holding that
+                mode's credentials keys.
               properties:
-                accessKeyId:
-                  description: |-
-                    AccessKeyID is a write-only convenience input. When set, a webhook
-                    stores it in the Secret named by CredentialsSecretRef and clears
-                    this field. It is never persisted on the BackupStorage object.
-                  type: string
-                bucket:
-                  description: Bucket is the name of the S3 bucket.
-                  type: string
                 credentialsSecretRef:
                   description: |-
-                    CredentialsSecretRef references the Secret in the same namespace
-                    that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
+                    CredentialsSecretRef references the Secret in the same namespace that
+                    holds the credentials keys of the mode.
                   properties:
                     name:
                       description: Name of the referenced Secret.
@@ -907,48 +1048,260 @@ components:
                   - name
                   type: object
                   x-kubernetes-map-type: atomic
-                endpointURL:
-                  description: EndpointURL is the endpoint URL of the S3-compatible
-                    service.
+                mode:
+                  description: Mode names one of the class's authModes.
+                  pattern: ^[A-Z][A-Za-z0-9]{0,62}$
                   type: string
-                  x-kubernetes-validations:
-                  - message: endpointURL must be a valid URL
-                    rule: isURL(self)
-                forcePathStyle:
-                  default: false
-                  description: |-
-                    ForcePathStyle forces path-style URLs (bucket name in the path
-                    instead of the host). Defaults to false.
-                  type: boolean
-                region:
-                  description: Region is the region of the S3 bucket.
-                  type: string
-                secretAccessKey:
-                  description: SecretAccessKey is a write-only convenience input.
-                    See AccessKeyID.
-                  type: string
-                verifyTLS:
-                  default: true
-                  description: |-
-                    VerifyTLS enables TLS certificate verification.
-                    Defaults to true.
-                  type: boolean
               required:
-              - bucket
-              - credentialsSecretRef
-              - endpointURL
-              - region
+              - mode
               type: object
-            type:
-              description: Type is the object storage type. Today only "s3" is supported.
-              enum:
-              - s3
-              type: string
+              x-kubernetes-validations:
+              - message: a BackupStorage cannot use the Anonymous authentication mode
+                rule: self.mode != 'Anonymous'
+              - message: credentialsSecretRef is required for every mode except WorkloadIdentity
+                  and Anonymous, which take none
+                rule: (self.mode in ['WorkloadIdentity', 'Anonymous']) != has(self.credentialsSecretRef)
+            backupStorageClassRef:
+              description: |-
+                BackupStorageClassRef names the BackupStorageClass, the object storage
+                technology.
+              properties:
+                name:
+                  description: Name of the referenced object.
+                  maxLength: 253
+                  minLength: 1
+                  pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                  type: string
+              required:
+              - name
+              type: object
+              x-kubernetes-map-type: atomic
+              x-kubernetes-validations:
+              - message: backupStorageClassRef is immutable
+                rule: self == oldSelf
+            location:
+              description: |-
+                Location is where backups are kept. Engines treat it as their catalog,
+                so it cannot change: create a new BackupStorage instead.
+              properties:
+                objectStore:
+                  description: ObjectStore is a bucket, and a prefix within it, in
+                    an object store.
+                  properties:
+                    bucket:
+                      description: |-
+                        Bucket is the bucket, or the container for technologies that call it
+                        so.
+                      maxLength: 255
+                      minLength: 1
+                      pattern: ^[^/]+$
+                      type: string
+                    prefix:
+                      description: |-
+                        Prefix is the path within the bucket under which backups are written,
+                        without leading or trailing slash.
+                      maxLength: 512
+                      pattern: ^([^/]+(/[^/]+)*)?$
+                      type: string
+                      x-kubernetes-validations:
+                      - message: prefix must not contain '.' or '..' segments
+                        rule: '!self.split(''/'').exists(s, s == ''.'' || s == ''..'')'
+                  required:
+                  - bucket
+                  type: object
+              required:
+              - objectStore
+              type: object
+              x-kubernetes-validations:
+              - message: location is immutable
+                rule: self == oldSelf
+            parameters:
+              description: |-
+                Parameters are the connection parameters of the technology, validated
+                against the class's parametersSchema.
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+            tls:
+              description: |-
+                TLS is how executors verify the server certificate of the store.
+                Absent means the system trust store.
+              properties:
+                ca:
+                  description: |-
+                    CA is the PEM bundle the server certificate is verified against,
+                    instead of the system trust store.
+                  minProperties: 1
+                  properties:
+                    secretKeyRef:
+                      description: SecretKeyRef selects the Secret key holding the
+                        PEM bundle.
+                      properties:
+                        key:
+                          description: Key within the Secret.
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[-._a-zA-Z0-9]+$
+                          type: string
+                        name:
+                          description: Name of the referenced Secret.
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - key
+                      - name
+                      type: object
+                      x-kubernetes-map-type: atomic
+                  type: object
+                insecureSkipVerify:
+                  description: InsecureSkipVerify disables verification of the server
+                    certificate.
+                  type: boolean
+              type: object
+              x-kubernetes-validations:
+              - message: ca and insecureSkipVerify are mutually exclusive
+                rule: '!(has(self.ca) && has(self.insecureSkipVerify) && self.insecureSkipVerify)'
           required:
-          - type
+          - authentication
+          - backupStorageClassRef
+          - location
           type: object
         status:
-          description: BackupStorageStatus defines the observed state of a BackupStorage.
+          description: |-
+            BackupStorageStatus defines the observed state of a BackupStorage. Core
+            writes all of it.
+          properties:
+            backupClasses:
+              description: |-
+                BackupClasses is whether each Accepted BackupClass can write to the
+                storage. Read an entry through CurrentVerdict, which treats an entry
+                computed from other objects than the current ones as Pending.
+              items:
+                description: BackupClassVerdict is whether a BackupClass can write
+                  to a BackupStorage.
+                properties:
+                  compatibility:
+                    description: Compatibility is whether the class can write to the
+                      storage.
+                    enum:
+                    - Compatible
+                    - Pending
+                    - Incompatible
+                    type: string
+                  message:
+                    description: Message is the human-readable detail of Reason.
+                    maxLength: 32768
+                    type: string
+                  name:
+                    description: Name is the BackupClass name.
+                    maxLength: 253
+                    type: string
+                  observed:
+                    description: Observed identifies the objects the verdict was computed
+                      from.
+                    properties:
+                      classGeneration:
+                        description: ClassGeneration is the generation of the BackupClass.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      classUID:
+                        description: ClassUID is the UID of the BackupClass.
+                        type: string
+                      storageClassGeneration:
+                        description: |-
+                          StorageClassGeneration is the generation of the storage's
+                          BackupStorageClass.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      storageClassUID:
+                        description: StorageClassUID is the UID of the storage's BackupStorageClass.
+                        type: string
+                      storageGeneration:
+                        description: StorageGeneration is the generation of the BackupStorage.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                    type: object
+                  reason:
+                    description: Reason is why the class cannot write to the storage,
+                      or not yet.
+                    maxLength: 1024
+                    type: string
+                required:
+                - compatibility
+                - name
+                - observed
+                type: object
+              maxItems: 64
+              type: array
+              x-kubernetes-list-map-keys:
+              - name
+              x-kubernetes-list-type: map
+            conditions:
+              description: |-
+                Conditions: Accepted, and Deleting while a deleted storage waits for
+                its referrers.
+              items:
+                description: Condition contains details for one aspect of the current
+                  state of this API Resource.
+                properties:
+                  lastTransitionTime:
+                    description: |-
+                      lastTransitionTime is the last time the condition transitioned from one status to another.
+                      This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                    format: date-time
+                    type: string
+                  message:
+                    description: |-
+                      message is a human readable message indicating details about the transition.
+                      This may be an empty string.
+                    maxLength: 32768
+                    type: string
+                  observedGeneration:
+                    description: |-
+                      observedGeneration represents the .metadata.generation that the condition was set based upon.
+                      For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                      with respect to the current state of the instance.
+                    format: int64
+                    minimum: 0
+                    type: integer
+                  reason:
+                    description: |-
+                      reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                      Producers of specific condition types may define expected values and meanings for this field,
+                      and whether the values are considered a guaranteed API.
+                      The value should be a CamelCase string.
+                      This field may not be empty.
+                    maxLength: 1024
+                    minLength: 1
+                    pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                    type: string
+                  status:
+                    description: status of the condition, one of True, False, Unknown.
+                    enum:
+                    - "True"
+                    - "False"
+                    - Unknown
+                    type: string
+                  type:
+                    description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                    maxLength: 316
+                    pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                    type: string
+                required:
+                - lastTransitionTime
+                - message
+                - reason
+                - status
+                - type
+                type: object
+              type: array
+              x-kubernetes-list-map-keys:
+              - type
+              x-kubernetes-list-type: map
           type: object
       required:
       - spec
@@ -1066,6 +1419,53 @@ components:
                 authentication mode.
               type: object
               x-kubernetes-preserve-unknown-fields: true
+            validations:
+              description: |-
+                Validations are CEL rules every BackupStorage of the class must
+                satisfy, for constraints parametersSchema cannot express, such as a
+                naming rule on location.objectStore.bucket or a rule across parameters
+                and tls. self is the BackupStorage's spec. A violation sets the
+                storage's Accepted condition to False with the rule's reason,
+                InvalidLocation or InvalidParameters, and its message.
+              items:
+                description: |-
+                  ClassValidation is a CEL rule a class applies to the objects that reference
+                  it, for constraints its parameters schema cannot express: rules on typed
+                  fields of the object, or across them and its parameters. It is evaluated
+                  with the CEL library and cost limits of CRD validation rules.
+                properties:
+                  expression:
+                    description: |-
+                      Expression is a CEL expression that is true for a valid object. self is
+                      the referencing object's spec, with its parameters typed by the class's
+                      parameters schema. oldSelf is not available.
+                    maxLength: 4096
+                    minLength: 1
+                    type: string
+                  message:
+                    description: Message explains a violation to the user.
+                    maxLength: 1024
+                    minLength: 1
+                    type: string
+                  reason:
+                    description: |-
+                      Reason is the reason of the condition a violation sets on the
+                      referencing object. Each class kind lists the reasons it accepts.
+                    maxLength: 64
+                    minLength: 1
+                    pattern: ^[A-Z][A-Za-z0-9]*$
+                    type: string
+                required:
+                - expression
+                - message
+                - reason
+                type: object
+              maxItems: 16
+              type: array
+              x-kubernetes-list-type: atomic
+              x-kubernetes-validations:
+              - message: the reason of a validation must be InvalidLocation or InvalidParameters
+                rule: self.all(v, v.reason in ['InvalidLocation', 'InvalidParameters'])
           required:
           - authModes
           type: object
@@ -1179,8 +1579,8 @@ components:
                   description: |-
                     ClassRef references the cluster-scoped BackupClass that the provider
                     should use to configure the engine. The class must have
-                    ExecutionMode=ProviderManaged and list the Instance's provider in its
-                    SupportedProviders.
+                    ExecutionMode=ProviderManaged and name the Instance's provider in
+                    providerManaged.providerRef.
                   properties:
                     name:
                       description: Name of the referenced object.
@@ -2685,7 +3085,7 @@ components:
 
                 Only ProviderManaged BackupClasses are supported. The referenced Backup
                 must be in the same namespace, in Succeeded state, and its BackupClass
-                must list the Instance's provider in SupportedProviders. Instance must
+                must be executed by the Instance's provider. Instance must
                 also have backup enabled and include a storage entry that matches the
                 storage used by the source Backup so the provider can access the data.
               properties:
@@ -3370,8 +3770,8 @@ components:
                   description: |-
                     ClassRef references the cluster-scoped BackupClass that the provider
                     should use to configure the engine. The class must have
-                    ExecutionMode=ProviderManaged and list the Instance's provider in its
-                    SupportedProviders.
+                    ExecutionMode=ProviderManaged and name the Instance's provider in
+                    providerManaged.providerRef.
                   properties:
                     name:
                       description: Name of the referenced object.
@@ -4876,7 +5276,7 @@ components:
 
                 Only ProviderManaged BackupClasses are supported. The referenced Backup
                 must be in the same namespace, in Succeeded state, and its BackupClass
-                must list the Instance's provider in SupportedProviders. Instance must
+                must be executed by the Instance's provider. Instance must
                 also have backup enabled and include a storage entry that matches the
                 storage used by the source Backup so the provider can access the data.
               properties:
@@ -5210,6 +5610,14 @@ components:
                       InstanceBackupStorageStatus reports the observed backup state of a single
                       entry in spec.backup.storages.
                     properties:
+                      location:
+                        description: |-
+                          Location is the path in the storage's bucket under which the engine
+                          writes this Instance's backups.
+                        type: string
+                      message:
+                        description: Message explains Reason.
+                        type: string
                       name:
                         description: |-
                           Name is the BackupStorage name (matches
@@ -5249,6 +5657,12 @@ components:
                             - Unavailable
                             type: string
                         type: object
+                      reason:
+                        description: |-
+                          Reason is why the entry is not configured on the engine as specified,
+                          empty when it is. An entry the engine already had keeps its last
+                          configuration meanwhile.
+                        type: string
                     required:
                     - name
                     type: object
@@ -5914,8 +6328,8 @@ components:
                   description: |-
                     ClassRef references the cluster-scoped BackupClass that the provider
                     should use to configure the engine. The class must have
-                    ExecutionMode=ProviderManaged and list the Instance's provider in its
-                    SupportedProviders.
+                    ExecutionMode=ProviderManaged and name the Instance's provider in
+                    providerManaged.providerRef.
                   properties:
                     name:
                       description: Name of the referenced object.
@@ -7420,7 +7834,7 @@ components:
 
                 Only ProviderManaged BackupClasses are supported. The referenced Backup
                 must be in the same namespace, in Succeeded state, and its BackupClass
-                must list the Instance's provider in SupportedProviders. Instance must
+                must be executed by the Instance's provider. Instance must
                 also have backup enabled and include a storage entry that matches the
                 storage used by the source Backup so the provider can access the data.
               properties:
@@ -9801,8 +10215,8 @@ components:
             instanceRef:
               description: |-
                 InstanceRef references the Instance to restore into. The Instance
-                must already exist in the same namespace and use a provider listed in
-                the BackupClass's SupportedProviders.
+                must already exist in the same namespace and use the provider that
+                executes the BackupClass.
               properties:
                 name:
                   description: Name of the referenced object.

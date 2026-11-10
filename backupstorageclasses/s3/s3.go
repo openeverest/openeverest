@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package backupstorageclasses
+package s3
+
+import "github.com/openeverest/openeverest/v2/backupstorageclasses"
 
 const (
-	// ClassS3 is the built-in BackupStorageClass for Amazon S3 and
+	// ClassName is the name of the s3 BackupStorageClass, for Amazon S3 and
 	// S3-compatible object stores.
-	ClassS3 = "s3"
+	ClassName = "s3"
 	// AuthModeAccessKey authenticates with a static access key pair.
 	AuthModeAccessKey = "AccessKey"
 	// KeyAWSAccessKeyID is the access key ID in an AccessKey credentials
@@ -28,23 +30,24 @@ const (
 	KeyAWSSecretAccessKey = "AWS_SECRET_ACCESS_KEY" //nolint:gosec // a Secret key name, not a credential
 )
 
-// S3Implementation names the software serving an S3 endpoint, for executors
+// Implementation names the software serving an S3 endpoint, for executors
 // that speak to S3-compatible gateways differently from Amazon S3.
 //
 // +kubebuilder:validation:Enum=aws;minio;ceph;gcs;other
-type S3Implementation string
+type Implementation string
 
 // S3 implementations.
 const (
-	S3ImplementationAWS   S3Implementation = "aws"
-	S3ImplementationMinIO S3Implementation = "minio"
-	S3ImplementationCeph  S3Implementation = "ceph"
-	S3ImplementationGCS   S3Implementation = "gcs"
-	S3ImplementationOther S3Implementation = "other"
+	ImplementationAWS   = Implementation("aws")
+	ImplementationMinIO = Implementation("minio")
+	ImplementationCeph  = Implementation("ceph")
+	ImplementationGCS   = Implementation("gcs")
+	ImplementationOther = Implementation("other")
 )
 
-// S3 is the connection parameters of the s3 class.
-type S3 struct {
+// Parameters are the connection parameters of the s3 class, the
+// spec.parameters of an s3 BackupStorage.
+type Parameters struct {
 	// Region of the bucket.
 	// +openeverest:param=connection
 	// +kubebuilder:validation:Required
@@ -67,23 +70,23 @@ type S3 struct {
 	// Amazon S3.
 	// +openeverest:param=connection
 	// +optional
-	Implementation S3Implementation `json:"implementation,omitempty"`
+	Implementation Implementation `json:"implementation,omitempty"`
 }
 
 // EffectiveImplementation returns the implementation executors act on: aws
 // when unset, other for a value this version does not know.
-func (s S3) EffectiveImplementation() S3Implementation {
-	switch s.Implementation {
+func (p Parameters) EffectiveImplementation() Implementation {
+	switch p.Implementation {
 	case "":
-		return S3ImplementationAWS
-	case S3ImplementationAWS, S3ImplementationMinIO, S3ImplementationCeph, S3ImplementationGCS, S3ImplementationOther:
-		return s.Implementation
+		return ImplementationAWS
+	case ImplementationAWS, ImplementationMinIO, ImplementationCeph, ImplementationGCS, ImplementationOther:
+		return p.Implementation
 	default:
-		return S3ImplementationOther
+		return ImplementationOther
 	}
 }
 
 // Endpoint parses EndpointURL.
-func (s S3) Endpoint() (Endpoint, error) {
-	return ParseEndpoint(s.EndpointURL)
+func (p Parameters) Endpoint() (backupstorageclasses.Endpoint, error) {
+	return backupstorageclasses.ParseEndpoint(p.EndpointURL)
 }

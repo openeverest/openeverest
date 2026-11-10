@@ -68,7 +68,7 @@ func setupRestoreReconciler(mgr ctrl.Manager, bp controller.BackupProvider, prov
 		).
 		Watches(&backupv1alpha1.BackupStorage{},
 			handler.EnqueueRequestsFromMapFunc(r.restoresForStorage),
-			builder.WithPredicates(existenceChanged()),
+			builder.WithPredicates(acceptanceChanged()),
 		).
 		Named(providerName + "-restore-controller")
 
@@ -216,9 +216,9 @@ func resolveRestoreOwnership(
 		Name:      restore.Spec.InstanceRef.Name,
 	}, instance); err != nil {
 		if apierrors.IsNotFound(err) {
-			// A ProviderManaged class lists exactly one provider, so it
-			// names the owner while the Instance is missing.
-			return nil, bc, bc.Spec.SupportedProviders.Has(providerName), nil
+			// A ProviderManaged class names its executor, so it names
+			// the owner while the Instance is missing.
+			return nil, bc, bc.Spec.ExecutorProvider() == providerName, nil
 		}
 		return nil, bc, false, fmt.Errorf("failed to get Instance: %w", err)
 	}

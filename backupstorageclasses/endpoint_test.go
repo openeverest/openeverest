@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openeverest/openeverest/v2/pkg/backupstorageclasses"
+	"github.com/openeverest/openeverest/v2/backupstorageclasses"
 )
 
 func TestParseEndpoint(t *testing.T) {

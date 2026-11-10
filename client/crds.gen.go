@@ -114,6 +114,42 @@ func (e BackupStatusState) Valid() bool {
 	}
 }
 
+// Defines values for BackupClassSpecBackupStorageClassesTlsCustomCA.
+const (
+	BackupClassSpecBackupStorageClassesTlsCustomCANone      BackupClassSpecBackupStorageClassesTlsCustomCA = "None"
+	BackupClassSpecBackupStorageClassesTlsCustomCASupported BackupClassSpecBackupStorageClassesTlsCustomCA = "Supported"
+)
+
+// Valid indicates whether the value is a known member of the BackupClassSpecBackupStorageClassesTlsCustomCA enum.
+func (e BackupClassSpecBackupStorageClassesTlsCustomCA) Valid() bool {
+	switch e {
+	case BackupClassSpecBackupStorageClassesTlsCustomCANone:
+		return true
+	case BackupClassSpecBackupStorageClassesTlsCustomCASupported:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BackupClassSpecBackupStorageClassesTlsInsecureSkipVerify.
+const (
+	BackupClassSpecBackupStorageClassesTlsInsecureSkipVerifyNone      BackupClassSpecBackupStorageClassesTlsInsecureSkipVerify = "None"
+	BackupClassSpecBackupStorageClassesTlsInsecureSkipVerifySupported BackupClassSpecBackupStorageClassesTlsInsecureSkipVerify = "Supported"
+)
+
+// Valid indicates whether the value is a known member of the BackupClassSpecBackupStorageClassesTlsInsecureSkipVerify enum.
+func (e BackupClassSpecBackupStorageClassesTlsInsecureSkipVerify) Valid() bool {
+	switch e {
+	case BackupClassSpecBackupStorageClassesTlsInsecureSkipVerifyNone:
+		return true
+	case BackupClassSpecBackupStorageClassesTlsInsecureSkipVerifySupported:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BackupClassSpecExecutionMode.
 const (
 	BackupClassSpecExecutionModeProviderManaged BackupClassSpecExecutionMode = "ProviderManaged"
@@ -144,6 +180,27 @@ func (e BackupClassStatusConditionsStatus) Valid() bool {
 	case BackupClassStatusConditionsStatusTrue:
 		return true
 	case BackupClassStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BackupClassStatusProvidersCompatibility.
+const (
+	BackupClassStatusProvidersCompatibilityCompatible   BackupClassStatusProvidersCompatibility = "Compatible"
+	BackupClassStatusProvidersCompatibilityIncompatible BackupClassStatusProvidersCompatibility = "Incompatible"
+	BackupClassStatusProvidersCompatibilityPending      BackupClassStatusProvidersCompatibility = "Pending"
+)
+
+// Valid indicates whether the value is a known member of the BackupClassStatusProvidersCompatibility enum.
+func (e BackupClassStatusProvidersCompatibility) Valid() bool {
+	switch e {
+	case BackupClassStatusProvidersCompatibilityCompatible:
+		return true
+	case BackupClassStatusProvidersCompatibilityIncompatible:
+		return true
+	case BackupClassStatusProvidersCompatibilityPending:
 		return true
 	default:
 		return false
@@ -195,15 +252,42 @@ func (e BackupImportStatusState) Valid() bool {
 	}
 }
 
-// Defines values for BackupStorageSpecType.
+// Defines values for BackupStorageStatusBackupClassesCompatibility.
 const (
-	BackupStorageSpecTypeS3 BackupStorageSpecType = "s3"
+	BackupStorageStatusBackupClassesCompatibilityCompatible   BackupStorageStatusBackupClassesCompatibility = "Compatible"
+	BackupStorageStatusBackupClassesCompatibilityIncompatible BackupStorageStatusBackupClassesCompatibility = "Incompatible"
+	BackupStorageStatusBackupClassesCompatibilityPending      BackupStorageStatusBackupClassesCompatibility = "Pending"
 )
 
-// Valid indicates whether the value is a known member of the BackupStorageSpecType enum.
-func (e BackupStorageSpecType) Valid() bool {
+// Valid indicates whether the value is a known member of the BackupStorageStatusBackupClassesCompatibility enum.
+func (e BackupStorageStatusBackupClassesCompatibility) Valid() bool {
 	switch e {
-	case BackupStorageSpecTypeS3:
+	case BackupStorageStatusBackupClassesCompatibilityCompatible:
+		return true
+	case BackupStorageStatusBackupClassesCompatibilityIncompatible:
+		return true
+	case BackupStorageStatusBackupClassesCompatibilityPending:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BackupStorageStatusConditionsStatus.
+const (
+	BackupStorageStatusConditionsStatusFalse   BackupStorageStatusConditionsStatus = "False"
+	BackupStorageStatusConditionsStatusTrue    BackupStorageStatusConditionsStatus = "True"
+	BackupStorageStatusConditionsStatusUnknown BackupStorageStatusConditionsStatus = "Unknown"
+)
+
+// Valid indicates whether the value is a known member of the BackupStorageStatusConditionsStatus enum.
+func (e BackupStorageStatusConditionsStatus) Valid() bool {
+	switch e {
+	case BackupStorageStatusConditionsStatusFalse:
+		return true
+	case BackupStorageStatusConditionsStatusTrue:
+		return true
+	case BackupStorageStatusConditionsStatusUnknown:
 		return true
 	default:
 		return false
@@ -1302,6 +1386,12 @@ type Backup struct {
 			Name string `json:"name"`
 		} `json:"operatorBackupRef,omitempty"`
 
+		// Path Path is the directory in the BackupStorage's bucket the source
+		// Instance writes its backups to, recorded when the backup starts so
+		// restores resolve after the Instance is gone. Empty for external
+		// backups, whose path is spec.origin.external.path.
+		Path *string `json:"path,omitempty"`
+
 		// Size Size is the size of the backup data as reported by the engine.
 		// Empty for external backups.
 		Size *string `json:"size,omitempty"`
@@ -1387,6 +1477,43 @@ type BackupClass struct {
 
 	// Spec BackupClassSpec defines the desired state of BackupClass.
 	Spec struct {
+		// BackupStorageClasses BackupStorageClasses lists the BackupStorageClasses the class's executor
+		// can write to, each with the authentication modes it supports. A
+		// BackupStorage is usable with the class only when both its class and
+		// its authentication mode are listed.
+		BackupStorageClasses []struct {
+			// AuthModes AuthModes are the authentication modes of that class the executor
+			// supports.
+			AuthModes []string `json:"authModes"`
+
+			// Name Name of the BackupStorageClass.
+			Name string `json:"name"`
+
+			// ParametersSchema ParametersSchema narrows the BackupStorageClass's parametersSchema to
+			// what the executor supports, typically the parameters of the contract
+			// version it was built with: a storage whose parameters it rejects
+			// cannot be used with the class. Absent adds no restriction.
+			ParametersSchema *struct {
+				// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+				// parameters payload.
+				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+			} `json:"parametersSchema,omitempty"`
+
+			// Tls TLS declares which settings of BackupStorage.spec.tls the executor
+			// honours. Absent means None for each: a storage that uses a setting the
+			// executor does not support cannot be used with the class, and a
+			// storage without spec.tls always can.
+			Tls *struct {
+				// CustomCA CustomCA is whether the executor verifies the store against the CA
+				// bundle in spec.tls.ca.
+				CustomCA *BackupClassSpecBackupStorageClassesTlsCustomCA `json:"customCA,omitempty"`
+
+				// InsecureSkipVerify InsecureSkipVerify is whether the executor can turn certificate
+				// verification off, as spec.tls.insecureSkipVerify asks.
+				InsecureSkipVerify *BackupClassSpecBackupStorageClassesTlsInsecureSkipVerify `json:"insecureSkipVerify,omitempty"`
+			} `json:"tls,omitempty"`
+		} `json:"backupStorageClasses"`
+
 		// Description Description is the description of the backup class.
 		Description *string `json:"description,omitempty"`
 
@@ -1394,8 +1521,10 @@ type BackupClass struct {
 		DisplayName *string `json:"displayName,omitempty"`
 
 		// ExecutionMode ExecutionMode selects who executes the class's backup and restore
-		// operations. ProviderManaged is the only mode: the provider named in
-		// SupportedProviders executes them.
+		// operations, and discriminates the execution union: the member named
+		// after the mode is required, any other is forbidden. ProviderManaged is
+		// the only mode: the provider in providerManaged.providerRef executes
+		// them.
 		ExecutionMode BackupClassSpecExecutionMode `json:"executionMode"`
 
 		// InstanceConstraints InstanceConstraints defines compatibility requirements that must be
@@ -1416,11 +1545,9 @@ type BackupClass struct {
 			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
 		} `json:"parametersSchema,omitempty"`
 
-		// ProviderManaged ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
-		// schema is intentionally open: providers may surface capability
-		// information (e.g., whether PITR is supported, schedule expression
-		// dialect) without forcing a CRD change. Must be unset for any other
-		// execution mode.
+		// ProviderManaged ProviderManaged is the member of the execution union for
+		// ExecutionMode=ProviderManaged: the provider that executes the class and
+		// what it supports. Required for that mode, forbidden for any other.
 		ProviderManaged *struct {
 			// Limits Limits caps how many storages, PITR-enabled storages, and schedules per
 			// storage an Instance may declare under .spec.backup when this class is
@@ -1455,6 +1582,14 @@ type BackupClass struct {
 				OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
 			} `json:"pitrParametersSchema,omitempty"`
 
+			// ProviderRef ProviderRef names the Provider that claims and executes the class. It
+			// is immutable: moving a class to another provider is delete and
+			// recreate.
+			ProviderRef struct {
+				// Name Name of the referenced object.
+				Name string `json:"name"`
+			} `json:"providerRef"`
+
 			// SupportsPITR SupportsPITR indicates whether this class supports point-in-time recovery.
 			// Used by Restore validation when Restore.spec.dataSource.pitr is set.
 			SupportsPITR *bool `json:"supportsPITR,omitempty"`
@@ -1469,11 +1604,6 @@ type BackupClass struct {
 			OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
 		} `json:"restoreParametersSchema,omitempty"`
 
-		// SupportedProviders SupportedProviders is the list of provider names that this backup class
-		// supports. The Instance.spec.provider must appear in this list for the
-		// class to be usable on that Instance.
-		SupportedProviders *[]string `json:"supportedProviders,omitempty"`
-
 		// SupportsImport SupportsImport indicates whether the owner of this class can discover and
 		// import restorable backups already sitting in a BackupStorage.
 		SupportsImport *bool `json:"supportsImport,omitempty"`
@@ -1486,8 +1616,13 @@ type BackupClass struct {
 		UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
 	} `json:"spec"`
 
-	// Status BackupClassStatus defines the observed state of BackupClass.
+	// Status BackupClassStatus defines the observed state of BackupClass. It has two
+	// writers, each applying only its own fields with server-side apply: the
+	// executor that claims the class owns the Accepted condition and core owns
+	// providers.
 	Status *struct {
+		// Conditions Conditions: Accepted, set by the class's executor when it claims the
+		// class, with the observedGeneration it judged.
 		Conditions *[]struct {
 			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
 			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -1515,16 +1650,51 @@ type BackupClass struct {
 			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
 			Type string `json:"type"`
 		} `json:"conditions,omitempty"`
+
+		// Providers Providers is the compatibility of the class with each Provider that
+		// can execute it: for a ProviderManaged class, the Provider in
+		// providerManaged.providerRef. A Provider that is not listed is
+		// incompatible. Written by core.
+		Providers *[]struct {
+			// ClassGeneration ClassGeneration is the generation of the class the entry was computed
+			// for. An entry for another generation counts as Pending.
+			ClassGeneration *int64 `json:"classGeneration,omitempty"`
+
+			// Compatibility Compatibility is whether Instances of the Provider can use the class.
+			Compatibility BackupClassStatusProvidersCompatibility `json:"compatibility"`
+
+			// Message Message is the human-readable detail of Reason.
+			Message *string `json:"message,omitempty"`
+
+			// Name Name is the Provider name.
+			Name string `json:"name"`
+
+			// Reason Reason is why the class is not Compatible.
+			Reason *string `json:"reason,omitempty"`
+		} `json:"providers,omitempty"`
 	} `json:"status,omitempty"`
 }
 
+// BackupClassSpecBackupStorageClassesTlsCustomCA CustomCA is whether the executor verifies the store against the CA
+// bundle in spec.tls.ca.
+type BackupClassSpecBackupStorageClassesTlsCustomCA string
+
+// BackupClassSpecBackupStorageClassesTlsInsecureSkipVerify InsecureSkipVerify is whether the executor can turn certificate
+// verification off, as spec.tls.insecureSkipVerify asks.
+type BackupClassSpecBackupStorageClassesTlsInsecureSkipVerify string
+
 // BackupClassSpecExecutionMode ExecutionMode selects who executes the class's backup and restore
-// operations. ProviderManaged is the only mode: the provider named in
-// SupportedProviders executes them.
+// operations, and discriminates the execution union: the member named
+// after the mode is required, any other is forbidden. ProviderManaged is
+// the only mode: the provider in providerManaged.providerRef executes
+// them.
 type BackupClassSpecExecutionMode string
 
 // BackupClassStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type BackupClassStatusConditionsStatus string
+
+// BackupClassStatusProvidersCompatibility Compatibility is whether Instances of the Provider can use the class.
+type BackupClassStatusProvidersCompatibility string
 
 // BackupClassList BackupClassList is an object that contains the list of the existing backupclasss.
 type BackupClassList struct {
@@ -1685,66 +1855,149 @@ type BackupStorage struct {
 	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
 	Metadata *ObjectMeta `json:"metadata,omitempty"`
 
-	// Spec BackupStorageSpec defines the desired state of a BackupStorage.
-	//
-	// A BackupStorage is a reusable, namespaced reference to an object store
-	// (today only S3-compatible) plus the credentials needed to talk to it.
-	// It is referenced by name from:
-	//
-	//   - Instance.spec.backup.storages[].storageRef
-	//   - Backup.spec.storageRef
-	//
-	// Decoupling storage from individual Backup CRs makes provider-managed
-	// backups (e.g. PBM, pgBackRest) practical: the provider can register a
-	// fixed set of storages on the engine without recomputing them from a
-	// dynamic list of Backup CRs.
+	// Spec BackupStorageSpec defines the desired state of a BackupStorage: an object
+	// store, of the technology a BackupStorageClass describes, that backups are
+	// written to. It is referenced by name from Instance.spec.backup.storages,
+	// Backup.spec.storageRef, Restore point-in-time sources and BackupImports.
 	Spec struct {
-		// S3 S3 contains S3-compatible storage configuration.
-		// Required when Type is "s3".
-		S3 *struct {
-			// AccessKeyId AccessKeyID is a write-only convenience input. When set, a webhook
-			// stores it in the Secret named by CredentialsSecretRef and clears
-			// this field. It is never persisted on the BackupStorage object.
-			AccessKeyId *string `json:"accessKeyId,omitempty"`
-
-			// Bucket Bucket is the name of the S3 bucket.
-			Bucket string `json:"bucket"`
-
-			// CredentialsSecretRef CredentialsSecretRef references the Secret in the same namespace
-			// that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
-			CredentialsSecretRef struct {
+		// Authentication Authentication names one of the class's authModes and, for every mode
+		// but WorkloadIdentity, the Secret in the same namespace holding that
+		// mode's credentials keys.
+		Authentication struct {
+			// CredentialsSecretRef CredentialsSecretRef references the Secret in the same namespace that
+			// holds the credentials keys of the mode.
+			CredentialsSecretRef *struct {
 				// Name Name of the referenced Secret.
 				Name string `json:"name"`
-			} `json:"credentialsSecretRef"`
+			} `json:"credentialsSecretRef,omitempty"`
 
-			// EndpointURL EndpointURL is the endpoint URL of the S3-compatible service.
-			EndpointURL string `json:"endpointURL"`
+			// Mode Mode names one of the class's authModes.
+			Mode string `json:"mode"`
+		} `json:"authentication"`
 
-			// ForcePathStyle ForcePathStyle forces path-style URLs (bucket name in the path
-			// instead of the host). Defaults to false.
-			ForcePathStyle *bool `json:"forcePathStyle,omitempty"`
+		// BackupStorageClassRef BackupStorageClassRef names the BackupStorageClass, the object storage
+		// technology.
+		BackupStorageClassRef struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+		} `json:"backupStorageClassRef"`
 
-			// Region Region is the region of the S3 bucket.
-			Region string `json:"region"`
+		// Location Location is where backups are kept. Engines treat it as their catalog,
+		// so it cannot change: create a new BackupStorage instead.
+		Location struct {
+			// ObjectStore ObjectStore is a bucket, and a prefix within it, in an object store.
+			ObjectStore struct {
+				// Bucket Bucket is the bucket, or the container for technologies that call it
+				// so.
+				Bucket string `json:"bucket"`
 
-			// SecretAccessKey SecretAccessKey is a write-only convenience input. See AccessKeyID.
-			SecretAccessKey *string `json:"secretAccessKey,omitempty"`
+				// Prefix Prefix is the path within the bucket under which backups are written,
+				// without leading or trailing slash.
+				Prefix *string `json:"prefix,omitempty"`
+			} `json:"objectStore"`
+		} `json:"location"`
 
-			// VerifyTLS VerifyTLS enables TLS certificate verification.
-			// Defaults to true.
-			VerifyTLS *bool `json:"verifyTLS,omitempty"`
-		} `json:"s3,omitempty"`
+		// Parameters Parameters are the connection parameters of the technology, validated
+		// against the class's parametersSchema.
+		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
-		// Type Type is the object storage type. Today only "s3" is supported.
-		Type BackupStorageSpecType `json:"type"`
+		// Tls TLS is how executors verify the server certificate of the store.
+		// Absent means the system trust store.
+		Tls *struct {
+			// Ca CA is the PEM bundle the server certificate is verified against,
+			// instead of the system trust store.
+			Ca *struct {
+				// SecretKeyRef SecretKeyRef selects the Secret key holding the PEM bundle.
+				SecretKeyRef *struct {
+					// Key Key within the Secret.
+					Key string `json:"key"`
+
+					// Name Name of the referenced Secret.
+					Name string `json:"name"`
+				} `json:"secretKeyRef,omitempty"`
+			} `json:"ca,omitempty"`
+
+			// InsecureSkipVerify InsecureSkipVerify disables verification of the server certificate.
+			InsecureSkipVerify *bool `json:"insecureSkipVerify,omitempty"`
+		} `json:"tls,omitempty"`
 	} `json:"spec"`
 
-	// Status BackupStorageStatus defines the observed state of a BackupStorage.
-	Status *map[string]interface{} `json:"status,omitempty"`
+	// Status BackupStorageStatus defines the observed state of a BackupStorage. Core
+	// writes all of it.
+	Status *struct {
+		// BackupClasses BackupClasses is whether each Accepted BackupClass can write to the
+		// storage. Read an entry through CurrentVerdict, which treats an entry
+		// computed from other objects than the current ones as Pending.
+		BackupClasses *[]struct {
+			// Compatibility Compatibility is whether the class can write to the storage.
+			Compatibility BackupStorageStatusBackupClassesCompatibility `json:"compatibility"`
+
+			// Message Message is the human-readable detail of Reason.
+			Message *string `json:"message,omitempty"`
+
+			// Name Name is the BackupClass name.
+			Name string `json:"name"`
+
+			// Observed Observed identifies the objects the verdict was computed from.
+			Observed struct {
+				// ClassGeneration ClassGeneration is the generation of the BackupClass.
+				ClassGeneration *int64 `json:"classGeneration,omitempty"`
+
+				// ClassUID ClassUID is the UID of the BackupClass.
+				ClassUID *string `json:"classUID,omitempty"`
+
+				// StorageClassGeneration StorageClassGeneration is the generation of the storage's
+				// BackupStorageClass.
+				StorageClassGeneration *int64 `json:"storageClassGeneration,omitempty"`
+
+				// StorageClassUID StorageClassUID is the UID of the storage's BackupStorageClass.
+				StorageClassUID *string `json:"storageClassUID,omitempty"`
+
+				// StorageGeneration StorageGeneration is the generation of the BackupStorage.
+				StorageGeneration *int64 `json:"storageGeneration,omitempty"`
+			} `json:"observed"`
+
+			// Reason Reason is why the class cannot write to the storage, or not yet.
+			Reason *string `json:"reason,omitempty"`
+		} `json:"backupClasses,omitempty"`
+
+		// Conditions Conditions: Accepted, and Deleting while a deleted storage waits for
+		// its referrers.
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status BackupStorageStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+	} `json:"status,omitempty"`
 }
 
-// BackupStorageSpecType Type is the object storage type. Today only "s3" is supported.
-type BackupStorageSpecType string
+// BackupStorageStatusBackupClassesCompatibility Compatibility is whether the class can write to the storage.
+type BackupStorageStatusBackupClassesCompatibility string
+
+// BackupStorageStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type BackupStorageStatusConditionsStatus string
 
 // BackupStorageClass BackupStorageClass describes an object storage technology that
 // BackupStorages reference. It is pure data: the backup classes that can write
@@ -1808,6 +2061,26 @@ type BackupStorageClass struct {
 		// spec.location, "storage" for spec.parameters and "credentials" keyed by
 		// authentication mode.
 		UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
+
+		// Validations Validations are CEL rules every BackupStorage of the class must
+		// satisfy, for constraints parametersSchema cannot express, such as a
+		// naming rule on location.objectStore.bucket or a rule across parameters
+		// and tls. self is the BackupStorage's spec. A violation sets the
+		// storage's Accepted condition to False with the rule's reason,
+		// InvalidLocation or InvalidParameters, and its message.
+		Validations *[]struct {
+			// Expression Expression is a CEL expression that is true for a valid object. self is
+			// the referencing object's spec, with its parameters typed by the class's
+			// parameters schema. oldSelf is not available.
+			Expression string `json:"expression"`
+
+			// Message Message explains a violation to the user.
+			Message string `json:"message"`
+
+			// Reason Reason is the reason of the condition a violation sets on the
+			// referencing object. Each class kind lists the reasons it accepts.
+			Reason string `json:"reason"`
+		} `json:"validations,omitempty"`
 	} `json:"spec"`
 }
 
@@ -1875,8 +2148,8 @@ type ClusterInstancePreset struct {
 		Backup *struct {
 			// ClassRef ClassRef references the cluster-scoped BackupClass that the provider
 			// should use to configure the engine. The class must have
-			// ExecutionMode=ProviderManaged and list the Instance's provider in its
-			// SupportedProviders.
+			// ExecutionMode=ProviderManaged and name the Instance's provider in
+			// providerManaged.providerRef.
 			ClassRef struct {
 				// Name Name of the referenced object.
 				Name string `json:"name"`
@@ -2736,7 +3009,7 @@ type ClusterInstancePreset struct {
 		//
 		// Only ProviderManaged BackupClasses are supported. The referenced Backup
 		// must be in the same namespace, in Succeeded state, and its BackupClass
-		// must list the Instance's provider in SupportedProviders. Instance must
+		// must be executed by the Instance's provider. Instance must
 		// also have backup enabled and include a storage entry that matches the
 		// storage used by the source Backup so the provider can access the data.
 		DataSource *struct {
@@ -3201,8 +3474,8 @@ type Instance struct {
 		Backup *struct {
 			// ClassRef ClassRef references the cluster-scoped BackupClass that the provider
 			// should use to configure the engine. The class must have
-			// ExecutionMode=ProviderManaged and list the Instance's provider in its
-			// SupportedProviders.
+			// ExecutionMode=ProviderManaged and name the Instance's provider in
+			// providerManaged.providerRef.
 			ClassRef struct {
 				// Name Name of the referenced object.
 				Name string `json:"name"`
@@ -4062,7 +4335,7 @@ type Instance struct {
 		//
 		// Only ProviderManaged BackupClasses are supported. The referenced Backup
 		// must be in the same namespace, in Succeeded state, and its BackupClass
-		// must list the Instance's provider in SupportedProviders. Instance must
+		// must be executed by the Instance's provider. Instance must
 		// also have backup enabled and include a storage entry that matches the
 		// storage used by the source Backup so the provider can access the data.
 		DataSource *struct {
@@ -4238,6 +4511,13 @@ type Instance struct {
 			// Storages Storages is the per-storage backup status, keyed by the logical storage
 			// name declared in spec.backup.storages.
 			Storages *[]struct {
+				// Location Location is the path in the storage's bucket under which the engine
+				// writes this Instance's backups.
+				Location *string `json:"location,omitempty"`
+
+				// Message Message explains Reason.
+				Message *string `json:"message,omitempty"`
+
 				// Name Name is the BackupStorage name (matches
 				// spec.backup.storages[].storageRef.name).
 				Name string `json:"name"`
@@ -4263,6 +4543,11 @@ type Instance struct {
 					// State State summarises whether a trustworthy window exists.
 					State *InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
 				} `json:"pitr,omitempty"`
+
+				// Reason Reason is why the entry is not configured on the engine as specified,
+				// empty when it is. An entry the engine already had keeps its last
+				// configuration meanwhile.
+				Reason *string `json:"reason,omitempty"`
 			} `json:"storages,omitempty"`
 		} `json:"backup,omitempty"`
 
@@ -4740,8 +5025,8 @@ type InstancePreset struct {
 		Backup *struct {
 			// ClassRef ClassRef references the cluster-scoped BackupClass that the provider
 			// should use to configure the engine. The class must have
-			// ExecutionMode=ProviderManaged and list the Instance's provider in its
-			// SupportedProviders.
+			// ExecutionMode=ProviderManaged and name the Instance's provider in
+			// providerManaged.providerRef.
 			ClassRef struct {
 				// Name Name of the referenced object.
 				Name string `json:"name"`
@@ -5601,7 +5886,7 @@ type InstancePreset struct {
 		//
 		// Only ProviderManaged BackupClasses are supported. The referenced Backup
 		// must be in the same namespace, in Succeeded state, and its BackupClass
-		// must list the Instance's provider in SupportedProviders. Instance must
+		// must be executed by the Instance's provider. Instance must
 		// also have backup enabled and include a storage entry that matches the
 		// storage used by the source Backup so the provider can access the data.
 		DataSource *struct {
@@ -6995,8 +7280,8 @@ type Restore struct {
 		} `json:"dataSource"`
 
 		// InstanceRef InstanceRef references the Instance to restore into. The Instance
-		// must already exist in the same namespace and use a provider listed in
-		// the BackupClass's SupportedProviders.
+		// must already exist in the same namespace and use the provider that
+		// executes the BackupClass.
 		InstanceRef struct {
 			// Name Name of the referenced object.
 			Name string `json:"name"`

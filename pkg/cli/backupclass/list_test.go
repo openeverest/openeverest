@@ -36,12 +36,16 @@ import (
 type testBackupClass struct {
 	Metadata map[string]any `json:"metadata"`
 	Spec     struct {
-		ExecutionMode      string   `json:"executionMode"`
-		SupportedProviders []string `json:"supportedProviders,omitempty"`
+		ExecutionMode   string `json:"executionMode"`
+		ProviderManaged *struct {
+			ProviderRef struct {
+				Name string `json:"name"`
+			} `json:"providerRef"`
+		} `json:"providerManaged,omitempty"`
 	} `json:"spec"`
 }
 
-func newTestBackupClass(name, executionMode string, providers ...string) testBackupClass {
+func newTestBackupClass(name, executionMode, provider string) testBackupClass {
 	tbc := testBackupClass{
 		Metadata: map[string]any{
 			"name":              name,
@@ -49,7 +53,14 @@ func newTestBackupClass(name, executionMode string, providers ...string) testBac
 		},
 	}
 	tbc.Spec.ExecutionMode = executionMode
-	tbc.Spec.SupportedProviders = providers
+	if provider != "" {
+		tbc.Spec.ProviderManaged = &struct {
+			ProviderRef struct {
+				Name string `json:"name"`
+			} `json:"providerRef"`
+		}{}
+		tbc.Spec.ProviderManaged.ProviderRef.Name = provider
+	}
 	return tbc
 }
 
