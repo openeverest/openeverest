@@ -35,10 +35,10 @@ func annotationDiscoveryClass(name string, prefixes ...string) *monitoringv1alph
 }
 
 // requestingPodMetadata is an ExtensionManaged binding of entry whose class
-// controller requests annotations for component.
-func requestingPodMetadata(entry, class string, accepted metav1.ConditionStatus, component string, annotations map[string]string) *monitoringv1alpha1.MonitoringBinding {
+// controller requests annotations for the engine component.
+func requestingPodMetadata(entry, class string, accepted metav1.ConditionStatus, annotations map[string]string) *monitoringv1alpha1.MonitoringBinding {
 	b := monitoringBinding(entry, v1alpha1.MonitoringExecutionModeExtensionManaged, class, accepted)
-	b.Status.PodMetadata = []monitoringv1alpha1.ComponentPodMetadata{{Component: component, Annotations: annotations}}
+	b.Status.PodMetadata = []monitoringv1alpha1.ComponentPodMetadata{{Component: "engine", Annotations: annotations}}
 	return b
 }
 
@@ -65,7 +65,7 @@ func TestMonitoringPodAnnotations(t *testing.T) {
 			name:    "accepted binding: only allowed keys of the component",
 			entries: []string{"coroot"},
 			objs: []client.Object{coroot, func() *monitoringv1alpha1.MonitoringBinding {
-				b := requestingPodMetadata("coroot", "coroot", metav1.ConditionTrue, "engine", map[string]string{
+				b := requestingPodMetadata("coroot", "coroot", metav1.ConditionTrue, map[string]string{
 					"coroot.com/mongodb-scrape": "true",
 					"sidecar.istio.io/inject":   "true",
 				})
@@ -79,37 +79,41 @@ func TestMonitoringPodAnnotations(t *testing.T) {
 		{
 			name:    "pending binding keeps contributing",
 			entries: []string{"coroot"},
-			objs: []client.Object{coroot, requestingPodMetadata("coroot", "coroot", "", "engine",
-				map[string]string{"coroot.com/mongodb-scrape": "true"})},
+			objs: []client.Object{coroot, requestingPodMetadata("coroot", "coroot", "",
+				map[string]string{"coroot.com/mongodb-scrape": "true"},
+			)},
 			want: map[string]string{"coroot.com/mongodb-scrape": "true"},
 		},
 		{
 			name:    "rejected binding contributes nothing",
 			entries: []string{"coroot"},
-			objs: []client.Object{coroot, requestingPodMetadata("coroot", "coroot", metav1.ConditionFalse, "engine",
-				map[string]string{"coroot.com/mongodb-scrape": "true"})},
-			want: map[string]string{},
+			objs: []client.Object{coroot, requestingPodMetadata("coroot", "coroot", metav1.ConditionFalse,
+				map[string]string{"coroot.com/mongodb-scrape": "true"},
+			)},
+			want: make(map[string]string),
 		},
 		{
 			name: "binding whose entry was removed contributes nothing",
-			objs: []client.Object{coroot, requestingPodMetadata("coroot", "coroot", metav1.ConditionTrue, "engine",
-				map[string]string{"coroot.com/mongodb-scrape": "true"})},
-			want: map[string]string{},
+			objs: []client.Object{coroot, requestingPodMetadata("coroot", "coroot", metav1.ConditionTrue,
+				map[string]string{"coroot.com/mongodb-scrape": "true"},
+			)},
+			want: make(map[string]string),
 		},
 		{
 			name:    "class without a pod metadata policy contributes nothing",
 			entries: []string{"prometheus"},
-			objs: []client.Object{extensionManagedClass("prometheus", true), requestingPodMetadata("prometheus", "prometheus", metav1.ConditionTrue, "engine",
-				map[string]string{"coroot.com/mongodb-scrape": "true"})},
-			want: map[string]string{},
+			objs: []client.Object{extensionManagedClass("prometheus", true), requestingPodMetadata("prometheus", "prometheus", metav1.ConditionTrue,
+				map[string]string{"coroot.com/mongodb-scrape": "true"},
+			)},
+			want: make(map[string]string),
 		},
 		{
 			name:    "conflicting keys: the binding whose name sorts first wins",
 			entries: []string{"a", "b"},
 			objs: []client.Object{
 				coroot,
-				requestingPodMetadata("a", "coroot", metav1.ConditionTrue, "engine", map[string]string{"coroot.com/x": "a"}),
-				requestingPodMetadata("b", "coroot", metav1.ConditionTrue, "engine", map[string]string{"coroot.com/x": "b"}),
+				requestingPodMetadata("a", "coroot", metav1.ConditionTrue, map[string]string{"coroot.com/x": "a"}),
+				requestingPodMetadata("b", "coroot", metav1.ConditionTrue, map[string]string{"coroot.com/x": "b"}),
 			},
 			want: map[string]string{"coroot.com/x": firstBindingEntry("a", "b")},
 		},
