@@ -236,6 +236,17 @@ func TestCreateSecret_Validation(t *testing.T) {
 			err: `key "ca.crt": no PEM certificate found`,
 		},
 		{
+			name: "CA bundle without ca.crt fails",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   "backup-storage-minio-ca",
+					Labels: map[string]string{common.OpenEverestDefinitionLabel: common.OpenEverestCABundleDefinition},
+				},
+				StringData: map[string]string{"bundle.pem": testCA},
+			},
+			err: `missing key "ca.crt"`,
+		},
+		{
 			name: "invalid secret name fails",
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{Name: "Invalid_Name_With_Underscore", Labels: providerLabels},
@@ -400,6 +411,12 @@ func TestPatchSecret_Validation(t *testing.T) {
 			name:   "a valid CA bundle is accepted",
 			stored: caBundle(),
 			patch:  `{"metadata": {"resourceVersion": "%s"}, "stringData": {"extra.crt": ` + strconv.Quote(testCA) + `}}`,
+		},
+		{
+			name:   "removing ca.crt from a CA bundle is refused",
+			stored: caBundle(),
+			patch:  `{"metadata": {"resourceVersion": "%s"}, "data": {"ca.crt": null}, "stringData": {"bundle.pem": ` + strconv.Quote(testCA) + `}}`,
+			err:    `missing key "ca.crt"`,
 		},
 	}
 

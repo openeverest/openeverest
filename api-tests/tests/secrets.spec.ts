@@ -313,6 +313,11 @@ const rejectedCABundles = [
     message: 'holds a "PRIVATE KEY" PEM block',
   },
   {
+    desc: 'the certificates are not under ca.crt',
+    data: (name: string) => caBundle(name, {'bundle.pem': testCA}),
+    message: 'missing key "ca.crt"',
+  },
+  {
     desc: 'another definition has no source label',
     data: (name: string) => caBundle(name, {'ca.crt': testCA}, {'openeverest.io/definition': 'trust-bundle'}),
     message: 'only "ca-bundle" needs none',

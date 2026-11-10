@@ -112,8 +112,12 @@ const (
 	// mode of a MonitoringClass.
 	OpenEverestDefinitionLabel = "openeverest.io/definition"
 	// OpenEverestCABundleDefinition is the definition of a CA bundle Secret, the one definition
-	// core owns: the Secret carries no source label, and every key holds PEM CA certificates.
+	// core owns: the Secret carries no source label, holds its certificates under
+	// OpenEverestCABundleKey, and every key holds PEM CA certificates.
 	OpenEverestCABundleDefinition = "ca-bundle"
+	// OpenEverestCABundleKey is the key every CA bundle Secret holds its certificates under, so
+	// a reference to a labelled bundle never has to ask for the key.
+	OpenEverestCABundleKey = "ca.crt"
 	// OpenEverestInUseProtectionFinalizer is held by core on a Secret while an object uses it.
 	OpenEverestInUseProtectionFinalizer = "openeverest.io/in-use-protection"
 

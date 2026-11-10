@@ -25,7 +25,8 @@
 //
 // The one exception is the definition core owns, ca-bundle: a CA bundle is
 // not a credential of any Provider or class, so it carries
-// openeverest.io/definition: ca-bundle and no source label.
+// openeverest.io/definition: ca-bundle and no source label. It holds its
+// certificates under ca.crt.
 package secretdefinition
 
 import (
@@ -163,17 +164,20 @@ func Validate(ctx context.Context, g Getter, secret *corev1.Secret) error {
 	}
 }
 
-// validateCABundleSecret checks that every key of the Secret holds PEM CA
-// certificates and nothing else: a private key pasted along with its
-// certificate would otherwise be stored as public trust material.
+// validateCABundleSecret checks that the Secret holds its certificates under
+// the key every reference to a labelled bundle reads, ca.crt, and that every
+// key holds PEM CA certificates and nothing else: a private key pasted along
+// with its certificate would otherwise be stored as public trust material.
 func validateCABundleSecret(secret *corev1.Secret) error {
 	if t := secretType(secret.Type); t != corev1.SecretTypeOpaque {
 		return fmt.Errorf("%w: a CA bundle must be of type %q, not %q", ErrInvalidSecret, corev1.SecretTypeOpaque, t)
 	}
 
 	data := secretData(secret)
-	if len(data) == 0 {
-		return fmt.Errorf("%w: a CA bundle needs at least one key", ErrInvalidSecret)
+	if _, found := data[common.OpenEverestCABundleKey]; !found {
+		return fmt.Errorf("%w: missing key %q; a CA bundle holds its certificates under it",
+			ErrInvalidSecret, common.OpenEverestCABundleKey,
+		)
 	}
 	for _, key := range slices.Sorted(maps.Keys(data)) {
 		for rest := data[key]; ; {
