@@ -292,6 +292,36 @@ func (e UpdateMonitoringDestinationParamsDryRun) Valid() bool {
 	}
 }
 
+// Defines values for CreateSecretParamsDryRun.
+const (
+	CreateSecretParamsDryRunAll CreateSecretParamsDryRun = "All"
+)
+
+// Valid indicates whether the value is a known member of the CreateSecretParamsDryRun enum.
+func (e CreateSecretParamsDryRun) Valid() bool {
+	switch e {
+	case CreateSecretParamsDryRunAll:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeleteSecretParamsDryRun.
+const (
+	DeleteSecretParamsDryRunAll DeleteSecretParamsDryRun = "All"
+)
+
+// Valid indicates whether the value is a known member of the DeleteSecretParamsDryRun enum.
+func (e DeleteSecretParamsDryRun) Valid() bool {
+	switch e {
+	case DeleteSecretParamsDryRunAll:
+		return true
+	default:
+		return false
+	}
+}
+
 // APIError defines model for APIError.
 type APIError struct {
 	// Causes Every field that failed validation, on a 422.
@@ -780,6 +810,24 @@ type ListSecretsParams struct {
 	Definition *string `form:"definition,omitempty" json:"definition,omitempty"`
 }
 
+// CreateSecretParams defines parameters for CreateSecret.
+type CreateSecretParams struct {
+	// DryRun `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything.
+	DryRun *CreateSecretParamsDryRun `form:"dryRun,omitempty" json:"dryRun,omitempty"`
+}
+
+// CreateSecretParamsDryRun defines parameters for CreateSecret.
+type CreateSecretParamsDryRun string
+
+// DeleteSecretParams defines parameters for DeleteSecret.
+type DeleteSecretParams struct {
+	// DryRun `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything.
+	DryRun *DeleteSecretParamsDryRun `form:"dryRun,omitempty" json:"dryRun,omitempty"`
+}
+
+// DeleteSecretParamsDryRun defines parameters for DeleteSecret.
+type DeleteSecretParamsDryRun string
+
 // RevokeAuthTokenJSONRequestBody defines body for RevokeAuthToken for application/json ContentType.
 type RevokeAuthTokenJSONRequestBody = AuthRevokeRequest
 
@@ -1018,10 +1066,10 @@ type ServerInterface interface {
 	ListSecrets(ctx echo.Context, cluster string, namespace string, params ListSecretsParams) error
 	// Create secret
 	// (POST /clusters/{cluster}/namespaces/{namespace}/secrets)
-	CreateSecret(ctx echo.Context, cluster string, namespace string) error
+	CreateSecret(ctx echo.Context, cluster string, namespace string, params CreateSecretParams) error
 	// Delete secret
 	// (DELETE /clusters/{cluster}/namespaces/{namespace}/secrets/{name})
-	DeleteSecret(ctx echo.Context, cluster string, namespace string, name string) error
+	DeleteSecret(ctx echo.Context, cluster string, namespace string, name string, params DeleteSecretParams) error
 	// Get secret
 	// (GET /clusters/{cluster}/namespaces/{namespace}/secrets/{name})
 	GetSecret(ctx echo.Context, cluster string, namespace string, name string) error
@@ -2929,8 +2977,17 @@ func (w *ServerInterfaceWrapper) CreateSecret(ctx echo.Context) error {
 
 	ctx.Set(string(BearerAuthScopes), []string{})
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateSecretParams
+	// ------------- Optional query parameter "dryRun" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "dryRun", ctx.QueryParams(), &params.DryRun, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter dryRun: %s", err))
+	}
+
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.CreateSecret(ctx, cluster, namespace)
+	err = w.Handler.CreateSecret(ctx, cluster, namespace, params)
 	return err
 }
 
@@ -2963,8 +3020,17 @@ func (w *ServerInterfaceWrapper) DeleteSecret(ctx echo.Context) error {
 
 	ctx.Set(string(BearerAuthScopes), []string{})
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteSecretParams
+	// ------------- Optional query parameter "dryRun" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "dryRun", ctx.QueryParams(), &params.DryRun, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter dryRun: %s", err))
+	}
+
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.DeleteSecret(ctx, cluster, namespace, name)
+	err = w.Handler.DeleteSecret(ctx, cluster, namespace, name, params)
 	return err
 }
 
@@ -4321,26 +4387,26 @@ var swaggerSpec = []string{
 	"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",
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

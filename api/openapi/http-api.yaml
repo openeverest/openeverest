@@ -3607,6 +3607,7 @@ paths:
           description: The namespace where the secret will be created
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       requestBody:
         description: The secret object to be created
         required: true
@@ -3790,6 +3791,7 @@ paths:
           description: The name of the secret
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '204':
           description: Secret deleted successfully
