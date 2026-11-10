@@ -27,6 +27,7 @@ import {
 const prometheus: MonitoringClass = {
   metadata: { name: 'prometheus' },
   spec: {
+    controllerName: 'openeverest.io/monitoring-prometheus',
     authModes: [
       { name: 'Anonymous' },
       {

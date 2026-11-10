@@ -58,6 +58,7 @@ const pmmCredentialsLabels = {
 const pmm: MonitoringClass = {
   metadata: { name: 'pmm' },
   spec: {
+    controllerName: 'openeverest.io/monitoring-pmm',
     displayName: 'PMM',
     authModes: [
       { name: 'ServiceAccountToken', credentials: { required: ['token'] } },

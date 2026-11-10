@@ -32,7 +32,11 @@ const monitoringClass = (
   provider = PROVIDER
 ): MonitoringClass => ({
   metadata: { name },
-  spec: { displayName, authModes: [{ name: 'Anonymous' }] },
+  spec: {
+    controllerName: `openeverest.io/monitoring-${name}`,
+    displayName,
+    authModes: [{ name: 'Anonymous' }],
+  },
   status: { providers: [{ name: provider, disruption }] },
 });
 

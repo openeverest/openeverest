@@ -41,6 +41,7 @@ const makeClass = (
 ): MonitoringClass => ({
   metadata: { name },
   spec: {
+    controllerName: `openeverest.io/monitoring-${name}`,
     authModes: [{ name: 'Anonymous' }],
     ...(integration && {
       providerManaged: {
