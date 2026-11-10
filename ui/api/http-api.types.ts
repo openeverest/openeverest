@@ -965,8 +965,10 @@ export interface paths {
         /**
          * Delete monitoring destination
          * @description This API deletes the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
-         *     Instances that still list it in `spec.monitoring.destinations` keep their current monitoring and report the destination as not found;
-         *     list them first with `GET .../monitoring-bindings?destination={name}`.
+         *     It is refused with `409` and reason `InUse` while Instances list the destination in `spec.monitoring.destinations` (`status.attachedInstances` above zero);
+         *     the message gives their number, and `GET .../monitoring-bindings?destination={name}` lists them.
+         *     With `dryRun=All` the answer is the same and nothing is deleted, so a client can ask before it deletes.
+         *     A deletion that is let through may leave the destination listed with `metadata.deletionTimestamp` set until no Instance lists it any more.
          */
         delete: operations["deleteMonitoringDestination"];
         options?: never;
@@ -1092,6 +1094,9 @@ export interface paths {
          *     |---|---|---|
          *     | `openeverest.io/provider: <provider>` | a key of the Provider's `spec.secrets` | the definition's `type` and `parametersSchema` |
          *     | `openeverest.io/monitoring-class: <class>` | an authentication mode of the MonitoringClass, e.g. `ServiceAccountToken` | type `Opaque` and the keys the mode requires |
+         *     | none | `ca-bundle`, the one definition core owns | type `Opaque`; every key holds PEM CA certificates and no other PEM block |
+         *
+         *     A CA bundle is trust material, not a credential of any provider or class, so one bundle can be referenced from `spec.tls.ca.secretKeyRef` by any kind; list them with `?definition=ca-bundle`.
          *
          *     The name follows the Kubernetes rules for Secret names. Client-supplied owner references and finalizers are dropped. Secrets of type `kubernetes.io/service-account-token` or `bootstrap.kubernetes.io/token` are refused.
          */
@@ -6236,7 +6241,7 @@ export interface components {
             password?: string;
             /** @description Port is the port number to connect to */
             port?: string;
-            /** @description Provider is the provider that manages this instance */
+            /** @description Provider is the name of the Provider that manages this instance, as in the Instance's spec.providerRef.name. The provider-runtime reconciler writes it; a value set by the provider is replaced. */
             provider?: string;
             /** @description Type is the type of database (e.g., mongodb, postgresql, mysql) */
             type?: string;
@@ -7508,6 +7513,14 @@ export interface components {
              *     }
              */
             status?: {
+                /**
+                 * Format: int32
+                 * @description AttachedInstances is the number of Instances in this namespace whose
+                 *     spec.monitoring.destinations lists this destination, whatever the
+                 *     state of their binding, including Instances being deleted. Written by
+                 *     core; deleting the destination is refused while it is above zero.
+                 */
+                attachedInstances?: number;
                 conditions?: {
                     /**
                      * Format: date-time
@@ -11137,6 +11150,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Instances still use the destination (reason `InUse`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */

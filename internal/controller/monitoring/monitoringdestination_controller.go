@@ -17,6 +17,7 @@ package monitoring
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -25,16 +26,21 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/events"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/controller/inuse"
 	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
 )
 
@@ -50,14 +56,22 @@ func destinationSecretNames(obj client.Object) []string {
 	return dst.Spec.SecretNames()
 }
 
-// DestinationReconciler owns the Accepted condition of MonitoringDestinations.
-// Ready is written by the class controller.
+// DestinationReconciler owns the Accepted condition, status.attachedInstances
+// and the in-use protection finalizer of MonitoringDestinations. Ready is
+// written by the class controller.
 type DestinationReconciler struct {
 	client.Client
+
+	// APIReader lists Instances from the API server before the finalizer of
+	// a destination being deleted is removed: the cache may not have seen an
+	// Instance created just before the deletion.
+	APIReader client.Reader
+	Recorder  events.EventRecorder
 }
 
 // SetupWithManager registers the MonitoringDestination index on the Secrets
-// it references and sets up the controller.
+// it references and sets up the controller. The Instance index it counts
+// Instances by is registered by SetupIndexes.
 func (r *DestinationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &monitoringv1alpha1.MonitoringDestination{},
 		destinationSecretsField, destinationSecretNames,
@@ -66,6 +80,8 @@ func (r *DestinationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("MonitoringDestination").
+		// The API server bumps metadata.generation when it marks an object for
+		// deletion, so deletions pass the predicate.
 		For(&monitoringv1alpha1.MonitoringDestination{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
 		Watches(&monitoringv1alpha1.MonitoringClass{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueDestinationsForClass),
@@ -74,25 +90,89 @@ func (r *DestinationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueDestinationsForSecret),
 		).
+		Watches(&corev1alpha1.Instance{}, enqueueDestinationsOfInstance()).
 		Complete(r)
 }
 
-// +kubebuilder:rbac:groups=monitoring.openeverest.io,resources=monitoringdestinations,verbs=get;list;watch
+// +kubebuilder:rbac:groups=monitoring.openeverest.io,resources=monitoringdestinations,verbs=get;list;watch;patch
 // +kubebuilder:rbac:groups=monitoring.openeverest.io,resources=monitoringdestinations/status,verbs=patch
+// +kubebuilder:rbac:groups=monitoring.openeverest.io,resources=monitoringdestinations/finalizers,verbs=update
 // +kubebuilder:rbac:groups=monitoring.openeverest.io,resources=monitoringclasses,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core.openeverest.io,resources=instances,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch
 
-// Reconcile validates the destination against its class.
+// Reconcile validates the destination against its class, counts the
+// Instances that list it and holds its deletion while any does.
 func (r *DestinationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	dst := &monitoringv1alpha1.MonitoringDestination{}
 	if err := r.Get(ctx, req.NamespacedName, dst); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	guard := inuse.Guard{
+		Client:       r.Client,
+		Recorder:     r.Recorder,
+		Finalizer:    monitoringv1alpha1.InUseProtectionFinalizer,
+		ReferrerKind: "Instance",
+	}
+	if err := guard.Protect(ctx, dst); err != nil {
+		return ctrl.Result{}, err
+	}
+	deleting := !dst.DeletionTimestamp.IsZero()
+	attached, err := r.attachedInstances(ctx, dst, deleting)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	cond, err := r.acceptedCondition(ctx, dst)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	return ctrl.Result{}, rtmonitoring.ApplyCondition(ctx, r.Client, dst, dst.Status.Conditions, rtmonitoring.MaterializerFieldOwner, cond)
+	if deleting {
+		// Before the status apply, which changes the resourceVersion the
+		// finalizer patch is locked on.
+		if _, err := guard.Release(ctx, dst, attached); err != nil {
+			return ctrl.Result{}, err
+		}
+		if len(dst.Finalizers) == 0 {
+			// The release let the deletion finish.
+			return ctrl.Result{}, nil
+		}
+	}
+	// One apply for every status field this owner writes: a second apply
+	// would prune the first one's fields.
+	if err := rtmonitoring.ApplyCondition(ctx, r.Client, dst, dst.Status.Conditions, rtmonitoring.MaterializerFieldOwner, cond,
+		map[string]any{"attachedInstances": int64(len(attached))},
+	); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+	return ctrl.Result{}, nil
+}
+
+// attachedInstances returns the names of the Instances whose spec lists dst,
+// including Instances being deleted. live reads the API server instead of
+// the cache, which may lag it.
+func (r *DestinationReconciler) attachedInstances(ctx context.Context, dst *monitoringv1alpha1.MonitoringDestination, live bool) ([]string, error) {
+	instances := &corev1alpha1.InstanceList{}
+	var err error
+	if live {
+		// The API server cannot select custom resources by this field.
+		err = r.APIReader.List(ctx, instances, client.InNamespace(dst.Namespace))
+	} else {
+		err = r.List(ctx, instances,
+			client.InNamespace(dst.Namespace),
+			client.MatchingFieldsSelector{Selector: fields.OneTermEqualSelector(instanceMonitoringDestinationField, dst.Name)},
+		)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("list Instances using MonitoringDestination %q: %w", dst.Name, err)
+	}
+	var names []string
+	for i := range instances.Items {
+		if slices.Contains(destinationNames(&instances.Items[i]), dst.Name) {
+			names = append(names, instances.Items[i].Name)
+		}
+	}
+	return names, nil
 }
 
 // acceptedCondition: class found, parameters valid against its schema,
@@ -214,4 +294,49 @@ func (r *DestinationReconciler) enqueueDestinationsForSecret(ctx context.Context
 		reqs = append(reqs, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&list.Items[i])})
 	}
 	return reqs
+}
+
+// enqueueDestinationsOfInstance enqueues the MonitoringDestinations whose
+// attachedInstances an Instance event can change: every destination a
+// created or deleted Instance lists and, on update, those it started or
+// stopped listing. Mapping only the new object would miss the destination
+// an update stopped listing.
+func enqueueDestinationsOfInstance() handler.Funcs {
+	enqueue := func(q workqueue.TypedRateLimitingInterface[reconcile.Request], namespace string, names []string) {
+		for _, name := range names {
+			q.Add(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: namespace, Name: name}})
+		}
+	}
+	return handler.Funcs{
+		CreateFunc: func(_ context.Context, e event.CreateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+			enqueue(q, e.Object.GetNamespace(), instanceMonitoringDestinationNames(e.Object))
+		},
+		UpdateFunc: func(_ context.Context, e event.UpdateEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+			enqueue(q, e.ObjectNew.GetNamespace(), symmetricDifference(
+				instanceMonitoringDestinationNames(e.ObjectOld), instanceMonitoringDestinationNames(e.ObjectNew),
+			))
+		},
+		DeleteFunc: func(_ context.Context, e event.DeleteEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+			enqueue(q, e.Object.GetNamespace(), instanceMonitoringDestinationNames(e.Object))
+		},
+		GenericFunc: func(_ context.Context, e event.GenericEvent, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+			enqueue(q, e.Object.GetNamespace(), instanceMonitoringDestinationNames(e.Object))
+		},
+	}
+}
+
+// symmetricDifference returns the names in exactly one of a and b.
+func symmetricDifference(a, b []string) []string {
+	var out []string
+	for _, n := range a {
+		if !slices.Contains(b, n) {
+			out = append(out, n)
+		}
+	}
+	for _, n := range b {
+		if !slices.Contains(a, n) {
+			out = append(out, n)
+		}
+	}
+	return out
 }

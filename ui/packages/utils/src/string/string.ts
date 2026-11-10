@@ -12,14 +12,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const kebabize = (str: string) =>
+const isUpperCase = (char = '') => char >= 'A' && char <= 'Z';
+const isLowerCase = (char = '') => char >= 'a' && char <= 'z';
+
+// A capital starts a word unless it continues an acronym: myURLParser → my-url-parser.
+const hyphenateCapitals = (str: string) =>
   str
-    .replace(
-      /[A-Z]+(?![a-z])|[A-Z]/g,
-      ($, ofs) => (ofs ? '-' : '') + $.toLowerCase()
-    )
-    .replace(/\s+(?=[-])/, '')
-    .replace(/\s+(?![-])/, '-');
+    .split('')
+    .map((char, index) => {
+      if (!isUpperCase(char)) {
+        return char;
+      }
+      const startsWord =
+        index > 0 &&
+        (!isUpperCase(str[index - 1]) || isLowerCase(str[index + 1]));
+      return (startsWord ? '-' : '') + char.toLowerCase();
+    })
+    .join('');
+
+// A whitespace run becomes one hyphen, or disappears next to an existing one.
+const hyphenateWhitespace = (str: string) =>
+  str.replace(/\s+/g, (run: string, offset: number) =>
+    str[offset - 1] === '-' || str[offset + run.length] === '-' ? '' : '-'
+  );
+
+const kebabize = (str: string) =>
+  hyphenateWhitespace(hyphenateCapitals(str.trim()));
 
 export const pluralize = (
   count: number,

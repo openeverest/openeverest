@@ -62,7 +62,7 @@ gen-openapi-ts-types: ## Generate TypeScript types from all OpenAPI YAML files i
 generate: gen
 
 .PHONY: gen
-gen: gen-crds-deepcopy gen-crds-manifests gen-crds-openapi gen-openapi-ts-types ## Generate code.
+gen: gen-crds-deepcopy gen-crds-manifests gen-backupstorageclasses gen-crds-openapi gen-openapi-ts-types ## Generate code.
 	go generate ./...
 	python3 hack/add_copyright.py \
 		internal/server/api/everest-server.gen.go \
@@ -545,6 +545,12 @@ gen-crds-deepcopy: controller-gen ## Generate code containing DeepCopy, DeepCopy
 gen-crds-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	"$(CONTROLLER_GEN)" rbac:roleName=manager-role crd:allowDangerousTypes=true webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
+.PHONY: gen-backupstorageclasses
+gen-backupstorageclasses: controller-gen ## Generate the built-in BackupStorageClasses from their Go types.
+	@tmp=$$(mktemp -d) && trap 'rm -rf "$$tmp"' EXIT && \
+	"$(CONTROLLER_GEN)" crd paths=./hack/gen-backupstorageclasses/_schema output:crd:dir="$$tmp" && \
+	go run ./hack/gen-backupstorageclasses -crd-dir "$$tmp" -out config/backupstorageclasses
+
 ##@ Kustomize Deployment
 
 ifndef ignore-not-found
@@ -581,6 +587,8 @@ deploy-test-controller: gen-crds-manifests kustomize deploy-cert-manager
 	kubectl apply -f https://raw.githubusercontent.com/VictoriaMetrics/operator/v$(VICTORIAMETRICS_OPERATOR_VERSION)/config/crd/overlay/crd.yaml
 	kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
 	cd config/test && "$(KUSTOMIZE)" edit set image controller=${EVEREST_CONTROLLER_IMG}
+	"$(KUSTOMIZE)" build config/crd | kubectl apply -f -
+	kubectl wait --for condition=established --timeout=30s crd backupstorageclasses.backup.openeverest.io
 	"$(KUSTOMIZE)" build config/test | kubectl apply -f -
 	kubectl delete pod -n openeverest-system -l control-plane=controller-manager
 	$(MAKE) wait-test-controller

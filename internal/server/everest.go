@@ -27,6 +27,7 @@ import (
 	"io/fs"
 	"net/http"
 	"path"
+	"regexp"
 	"slices"
 	"strings"
 	"text/template"
@@ -592,8 +593,14 @@ func (e *EverestServer) errorHandlerChain() echo.HTTPErrorHandler {
 func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 	return func(err error, c echo.Context) {
 		echoErrTarget := &echo.HTTPError{}
+		inUseMessage, inUse := inUseDenialMessage(err)
 		switch {
 		case errors.As(err, &echoErrTarget):
+		case inUse:
+			err = &echo.HTTPError{
+				Code:    http.StatusConflict,
+				Message: apiErrorBody{Message: inUseMessage, Reason: reasonInUse},
+			}
 		case k8serrors.IsNotFound(err):
 			statusError := &k8serrors.StatusError{}
 			if errors.As(err, &statusError) {
@@ -732,11 +739,39 @@ func trimStrictDecodingError(fullText string) string {
 	return fullText
 }
 
+// admissionDenial matches what the API server writes before the message of
+// an admission webhook or ValidatingAdmissionPolicy that denied a request,
+// including the resource and name it puts first when the denial is Forbidden.
+var admissionDenial = regexp.MustCompile(
+	`^(?:\S+ "[^"]*" is forbidden: )?(?:admission webhook "[^"]*" denied the request|ValidatingAdmissionPolicy '[^']*'(?: with binding '[^']*')? denied request): `,
+)
+
+// trimWebhookErrorText keeps only the message an admission webhook or policy
+// gave for denying a request.
 func trimWebhookErrorText(fullText string) string {
-	monitoringWebhookPrefix := `admission webhook "vmonitoringconfig-v1alpha1.everest.percona.com" denied the request: `
-	loadBalancerConfigWebhookPrefix := `admission webhook "vloadbalancerconfig-v1alpha1.everest.percona.com" denied the request: `
-	dbcWebhookPrefix := `admission webhook "vdatabasecluster-v1alpha1.everest.percona.com" denied the request: `
-	return strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(fullText, loadBalancerConfigWebhookPrefix), monitoringWebhookPrefix), dbcWebhookPrefix)
+	return admissionDenial.ReplaceAllString(fullText, "")
+}
+
+// reasonInUse is the reason of the 409 answering a deletion refused because
+// the object is still in use.
+const reasonInUse = "InUse"
+
+// inUsePolicy matches the name of a ValidatingAdmissionPolicy that refuses
+// deleting an object still in use (spec 015 §4.5): <resource>-in-use.<group>,
+// whatever prefix kustomize's namePrefix adds.
+var inUsePolicy = regexp.MustCompile(`ValidatingAdmissionPolicy '[^']*-in-use\.[^']*openeverest\.io'`)
+
+// inUseDenialMessage reports whether err is the denial of an in-use policy
+// and returns its message. A policy can only deny as Forbidden, which the
+// API also answers when the caller lacks a permission; an object in use is a
+// conflict with its current state the caller can resolve, hence a 409.
+func inUseDenialMessage(err error) (string, bool) {
+	statusError := &k8serrors.StatusError{}
+	if !errors.As(err, &statusError) || statusError.ErrStatus.Reason != metav1.StatusReasonForbidden ||
+		!inUsePolicy.MatchString(statusError.ErrStatus.Message) {
+		return "", false
+	}
+	return trimWebhookErrorText(statusError.ErrStatus.Message), true
 }
 
 // createSessionManagerClient creates a k8s client for a session manager.

@@ -276,3 +276,79 @@ test.describe.parallel('Secrets defined by a monitoring class', () => {
     })
   })
 })
+
+// A self-signed CA certificate whose private key was discarded.
+const testCA = `-----BEGIN CERTIFICATE-----
+MIIBrDCCAVOgAwIBAgIUejvO8eGXCMbLRlBEfeQEBiosadMwCgYIKoZIzj0EAwIw
+IzEhMB8GA1UEAwwYb3BlbmV2ZXJlc3QgYXBpLXRlc3RzIENBMCAXDTI2MTEwMzE3
+MDQxMloYDzIxMjYxMDEwMTcwNDEyWjAjMSEwHwYDVQQDDBhvcGVuZXZlcmVzdCBh
+cGktdGVzdHMgQ0EwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAAQqq+Kp1HErWpL/
+1n0yHhczVyLmSvTDwIyP1rEsT3UIs/qglJbhQV+fo8kJGGJQMS3Jv30eQuZuBdJ7
+yk+IDeK3o2MwYTAdBgNVHQ4EFgQUb8ftw05oROj/5tA/eVtG+Twr6SEwHwYDVR0j
+BBgwFoAUb8ftw05oROj/5tA/eVtG+Twr6SEwDwYDVR0TAQH/BAUwAwEB/zAOBgNV
+HQ8BAf8EBAMCAgQwCgYIKoZIzj0EAwIDRwAwRAIgSIr4/5J7cFJB2zaDx34qdFlU
+jmb44BMPZLYDV0lCycICIFsNRStO8nvLnG+ZVfaBva8Bfoj28ZJTEgQexukz41yl
+-----END CERTIFICATE-----
+`
+const caBundleSecretName = 'backup-storage-test-minio-ca'
+
+const caBundle = (name: string, data: Record<string, string>, labels: object = {'openeverest.io/definition': 'ca-bundle'}) => ({
+  apiVersion: 'v1',
+  kind: 'Secret',
+  metadata: {name, labels},
+  type: 'Opaque',
+  stringData: data,
+})
+
+const rejectedCABundles = [
+  {
+    desc: 'a key holds no certificate',
+    data: (name: string) => caBundle(name, {'ca.crt': 'not a certificate'}),
+    message: 'key "ca.crt": no PEM certificate found',
+  },
+  {
+    desc: 'a private key is pasted with the certificate',
+    data: (name: string) => caBundle(name, {'ca.crt': `${testCA}-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n`}),
+    message: 'holds a "PRIVATE KEY" PEM block',
+  },
+  {
+    desc: 'another definition has no source label',
+    data: (name: string) => caBundle(name, {'ca.crt': testCA}, {'openeverest.io/definition': 'trust-bundle'}),
+    message: 'only "ca-bundle" needs none',
+  },
+]
+
+const rejectedCABundleName = (i: number) => `backup-storage-test-rejected-${i}-ca`
+
+test.describe.parallel('CA bundle Secrets', () => {
+  test.afterAll(async ({request}) => {
+    await th.deleteSecret(request, caBundleSecretName)
+    for (let i = 0; i < rejectedCABundles.length; i++) {
+      await th.deleteSecret(request, rejectedCABundleName(i))
+    }
+  })
+
+  test('create, filter and get a CA bundle without a source label', async ({request}) => {
+    const created = await th.createSecretWithData(request, caBundle(caBundleSecretName, {'ca.crt': testCA}))
+    expect(created.metadata.name).toBe(caBundleSecretName)
+    expect(created.stringData).toBeUndefined()
+
+    const secret = await th.getSecret(request, caBundleSecretName)
+    expect(secret.metadata.labels['openeverest.io/managed']).toBe('true')
+    expect(secret.metadata.labels['openeverest.io/definition']).toBe('ca-bundle')
+
+    const list = await th.listSecretsByDefinition(request, 'ca-bundle')
+    expect(list.items.map(s => s.metadata.name)).toContain(caBundleSecretName)
+  })
+
+  rejectedCABundles.forEach(({desc, data, message}, i) => {
+    test(`reject a CA bundle when ${desc}`, async ({request}) => {
+      const name = rejectedCABundleName(i)
+      const response = await th.createSecretRaw(request, data(name))
+      expect(response.status()).toBe(400)
+      expect((await response.json()).message).toContain(message)
+
+      expect((await th.getSecretRaw(request, name)).status()).toBe(404)
+    })
+  })
+})

@@ -16,8 +16,16 @@ package secretdefinition
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"errors"
+	"math/big"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -144,7 +152,17 @@ func TestRefFromLabels(t *testing.T) {
 		{
 			name:    "definition without a source",
 			labels:  map[string]string{common.OpenEverestDefinitionLabel: "user"},
-			wantErr: "openeverest.io/definition needs one of openeverest.io/provider, openeverest.io/monitoring-class",
+			wantErr: `openeverest.io/definition "user" needs one of openeverest.io/provider, openeverest.io/monitoring-class; only "ca-bundle" needs none`,
+		},
+		{
+			name:   "core CA bundle without a source",
+			labels: map[string]string{common.OpenEverestDefinitionLabel: common.OpenEverestCABundleDefinition},
+			want:   Ref{Kind: KindCore, Definition: common.OpenEverestCABundleDefinition},
+		},
+		{
+			name:   "ca-bundle with a source is the source's definition",
+			labels: providerLabels("psmdb", common.OpenEverestCABundleDefinition),
+			want:   Ref{Kind: KindProvider, Source: "psmdb", Definition: common.OpenEverestCABundleDefinition},
 		},
 		{
 			name:    "source without a definition",
@@ -387,4 +405,106 @@ func TestValidateNeverEchoesValues(t *testing.T) {
 	err := Validate(context.Background(), testGetter(), secret)
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), value)
+}
+
+// testCertificatePEM returns a self-signed CA certificate in PEM.
+func testCertificatePEM(t *testing.T) []byte {
+	t.Helper()
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	tmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "test CA"},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	require.NoError(t, err)
+	return pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+}
+
+func TestValidateCABundle(t *testing.T) {
+	t.Parallel()
+
+	ca := testCertificatePEM(t)
+	privateKey := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte("do-not-print-me")})
+	caBundle := func(data map[string][]byte) *corev1.Secret {
+		return &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{
+				common.OpenEverestDefinitionLabel: common.OpenEverestCABundleDefinition,
+			}},
+			Data: data,
+		}
+	}
+
+	tests := []struct {
+		name    string
+		secret  *corev1.Secret
+		wantErr string
+	}{
+		{
+			name:   "one key with a certificate",
+			secret: caBundle(map[string][]byte{"ca.crt": ca}),
+		},
+		{
+			name:   "several keys, one with two certificates",
+			secret: caBundle(map[string][]byte{"ca.crt": ca, "bundle.pem": append(append([]byte{}, ca...), ca...)}),
+		},
+		{
+			name: "certificate in stringData",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{
+					common.OpenEverestDefinitionLabel: common.OpenEverestCABundleDefinition,
+				}},
+				Type:       corev1.SecretTypeOpaque,
+				StringData: map[string]string{"ca.crt": string(ca)},
+			},
+		},
+		{
+			name:    "no keys",
+			secret:  caBundle(nil),
+			wantErr: "a CA bundle needs at least one key",
+		},
+		{
+			name:    "a key without a certificate",
+			secret:  caBundle(map[string][]byte{"ca.crt": ca, "notes": []byte("rotated in May")}),
+			wantErr: `key "notes": no PEM certificate found`,
+		},
+		{
+			name:    "a private key next to the certificate",
+			secret:  caBundle(map[string][]byte{"ca.crt": append(append([]byte{}, ca...), privateKey...)}),
+			wantErr: `key "ca.crt" holds a "PRIVATE KEY" PEM block; a CA bundle holds only certificates`,
+		},
+		{
+			name: "not Opaque",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{
+					common.OpenEverestDefinitionLabel: common.OpenEverestCABundleDefinition,
+				}},
+				Type: corev1.SecretTypeTLS,
+				Data: map[string][]byte{"tls.crt": ca, "tls.key": privateKey},
+			},
+			wantErr: `a CA bundle must be of type "Opaque", not "kubernetes.io/tls"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			// A core definition reads no Provider or class.
+			err := Validate(context.Background(), fakeGetter{err: errors.New("unexpected lookup")}, tt.secret)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorIs(t, err, ErrInvalidSecret)
+			require.ErrorContains(t, err, tt.wantErr)
+			assert.NotContains(t, err.Error(), "do-not-print-me")
+		})
+	}
 }

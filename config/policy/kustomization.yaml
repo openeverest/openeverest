@@ -1,0 +1,5 @@
+resources:
+- monitoringdestination_in_use.yaml
+
+configurations:
+- kustomizeconfig.yaml

@@ -1,0 +1,223 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: monitoringdestination-in-use
+spec:
+  # Objects are applied by scripts so chainsaw's cleanup does not delete them
+  # one by one, which the policy may refuse; deleting the test namespace
+  # removes them.
+  steps:
+  - name: count-and-finalizer
+    try:
+    - script:
+        content: |
+          kubectl apply -n $NAMESPACE -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: in-use
+          spec:
+            classRef:
+              name: in-use-test
+          ---
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: unused
+          spec:
+            classRef:
+              name: in-use-test
+          ---
+          apiVersion: core.openeverest.io/v1alpha1
+          kind: Instance
+          metadata:
+            name: orders
+          spec:
+            providerRef:
+              name: test-provider
+            monitoring:
+              destinations:
+              - name: metrics
+                destinationRef:
+                  name: in-use
+          EOF
+        check:
+          ($error): ~
+    - assert:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: in-use
+            finalizers:
+            - monitoring.openeverest.io/in-use-protection
+          status:
+            attachedInstances: 1
+    - assert:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: unused
+            finalizers:
+            - monitoring.openeverest.io/in-use-protection
+          status:
+            attachedInstances: 0
+
+  - name: deleting-an-in-use-destination-is-refused
+    try:
+    - script:
+        content: kubectl delete monitoringdestination in-use -n $NAMESPACE --dry-run=server
+        check:
+          ($error != null): true
+          (contains($stderr, 'in use by 1 database; remove the destination from them first')): true
+    - script:
+        content: kubectl delete monitoringdestination in-use -n $NAMESPACE --wait=false
+        check:
+          ($error != null): true
+          (contains($stderr, 'in use by 1 database; remove the destination from them first')): true
+    - script:
+        content: kubectl delete monitoringdestinations --all -n $NAMESPACE --wait=false
+        check:
+          ($error != null): true
+    - error:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: unused
+    - script:
+        content: kubectl get monitoringdestination in-use -n $NAMESPACE -o jsonpath='{.metadata.deletionTimestamp}'
+        check:
+          ($error): ~
+          ($stdout): ''
+
+  - name: finalizer-holds-a-deletion-admitted-on-a-stale-count
+    try:
+    # The controller does not reconcile on status changes, so the count stays
+    # stale until the deletion bumps the generation.
+    - script:
+        content: |
+          set -e
+          kubectl patch monitoringdestination in-use -n $NAMESPACE --subresource=status --type=merge -p '{"status":{"attachedInstances":0}}'
+          kubectl delete monitoringdestination in-use -n $NAMESPACE --wait=false
+        check:
+          ($error): ~
+    - assert:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: in-use
+            (deletionTimestamp != null): true
+            finalizers:
+            - monitoring.openeverest.io/in-use-protection
+          status:
+            attachedInstances: 1
+    - assert:
+        resource:
+          apiVersion: events.k8s.io/v1
+          kind: Event
+          type: Warning
+          reason: DeletionBlocked
+          regarding:
+            kind: MonitoringDestination
+            name: in-use
+    - assert:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringBinding
+          metadata:
+            labels:
+              monitoring.openeverest.io/destination: in-use
+          status:
+            (conditions[?type == 'Accepted']):
+            - status: "False"
+              reason: DestinationTerminating
+
+  - name: removing-the-entry-lets-the-deletion-finish
+    try:
+    - script:
+        content: kubectl patch instance orders -n $NAMESPACE --type=json -p '[{"op":"remove","path":"/spec/monitoring"}]'
+        check:
+          ($error): ~
+    - error:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: in-use
+
+  - name: a-namespace-being-deleted-is-exempt
+    try:
+    # The Instance's own finalizer keeps it, and so the count, while the
+    # namespace is being deleted: the namespace controller's deletion of the
+    # destination must still be admitted.
+    - script:
+        timeout: 2m
+        content: |
+          set -e
+          NS=$NAMESPACE-term
+          kubectl create namespace $NS
+          kubectl apply -n $NS -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: kept
+          spec:
+            classRef:
+              name: in-use-test
+          ---
+          apiVersion: core.openeverest.io/v1alpha1
+          kind: Instance
+          metadata:
+            name: payments
+            finalizers:
+            - test.openeverest.io/hold
+          spec:
+            providerRef:
+              name: test-provider
+            monitoring:
+              destinations:
+              - name: metrics
+                destinationRef:
+                  name: kept
+          EOF
+          kubectl wait -n $NS monitoringdestination/kept --for=jsonpath='{.status.attachedInstances}'=1 --timeout=30s
+          kubectl delete namespace $NS --wait=false
+          for _ in $(seq 30); do
+            deleting=$(kubectl get monitoringdestination kept -n $NS -o jsonpath='{.metadata.deletionTimestamp}')
+            [ -n "$deleting" ] && break
+            sleep 1
+          done
+          [ -n "$deleting" ] || { echo "the destination was not deleted with its namespace" >&2; exit 1; }
+          # Still held for the Instance, then released once it goes.
+          kubectl get monitoringdestination kept -n $NS
+          kubectl patch instance payments -n $NS --type=merge -p '{"metadata":{"finalizers":null}}'
+          kubectl wait --for=delete namespace/$NS --timeout=60s
+        check:
+          ($error): ~
+    finally:
+    - script:
+        content: |
+          NS=$NAMESPACE-term
+          kubectl patch instance payments -n $NS --type=merge -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+          kubectl delete namespace $NS --ignore-not-found --wait=false
+    catch:
+    - script:
+        content: kubectl get monitoringdestinations,instances,monitoringbindings -n $NAMESPACE-term -o yaml
+    - podLogs:
+        namespace: openeverest-system
+        selector: control-plane=controller-manager
+        tail: 100
+
+  catch:
+  - script:
+      content: kubectl get monitoringdestinations,instances,monitoringbindings -n $NAMESPACE -o yaml
+  - script:
+      content: kubectl get events.events.k8s.io -n $NAMESPACE
+  - podLogs:
+      namespace: openeverest-system
+      selector: control-plane=controller-manager
+      tail: 100

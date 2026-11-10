@@ -29,6 +29,7 @@ import {
   MonitoringClass,
   MonitoringConditionType,
 } from 'shared-types/monitoring-destinations.types';
+import { getAuthModeCredentialsSection } from './auth-mode-credentials';
 
 // The class uiSchema groups its forms by what they fill: the destination's
 // spec, the Secret of each auth mode and an Instance's monitoring entry.
@@ -46,6 +47,9 @@ export interface MonitoringSectionForm {
   sections: Record<string, Section>;
 }
 
+// Modes core resolves without a Secret.
+const SECRETLESS_AUTH_MODES = ['Anonymous', 'WorkloadIdentity'];
+
 const toSectionMap = (value: unknown): Record<string, Section> =>
   isPlainObject(value)
     ? Object.fromEntries(
@@ -62,6 +66,15 @@ export const isMonitoringClassAccepted = (monitoringClass: MonitoringClass) =>
       condition.type === MonitoringConditionType.Accepted &&
       condition.status === 'True'
   );
+
+export const getMonitoringClassName = (monitoringClass: MonitoringClass) =>
+  monitoringClass.metadata?.name ?? '';
+
+export const getMonitoringClassTitle = (monitoringClass: MonitoringClass) =>
+  monitoringClass.spec.displayName || getMonitoringClassName(monitoringClass);
+
+export const isSecretBackedAuthMode = (mode: string) =>
+  !SECRETLESS_AUTH_MODES.includes(mode);
 
 // The generated CRD types keep uiSchema opaque, so each form is narrowed here.
 export const getMonitoringClassUiSchema = (
@@ -115,3 +128,15 @@ export const postprocessSectionForm = (
     schema: form.schema,
     selectedTopology: form.sectionKey,
   });
+
+// The class's credentials form for the mode or, when it ships none, one masked
+// input per credential key the mode declares.
+export const getCredentialsSection = (
+  monitoringClass: MonitoringClass,
+  mode: string
+): Section | undefined =>
+  getAuthModeCredentialsSection(
+    monitoringClass.spec.authModes,
+    getMonitoringClassUiSchema(monitoringClass).credentials,
+    mode
+  );

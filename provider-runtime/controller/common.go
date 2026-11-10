@@ -485,7 +485,9 @@ type ConnectionDetails struct {
 	// Type is the type of database (e.g., mongodb, postgresql, mysql)
 	// +optional
 	Type string `json:"type,omitempty"`
-	// Provider is the provider that manages this instance
+	// Provider is the name of the Provider that manages this instance, as in
+	// the Instance's spec.providerRef.name. The provider-runtime reconciler
+	// writes it; a value set by the provider is replaced.
 	// +optional
 	Provider string `json:"provider,omitempty"`
 	// Host is the hostname or IP address to connect to
@@ -609,11 +611,15 @@ func Ready() Status {
 // Providers should populate the well-known fields so the API server can expose
 // them generically without any provider-specific logic.
 //
+// Providers need not set Provider: the reconciler writes the Secret's
+// "provider" entry as the Provider name (the Instance's spec.providerRef.name),
+// replacing any value set in Provider or AdditionalProperties, so the entry
+// names the Provider the same way for every provider.
+//
 // Example:
 //
 //	return controller.ReadyWithConnectionDetails(controller.ConnectionDetails{
 //		Type:     "mongodb",
-//		Provider: "percona-server-mongodb",
 //		Host:     host,
 //		Port:     "27017",
 //		Username: user,
