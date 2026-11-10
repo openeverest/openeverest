@@ -15,6 +15,8 @@
 package server
 
 import (
+	"errors"
+	"io"
 	"net/http"
 
 	"github.com/AlekSi/pointer"
@@ -73,17 +75,17 @@ func (e *EverestServer) GetSecret(c echo.Context, cluster, namespace, name strin
 	return c.JSON(http.StatusOK, result)
 }
 
-// UpdateSecret replaces the data of the secret specified by name (returns metadata only, no data).
-func (e *EverestServer) UpdateSecret(c echo.Context, cluster, namespace, name string, _ api.UpdateSecretParams) error {
-	secret := &corev1.Secret{}
-	if err := c.Bind(secret); err != nil {
-		e.l.Errorf("UpdateSecret: failed to bind request body: %v", err)
-		return err
+// PatchSecret applies a merge patch to the data of the secret specified by name (returns metadata only, no data).
+func (e *EverestServer) PatchSecret(c echo.Context, cluster, namespace, name string, _ api.PatchSecretParams) error {
+	patch, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		e.l.Errorf("PatchSecret: failed to read request body: %v", err)
+		return errors.Join(errFailedToReadRequestBody, err)
 	}
 
-	result, err := e.handler.UpdateSecret(c.Request().Context(), cluster, namespace, name, secret)
+	result, err := e.handler.PatchSecret(c.Request().Context(), cluster, namespace, name, patch)
 	if err != nil {
-		e.l.Errorf("UpdateSecret failed: %v", err)
+		e.l.Errorf("PatchSecret failed: %v", err)
 		return err
 	}
 
