@@ -178,10 +178,10 @@ const (
 	//     without automatically granting broad read access to every user.
 	//   - on secrets, using a Secret's contents through an object that
 	//     references it: creating an object that names the Secret, such as a
-	//     MonitoringDestination, or changing the spec of one that does, since
-	//     the object sends the contents to, or trusts them for, the endpoint
-	//     its spec names. ActionRead does not imply it: read only shows a
-	//     Secret's metadata.
+	//     MonitoringDestination or a BackupStorage, or changing the spec of
+	//     one that does, since the object sends the contents to, or trusts
+	//     them for, the endpoint its spec names. ActionRead does not imply
+	//     it: read only shows a Secret's metadata.
 	ActionUse = "use"
 	// ActionCreateFromPreset, on instances, allows creating an instance only as
 	// an exact copy of the preset it names: the preset's spec, and no metadata
