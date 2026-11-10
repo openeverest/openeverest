@@ -582,7 +582,7 @@ build-installer: gen-crds-manifests kustomize ## Generate a consolidated YAML wi
 	"$(KUSTOMIZE)" build config/default > dist/install.yaml
 
 .PHONY: deploy-test-controller
-deploy-test-controller: gen-crds-manifests kustomize
+deploy-test-controller: gen-crds-manifests kustomize deploy-cert-manager
 	cd config/test && "$(KUSTOMIZE)" edit set image controller=${EVEREST_CONTROLLER_IMG}
 	"$(KUSTOMIZE)" build config/crd | kubectl apply -f -
 	kubectl wait --for condition=established --timeout=30s crd backupstorageclasses.backup.openeverest.io
@@ -616,6 +616,13 @@ setup-envtest: envtest ## Download the binaries required for ENVTEST.
 .PHONY: envtest
 envtest: ensure-localbin ## Download setup-envtest locally if necessary.
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
+
+.PHONY: deploy-cert-manager
+deploy-cert-manager: # Install cert-manager used by controller webhook.
+	kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
+	kubectl wait --for=condition=available --timeout=120s deployment/cert-manager -n cert-manager
+	kubectl wait --for=condition=available --timeout=120s deployment/cert-manager-webhook -n cert-manager
+	kubectl wait --for=condition=available --timeout=120s deployment/cert-manager-cainjector -n cert-manager
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist.
 # $1 - target path with name of binary

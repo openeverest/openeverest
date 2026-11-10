@@ -1,0 +1,3 @@
+resources:
+# controller-gen writes manifests.yaml once a webhook is registered; list it here again then.
+- service.yaml

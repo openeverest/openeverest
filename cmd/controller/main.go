@@ -263,6 +263,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	// No admission webhook is registered, but the webhook server keeps serving
+	// behind its Service and certificate for the webhooks to come.
+	// GetWebhookServer adds it to the manager only once, so registering a
+	// webhook later does not start a second server.
+	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+		mgr.GetWebhookServer()
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
