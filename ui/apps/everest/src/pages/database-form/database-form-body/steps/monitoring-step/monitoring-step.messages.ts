@@ -14,7 +14,10 @@
 
 import { MonitoringDestinationState } from 'shared-types/monitoring-destinations.types';
 import { MAX_MONITORING_DESTINATIONS } from './monitoring-step.constants';
-import { DestinationDisabledReason } from './monitoring-step.types';
+import {
+  DestinationDisabledReason,
+  DestinationsUnavailableReason,
+} from './monitoring-step.types';
 
 export const Messages = {
   title: 'Monitoring',
@@ -22,6 +25,15 @@ export const Messages = {
     'Choose where this database sends its monitoring data. You can send it to several systems at once.',
   noDestinations: (namespace: string) =>
     `No destinations of this system in the ${namespace} namespace yet.`,
+  destinationsUnavailable: {
+    [DestinationsUnavailableReason.LoadFailed]: () =>
+      'Monitoring destinations could not be loaded. Try again later.',
+    [DestinationsUnavailableReason.NoAccess]: (namespace: string) =>
+      `You don't have permission to view monitoring destinations in the ${namespace} namespace.`,
+  } satisfies Record<
+    DestinationsUnavailableReason,
+    (namespace: string) => string
+  >,
   addDestination: 'Add destination',
   state: {
     [MonitoringDestinationState.Ready]: 'Ready',

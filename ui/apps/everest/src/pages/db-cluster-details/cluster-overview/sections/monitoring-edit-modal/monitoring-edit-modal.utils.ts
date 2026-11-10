@@ -55,7 +55,9 @@ const isSameParameters = (a: unknown, b: unknown) =>
 
 const toChanges = (before: MonitoringEntry[], after: MonitoringEntry[]) => {
   const toParameters = (entries: MonitoringEntry[]) =>
-    new Map(entries.map((entry) => [entry.destinationRef.name, entry.parameters]));
+    new Map(
+      entries.map((entry) => [entry.destinationRef.name, entry.parameters])
+    );
   const was = toParameters(before);
   const now = toParameters(after);
   return [

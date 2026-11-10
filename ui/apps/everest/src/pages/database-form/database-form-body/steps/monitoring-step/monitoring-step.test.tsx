@@ -26,6 +26,15 @@ import { DbWizardFormFields } from 'consts';
 import { MonitoringStep } from './monitoring-step';
 import { MONITORING_DESTINATIONS_FIELD } from './monitoring-step.constants';
 
+const mocks = vi.hoisted(() => ({
+  permissions: { canRead: true, isPermissionsLoading: false },
+  destinationsFailed: false,
+}));
+
+vi.mock('hooks/rbac', () => ({
+  useRBACPermissions: () => mocks.permissions,
+}));
+
 vi.mock('hooks/api/monitoring-classes', () => {
   const classes = [
     {
@@ -142,10 +151,12 @@ vi.mock('hooks/api/monitoring-destinations', () => {
     isLoading: false,
     isSuccess: true,
   };
+  const failed = { isLoading: false, isSuccess: false, isError: true };
   const save = { mutate: () => {}, isPending: false };
   const noDestination = {};
   return {
-    useMonitoringDestinations: () => result,
+    useMonitoringDestinations: () =>
+      mocks.destinationsFailed ? failed : result,
     useMonitoringDestination: () => noDestination,
     useSaveMonitoringDestination: () => save,
     SecretAlreadyExistsError: class extends Error {},
@@ -204,6 +215,11 @@ const getCard = (name: string) =>
   screen.getByRole('button', { name: cardPattern(name) });
 
 describe('MonitoringStep', () => {
+  afterEach(() => {
+    mocks.permissions = { canRead: true, isPermissionsLoading: false };
+    mocks.destinationsFailed = false;
+  });
+
   it('groups destinations under their monitoring system', () => {
     render(
       <Wrapper>
@@ -348,5 +364,36 @@ describe('MonitoringStep', () => {
       },
     ]);
     expect(fieldOf('prometheus', /Scrape interval/)).toHaveValue('30s');
+  });
+
+  it("says the destinations can't be read instead of offering to add one", () => {
+    mocks.permissions = { canRead: false, isPermissionsLoading: false };
+    render(
+      <Wrapper>
+        <MonitoringStep />
+      </Wrapper>
+    );
+
+    expect(
+      screen.getByTestId('monitoring-destinations-unavailable')
+    ).toHaveTextContent(
+      "You don't have permission to view monitoring destinations in the team-a namespace."
+    );
+    expect(screen.queryByText('Add destination')).not.toBeInTheDocument();
+  });
+
+  it('says the destinations could not be loaded', () => {
+    mocks.destinationsFailed = true;
+    render(
+      <Wrapper>
+        <MonitoringStep />
+      </Wrapper>
+    );
+
+    expect(
+      screen.getByTestId('monitoring-destinations-unavailable')
+    ).toHaveTextContent(
+      'Monitoring destinations could not be loaded. Try again later.'
+    );
   });
 });

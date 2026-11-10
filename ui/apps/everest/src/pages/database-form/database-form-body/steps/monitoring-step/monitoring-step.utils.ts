@@ -44,8 +44,22 @@ import {
 } from './monitoring-step.constants';
 import {
   DestinationDisabledReason,
+  DestinationsUnavailableReason,
   MonitoringClassDestinations,
 } from './monitoring-step.types';
+
+// A user who may not list destinations would otherwise see an empty system.
+export const getDestinationsUnavailableReason = ({
+  canRead,
+  loadFailed,
+}: {
+  canRead: boolean;
+  loadFailed: boolean;
+}): DestinationsUnavailableReason | undefined => {
+  if (!canRead) return DestinationsUnavailableReason.NoAccess;
+  if (loadFailed) return DestinationsUnavailableReason.LoadFailed;
+  return undefined;
+};
 
 const isInstanceMonitoringDestination = (
   value: unknown

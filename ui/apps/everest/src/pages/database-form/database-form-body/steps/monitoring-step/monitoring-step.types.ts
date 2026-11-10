@@ -23,6 +23,12 @@ export enum DestinationDisabledReason {
   IntegrationTaken = 'integrationTaken',
 }
 
+// Why no destination can be offered, instead of an empty list.
+export enum DestinationsUnavailableReason {
+  LoadFailed = 'loadFailed',
+  NoAccess = 'noAccess',
+}
+
 export interface MonitoringClassDestinations {
   monitoringClass: MonitoringClass;
   destinations: MonitoringDestination[];
@@ -32,6 +38,7 @@ export interface MonitoringSelection {
   namespace: string;
   groups: MonitoringClassDestinations[];
   isLoading: boolean;
+  unavailableReason?: DestinationsUnavailableReason;
   isSelected: (destination: MonitoringDestination) => boolean;
   getDisabledReason: (
     destination: MonitoringDestination

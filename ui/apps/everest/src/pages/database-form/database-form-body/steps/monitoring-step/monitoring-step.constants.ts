@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { AlertColor } from '@mui/material';
+import { DestinationsUnavailableReason } from './monitoring-step.types';
+
 // Top-level wizard fields land in the Instance spec as-is, so this field holds
 // spec.monitoring.destinations[] in its final shape.
 export const MONITORING_DESTINATIONS_FIELD = 'monitoring.destinations';
@@ -25,3 +28,11 @@ export const MONITORING_ENTRY_NAME_MAX_LENGTH = 63;
 // The class uiSchema form that fills an entry's parameters; its paths are
 // relative to the entry.
 export const MONITORING_INSTANCE_SECTION_KEY = 'instance';
+
+export const UNAVAILABLE_DESTINATIONS_SEVERITY: Record<
+  DestinationsUnavailableReason,
+  AlertColor
+> = {
+  [DestinationsUnavailableReason.LoadFailed]: 'error',
+  [DestinationsUnavailableReason.NoAccess]: 'info',
+};

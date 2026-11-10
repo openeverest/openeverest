@@ -108,9 +108,9 @@ describe('getMonitoringDisruption', () => {
     expect(change({ cpu: '1' }, { cpu: '2' })).toEqual([
       { change: MonitoringChange.Update, classTitle: 'PMM' },
     ]);
-    expect(change({ cpu: '1', memory: '1G' }, { memory: '1G', cpu: '1' })).toEqual(
-      []
-    );
+    expect(
+      change({ cpu: '1', memory: '1G' }, { memory: '1G', cpu: '1' })
+    ).toEqual([]);
   });
 
   it('stays quiet for kept destinations and classes without a restart', () => {

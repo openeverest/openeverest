@@ -19,6 +19,11 @@ import { MonitoringEditModal } from './monitoring-edit-modal';
 
 const mocks = vi.hoisted(() => ({ mutate: vi.fn() }));
 
+vi.mock('hooks/rbac', () => {
+  const permissions = { canRead: true, isPermissionsLoading: false };
+  return { useRBACPermissions: () => permissions };
+});
+
 vi.mock('hooks/api/monitoring-classes', () => {
   const classes = {
     data: [

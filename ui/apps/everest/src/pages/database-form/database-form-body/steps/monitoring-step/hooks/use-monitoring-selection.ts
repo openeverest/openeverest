@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 import { useController, useFormContext } from 'react-hook-form';
 import { useMonitoringClassesForProvider } from 'hooks/api/monitoring-classes';
 import { useMonitoringDestinations } from 'hooks/api/monitoring-destinations';
+import { useRBACPermissions } from 'hooks/rbac';
 import { MonitoringDestination } from 'shared-types/monitoring-destinations.types';
 import { getMonitoringClassName } from 'utils/monitoring-classes';
 import { getDestinationName } from 'utils/monitoring-destinations';
@@ -27,6 +28,7 @@ import {
 import {
   getDefaultEntryParameters,
   getDestinationDisabledReason,
+  getDestinationsUnavailableReason,
   groupDestinationsByClass,
   isDestinationSelected,
   parseMonitoringDestinations,
@@ -43,13 +45,19 @@ export const useMonitoringSelection = ({
 }: MonitoringSelectionOptions): MonitoringSelection => {
   const { control, getValues } = useFormContext();
 
-  const { data: classes = [], isLoading: classesLoading } =
-    useMonitoringClassesForProvider(providerName);
+  const {
+    data: classes = [],
+    isLoading: classesLoading,
+    isError: classesFailed,
+  } = useMonitoringClassesForProvider(providerName);
   const {
     data: namespaceDestinations = [],
     isLoading: destinationsLoading,
     isSuccess: destinationsLoaded,
+    isError: destinationsFailed,
   } = useMonitoringDestinations(namespaceName);
+  const { canRead: canReadDestinations, isPermissionsLoading } =
+    useRBACPermissions('monitoring-destinations', `${namespaceName}/*`);
   const instanceForms = useMonitoringInstanceForms(namespaceName, providerName);
 
   const {
@@ -150,7 +158,11 @@ export const useMonitoringSelection = ({
   return {
     namespace: namespaceName,
     groups,
-    isLoading: classesLoading || destinationsLoading,
+    isLoading: classesLoading || destinationsLoading || isPermissionsLoading,
+    unavailableReason: getDestinationsUnavailableReason({
+      canRead: canReadDestinations,
+      loadFailed: classesFailed || destinationsFailed,
+    }),
     isSelected,
     getDisabledReason,
     toggle,
