@@ -175,6 +175,34 @@ func TestSetDestinationReadyKeepsServerVersionAndAccepted(t *testing.T) {
 	assert.True(t, meta.IsStatusConditionTrue(dst.Status.Conditions, monitoringv1alpha1.MonitoringDestinationConditionAccepted))
 }
 
+func TestSetConfiguredWithPodMetadata(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	c := newFakeClient(t, newBinding())
+	key := client.ObjectKey{Namespace: testNamespace, Name: newBinding().Name}
+	ext := monitoring.ClassController{Client: c, FieldOwner: testFieldOwner, ClassName: "coroot"}
+	requested := []monitoringv1alpha1.ComponentPodMetadata{{
+		Component:   "engine",
+		Annotations: map[string]string{"coroot.com/mongodb-scrape": "true"},
+	}}
+
+	b := &monitoringv1alpha1.MonitoringBinding{}
+	require.NoError(t, c.Get(ctx, key, b))
+	require.NoError(t, ext.SetConfiguredWithPodMetadata(ctx, b, monitoringv1alpha1.ReasonConfigured, "annotations requested", requested))
+
+	require.NoError(t, c.Get(ctx, key, b))
+	assert.Equal(t, requested, b.Status.PodMetadata)
+	assert.True(t, meta.IsStatusConditionTrue(b.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionConfigured))
+
+	require.NoError(t, ext.SetConfiguredWithPodMetadata(ctx, b, monitoringv1alpha1.ReasonRenderFailed, "no connections", nil))
+
+	require.NoError(t, c.Get(ctx, key, b))
+	assert.Empty(t, b.Status.PodMetadata)
+	configured := meta.FindStatusCondition(b.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionConfigured)
+	require.NotNil(t, configured)
+	assert.Equal(t, string(monitoringv1alpha1.ReasonRenderFailed), configured.Reason)
+}
+
 func TestOwnedBy(t *testing.T) {
 	t.Parallel()
 	b := newBinding()

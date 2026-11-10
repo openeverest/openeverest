@@ -29,7 +29,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
@@ -38,124 +37,11 @@ import (
 func TestInstanceStatus_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	phase := client.InstanceStatusPhaseReady
-	version := "1.22.0"
-	msg := "All replicas are ready"
-	ready := int32(3)
-	replicas := int32(3)
-	condStatus := client.InstanceStatusConditionsStatusTrue
-
-	inst := &client.Instance{
-		Metadata: &metav1.ObjectMeta{Name: "my-mongo"},
-		Status: &struct {
-			Backup *struct {
-				Storages *[]struct {
-					Name string `json:"name"`
-					Pitr *struct {
-						EarliestRestorableTime *time.Time                                    `json:"earliestRestorableTime,omitempty"`
-						LatestRestorableTime   *time.Time                                    `json:"latestRestorableTime,omitempty"`
-						Message                *string                                       `json:"message,omitempty"`
-						Reason                 *string                                       `json:"reason,omitempty"`
-						State                  *client.InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
-					} `json:"pitr,omitempty"`
-				} `json:"storages,omitempty"`
-			} `json:"backup,omitempty"`
-			Components *[]struct {
-				Name          string  `json:"name"`
-				ReadyReplicas *int32  `json:"readyReplicas,omitempty"`
-				Replicas      *int32  `json:"replicas,omitempty"`
-				Selector      *string `json:"selector,omitempty"`
-			} `json:"components,omitempty"`
-			Conditions *[]struct {
-				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
-				Message            string                                `json:"message"`
-				ObservedGeneration *int64                                `json:"observedGeneration,omitempty"`
-				Reason             string                                `json:"reason"`
-				Status             client.InstanceStatusConditionsStatus `json:"status"`
-				Type               string                                `json:"type"`
-			} `json:"conditions,omitempty"`
-			ConnectionSecretRef *struct {
-				Name string `json:"name"`
-			} `json:"connectionSecretRef,omitempty"`
-			Message    *string `json:"message,omitempty"`
-			Monitoring *struct {
-				Destinations *[]struct {
-					Configured *string                                          `json:"configured,omitempty"`
-					Message    *string                                          `json:"message,omitempty"`
-					Mode       *client.InstanceStatusMonitoringDestinationsMode `json:"mode,omitempty"`
-					Name       string                                           `json:"name"`
-					Reason     *string                                          `json:"reason,omitempty"`
-				} `json:"destinations,omitempty"`
-				Sources *struct {
-					Credentials *[]struct {
-						Profile   string `json:"profile"`
-						SecretRef struct {
-							Name string `json:"name"`
-						} `json:"secretRef"`
-					} `json:"credentials,omitempty"`
-					Identity *struct {
-						ClusterId *string            `json:"clusterId,omitempty"` //nolint:revive // mirrors the oapi-codegen field name
-						Labels    *map[string]string `json:"labels,omitempty"`
-					} `json:"identity,omitempty"`
-					Metrics *[]struct {
-						Auth *struct {
-							CredentialProfile string `json:"credentialProfile"`
-						} `json:"auth,omitempty"`
-						Component   string                                                 `json:"component"`
-						Kind        string                                                 `json:"kind"`
-						Params      *map[string][]string                                   `json:"params,omitempty"`
-						Path        *string                                                `json:"path,omitempty"`
-						PodSelector map[string]string                                      `json:"podSelector"`
-						Port        client.Instance_Status_Monitoring_Sources_Metrics_Port `json:"port"`
-						Scheme      *client.InstanceStatusMonitoringSourcesMetricsScheme   `json:"scheme,omitempty"`
-						Tls         *struct {                                              //nolint:revive // mirrors the oapi-codegen field name
-							Ca *struct {
-								SecretKeyRef *struct {
-									Key  string `json:"key"`
-									Name string `json:"name"`
-								} `json:"secretKeyRef,omitempty"`
-							} `json:"ca,omitempty"`
-							ClientCertificateSecretRef *struct {
-								Name string `json:"name"`
-							} `json:"clientCertificateSecretRef,omitempty"`
-							InsecureSkipVerify *bool   `json:"insecureSkipVerify,omitempty"`
-							ServerName         *string `json:"serverName,omitempty"`
-						} `json:"tls,omitempty"`
-					} `json:"metrics,omitempty"`
-				} `json:"sources,omitempty"`
-			} `json:"monitoring,omitempty"`
-			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
-			PendingMaintenance *[]struct {
-				ApprovalToken *string                                         `json:"approvalToken,omitempty"`
-				Description   string                                          `json:"description"`
-				Severity      client.InstanceStatusPendingMaintenanceSeverity `json:"severity"`
-			} `json:"pendingMaintenance,omitempty"`
-			Phase   *client.InstanceStatusPhase `json:"phase,omitempty"`
-			Version *string                     `json:"version,omitempty"`
-		}{
-			Phase:   &phase,
-			Version: &version,
-			Message: &msg,
-			Components: &[]struct {
-				Name          string  `json:"name"`
-				ReadyReplicas *int32  `json:"readyReplicas,omitempty"`
-				Replicas      *int32  `json:"replicas,omitempty"`
-				Selector      *string `json:"selector,omitempty"`
-			}{
-				{Name: "engine", ReadyReplicas: &ready, Replicas: &replicas},
-			},
-			Conditions: &[]struct {
-				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
-				Message            string                                `json:"message"`
-				ObservedGeneration *int64                                `json:"observedGeneration,omitempty"`
-				Reason             string                                `json:"reason"`
-				Status             client.InstanceStatusConditionsStatus `json:"status"`
-				Type               string                                `json:"type"`
-			}{
-				{Type: "Available", Status: condStatus, Reason: "Ready", Message: "All replicas are ready"},
-			},
-		},
-	}
+	inst := instanceFromJSON(`{"metadata":{"name":"my-mongo"},"status":{
+		"phase":"Ready","version":"1.22.0","message":"All replicas are ready",
+		"components":[{"name":"engine","readyReplicas":3,"replicas":3}],
+		"conditions":[{"type":"Available","status":"True","reason":"Ready","message":"All replicas are ready"}]
+	}}`)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -266,98 +152,7 @@ func TestInstanceStatus_NoActiveContext(t *testing.T) {
 func TestInstanceStatus_JSONOutput(t *testing.T) {
 	t.Parallel()
 
-	phase := client.InstanceStatusPhaseReady
-	inst := &client.Instance{
-		Metadata: &metav1.ObjectMeta{Name: "my-mongo"},
-		Status: &struct {
-			Backup *struct {
-				Storages *[]struct {
-					Name string `json:"name"`
-					Pitr *struct {
-						EarliestRestorableTime *time.Time                                    `json:"earliestRestorableTime,omitempty"`
-						LatestRestorableTime   *time.Time                                    `json:"latestRestorableTime,omitempty"`
-						Message                *string                                       `json:"message,omitempty"`
-						Reason                 *string                                       `json:"reason,omitempty"`
-						State                  *client.InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
-					} `json:"pitr,omitempty"`
-				} `json:"storages,omitempty"`
-			} `json:"backup,omitempty"`
-			Components *[]struct {
-				Name          string  `json:"name"`
-				ReadyReplicas *int32  `json:"readyReplicas,omitempty"`
-				Replicas      *int32  `json:"replicas,omitempty"`
-				Selector      *string `json:"selector,omitempty"`
-			} `json:"components,omitempty"`
-			Conditions *[]struct {
-				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
-				Message            string                                `json:"message"`
-				ObservedGeneration *int64                                `json:"observedGeneration,omitempty"`
-				Reason             string                                `json:"reason"`
-				Status             client.InstanceStatusConditionsStatus `json:"status"`
-				Type               string                                `json:"type"`
-			} `json:"conditions,omitempty"`
-			ConnectionSecretRef *struct {
-				Name string `json:"name"`
-			} `json:"connectionSecretRef,omitempty"`
-			Message    *string `json:"message,omitempty"`
-			Monitoring *struct {
-				Destinations *[]struct {
-					Configured *string                                          `json:"configured,omitempty"`
-					Message    *string                                          `json:"message,omitempty"`
-					Mode       *client.InstanceStatusMonitoringDestinationsMode `json:"mode,omitempty"`
-					Name       string                                           `json:"name"`
-					Reason     *string                                          `json:"reason,omitempty"`
-				} `json:"destinations,omitempty"`
-				Sources *struct {
-					Credentials *[]struct {
-						Profile   string `json:"profile"`
-						SecretRef struct {
-							Name string `json:"name"`
-						} `json:"secretRef"`
-					} `json:"credentials,omitempty"`
-					Identity *struct {
-						ClusterId *string            `json:"clusterId,omitempty"` //nolint:revive // mirrors the oapi-codegen field name
-						Labels    *map[string]string `json:"labels,omitempty"`
-					} `json:"identity,omitempty"`
-					Metrics *[]struct {
-						Auth *struct {
-							CredentialProfile string `json:"credentialProfile"`
-						} `json:"auth,omitempty"`
-						Component   string                                                 `json:"component"`
-						Kind        string                                                 `json:"kind"`
-						Params      *map[string][]string                                   `json:"params,omitempty"`
-						Path        *string                                                `json:"path,omitempty"`
-						PodSelector map[string]string                                      `json:"podSelector"`
-						Port        client.Instance_Status_Monitoring_Sources_Metrics_Port `json:"port"`
-						Scheme      *client.InstanceStatusMonitoringSourcesMetricsScheme   `json:"scheme,omitempty"`
-						Tls         *struct {                                              //nolint:revive // mirrors the oapi-codegen field name
-							Ca *struct {
-								SecretKeyRef *struct {
-									Key  string `json:"key"`
-									Name string `json:"name"`
-								} `json:"secretKeyRef,omitempty"`
-							} `json:"ca,omitempty"`
-							ClientCertificateSecretRef *struct {
-								Name string `json:"name"`
-							} `json:"clientCertificateSecretRef,omitempty"`
-							InsecureSkipVerify *bool   `json:"insecureSkipVerify,omitempty"`
-							ServerName         *string `json:"serverName,omitempty"`
-						} `json:"tls,omitempty"`
-					} `json:"metrics,omitempty"`
-				} `json:"sources,omitempty"`
-			} `json:"monitoring,omitempty"`
-			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
-			PendingMaintenance *[]struct {
-				ApprovalToken *string                                         `json:"approvalToken,omitempty"`
-				Description   string                                          `json:"description"`
-				Severity      client.InstanceStatusPendingMaintenanceSeverity `json:"severity"`
-			} `json:"pendingMaintenance,omitempty"`
-			Phase   *client.InstanceStatusPhase `json:"phase,omitempty"`
-			Version *string                     `json:"version,omitempty"`
-		}{
-			Phase: &phase,
-		},
-	}
+	inst := instanceFromJSON(`{"metadata":{"name":"my-mongo"},"status":{"phase":"Ready"}}`)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -381,96 +176,18 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 }
 
 func minimalInst() *client.Instance {
-	phase := client.InstanceStatusPhaseReady
-	return &client.Instance{
-		Metadata: &metav1.ObjectMeta{Name: "my-mongo"},
-		Status: &struct {
-			Backup *struct {
-				Storages *[]struct {
-					Name string `json:"name"`
-					Pitr *struct {
-						EarliestRestorableTime *time.Time                                    `json:"earliestRestorableTime,omitempty"`
-						LatestRestorableTime   *time.Time                                    `json:"latestRestorableTime,omitempty"`
-						Message                *string                                       `json:"message,omitempty"`
-						Reason                 *string                                       `json:"reason,omitempty"`
-						State                  *client.InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
-					} `json:"pitr,omitempty"`
-				} `json:"storages,omitempty"`
-			} `json:"backup,omitempty"`
-			Components *[]struct {
-				Name          string  `json:"name"`
-				ReadyReplicas *int32  `json:"readyReplicas,omitempty"`
-				Replicas      *int32  `json:"replicas,omitempty"`
-				Selector      *string `json:"selector,omitempty"`
-			} `json:"components,omitempty"`
-			Conditions *[]struct {
-				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
-				Message            string                                `json:"message"`
-				ObservedGeneration *int64                                `json:"observedGeneration,omitempty"`
-				Reason             string                                `json:"reason"`
-				Status             client.InstanceStatusConditionsStatus `json:"status"`
-				Type               string                                `json:"type"`
-			} `json:"conditions,omitempty"`
-			ConnectionSecretRef *struct {
-				Name string `json:"name"`
-			} `json:"connectionSecretRef,omitempty"`
-			Message    *string `json:"message,omitempty"`
-			Monitoring *struct {
-				Destinations *[]struct {
-					Configured *string                                          `json:"configured,omitempty"`
-					Message    *string                                          `json:"message,omitempty"`
-					Mode       *client.InstanceStatusMonitoringDestinationsMode `json:"mode,omitempty"`
-					Name       string                                           `json:"name"`
-					Reason     *string                                          `json:"reason,omitempty"`
-				} `json:"destinations,omitempty"`
-				Sources *struct {
-					Credentials *[]struct {
-						Profile   string `json:"profile"`
-						SecretRef struct {
-							Name string `json:"name"`
-						} `json:"secretRef"`
-					} `json:"credentials,omitempty"`
-					Identity *struct {
-						ClusterId *string            `json:"clusterId,omitempty"` //nolint:revive // mirrors the oapi-codegen field name
-						Labels    *map[string]string `json:"labels,omitempty"`
-					} `json:"identity,omitempty"`
-					Metrics *[]struct {
-						Auth *struct {
-							CredentialProfile string `json:"credentialProfile"`
-						} `json:"auth,omitempty"`
-						Component   string                                                 `json:"component"`
-						Kind        string                                                 `json:"kind"`
-						Params      *map[string][]string                                   `json:"params,omitempty"`
-						Path        *string                                                `json:"path,omitempty"`
-						PodSelector map[string]string                                      `json:"podSelector"`
-						Port        client.Instance_Status_Monitoring_Sources_Metrics_Port `json:"port"`
-						Scheme      *client.InstanceStatusMonitoringSourcesMetricsScheme   `json:"scheme,omitempty"`
-						Tls         *struct {                                              //nolint:revive // mirrors the oapi-codegen field name
-							Ca *struct {
-								SecretKeyRef *struct {
-									Key  string `json:"key"`
-									Name string `json:"name"`
-								} `json:"secretKeyRef,omitempty"`
-							} `json:"ca,omitempty"`
-							ClientCertificateSecretRef *struct {
-								Name string `json:"name"`
-							} `json:"clientCertificateSecretRef,omitempty"`
-							InsecureSkipVerify *bool   `json:"insecureSkipVerify,omitempty"`
-							ServerName         *string `json:"serverName,omitempty"`
-						} `json:"tls,omitempty"`
-					} `json:"metrics,omitempty"`
-				} `json:"sources,omitempty"`
-			} `json:"monitoring,omitempty"`
-			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
-			PendingMaintenance *[]struct {
-				ApprovalToken *string                                         `json:"approvalToken,omitempty"`
-				Description   string                                          `json:"description"`
-				Severity      client.InstanceStatusPendingMaintenanceSeverity `json:"severity"`
-			} `json:"pendingMaintenance,omitempty"`
-			Phase   *client.InstanceStatusPhase `json:"phase,omitempty"`
-			Version *string                     `json:"version,omitempty"`
-		}{Phase: &phase},
+	return instanceFromJSON(`{"metadata":{"name":"my-mongo"},"status":{"phase":"Ready"}}`)
+}
+
+// instanceFromJSON decodes an Instance the way the API serves it. Building
+// it from JSON keeps the tests independent of the generated status struct,
+// which changes whenever the Instance status gains a field.
+func instanceFromJSON(doc string) *client.Instance {
+	inst := &client.Instance{}
+	if err := json.Unmarshal([]byte(doc), inst); err != nil {
+		panic(err)
 	}
+	return inst
 }
 
 func TestWatch_StopsOnContextCancel(t *testing.T) {

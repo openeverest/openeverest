@@ -167,7 +167,7 @@ func extensionManaged(provider *corev1alpha1.Provider, class *monitoringv1alpha1
 			continue
 		}
 		eligible = true
-		if disruption(ct, em.Requires) == monitoringv1alpha1.DisruptionRollingRestart {
+		if disruption(ct, em) == monitoringv1alpha1.DisruptionRollingRestart {
 			worst = monitoringv1alpha1.DisruptionRollingRestart
 		}
 	}
@@ -177,16 +177,23 @@ func extensionManaged(provider *corev1alpha1.Provider, class *monitoringv1alpha1
 	return verdict{ok: true}, worst
 }
 
-// componentEligible: the component exposes metrics if the class requires
-// them.
+// componentEligible: the component exposes metrics and accepts connections
+// if the class requires them.
 func componentEligible(ct corev1alpha1.MonitoringComponentType, req monitoringv1alpha1.SourceRequirements) bool {
-	return !req.Metrics || (ct.Metrics != "" && ct.Metrics != corev1alpha1.MetricsSourceNone)
+	if req.Metrics && (ct.Metrics == "" || ct.Metrics == corev1alpha1.MetricsSourceNone) {
+		return false
+	}
+	return !req.Connection || ct.Connection == corev1alpha1.ConnectionSupported
 }
 
 // disruption is what binding the class does to a component's pods: an
-// exporter is started as a sidecar, which rolls them.
-func disruption(ct corev1alpha1.MonitoringComponentType, req monitoringv1alpha1.SourceRequirements) monitoringv1alpha1.Disruption {
-	if req.Metrics && ct.Metrics == corev1alpha1.MetricsSourceExporter {
+// exporter is started as a sidecar and requested pod metadata is rendered
+// into the pod template, both of which roll them.
+func disruption(ct corev1alpha1.MonitoringComponentType, em *monitoringv1alpha1.ExtensionManagedFulfilment) monitoringv1alpha1.Disruption {
+	if em.Requires.Metrics && ct.Metrics == corev1alpha1.MetricsSourceExporter {
+		return monitoringv1alpha1.DisruptionRollingRestart
+	}
+	if em.PodMetadata != nil {
 		return monitoringv1alpha1.DisruptionRollingRestart
 	}
 	return monitoringv1alpha1.DisruptionNone
