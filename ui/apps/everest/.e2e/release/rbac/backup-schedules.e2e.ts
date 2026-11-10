@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +26,11 @@ import { deleteDbClusterFn } from '@e2e/utils/db-cluster';
 import { createDbWithParameters } from '@e2e/utils/rbac';
 import { gotoDbClusterBackups } from '@e2e/utils/db-clusters-list';
 
-import { waitForDelete, waitForStatus } from '@e2e/utils/table';
+import {
+  confirmDeletion,
+  waitForDelete,
+  waitForStatus,
+} from '@e2e/utils/table';
 import {
   fillScheduleModalForm,
   ScheduleTimeOptions,
@@ -358,7 +363,7 @@ test.describe(
 
         await expect(page.getByText('Delete')).toBeVisible();
         await page.getByText('Delete').click();
-        await page.getByTestId('form-dialog-delete').click();
+        await confirmDeletion(page, 'form-dialog-delete');
         await waitForDelete(page, 'backup-1', 30000);
       });
       await test.step(`User cannot create manual/scheduled backups or edit, delete backup schedules of ${psmdbDb} database in ${namespace2} namespace`, async () => {
