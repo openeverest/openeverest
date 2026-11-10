@@ -15,8 +15,8 @@
 import { MonitoringDestinationState } from 'shared-types/monitoring-destinations.types';
 import { DestinationUsage } from './monitoring-destinations.types';
 
-const databases = (count: number) =>
-  count === 1 ? '1 database' : `${count} databases`;
+const countInstances = (count: number) =>
+  count === 1 ? '1 instance' : `${count} instances`;
 
 export const Messages = {
   add: 'Add destination',
@@ -37,10 +37,10 @@ export const Messages = {
     [MonitoringDestinationState.Deleting]: 'Deleting',
   } satisfies Record<MonitoringDestinationState, string>,
   serverVersion: (version: string) => `v${version}`,
-  usedByCount: databases,
-  usedByDialogTitle: (name: string) => `Databases using ${name}`,
+  usedByCount: countInstances,
+  usedByDialogTitle: (name: string) => `Instances using ${name}`,
   hiddenInstances: (count: number) =>
-    `${databases(count)} you don't have access to`,
+    `${countInstances(count)} you don't have access to`,
   edit: 'Edit',
   delete: 'Delete',
   cancel: 'Cancel',
@@ -58,11 +58,11 @@ export const Messages = {
   ) => {
     const shown = instances.slice(0, shownLimit);
     if (shown.length === 0) {
-      return `${name} is used by ${databases(count)}. Remove it from them first.`;
+      return `${name} is used by ${countInstances(count)}. Remove it from them first.`;
     }
     const more = count - shown.length;
     const list =
       more > 0 ? `${shown.join(', ')} and ${more} more` : shown.join(', ');
-    return `${name} is used by ${list}. Remove it from those databases first.`;
+    return `${name} is used by ${list}. Remove it from those instances first.`;
   },
 };

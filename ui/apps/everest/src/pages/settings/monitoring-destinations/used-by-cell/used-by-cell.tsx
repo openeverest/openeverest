@@ -23,7 +23,7 @@ interface UsedByCellProps {
 }
 
 // A count that opens the full list, so the cell stays one line however
-// many databases use the destination.
+// many instances use the destination.
 export const UsedByCell = ({
   destination,
   usage: { count, instances },

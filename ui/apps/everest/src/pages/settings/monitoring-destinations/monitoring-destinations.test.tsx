@@ -169,16 +169,16 @@ describe('MonitoringDestinations', () => {
     expect(screen.getByText('PMM')).toBeInTheDocument();
     expect(screen.getByText('https://pmm.example.com')).toBeInTheDocument();
     expect(screen.getByText('Ready · v3.1.0')).toBeInTheDocument();
-    expect(screen.getByText('1 database')).toBeInTheDocument();
+    expect(screen.getByText('1 instance')).toBeInTheDocument();
   });
 
-  it('lists the databases using a destination in a dialog', async () => {
+  it('lists the instances using a destination in a dialog', async () => {
     renderPage();
 
     fireEvent.click(await screen.findByTestId('used-by-pmm-prod-toggle'));
 
     const dialog = await screen.findByRole('dialog');
-    expect(dialog).toHaveTextContent('Databases using pmm-prod');
+    expect(dialog).toHaveTextContent('Instances using pmm-prod');
     expect(dialog).toHaveTextContent('orders-db');
   });
 
@@ -192,7 +192,7 @@ describe('MonitoringDestinations', () => {
 
     expect(
       await screen.findByText(
-        'pmm-prod is used by a-db, b-db, c-db, d-db, e-db and 2 more. Remove it from those databases first.'
+        'pmm-prod is used by a-db, b-db, c-db, d-db, e-db and 2 more. Remove it from those instances first.'
       )
     ).toBeInTheDocument();
   });
@@ -208,7 +208,7 @@ describe('MonitoringDestinations', () => {
 
     expect(
       await screen.findByText(
-        'pmm-prod is used by orders-db, billing-db. Remove it from those databases first.'
+        'pmm-prod is used by orders-db, billing-db. Remove it from those instances first.'
       )
     ).toBeInTheDocument();
     expect(mocks.canDelete).toHaveBeenCalledWith('team-a', 'pmm-prod');
@@ -226,7 +226,7 @@ describe('MonitoringDestinations', () => {
 
     expect(
       await screen.findByText(
-        'pmm-prod is used by orders-db and 3 more. Remove it from those databases first.'
+        'pmm-prod is used by orders-db and 3 more. Remove it from those instances first.'
       )
     ).toBeInTheDocument();
   });
@@ -273,7 +273,7 @@ describe('MonitoringDestinations', () => {
 
     expect(
       await screen.findByText(
-        'pmm-prod is used by orders-db. Remove it from those databases first.'
+        'pmm-prod is used by orders-db. Remove it from those instances first.'
       )
     ).toBeInTheDocument();
   });

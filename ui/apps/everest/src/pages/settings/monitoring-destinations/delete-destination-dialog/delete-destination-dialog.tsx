@@ -24,7 +24,7 @@ interface DeleteDestinationDialogProps {
   onClose: () => void;
 }
 
-// A destination databases still use can't be deleted; the dialog names them.
+// A destination instances still use can't be deleted; the dialog names them.
 export const DeleteDestinationDialog = ({
   deletion: { row, inUse, secretDeletedToo },
   isDeleting,
