@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
+import { grantRBAC } from 'api/__mocks__/policies';
 import { BackupStatus } from 'shared-types/backups.types';
 import { getRestoresListQueryKey } from 'hooks/api/restores/useInstanceRestores';
+import { stopAuthorizerFetchLoop } from 'utils/rbac';
 import { Messages } from './restore-db-modal.messages';
 import { RestoreDbFields } from './restore-db-modal-schema';
 import { useRestoreDbModal } from './useRestoreDbModal';
@@ -26,11 +28,12 @@ const mockCloseModal = vi.fn();
 
 const mockUseBackupsList = vi.fn();
 const mockUseDbInstance = vi.fn();
-const mockUseBackupStoragesByNamespace = vi.fn();
 const mockUseCreateInstanceRestore = vi.fn();
 const mockUseClusterName = vi.fn();
 const mockResolveRestoreAction = vi.fn();
 const mockEnqueueSnackbar = vi.fn();
+
+vi.mock('api/policies');
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
@@ -52,11 +55,6 @@ vi.mock('hooks/api/backups/useBackups', () => ({
 
 vi.mock('hooks/api/db-instances', () => ({
   useDbInstance: (...args: unknown[]) => mockUseDbInstance(...args),
-}));
-
-vi.mock('hooks/api/backup-storages/useBackupStorages', () => ({
-  useBackupStoragesByNamespace: (...args: unknown[]) =>
-    mockUseBackupStoragesByNamespace(...args),
 }));
 
 vi.mock('hooks/api/restores/useInstanceRestores', async () => {
@@ -87,11 +85,14 @@ describe('useRestoreDbModal', () => {
     mockUseClusterName.mockReturnValue('main-cluster');
     mockUseBackupsList.mockReturnValue({ data: [], isLoading: false });
     mockUseDbInstance.mockReturnValue({ data: undefined });
-    mockUseBackupStoragesByNamespace.mockReturnValue({ data: [] });
     mockUseCreateInstanceRestore.mockReturnValue({
       mutate: mockMutate,
       isPending: false,
     });
+  });
+
+  afterEach(() => {
+    stopAuthorizerFetchLoop();
   });
 
   it('navigates to create-db flow for navigate-new action', () => {
@@ -235,7 +236,8 @@ describe('useRestoreDbModal', () => {
     ]);
   });
 
-  it('only offers PITR storages the user can read', () => {
+  it('only offers PITR storages the user can read', async () => {
+    mockUseClusterName.mockReturnValue('main');
     mockUseDbInstance.mockReturnValue({
       data: {
         status: {
@@ -262,9 +264,11 @@ describe('useRestoreDbModal', () => {
         },
       },
     });
-    mockUseBackupStoragesByNamespace.mockReturnValue({
-      data: [{ metadata: { name: 'readable-storage' } }],
-    });
+    await grantRBAC([
+      'backup-storages',
+      'read',
+      'main/ns-a/readable-storage',
+    ]);
 
     const { result } = renderHook(() =>
       useRestoreDbModal({
@@ -275,8 +279,10 @@ describe('useRestoreDbModal', () => {
       })
     );
 
-    expect(result.current.pitrStorages.map((storage) => storage.name)).toEqual([
-      'readable-storage',
-    ]);
+    await waitFor(() =>
+      expect(result.current.pitrStorages.map((storage) => storage.name)).toEqual(
+        ['readable-storage']
+      )
+    );
   });
 });

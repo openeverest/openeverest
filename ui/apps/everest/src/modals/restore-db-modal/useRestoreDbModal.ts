@@ -18,12 +18,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { enqueueSnackbar } from 'notistack';
 import { useBackupsList } from 'hooks/api/backups/useBackups';
 import { useDbInstance } from 'hooks/api/db-instances';
-import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages';
 import {
   getRestoresListQueryKey,
   useCreateInstanceRestore,
 } from 'hooks/api/restores/useInstanceRestores';
 import { useClusterName } from 'hooks/api/useClusterName';
+import { useRBACAllowedObjects } from 'hooks/rbac';
 import { BackupStatus } from 'shared-types/backups.types';
 import {
   defaultValues,
@@ -74,26 +74,46 @@ export const useRestoreDbModal = ({
   const { data: instance } = useDbInstance(namespace, instanceName, {
     enabled: !!instanceName,
   });
-  const { data: backupStorages = [] } = useBackupStoragesByNamespace(namespace);
 
-  // PITR is offered — for both in-place restore and clone-to-new-DB — only once
-  // the source instance's provider has reported a restorable window in status;
-  // otherwise the option stays disabled.
+  // PITR candidates come from instance status. The backend still authorizes
+  // backup-storages:read at restore time (#3310), so the UI must hide storages
+  // the caller cannot read before they submit (#3470).
+  const pitrCandidateStorages = useMemo(
+    () =>
+      (instance?.status?.backup?.storages ?? []).filter(
+        (storage) => storage.pitr
+      ),
+    [instance]
+  );
+  const pitrStorageObjects = useMemo(
+    () =>
+      pitrCandidateStorages.map((storage) => `${namespace}/${storage.name}`),
+    [namespace, pitrCandidateStorages]
+  );
+  const { allowedObjects: readableStorageObjects } = useRBACAllowedObjects(
+    'read',
+    'backup-storages',
+    pitrStorageObjects
+  );
+  const readableStorageNames = useMemo(
+    () =>
+      new Set(
+        readableStorageObjects.map((object) =>
+          object.slice(object.lastIndexOf('/') + 1)
+        )
+      ),
+    [readableStorageObjects]
+  );
+
   const pitrStorages = useMemo<RestorePitrStorageOption[]>(
     () =>
-      (instance?.status?.backup?.storages ?? [])
-        .filter(
-          (storage) =>
-            storage.pitr &&
-            backupStorages.some(
-              (backupStorage) => backupStorage.metadata?.name === storage.name
-            )
-        )
+      pitrCandidateStorages
+        .filter((storage) => readableStorageNames.has(storage.name))
         .map((storage) => ({
           name: storage.name,
           window: resolvePitrWindow(storage.pitr),
         })),
-    [backupStorages, instance]
+    [pitrCandidateStorages, readableStorageNames]
   );
 
   const succeededBackups = useMemo<RestorableBackupOption[]>(
