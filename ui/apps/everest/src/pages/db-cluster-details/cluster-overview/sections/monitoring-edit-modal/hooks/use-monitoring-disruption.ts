@@ -22,7 +22,7 @@ import {
   MONITORING_DESTINATIONS_FIELD,
   parseMonitoringDestinations,
   useMonitoringInstanceForms,
-} from 'pages/database-form/database-form-body/steps/monitoring-step';
+} from 'components/monitoring-destinations-picker';
 import { Instance, Provider } from 'shared-types/api.types';
 import {
   MonitoringClass,

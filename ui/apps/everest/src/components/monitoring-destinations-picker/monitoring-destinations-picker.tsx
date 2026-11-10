@@ -14,11 +14,11 @@
 
 import { Alert, Skeleton, Stack } from '@mui/material';
 import { getMonitoringClassName } from 'utils/monitoring-classes';
-import { useMonitoringSelection } from '../hooks/use-monitoring-selection';
-import { MonitoringSelectionOptions } from '../monitoring-step.types';
-import { MonitoringClassGroup } from '../monitoring-class-group/monitoring-class-group';
-import { UNAVAILABLE_DESTINATIONS_SEVERITY } from '../monitoring-step.constants';
-import { Messages } from '../monitoring-step.messages';
+import { useMonitoringSelection } from './hooks/use-monitoring-selection';
+import { MonitoringSelectionOptions } from './monitoring-destinations-picker.types';
+import { MonitoringClassGroup } from './monitoring-class-group/monitoring-class-group';
+import { UNAVAILABLE_DESTINATIONS_SEVERITY } from './monitoring-destinations-picker.constants';
+import { Messages } from './monitoring-destinations-picker.messages';
 
 // The destinations an Instance of the provider can send to, grouped by
 // monitoring system, editing the form's spec.monitoring.destinations.

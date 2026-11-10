@@ -16,8 +16,8 @@ import { Box, Typography } from '@mui/material';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { MonitoringSectionForm } from 'utils/monitoring-classes';
-import { MONITORING_DESTINATIONS_FIELD } from '../monitoring-step.constants';
-import { Messages } from '../monitoring-step.messages';
+import { MONITORING_DESTINATIONS_FIELD } from '../monitoring-destinations-picker.constants';
+import { Messages } from '../monitoring-destinations-picker.messages';
 
 interface MonitoringEntryParametersProps {
   destinationName: string;

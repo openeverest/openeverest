@@ -24,7 +24,7 @@ import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { TestWrapper } from 'utils/test';
 import { DbWizardFormFields } from 'consts';
 import { MonitoringStep } from './monitoring-step';
-import { MONITORING_DESTINATIONS_FIELD } from './monitoring-step.constants';
+import { MONITORING_DESTINATIONS_FIELD } from 'components/monitoring-destinations-picker';
 
 const mocks = vi.hoisted(() => ({
   permissions: { canRead: true, isPermissionsLoading: false },

@@ -24,11 +24,11 @@ import {
   getMonitoringClassTitle,
 } from 'utils/monitoring-classes';
 import { MonitoringEntryParameters } from '../monitoring-entry-parameters/monitoring-entry-parameters';
-import { Messages } from '../monitoring-step.messages';
+import { Messages } from '../monitoring-destinations-picker.messages';
 import {
   MonitoringClassDestinations,
   MonitoringSelection,
-} from '../monitoring-step.types';
+} from '../monitoring-destinations-picker.types';
 import { NoDestinationsAlert } from './no-destinations-alert/no-destinations-alert';
 
 interface MonitoringClassGroupProps {

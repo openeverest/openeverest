@@ -12,39 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { MonitoringDestinationState } from 'shared-types/monitoring-destinations.types';
-import { MAX_MONITORING_DESTINATIONS } from './monitoring-step.constants';
-import {
-  DestinationDisabledReason,
-  DestinationsUnavailableReason,
-} from './monitoring-step.types';
-
 export const Messages = {
   title: 'Monitoring',
   caption:
     'Choose where this database sends its monitoring data. You can send it to several systems at once.',
-  noDestinations: (namespace: string) =>
-    `No destinations of this system in the ${namespace} namespace yet.`,
-  destinationsUnavailable: {
-    [DestinationsUnavailableReason.LoadFailed]: () =>
-      'Monitoring destinations could not be loaded. Try again later.',
-    [DestinationsUnavailableReason.NoAccess]: (namespace: string) =>
-      `You don't have permission to view monitoring destinations in the ${namespace} namespace.`,
-  } satisfies Record<
-    DestinationsUnavailableReason,
-    (namespace: string) => string
-  >,
-  addDestination: 'Add destination',
-  state: {
-    [MonitoringDestinationState.Ready]: 'Ready',
-    [MonitoringDestinationState.Pending]: 'Waiting for its controller',
-    [MonitoringDestinationState.Failing]: 'Not ready',
-  } satisfies Record<MonitoringDestinationState, string>,
-  disabledReason: {
-    [DestinationDisabledReason.LimitReached]: `A database can send to at most ${MAX_MONITORING_DESTINATIONS} destinations`,
-    [DestinationDisabledReason.IntegrationTaken]:
-      'Another destination of this system is already selected',
-  } satisfies Record<DestinationDisabledReason, string>,
-  entryParameters: (destinationName: string) =>
-    `Settings for ${destinationName}`,
 };

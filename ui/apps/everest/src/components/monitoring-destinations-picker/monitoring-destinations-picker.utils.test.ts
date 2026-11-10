@@ -17,7 +17,7 @@ import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
-import { DestinationDisabledReason } from './monitoring-step.types';
+import { DestinationDisabledReason } from './monitoring-destinations-picker.types';
 import {
   buildInstanceFormsByDestination,
   buildMonitoringParametersSchema,
@@ -30,7 +30,7 @@ import {
   toggleMonitoringDestination,
   toMonitoringEntryName,
   writeMonitoringEntries,
-} from './monitoring-step.utils';
+} from './monitoring-destinations-picker.utils';
 
 const PROVIDER = 'percona-server-mongodb';
 

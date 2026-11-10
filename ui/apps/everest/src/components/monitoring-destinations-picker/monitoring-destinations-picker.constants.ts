@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { AlertColor } from '@mui/material';
-import { DestinationsUnavailableReason } from './monitoring-step.types';
+import { DestinationsUnavailableReason } from './monitoring-destinations-picker.types';
 
 // Top-level wizard fields land in the Instance spec as-is, so this field holds
 // spec.monitoring.destinations[] in its final shape.

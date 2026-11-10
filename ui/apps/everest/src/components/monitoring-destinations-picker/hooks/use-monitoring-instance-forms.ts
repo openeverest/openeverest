@@ -20,7 +20,7 @@ import {
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
 import { MonitoringSectionForm } from 'utils/monitoring-classes';
-import { buildInstanceFormsByDestination } from '../monitoring-step.utils';
+import { buildInstanceFormsByDestination } from '../monitoring-destinations-picker.utils';
 
 const NO_CLASSES: MonitoringClass[] = [];
 const NO_DESTINATIONS: MonitoringDestination[] = [];

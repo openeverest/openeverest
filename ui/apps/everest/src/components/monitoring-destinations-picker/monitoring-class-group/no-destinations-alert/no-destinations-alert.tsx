@@ -23,7 +23,7 @@ import {
   getMonitoringClassName,
   isMonitoringClassAccepted,
 } from 'utils/monitoring-classes';
-import { Messages } from '../../monitoring-step.messages';
+import { Messages } from '../../monitoring-destinations-picker.messages';
 
 interface NoDestinationsAlertProps {
   monitoringClass: MonitoringClass;

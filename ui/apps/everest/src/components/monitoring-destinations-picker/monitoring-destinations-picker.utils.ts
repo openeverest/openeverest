@@ -41,12 +41,12 @@ import {
   MONITORING_DESTINATIONS_FIELD,
   MONITORING_ENTRY_NAME_MAX_LENGTH,
   MONITORING_INSTANCE_SECTION_KEY,
-} from './monitoring-step.constants';
+} from './monitoring-destinations-picker.constants';
 import {
   DestinationDisabledReason,
   DestinationsUnavailableReason,
   MonitoringClassDestinations,
-} from './monitoring-step.types';
+} from './monitoring-destinations-picker.types';
 
 // A user who may not list destinations would otherwise see an empty system.
 export const getDestinationsUnavailableReason = ({

@@ -17,7 +17,7 @@ import { useFormContext, useWatch } from 'react-hook-form';
 import { DbWizardFormFields } from 'consts';
 import { StepHeader } from 'pages/database-form/database-form-body/steps-old/step-header/step-header';
 import { StepProps } from 'pages/database-form/database-form.types';
-import { MonitoringDestinationsPicker } from './monitoring-destinations-picker/monitoring-destinations-picker';
+import { MonitoringDestinationsPicker } from 'components/monitoring-destinations-picker';
 import { Messages } from './monitoring-step.messages';
 
 export const MonitoringStep = (

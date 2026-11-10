@@ -20,11 +20,11 @@ import { useRBACPermissions } from 'hooks/rbac';
 import { MonitoringDestination } from 'shared-types/monitoring-destinations.types';
 import { getMonitoringClassName } from 'utils/monitoring-classes';
 import { getDestinationName } from 'utils/monitoring-destinations';
-import { MONITORING_DESTINATIONS_FIELD } from '../monitoring-step.constants';
+import { MONITORING_DESTINATIONS_FIELD } from '../monitoring-destinations-picker.constants';
 import {
   MonitoringSelection,
   MonitoringSelectionOptions,
-} from '../monitoring-step.types';
+} from '../monitoring-destinations-picker.types';
 import {
   getDefaultEntryParameters,
   getDestinationDisabledReason,
@@ -34,7 +34,7 @@ import {
   parseMonitoringDestinations,
   pruneMonitoringDestinations,
   toggleMonitoringDestination,
-} from '../monitoring-step.utils';
+} from '../monitoring-destinations-picker.utils';
 import { useMonitoringInstanceForms } from './use-monitoring-instance-forms';
 
 // Works on the spec.monitoring.destinations field of the surrounding form.

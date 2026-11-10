@@ -24,7 +24,7 @@ import {
   MonitoringDestinationsPicker,
   parseMonitoringDestinations,
   useMonitoringInstanceForms,
-} from 'pages/database-form/database-form-body/steps/monitoring-step';
+} from 'components/monitoring-destinations-picker';
 import { DisruptionNotice } from './disruption-notice/disruption-notice';
 import { Messages } from './monitoring-edit-modal.messages';
 import { MonitoringEditModalProps } from './monitoring-edit-modal.types';
