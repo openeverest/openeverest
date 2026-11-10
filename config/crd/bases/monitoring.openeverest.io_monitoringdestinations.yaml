@@ -38,6 +38,14 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .spec.authentication.credentialsSecretRef.name
+      name: Credentials
+      priority: 1
+      type: string
+    - jsonPath: .spec.tls.ca.secretKeyRef.name
+      name: CA
+      priority: 1
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -263,6 +271,10 @@ spec:
         x-kubernetes-validations:
         - message: a MonitoringDestination name must be at most 63 characters
           rule: size(self.metadata.name) <= 63
+    selectableFields:
+    - jsonPath: .spec.classRef.name
+    - jsonPath: .spec.authentication.credentialsSecretRef.name
+    - jsonPath: .spec.tls.ca.secretKeyRef.name
     served: true
     storage: true
     subresources:
