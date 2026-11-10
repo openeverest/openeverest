@@ -13,7 +13,12 @@
 // limitations under the License.
 
 import { api } from 'api/api';
-import { Secret, SecretList, SecretListFilter } from 'shared-types/api.types';
+import {
+  Secret,
+  SecretDataPatch,
+  SecretList,
+  SecretListFilter,
+} from 'shared-types/api.types';
 
 export const getSecretsFn = async (
   cluster: string,
@@ -51,6 +56,26 @@ export const getSecretFn = async (
   const response = await api.get<Secret>(
     `clusters/${cluster}/namespaces/${namespace}/secrets/${name}`,
     { disableNotifications }
+  );
+  return response.data;
+};
+
+// With dryRun the API checks the patch, the definition and permissions, and
+// stores nothing.
+export const patchSecretFn = async (
+  cluster: string,
+  namespace: string,
+  name: string,
+  patch: SecretDataPatch,
+  { dryRun = false }: { dryRun?: boolean } = {}
+): Promise<Secret> => {
+  const response = await api.patch<Secret>(
+    `clusters/${cluster}/namespaces/${namespace}/secrets/${name}`,
+    patch,
+    {
+      headers: { 'Content-Type': 'application/merge-patch+json' },
+      ...(dryRun && { params: { dryRun: 'All' } }),
+    }
   );
   return response.data;
 };

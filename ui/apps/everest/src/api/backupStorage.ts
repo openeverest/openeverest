@@ -24,9 +24,14 @@ import {
   CredentialsSource,
   TlsMode,
 } from 'shared-types/backupStorages.types';
-import { generateShortUID } from 'utils/generateShortUID';
+import { SecretDataPatch } from 'shared-types/api.types';
 import { api } from './api';
-import { createSecretFn, deleteSecretFn } from './secrets';
+import {
+  createSecretFn,
+  deleteSecretFn,
+  getSecretFn,
+  patchSecretFn,
+} from './secrets';
 
 export const CA_SECRET_KEY = 'ca.crt';
 
@@ -56,6 +61,27 @@ type StorageSecretRefs = {
   caSecretKeyRef?: { name: string; key: string };
 };
 
+type SecretToCreate = {
+  kind: BackupStorageSecretKind;
+  name: string;
+  labels: Record<string, string>;
+  stringData: Record<string, string>;
+};
+
+type SecretToPatch = {
+  name: string;
+  set: Record<string, string>;
+  remove: string[];
+};
+
+// What the form does to Secrets: the references the storage gets, the Secrets
+// it creates, and the Secrets whose keys it changes in place.
+type StorageSecretsPlan = {
+  refs: StorageSecretRefs;
+  create: SecretToCreate[];
+  patch: SecretToPatch[];
+};
+
 export class BackupStorageSecretConflictError extends Error {
   kind: BackupStorageSecretKind;
   secretName: string;
@@ -67,13 +93,21 @@ export class BackupStorageSecretConflictError extends Error {
   }
 }
 
-// Secrets can't be updated, so an edit writes new ones under a unique name.
+// The name the form saves a storage's credentials or pasted CA under.
 export const backupStorageSecretName = (
   storageName: string,
-  kind: BackupStorageSecretKind,
-  unique = false
-) =>
-  `backup-storage-${storageName}-${kind}${unique ? `-${generateShortUID()}` : ''}`;
+  kind: BackupStorageSecretKind
+) => `backup-storage-${storageName}-${kind}`;
+
+// Whether the storage trusts the CA the form saved for it from a pasted PEM,
+// which a newly pasted PEM then replaces in place.
+export const usesOwnCaSecret = (storage: BackupStorageCRD | undefined) =>
+  !!storage &&
+  storage.spec.tls?.ca?.secretKeyRef?.name ===
+    backupStorageSecretName(
+      storage.metadata?.name ?? '',
+      BackupStorageSecretKind.CA
+    );
 
 const toStringData = (values: Record<string, unknown>) =>
   Object.fromEntries(
@@ -85,89 +119,170 @@ const toStringData = (values: Record<string, unknown>) =>
       ])
   );
 
-const createStorageSecret = async (
-  cluster: string,
-  namespace: string,
-  name: string,
-  kind: BackupStorageSecretKind,
-  labels: Record<string, string>,
-  stringData: Record<string, string>
-): Promise<string> => {
-  try {
-    await createSecretFn(cluster, namespace, {
-      metadata: { name, labels },
-      type: 'Opaque',
-      stringData,
+const planStorageSecrets = (
+  values: BackupStorageFormValues,
+  previous?: BackupStorageCRD
+): StorageSecretsPlan => {
+  const plan: StorageSecretsPlan = { refs: {}, create: [], patch: [] };
+
+  if (values.credentialsSource === CredentialsSource.New) {
+    const name =
+      values.credentialsSaveAs ||
+      backupStorageSecretName(values.name, BackupStorageSecretKind.Credentials);
+    plan.create.push({
+      kind: BackupStorageSecretKind.Credentials,
+      name,
+      labels: getCredentialsSecretLabels(
+        values.backupStorageClass,
+        values.authMode
+      ),
+      stringData: toStringData(values.credentials),
     });
-  } catch (error) {
-    if ((error as AxiosError)?.status === 409) {
-      throw new BackupStorageSecretConflictError(kind, name);
+    plan.refs.credentialsSecretName = name;
+  } else if (values.credentialsSecretName) {
+    plan.refs.credentialsSecretName = values.credentialsSecretName;
+    const set = toStringData(values.credentials);
+    if (
+      values.credentialsSource === CredentialsSource.Current &&
+      (Object.keys(set).length > 0 || values.removedCredentialKeys.length > 0)
+    ) {
+      plan.patch.push({
+        name: values.credentialsSecretName,
+        set,
+        remove: values.removedCredentialKeys,
+      });
     }
-    throw error;
   }
-  return name;
+
+  if (values.tlsMode !== TlsMode.CustomCA) {
+    return plan;
+  }
+  switch (values.caSource) {
+    case CaSource.New: {
+      const name = backupStorageSecretName(
+        values.name,
+        BackupStorageSecretKind.CA
+      );
+      const stringData = { [CA_SECRET_KEY]: values.caBundle };
+      if (usesOwnCaSecret(previous)) {
+        plan.patch.push({ name, set: stringData, remove: [] });
+      } else {
+        plan.create.push({
+          kind: BackupStorageSecretKind.CA,
+          name,
+          labels: CA_BUNDLE_SECRET_LABELS,
+          stringData,
+        });
+      }
+      plan.refs.caSecretKeyRef = { name, key: CA_SECRET_KEY };
+      break;
+    }
+    case CaSource.Existing:
+      plan.refs.caSecretKeyRef = {
+        name: values.caSecretName,
+        key: CA_SECRET_KEY,
+      };
+      break;
+    case CaSource.External:
+      plan.refs.caSecretKeyRef = {
+        name: values.caSecretName,
+        key: values.caSecretKey,
+      };
+      break;
+  }
+  return plan;
 };
 
-// Creates the Secrets the form asks for, then runs `write`; the Secrets
-// created here are deleted again if any step fails.
-const withStorageSecrets = async <T>(
+const toDataPatch = (
+  { set, remove }: SecretToPatch,
+  resourceVersion: string
+): SecretDataPatch => ({
+  metadata: { resourceVersion },
+  ...(Object.keys(set).length > 0 && { stringData: set }),
+  ...(remove.length > 0 && {
+    data: Object.fromEntries(remove.map((key) => [key, null])),
+  }),
+});
+
+// Reads the resourceVersion of each Secret to patch and dry-runs the patch, so
+// a patch that would be refused stops the edit before anything is written.
+const dryRunSecretPatches = (
   cluster: string,
-  values: BackupStorageFormValues,
-  isEdit: boolean,
-  write: (refs: StorageSecretRefs) => Promise<T>
-): Promise<T> => {
-  const { name, namespace } = values;
+  namespace: string,
+  patches: SecretToPatch[]
+) =>
+  Promise.all(
+    patches.map(async (patch) => {
+      const secret = await getSecretFn(cluster, namespace, patch.name);
+      const body = toDataPatch(patch, secret.metadata?.resourceVersion ?? '');
+      await patchSecretFn(cluster, namespace, patch.name, body, {
+        dryRun: true,
+      });
+      return { name: patch.name, body };
+    })
+  );
+
+const deleteSecrets = (cluster: string, namespace: string, names: string[]) =>
+  Promise.allSettled(
+    names.map((name) => deleteSecretFn(cluster, namespace, name))
+  );
+
+const createSecrets = async (
+  cluster: string,
+  namespace: string,
+  secrets: SecretToCreate[]
+): Promise<string[]> => {
   const created: string[] = [];
-  const create = async (
-    kind: BackupStorageSecretKind,
-    stringData: Record<string, string>
-  ) => {
-    const secretName = await createStorageSecret(
-      cluster,
-      namespace,
-      backupStorageSecretName(name, kind, isEdit),
-      kind,
-      kind === BackupStorageSecretKind.Credentials
-        ? getCredentialsSecretLabels(values.backupStorageClass, values.authMode)
-        : CA_BUNDLE_SECRET_LABELS,
-      stringData
-    );
-    created.push(secretName);
-    return secretName;
-  };
-
   try {
-    const refs: StorageSecretRefs = {};
-    if (values.credentialsSource === CredentialsSource.New) {
-      refs.credentialsSecretName = await create(
-        BackupStorageSecretKind.Credentials,
-        toStringData(values.credentials)
-      );
-    } else if (values.credentialsSecretName) {
-      refs.credentialsSecretName = values.credentialsSecretName;
+    for (const { kind, name, labels, stringData } of secrets) {
+      try {
+        await createSecretFn(cluster, namespace, {
+          metadata: { name, labels },
+          type: 'Opaque',
+          stringData,
+        });
+      } catch (error) {
+        if ((error as AxiosError)?.status === 409) {
+          throw new BackupStorageSecretConflictError(kind, name);
+        }
+        throw error;
+      }
+      created.push(name);
     }
-
-    if (values.tlsMode === TlsMode.CustomCA) {
-      refs.caSecretKeyRef =
-        values.caSource === CaSource.New
-          ? {
-              name: await create(BackupStorageSecretKind.CA, {
-                [CA_SECRET_KEY]: values.caBundle,
-              }),
-              key: CA_SECRET_KEY,
-            }
-          : { name: values.caSecretName, key: values.caSecretKey };
-    }
-
-    return await write(refs);
   } catch (error) {
-    await Promise.allSettled(
-      created.map((secretName) =>
-        deleteSecretFn(cluster, namespace, secretName)
-      )
-    );
+    await deleteSecrets(cluster, namespace, created);
     throw error;
   }
+  return created;
+};
+
+// Dry-runs the Secret patches, creates the Secrets the form asks for, runs
+// `write`, then applies the patches. The Secrets created here are deleted
+// again if a step fails before the storage is written, and a rejected storage
+// leaves the patched Secrets untouched: the storage write can't be dry-run.
+const writeWithStorageSecrets = async <T>(
+  cluster: string,
+  values: BackupStorageFormValues,
+  previous: BackupStorageCRD | undefined,
+  write: (refs: StorageSecretRefs) => Promise<T>
+): Promise<T> => {
+  const { namespace } = values;
+  const plan = planStorageSecrets(values, previous);
+  const patches = await dryRunSecretPatches(cluster, namespace, plan.patch);
+  const created = await createSecrets(cluster, namespace, plan.create);
+
+  let result: T;
+  try {
+    result = await write(plan.refs);
+  } catch (error) {
+    await deleteSecrets(cluster, namespace, created);
+    throw error;
+  }
+
+  for (const { name, body } of patches) {
+    await patchSecretFn(cluster, namespace, name, body);
+  }
+  return result;
 };
 
 const tls = (
@@ -200,10 +315,10 @@ export const createBackupStorageFn = async (
   cluster: string,
   formData: BackupStorageFormValues
 ) =>
-  withStorageSecrets(
+  writeWithStorageSecrets(
     cluster,
     formData,
-    false,
+    undefined,
     async ({ credentialsSecretName, caSecretKeyRef }) => {
       const { name, namespace } = formData;
       const storageTls = tls(formData.tlsMode, caSecretKeyRef);
@@ -244,10 +359,10 @@ export const editBackupStorageFn = async (
   formData: BackupStorageFormValues,
   previous: BackupStorageCRD
 ) =>
-  withStorageSecrets(
+  writeWithStorageSecrets(
     cluster,
     formData,
-    true,
+    previous,
     async ({ credentialsSecretName, caSecretKeyRef }) => {
       const { name, namespace } = formData;
       const storageTls = tls(formData.tlsMode, caSecretKeyRef);

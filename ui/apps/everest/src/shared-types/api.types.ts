@@ -21,6 +21,13 @@ export type SecretList = HttpApi.components['schemas']['SecretList'];
 export type SecretListFilter = NonNullable<
   HttpApi.operations['listSecrets']['parameters']['query']
 >;
+// A merge patch of a Secret's data: stringData sets keys, a null under data
+// removes one, and the resourceVersion is the one the Secret was read at.
+export type SecretDataPatch = {
+  metadata: { resourceVersion: string };
+  stringData?: Record<string, string>;
+  data?: Record<string, null>;
+};
 export type GetInstances = CrdsGen.components['schemas']['InstanceList'];
 export type Instance = CrdsGen.components['schemas']['Instance'];
 export type InstanceConnectionDetails =

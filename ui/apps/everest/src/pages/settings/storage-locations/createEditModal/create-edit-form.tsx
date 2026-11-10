@@ -33,8 +33,9 @@ import {
 } from '@percona/ui-lib';
 import {
   BackupStorageSecretConflictError,
+  backupStorageSecretName,
   CA_BUNDLE_DEFINITION,
-  CA_SECRET_KEY,
+  usesOwnCaSecret,
 } from 'api/backupStorage';
 import { useNamespaces } from 'hooks/api/namespaces/useNamespaces';
 import { useSecrets } from 'hooks/api/secrets';
@@ -52,6 +53,7 @@ import { getBackupStorageClassDisplayName } from 'utils/backup-storages';
 import { Messages } from '../storage-locations.messages';
 import { StorageLocationsFields } from '../storage-locations.types';
 import { ClassFields } from './class-fields';
+import { CurrentCredentialsFields } from './current-credentials-fields/current-credentials-fields';
 import {
   authModeUsesSecret,
   canKeepCredentials,
@@ -59,13 +61,16 @@ import {
   getCredentialsFields,
   getStorageFields,
 } from './create-edit-modal.utils';
+import { useCredentialsReadOnlyReason } from './hooks/use-credentials-read-only-reason';
 
 const SecretSelect = ({
   name,
+  label,
   secretNames,
   loading,
 }: {
   name: string;
+  label: string;
   secretNames: string[];
   loading: boolean;
 }) => {
@@ -76,12 +81,7 @@ const SecretSelect = ({
       : secretNames;
 
   return (
-    <SelectInput
-      name={name}
-      label={Messages.createEditModal.secret}
-      loading={loading}
-      isRequired
-    >
+    <SelectInput name={name} label={label} loading={loading} isRequired>
       {options.map((secretName) => (
         <MenuItem key={secretName} value={secretName}>
           {secretName}
@@ -112,6 +112,7 @@ export const CreateEditStorageForm = ({
   const { data: namespaces = [], isFetching: isNamespacesFetching } =
     useNamespaces();
   const [
+    storageName,
     namespace,
     backupStorageClassName,
     authMode,
@@ -121,6 +122,7 @@ export const CreateEditStorageForm = ({
   ] = useWatch({
     control,
     name: [
+      StorageLocationsFields.name,
       StorageLocationsFields.namespace,
       StorageLocationsFields.backupStorageClass,
       StorageLocationsFields.authMode,
@@ -173,9 +175,44 @@ export const CreateEditStorageForm = ({
     [backupStorageClass, authMode]
   );
   const usesSecret = authModeUsesSecret(backupStorageClass, authMode);
-  const entersCredentials =
-    credentialsFields.length > 0 && credentialsSource === CredentialsSource.New;
   const keepsCredentials = canKeepCredentials(previous, authMode);
+  const replacesCredentials =
+    keepsCredentials && credentialsSource === CredentialsSource.Current;
+  const entersCredentials =
+    !keepsCredentials &&
+    credentialsFields.length > 0 &&
+    credentialsSource === CredentialsSource.New;
+  const credentialsReadOnlyReason = useCredentialsReadOnlyReason(
+    namespace,
+    previous?.spec.authentication.credentialsSecretRef?.name ?? '',
+    replacesCredentials
+  );
+  const credentialsOptions = keepsCredentials
+    ? [
+        {
+          label: Messages.createEditModal.currentCredentials,
+          value: CredentialsSource.Current,
+        },
+        {
+          label: Messages.createEditModal.otherSavedCredentials,
+          value: CredentialsSource.Existing,
+        },
+      ]
+    : [
+        {
+          label: Messages.createEditModal.enterCredentials,
+          value: CredentialsSource.New,
+        },
+        {
+          label: Messages.createEditModal.savedCredentials,
+          value: CredentialsSource.Existing,
+        },
+      ];
+  const defaultCredentialsSecretName = backupStorageSecretName(
+    storageName,
+    BackupStorageSecretKind.Credentials
+  );
+  const replacesOwnCa = usesOwnCaSecret(previous);
   const conflict =
     secretConflict !== handledConflict ? secretConflict : undefined;
 
@@ -207,6 +244,20 @@ export const CreateEditStorageForm = ({
     );
   }, [backupStorageClass, authModes, getValues, setValue]);
 
+  // Only the storage's current credentials can be replaced in place, so a
+  // change of auth mode enters new ones, and changing it back keeps them.
+  useEffect(() => {
+    const source = getValues(StorageLocationsFields.credentialsSource);
+    if (!keepsCredentials && source === CredentialsSource.Current) {
+      setValue(StorageLocationsFields.credentialsSource, CredentialsSource.New);
+    } else if (keepsCredentials && source === CredentialsSource.New) {
+      setValue(
+        StorageLocationsFields.credentialsSource,
+        CredentialsSource.Current
+      );
+    }
+  }, [keepsCredentials, getValues, setValue]);
+
   const pickConflictingSecret = () => {
     if (!conflict) {
       return;
@@ -223,19 +274,21 @@ export const CreateEditStorageForm = ({
       );
     } else {
       setValue(StorageLocationsFields.caSource, CaSource.Existing);
-      setValue(StorageLocationsFields.caSecretName, conflict.secretName);
-      setValue(StorageLocationsFields.caSecretKey, CA_SECRET_KEY, {
+      setValue(StorageLocationsFields.caSecretName, conflict.secretName, {
         shouldValidate: true,
       });
     }
     setHandledConflict(conflict);
   };
 
-  // A taken credentials name can be used only if its Secret holds credentials
-  // of the class and mode; a CA bundle belongs to no class.
+  // A taken name can be used only if it holds credentials of the class and
+  // mode, or certificates, as the pickers list them.
   const conflictReusable =
-    conflict?.kind === BackupStorageSecretKind.CA ||
-    (!!conflict && credentialsSecretNames.includes(conflict.secretName));
+    !!conflict &&
+    (conflict.kind === BackupStorageSecretKind.CA
+      ? caSecretNames
+      : credentialsSecretNames
+    ).includes(conflict.secretName);
 
   const conflictAlert = (kind: BackupStorageSecretKind) =>
     conflict?.kind === kind && (
@@ -257,7 +310,7 @@ export const CreateEditStorageForm = ({
       >
         {conflictReusable
           ? Messages.createEditModal.secretConflict(kind, conflict.secretName)
-          : Messages.createEditModal.secretTaken(conflict.secretName)}
+          : Messages.createEditModal.secretTaken(kind, conflict.secretName)}
       </Alert>
     );
 
@@ -327,42 +380,33 @@ export const CreateEditStorageForm = ({
           </SelectInput>
           {usesSecret && (
             <>
-              {credentialsFields.length > 0 ? (
+              {keepsCredentials || credentialsFields.length > 0 ? (
                 <RadioGroup
                   name={StorageLocationsFields.credentialsSource}
                   radioGroupFieldProps={{ sx: { mt: 2 } }}
-                  options={[
-                    {
-                      label: Messages.createEditModal.enterCredentials,
-                      value: CredentialsSource.New,
-                    },
-                    {
-                      label: Messages.createEditModal.existingSecret,
-                      value: CredentialsSource.Existing,
-                    },
-                  ]}
+                  options={credentialsOptions}
                 />
               ) : (
                 <Typography variant="caption" sx={{ mt: 2 }}>
                   {Messages.createEditModal.noCredentialsForm}
                 </Typography>
               )}
-              {entersCredentials ? (
-                <>
-                  {keepsCredentials && (
-                    <Typography variant="caption">
-                      {Messages.createEditModal.keepCredentialsOnEdit}
-                    </Typography>
-                  )}
-                  <ClassFields
-                    fields={credentialsFields}
-                    root={StorageLocationsFields.credentials}
-                    optional={keepsCredentials}
-                  />
-                </>
-              ) : (
+              {replacesCredentials && (
+                <CurrentCredentialsFields
+                  fields={credentialsFields}
+                  readOnlyReason={credentialsReadOnlyReason}
+                />
+              )}
+              {entersCredentials && (
+                <ClassFields
+                  fields={credentialsFields}
+                  root={StorageLocationsFields.credentials}
+                />
+              )}
+              {!replacesCredentials && !entersCredentials && (
                 <SecretSelect
                   name={StorageLocationsFields.credentialsSecretName}
+                  label={Messages.createEditModal.credentialsSelect}
                   secretNames={credentialsSecretNames}
                   loading={loadingCredentialsSecrets}
                 />
@@ -383,6 +427,19 @@ export const CreateEditStorageForm = ({
           </Typography>
         </AccordionSummary>
         <AccordionDetails sx={{ display: 'flex', flexDirection: 'column' }}>
+          {entersCredentials && (
+            <TextInput
+              name={StorageLocationsFields.credentialsSaveAs}
+              label={Messages.createEditModal.saveCredentialsAs}
+              textFieldProps={{
+                placeholder: defaultCredentialsSecretName,
+                helperText: Messages.createEditModal.saveCredentialsAsHelper(
+                  defaultCredentialsSecretName
+                ),
+                sx: { mb: 2 },
+              }}
+            />
+          )}
           <RadioGroup
             name={StorageLocationsFields.tlsMode}
             label={Messages.createEditModal.tls}
@@ -406,18 +463,23 @@ export const CreateEditStorageForm = ({
             <>
               <RadioGroup
                 name={StorageLocationsFields.caSource}
+                radioGroupFieldProps={{ row: false }}
                 options={[
                   {
                     label: Messages.createEditModal.caPem,
                     value: CaSource.New,
                   },
                   {
-                    label: Messages.createEditModal.existingSecret,
+                    label: Messages.createEditModal.caSaved,
                     value: CaSource.Existing,
+                  },
+                  {
+                    label: Messages.createEditModal.caExternal,
+                    value: CaSource.External,
                   },
                 ]}
               />
-              {caSource === CaSource.New ? (
+              {caSource === CaSource.New && (
                 <TextInput
                   name={StorageLocationsFields.caBundle}
                   label={Messages.createEditModal.caBundle}
@@ -426,14 +488,26 @@ export const CreateEditStorageForm = ({
                     multiline: true,
                     minRows: 4,
                     placeholder: '-----BEGIN CERTIFICATE-----',
+                    helperText: replacesOwnCa
+                      ? Messages.createEditModal.caReplacesOwn
+                      : undefined,
                   }}
                 />
-              ) : (
+              )}
+              {caSource === CaSource.Existing && (
+                <SecretSelect
+                  name={StorageLocationsFields.caSecretName}
+                  label={Messages.createEditModal.caSelect}
+                  secretNames={caSecretNames}
+                  loading={loadingCASecrets}
+                />
+              )}
+              {caSource === CaSource.External && (
                 <>
-                  <SecretSelect
+                  <TextInput
                     name={StorageLocationsFields.caSecretName}
-                    secretNames={caSecretNames}
-                    loading={loadingCASecrets}
+                    label={Messages.createEditModal.caExternalName}
+                    isRequired
                   />
                   <TextInput
                     name={StorageLocationsFields.caSecretKey}

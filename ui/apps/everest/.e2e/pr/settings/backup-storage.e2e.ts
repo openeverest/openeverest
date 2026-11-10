@@ -24,6 +24,7 @@ import {
 } from '@e2e/constants';
 import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 import {
+  backupStorageCredentialsSecretName,
   deleteBackupStorage,
   getBackupStorage,
 } from '@e2e/utils/backup-storage';
@@ -148,6 +149,29 @@ test.describe.serial('Backup storage', () => {
       ).toHaveValue(newUrl);
       await page.getByTestId('form-dialog-cancel').click();
     });
+  });
+
+  test('Replace a credentials key', async ({ page }) => {
+    await findRowAndClickActions(page, backupStorageName, 'Edit');
+    await page
+      .getByTestId('credentials-key-AWS_SECRET_ACCESS_KEY')
+      .getByRole('button', { name: 'Replace' })
+      .click();
+    await page
+      .getByLabel(/^Secret access key/)
+      .fill(EVEREST_LOCATION_SECRET_KEY);
+
+    // The key is patched in place: a dry run, then the write.
+    const secretUrl = `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/secrets/${backupStorageCredentialsSecretName(backupStorageName)}`;
+    const patchResponse = page.waitForResponse(
+      (resp) =>
+        resp.request().method() === 'PATCH' &&
+        resp.url().endsWith(secretUrl) &&
+        resp.status() === 200
+    );
+    await page.getByTestId('form-dialog-edit').click();
+    await patchResponse;
+    await expect(page.getByRole('dialog')).not.toBeVisible();
   });
 
   test('Delete Backup Storage', async ({ page }) => {

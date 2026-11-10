@@ -27,34 +27,59 @@ export const Messages = {
     noClasses: 'No backup storage class is available in this cluster',
     authentication: 'Authentication',
     authMode: 'Authentication mode',
-    credentials: 'Credentials',
     enterCredentials: 'Enter credentials',
-    existingSecret: 'Use an existing Secret',
-    secret: 'Secret',
-    keepCredentialsOnEdit:
-      'Leave the fields blank to keep the current Secret. New credentials are saved to a new Secret.',
+    savedCredentials: 'Use saved credentials',
+    currentCredentials: 'Current credentials',
+    otherSavedCredentials: 'Use other saved credentials',
+    credentialsSelect: 'Saved credentials',
     noCredentialsForm:
-      'This authentication mode can only use an existing Secret.',
+      'This authentication mode can only use saved credentials.',
+    configured: 'Configured',
+    replace: 'Replace',
+    keepCurrentValue: 'Keep current value',
+    optionalKeepsValue: 'Optional · leave blank to keep the current value',
+    remove: 'Remove',
+    removedOnSave: 'Removed when you save',
+    undo: 'Undo',
+    replaceAppliesEverywhere:
+      'A replaced value applies to everything that uses these credentials.',
+    credentialsUnreadable: (name: string) =>
+      `Credentials ${name} can't be read: they are missing, or were saved outside OpenEverest. Use other saved credentials to change them.`,
+    credentialsManagedOutside:
+      'These credentials are managed outside OpenEverest; change them at their source.',
+    credentialsNotUpdatable: (name: string) =>
+      `You don't have permission to change credentials ${name}. Ask an administrator, or use other saved credentials.`,
+    saveCredentialsAs: 'Save credentials as',
+    saveCredentialsAsHelper: (defaultName: string) =>
+      `Defaults to ${defaultName}.`,
     none: 'None',
     advanced: 'Advanced',
     tls: 'TLS certificate verification',
     tlsSystem: 'System trust store',
-    tlsCustomCA: 'Custom CA',
+    tlsCustomCA: 'Trusted certificates',
     tlsSkipVerify: 'Skip certificate verification',
     tlsSkipVerifyWarning:
       "The server's certificate won't be verified, leaving connections to the storage open to man-in-the-middle attacks.",
-    caPem: 'Paste a PEM bundle',
-    caBundle: 'CA certificates (PEM)',
-    caKey: 'Key',
+    caPem: 'Paste certificates',
+    caSaved: 'Use saved certificates',
+    caExternal: 'Certificates from another tool, such as cert-manager',
+    caBundle: 'Certificates (PEM)',
+    caReplacesOwn:
+      'Replaces the certificates saved for this storage, and for everything else that uses them.',
+    caSelect: 'Saved certificates',
+    caExternalName: 'Secret name',
+    caKey: 'Key in the Secret',
     invalidCaBundle: 'Enter one or more PEM-encoded certificates',
     required: 'Required',
     secretConflict: (kind: BackupStorageSecretKind, secretName: string) =>
-      `A Secret named "${secretName}" already exists in this namespace, so the ${
-        kind === BackupStorageSecretKind.CA ? 'CA bundle' : 'credentials'
-      } can't be saved under that name.`,
-    secretTaken: (secretName: string) =>
-      `A Secret named "${secretName}" already exists in this namespace and doesn't hold credentials for this storage type and authentication mode. Choose another storage name, or use an existing Secret.`,
-    useSecret: 'Use that Secret',
+      kind === BackupStorageSecretKind.CA
+        ? `Saved certificates named "${secretName}" already exist in this namespace.`
+        : `Saved credentials named "${secretName}" already exist in this namespace.`,
+    secretTaken: (kind: BackupStorageSecretKind, secretName: string) =>
+      kind === BackupStorageSecretKind.CA
+        ? `"${secretName}" already exists in this namespace and doesn't hold saved certificates. Use saved certificates instead.`
+        : `"${secretName}" already exists in this namespace and doesn't hold credentials for this storage type and authentication mode. Use saved credentials, or save the new ones under another name in Advanced.`,
+    useSecret: 'Use them',
   },
   deleteDialog: {
     header: 'Delete storage',
