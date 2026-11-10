@@ -883,7 +883,7 @@ export interface paths {
          * List monitoring classes
          * @description This API lists all monitoring classes in the specified cluster.
          *     Monitoring classes are installed with their extension and are read-only over this API.
-         *     Optionally filter by provider: only the classes whose `status.providers` entry for that provider carries a `mode` are returned, so the result is what an Instance of that provider can use.
+         *     Optionally filter by provider: only the classes whose `status.providers` entry for that provider carries a `mode` and was computed for the class's current generation (`classGeneration`) are returned, so the result is what an Instance of that provider can use.
          */
         get: operations["listMonitoringClasses"];
         put?: never;
@@ -6141,7 +6141,9 @@ export interface components {
                             container?: string;
                             /**
                              * @description Kind is the kind of the component's type
-                             *     (Provider.spec.componentTypes.<type>.kind).
+                             *     (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+                             *     A provider may leave it empty; an endpoint it computes with another
+                             *     kind is not published.
                              */
                             kind: string;
                             /** @description PodSelector selects the pods serving the endpoint. */
@@ -6224,7 +6226,9 @@ export interface components {
                             component: string;
                             /**
                              * @description Kind is the kind of the component's type
-                             *     (Provider.spec.componentTypes.<type>.kind).
+                             *     (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+                             *     A provider may leave it empty; an endpoint it computes with another
+                             *     kind is not published.
                              */
                             kind: string;
                             /** @description Params are extra scrape query parameters (e.g. target for /probe). */
@@ -7400,6 +7404,8 @@ export interface components {
                      *     pods of bound Instances (status.podMetadata of its bindings), for
                      *     backends whose agents discover databases through pod annotations. The
                      *     provider renders them into the pod templates, which rolls the pods.
+                     *     When set, only component types declaring podMetadata: Supported are
+                     *     eligible.
                      */
                     podMetadata?: {
                         /**
@@ -7531,6 +7537,12 @@ export interface components {
                  *     Provider.
                  */
                 providers?: {
+                    /**
+                     * Format: int64
+                     * @description ClassGeneration is the class's metadata.generation the entry was
+                     *     computed for. An entry computed for another generation is stale.
+                     */
+                    classGeneration?: number;
                     /**
                      * @description Disruption is the worst that enabling the class does to the pods of
                      *     one of the Provider's Instances. Set when Mode is set.

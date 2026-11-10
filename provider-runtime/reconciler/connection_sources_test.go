@@ -84,9 +84,15 @@ func TestValidConnections(t *testing.T) {
 			want:        []v1alpha1.ConnectionEndpoint{valid},
 		},
 		{
-			name:        "kind comes from the declared component type",
+			name:        "empty kind is set to the declared kind of the component type",
 			credentials: monitor,
-			connections: []v1alpha1.ConnectionEndpoint{with(func(ep *v1alpha1.ConnectionEndpoint) { ep.Kind = "mysql" })},
+			connections: []v1alpha1.ConnectionEndpoint{with(func(ep *v1alpha1.ConnectionEndpoint) { ep.Kind = "" })},
+			want:        []v1alpha1.ConnectionEndpoint{valid},
+		},
+		{
+			name:        "kind other than the declared kind of the component type",
+			credentials: monitor,
+			connections: []v1alpha1.ConnectionEndpoint{valid, with(func(ep *v1alpha1.ConnectionEndpoint) { ep.Kind = "mysql" })},
 			want:        []v1alpha1.ConnectionEndpoint{valid},
 		},
 		{
@@ -128,7 +134,7 @@ func TestValidConnections(t *testing.T) {
 	}
 }
 
-func TestValidMetricsTakesKindFromComponentType(t *testing.T) {
+func TestValidMetricsKindIsTheDeclaredKind(t *testing.T) {
 	t.Parallel()
 
 	spec := &v1alpha1.ProviderSpec{
@@ -158,10 +164,12 @@ func TestValidMetricsTakesKindFromComponentType(t *testing.T) {
 	}
 
 	endpoints := []v1alpha1.MetricsEndpoint{
+		endpoint("engine", ""),
+		endpoint("engine", "mongodb"),
 		endpoint("engine", "mysql"),
 		endpoint("hidden", "mongodb"),
 	}
 	got := validMetrics(in, spec, nil, endpoints, logr.Discard())
 
-	assert.Equal(t, []v1alpha1.MetricsEndpoint{endpoint("engine", "mongodb")}, got)
+	assert.Equal(t, []v1alpha1.MetricsEndpoint{endpoint("engine", "mongodb"), endpoint("engine", "mongodb")}, got)
 }

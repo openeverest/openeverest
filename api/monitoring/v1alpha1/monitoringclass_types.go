@@ -124,6 +124,8 @@ type ExtensionManagedFulfilment struct {
 	// pods of bound Instances (status.podMetadata of its bindings), for
 	// backends whose agents discover databases through pod annotations. The
 	// provider renders them into the pod templates, which rolls the pods.
+	// When set, only component types declaring podMetadata: Supported are
+	// eligible.
 	// +optional
 	PodMetadata *PodMetadataPolicy `json:"podMetadata,omitempty"`
 }
@@ -208,7 +210,8 @@ const (
 )
 
 // ProviderCompatibility is the class's compatibility with one Provider,
-// computed by core from Provider.spec.monitoring.
+// computed by core from Provider.spec.monitoring and the kinds of
+// Provider.spec.componentTypes.
 type ProviderCompatibility struct {
 	// Name is the Provider name.
 	// +kubebuilder:validation:Required
@@ -227,6 +230,21 @@ type ProviderCompatibility struct {
 	// Message is the human-readable detail for Reason.
 	// +optional
 	Message string `json:"message,omitempty"`
+	// ClassGeneration is the class's metadata.generation the entry was
+	// computed for. An entry computed for another generation is stale.
+	// +optional
+	ClassGeneration int64 `json:"classGeneration,omitempty"`
+}
+
+// CurrentProviderCompatibility returns the status.providers entry for the
+// Provider called name, or nil when there is none or it was computed for
+// another generation of the class.
+func (c *MonitoringClass) CurrentProviderCompatibility(name string) *ProviderCompatibility {
+	i := slices.IndexFunc(c.Status.Providers, func(p ProviderCompatibility) bool { return p.Name == name })
+	if i < 0 || c.Status.Providers[i].ClassGeneration != c.Generation {
+		return nil
+	}
+	return &c.Status.Providers[i]
 }
 
 // MonitoringClassStatus defines the observed state of MonitoringClass. It

@@ -285,7 +285,9 @@ type MetricsEndpoint struct {
 	// +kubebuilder:validation:Required
 	Component string `json:"component"`
 	// Kind is the kind of the component's type
-	// (Provider.spec.componentTypes.<type>.kind).
+	// (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+	// A provider may leave it empty; an endpoint it computes with another
+	// kind is not published.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
 	Kind string `json:"kind"`
@@ -346,7 +348,9 @@ type ConnectionEndpoint struct {
 	// +kubebuilder:validation:Required
 	Component string `json:"component"`
 	// Kind is the kind of the component's type
-	// (Provider.spec.componentTypes.<type>.kind).
+	// (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+	// A provider may leave it empty; an endpoint it computes with another
+	// kind is not published.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
 	Kind string `json:"kind"`

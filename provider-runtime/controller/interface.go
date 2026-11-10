@@ -455,7 +455,9 @@ type MonitoringSourcesProvider interface {
 	// whose pod selector lacks the Instance label, metrics endpoints with a
 	// scheme other than http or https and endpoints naming a credential
 	// profile missing from credentials, and keeps at most 32 of each.
-	// It sets each endpoint's kind from its declared component type and
+	// Endpoints of a component type without a kind, or whose kind differs
+	// from the type's declared kind (Provider.spec.componentTypes.<type>.kind),
+	// are dropped too; an empty kind is set to the declared one. The runtime
 	// overwrites identity. Returning nil clears the published sources; an
 	// error keeps the previous ones.
 	MonitoringSources(c *Context) (*corev1alpha1.MonitoringSources, error)

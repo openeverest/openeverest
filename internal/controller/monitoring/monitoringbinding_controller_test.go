@@ -268,6 +268,10 @@ func TestBindingReconcilerSelectsMode(t *testing.T) {
 
 	oldAgent := pmmClass()
 	oldAgent.Spec.ProviderManaged.AgentVersion = "2.44.0"
+	withoutPodMetadata := psmdbProvider()
+	mongod := withoutPodMetadata.Spec.Monitoring.ComponentTypes["mongod"]
+	mongod.PodMetadata = corev1alpha1.PodMetadataNone
+	withoutPodMetadata.Spec.Monitoring.ComponentTypes["mongod"] = mongod
 
 	tests := []struct {
 		name        string
@@ -303,6 +307,32 @@ func TestBindingReconcilerSelectsMode(t *testing.T) {
 			entry:       entry("pmm", "pmm-prod"),
 			wantReason:  monitoringv1alpha1.ReasonIncompatible,
 			wantMessage: `MonitoringClass "pmm" agentVersion 2.44.0 is outside the range ">=3.0.0 <4.0.0" Provider "percona-xtradb-cluster" supports`,
+		},
+		{
+			name:        "ExtensionManaged for a component of a listed kind rendering pod annotations",
+			provider:    psmdbProvider(),
+			class:       annotationDiscoveryClass(),
+			destination: newDestination("coroot", "coroot"),
+			entry:       entry("apm", "coroot"),
+			wantMode:    corev1alpha1.MonitoringExecutionModeExtensionManaged,
+		},
+		{
+			name:        "no component of a kind the class lists",
+			provider:    pxcProvider(),
+			class:       annotationDiscoveryClass(),
+			destination: newDestination("coroot", "coroot"),
+			entry:       entry("apm", "coroot"),
+			wantReason:  monitoringv1alpha1.ReasonKindUnsupported,
+			wantMessage: `no component is of a kind MonitoringClass "coroot" supports (mongodb, postgresql); found haproxy, mysql`,
+		},
+		{
+			name:        "no eligible component renders the requested pod annotations",
+			provider:    withoutPodMetadata,
+			class:       annotationDiscoveryClass(),
+			destination: newDestination("coroot", "coroot"),
+			entry:       entry("apm", "coroot"),
+			wantReason:  monitoringv1alpha1.ReasonPodMetadataUnsupported,
+			wantMessage: `MonitoringClass "coroot" requests pod annotations, which Provider "percona-server-mongodb" does not render into the pods of mongod (podMetadata is not Supported)`,
 		},
 	}
 	for _, tt := range tests {

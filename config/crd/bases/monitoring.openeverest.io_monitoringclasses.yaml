@@ -146,6 +146,8 @@ spec:
                       pods of bound Instances (status.podMetadata of its bindings), for
                       backends whose agents discover databases through pod annotations. The
                       provider renders them into the pod templates, which rolls the pods.
+                      When set, only component types declaring podMetadata: Supported are
+                      eligible.
                     properties:
                       annotationPrefixes:
                         description: |-
@@ -341,8 +343,15 @@ spec:
                 items:
                   description: |-
                     ProviderCompatibility is the class's compatibility with one Provider,
-                    computed by core from Provider.spec.monitoring.
+                    computed by core from Provider.spec.monitoring and the kinds of
+                    Provider.spec.componentTypes.
                   properties:
+                    classGeneration:
+                      description: |-
+                        ClassGeneration is the class's metadata.generation the entry was
+                        computed for. An entry computed for another generation is stale.
+                      format: int64
+                      type: integer
                     disruption:
                       description: |-
                         Disruption is the worst that enabling the class does to the pods of

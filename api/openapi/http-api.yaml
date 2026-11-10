@@ -2867,7 +2867,7 @@ paths:
       description: |
         This API lists all monitoring classes in the specified cluster.
         Monitoring classes are installed with their extension and are read-only over this API.
-        Optionally filter by provider: only the classes whose `status.providers` entry for that provider carries a `mode` are returned, so the result is what an Instance of that provider can use.
+        Optionally filter by provider: only the classes whose `status.providers` entry for that provider carries a `mode` and was computed for the class's current generation (`classGeneration`) are returned, so the result is what an Instance of that provider can use.
       operationId: listMonitoringClasses
       parameters:
         - name: cluster

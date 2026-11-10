@@ -467,8 +467,8 @@ func (r *ProviderReconciler) controlledCredentials(ctx context.Context, in *v1al
 }
 
 // validMetrics drops the endpoints the Provider declaration or the Instance
-// status schema rejects, sets each kind from its component type's declared
-// kind and keeps at most maxMetricsEndpoints.
+// status schema rejects, sets each kind to its component type's declared
+// kind (see endpointType) and keeps at most maxMetricsEndpoints.
 func validMetrics(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, credentials []v1alpha1.MonitoringCredential, metrics []v1alpha1.MetricsEndpoint, logger logr.Logger) []v1alpha1.MetricsEndpoint {
 	var declared map[string]v1alpha1.MonitoringComponentType
 	if spec.Monitoring != nil {
@@ -481,17 +481,15 @@ func validMetrics(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, credential
 
 	var out []v1alpha1.MetricsEndpoint
 	for _, ep := range metrics {
-		componentType := in.Spec.Components[ep.Component].Type
-		if componentType == "" {
-			componentType = spec.Components[ep.Component].Type
-		}
+		componentType, kind, kindValid := endpointType(in, spec, ep.Component, ep.Kind)
 		decl, isDeclared := declared[componentType]
-		kind := spec.ComponentTypes[componentType].Kind
 		switch {
 		case !isDeclared:
 			logger.Info("Dropping metrics endpoint of an undeclared component type", "component", ep.Component, "type", componentType)
-		case kind == "":
-			logger.Info("Dropping metrics endpoint of a component type declared without a kind", "component", ep.Component, "type", componentType)
+		case !kindValid:
+			logger.Info("Dropping metrics endpoint whose kind is not the declared kind of its component type",
+				"component", ep.Component, "type", componentType, "kind", ep.Kind, "declaredKind", kind,
+			)
 		case decl.Metrics == v1alpha1.MetricsSourceNone:
 			logger.Info("Dropping metrics endpoint of a component type declared without metrics", "component", ep.Component, "type", componentType)
 		case ep.PodSelector[controller.InstanceLabel] != in.Name:
@@ -513,8 +511,9 @@ func validMetrics(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, credential
 }
 
 // validConnections drops the connection endpoints the Provider declaration
-// or the Instance status schema rejects, sets each kind from its component
-// type's declared kind and keeps at most maxMetricsEndpoints.
+// or the Instance status schema rejects, sets each kind to its component
+// type's declared kind (see endpointType) and keeps at most
+// maxMetricsEndpoints.
 func validConnections(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, credentials []v1alpha1.MonitoringCredential, connections []v1alpha1.ConnectionEndpoint, logger logr.Logger) []v1alpha1.ConnectionEndpoint {
 	var declared map[string]v1alpha1.MonitoringComponentType
 	if spec.Monitoring != nil {
@@ -527,17 +526,15 @@ func validConnections(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, creden
 
 	var out []v1alpha1.ConnectionEndpoint
 	for _, ep := range connections {
-		componentType := in.Spec.Components[ep.Component].Type
-		if componentType == "" {
-			componentType = spec.Components[ep.Component].Type
-		}
+		componentType, kind, kindValid := endpointType(in, spec, ep.Component, ep.Kind)
 		decl, isDeclared := declared[componentType]
-		kind := spec.ComponentTypes[componentType].Kind
 		switch {
 		case !isDeclared:
 			logger.Info("Dropping connection endpoint of an undeclared component type", "component", ep.Component, "type", componentType)
-		case kind == "":
-			logger.Info("Dropping connection endpoint of a component type declared without a kind", "component", ep.Component, "type", componentType)
+		case !kindValid:
+			logger.Info("Dropping connection endpoint whose kind is not the declared kind of its component type",
+				"component", ep.Component, "type", componentType, "kind", ep.Kind, "declaredKind", kind,
+			)
 		case decl.Connection != v1alpha1.ConnectionSupported:
 			logger.Info("Dropping connection endpoint of a component type declared without connections", "component", ep.Component, "type", componentType)
 		case ep.PodSelector[controller.InstanceLabel] != in.Name:
@@ -554,6 +551,22 @@ func validConnections(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, creden
 		out = out[:maxMetricsEndpoints]
 	}
 	return out
+}
+
+// endpointType returns the type of an endpoint's component (from the
+// Instance, else the Provider) and the kind the type declares in
+// Provider.spec.componentTypes, which every published endpoint of the type
+// carries, and whether an endpoint the provider computed with kind may be
+// published: the type must declare a kind and the provider may leave kind
+// empty, but an endpoint whose kind contradicts the declaration is dropped
+// rather than relabelled, since consumers pick their client by kind.
+func endpointType(in *v1alpha1.Instance, spec *v1alpha1.ProviderSpec, component, kind string) (string, string, bool) {
+	componentType := in.Spec.Components[component].Type
+	if componentType == "" {
+		componentType = spec.Components[component].Type
+	}
+	declared := spec.ComponentTypes[componentType].Kind
+	return componentType, declared, declared != "" && (kind == "" || kind == declared)
 }
 
 // clusterID returns the UID of the kube-system namespace. It is read once,
