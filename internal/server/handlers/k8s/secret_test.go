@@ -239,7 +239,7 @@ func TestGetSecret(t *testing.T) {
 	}
 }
 
-func TestUpdateSecret(t *testing.T) {
+func TestPatchSecret(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -262,7 +262,7 @@ func TestUpdateSecret(t *testing.T) {
 				Annotations: map[string]string{"example.com/note": "kept"},
 			},
 			Type: corev1.SecretTypeOpaque,
-			Data: map[string][]byte{"token": []byte("old"), "orgID": []byte("1")},
+			Data: map[string][]byte{"token": []byte("old"), "orgID": []byte("1"), "region": []byte("eu")},
 		}
 	}
 	newHandler := func(objs ...ctrlclient.Object) (*k8sHandler, ctrlclient.Client) {
@@ -279,59 +279,73 @@ func TestUpdateSecret(t *testing.T) {
 		return secret
 	}
 
-	t.Run("replaces the data and keeps the rest of the stored Secret", func(t *testing.T) {
+	t.Run("merges the data and changes nothing else", func(t *testing.T) {
 		t.Parallel()
 
 		handler, c := newHandler(stored("pmm-credentials", labels))
-		result, err := handler.UpdateSecret(ctx, "", namespace, "pmm-credentials", &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:            "other-name",
-				Labels:          map[string]string{"team": "a"},
-				Annotations:     map[string]string{"example.com/note": "replaced"},
-				OwnerReferences: []metav1.OwnerReference{{APIVersion: "v1", Kind: "ConfigMap", Name: "owner", UID: "1"}},
+		current := get(t, c, "pmm-credentials").ResourceVersion
+
+		patch := []byte(`{
+			"metadata": {
+				"resourceVersion": "` + current + `",
+				"name": "other-name",
+				"annotations": {"example.com/note": "replaced"},
+				"ownerReferences": [{"apiVersion": "v1", "kind": "ConfigMap", "name": "owner", "uid": "1"}]
 			},
-			Type: corev1.SecretTypeBasicAuth,
-			Data: map[string][]byte{"token": []byte("new")},
-		})
+			"type": "Opaque",
+			"data": {"orgID": null},
+			"stringData": {"token": "new"}
+		}`)
+		result, err := handler.PatchSecret(ctx, "", namespace, "pmm-credentials", patch)
 		require.NoError(t, err)
 		assert.Nil(t, result.Data)
 		assert.Nil(t, result.StringData)
 
 		got := get(t, c, "pmm-credentials")
-		assert.Equal(t, map[string][]byte{"token": []byte("new")}, got.Data, "keys left out are removed")
+		assert.Equal(t, map[string][]byte{"token": []byte("new"), "region": []byte("eu")}, got.Data,
+			"keys sent are set, keys left out are kept, a null removes a key",
+		)
 		assert.Equal(t, labels, got.Labels)
 		assert.Equal(t, map[string]string{"example.com/note": "kept"}, got.Annotations)
 		assert.Empty(t, got.OwnerReferences)
 		assert.Equal(t, corev1.SecretTypeOpaque, got.Type)
 	})
 
-	t.Run("updates with the resourceVersion the client sent", func(t *testing.T) {
+	t.Run("refuses a stale resourceVersion", func(t *testing.T) {
 		t.Parallel()
 
 		handler, c := newHandler(stored("pmm-credentials", labels))
 		current := get(t, c, "pmm-credentials").ResourceVersion
+		patch := func(token string) []byte {
+			return []byte(`{"metadata": {"resourceVersion": "` + current + `"}, "stringData": {"token": "` + token + `"}}`)
+		}
 
-		_, err := handler.UpdateSecret(ctx, "", namespace, "pmm-credentials", &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{ResourceVersion: current},
-			Data:       map[string][]byte{"token": []byte("new")},
-		})
+		_, err := handler.PatchSecret(ctx, "", namespace, "pmm-credentials", patch("new"))
 		require.NoError(t, err)
 
-		_, err = handler.UpdateSecret(ctx, "", namespace, "pmm-credentials", &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{ResourceVersion: current},
-			Data:       map[string][]byte{"token": []byte("newer")},
-		})
+		_, err = handler.PatchSecret(ctx, "", namespace, "pmm-credentials", patch("newer"))
 		require.True(t, k8serrors.IsConflict(err), "a stale resourceVersion must be refused, got %v", err)
 		assert.Equal(t, []byte("new"), get(t, c, "pmm-credentials").Data["token"])
+	})
+
+	t.Run("refuses a patch without a resourceVersion", func(t *testing.T) {
+		t.Parallel()
+
+		handler, c := newHandler(stored("pmm-credentials", labels))
+		_, err := handler.PatchSecret(ctx, "", namespace, "pmm-credentials", []byte(`{"stringData": {"token": "new"}}`))
+		require.ErrorIs(t, err, ErrInvalidRequest)
+		require.ErrorContains(t, err, "metadata.resourceVersion is required")
+		assert.Equal(t, []byte("old"), get(t, c, "pmm-credentials").Data["token"])
 	})
 
 	t.Run("refuses a Secret the API does not manage", func(t *testing.T) {
 		t.Parallel()
 
 		handler, c := newHandler(stored("unmanaged", nil))
-		_, err := handler.UpdateSecret(ctx, "", namespace, "unmanaged", &corev1.Secret{
-			Data: map[string][]byte{"token": []byte("new")},
-		})
+		current := get(t, c, "unmanaged").ResourceVersion
+		_, err := handler.PatchSecret(ctx, "", namespace, "unmanaged",
+			[]byte(`{"metadata": {"resourceVersion": "`+current+`"}, "stringData": {"token": "new"}}`),
+		)
 		require.ErrorIs(t, err, ErrNotFound)
 		assert.Equal(t, []byte("old"), get(t, c, "unmanaged").Data["token"])
 	})
@@ -340,9 +354,9 @@ func TestUpdateSecret(t *testing.T) {
 		t.Parallel()
 
 		handler, _ := newHandler()
-		_, err := handler.UpdateSecret(ctx, "", namespace, "missing", &corev1.Secret{
-			Data: map[string][]byte{"token": []byte("new")},
-		})
+		_, err := handler.PatchSecret(ctx, "", namespace, "missing",
+			[]byte(`{"metadata": {"resourceVersion": "1"}, "stringData": {"token": "new"}}`),
+		)
 		require.True(t, k8serrors.IsNotFound(err), "got %v", err)
 	})
 }

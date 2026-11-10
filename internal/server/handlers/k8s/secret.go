@@ -16,8 +16,11 @@ package k8s
 
 import (
 	"context"
+	"errors"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
@@ -91,10 +94,16 @@ func (h *k8sHandler) GetSecret(ctx context.Context, _ string, namespace, name st
 	return stripSecretData(secret), nil
 }
 
-// UpdateSecret replaces the data of the managed Secret named by the path and
-// keeps everything else from the stored Secret. Secret contents are stripped
-// so only metadata is returned.
-func (h *k8sHandler) UpdateSecret(ctx context.Context, _ string, namespace, name string, secret *corev1.Secret) (*corev1.Secret, error) {
+// PatchSecret applies the data of a merge patch to the managed Secret named by
+// the path, on the condition that it is still at the resourceVersion the patch
+// carries. The patch sent to Kubernetes holds that precondition and the data
+// keys, nothing else. Secret contents are stripped so only metadata is returned.
+func (h *k8sHandler) PatchSecret(ctx context.Context, _ string, namespace, name string, patch []byte) (*corev1.Secret, error) {
+	p, err := handlers.ParseSecretPatch(patch)
+	if err != nil {
+		return nil, errors.Join(ErrInvalidRequest, err)
+	}
+
 	stored, err := h.kubeConnector.GetSecret(ctx, ctrlclient.ObjectKey{
 		Name:      name,
 		Namespace: namespace,
@@ -107,14 +116,14 @@ func (h *k8sHandler) UpdateSecret(ctx context.Context, _ string, namespace, name
 		return nil, ErrNotFound
 	}
 
-	// The client's version, when it sends one, so a stale document is refused.
-	if rv := secret.GetResourceVersion(); rv != "" {
-		stored.ResourceVersion = rv
+	dataPatch, err := p.DataMergePatch()
+	if err != nil {
+		return nil, err
 	}
-	stored.Data = secret.Data
-	stored.StringData = secret.StringData
-
-	res, err := h.kubeConnector.UpdateSecret(ctx, stored)
+	res, err := h.kubeConnector.PatchSecret(ctx,
+		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name}},
+		ctrlclient.RawPatch(types.MergePatchType, dataPatch),
+	)
 	if err != nil {
 		return nil, err
 	}

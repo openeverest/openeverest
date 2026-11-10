@@ -58,7 +58,7 @@ func TestRBAC_Secret(t *testing.T) {
 		h.On("ListSecrets", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(secrets, nil)
 		h.On("GetSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&secrets.Items[0], nil)
 		h.On("CreateSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&secrets.Items[0], nil)
-		h.On("UpdateSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&secrets.Items[0], nil)
+		h.On("PatchSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&secrets.Items[0], nil)
 		h.On("DeleteSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 		return h
@@ -329,7 +329,7 @@ func TestRBAC_Secret(t *testing.T) {
 		}
 	})
 
-	t.Run("UpdateSecret", func(t *testing.T) {
+	t.Run("PatchSecret", func(t *testing.T) {
 		t.Parallel()
 
 		testCases := []struct {
@@ -388,11 +388,11 @@ func TestRBAC_Secret(t *testing.T) {
 					userGetter: testUserGetter,
 				}
 
-				req := &corev1.Secret{StringData: map[string]string{"token": "new"}}
-				result, err := h.UpdateSecret(ctx, tc.cluster, "ns1", "secret-prod", req)
+				patch := []byte(`{"metadata": {"resourceVersion": "1"}, "stringData": {"token": "new"}}`)
+				result, err := h.PatchSecret(ctx, tc.cluster, "ns1", "secret-prod", patch)
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
-					next.AssertNotCalled(t, "UpdateSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+					next.AssertNotCalled(t, "PatchSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 				} else {
 					require.NoError(t, err)
 					assert.Equal(t, "secret-prod", result.Name)
