@@ -65,7 +65,7 @@ func ParseSecretPatch(patch []byte) (*SecretPatch, error) {
 		return nil, fmt.Errorf("patch is not a Secret: %w", err)
 	}
 
-	p := &SecretPatch{Set: map[string][]byte{}}
+	p := &SecretPatch{Set: make(map[string][]byte)}
 	for _, parse := range []func(map[string]json.RawMessage) error{
 		p.parseMetadata, p.parseData, p.parseStringData, p.parseTypeAndImmutable,
 	} {
@@ -81,7 +81,7 @@ func ParseSecretPatch(patch []byte) (*SecretPatch, error) {
 func (p *SecretPatch) Apply(data map[string][]byte) map[string][]byte {
 	result := maps.Clone(data)
 	if result == nil {
-		result = map[string][]byte{}
+		result = make(map[string][]byte)
 	}
 	for _, key := range p.Remove {
 		delete(result, key)

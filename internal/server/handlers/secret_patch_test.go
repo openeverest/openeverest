@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 )
 
 func TestParseSecretPatch(t *testing.T) {
@@ -66,16 +67,16 @@ func TestParseSecretPatch(t *testing.T) {
 			}`,
 			want: &SecretPatch{
 				ResourceVersion: "7",
-				Set:             map[string][]byte{},
+				Set:             make(map[string][]byte),
 				Labels:          map[string]*string{"openeverest.io/managed": new("true")},
-				Type:            new(corev1.SecretTypeOpaque),
+				Type:            ptr.To(corev1.SecretTypeOpaque),
 				Immutable:       new(false),
 			},
 		},
 		{
 			name:  "a label set to null is recorded as removed",
 			patch: `{"metadata": {"resourceVersion": "7", "labels": {"team": null}}}`,
-			want:  &SecretPatch{ResourceVersion: "7", Set: map[string][]byte{}, Labels: map[string]*string{"team": nil}},
+			want:  &SecretPatch{ResourceVersion: "7", Set: make(map[string][]byte), Labels: map[string]*string{"team": nil}},
 		},
 		{
 			name:  "not an object",
@@ -173,12 +174,13 @@ func TestSecretPatchApply(t *testing.T) {
 		Remove: []string{"orgID", "absent"},
 	}
 	data := map[string][]byte{"token": []byte("old"), "orgID": []byte("1"), "kept": []byte("k")}
-
-	assert.Equal(t, map[string][]byte{
+	want := map[string][]byte{
 		"token":  []byte("new"),
 		"region": []byte("eu"),
 		"kept":   []byte("k"),
-	}, p.Apply(data))
+	}
+
+	assert.Equal(t, want, p.Apply(data))
 	assert.Equal(t, []byte("old"), data["token"], "the stored data is not modified")
 	assert.Equal(t, map[string][]byte{"token": []byte("new"), "region": []byte("eu")}, p.Apply(nil))
 }
@@ -191,11 +193,12 @@ func TestSecretPatchDataMergePatch(t *testing.T) {
 		Set:             map[string][]byte{"token": []byte("new")},
 		Remove:          []string{"orgID"},
 		Labels:          map[string]*string{"team": new("a")},
-		Type:            new(corev1.SecretTypeOpaque),
+		Type:            ptr.To(corev1.SecretTypeOpaque),
 	}
 
 	got, err := p.DataMergePatch()
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"metadata": {"resourceVersion": "7"}, "data": {"token": "bmV3", "orgID": null}}`, string(got),
-		"only the precondition and the data reach Kubernetes")
+		"only the precondition and the data reach Kubernetes",
+	)
 }
