@@ -38,7 +38,7 @@ export const Messages = {
     [MonitoringDestinationState.Failing]: 'Not ready',
   } satisfies Record<MonitoringDestinationState, string>,
   disabledReason: {
-    [DestinationDisabledReason.LimitReached]: `A database can send to at most ${MAX_MONITORING_DESTINATIONS} destinations`,
+    [DestinationDisabledReason.LimitReached]: `An instance can send to at most ${MAX_MONITORING_DESTINATIONS} destinations`,
     [DestinationDisabledReason.IntegrationTaken]:
       'Another destination of this system is already selected',
   } satisfies Record<DestinationDisabledReason, string>,

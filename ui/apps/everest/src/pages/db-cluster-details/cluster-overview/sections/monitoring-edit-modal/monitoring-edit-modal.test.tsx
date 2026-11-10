@@ -126,8 +126,8 @@ describe('MonitoringEditModal', () => {
     fireEvent.click(getCard('pmm-a'));
 
     expect(screen.getByTestId('monitoring-disruption')).toHaveTextContent(
-      'Enabling PMM restarts the database pods one at a time; connections briefly drop.' +
-        'This database will be briefly unavailable while it restarts.'
+      'Enabling PMM restarts the instance pods one at a time; connections briefly drop.' +
+        'This instance will be briefly unavailable while it restarts.'
     );
 
     const save = screen.getByTestId('form-dialog-save');

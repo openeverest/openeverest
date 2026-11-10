@@ -15,5 +15,5 @@
 export const Messages = {
   title: 'Monitoring',
   caption:
-    'Choose where this database sends its monitoring data. You can send it to several systems at once.',
+    'Choose where this instance sends its monitoring data. You can send it to several systems at once.',
 };
