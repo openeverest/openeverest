@@ -80,8 +80,19 @@ export const StorageLocations = () => {
     error: createBackupStorageError,
     reset: resetCreateBackupStorage,
   } = useCreateBackupStorage();
-  const { mutate: editBackupStorage, isPending: editingBackupStorage } =
-    useEditBackupStorage();
+  const {
+    mutate: editBackupStorage,
+    isPending: editingBackupStorage,
+    error: editBackupStorageError,
+    reset: resetEditBackupStorage,
+  } = useEditBackupStorage();
+  const secretConflict = [
+    createBackupStorageError,
+    editBackupStorageError,
+  ].find(
+    (error): error is BackupStorageSecretConflictError =>
+      error instanceof BackupStorageSecretConflictError
+  );
   const { mutate: deleteBackupStorage, isPending: deletingBackupStorage } =
     useDeleteBackupStorage();
 
@@ -150,6 +161,7 @@ export const StorageLocations = () => {
     setSelectedStorageLocation(undefined);
     setOpenCreateEditModal(false);
     resetCreateBackupStorage();
+    resetEditBackupStorage();
   };
 
   const handleEditBackupStorage = (
@@ -307,11 +319,7 @@ export const StorageLocations = () => {
           handleSubmitModal={handleSubmit}
           selectedStorageLocation={selectedStorageLocation}
           isLoading={creatingBackupStorage || editingBackupStorage}
-          secretConflict={
-            createBackupStorageError instanceof BackupStorageSecretConflictError
-              ? createBackupStorageError
-              : undefined
-          }
+          secretConflict={secretConflict}
         />
       )}
       {openDeleteDialog && (
