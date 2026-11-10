@@ -29,7 +29,6 @@ import (
 
 	"github.com/openeverest/openeverest/v2/internal/secretdefinition"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
-	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 // CreateSecret validates the secret request and proxies it to the next handler.
@@ -60,8 +59,9 @@ func (h *validateHandler) PatchSecret(ctx context.Context, cluster, namespace, n
 	if err != nil {
 		return nil, err
 	}
-	// The next handler answers for a Secret the API does not manage.
-	if stored.GetLabels()[common.OpenEverestManagedLabel] != "true" {
+	// The next handler answers for a Secret the API does not show or may not
+	// change, before anything about the patch is checked.
+	if !secretdefinition.Labelled(stored.GetLabels()) || secretdefinition.Writable(stored) != nil {
 		return h.next.PatchSecret(ctx, cluster, namespace, name, patch)
 	}
 	// Checked here, before the data, so a change made since reads as a

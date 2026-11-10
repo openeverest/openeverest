@@ -49,6 +49,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/cmd/config"
+	"github.com/openeverest/openeverest/v2/internal/secretdefinition"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	k8shandler "github.com/openeverest/openeverest/v2/internal/server/handlers/k8s"
@@ -594,12 +595,18 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 	return func(err error, c echo.Context) {
 		echoErrTarget := &echo.HTTPError{}
 		inUseMessage, inUse := inUseDenialMessage(err)
+		notWritable, managedElsewhere := secretManagedElsewhere(err)
 		switch {
 		case errors.As(err, &echoErrTarget):
 		case inUse:
 			err = &echo.HTTPError{
 				Code:    http.StatusConflict,
 				Message: apiErrorBody{Message: inUseMessage, Reason: reasonInUse},
+			}
+		case managedElsewhere:
+			err = &echo.HTTPError{
+				Code:    http.StatusConflict,
+				Message: notWritable,
 			}
 		case k8serrors.IsNotFound(err):
 			statusError := &k8serrors.StatusError{}
@@ -772,6 +779,31 @@ func inUseDenialMessage(err error) (string, bool) {
 		return "", false
 	}
 	return trimWebhookErrorText(statusError.ErrStatus.Message), true
+}
+
+const (
+	// reasonManagedByController is the reason of the 409 answering a change
+	// to a Secret that a controller owns.
+	reasonManagedByController = "ManagedByController"
+	// reasonManagedOutside is the reason of the 409 answering a change to a
+	// Secret that was not created through the API.
+	reasonManagedOutside = "ManagedOutside"
+)
+
+// secretManagedElsewhere reports whether err refuses a write to a Secret
+// that something other than the API manages (spec 020 §4.3), and returns the
+// body answering it. Like a stale resourceVersion, it is a conflict with the
+// Secret's current state, so it is a 409; the reason tells them apart.
+func secretManagedElsewhere(err error) (apiErrorBody, bool) {
+	var byController *secretdefinition.ManagedByControllerError
+	switch {
+	case errors.As(err, &byController):
+		return apiErrorBody{Message: err.Error(), Reason: reasonManagedByController}, true
+	case errors.Is(err, secretdefinition.ErrManagedOutside):
+		return apiErrorBody{Message: err.Error(), Reason: reasonManagedOutside}, true
+	default:
+		return apiErrorBody{}, false
+	}
 }
 
 // createSessionManagerClient creates a k8s client for a session manager.

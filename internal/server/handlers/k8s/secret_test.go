@@ -17,6 +17,8 @@ package k8s
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"maps"
 	"testing"
 	"time"
 
@@ -30,6 +32,7 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/openeverest/openeverest/v2/internal/secretdefinition"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
@@ -169,6 +172,7 @@ func TestGetSecret(t *testing.T) {
 					Name:      "secret-stringdata",
 					Namespace: namespace,
 					Labels: map[string]string{
+						common.OpenEverestProviderLabel:   "test-provider",
 						common.OpenEverestDefinitionLabel: "database-credentials",
 						common.OpenEverestManagedLabel:    "true",
 					},
@@ -187,6 +191,7 @@ func TestGetSecret(t *testing.T) {
 					Name:      "secret-data",
 					Namespace: namespace,
 					Labels: map[string]string{
+						common.OpenEverestProviderLabel:   "test-provider",
 						common.OpenEverestDefinitionLabel: "database-credentials",
 						common.OpenEverestManagedLabel:    "true",
 					},
@@ -199,10 +204,10 @@ func TestGetSecret(t *testing.T) {
 			},
 		},
 		{
-			name: "secret not managed by OpenEverest",
+			name: "secret without definition labels",
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "secret-unmanaged",
+					Name:      "secret-unlabelled",
 					Namespace: namespace,
 				},
 				Type: corev1.SecretTypeOpaque,
@@ -340,10 +345,10 @@ func TestPatchSecret(t *testing.T) {
 		assert.Equal(t, []byte("old"), get(t, c, "pmm-credentials").Data["token"])
 	})
 
-	t.Run("refuses a Secret the API does not manage", func(t *testing.T) {
+	t.Run("does not find a Secret without definition labels", func(t *testing.T) {
 		t.Parallel()
 
-		handler, c := newHandler(stored("unmanaged", nil))
+		handler, c := newHandler(stored("unmanaged", map[string]string{common.OpenEverestManagedLabel: "true"}))
 		current := get(t, c, "unmanaged").ResourceVersion
 		_, err := handler.PatchSecret(ctx, "", namespace, "unmanaged",
 			[]byte(`{"metadata": {"resourceVersion": "`+current+`"}, "stringData": {"token": "new"}}`),
@@ -378,6 +383,7 @@ func TestListSecrets(t *testing.T) {
 				Name:      "secret-stringdata",
 				Namespace: namespace,
 				Labels: map[string]string{
+					common.OpenEverestProviderLabel:   "test-provider",
 					common.OpenEverestDefinitionLabel: "database-credentials",
 					common.OpenEverestManagedLabel:    "true",
 				},
@@ -393,6 +399,7 @@ func TestListSecrets(t *testing.T) {
 				Name:      "secret-data",
 				Namespace: namespace,
 				Labels: map[string]string{
+					common.OpenEverestProviderLabel:   "test-provider",
 					common.OpenEverestDefinitionLabel: "database-credentials",
 					common.OpenEverestManagedLabel:    "true",
 				},
@@ -429,12 +436,91 @@ func TestListSecrets(t *testing.T) {
 				"token": []byte("glsa_token"),
 			},
 		},
+		{
+			// Applied with kubectl or by Git: labelled, but not created through the API.
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pmm-credentials-from-git",
+				Namespace: namespace,
+				Labels: map[string]string{
+					common.OpenEverestMonitoringClassLabel: "pmm",
+					common.OpenEverestDefinitionLabel:      "ServiceAccountToken",
+				},
+			},
+			Type: corev1.SecretTypeOpaque,
+			Data: map[string][]byte{
+				"token": []byte("glsa_token"),
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "corp-ca",
+				Namespace: namespace,
+				Labels: map[string]string{
+					common.OpenEverestDefinitionLabel: common.OpenEverestCABundleDefinition,
+				},
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: "external-secrets.io/v1",
+					Kind:       "ExternalSecret",
+					Name:       "corp-ca",
+					UID:        "1111",
+					Controller: new(true),
+				}},
+			},
+			Type: corev1.SecretTypeOpaque,
+		},
+		{
+			// A definition other than ca-bundle needs a source label.
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "definition-without-source",
+				Namespace: namespace,
+				Labels: map[string]string{
+					common.OpenEverestDefinitionLabel: "database-credentials",
+					common.OpenEverestManagedLabel:    "true",
+				},
+			},
+			Type: corev1.SecretTypeOpaque,
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "two-sources",
+				Namespace: namespace,
+				Labels: map[string]string{
+					common.OpenEverestProviderLabel:        "test-provider",
+					common.OpenEverestMonitoringClassLabel: "pmm",
+					common.OpenEverestDefinitionLabel:      "database-credentials",
+				},
+			},
+			Type: corev1.SecretTypeOpaque,
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "managed-without-definition",
+				Namespace: namespace,
+				Labels: map[string]string{
+					common.OpenEverestMonitoringClassLabel: "pmm",
+					common.OpenEverestManagedLabel:         "true",
+				},
+			},
+			Type: corev1.SecretTypeOpaque,
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "other-namespace",
+				Namespace: "other-namespace",
+				Labels: map[string]string{
+					common.OpenEverestMonitoringClassLabel: "pmm",
+					common.OpenEverestDefinitionLabel:      "ServiceAccountToken",
+				},
+			},
+			Type: corev1.SecretTypeOpaque,
+		},
 	}
 
-	fakeClient := fake.NewClientBuilder().
-		WithScheme(scheme).
-		WithObjects(&secrets[0], &secrets[1], &secrets[2], &secrets[3]).
-		Build()
+	builder := fake.NewClientBuilder().WithScheme(scheme)
+	for i := range secrets {
+		builder = builder.WithObjects(&secrets[i])
+	}
+	fakeClient := builder.Build()
 
 	handler := &k8sHandler{
 		kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).WithKubernetesClient(fakeClient),
@@ -447,8 +533,8 @@ func TestListSecrets(t *testing.T) {
 		want   []string
 	}{
 		{
-			name: "no filter lists managed secrets only",
-			want: []string{"pmm-credentials", "secret-data", "secret-stringdata"},
+			name: "no filter lists labelled secrets, whoever created them",
+			want: []string{"corp-ca", "pmm-credentials", "pmm-credentials-from-git", "secret-data", "secret-stringdata"},
 		},
 		{
 			name:   "by definition",
@@ -456,9 +542,19 @@ func TestListSecrets(t *testing.T) {
 			want:   []string{"secret-data", "secret-stringdata"},
 		},
 		{
+			name:   "by provider",
+			filter: handlers.SecretFilter{Provider: "test-provider"},
+			want:   []string{"secret-data", "secret-stringdata"},
+		},
+		{
+			name:   "CA bundles",
+			filter: handlers.SecretFilter{Definition: common.OpenEverestCABundleDefinition},
+			want:   []string{"corp-ca"},
+		},
+		{
 			name:   "by monitoring class and definition",
 			filter: handlers.SecretFilter{MonitoringClass: "pmm", Definition: "ServiceAccountToken"},
-			want:   []string{"pmm-credentials"},
+			want:   []string{"pmm-credentials", "pmm-credentials-from-git"},
 		},
 		{
 			name:   "by another monitoring class",
@@ -663,4 +759,179 @@ func TestSecretResponsesShowOnlyTheView(t *testing.T) {
 			assert.Contains(t, string(encoded), `"openeverest.io/definition":"ServiceAccountToken"`)
 		})
 	}
+}
+
+// TestSecretVerbsByManager runs every verb against Secrets created through the
+// API, applied by another writer, owned by a controller, and unlabelled (spec
+// 020 §4.3): the API shows every labelled Secret, patches only those it
+// created and no controller owns, and deletes any labelled Secret no
+// controller owns.
+func TestSecretVerbsByManager(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	namespace := "test-namespace"
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+
+	labels := map[string]string{
+		common.OpenEverestMonitoringClassLabel: "pmm",
+		common.OpenEverestDefinitionLabel:      "ServiceAccountToken",
+	}
+	managed := maps.Clone(labels)
+	managed[common.OpenEverestManagedLabel] = "true"
+	externalSecret := metav1.OwnerReference{
+		APIVersion: "external-secrets.io/v1",
+		Kind:       "ExternalSecret",
+		Name:       "pmm-source",
+		UID:        "1111",
+		Controller: new(true),
+	}
+	notController := metav1.OwnerReference{APIVersion: "v1", Kind: "ConfigMap", Name: "inventory", UID: "2222"}
+
+	errManagedByController := &secretdefinition.ManagedByControllerError{Kind: "ExternalSecret", Name: "pmm-source"}
+
+	tests := []struct {
+		name    string
+		labels  map[string]string
+		owners  []metav1.OwnerReference
+		get     error
+		patch   error
+		deleted error
+	}{
+		{
+			name:   "created through the API",
+			labels: managed,
+		},
+		{
+			name:   "created through the API, with an owner that is not its controller",
+			labels: managed,
+			owners: []metav1.OwnerReference{notController},
+		},
+		{
+			name:   "applied with kubectl or by Git",
+			labels: labels,
+			patch:  secretdefinition.ErrManagedOutside,
+		},
+		{
+			name:    "owned by a controller",
+			labels:  labels,
+			owners:  []metav1.OwnerReference{externalSecret},
+			patch:   errManagedByController,
+			deleted: errManagedByController,
+		},
+		{
+			name:    "created through the API, then owned by a controller",
+			labels:  managed,
+			owners:  []metav1.OwnerReference{notController, externalSecret},
+			patch:   errManagedByController,
+			deleted: errManagedByController,
+		},
+		{
+			name:    "unlabelled",
+			get:     ErrNotFound,
+			patch:   ErrNotFound,
+			deleted: ErrNotFound,
+		},
+		{
+			name:    "created through the API, then stripped of its definition",
+			labels:  map[string]string{common.OpenEverestManagedLabel: "true", common.OpenEverestMonitoringClassLabel: "pmm"},
+			get:     ErrNotFound,
+			patch:   ErrNotFound,
+			deleted: ErrNotFound,
+		},
+	}
+
+	assertErr := func(t *testing.T, want, err error) {
+		t.Helper()
+		var wantByController *secretdefinition.ManagedByControllerError
+		switch {
+		case want == nil:
+			require.NoError(t, err)
+		case errors.As(want, &wantByController):
+			var byController *secretdefinition.ManagedByControllerError
+			require.ErrorAs(t, err, &byController)
+			assert.Equal(t, wantByController, byController)
+		default:
+			require.ErrorIs(t, err, want)
+		}
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "pmm-credentials",
+					Namespace:       namespace,
+					Labels:          tt.labels,
+					OwnerReferences: tt.owners,
+				},
+				Type: corev1.SecretTypeOpaque,
+				Data: map[string][]byte{"token": []byte("glsa_old")},
+			}
+			c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(secret).Build()
+			handler := &k8sHandler{
+				kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).WithKubernetesClient(c),
+				log:           zap.NewNop().Sugar(),
+			}
+			stored := func(t *testing.T) *corev1.Secret {
+				t.Helper()
+				s := &corev1.Secret{}
+				require.NoError(t, c.Get(ctx, ctrlclient.ObjectKeyFromObject(secret), s))
+				return s
+			}
+
+			got, err := handler.GetSecret(ctx, "", namespace, secret.Name)
+			assertErr(t, tt.get, err)
+			if tt.get == nil {
+				assert.Equal(t, tt.owners, got.OwnerReferences, "owner references are shown")
+			}
+
+			list, err := handler.ListSecrets(ctx, "", namespace, handlers.SecretFilter{})
+			require.NoError(t, err)
+			if tt.get == nil {
+				require.Len(t, list.Items, 1, "listed, since it can be read")
+				assert.Equal(t, secret.Name, list.Items[0].Name)
+			} else {
+				assert.Empty(t, list.Items, "not listed, since it can't be read")
+			}
+
+			version := stored(t).ResourceVersion
+			_, err = handler.PatchSecret(ctx, "", namespace, secret.Name,
+				[]byte(`{"metadata": {"resourceVersion": "`+version+`"}, "stringData": {"token": "glsa_new"}}`),
+			)
+			assertErr(t, tt.patch, err)
+			want := "glsa_new"
+			if tt.patch != nil {
+				want = "glsa_old"
+			}
+			assert.Equal(t, want, string(stored(t).Data["token"]))
+
+			err = handler.DeleteSecret(ctx, "", namespace, secret.Name)
+			assertErr(t, tt.deleted, err)
+			err = c.Get(ctx, ctrlclient.ObjectKeyFromObject(secret), &corev1.Secret{})
+			if tt.deleted == nil {
+				assert.True(t, k8serrors.IsNotFound(err), "deleted, got %v", err)
+			} else {
+				require.NoError(t, err, "kept")
+			}
+		})
+	}
+}
+
+func TestDeleteSecretNotFound(t *testing.T) {
+	t.Parallel()
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	handler := &k8sHandler{
+		kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), "test-namespace").
+			WithKubernetesClient(fake.NewClientBuilder().WithScheme(scheme).Build()),
+		log: zap.NewNop().Sugar(),
+	}
+
+	err := handler.DeleteSecret(context.Background(), "", "test-namespace", "missing")
+	require.True(t, k8serrors.IsNotFound(err), "got %v", err)
 }

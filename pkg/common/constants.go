@@ -101,7 +101,8 @@ const (
 	// that holds the name of the resource being served by an API endpoint.
 	EverestAPIExtnResourceName = "x-everest-resource-name"
 
-	// OpenEverestManagedLabel indicates a Secret or ConfigMap is managed by OpenEverest.
+	// OpenEverestManagedLabel marks a Secret or ConfigMap created through the OpenEverest API.
+	// For a Secret it gates changing the data through the API, not whether the API shows it.
 	OpenEverestManagedLabel = "openeverest.io/managed"
 	// OpenEverestProviderLabel identifies the provider that defines a Secret or ConfigMap.
 	OpenEverestProviderLabel = "openeverest.io/provider"

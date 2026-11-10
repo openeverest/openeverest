@@ -27,6 +27,10 @@
 // not a credential of any Provider or class, so it carries
 // openeverest.io/definition: ca-bundle and no source label. It holds its
 // certificates under ca.crt.
+//
+// Labels that name a definition this way make a Secret labelled (Labelled):
+// the HTTP API shows every labelled Secret, whoever wrote it. Writable
+// decides which of them the HTTP API may change.
 package secretdefinition
 
 import (

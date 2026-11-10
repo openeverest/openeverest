@@ -477,26 +477,47 @@ func TestPatchSecret_Validation(t *testing.T) {
 		mockNext.AssertNotCalled(t, "PatchSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 	})
 
-	t.Run("a Secret the API does not manage is left to the next handler", func(t *testing.T) {
-		t.Parallel()
+	// The next handler refuses these, whatever the patch: it neither checks
+	// the version nor the data of a Secret the API does not patch.
+	notPatchable := map[string]func(*corev1.Secret){
+		"an unlabelled Secret": func(s *corev1.Secret) {
+			s.Labels = map[string]string{common.OpenEverestManagedLabel: "true"}
+		},
+		"a Secret the API did not create": func(s *corev1.Secret) {
+			delete(s.Labels, common.OpenEverestManagedLabel)
+		},
+		"a Secret a controller owns": func(s *corev1.Secret) {
+			s.OwnerReferences = []metav1.OwnerReference{{
+				APIVersion: "external-secrets.io/v1",
+				Kind:       "ExternalSecret",
+				Name:       "credentials",
+				UID:        "1111",
+				Controller: new(true),
+			}}
+		},
+	}
+	for name, change := range notPatchable {
+		t.Run(name+" is left to the next handler", func(t *testing.T) {
+			t.Parallel()
 
-		unmanaged := credentials()
-		unmanaged.Labels = nil
-		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(unmanaged).Build()
-		mockNext := &handlers.MockHandler{}
-		mockNext.On("PatchSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-			Return(nil, errNext)
-		handler := &validateHandler{
-			log:           zap.NewNop().Sugar(),
-			kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).WithKubernetesClient(fakeClient),
-			next:          mockNext,
-		}
+			stored := credentials()
+			change(stored)
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(stored).Build()
+			mockNext := &handlers.MockHandler{}
+			mockNext.On("PatchSecret", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+				Return(nil, errNext)
+			handler := &validateHandler{
+				log:           zap.NewNop().Sugar(),
+				kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).WithKubernetesClient(fakeClient),
+				next:          mockNext,
+			}
 
-		_, err := handler.PatchSecret(ctx, cluster, namespace, "credentials",
-			[]byte(`{"metadata": {"resourceVersion": "1"}, "data": {"token": null}}`),
-		)
-		require.ErrorIs(t, err, errNext)
-	})
+			_, err := handler.PatchSecret(ctx, cluster, namespace, "credentials",
+				[]byte(`{"metadata": {"resourceVersion": "1"}, "data": {"token": null}}`),
+			)
+			require.ErrorIs(t, err, errNext)
+		})
+	}
 
 	t.Run("a missing Secret is not found", func(t *testing.T) {
 		t.Parallel()

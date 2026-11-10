@@ -13,6 +13,8 @@
 // limitations under the License.
 
 import {expect, test} from '@fixtures'
+import {CliHelper} from '@helpers/cliHelper'
+import {APIRequestContext} from '@playwright/test'
 import {EVEREST_CI_NAMESPACE} from '@root/constants';
 import * as th from '@tests/utils/api';
 
@@ -554,6 +556,140 @@ test.describe('Secret responses', () => {
       })
     } finally {
       await th.deleteSecret(request, name)
+    }
+  })
+})
+
+test.describe.parallel('Secrets written outside the API', () => {
+  const url = `/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets`,
+    // Writes to the cluster directly, as kubectl, Git or a secret manager would, in the namespace the API is tested on.
+    kubectl = async (cli: CliHelper, args: string, stdin?: object) => {
+      const command = `kubectl -n ${EVEREST_CI_NAMESPACE} ${args}`,
+        output = await cli.execSilent(stdin ? `echo '${JSON.stringify(stdin)}' | ${command}` : command)
+
+      await output.assertSuccess()
+
+      return output.stdout.trim()
+    },
+    rotate = async (request: APIRequestContext, name: string, resourceVersion = '1') =>
+      await request.patch(`${url}/${name}`, {
+        data: {metadata: {resourceVersion}, stringData: {token: 'glsa_rotated'}},
+        headers: {'Content-Type': 'application/merge-patch+json'},
+      }),
+    names = (list: unknown) => (list as {items: {metadata: {name: string}}[]}).items.map((s) => s.metadata.name)
+
+  test('a labelled Secret applied with kubectl is shown and can be deleted, not patched', async ({request, cli}) => {
+    const name = th.suffixedName('secret-applied')
+
+    try {
+      await kubectl(cli, 'apply -f -', monitoringSecret(name, 'ServiceAccountToken'))
+
+      await test.step('listed and readable without openeverest.io/managed', async () => {
+        const list = await th.listSecretsByMonitoringClass(request, monitoringClass, 'ServiceAccountToken'),
+          secret = await th.getSecret(request, name)
+
+        expect(names(list)).toContain(name)
+        expect(secret.metadata.labels['openeverest.io/managed']).toBeUndefined()
+        expect(secret.metadata.labels['openeverest.io/definition']).toBe('ServiceAccountToken')
+        expect(secret.data).toBeUndefined()
+      })
+
+      await test.step('a patch is refused: it is changed where it was written', async () => {
+        const version = (await th.getSecret(request, name)).metadata.resourceVersion as string,
+          response = await rotate(request, name, version)
+
+        expect(response.status()).toBe(409)
+        expect(await response.json()).toMatchObject({
+          reason: 'ManagedOutside',
+          message: 'managed outside OpenEverest; change it at its source',
+        })
+        expect((await th.getSecret(request, name)).metadata.resourceVersion).toBe(version)
+      })
+
+      await test.step('delete removes it', async () => {
+        expect((await th.deleteSecretRaw(request, name)).status()).toBe(204)
+        expect((await th.getSecretRaw(request, name)).status()).toBe(404)
+      })
+    }
+    finally {
+      await kubectl(cli, `delete secret ${name} --ignore-not-found`)
+    }
+  })
+
+  test('a Secret a controller owns is shown and neither patched nor deleted', async ({request, cli}) => {
+    const name = th.suffixedName('secret-owned'),
+      owner = `${name}-owner`,
+      secret = monitoringSecret(name, 'ServiceAccountToken')
+
+    try {
+      await kubectl(cli, `create configmap ${owner}`)
+
+      const ownerReference = {
+        apiVersion: 'v1',
+        kind: 'ConfigMap',
+        name: owner,
+        uid: await kubectl(cli, `get configmap ${owner} -o jsonpath={.metadata.uid}`),
+        controller: true,
+      }
+
+      // Labelled as created through the API too, so the controller owner alone refuses the writes.
+      await kubectl(cli, 'apply -f -', {
+        ...secret,
+        metadata: {
+          ...secret.metadata,
+          labels: {...secret.metadata.labels, 'openeverest.io/managed': 'true'},
+          ownerReferences: [ownerReference],
+        },
+      })
+
+      await test.step('readable, with its owner', async () => {
+        expect((await th.getSecret(request, name)).metadata.ownerReferences).toEqual([ownerReference])
+      })
+
+      await test.step('a patch is refused', async () => {
+        const version = (await th.getSecret(request, name)).metadata.resourceVersion as string,
+          response = await rotate(request, name, version)
+
+        expect(response.status()).toBe(409)
+        expect(await response.json()).toMatchObject({reason: 'ManagedByController', message: `managed by ConfigMap/${owner}`})
+      })
+
+      await test.step('a delete is refused: the controller would recreate it', async () => {
+        const response = await th.deleteSecretRaw(request, name)
+
+        expect(response.status()).toBe(409)
+        expect(await response.json()).toMatchObject({reason: 'ManagedByController', message: `managed by ConfigMap/${owner}`})
+        expect((await th.getSecret(request, name)).metadata.deletionTimestamp).toBeUndefined()
+      })
+    }
+    finally {
+      await kubectl(cli, `delete secret ${name} --ignore-not-found`)
+      await kubectl(cli, `delete configmap ${owner} --ignore-not-found`)
+    }
+  })
+
+  test('an unlabelled Secret is not found', async ({request, cli}) => {
+    const name = th.suffixedName('secret-unlabelled')
+
+    try {
+      // openeverest.io/managed alone does not make a Secret visible.
+      await kubectl(cli, 'apply -f -', {
+        apiVersion: 'v1',
+        kind: 'Secret',
+        metadata: {name, labels: {'openeverest.io/managed': 'true'}},
+        type: 'Opaque',
+        stringData: {token: 'glsa_test-token'},
+      })
+
+      expect((await th.getSecretRaw(request, name)).status()).toBe(404)
+      expect(names(await th.listSecrets(request))).not.toContain(name)
+      expect((await rotate(request, name)).status()).toBe(404)
+      expect((await th.deleteSecretRaw(request, name)).status()).toBe(404)
+
+      await kubectl(cli, `get secret ${name}`)
+    }
+    finally {
+      await kubectl(cli, `delete secret ${name} --ignore-not-found`)
     }
   })
 })

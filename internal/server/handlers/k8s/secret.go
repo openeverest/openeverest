@@ -25,11 +25,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/openeverest/openeverest/v2/internal/secretdefinition"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
-// CreateSecret creates a Secret and labels it as managed by OpenEverest.
+// CreateSecret creates a Secret and labels it openeverest.io/managed, which
+// marks it as created through the API and lets the API patch it later.
 // Definition labels supplied by the caller are preserved; owner references
 // and finalizers are not, since OpenEverest manages the Secret's lifecycle.
 // The response is the Secret's secretView.
@@ -50,10 +52,10 @@ func (h *k8sHandler) CreateSecret(ctx context.Context, _ string, namespace strin
 	return secretView(res), nil
 }
 
-// ListSecrets lists OpenEverest-managed secrets matching the filter, each as
-// its secretView.
+// ListSecrets lists the labelled Secrets matching the filter, each as its
+// secretView, whether or not they were created through the API.
 func (h *k8sHandler) ListSecrets(ctx context.Context, _ string, namespace string, filter handlers.SecretFilter) (*corev1.SecretList, error) {
-	selector := ctrlclient.MatchingLabels{common.OpenEverestManagedLabel: "true"}
+	selector := ctrlclient.MatchingLabels{}
 	if filter.Provider != "" {
 		selector[common.OpenEverestProviderLabel] = filter.Provider
 	}
@@ -64,19 +66,28 @@ func (h *k8sHandler) ListSecrets(ctx context.Context, _ string, namespace string
 		selector[common.OpenEverestDefinitionLabel] = filter.Definition
 	}
 
-	list, err := h.kubeConnector.ListSecrets(ctx, ctrlclient.InNamespace(namespace), selector)
+	list, err := h.kubeConnector.ListSecrets(ctx,
+		ctrlclient.InNamespace(namespace),
+		ctrlclient.HasLabels{common.OpenEverestDefinitionLabel},
+		selector,
+	)
 	if err != nil {
 		return nil, err
 	}
 
+	items := make([]corev1.Secret, 0, len(list.Items))
 	for i := range list.Items {
-		list.Items[i] = *secretView(&list.Items[i])
+		// A label selector can't express "exactly one source label".
+		if secretdefinition.Labelled(list.Items[i].GetLabels()) {
+			items = append(items, *secretView(&list.Items[i]))
+		}
 	}
+	list.Items = items
 
 	return list, nil
 }
 
-// GetSecret returns the secretView of the secret specified by name.
+// GetSecret returns the secretView of the labelled secret specified by name.
 func (h *k8sHandler) GetSecret(ctx context.Context, _ string, namespace, name string) (*corev1.Secret, error) {
 	secret, err := h.kubeConnector.GetSecret(ctx, ctrlclient.ObjectKey{
 		Name:      name,
@@ -86,17 +97,19 @@ func (h *k8sHandler) GetSecret(ctx context.Context, _ string, namespace, name st
 		return nil, err
 	}
 
-	if !isManagedSecret(secret) {
+	if !secretdefinition.Labelled(secret.GetLabels()) {
 		return nil, ErrNotFound
 	}
 
 	return secretView(secret), nil
 }
 
-// PatchSecret applies the data of a merge patch to the managed Secret named by
-// the path, on the condition that it is still at the resourceVersion the patch
-// carries. The patch sent to Kubernetes holds that precondition and the data
-// keys, nothing else. The response is the patched Secret's secretView.
+// PatchSecret applies the data of a merge patch to the labelled Secret named
+// by the path, on the condition that it is still at the resourceVersion the
+// patch carries. The Secret must be writable: created through the API and
+// owned by no controller. The patch sent to Kubernetes holds that
+// precondition and the data keys, nothing else. The response is the patched
+// Secret's secretView.
 func (h *k8sHandler) PatchSecret(ctx context.Context, _ string, namespace, name string, patch []byte) (*corev1.Secret, error) {
 	p, err := handlers.ParseSecretPatch(patch)
 	if err != nil {
@@ -111,8 +124,11 @@ func (h *k8sHandler) PatchSecret(ctx context.Context, _ string, namespace, name 
 		return nil, err
 	}
 
-	if !isManagedSecret(stored) {
+	if !secretdefinition.Labelled(stored.GetLabels()) {
 		return nil, ErrNotFound
+	}
+	if err := secretdefinition.Writable(stored); err != nil {
+		return nil, err
 	}
 
 	dataPatch, err := p.DataMergePatch()
@@ -130,7 +146,10 @@ func (h *k8sHandler) PatchSecret(ctx context.Context, _ string, namespace, name 
 	return secretView(res), nil
 }
 
-// DeleteSecret deletes the secret specified by name in the namespace.
+// DeleteSecret deletes the labelled secret specified by name in the
+// namespace, unless a controller owns it and would recreate it. A Secret the
+// API did not create can be deleted: leftovers of helm uninstall or of Git
+// would otherwise stay forever.
 func (h *k8sHandler) DeleteSecret(ctx context.Context, _ string, namespace, name string) error {
 	secret, err := h.kubeConnector.GetSecret(ctx, ctrlclient.ObjectKey{
 		Name:      name,
@@ -140,17 +159,14 @@ func (h *k8sHandler) DeleteSecret(ctx context.Context, _ string, namespace, name
 		return err
 	}
 
-	if !isManagedSecret(secret) {
+	if !secretdefinition.Labelled(secret.GetLabels()) {
 		return ErrNotFound
+	}
+	if err := secretdefinition.Writable(secret); err != nil && !errors.Is(err, secretdefinition.ErrManagedOutside) {
+		return err
 	}
 
 	return h.kubeConnector.DeleteSecret(ctx, secret)
-}
-
-// isManagedSecret reports whether the HTTP API manages secret, i.e. it carries
-// the label CreateSecret sets.
-func isManagedSecret(secret *corev1.Secret) bool {
-	return secret.Labels[common.OpenEverestManagedLabel] == "true"
 }
 
 // secretView returns what the HTTP API shows of a Secret: its identity, labels,
