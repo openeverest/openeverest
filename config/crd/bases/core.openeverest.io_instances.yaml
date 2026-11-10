@@ -2166,7 +2166,9 @@ spec:
                                 agents that address containers (e.g. Datadog Autodiscovery).
                               type: string
                             kind:
-                              description: Kind is the component's engine kind.
+                              description: |-
+                                Kind is the kind of the component's type
+                                (Provider.spec.componentTypes.<type>.kind).
                               pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
                               type: string
                             podSelector:
@@ -2324,7 +2326,9 @@ spec:
                                 (e.g. "engine", "proxy").
                               type: string
                             kind:
-                              description: Kind is the component's engine kind.
+                              description: |-
+                                Kind is the kind of the component's type
+                                (Provider.spec.componentTypes.<type>.kind).
                               pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
                               type: string
                             params:

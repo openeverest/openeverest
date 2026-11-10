@@ -137,7 +137,10 @@ describe('getDestinationStatus', () => {
 const classWithUiSchema = (uiSchema: unknown): MonitoringClass => {
   const monitoringClass: MonitoringClass = {
     metadata: { name: 'pmm' },
-    spec: { authModes: [{ name: 'Anonymous' }] },
+    spec: {
+      controllerName: 'openeverest.io/monitoring-pmm',
+      authModes: [{ name: 'Anonymous' }],
+    },
   };
   Reflect.set(monitoringClass.spec, 'uiSchema', uiSchema);
   return monitoringClass;

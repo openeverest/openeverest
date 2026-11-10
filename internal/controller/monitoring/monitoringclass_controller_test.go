@@ -181,7 +181,7 @@ func TestClassCompatibilityMatrix(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			c := newFakeClient(t, tt.class, pxcProvider(), psmdbProvider(), kserveProvider(), pgProvider(),
-				newProvider("mariadb", map[string]string{"engine": "mariadb"}, nil),
+				newProvider("mariadb", map[string]string{"engine": "mariadb"}, map[string]string{"mariadb": "mariadb"}, nil),
 			)
 
 			class := reconcileClass(t, c, tt.class.Name)
@@ -196,7 +196,7 @@ func TestClassCompatibilityKeepsClassControllerCondition(t *testing.T) {
 	unclaimed := pmmClass()
 	unclaimed.Status = monitoringv1alpha1.MonitoringClassStatus{}
 	c := newFakeClient(t, unclaimed, pxcProvider())
-	pmmController := rtmonitoring.ClassController{Client: c, FieldOwner: "openeverest.io/monitoring-pmm", ClassName: "pmm"}
+	pmmController := rtmonitoring.ClassController{Client: c, FieldOwner: "openeverest.io/monitoring-pmm", ControllerName: "openeverest.io/monitoring-pmm"}
 
 	reconcileClass(t, c, "pmm")
 	require.NoError(t, pmmController.Claim(t.Context()))

@@ -137,6 +137,7 @@ func claimed(class *monitoringv1alpha1.MonitoringClass) *monitoringv1alpha1.Moni
 	class.Status.Conditions = []metav1.Condition{{
 		Type:               monitoringv1alpha1.MonitoringClassConditionAccepted,
 		Status:             metav1.ConditionTrue,
+		ObservedGeneration: class.Generation,
 		Reason:             monitoringv1alpha1.ReasonAccepted,
 		LastTransitionTime: metav1.NewTime(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)),
 	}}
@@ -164,6 +165,7 @@ func pmmClass() *monitoringv1alpha1.MonitoringClass {
 	return claimed(&monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "pmm"},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
+			ControllerName: "openeverest.io/monitoring-pmm",
 			ProviderManaged: &monitoringv1alpha1.ProviderManagedFulfilment{
 				Integration:  "pmm",
 				AgentImage:   "percona/pmm-client:3.8.0",
@@ -200,6 +202,7 @@ func scrapeClass(name, labelsParameter string) *monitoringv1alpha1.MonitoringCla
 	return claimed(&monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
+			ControllerName: "openeverest.io/monitoring-" + name,
 			ExtensionManaged: &monitoringv1alpha1.ExtensionManagedFulfilment{
 				Requires: monitoringv1alpha1.SourceRequirements{Metrics: true},
 			},
@@ -227,6 +230,7 @@ func annotationDiscoveryClass() *monitoringv1alpha1.MonitoringClass {
 	return claimed(&monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "coroot"},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
+			ControllerName: "openeverest.io/monitoring-coroot",
 			ExtensionManaged: &monitoringv1alpha1.ExtensionManagedFulfilment{
 				Requires:    monitoringv1alpha1.SourceRequirements{Connection: true},
 				PodMetadata: &monitoringv1alpha1.PodMetadataPolicy{AnnotationPrefixes: []string{"coroot.com/"}},
@@ -240,16 +244,22 @@ func pmmIntegration() map[string]corev1alpha1.MonitoringIntegration {
 	return map[string]corev1alpha1.MonitoringIntegration{"pmm": {AgentVersions: ">=3.0.0 <4.0.0", AuthModes: []string{"ServiceAccountToken"}}}
 }
 
-func newProvider(name string, components map[string]string, monitoring *corev1alpha1.ProviderMonitoring) *corev1alpha1.Provider {
+// newProvider is a Provider with the given component → type map, the given
+// component type → kind map and monitoring contract.
+func newProvider(name string, components, kinds map[string]string, monitoring *corev1alpha1.ProviderMonitoring) *corev1alpha1.Provider {
 	p := &corev1alpha1.Provider{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: corev1alpha1.ProviderSpec{
-			Components: make(map[string]corev1alpha1.Component),
-			Monitoring: monitoring,
+			ComponentTypes: make(map[string]corev1alpha1.ComponentType),
+			Components:     make(map[string]corev1alpha1.Component),
+			Monitoring:     monitoring,
 		},
 	}
 	for component, componentType := range components {
 		p.Spec.Components[component] = corev1alpha1.Component{Type: componentType}
+	}
+	for componentType, kind := range kinds {
+		p.Spec.ComponentTypes[componentType] = corev1alpha1.ComponentType{Kind: kind}
 	}
 	return p
 }
@@ -257,11 +267,12 @@ func newProvider(name string, components map[string]string, monitoring *corev1al
 func pxcProvider() *corev1alpha1.Provider {
 	return newProvider("percona-xtradb-cluster",
 		map[string]string{"engine": "pxc", "proxy": "haproxy"},
+		map[string]string{"pxc": "mysql", "haproxy": "haproxy"},
 		&corev1alpha1.ProviderMonitoring{
 			Integrations: pmmIntegration(),
 			ComponentTypes: map[string]corev1alpha1.MonitoringComponentType{
-				"pxc":     {Kind: "mysql", Metrics: corev1alpha1.MetricsSourceExporter},
-				"haproxy": {Kind: "haproxy", Metrics: corev1alpha1.MetricsSourceNative},
+				"pxc":     {Metrics: corev1alpha1.MetricsSourceExporter},
+				"haproxy": {Metrics: corev1alpha1.MetricsSourceNative},
 			},
 		})
 }
@@ -269,11 +280,12 @@ func pxcProvider() *corev1alpha1.Provider {
 func psmdbProvider() *corev1alpha1.Provider {
 	return newProvider("percona-server-mongodb",
 		map[string]string{"engine": "mongod", "configServer": "mongod", "router": "mongos"},
+		map[string]string{"mongod": "mongodb", "mongos": "mongodb"},
 		&corev1alpha1.ProviderMonitoring{
 			Integrations: pmmIntegration(),
 			ComponentTypes: map[string]corev1alpha1.MonitoringComponentType{
-				"mongod": {Kind: "mongodb", Metrics: corev1alpha1.MetricsSourceExporter, Connection: corev1alpha1.ConnectionSupported},
-				"mongos": {Kind: "mongodb", Metrics: corev1alpha1.MetricsSourceExporter},
+				"mongod": {Metrics: corev1alpha1.MetricsSourceExporter, Connection: corev1alpha1.ConnectionSupported},
+				"mongos": {Metrics: corev1alpha1.MetricsSourceExporter},
 			},
 		})
 }
@@ -281,9 +293,10 @@ func psmdbProvider() *corev1alpha1.Provider {
 func kserveProvider() *corev1alpha1.Provider {
 	return newProvider("provider-kserve",
 		map[string]string{"model": "llm"},
+		map[string]string{"llm": "vllm"},
 		&corev1alpha1.ProviderMonitoring{
 			ComponentTypes: map[string]corev1alpha1.MonitoringComponentType{
-				"llm": {Kind: "vllm", Metrics: corev1alpha1.MetricsSourceNative},
+				"llm": {Metrics: corev1alpha1.MetricsSourceNative},
 			},
 		})
 }
@@ -291,11 +304,12 @@ func kserveProvider() *corev1alpha1.Provider {
 func pgProvider() *corev1alpha1.Provider {
 	return newProvider("percona-postgresql",
 		map[string]string{"engine": "postgresql", "proxy": "pgbouncer"},
+		map[string]string{"postgresql": "postgresql", "pgbouncer": "pgbouncer"},
 		&corev1alpha1.ProviderMonitoring{
 			Integrations: pmmIntegration(),
 			ComponentTypes: map[string]corev1alpha1.MonitoringComponentType{
-				"postgresql": {Kind: "postgresql", Metrics: corev1alpha1.MetricsSourceNone},
-				"pgbouncer":  {Kind: "pgbouncer", Metrics: corev1alpha1.MetricsSourceNone},
+				"postgresql": {Metrics: corev1alpha1.MetricsSourceNone},
+				"pgbouncer":  {Metrics: corev1alpha1.MetricsSourceNone},
 			},
 		})
 }

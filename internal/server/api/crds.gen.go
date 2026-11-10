@@ -990,6 +990,24 @@ func (e ProviderSpecMonitoringComponentTypesMetrics) Valid() bool {
 	}
 }
 
+// Defines values for ProviderSpecMonitoringComponentTypesPodMetadata.
+const (
+	ProviderSpecMonitoringComponentTypesPodMetadataNone      ProviderSpecMonitoringComponentTypesPodMetadata = "None"
+	ProviderSpecMonitoringComponentTypesPodMetadataSupported ProviderSpecMonitoringComponentTypesPodMetadata = "Supported"
+)
+
+// Valid indicates whether the value is a known member of the ProviderSpecMonitoringComponentTypesPodMetadata enum.
+func (e ProviderSpecMonitoringComponentTypesPodMetadata) Valid() bool {
+	switch e {
+	case ProviderSpecMonitoringComponentTypesPodMetadataNone:
+		return true
+	case ProviderSpecMonitoringComponentTypesPodMetadataSupported:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ProviderStatusConditionsStatus.
 const (
 	ProviderStatusConditionsStatusFalse   ProviderStatusConditionsStatus = "False"
@@ -4355,7 +4373,8 @@ type Instance struct {
 					// agents that address containers (e.g. Datadog Autodiscovery).
 					Container *string `json:"container,omitempty"`
 
-					// Kind Kind is the component's engine kind.
+					// Kind Kind is the kind of the component's type
+					// (Provider.spec.componentTypes.<type>.kind).
 					Kind string `json:"kind"`
 
 					// PodSelector PodSelector selects the pods serving the endpoint.
@@ -4430,7 +4449,8 @@ type Instance struct {
 					// Component Component is the Instance component name (e.g. "engine", "proxy").
 					Component string `json:"component"`
 
-					// Kind Kind is the component's engine kind.
+					// Kind Kind is the kind of the component's type
+					// (Provider.spec.componentTypes.<type>.kind).
 					Kind string `json:"kind"`
 
 					// Params Params are extra scrape query parameters (e.g. target for /probe).
@@ -6039,6 +6059,12 @@ type MonitoringClass struct {
 			Name string `json:"name"`
 		} `json:"authModes"`
 
+		// ControllerName ControllerName is the controller that claims the class and sets its
+		// Accepted condition, as GatewayClass.spec.controllerName: a
+		// domain-qualified path (e.g. "openeverest.io/monitoring-pmm"). One
+		// controller may claim several classes. Immutable.
+		ControllerName string `json:"controllerName"`
+
 		// Description Description describes the monitoring technology.
 		Description *string `json:"description,omitempty"`
 
@@ -6074,6 +6100,11 @@ type MonitoringClass struct {
 				// Connection Connection requires the component to accept native-protocol
 				// connections from monitoring agents (connection: Supported).
 				Connection *bool `json:"connection,omitempty"`
+
+				// Kinds Kinds, when set, makes only the components whose type's kind
+				// (Provider.spec.componentTypes.<type>.kind) is listed eligible. Empty
+				// means any kind.
+				Kinds *[]string `json:"kinds,omitempty"`
 
 				// Metrics Metrics requires the component to expose OpenMetrics
 				// (metrics: Native or Exporter).
@@ -6626,7 +6657,14 @@ type Provider struct {
 			// DefaultVersion DefaultVersion names the entry in Versions used when neither the
 			// Instance nor a version bundle selects one.
 			DefaultVersion *string `json:"defaultVersion,omitempty"`
-			Versions       *[]struct {
+
+			// Kind Kind is the shared classification of the software the component type
+			// runs (e.g. "mongodb", "mysql", "haproxy"), matched by monitoring class
+			// filters and set on the component's published monitoring endpoints.
+			// Databases use OpenTelemetry db.system.name values; unknown kinds are
+			// allowed. A type without a kind matches no kind filter.
+			Kind     *string `json:"kind,omitempty"`
+			Versions *[]struct {
 				// Deprecated Deprecated marks a version as still supported but scheduled for
 				// removal. Instances running on it get a proactive warning with a
 				// remediation runway instead of a blocked upgrade.
@@ -6678,12 +6716,13 @@ type Provider struct {
 				// component over its native protocol, with the monitor credential.
 				Connection *ProviderSpecMonitoringComponentTypesConnection `json:"connection,omitempty"`
 
-				// Kind Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
-				// follow OpenTelemetry db.system.name; unknown kinds are allowed.
-				Kind string `json:"kind"`
-
 				// Metrics Metrics states how the component exposes OpenMetrics.
 				Metrics *ProviderSpecMonitoringComponentTypesMetrics `json:"metrics,omitempty"`
+
+				// PodMetadata PodMetadata states whether the provider renders the pod annotations
+				// monitoring classes request (Context.MonitoringPodAnnotations) into the
+				// pods of the component type.
+				PodMetadata *ProviderSpecMonitoringComponentTypesPodMetadata `json:"podMetadata,omitempty"`
 			} `json:"componentTypes,omitempty"`
 
 			// Integrations Integrations lists the operator-native monitoring integrations the
@@ -6697,6 +6736,27 @@ type Provider struct {
 				// MonitoringClass the provider can render. A destination whose mode is
 				// not listed is not bound.
 				AuthModes *[]string `json:"authModes,omitempty"`
+
+				// DestinationParametersSchema DestinationParametersSchema is the schema of MonitoringDestination
+				// parameters in the integration contract version the provider was built
+				// with, generated by provider-sdk. Core will check destination parameters
+				// against it as well as against the class (spec 019 §4.4).
+				DestinationParametersSchema *struct {
+					// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+					// parameters payload.
+					OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+				} `json:"destinationParametersSchema,omitempty"`
+
+				// InstanceParametersSchema InstanceParametersSchema is the schema of
+				// Instance.spec.monitoring.destinations[].parameters in the integration
+				// contract version the provider was built with, generated by
+				// provider-sdk. Core will check entry parameters against it as well as
+				// against the class (spec 019 §4.4).
+				InstanceParametersSchema *struct {
+					// OpenAPIV3Schema OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+					// parameters payload.
+					OpenAPIV3Schema interface{} `json:"openAPIV3Schema,omitempty"`
+				} `json:"instanceParametersSchema,omitempty"`
 			} `json:"integrations,omitempty"`
 		} `json:"monitoring,omitempty"`
 
@@ -6828,6 +6888,11 @@ type ProviderSpecMonitoringComponentTypesConnection string
 
 // ProviderSpecMonitoringComponentTypesMetrics Metrics states how the component exposes OpenMetrics.
 type ProviderSpecMonitoringComponentTypesMetrics string
+
+// ProviderSpecMonitoringComponentTypesPodMetadata PodMetadata states whether the provider renders the pod annotations
+// monitoring classes request (Context.MonitoringPodAnnotations) into the
+// pods of the component type.
+type ProviderSpecMonitoringComponentTypesPodMetadata string
 
 // ProviderStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type ProviderStatusConditionsStatus string

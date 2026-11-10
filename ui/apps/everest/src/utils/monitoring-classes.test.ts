@@ -18,7 +18,10 @@ import { getMonitoringClassUiSchema } from './monitoring-classes';
 const withUiSchema = (uiSchema: unknown): MonitoringClass => {
   const monitoringClass: MonitoringClass = {
     metadata: { name: 'pmm' },
-    spec: { authModes: [{ name: 'ServiceAccountToken' }] },
+    spec: {
+      controllerName: 'openeverest.io/monitoring-pmm',
+      authModes: [{ name: 'ServiceAccountToken' }],
+    },
   };
   Reflect.set(monitoringClass.spec, 'uiSchema', uiSchema);
   return monitoringClass;

@@ -30,15 +30,22 @@ func TestValidConnections(t *testing.T) {
 	t.Parallel()
 
 	spec := &v1alpha1.ProviderSpec{
+		ComponentTypes: map[string]v1alpha1.ComponentType{
+			"mongod": {Kind: "mongodb"},
+			"mongos": {Kind: "mongodb"},
+			"pbm":    {Kind: "percona-backup-mongodb"},
+		},
 		Components: map[string]v1alpha1.Component{
 			"engine": {Type: "mongod"},
 			"proxy":  {Type: "mongos"},
 			"backup": {Type: "pbm"},
+			"hidden": {Type: "unkinded"},
 		},
 		Monitoring: &v1alpha1.ProviderMonitoring{
 			ComponentTypes: map[string]v1alpha1.MonitoringComponentType{
-				"mongod": {Kind: "mongodb", Connection: v1alpha1.ConnectionSupported},
-				"mongos": {Kind: "mongodb"},
+				"mongod":   {Connection: v1alpha1.ConnectionSupported},
+				"mongos":   {},
+				"unkinded": {Connection: v1alpha1.ConnectionSupported},
 			},
 		},
 	}
@@ -95,6 +102,12 @@ func TestValidConnections(t *testing.T) {
 			want:        []v1alpha1.ConnectionEndpoint{valid},
 		},
 		{
+			name:        "component type declared without a kind",
+			credentials: monitor,
+			connections: []v1alpha1.ConnectionEndpoint{valid, with(func(ep *v1alpha1.ConnectionEndpoint) { ep.Component = "hidden" })},
+			want:        []v1alpha1.ConnectionEndpoint{valid},
+		},
+		{
 			name:        "pod selector without the Instance label",
 			credentials: monitor,
 			connections: []v1alpha1.ConnectionEndpoint{with(func(ep *v1alpha1.ConnectionEndpoint) {
@@ -113,4 +126,42 @@ func TestValidConnections(t *testing.T) {
 			assert.Equal(t, tt.want, validConnections(in, spec, tt.credentials, tt.connections, logr.Discard()))
 		})
 	}
+}
+
+func TestValidMetricsTakesKindFromComponentType(t *testing.T) {
+	t.Parallel()
+
+	spec := &v1alpha1.ProviderSpec{
+		ComponentTypes: map[string]v1alpha1.ComponentType{
+			"mongod": {Kind: "mongodb"},
+		},
+		Components: map[string]v1alpha1.Component{
+			"engine": {Type: "mongod"},
+			"hidden": {Type: "unkinded"},
+		},
+		Monitoring: &v1alpha1.ProviderMonitoring{
+			ComponentTypes: map[string]v1alpha1.MonitoringComponentType{
+				"mongod":   {Metrics: v1alpha1.MetricsSourceExporter},
+				"unkinded": {Metrics: v1alpha1.MetricsSourceNative},
+			},
+		},
+	}
+	in := &v1alpha1.Instance{}
+	in.Name = "orders"
+	endpoint := func(component, kind string) v1alpha1.MetricsEndpoint {
+		return v1alpha1.MetricsEndpoint{
+			Component:   component,
+			Kind:        kind,
+			PodSelector: map[string]string{controller.InstanceLabel: "orders"},
+			Port:        intstr.FromString("metrics"),
+		}
+	}
+
+	endpoints := []v1alpha1.MetricsEndpoint{
+		endpoint("engine", "mysql"),
+		endpoint("hidden", "mongodb"),
+	}
+	got := validMetrics(in, spec, nil, endpoints, logr.Discard())
+
+	assert.Equal(t, []v1alpha1.MetricsEndpoint{endpoint("engine", "mongodb")}, got)
 }

@@ -89,9 +89,15 @@ func TestBindingReconcilerRejectsEntry(t *testing.T) {
 	unclaimed := &monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "otel"},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
+			ControllerName:   "example.com/otel",
 			ExtensionManaged: &monitoringv1alpha1.ExtensionManagedFulfilment{},
 		},
 	}
+	staleClaim := prometheusClass()
+	staleClaim.Name = "prometheus-stale"
+	staleClaim.Generation = 2
+	staleClaim.Status.Conditions[0].ObservedGeneration = 1
+	staleDestination := newDestination("prometheus-stale", "prometheus-stale")
 	badParameters := entry("pmm", "pmm-prod")
 	badParameters.Parameters = raw(`{"replicas":3}`)
 	sized := pmmClass()
@@ -145,6 +151,16 @@ func TestBindingReconcilerRejectsEntry(t *testing.T) {
 			wantReason:  monitoringv1alpha1.ReasonClassNotAccepted,
 			wantMessage: `no controller has claimed MonitoringClass "otel"`,
 			wantClass:   "otel",
+		},
+		{
+			name:        "class claimed at an older generation",
+			provider:    pxcProvider(),
+			objects:     []client.Object{staleDestination, staleClaim},
+			entries:     []corev1alpha1.InstanceMonitoringDestination{entry("metrics", "prometheus-stale")},
+			check:       "metrics",
+			wantReason:  monitoringv1alpha1.ReasonClassNotAccepted,
+			wantMessage: `no controller has claimed MonitoringClass "prometheus-stale"`,
+			wantClass:   "prometheus-stale",
 		},
 		{
 			name:        "provider not found",
