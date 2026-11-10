@@ -3593,6 +3593,7 @@ paths:
         A CA bundle is trust material, not a credential of any provider or class, so one bundle can be referenced from `spec.tls.ca.secretKeyRef` by any kind; list them with `?definition=ca-bundle`.
 
         The name follows the Kubernetes rules for Secret names. Client-supplied owner references and finalizers are dropped. Secrets of type `kubernetes.io/service-account-token` or `bootstrap.kubernetes.io/token` are refused.
+        The response is the created Secret as `GET .../secrets/{name}` returns it, never with its data.
       operationId: createSecret
       parameters:
         - name: cluster
@@ -3664,7 +3665,7 @@ paths:
       summary: List secrets
       description: |
         This API lists OpenEverest-managed Secrets in the specified namespace and cluster.
-        Only metadata is returned; secret data is never included.
+        Each Secret is returned as `GET .../secrets/{name}` returns it, never with its data.
         Optionally filter by the labels that name the Secret's definition.
       operationId: listSecrets
       parameters:
@@ -3719,7 +3720,8 @@ paths:
       summary: Get secret
       description: |
         This API gets OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`.
-        Note: Secret data is NOT included in the response for security reasons. Only metadata is returned.
+        The response never carries the Secret's data. It holds `type`, `immutable` and these members of `metadata`: `name`, `namespace`, `uid`, `resourceVersion`, `creationTimestamp`, `deletionTimestamp`, `labels`, `ownerReferences` (without `blockOwnerDeletion`), and the annotations whose key is in the `openeverest.io` domain or one of its subdomains.
+        Any other metadata, such as `managedFields` and annotations written by kubectl or other tools, is left out because it can hold or reveal the data.
       operationId: getSecret
       parameters:
         - name: cluster
@@ -3774,7 +3776,7 @@ paths:
         Keys sent in `data` or `stringData` are set, keys left out keep their value, and `data: {"<key>": null}` removes a key. The patched data is checked against the Secret's definition, as on create.
         `metadata.resourceVersion` is required: send the one returned when you read the Secret. The patch fails with 409 if the Secret has changed since, so a change made in between is never overwritten.
         Only the data changes. `type`, `immutable` and `metadata.labels`, when sent, must match the stored Secret, and the rest of `metadata` is ignored, so a Secret returned by `GET` can be sent back as a patch and changes nothing.
-        A member a Secret does not have is rejected rather than ignored. A Secret marked `immutable` can't be patched. Only metadata is returned; secret data is never included.
+        A member a Secret does not have is rejected rather than ignored. A Secret marked `immutable` can't be patched. The response is the patched Secret as `GET .../secrets/{name}` returns it, never with its data.
       operationId: patchSecret
       parameters:
         - name: cluster

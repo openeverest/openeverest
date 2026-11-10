@@ -16,7 +16,9 @@ package k8s
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -478,6 +480,187 @@ func TestListSecrets(t *testing.T) {
 				names = append(names, item.Name)
 			}
 			assert.ElementsMatch(t, tt.want, names)
+		})
+	}
+}
+
+func TestSecretView(t *testing.T) {
+	t.Parallel()
+
+	created := metav1.NewTime(time.Date(2026, 11, 10, 10, 0, 0, 0, time.UTC))
+	deleted := metav1.NewTime(time.Date(2026, 11, 10, 11, 0, 0, 0, time.UTC))
+	labels := map[string]string{
+		common.OpenEverestManagedLabel:         "true",
+		common.OpenEverestMonitoringClassLabel: "pmm",
+		common.OpenEverestDefinitionLabel:      "ServiceAccountToken",
+	}
+	secret := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Secret"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:                       "pmm-credentials",
+			GenerateName:               "pmm-",
+			Namespace:                  "team-a",
+			UID:                        "1111",
+			ResourceVersion:            "42",
+			Generation:                 3,
+			CreationTimestamp:          created,
+			DeletionTimestamp:          &deleted,
+			DeletionGracePeriodSeconds: new(int64(0)),
+			Labels:                     labels,
+			Annotations: map[string]string{
+				"kubectl.kubernetes.io/last-applied-configuration": `{"stringData":{"token":"glsa_plaintext"}}`,
+				"reconcile.external-secrets.io/data-hash":          "hash-of-the-data",
+				"evilopeneverest.io/note":                          "not ours",
+				"openeverest.io":                                   "no prefix",
+				"openeverest.io/note":                              "kept",
+				"monitoring.openeverest.io/attached-destinations":  "2",
+			},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion:         "monitoring.openeverest.io/v1alpha1",
+				Kind:               "MonitoringDestination",
+				Name:               "pmm-prod",
+				UID:                "2222",
+				Controller:         new(true),
+				BlockOwnerDeletion: new(true),
+			}},
+			Finalizers: []string{"monitoring.openeverest.io/secret-protection"},
+			ManagedFields: []metav1.ManagedFieldsEntry{{
+				Manager:    "kubectl-client-side-apply",
+				Operation:  metav1.ManagedFieldsOperationUpdate,
+				FieldsType: "FieldsV1",
+				FieldsV1:   metav1.NewFieldsV1(`{"f:data":{"f:token":{}}}`),
+			}},
+		},
+		Immutable:  new(true),
+		Type:       corev1.SecretTypeOpaque,
+		Data:       map[string][]byte{"token": []byte("glsa_plaintext")},
+		StringData: map[string]string{"token": "glsa_plaintext"}, //nolint:gosec // test usage only
+	}
+
+	want := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Secret"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "pmm-credentials",
+			Namespace:         "team-a",
+			UID:               "1111",
+			ResourceVersion:   "42",
+			CreationTimestamp: created,
+			DeletionTimestamp: &deleted,
+			Labels:            labels,
+			Annotations: map[string]string{
+				"openeverest.io/note":                             "kept",
+				"monitoring.openeverest.io/attached-destinations": "2",
+			},
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: "monitoring.openeverest.io/v1alpha1",
+				Kind:       "MonitoringDestination",
+				Name:       "pmm-prod",
+				UID:        "2222",
+				Controller: new(true),
+			}},
+		},
+		Immutable: new(true),
+		Type:      corev1.SecretTypeOpaque,
+	}
+
+	view := secretView(secret)
+	assert.Equal(t, want, view)
+
+	encoded, err := json.Marshal(view)
+	require.NoError(t, err)
+	for _, leak := range []string{"glsa_plaintext", "f:token", "data-hash", "managedFields", "finalizers"} {
+		assert.NotContains(t, string(encoded), leak)
+	}
+
+	view.Labels["team"] = "a"
+	assert.NotContains(t, secret.Labels, "team", "the view does not share maps with the Secret")
+}
+
+func TestSecretResponsesShowOnlyTheView(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	namespace := "test-namespace"
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+
+	// A Secret written with client-side kubectl apply carries its data in an annotation.
+	applied := func() *corev1.Secret {
+		return &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pmm-credentials",
+				Namespace: namespace,
+				Labels: map[string]string{
+					common.OpenEverestManagedLabel:         "true",
+					common.OpenEverestMonitoringClassLabel: "pmm",
+					common.OpenEverestDefinitionLabel:      "ServiceAccountToken",
+				},
+				Annotations: map[string]string{
+					"kubectl.kubernetes.io/last-applied-configuration": `{"stringData":{"token":"glsa_plaintext"}}`,
+				},
+			},
+			Type: corev1.SecretTypeOpaque,
+			Data: map[string][]byte{"token": []byte("glsa_plaintext")},
+		}
+	}
+	newHandler := func(t *testing.T, objs ...ctrlclient.Object) (*k8sHandler, string) {
+		t.Helper()
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build()
+		version := ""
+		if len(objs) > 0 {
+			stored := &corev1.Secret{}
+			require.NoError(t, fakeClient.Get(ctx, ctrlclient.ObjectKeyFromObject(objs[0]), stored))
+			version = stored.ResourceVersion
+		}
+		return &k8sHandler{
+			kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), namespace).WithKubernetesClient(fakeClient),
+			log:           zap.NewNop().Sugar(),
+		}, version
+	}
+
+	responses := map[string]func(t *testing.T) any{
+		"create": func(t *testing.T) any {
+			t.Helper()
+			h, _ := newHandler(t)
+			res, err := h.CreateSecret(ctx, "", namespace, applied())
+			require.NoError(t, err)
+			return res
+		},
+		"get": func(t *testing.T) any {
+			t.Helper()
+			h, _ := newHandler(t, applied())
+			res, err := h.GetSecret(ctx, "", namespace, "pmm-credentials")
+			require.NoError(t, err)
+			return res
+		},
+		"list": func(t *testing.T) any {
+			t.Helper()
+			h, _ := newHandler(t, applied())
+			res, err := h.ListSecrets(ctx, "", namespace, handlers.SecretFilter{})
+			require.NoError(t, err)
+			require.Len(t, res.Items, 1)
+			return res
+		},
+		"patch": func(t *testing.T) any {
+			t.Helper()
+			h, version := newHandler(t, applied())
+			res, err := h.PatchSecret(ctx, "", namespace, "pmm-credentials",
+				[]byte(`{"metadata": {"resourceVersion": "`+version+`"}, "stringData": {"token": "glsa_rotated"}}`),
+			)
+			require.NoError(t, err)
+			return res
+		},
+	}
+
+	for name, respond := range responses {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			encoded, err := json.Marshal(respond(t))
+			require.NoError(t, err)
+			assert.NotContains(t, string(encoded), "glsa_")
+			assert.NotContains(t, string(encoded), "last-applied-configuration")
+			assert.Contains(t, string(encoded), `"openeverest.io/definition":"ServiceAccountToken"`)
 		})
 	}
 }
