@@ -213,6 +213,20 @@ const (
 	ReasonVerdictPending = "VerdictPending"
 )
 
+// Selectable fields of BackupStorage, the keys a field selector lists
+// storages by (kubectl get --field-selector, the HTTP API's
+// ?backupStorageClass= and ?secret=). They match the selectablefield markers
+// below.
+const (
+	// BackupStorageClassField is the referenced BackupStorageClass name.
+	BackupStorageClassField = "spec.backupStorageClassRef.name"
+	// BackupStorageCredentialsSecretField is the credentials Secret name.
+	BackupStorageCredentialsSecretField = "spec.authentication.credentialsSecretRef.name"
+	// BackupStorageCASecretField is the name of the Secret holding the CA
+	// bundle.
+	BackupStorageCASecretField = "spec.tls.ca.secretKeyRef.name" //nolint:gosec // a field path, not a credential
+)
+
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=bstor
@@ -220,8 +234,13 @@ const (
 // +kubebuilder:printcolumn:name="Bucket",type="string",JSONPath=".spec.location.objectStore.bucket"
 // +kubebuilder:printcolumn:name="Auth",type="string",JSONPath=".spec.authentication.mode"
 // +kubebuilder:printcolumn:name="Accepted",type="string",JSONPath=".status.conditions[?(@.type==\"Accepted\")].reason"
+// +kubebuilder:printcolumn:name="Credentials",type="string",JSONPath=".spec.authentication.credentialsSecretRef.name",priority=1
+// +kubebuilder:printcolumn:name="CA",type="string",JSONPath=".spec.tls.ca.secretKeyRef.name",priority=1
 // +kubebuilder:printcolumn:name="Insecure",type="boolean",JSONPath=".spec.tls.insecureSkipVerify",priority=1
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:selectablefield:JSONPath=".spec.backupStorageClassRef.name"
+// +kubebuilder:selectablefield:JSONPath=".spec.authentication.credentialsSecretRef.name"
+// +kubebuilder:selectablefield:JSONPath=".spec.tls.ca.secretKeyRef.name"
 
 // BackupStorage is the Schema for the backupstorages API.
 type BackupStorage struct {
