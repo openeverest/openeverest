@@ -817,6 +817,7 @@ export interface paths {
          * Create backup storage
          * @description This API creates a new backup storage in the specified namespace and cluster.
          *     Credentials are never part of the payload: create the Secret through the secrets API, labelled `openeverest.io/backup-storage-class: <class>` and `openeverest.io/definition: <mode>`, and reference it in `spec.authentication.credentialsSecretRef`. A CA bundle created through the secrets API is labelled `openeverest.io/definition: ca-bundle` and referenced in `spec.tls.ca.secretKeyRef`.
+         *     Creating a backup storage requires `read` on its backup storage class and `use` on every Secret it references; `read` on a Secret is not enough.
          */
         post: operations["createBackupStorage"];
         delete?: never;
@@ -840,6 +841,7 @@ export interface paths {
         /**
          * Update backup storage
          * @description This API updates the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+         *     It requires `read` on the backup storage class and, when the update changes `spec`, `use` on every Secret the updated backup storage references. An update of labels or annotations only needs no `use`.
          */
         put: operations["updateBackupStorage"];
         post?: never;
@@ -854,8 +856,9 @@ export interface paths {
          * Patch backup storage
          * @description This API applies Merge Patch to the backup storage specified by the `name` in the specified `namespace` and `cluster`.
          *     Members absent from the patch keep their current value, and a member set to `null` is removed. A path that does not exist on the BackupStorage
-         *     is rejected rather than ignored. Include `metadata.resourceVersion` to make the patch conditional, which fails with 409 if the backup storage has changed.
-         *     `spec.s3.accessKeyId` and `spec.s3.secretAccessKey` are write-only: they are stored in the Secret named by `spec.s3.credentialsSecretRef` and never persisted on the object.
+         *     is rejected rather than ignored. The patch is conditional on `metadata.resourceVersion` when it includes one, and otherwise on the version the server checked it against; it fails with 409 if the backup storage has changed since.
+         *     Credentials are never part of the payload: update the Secret named by `spec.authentication.credentialsSecretRef` with `PATCH .../secrets/{name}` instead.
+         *     A patch that changes `spec` requires `use` on every Secret the patched backup storage references, including those it already referenced, since changing parameters such as `endpointURL` sends their contents elsewhere. A patch of labels or annotations only needs no `use`.
          */
         patch: operations["patchBackupStorage"];
         trace?: never;
