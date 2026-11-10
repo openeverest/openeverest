@@ -14,8 +14,10 @@
 
 import { useState } from 'react';
 import ActionableAlert from 'components/actionable-alert';
-import { useMonitoringDestinationPermissions } from 'pages/settings/monitoring-destinations/hooks/use-monitoring-destination-permissions';
-import { MonitoringDestinationModal } from 'pages/settings/monitoring-destinations/monitoring-destination-modal/monitoring-destination-modal';
+import {
+  MonitoringDestinationModal,
+  useMonitoringDestinationPermissions,
+} from 'components/monitoring-destination-modal';
 import { MonitoringClass } from 'shared-types/monitoring-destinations.types';
 import {
   getMonitoringClassName,

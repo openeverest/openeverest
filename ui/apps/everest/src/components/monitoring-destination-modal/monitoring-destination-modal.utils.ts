@@ -370,3 +370,27 @@ export const buildSaveRequest = ({
     },
   };
 };
+
+const intersect = (...lists: string[][]) =>
+  lists.reduce((common, list) => common.filter((item) => list.includes(item)));
+
+// Writing a destination may write its credentials Secret too, and needs the
+// class.
+export const toWritableNamespaces = ({
+  destinationNamespaces,
+  secretCreateNamespaces,
+  secretReadNamespaces,
+  canReadClasses,
+}: {
+  destinationNamespaces: string[];
+  secretCreateNamespaces: string[];
+  secretReadNamespaces: string[];
+  canReadClasses: boolean;
+}): string[] =>
+  canReadClasses
+    ? intersect(
+        destinationNamespaces,
+        secretCreateNamespaces,
+        secretReadNamespaces
+      )
+    : [];

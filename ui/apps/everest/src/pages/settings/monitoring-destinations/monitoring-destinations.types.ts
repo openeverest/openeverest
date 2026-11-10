@@ -27,13 +27,6 @@ export interface MonitoringDestinationRow {
   raw: MonitoringDestination;
 }
 
-// Who may change destinations, per namespace.
-export interface MonitoringDestinationPermissions {
-  createNamespaces: string[];
-  updateNamespaces: string[];
-  deleteNamespaces: string[];
-}
-
 // A destination the user asked to delete, with who uses it right now.
 export interface MonitoringDestinationDeletion {
   row: MonitoringDestinationRow;

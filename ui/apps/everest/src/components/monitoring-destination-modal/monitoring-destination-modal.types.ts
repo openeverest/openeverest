@@ -68,3 +68,10 @@ export interface MonitoringDestinationFormProps {
   onChangedMeanwhile: () => void;
   onClose: () => void;
 }
+
+// Who may change destinations, per namespace.
+export interface MonitoringDestinationPermissions {
+  createNamespaces: string[];
+  updateNamespaces: string[];
+  deleteNamespaces: string[];
+}

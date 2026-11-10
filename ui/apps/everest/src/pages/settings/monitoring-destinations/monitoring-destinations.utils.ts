@@ -25,21 +25,9 @@ import {
   getDestinationAddress,
   getDestinationName,
   getDestinationStatus,
+  groupInstancesByDestination,
 } from 'utils/monitoring-destinations';
 import { MonitoringDestinationRow } from './monitoring-destinations.types';
-
-// Instance names per destination name, from one namespace's bindings.
-export const groupInstancesByDestination = (
-  bindings: MonitoringBinding[]
-): Map<string, string[]> =>
-  bindings.reduce((byDestination, binding) => {
-    const destination = binding.spec.destinationRef.name;
-    byDestination.set(destination, [
-      ...(byDestination.get(destination) ?? []),
-      binding.spec.instanceRef.name,
-    ]);
-    return byDestination;
-  }, new Map<string, string[]>());
 
 export const toMonitoringDestinationRows = (
   namespaces: {
@@ -70,27 +58,3 @@ export const toMonitoringDestinationRows = (
       };
     });
   });
-
-const intersect = (...lists: string[][]) =>
-  lists.reduce((common, list) => common.filter((item) => list.includes(item)));
-
-// Writing a destination may write its credentials Secret too, and needs the
-// class.
-export const toWritableNamespaces = ({
-  destinationNamespaces,
-  secretCreateNamespaces,
-  secretReadNamespaces,
-  canReadClasses,
-}: {
-  destinationNamespaces: string[];
-  secretCreateNamespaces: string[];
-  secretReadNamespaces: string[];
-  canReadClasses: boolean;
-}): string[] =>
-  canReadClasses
-    ? intersect(
-        destinationNamespaces,
-        secretCreateNamespaces,
-        secretReadNamespaces
-      )
-    : [];

@@ -14,7 +14,7 @@
 
 import { useMonitoringBindingsForNamespaces } from 'hooks/api/monitoring-bindings';
 import { useNamespacePermissionsForResource } from 'hooks/rbac';
-import { groupInstancesByDestination } from '../../monitoring-destinations.utils';
+import { groupInstancesByDestination } from 'utils/monitoring-destinations';
 
 // The Instances that send to the destination, or undefined when the user
 // may not list them.

@@ -17,6 +17,7 @@ import { SECRET_DEFINITION_LABEL } from 'components/ui-generator/secret-field/se
 import { getByPath } from 'components/ui-generator/utils/object-path';
 import { Instance, Secret } from 'shared-types/api.types';
 import {
+  MonitoringBinding,
   MonitoringClass,
   MonitoringConditionType,
   MonitoringDestination,
@@ -224,3 +225,16 @@ export const getDestinationAddress = (
   const url = getByPath(destination.spec, ADDRESS_PARAMETER_PATH);
   return typeof url === 'string' && url ? url : undefined;
 };
+
+// Instance names per destination name, from one namespace's bindings.
+export const groupInstancesByDestination = (
+  bindings: MonitoringBinding[]
+): Map<string, string[]> =>
+  bindings.reduce((byDestination, binding) => {
+    const destination = binding.spec.destinationRef.name;
+    byDestination.set(destination, [
+      ...(byDestination.get(destination) ?? []),
+      binding.spec.instanceRef.name,
+    ]);
+    return byDestination;
+  }, new Map<string, string[]>());

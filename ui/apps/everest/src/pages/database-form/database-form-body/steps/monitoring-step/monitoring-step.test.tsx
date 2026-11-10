@@ -164,7 +164,7 @@ vi.mock('hooks/api/monitoring-destinations', () => {
 });
 
 vi.mock(
-  'pages/settings/monitoring-destinations/hooks/use-monitoring-destination-permissions',
+  'components/monitoring-destination-modal/hooks/use-monitoring-destination-permissions',
   () => {
     const permissions = {
       createNamespaces: ['team-a'],

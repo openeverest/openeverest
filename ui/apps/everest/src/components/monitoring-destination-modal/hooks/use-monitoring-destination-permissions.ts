@@ -16,8 +16,8 @@ import {
   useNamespacePermissionsForResource,
   useRBACPermissions,
 } from 'hooks/rbac';
-import { MonitoringDestinationPermissions } from '../monitoring-destinations.types';
-import { toWritableNamespaces } from '../monitoring-destinations.utils';
+import { MonitoringDestinationPermissions } from '../monitoring-destination-modal.types';
+import { toWritableNamespaces } from '../monitoring-destination-modal.utils';
 
 // The namespaces the user may add, edit and delete destinations in.
 export const useMonitoringDestinationPermissions =

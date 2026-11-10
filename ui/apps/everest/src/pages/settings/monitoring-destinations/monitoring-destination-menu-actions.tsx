@@ -14,11 +14,9 @@
 
 import { MenuItem } from '@mui/material';
 import { Delete, Edit } from '@mui/icons-material';
+import { MonitoringDestinationPermissions } from 'components/monitoring-destination-modal';
 import { Messages } from './monitoring-destinations.messages';
-import {
-  MonitoringDestinationPermissions,
-  MonitoringDestinationRow,
-} from './monitoring-destinations.types';
+import { MonitoringDestinationRow } from './monitoring-destinations.types';
 
 export const getMonitoringDestinationMenuItems = ({
   row,
