@@ -36,6 +36,11 @@ import { rfc_123_schema } from 'utils/common-validation';
 import { Messages } from '../storage-locations.messages';
 
 const PARAMETERS_PATH = 'parameters';
+const MAX_SECRET_NAME_LENGTH = 253;
+const secretNameSchema = rfc_123_schema({
+  fieldName: 'name',
+  maxLength: MAX_SECRET_NAME_LENGTH,
+});
 // Certificate bodies are base64 (RFC 7468): without '-', a body cannot run
 // past its END line, which keeps matching linear.
 const PEM_BUNDLE_REGEX =
@@ -143,29 +148,63 @@ export const getStorageFields = (backupStorageClass?: BackupStorageClass) => {
   };
 };
 
+// A credentials key of the auth mode, as the form renders it.
+export type CredentialsField = ClassField & {
+  // Declared required by the mode, so a saved Secret is known to hold it.
+  requiredByMode: boolean;
+};
+
+const findAuthMode = (
+  backupStorageClass: BackupStorageClass | undefined,
+  authMode: string
+) => backupStorageClass?.spec.authModes.find((mode) => mode.name === authMode);
+
+const toMaskedField = (key: string): ClassField => ({
+  key,
+  uiType: FieldType.Text,
+  path: key,
+  label: key,
+  password: true,
+  options: [],
+  required: false,
+});
+
 // The class's credentials form for the mode or, when it ships none, one masked
-// input per credential key the mode declares.
+// input per credential key the mode declares. Keys the mode declares and the
+// form leaves out are added as masked inputs: the keys come from the mode.
 export const getCredentialsFields = (
   backupStorageClass: BackupStorageClass | undefined,
   authMode: string
-) =>
-  getSectionFields(
+): CredentialsField[] => {
+  const declared = findAuthMode(backupStorageClass, authMode)?.credentials;
+  const requiredKeys = declared?.required ?? [];
+  const fields = getSectionFields(
     getAuthModeCredentialsSection(
       backupStorageClass?.spec.authModes ?? [],
       getBackupStorageClassUiSchema(backupStorageClass).credentials ?? {},
       authMode
     )
   );
+  const missing = [...requiredKeys, ...(declared?.optional ?? [])]
+    .filter((key) => !fields.some((field) => field.path === key))
+    .map(toMaskedField);
+
+  return [...fields, ...missing].map((field) => ({
+    ...field,
+    required: field.required || requiredKeys.includes(field.path),
+    requiredByMode: requiredKeys.includes(field.path),
+  }));
+};
 
 export const authModeUsesSecret = (
   backupStorageClass: BackupStorageClass | undefined,
   authMode: string
 ) =>
-  !!backupStorageClass?.spec.authModes.find((mode) => mode.name === authMode)
-    ?.credentials ||
+  !!findAuthMode(backupStorageClass, authMode)?.credentials ||
   getCredentialsFields(backupStorageClass, authMode).length > 0;
 
-// On edit, blank credentials keep the Secret of an unchanged auth mode.
+// On edit, the storage keeps its Secret, and its keys can be replaced in place,
+// as long as the auth mode is unchanged.
 export const canKeepCredentials = (
   previous: BackupStorageCRD | undefined,
   authMode: string
@@ -180,8 +219,21 @@ const entersCredentials = (
   credentialsFields.length > 0 &&
   values.credentialsSource === CredentialsSource.New;
 
-const allBlank = (values: Record<string, unknown>, fields: ClassField[]) =>
-  fields.every((field) => isEmptyFieldValue(values[field.path]));
+// The keys whose values are sent when replacing keys in place: the required
+// keys being replaced and the optional keys not being removed, where a blank
+// value keeps the stored one.
+const touchedCredentials = (
+  values: Pick<
+    BackupStorageFormValues,
+    'replacedCredentialKeys' | 'removedCredentialKeys'
+  >,
+  credentialsFields: CredentialsField[]
+) =>
+  credentialsFields.filter((field) =>
+    field.requiredByMode
+      ? values.replacedCredentialKeys.includes(field.path)
+      : !values.removedCredentialKeys.includes(field.path)
+  );
 
 export const storageLocationDefaultValues = (
   namespace: string
@@ -196,13 +248,27 @@ export const storageLocationDefaultValues = (
   authMode: '',
   credentialsSource: CredentialsSource.New,
   credentialsSecretName: '',
+  credentialsSaveAs: '',
   credentials: {},
+  replacedCredentialKeys: [],
+  removedCredentialKeys: [],
   tlsMode: TlsMode.System,
   caSource: CaSource.New,
   caBundle: '',
   caSecretName: '',
   caSecretKey: CA_SECRET_KEY,
 });
+
+// A labelled CA bundle holds its certificates under ca.crt, so a reference to
+// any other key names a Secret from elsewhere, e.g. cert-manager.
+const getCaSource = (caSecretKeyRef?: { key: string }) => {
+  if (!caSecretKeyRef) {
+    return CaSource.New;
+  }
+  return caSecretKeyRef.key === CA_SECRET_KEY
+    ? CaSource.Existing
+    : CaSource.External;
+};
 
 export const storageLocationEditValues = (
   storage: BackupStorageCRD
@@ -230,11 +296,16 @@ export const storageLocationEditValues = (
       parameters: { ...spec.parameters },
     },
     authMode: spec.authentication.mode,
-    credentialsSource: CredentialsSource.New,
+    credentialsSource: spec.authentication.credentialsSecretRef
+      ? CredentialsSource.Current
+      : CredentialsSource.New,
     credentialsSecretName: spec.authentication.credentialsSecretRef?.name ?? '',
+    credentialsSaveAs: '',
     credentials: {},
+    replacedCredentialKeys: [],
+    removedCredentialKeys: [],
     tlsMode,
-    caSource: caSecretKeyRef ? CaSource.Existing : CaSource.New,
+    caSource: getCaSource(caSecretKeyRef),
     caBundle: '',
     caSecretName: caSecretKeyRef?.name ?? '',
     caSecretKey: caSecretKeyRef?.key ?? CA_SECRET_KEY,
@@ -257,7 +328,10 @@ export const storageLocationSchema = (
       authMode: z.string(),
       credentialsSource: z.nativeEnum(CredentialsSource),
       credentialsSecretName: z.string(),
+      credentialsSaveAs: z.string(),
       credentials: z.record(z.unknown()),
+      replacedCredentialKeys: z.array(z.string()),
+      removedCredentialKeys: z.array(z.string()),
       tlsMode: z.nativeEnum(TlsMode),
       caSource: z.nativeEnum(CaSource),
       caBundle: z.string(),
@@ -298,16 +372,23 @@ export const storageLocationSchema = (
           backupStorageClass,
           values.authMode
         );
-        if (!entersCredentials(values, credentialsFields)) {
+        if (
+          values.credentialsSource === CredentialsSource.Current &&
+          canKeepCredentials(previous, values.authMode)
+        ) {
+          touchedCredentials(values, credentialsFields).forEach((field) => {
+            if (
+              field.requiredByMode &&
+              isEmptyFieldValue(values.credentials[field.path])
+            ) {
+              required(['credentials', field.path]);
+            }
+          });
+        } else if (!entersCredentials(values, credentialsFields)) {
           if (!values.credentialsSecretName) {
             required(['credentialsSecretName']);
           }
-        } else if (
-          !(
-            canKeepCredentials(previous, values.authMode) &&
-            allBlank(values.credentials, credentialsFields)
-          )
-        ) {
+        } else {
           credentialsFields.forEach((field) => {
             if (
               field.required &&
@@ -316,6 +397,13 @@ export const storageLocationSchema = (
               required(['credentials', field.path]);
             }
           });
+          if (values.credentialsSaveAs) {
+            secretNameSchema
+              .safeParse(values.credentialsSaveAs)
+              .error?.issues.forEach((issue) =>
+                ctx.addIssue({ ...issue, path: ['credentialsSaveAs'] })
+              );
+          }
         }
       }
 
@@ -328,7 +416,7 @@ export const storageLocationSchema = (
           if (!values.caSecretName) {
             required(['caSecretName']);
           }
-          if (!values.caSecretKey) {
+          if (values.caSource === CaSource.External && !values.caSecretKey) {
             required(['caSecretKey']);
           }
         }
@@ -365,25 +453,38 @@ export const prepareStorageSubmitValues = (
     backupStorageClass,
     values.authMode
   );
-  const credentials = Object.fromEntries(
-    credentialsFields
-      .map((field) => [field.path, values.credentials[field.path]] as const)
-      .filter(([, value]) => !isEmptyFieldValue(value))
-  );
+  const nonEmptyCredentials = (fields: ClassField[]) =>
+    Object.fromEntries(
+      fields
+        .map((field) => [field.path, values.credentials[field.path]] as const)
+        .filter(([, value]) => !isEmptyFieldValue(value))
+    );
 
   let credentialsSource = CredentialsSource.Existing;
   let credentialsSecretName = '';
+  let credentials: Record<string, unknown> = {};
+  let removedCredentialKeys: string[] = [];
   if (authModeUsesSecret(backupStorageClass, values.authMode)) {
-    if (!entersCredentials(values, credentialsFields)) {
-      credentialsSecretName = values.credentialsSecretName;
-    } else if (
-      canKeepCredentials(previous, values.authMode) &&
-      Object.keys(credentials).length === 0
+    if (
+      values.credentialsSource === CredentialsSource.Current &&
+      canKeepCredentials(previous, values.authMode)
     ) {
+      credentialsSource = CredentialsSource.Current;
       credentialsSecretName =
         previous?.spec.authentication.credentialsSecretRef?.name ?? '';
-    } else {
+      credentials = nonEmptyCredentials(
+        touchedCredentials(values, credentialsFields)
+      );
+      removedCredentialKeys = values.removedCredentialKeys.filter((key) =>
+        credentialsFields.some(
+          (field) => field.path === key && !field.requiredByMode
+        )
+      );
+    } else if (entersCredentials(values, credentialsFields)) {
       credentialsSource = CredentialsSource.New;
+      credentials = nonEmptyCredentials(credentialsFields);
+    } else {
+      credentialsSecretName = values.credentialsSecretName;
     }
   }
 
@@ -395,6 +496,12 @@ export const prepareStorageSubmitValues = (
     },
     credentialsSource,
     credentialsSecretName,
-    credentials: credentialsSource === CredentialsSource.New ? credentials : {},
+    credentialsSaveAs:
+      credentialsSource === CredentialsSource.New
+        ? values.credentialsSaveAs.trim()
+        : '',
+    credentials,
+    replacedCredentialKeys: [],
+    removedCredentialKeys,
   };
 };

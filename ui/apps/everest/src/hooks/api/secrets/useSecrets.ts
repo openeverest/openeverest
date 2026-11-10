@@ -15,7 +15,12 @@
 import { useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
-import { createSecretFn, deleteSecretFn, getSecretsFn } from 'api/secrets';
+import {
+  createSecretFn,
+  deleteSecretFn,
+  getSecretFn,
+  getSecretsFn,
+} from 'api/secrets';
 import { Secret, SecretListFilter } from 'shared-types/api.types';
 
 export const SECRETS_QUERY_KEY = 'secrets';
@@ -43,6 +48,20 @@ export const useSecrets = (
     ...secretsQuery(cluster, namespace, filter),
     select: dropTerminating,
     enabled: (options?.enabled ?? true) && !!cluster && !!namespace,
+  });
+
+// A missing Secret is reported by the form that reads it, not as a toast.
+export const useSecret = (
+  cluster: string,
+  namespace: string,
+  name: string,
+  options?: { enabled?: boolean }
+) =>
+  useQuery({
+    queryKey: [SECRETS_QUERY_KEY, cluster, namespace, 'name', name],
+    queryFn: () => getSecretFn(cluster, namespace, name, true),
+    enabled: (options?.enabled ?? true) && !!cluster && !!namespace && !!name,
+    retry: false,
   });
 
 // Lists secrets outside render through the useSecrets cache.

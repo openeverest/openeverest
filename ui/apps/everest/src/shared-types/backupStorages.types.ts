@@ -42,6 +42,8 @@ export type BackupStorageClassUiSchema = {
 };
 
 export enum CredentialsSource {
+  // On edit: the Secret the storage names, whose keys are replaced in place.
+  Current = 'current',
   Existing = 'existing',
   New = 'new',
 }
@@ -54,7 +56,10 @@ export enum TlsMode {
 
 export enum CaSource {
   New = 'new',
+  // A labelled CA bundle, which holds its certificates under ca.crt.
   Existing = 'existing',
+  // An unlabelled Secret, e.g. written by cert-manager, under any key.
+  External = 'external',
 }
 
 // Also the suffix of the Secret the form creates for a storage.
@@ -83,8 +88,14 @@ export interface BackupStorageFormValues {
   authMode: string;
   credentialsSource: CredentialsSource;
   credentialsSecretName: string;
+  // The name new credentials are saved under; blank for the derived name.
+  credentialsSaveAs: string;
   // Keys of the auth mode's credentials, rendered from the class's uiSchema.
   credentials: Record<string, unknown>;
+  // With CredentialsSource.Current: the required keys being replaced and the
+  // optional keys being removed. Untouched keys keep their stored value.
+  replacedCredentialKeys: string[];
+  removedCredentialKeys: string[];
   tlsMode: TlsMode;
   caSource: CaSource;
   caBundle: string;

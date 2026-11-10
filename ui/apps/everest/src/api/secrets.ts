@@ -60,20 +60,29 @@ export const getSecretFn = async (
   return response.data;
 };
 
-// Sets the keys in stringData and keeps the others. A stale resourceVersion is
-// refused with 409, which the caller reports.
+// Sets the keys in stringData and keeps the others. A 409, for a stale
+// resourceVersion or a Secret the API doesn't manage, is left to the caller
+// unless notifyConflict shows the API's message. With dryRun the API checks
+// the patch, the definition and permissions, and stores nothing.
 export const patchSecretFn = async (
   cluster: string,
   namespace: string,
   name: string,
-  patch: SecretDataPatch
+  patch: SecretDataPatch,
+  {
+    dryRun = false,
+    notifyConflict = false,
+  }: { dryRun?: boolean; notifyConflict?: boolean } = {}
 ): Promise<Secret> => {
   const response = await api.patch<Secret>(
     `clusters/${cluster}/namespaces/${namespace}/secrets/${name}`,
     patch,
     {
       headers: { 'Content-Type': 'application/merge-patch+json' },
-      disableNotifications: (e) => e.status === 409,
+      ...(dryRun && { params: { dryRun: 'All' } }),
+      ...(!notifyConflict && {
+        disableNotifications: (e) => e.status === 409,
+      }),
     }
   );
   return response.data;

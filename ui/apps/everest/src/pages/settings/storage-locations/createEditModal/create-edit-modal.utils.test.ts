@@ -30,6 +30,23 @@ import {
 
 const PEM = '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n';
 
+// The s3 class with an optional key its form leaves out.
+const s3ClassWithOptionalKey = {
+  ...s3Class,
+  spec: {
+    ...s3Class.spec,
+    authModes: [
+      {
+        name: 'AccessKey',
+        credentials: {
+          required: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'],
+          optional: ['AWS_SESSION_TOKEN'],
+        },
+      },
+    ],
+  },
+};
+
 const createValues = (
   overrides: Partial<BackupStorageFormValues> = {}
 ): BackupStorageFormValues => ({
@@ -86,10 +103,46 @@ describe('class fields', () => {
     ]);
     expect(getCredentialsFields(s3Class, 'WorkloadIdentity')).toEqual([]);
   });
+
+  it('takes the keys and which are required from the auth mode', () => {
+    expect(
+      getCredentialsFields(s3ClassWithOptionalKey, 'AccessKey').map(
+        ({ path, label, password, required, requiredByMode }) => ({
+          path,
+          label,
+          password,
+          required,
+          requiredByMode,
+        })
+      )
+    ).toEqual([
+      {
+        path: 'AWS_ACCESS_KEY_ID',
+        label: 'Access key ID',
+        password: false,
+        required: true,
+        requiredByMode: true,
+      },
+      {
+        path: 'AWS_SECRET_ACCESS_KEY',
+        label: 'Secret access key',
+        password: true,
+        required: true,
+        requiredByMode: true,
+      },
+      {
+        path: 'AWS_SESSION_TOKEN',
+        label: 'AWS_SESSION_TOKEN',
+        password: true,
+        required: false,
+        requiredByMode: false,
+      },
+    ]);
+  });
 });
 
 describe('storageLocationEditValues', () => {
-  it('maps a storage with a CA Secret onto the form', () => {
+  it('maps a storage with an unlabelled CA Secret onto the form', () => {
     const storage = s3Storage({
       tls: { ca: { secretKeyRef: { name: 'corp-ca', key: 'bundle.pem' } } },
     });
@@ -105,15 +158,36 @@ describe('storageLocationEditValues', () => {
         parameters: storage.spec.parameters,
       },
       authMode: 'AccessKey',
-      credentialsSource: CredentialsSource.New,
+      credentialsSource: CredentialsSource.Current,
       credentialsSecretName: 'backup-storage-s3-prod-credentials',
+      credentialsSaveAs: '',
       credentials: {},
+      replacedCredentialKeys: [],
+      removedCredentialKeys: [],
       tlsMode: TlsMode.CustomCA,
-      caSource: CaSource.Existing,
+      caSource: CaSource.External,
       caBundle: '',
       caSecretName: 'corp-ca',
       caSecretKey: 'bundle.pem',
     });
+  });
+
+  it('maps a CA bundle under ca.crt to saved certificates', () => {
+    expect(
+      storageLocationEditValues(
+        s3Storage({
+          tls: { ca: { secretKeyRef: { name: 'corp-ca', key: 'ca.crt' } } },
+        })
+      )
+    ).toMatchObject({ caSource: CaSource.Existing, caSecretName: 'corp-ca' });
+  });
+
+  it('enters credentials for a storage that has none', () => {
+    expect(
+      storageLocationEditValues(
+        s3Storage({ authentication: { mode: 'WorkloadIdentity' } })
+      ).credentialsSource
+    ).toBe(CredentialsSource.New);
   });
 
   it('maps skipped verification and the system trust store', () => {
@@ -158,8 +232,20 @@ describe('prepareStorageSubmitValues', () => {
       },
       credentialsSource: CredentialsSource.New,
       credentialsSecretName: '',
+      credentialsSaveAs: '',
       credentials: { AWS_ACCESS_KEY_ID: 'id', AWS_SECRET_ACCESS_KEY: 'key' },
+      replacedCredentialKeys: [],
+      removedCredentialKeys: [],
     });
+  });
+
+  it('keeps the name new credentials are saved as', () => {
+    expect(
+      prepareStorageSubmitValues(
+        createValues({ credentialsSaveAs: ' team-a-s3 ' }),
+        s3Class
+      ).credentialsSaveAs
+    ).toBe('team-a-s3');
   });
 
   it('keeps the current Secret and unrendered parameters on edit', () => {
@@ -178,17 +264,57 @@ describe('prepareStorageSubmitValues', () => {
       endpointURL: 'https://s3.us-east-1.amazonaws.com',
       sessionToken: 'kept',
     });
-    expect(prepared.credentialsSource).toBe(CredentialsSource.Existing);
-    expect(prepared.credentialsSecretName).toBe(
-      'backup-storage-s3-prod-credentials'
-    );
-    expect(prepared.credentials).toEqual({});
+    expect(prepared).toMatchObject({
+      credentialsSource: CredentialsSource.Current,
+      credentialsSecretName: 'backup-storage-s3-prod-credentials',
+      credentials: {},
+      removedCredentialKeys: [],
+    });
   });
 
-  it('writes new credentials on edit once they are entered', () => {
+  it('sends only the keys replaced or removed on edit', () => {
     const previous = s3Storage();
     const values = {
       ...storageLocationEditValues(previous),
+      credentials: {
+        AWS_ACCESS_KEY_ID: 'typed, then kept',
+        AWS_SECRET_ACCESS_KEY: 'rotated',
+        AWS_SESSION_TOKEN: 'typed, then removed',
+      },
+      replacedCredentialKeys: ['AWS_SECRET_ACCESS_KEY'],
+      removedCredentialKeys: ['AWS_SESSION_TOKEN'],
+    };
+
+    expect(
+      prepareStorageSubmitValues(values, s3ClassWithOptionalKey, previous)
+    ).toMatchObject({
+      credentialsSource: CredentialsSource.Current,
+      credentials: { AWS_SECRET_ACCESS_KEY: 'rotated' },
+      removedCredentialKeys: ['AWS_SESSION_TOKEN'],
+    });
+    expect(
+      prepareStorageSubmitValues(
+        {
+          ...values,
+          removedCredentialKeys: [],
+          credentials: { AWS_SESSION_TOKEN: 'token' },
+        },
+        s3ClassWithOptionalKey,
+        previous
+      )
+    ).toMatchObject({
+      credentials: { AWS_SESSION_TOKEN: 'token' },
+      removedCredentialKeys: [],
+    });
+  });
+
+  it('enters new credentials on edit once the auth mode changes', () => {
+    const previous = s3Storage({
+      authentication: { mode: 'WorkloadIdentity' },
+    });
+    const values = {
+      ...storageLocationEditValues(previous),
+      authMode: 'AccessKey',
       credentials: { AWS_ACCESS_KEY_ID: 'id2', AWS_SECRET_ACCESS_KEY: 'key2' },
     };
 
@@ -262,7 +388,7 @@ describe('storageLocationSchema', () => {
     ).toEqual([]);
   });
 
-  it('lets an edit leave the credentials blank', () => {
+  it('requires a value only for the keys being replaced on edit', () => {
     const previous = s3Storage();
 
     expect(issuePaths(storageLocationEditValues(previous), previous)).toEqual(
@@ -272,11 +398,20 @@ describe('storageLocationSchema', () => {
       issuePaths(
         {
           ...storageLocationEditValues(previous),
-          credentials: { AWS_ACCESS_KEY_ID: 'id2' },
+          replacedCredentialKeys: ['AWS_SECRET_ACCESS_KEY'],
         },
         previous
       )
     ).toEqual(['credentials.AWS_SECRET_ACCESS_KEY']);
+  });
+
+  it('checks the name new credentials are saved as', () => {
+    expect(
+      issuePaths(createValues({ credentialsSaveAs: 'team-a-s3' }))
+    ).toEqual([]);
+    expect(
+      issuePaths(createValues({ credentialsSaveAs: 'Not A Name' }))
+    ).toContain('credentialsSaveAs');
   });
 
   it('validates the custom CA', () => {
@@ -306,6 +441,15 @@ describe('storageLocationSchema', () => {
         createValues({
           ...customCA,
           caSource: CaSource.Existing,
+          caSecretKey: '',
+        })
+      )
+    ).toEqual(['caSecretName']);
+    expect(
+      issuePaths(
+        createValues({
+          ...customCA,
+          caSource: CaSource.External,
           caSecretKey: '',
         })
       )

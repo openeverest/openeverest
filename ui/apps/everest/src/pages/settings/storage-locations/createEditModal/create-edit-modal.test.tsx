@@ -12,8 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { BackupStorageSecretConflictError } from 'api/backupStorage';
+import { Secret } from 'shared-types/api.types';
 import {
   BackupStorageSecretKind,
   CredentialsSource,
@@ -24,6 +31,21 @@ import { s3Storage } from '../storage-locations.fixtures';
 import { CreateEditStorageForm } from './create-edit-form';
 import { CreateEditModalStorage } from './create-edit-modal';
 import { CreateEditModalStorageProps } from './create-edit-modal.types';
+
+const mocks = vi.hoisted(() => {
+  type SecretQuery = { data?: Secret; isError: boolean };
+  const managedSecret: SecretQuery = {
+    data: {
+      metadata: {
+        name: 'backup-storage-s3-prod-credentials',
+        labels: { 'openeverest.io/managed': 'true' },
+      },
+    },
+    isError: false,
+  };
+  const missingSecret: SecretQuery = { isError: true };
+  return { managedSecret, missingSecret, secret: { current: managedSecret } };
+});
 
 vi.mock('hooks/api/namespaces/useNamespaces', () => ({
   useNamespaces: () => ({
@@ -36,31 +58,64 @@ vi.mock('hooks/api/backup-storage-classes', async () => {
   const classes = [
     {
       ...s3Class,
-      spec: { ...s3Class.spec, authModes: [s3Class.spec.authModes[0]] },
+      spec: {
+        ...s3Class.spec,
+        authModes: [
+          {
+            name: 'AccessKey',
+            credentials: {
+              required: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'],
+              optional: ['AWS_SESSION_TOKEN'],
+            },
+          },
+        ],
+      },
     },
   ];
   return {
     useBackupStorageClasses: () => ({ data: classes, isLoading: false }),
   };
 });
-vi.mock('hooks/api/secrets', () => ({
-  // The credentials picker lists Secrets of the class and mode; the CA picker
-  // lists ca-bundle Secrets.
-  useSecrets: (
-    _cluster: string,
-    _namespace: string,
-    filter: { definition?: string }
-  ) => ({
-    data:
-      filter.definition === 'ca-bundle'
-        ? [{ metadata: { name: 'corp-ca' } }]
-        : [
-            { metadata: { name: 'team-creds' } },
-            { metadata: { name: 'backup-storage-s3-prod-credentials' } },
-          ],
+vi.mock('hooks/api/secrets', () => {
+  const caSecrets = {
+    data: [{ metadata: { name: 'corp-ca' } }],
     isFetching: false,
-  }),
-}));
+  };
+  const credentialsSecrets = {
+    data: [
+      { metadata: { name: 'team-creds' } },
+      { metadata: { name: 'backup-storage-s3-prod-credentials' } },
+    ],
+    isFetching: false,
+  };
+  return {
+    // The credentials picker lists Secrets of the class and mode; the CA
+    // picker lists ca-bundle Secrets.
+    useSecrets: (
+      _cluster: string,
+      _namespace: string,
+      filter: { definition?: string }
+    ) => (filter.definition === 'ca-bundle' ? caSecrets : credentialsSecrets),
+    useSecret: () => mocks.secret.current,
+  };
+});
+vi.mock('hooks/rbac', async (importOriginal) => {
+  const permissions = {
+    canRead: true,
+    canUpdate: true,
+    canCreate: true,
+    canDelete: true,
+    isPermissionsLoading: false,
+  };
+  return {
+    ...(await importOriginal<typeof import('hooks/rbac')>()),
+    useRBACPermissions: () => permissions,
+  };
+});
+
+beforeEach(() => {
+  mocks.secret.current = mocks.managedSecret;
+});
 
 const errors = {
   MIN1_ERROR: 'String must contain at least 1 character(s)',
@@ -94,6 +149,7 @@ const renderModal = (props: Partial<CreateEditModalStorageProps> = {}) => {
 };
 
 const textbox = (name: RegExp) => screen.getByRole('textbox', { name });
+const textboxOrNull = (name: RegExp) => screen.queryByRole('textbox', { name });
 
 const type = (element: HTMLElement, value: string) =>
   fireEvent.change(element, { target: { value } });
@@ -181,9 +237,6 @@ describe('CreateEditModalStorage', () => {
       expect(textbox(/^Prefix/)).toBeDisabled();
       expect(textbox(/^Region/)).toBeEnabled();
       expect(textbox(/^Region/)).toHaveValue('us-east-1');
-      expect(
-        screen.getByText(/Leave the fields blank to keep the current Secret/)
-      ).toBeInTheDocument();
 
       const submit = screen.getByTestId('form-dialog-edit');
       await waitFor(() => expect(submit).toBeEnabled());
@@ -193,10 +246,109 @@ describe('CreateEditModalStorage', () => {
       expect(handleSubmitModal.mock.calls[0]).toEqual([
         true,
         expect.objectContaining({
-          credentialsSource: CredentialsSource.Existing,
+          credentialsSource: CredentialsSource.Current,
           credentialsSecretName: 'backup-storage-s3-prod-credentials',
+          credentials: {},
+          removedCredentialKeys: [],
         }),
       ]);
+    }
+  );
+
+  it(
+    'replaces and removes single keys of the current credentials',
+    { timeout: 30000 },
+    async () => {
+      const handleSubmitModal = renderModal({
+        selectedStorageLocation: s3Storage(),
+      });
+
+      const secretKeyRow = screen.getByTestId(
+        'credentials-key-AWS_SECRET_ACCESS_KEY'
+      );
+      expect(secretKeyRow).toHaveTextContent('Configured');
+      expect(
+        screen.getByTestId('credentials-key-AWS_ACCESS_KEY_ID')
+      ).toHaveTextContent('Configured');
+      expect(
+        screen.queryByLabelText(/^Secret access key/)
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByText('Optional · leave blank to keep the current value')
+      ).toBeInTheDocument();
+
+      fireEvent.click(
+        within(secretKeyRow).getByRole('button', { name: 'Replace' })
+      );
+      type(screen.getByLabelText(/^Secret access key/), 'rotated');
+      fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+      expect(
+        screen.getByTestId('credentials-key-AWS_SESSION_TOKEN')
+      ).toHaveTextContent('Removed when you save');
+
+      const submit = screen.getByTestId('form-dialog-edit');
+      await waitFor(() => expect(submit).toBeEnabled());
+      fireEvent.click(submit);
+
+      await waitFor(() => expect(handleSubmitModal).toHaveBeenCalled());
+      expect(handleSubmitModal.mock.calls[0]).toEqual([
+        true,
+        expect.objectContaining({
+          credentialsSource: CredentialsSource.Current,
+          credentialsSecretName: 'backup-storage-s3-prod-credentials',
+          credentials: { AWS_SECRET_ACCESS_KEY: 'rotated' },
+          removedCredentialKeys: ['AWS_SESSION_TOKEN'],
+        }),
+      ]);
+    }
+  );
+
+  it(
+    "explains why the current credentials can't be changed",
+    { timeout: 30000 },
+    async () => {
+      mocks.secret.current = mocks.missingSecret;
+      renderModal({ selectedStorageLocation: s3Storage() });
+
+      expect(
+        screen.getByText(
+          /Credentials backup-storage-s3-prod-credentials can't be read/
+        )
+      ).toBeInTheDocument();
+      screen
+        .getAllByRole('button', { name: 'Replace' })
+        .forEach((button) => expect(button).toBeDisabled());
+      expect(screen.getByRole('button', { name: 'Remove' })).toBeDisabled();
+
+      fireEvent.click(screen.getByLabelText('Use other saved credentials'));
+      expect(
+        await screen.findByTestId('select-input-credentials-secret-name')
+      ).toHaveValue('backup-storage-s3-prod-credentials');
+    }
+  );
+
+  it(
+    'asks for the key only for certificates from another tool',
+    { timeout: 30000 },
+    async () => {
+      renderModal({
+        selectedStorageLocation: s3Storage({
+          tls: { ca: { secretKeyRef: { name: 'corp-ca', key: 'ca.crt' } } },
+        }),
+      });
+
+      expect(screen.getByLabelText('Use saved certificates')).toBeChecked();
+      expect(screen.getByTestId('select-input-ca-secret-name')).toHaveValue(
+        'corp-ca'
+      );
+      expect(textboxOrNull(/^Key in the Secret/)).not.toBeInTheDocument();
+
+      fireEvent.click(
+        screen.getByLabelText(
+          'Certificates from another tool, such as cert-manager'
+        )
+      );
+      expect(textbox(/^Key in the Secret/)).toHaveValue('ca.crt');
     }
   );
 
@@ -214,7 +366,7 @@ describe('CreateEditModalStorage', () => {
       expect(
         await screen.findByTestId('secret-conflict-alert')
       ).toHaveTextContent('backup-storage-s3-prod-credentials');
-      fireEvent.click(screen.getByRole('button', { name: 'Use that Secret' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Use them' }));
 
       await waitFor(() =>
         expect(
@@ -244,7 +396,7 @@ describe('CreateEditModalStorage', () => {
         "doesn't hold credentials for this storage type and authentication mode"
       );
       expect(
-        screen.queryByRole('button', { name: 'Use that Secret' })
+        screen.queryByRole('button', { name: 'Use them' })
       ).not.toBeInTheDocument();
     }
   );

@@ -18,6 +18,7 @@ import {
   UseMutationOptions,
   useQueries,
   useQuery,
+  useQueryClient,
 } from '@tanstack/react-query';
 import {
   createBackupStorageFn,
@@ -32,6 +33,7 @@ import {
 } from 'shared-types/backupStorages.types';
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import { useNamespaces } from '../namespaces';
+import { SECRETS_QUERY_KEY } from 'hooks/api/secrets';
 import { useClusterName } from '../useClusterName';
 
 export const BACKUP_STORAGES_QUERY_KEY = 'backupStorages';
@@ -78,6 +80,16 @@ export const useBackupStoragesByNamespace = (
   });
 };
 
+// A storage write creates and patches Secrets, which the pickers list.
+const useInvalidateStorageSecrets = () => {
+  const queryClient = useQueryClient();
+  const cluster = useClusterName();
+  return ({ namespace }: Pick<BackupStorageFormValues, 'namespace'>) =>
+    queryClient.invalidateQueries({
+      queryKey: [SECRETS_QUERY_KEY, cluster, namespace],
+    });
+};
+
 export const useCreateBackupStorage = (
   options?: UseMutationOptions<
     unknown,
@@ -87,11 +99,13 @@ export const useCreateBackupStorage = (
   >
 ) => {
   const cluster = useClusterName();
+  const invalidateSecrets = useInvalidateStorageSecrets();
   return useMutation({
     mutationFn: (formData: BackupStorageFormValues) =>
       createBackupStorageFn(cluster, formData),
     // Don't keep the submitted credentials in the mutation cache.
     gcTime: 0,
+    onSettled: (_data, _error, formData) => invalidateSecrets(formData),
     ...options,
   });
 };
@@ -105,10 +119,12 @@ export const useEditBackupStorage = (
   options?: UseMutationOptions<unknown, unknown, EditBackupStorageArgs, unknown>
 ) => {
   const cluster = useClusterName();
+  const invalidateSecrets = useInvalidateStorageSecrets();
   return useMutation({
     mutationFn: ({ formData, previous }: EditBackupStorageArgs) =>
       editBackupStorageFn(cluster, formData, previous),
     gcTime: 0,
+    onSettled: (_data, _error, { formData }) => invalidateSecrets(formData),
     ...options,
   });
 };
