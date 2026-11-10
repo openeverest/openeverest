@@ -13,15 +13,17 @@
 // limitations under the License.
 
 import { useCallback, useEffect, useMemo } from 'react';
-import { useController, useFormContext, useWatch } from 'react-hook-form';
-import { DbWizardFormFields } from 'consts';
+import { useController, useFormContext } from 'react-hook-form';
 import { useMonitoringClassesForProvider } from 'hooks/api/monitoring-classes';
 import { useMonitoringDestinations } from 'hooks/api/monitoring-destinations';
 import { MonitoringDestination } from 'shared-types/monitoring-destinations.types';
 import { getMonitoringClassName } from 'utils/monitoring-classes';
 import { getDestinationName } from 'utils/monitoring-destinations';
 import { MONITORING_DESTINATIONS_FIELD } from '../monitoring-step.constants';
-import { MonitoringSelection } from '../monitoring-step.types';
+import {
+  MonitoringSelection,
+  MonitoringSelectionOptions,
+} from '../monitoring-step.types';
 import {
   getDefaultEntryParameters,
   getDestinationDisabledReason,
@@ -33,15 +35,13 @@ import {
 } from '../monitoring-step.utils';
 import { useMonitoringInstanceForms } from './use-monitoring-instance-forms';
 
-export const useMonitoringSelection = (): MonitoringSelection => {
+// Works on the spec.monitoring.destinations field of the surrounding form.
+export const useMonitoringSelection = ({
+  namespace: namespaceName,
+  provider: providerName,
+  pruneUnavailable,
+}: MonitoringSelectionOptions): MonitoringSelection => {
   const { control, getValues } = useFormContext();
-  const namespace = useWatch({
-    control,
-    name: DbWizardFormFields.k8sNamespace,
-  });
-  const provider = useWatch({ control, name: DbWizardFormFields.provider });
-  const namespaceName = typeof namespace === 'string' ? namespace : '';
-  const providerName = typeof provider === 'string' ? provider : '';
 
   const { data: classes = [], isLoading: classesLoading } =
     useMonitoringClassesForProvider(providerName);
@@ -78,7 +78,7 @@ export const useMonitoringSelection = (): MonitoringSelection => {
   );
 
   useEffect(() => {
-    if (!destinationsLoaded || classesLoading) {
+    if (!pruneUnavailable || !destinationsLoaded || classesLoading) {
       return;
     }
     const current = parseMonitoringDestinations(
@@ -92,6 +92,7 @@ export const useMonitoringSelection = (): MonitoringSelection => {
       onChange(pruned);
     }
   }, [
+    pruneUnavailable,
     destinationsLoaded,
     classesLoading,
     destinations,

@@ -12,14 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { MonitoringConfig } from 'shared-types/api.types';
+import { IconButton } from '@mui/material';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { EditIconButtonProps } from './edit-icon-button.types';
 
-export interface MonitoringConfigTableElement {
-  name: string;
-  namespace: string;
-  type: string;
-  url: string;
-  inUse: boolean;
-  pmmServerVersion: string;
-  raw: MonitoringConfig;
-}
+// The small pencil that opens an editor, e.g. in a card header.
+export const EditIconButton = ({
+  label,
+  onClick,
+  dataTestId,
+}: EditIconButtonProps) => (
+  <IconButton
+    data-testid={dataTestId}
+    size="small"
+    onClick={onClick}
+    aria-label={label}
+  >
+    <EditOutlinedIcon fontSize="small" />
+  </IconButton>
+);

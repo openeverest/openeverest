@@ -12,5 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export * from './useMonitoringConfigsList';
-export * from './useMonitoringConfigsOptions';
+import { BaseStatus } from 'components/status-field/status-field.types';
+import { ConditionStatus } from './monitoring-card.types';
+
+export const MONITORING_CONFIGURED_CONDITION = 'MonitoringConfigured';
+
+export const CONFIGURED_TO_STATUS: Record<ConditionStatus, BaseStatus> = {
+  True: 'success',
+  False: 'error',
+  Unknown: 'pending',
+};

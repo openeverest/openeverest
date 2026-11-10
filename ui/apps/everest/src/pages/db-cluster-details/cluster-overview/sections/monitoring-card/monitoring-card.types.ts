@@ -1,0 +1,47 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import { Instance } from 'shared-types/api.types';
+import { InstanceCondition } from 'shared-types/instance.types';
+import { InstanceMonitoringStatus } from 'shared-types/monitoring-destinations.types';
+
+export type ConditionStatus = InstanceCondition['status'];
+
+export type MonitoringMode = NonNullable<InstanceMonitoringStatus['mode']>;
+
+// One spec.monitoring.destinations entry with the state core reports for it.
+export interface MonitoringEntryOverview {
+  name: string;
+  destination: string;
+  mode?: MonitoringMode;
+  configured: ConditionStatus;
+  // The reason and message core reports, empty when it reports none.
+  details: string;
+}
+
+export interface MonitoringOverview {
+  // The MonitoringConfigured roll-up, independent of the Instance's Ready.
+  configured?: {
+    status: ConditionStatus;
+    details: string;
+  };
+  entries: MonitoringEntryOverview[];
+}
+
+export interface MonitoringCardProps {
+  instance: Instance;
+  namespace: string;
+  // Changes are allowed in the Instance's current phase.
+  editable: boolean;
+}

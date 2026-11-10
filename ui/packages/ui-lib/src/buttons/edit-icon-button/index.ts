@@ -12,18 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { api } from 'api/api';
-import { MonitoringConfig, MonitoringConfigList } from 'shared-types/api.types';
-
-// TODO: When all monitoring APIs migrate to v2, consolidate this file
-//       into api/monitoring.ts and unify the monitoring hooks layer.
-
-export const getMonitoringConfigsFn = async (
-  cluster: string,
-  namespace: string
-): Promise<MonitoringConfig[]> => {
-  const response = await api.get<MonitoringConfigList>(
-    `clusters/${cluster}/namespaces/${namespace}/monitoring-configs`
-  );
-  return response.data?.items ?? [];
-};
+export { EditIconButton } from './edit-icon-button';
+export type { EditIconButtonProps } from './edit-icon-button.types';

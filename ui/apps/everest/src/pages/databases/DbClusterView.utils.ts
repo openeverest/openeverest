@@ -90,8 +90,6 @@ export const convertDbInstancesPayloadToTableFormat = (
             ? cluster.spec.proxy.expose.type
             : undefined,
           port: cluster.status?.port,
-          monitoringConfigName:
-            cluster.spec.monitoring?.monitoringConfigName ?? '',
           raw: cluster,
           */
           topologyType: instance.spec?.topology?.type ?? '',
