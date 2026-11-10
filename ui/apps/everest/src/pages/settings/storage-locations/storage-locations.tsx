@@ -16,7 +16,10 @@ import { Add } from '@mui/icons-material';
 import { Box, Button, Tooltip } from '@mui/material';
 import { Table } from '@percona/ui-lib';
 import { useQueryClient } from '@tanstack/react-query';
-import { BackupStorageSecretConflictError } from 'api/backupStorage';
+import {
+  BackupStorageSecretConflictError,
+  CA_SECRET_KEY,
+} from 'api/backupStorage';
 import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
 import StatusField from 'components/status-field';
 import { useBackupStorageClasses } from 'hooks/api/backup-storage-classes';
@@ -285,18 +288,26 @@ export const StorageLocations = () => {
           return <TableActionsMenu menuItems={menuItems} />;
         }}
         renderDetailPanel={({ row }) => {
-          const { authentication, tls } = row.original.raw.spec;
+          const { namespace, raw } = row.original;
+          const { authentication, tls } = raw.spec;
+          const credentials = authentication.credentialsSecretRef;
           const ca = tls?.ca?.secretKeyRef;
           return (
             <Box>
-              <ExpandedRowInfoLine
-                label={Messages.credentialsSecret}
-                value={authentication.credentialsSecretRef?.name}
-              />
+              {credentials && (
+                <ExpandedRowInfoLine
+                  label={Messages.credentials}
+                  value={Messages.storedInSecret(namespace, credentials.name)}
+                />
+              )}
               {ca ? (
                 <ExpandedRowInfoLine
-                  label={Messages.caSecret}
-                  value={`${ca.name} (${ca.key})`}
+                  label={Messages.trustedCertificates}
+                  value={Messages.storedInSecret(
+                    namespace,
+                    ca.name,
+                    ca.key === CA_SECRET_KEY ? undefined : ca.key
+                  )}
                 />
               ) : (
                 <ExpandedRowInfoLine

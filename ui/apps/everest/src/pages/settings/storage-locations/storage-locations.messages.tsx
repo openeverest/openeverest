@@ -87,7 +87,8 @@ export const Messages = {
       <>
         Are you sure you want to permanently delete this backup storage{' '}
         <b>{storageName}</b>? Any database clusters using this storage will no
-        longer be able to execute their scheduled backup jobs.
+        longer be able to execute their scheduled backup jobs. Its saved
+        credentials and certificates are kept.
       </>
     ),
   },
@@ -102,8 +103,10 @@ export const Messages = {
   bucket: 'Bucket',
   authMode: 'Auth mode',
   statusHeader: 'Status',
-  credentialsSecret: 'Credentials Secret',
-  caSecret: 'CA Secret',
+  credentials: 'Credentials',
+  trustedCertificates: 'Trusted certificates',
+  storedInSecret: (namespace: string, name: string, key?: string) =>
+    `Stored in Secret ${namespace}/${name}${key ? `, key ${key}` : ''}`,
   insecureSkipVerify: 'TLS verification',
   skipped: 'Skipped',
   systemTrustStore: 'System trust store',
