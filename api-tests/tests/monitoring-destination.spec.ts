@@ -13,7 +13,13 @@
 // limitations under the License.
 
 import {expect, test} from '@fixtures'
-import {EVEREST_CI_NAMESPACE, TIMEOUTS} from '@root/constants';
+import type {CliHelper} from '@helpers/cliHelper';
+import {
+  EVEREST_CI_NAMESPACE,
+  TEST_PASSWORD,
+  TEST_USER,
+  TIMEOUTS,
+} from '@root/constants';
 import * as th from '@tests/utils/api';
 
 const url = `/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-destinations`,
@@ -24,7 +30,8 @@ const url = `/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-des
     await th.checkError(response)
 
     return (await response.json()) as {
-      metadata: {labels?: Record<string, string>, deletionTimestamp?: string},
+      metadata: {labels?: Record<string, string>, annotations?: Record<string, string>, deletionTimestamp?: string},
+      spec: {parameters?: Record<string, unknown>},
       status?: {attachedInstances?: number},
     }
   },
@@ -34,6 +41,30 @@ const url = `/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-des
     await th.checkError(response)
 
     return ((await response.json()) as {spec: Record<string, unknown>}).spec
+  },
+  rbacConfigMap = 'configmap/everest-rbac --namespace everest-system',
+  getRBAC = async (cli: CliHelper) => {
+    const output = await cli.exec(`kubectl get ${rbacConfigMap} -o json`)
+
+    await output.assertSuccess()
+
+    return (JSON.parse(output.stdout) as {data: Record<string, string>}).data
+  },
+  patchRBAC = async (cli: CliHelper, data: Record<string, string>) => {
+    await (await cli.exec(`kubectl patch ${rbacConfigMap} --type merge -p '${JSON.stringify({data})}'`)).assertSuccess()
+  },
+  login = async (request, username: string, password: string) => {
+    const response = await request.post('/v1/auth/token', {
+      data: {
+        grant_type: 'password',
+        username,
+        password,
+      },
+    })
+
+    await th.checkError(response)
+
+    return {Authorization: `Bearer ${(await response.json()).access_token}`}
   }
 
 test.describe('Monitoring destination dryRun', () => {
@@ -184,6 +215,75 @@ test.describe('Monitoring destination in use', () => {
       await expect(async () => {
         expect([204, 404]).toContain((await request.delete(`${url}/${name}`)).status())
       }).toPass({intervals: [1000], timeout: TIMEOUTS.ThirtySeconds})
+    }
+  })
+});
+
+test.describe('Monitoring destination Secret use', () => {
+  test.describe.configure({timeout: TIMEOUTS.ThreeMinutes});
+
+  test('changing spec needs use on its Secrets, changing annotations does not', async ({request, cli}) => {
+    const name = th.limitedSuffixedName('md-use'),
+      secret = `${name}-credentials`,
+      role = `role:${name}`,
+      // Neither the class nor the Secret need exist: the check is on the names.
+      payload = {
+        metadata: {name},
+        spec: {
+          classRef: {name: 'pmm'},
+          authentication: {mode: 'ServiceAccountToken', credentialsSecretRef: {name: secret}},
+          parameters: {url: 'https://pmm.example.com'},
+        },
+      },
+      otherURL = {...payload, spec: {...payload.spec, parameters: {url: 'https://collector.example.com'}}},
+      rbac = await getRBAC(cli)
+
+    try {
+      await th.checkError(await request.post(url, {data: payload}))
+
+      // RBAC is off in the api-tests environment: turn it on, keeping the CI user's admin role, with a role that may
+      // update the destination and read its Secret, but not use it.
+      await patchRBAC(cli, {
+        enabled: 'true',
+        'policy.csv': [
+          rbac['policy.csv'] ?? '',
+          `p, ${role}, monitoring-destinations, read, main/${EVEREST_CI_NAMESPACE}/${name}`,
+          `p, ${role}, monitoring-destinations, update, main/${EVEREST_CI_NAMESPACE}/${name}`,
+          `p, ${role}, monitoring-classes, read, main/pmm`,
+          `p, ${role}, secrets, read, main/${EVEREST_CI_NAMESPACE}/${secret}`,
+          `g, ${TEST_USER}, ${role}`,
+        ].join('\n'),
+      })
+
+      const asTestUser = await login(request, TEST_USER, TEST_PASSWORD)
+
+      await test.step('changing parameters.url is refused', async () => {
+        // The server reloads the policy asynchronously; until it has, the dry run is allowed and stores nothing.
+        await expect(async () => {
+          expect((await request.put(`${url}/${name}?dryRun=All`, {headers: asTestUser, data: otherURL})).status()).toBe(403)
+        }).toPass({intervals: [1000], timeout: TIMEOUTS.ThirtySeconds})
+
+        expect((await request.put(`${url}/${name}`, {headers: asTestUser, data: otherURL})).status()).toBe(403)
+
+        expect((await getDestination(request, name)).spec.parameters).toEqual(payload.spec.parameters)
+      });
+
+      await test.step('changing annotations only is allowed', async () => {
+        const response = await request.put(`${url}/${name}`, {
+          headers: asTestUser,
+          data: {...payload, metadata: {name, annotations: {'example.com/owner': 'team-a'}}},
+        })
+
+        await th.checkError(response)
+
+        expect(await getDestination(request, name)).toMatchObject({
+          metadata: {annotations: {'example.com/owner': 'team-a'}},
+          spec: {parameters: payload.spec.parameters},
+        })
+      });
+    } finally {
+      await request.delete(`${url}/${name}`)
+      await patchRBAC(cli, rbac)
     }
   })
 });

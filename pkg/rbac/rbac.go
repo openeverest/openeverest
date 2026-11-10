@@ -159,10 +159,17 @@ const (
 	ActionRead   = "read"
 	ActionUpdate = "update"
 	ActionDelete = "delete"
-	// ActionUse is the verb granted to users for consuming a plugin via the
-	// /v1/plugins/{name}/* proxy. It is separate from CRUD so admins can
-	// install plugins (create) without automatically granting broad read
-	// access to every user.
+	// ActionUse grants consuming something rather than managing it. It has
+	// two meanings:
+	//   - on plugins, consuming a plugin via the /v1/plugins/{name}/* proxy.
+	//     It is separate from CRUD so admins can install plugins (create)
+	//     without automatically granting broad read access to every user.
+	//   - on secrets, using a Secret's contents through an object that
+	//     references it: creating an object that names the Secret, such as a
+	//     MonitoringDestination, or changing the spec of one that does, since
+	//     the object sends the contents to, or trusts them for, the endpoint
+	//     its spec names. ActionRead does not imply it: read only shows a
+	//     Secret's metadata.
 	ActionUse = "use"
 	// ActionDeploy allows creating instances with custom values that deviate
 	// from preset specifications. Users without this permission can only create
