@@ -15,42 +15,15 @@
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { Box, Button, Typography } from '@mui/material';
 import { useParams } from 'react-router-dom';
-import {
-  BACKUP_STORAGES_QUERY_KEY,
-  useCreateBackupStorage,
-} from 'hooks/api/backup-storages/useBackupStorages';
+import { useAddBackupStorage } from 'hooks/api/backup-storages/useAddBackupStorage';
 import { CreateEditModalStorage } from 'pages/settings/storage-locations/createEditModal/create-edit-modal';
-import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import { BackupStorageFormValues } from 'shared-types/backupStorages.types';
 import { Messages } from '../backups.messages';
-import { useNamespacePermissionsForResource } from 'hooks/rbac';
-import { useClusterName } from 'hooks/api/useClusterName';
 
 export const NoStoragesMessage = () => {
-  const queryClient = useQueryClient();
-  const clusterName = useClusterName();
   const { namespace = '' } = useParams();
-  const [openCreateEditModal, setOpenCreateEditModal] = useState(false);
-  const { mutate: createBackupStorage, isPending: creatingBackupStorage } =
-    useCreateBackupStorage();
+  // Also reports a credentials name that is taken on the form.
+  const { canAdd, isOpen, open, modalProps } = useAddBackupStorage(namespace);
 
-  const handleSubmit = (_: boolean, data: BackupStorageFormValues) => {
-    createBackupStorage(data, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: [BACKUP_STORAGES_QUERY_KEY, clusterName, data.namespace],
-        });
-        handleCloseModal();
-      },
-    });
-  };
-
-  const handleCloseModal = () => {
-    setOpenCreateEditModal(false);
-  };
-
-  const { canCreate } = useNamespacePermissionsForResource('backup-storages');
   return (
     <Box
       sx={{
@@ -70,20 +43,12 @@ export const NoStoragesMessage = () => {
       <Button
         sx={{ my: 4 }}
         variant="contained"
-        onClick={() => setOpenCreateEditModal(true)}
-        disabled={canCreate.length <= 0}
+        onClick={open}
+        disabled={!canAdd}
       >
         {Messages.addStorage}
       </Button>
-      {openCreateEditModal && (
-        <CreateEditModalStorage
-          open={openCreateEditModal}
-          handleCloseModal={handleCloseModal}
-          handleSubmitModal={handleSubmit}
-          isLoading={creatingBackupStorage}
-          prefillNamespace={namespace}
-        />
-      )}
+      {isOpen && <CreateEditModalStorage {...modalProps} />}
     </Box>
   );
 };
