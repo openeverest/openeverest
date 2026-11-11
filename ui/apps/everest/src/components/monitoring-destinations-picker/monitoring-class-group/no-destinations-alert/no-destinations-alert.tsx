@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { useState } from 'react';
+import { Alert } from '@mui/material';
 import ActionableAlert from 'components/actionable-alert';
 import {
   MonitoringDestinationModal,
@@ -41,6 +42,17 @@ export const NoDestinationsAlert = ({
     isMonitoringClassAccepted(monitoringClass) &&
     createNamespaces.includes(namespace);
 
+  if (!canCreate) {
+    return (
+      <Alert
+        severity="warning"
+        data-testid={`no-monitoring-destinations-${className}`}
+      >
+        {Messages.noDestinations(namespace)}
+      </Alert>
+    );
+  }
+
   return (
     <>
       <ActionableAlert
@@ -48,7 +60,6 @@ export const NoDestinationsAlert = ({
         buttonMessage={Messages.addDestination}
         data-testid={`no-monitoring-destinations-${className}`}
         onClick={() => setIsOpen(true)}
-        {...(!canCreate && { action: undefined })}
       />
       {isOpen && (
         <MonitoringDestinationModal

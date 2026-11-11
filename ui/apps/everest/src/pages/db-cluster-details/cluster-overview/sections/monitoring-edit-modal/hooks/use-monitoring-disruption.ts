@@ -20,13 +20,13 @@ import {
   finalizeMonitoringEntries,
   MONITORING_DESTINATIONS_FIELD,
   parseMonitoringDestinations,
-  useMonitoringInstanceForms,
 } from 'components/monitoring-destinations-picker';
 import { Instance } from 'shared-types/api.types';
 import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
+import { MonitoringSectionForm } from 'utils/monitoring-classes';
 import { MonitoringDisruption } from '../monitoring-edit-modal.types';
 import {
   getMonitoringDisruption,
@@ -40,7 +40,8 @@ const NO_DESTINATIONS: MonitoringDestination[] = [];
 // those the Instance has now.
 export const useMonitoringDisruption = (
   instance: Instance,
-  namespace: string
+  namespace: string,
+  instanceForms: Map<string, MonitoringSectionForm>
 ): MonitoringDisruption => {
   const provider = instance.spec?.providerRef.name ?? '';
   const { control } = useFormContext();
@@ -49,7 +50,6 @@ export const useMonitoringDisruption = (
     useMonitoringClassesForProvider(provider);
   const { data: destinations = NO_DESTINATIONS } =
     useMonitoringDestinations(namespace);
-  const instanceForms = useMonitoringInstanceForms(namespace, provider);
 
   return useMemo(
     () =>

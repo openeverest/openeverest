@@ -60,4 +60,6 @@ export interface MonitoringSelectionOptions {
   // changed on an earlier wizard step. An existing Instance keeps them, so an
   // edit never removes what it doesn't show.
   pruneUnavailable: boolean;
+  // From useMonitoringInstanceForms, which the caller already needs to save.
+  instanceForms: Map<string, MonitoringSectionForm>;
 }

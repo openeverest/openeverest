@@ -35,13 +35,13 @@ import {
   pruneMonitoringDestinations,
   toggleMonitoringDestination,
 } from '../monitoring-destinations-picker.utils';
-import { useMonitoringInstanceForms } from './use-monitoring-instance-forms';
 
 // Works on the spec.monitoring.destinations field of the surrounding form.
 export const useMonitoringSelection = ({
   namespace: namespaceName,
   provider: providerName,
   pruneUnavailable,
+  instanceForms,
 }: MonitoringSelectionOptions): MonitoringSelection => {
   const { control, getValues } = useFormContext();
 
@@ -58,7 +58,6 @@ export const useMonitoringSelection = ({
   } = useMonitoringDestinations(namespaceName);
   const { canRead: canReadDestinations, isPermissionsLoading } =
     useRBACPermissions('monitoring-destinations', `${namespaceName}/*`);
-  const instanceForms = useMonitoringInstanceForms(namespaceName, providerName);
 
   const {
     field: { value, onChange },

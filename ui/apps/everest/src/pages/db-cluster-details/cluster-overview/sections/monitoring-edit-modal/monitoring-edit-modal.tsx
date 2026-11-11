@@ -92,8 +92,13 @@ export const MonitoringEditModal = ({
         namespace={namespace}
         provider={provider}
         pruneUnavailable={false}
+        instanceForms={instanceForms}
       />
-      <DisruptionNotice instance={instance} namespace={namespace} />
+      <DisruptionNotice
+        instance={instance}
+        namespace={namespace}
+        instanceForms={instanceForms}
+      />
     </FormDialog>
   );
 };
