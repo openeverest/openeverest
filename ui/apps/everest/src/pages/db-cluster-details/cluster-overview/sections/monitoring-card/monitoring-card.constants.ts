@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { BaseStatus } from 'components/status-field/status-field.types';
+import { Messages } from './monitoring-card.messages';
 import { ConditionStatus } from './monitoring-card.types';
 
 export const MONITORING_READY_CONDITION = 'MonitoringReady';
@@ -25,4 +26,12 @@ export const READY_TO_STATUS: Record<ConditionStatus, BaseStatus> = {
   True: 'success',
   False: 'error',
   Unknown: 'pending',
+};
+
+// Binding reasons the user fixes on this card, keyed as core reports them.
+export const ACTIONABLE_REASON_TEXT: Partial<
+  Record<string, (destination: string) => string>
+> = {
+  DestinationTerminating: Messages.destinationTerminating,
+  DestinationNotFound: Messages.destinationNotFound,
 };

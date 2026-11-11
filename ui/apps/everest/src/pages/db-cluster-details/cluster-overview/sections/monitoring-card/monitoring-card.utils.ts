@@ -16,6 +16,7 @@ import { Instance } from 'shared-types/api.types';
 import { InstanceMonitoringStatus } from 'shared-types/monitoring-destinations.types';
 import { describeCondition } from 'utils/monitoring-destinations';
 import {
+  ACTIONABLE_REASON_TEXT,
   ENTRY_CONFIGURED_CONDITION,
   ENTRY_READY_CONDITION,
   MONITORING_READY_CONDITION,
@@ -62,12 +63,16 @@ export const getMonitoringOverview = (
       );
       const ready = conditions?.find((c) => c.type === ENTRY_READY_CONDITION);
       const explaining = explainingCondition(configured, ready);
+      const destination = entry.destinationRef.name;
       return {
         name: entry.name,
-        destination: entry.destinationRef.name,
+        destination,
         mode: status?.mode,
         ready: toConditionStatus(ready?.status),
-        details: explaining ? describeCondition(explaining) : '',
+        details: explaining
+          ? (ACTIONABLE_REASON_TEXT[explaining.reason]?.(destination) ??
+            describeCondition(explaining))
+          : '',
       };
     }),
   };

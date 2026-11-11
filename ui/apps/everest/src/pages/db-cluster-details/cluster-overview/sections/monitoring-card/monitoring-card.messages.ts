@@ -27,6 +27,10 @@ export const Messages = {
     False: 'Not ready',
     Unknown: 'Pending',
   } satisfies Record<ConditionStatus, string>,
+  destinationTerminating: (destination: string) =>
+    `${destination} is being deleted. Remove it from monitoring to let the deletion finish.`,
+  destinationNotFound: (destination: string) =>
+    `${destination} no longer exists. Remove it from monitoring.`,
   modes: {
     ProviderManaged: 'Provider-managed',
     ExtensionManaged: 'Extension-managed',
