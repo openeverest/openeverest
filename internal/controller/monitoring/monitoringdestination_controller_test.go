@@ -199,11 +199,17 @@ func TestDestinationReconcilerAccepted(t *testing.T) {
 	}
 }
 
+// instanceBeingDeleted is an Instance listing the destination prom whose
+// deletion a test finalizer holds.
+func instanceBeingDeleted(name string) *corev1alpha1.Instance {
+	in := namedInstance(name, testNamespace, entry("metrics", "prom"))
+	in.Finalizers = []string{"test.openeverest.io/hold"}
+	in.DeletionTimestamp = &metav1.Time{Time: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
+	return in
+}
+
 func TestDestinationReconcilerCountsAttachedInstances(t *testing.T) {
 	t.Parallel()
-	beingDeleted := namedInstance("payments", testNamespace, entry("metrics", "prom"))
-	beingDeleted.Finalizers = []string{"test.openeverest.io/hold"}
-	beingDeleted.DeletionTimestamp = &metav1.Time{Time: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
 
 	tests := []struct {
 		name      string
@@ -217,12 +223,12 @@ func TestDestinationReconcilerCountsAttachedInstances(t *testing.T) {
 			want:      1,
 		},
 		{
-			name: "an Instance being deleted still counts",
+			name: "an Instance being deleted does not count",
 			instances: []client.Object{
 				namedInstance("orders", testNamespace, entry("metrics", "prom")),
-				beingDeleted,
+				instanceBeingDeleted("payments"),
 			},
-			want: 2,
+			want: 1,
 		},
 		{
 			name: "Instances listing another destination or in another namespace do not count",
@@ -293,6 +299,41 @@ func TestDestinationDeletionWaitsForInstances(t *testing.T) {
 	assert.Empty(t, rec.Events)
 }
 
+func TestDestinationDeletionCountsInstancesBeingDeleted(t *testing.T) {
+	t.Parallel()
+	c := newFakeClient(t, prometheusClass(), newDestination("prom", "prometheus"),
+		namedInstance("orders", testNamespace, entry("metrics", "prom")), instanceBeingDeleted("payments"),
+	)
+	r, rec := newDestinationReconciler(c)
+	key := types.NamespacedName{Namespace: testNamespace, Name: "prom"}
+
+	dst := runDestinationReconcile(t, r, "prom")
+	require.Equal(t, int32(1), dst.Status.AttachedInstances, "an Instance being deleted counted while the destination is not")
+
+	updateInstance(t, c, func(in *corev1alpha1.Instance) { in.Spec.Monitoring = nil })
+	dst = runDestinationReconcile(t, r, "prom")
+	require.Equal(t, int32(0), dst.Status.AttachedInstances)
+	// Admitted by the in-use policy now; the Instance being deleted holds it.
+	require.NoError(t, c.Delete(t.Context(), dst))
+
+	dst = runDestinationReconcile(t, r, "prom")
+	assert.Equal(t, []string{monitoringv1alpha1.InUseProtectionFinalizer}, dst.Finalizers)
+	assert.Equal(t, int32(1), dst.Status.AttachedInstances, "the count states what the deletion waits for")
+	require.Len(t, rec.Events, 1)
+	assert.Equal(t, "Warning DeletionBlocked deletion waits for 1 Instance(s) to stop using it: payments", <-rec.Events)
+
+	payments := &corev1alpha1.Instance{}
+	require.NoError(t, c.Get(t.Context(), types.NamespacedName{Namespace: testNamespace, Name: "payments"}, payments))
+	payments.Finalizers = nil
+	require.NoError(t, c.Update(t.Context(), payments))
+	_, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: key})
+	require.NoError(t, err)
+
+	err = c.Get(t.Context(), key, &monitoringv1alpha1.MonitoringDestination{})
+	require.True(t, apierrors.IsNotFound(err), "destination still present: %v", err)
+	assert.Empty(t, rec.Events)
+}
+
 func TestDestinationDeletionReadsInstancesFromTheAPIServer(t *testing.T) {
 	t.Parallel()
 	// The cache has not seen the Instance yet; the API server has.
@@ -316,6 +357,11 @@ func TestEnqueueDestinationsOfInstance(t *testing.T) {
 	t.Parallel()
 	before := newInstance(pxcProvider(), entry("pmm", "pmm-prod"), entry("prom", "prom"))
 	after := newInstance(pxcProvider(), entry("prom", "prom"), entry("vm", "victoria"))
+	afterDeleting := after.DeepCopy()
+	afterDeleting.Finalizers = []string{"test.openeverest.io/hold", "test.openeverest.io/other"}
+	afterDeleting.DeletionTimestamp = &metav1.Time{Time: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
+	afterReleased := afterDeleting.DeepCopy()
+	afterReleased.Finalizers = []string{"test.openeverest.io/other"}
 	requests := func(names ...string) []reconcile.Request {
 		reqs := make([]reconcile.Request, 0, len(names))
 		for _, name := range names {
@@ -347,6 +393,19 @@ func TestEnqueueDestinationsOfInstance(t *testing.T) {
 			name: "update that keeps the destinations enqueues nothing",
 			send: func(h handler.EventHandler, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 				h.Update(t.Context(), event.UpdateEvent{ObjectOld: after, ObjectNew: after.DeepCopy()}, q)
+			},
+		},
+		{
+			name: "update that starts the deletion enqueues every destination listed",
+			send: func(h handler.EventHandler, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+				h.Update(t.Context(), event.UpdateEvent{ObjectOld: after, ObjectNew: afterDeleting}, q)
+			},
+			want: requests("prom", "victoria"),
+		},
+		{
+			name: "update of an Instance already being deleted that keeps the destinations enqueues nothing",
+			send: func(h handler.EventHandler, q workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+				h.Update(t.Context(), event.UpdateEvent{ObjectOld: afterDeleting, ObjectNew: afterReleased}, q)
 			},
 		},
 		{

@@ -12,12 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package inuse holds the in-use protection finalizer of objects other
-// objects refer to. An admission policy refuses deleting such an object
-// while its usage count is above zero; the finalizer is the backstop for a
-// count that is not up to date yet. It is added to every object, not only
-// to those in use, so it is already there when a deletion slips through,
-// and it is removed only once a read of the API server finds no referrer.
+// Package inuse holds the deletion safety of objects other objects refer
+// to: the referent's usage count and its in-use protection finalizer.
+//
+// An admission policy refuses deleting a referent while its usage count is
+// above zero. Count is the rule every count follows, for every kind of
+// referent and referrer:
+//
+//   - while the referent is not being deleted, referrers being deleted
+//     themselves are left out, so a referrer and its referent can be
+//     deleted together;
+//   - once the referent is being deleted, every referrer counts, read from
+//     the API server, so the count states what its deletion waits for.
+//
+// Measure applies the rule to the referrers of one kind, reading them from
+// the cache or the API server as it requires.
+//
+// The finalizer (Guard) is the backstop for a count that is not up to date
+// yet and holds the referent while referrers being deleted remain. It is
+// added to every object, not only to those in use, so it is already there
+// when a deletion slips through, and it is removed only once a read of the
+// API server finds no referrer, those being deleted included.
 package inuse
 
 import (
@@ -27,6 +42,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/events"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -60,9 +76,12 @@ func (g Guard) Protect(ctx context.Context, obj client.Object) error {
 
 // Release removes the finalizer from obj, which is being deleted, when
 // referrers is empty, and reports whether it did. referrers must be read
-// from the API server, not the cache: the cache may not have seen a
-// referrer created just before the deletion. While referrers remain, it
-// keeps the finalizer and records a DeletionBlocked event naming them.
+// from the API server, not the cache, and include referrers being deleted
+// themselves: the cache may not have seen a referrer created just before
+// the deletion, and a referrer being deleted may still need obj to tear
+// down. Measure's Referrers for a referent being deleted are such a list.
+// While referrers remain, it keeps the finalizer and records a
+// DeletionBlocked event naming them.
 func (g Guard) Release(ctx context.Context, obj client.Object, referrers []string) (bool, error) {
 	if obj.GetDeletionTimestamp().IsZero() || !controllerutil.ContainsFinalizer(obj, g.Finalizer) {
 		return false, nil
@@ -100,4 +119,60 @@ func summarise(names []string) string {
 		return strings.Join(sorted, ", ")
 	}
 	return fmt.Sprintf("%s and %d more", strings.Join(sorted[:maxNamedReferrers], ", "), len(sorted)-maxNamedReferrers)
+}
+
+// Count returns the usage count a referent publishes for referrers, the
+// objects of one kind that refer to it. Every usage count follows this rule:
+//
+//   - While the referent is not being deleted, referrers being deleted
+//     themselves do not count. The in-use policy then admits deleting the
+//     referent once its referrers are being deleted, as when a GitOps prune
+//     or the UI deletes an Instance and then its destination, and the
+//     finalizer still holds the referent until those referrers are gone.
+//   - Once the referent is being deleted, every referrer counts, so the
+//     count states what the deletion waits for. referrers must then be read
+//     from the API server, as for Guard.Release; Measure reads them so.
+func Count[T metav1.Object](referrers []T, referentDeleting bool) int {
+	if referentDeleting {
+		return len(referrers)
+	}
+	n := 0
+	for _, r := range referrers {
+		if r.GetDeletionTimestamp().IsZero() {
+			n++
+		}
+	}
+	return n
+}
+
+// Lister lists the objects of one kind that refer to a referent, those
+// being deleted included. With live set it reads the API server; otherwise
+// it may read the cache and its field indexes, which can lag the API
+// server.
+type Lister[T metav1.Object] func(ctx context.Context, live bool) ([]T, error)
+
+// Usage is how the objects of one kind use a referent.
+type Usage struct {
+	// Count is the usage count the referent publishes, by Count.
+	Count int
+	// Referrers names every referrer found, those being deleted included.
+	// Once the referent is being deleted, they were read from the API
+	// server, so they are the list Guard.Release takes.
+	Referrers []string
+}
+
+// Measure lists the referrers of referent with list and counts them by
+// Count: from the cache while referent is not being deleted, and from the
+// API server once it is.
+func Measure[T metav1.Object](ctx context.Context, referent metav1.Object, list Lister[T]) (Usage, error) {
+	deleting := !referent.GetDeletionTimestamp().IsZero()
+	referrers, err := list(ctx, deleting)
+	if err != nil {
+		return Usage{}, err
+	}
+	usage := Usage{Count: Count(referrers, deleting)}
+	for _, r := range referrers {
+		usage.Referrers = append(usage.Referrers, r.GetName())
+	}
+	return usage, nil
 }

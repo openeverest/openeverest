@@ -15,6 +15,8 @@
 package inuse
 
 import (
+	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -48,6 +50,16 @@ func referent(finalizers ...string) *corev1.ConfigMap {
 func deleting(finalizers ...string) *corev1.ConfigMap {
 	cm := referent(finalizers...)
 	cm.DeletionTimestamp = &metav1.Time{Time: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
+	return cm
+}
+
+// referrer is an object referring to the referent, being deleted or not.
+func referrer(name string, beingDeleted bool) *corev1.ConfigMap {
+	cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "team-a"}}
+	if beingDeleted {
+		cm.Finalizers = []string{"other.io/finalizer"}
+		cm.DeletionTimestamp = &metav1.Time{Time: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
+	}
 	return cm
 }
 
@@ -163,4 +175,107 @@ func TestSummarise(t *testing.T) {
 
 	assert.Equal(t, "a, b", summarise([]string{"b", "a"}))
 	assert.Equal(t, "a, b, c, d, e and 2 more", summarise([]string{"g", "f", "e", "d", "c", "b", "a"}))
+}
+
+func TestCount(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name             string
+		referrers        []*corev1.ConfigMap
+		referentDeleting bool
+		want             int
+	}{
+		{name: "no referrer", want: 0},
+		{
+			name:      "referrers not being deleted count",
+			referrers: []*corev1.ConfigMap{referrer("orders", false), referrer("payments", false)},
+			want:      2,
+		},
+		{
+			name:      "a referrer being deleted does not count while the referent is not being deleted",
+			referrers: []*corev1.ConfigMap{referrer("orders", false), referrer("payments", true)},
+			want:      1,
+		},
+		{
+			name:      "referrers all being deleted count zero while the referent is not being deleted",
+			referrers: []*corev1.ConfigMap{referrer("orders", true), referrer("payments", true)},
+			want:      0,
+		},
+		{
+			name:             "a referrer being deleted counts once the referent is being deleted",
+			referrers:        []*corev1.ConfigMap{referrer("orders", false), referrer("payments", true)},
+			referentDeleting: true,
+			want:             2,
+		},
+		{name: "no referrer for a referent being deleted", referentDeleting: true, want: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, Count(tt.referrers, tt.referentDeleting))
+		})
+	}
+}
+
+func TestMeasure(t *testing.T) {
+	t.Parallel()
+
+	// The API server has a referrer the cache has not seen yet.
+	cached := []*corev1.ConfigMap{referrer("orders", false), referrer("payments", true)}
+	live := []*corev1.ConfigMap{referrer("orders", false), referrer("payments", true), referrer("invoices", false)}
+	boom := errors.New("boom")
+
+	tests := []struct {
+		name     string
+		referent *corev1.ConfigMap
+		cached   []*corev1.ConfigMap
+		live     []*corev1.ConfigMap
+		listErr  error
+		want     Usage
+	}{
+		{
+			name:     "a referent not being deleted counts the cached referrers not being deleted",
+			referent: referent(testFinalizer),
+			cached:   cached,
+			live:     live,
+			want:     Usage{Count: 1, Referrers: []string{"orders", "payments"}},
+		},
+		{
+			name:     "a referent being deleted counts every referrer the API server has",
+			referent: deleting(testFinalizer),
+			cached:   cached,
+			live:     live,
+			want:     Usage{Count: 3, Referrers: []string{"orders", "payments", "invoices"}},
+		},
+		{
+			name:     "no referrer",
+			referent: referent(testFinalizer),
+			want:     Usage{},
+		},
+		{
+			name:     "a list error is returned",
+			referent: deleting(testFinalizer),
+			listErr:  boom,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			usage, err := Measure(t.Context(), tt.referent, func(_ context.Context, isLive bool) ([]*corev1.ConfigMap, error) {
+				if isLive {
+					return tt.live, tt.listErr
+				}
+				return tt.cached, tt.listErr
+			})
+
+			if tt.listErr != nil {
+				require.ErrorIs(t, err, tt.listErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, usage)
+		})
+	}
 }

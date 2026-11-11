@@ -2903,10 +2903,12 @@ paths:
       summary: Delete monitoring destination
       description: |
         This API deletes the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
-        It is refused with `409` and reason `InUse` while Instances list the destination in `spec.monitoring.destinations` (`status.attachedInstances` above zero);
+        It is refused with `409` and reason `InUse` while Instances that are not being deleted list the destination in `spec.monitoring.destinations` (`status.attachedInstances` above zero);
         the message gives their number, and `GET .../monitoring-bindings?destination={name}` lists them.
         With `dryRun=All` the answer is the same and nothing is deleted, so a client can ask before it deletes.
-        A deletion that is let through may leave the destination listed with `metadata.deletionTimestamp` set until no Instance lists it any more.
+        An Instance being deleted does not count, so a destination can be deleted right after the Instances that list it. Core counts their deletion within moments; until it has, the answer is still `409`, so a client deleting both retries briefly.
+        A deletion that is let through leaves the destination listed with `metadata.deletionTimestamp` set until no Instance lists it any more, those being deleted included; `status.attachedInstances` then counts them.
+        Deleting a destination that is already being deleted answers `204` again.
       operationId: deleteMonitoringDestination
       parameters:
         - name: cluster

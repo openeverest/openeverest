@@ -1,9 +1,13 @@
-# Refuses deleting a MonitoringDestination while Instances list it (spec 015
-# §4.5). The core controller keeps status.attachedInstances up to date and
-# holds the monitoring.openeverest.io/in-use-protection finalizer for a
-# deletion admitted before the count caught up. A namespace being deleted is
-# exempt: no Instance can be added to it, and the finalizer still waits for
-# its Instances to go.
+# Refuses deleting a MonitoringDestination while Instances list it. The core
+# controller keeps status.attachedInstances up to date, leaving out Instances
+# being deleted, and holds the monitoring.openeverest.io/in-use-protection
+# finalizer until no Instance lists the destination, those being deleted
+# included, and for a deletion admitted before the count caught up. Two
+# deletions are exempt:
+# - a repeated one of a destination already being deleted: its deletion was
+#   admitted before, and the count now states what it waits for;
+# - one in a namespace being deleted: no Instance can be added to it, and
+#   the finalizer still waits for its Instances to go.
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
@@ -22,6 +26,7 @@ spec:
   validations:
   - expression: >-
       variables.attached == 0 ||
+      oldObject.metadata.?deletionTimestamp.hasValue() ||
       namespaceObject.metadata.?deletionTimestamp.hasValue()
     messageExpression: >-
       'in use by ' + string(variables.attached) +
