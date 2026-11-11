@@ -130,6 +130,6 @@ func (h *validateHandler) GetSecret(ctx context.Context, cluster, namespace, nam
 
 // DeleteSecret proxies the request to the next handler.
 func (h *validateHandler) DeleteSecret(ctx context.Context, cluster, namespace, name string) error {
-	// TODO: prevent deletion of secrets that are still in use by an Instance (spec 011 §4.5).
+	// TODO: prevent deletion of secrets that are still in use by an Instance.
 	return h.next.DeleteSecret(ctx, cluster, namespace, name)
 }

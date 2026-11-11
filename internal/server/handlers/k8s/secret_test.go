@@ -763,10 +763,9 @@ func TestSecretResponsesShowOnlyTheView(t *testing.T) {
 }
 
 // TestSecretVerbsByManager runs every verb against Secrets created through the
-// API, applied by another writer, owned by a controller, and unlabelled (spec
-// 020 §4.3): the API shows every labelled Secret, patches only those it
-// created and no controller owns, and deletes any labelled Secret no
-// controller owns.
+// API, applied by another writer, owned by a controller, and unlabelled: the
+// API shows every labelled Secret, patches only those it created and no
+// controller owns, and deletes any labelled Secret no controller owns.
 func TestSecretVerbsByManager(t *testing.T) {
 	t.Parallel()
 

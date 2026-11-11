@@ -764,8 +764,8 @@ func trimWebhookErrorText(fullText string) string {
 const reasonInUse = "InUse"
 
 // inUsePolicy matches the name of a ValidatingAdmissionPolicy that refuses
-// deleting an object still in use (spec 015 §4.5): <resource>-in-use.<group>,
-// whatever prefix kustomize's namePrefix adds.
+// deleting an object still in use: <resource>-in-use.<group>, whatever
+// prefix kustomize's namePrefix adds.
 var inUsePolicy = regexp.MustCompile(`ValidatingAdmissionPolicy '[^']*-in-use\.[^']*openeverest\.io'`)
 
 // inUseDenialMessage reports whether err is the denial of an in-use policy
@@ -791,9 +791,9 @@ const (
 )
 
 // secretManagedElsewhere reports whether err refuses a write to a Secret
-// that something other than the API manages (spec 020 §4.3), and returns the
-// body answering it. Like a stale resourceVersion, it is a conflict with the
-// Secret's current state, so it is a 409; the reason tells them apart.
+// that something other than the API manages, and returns the body answering
+// it. Like a stale resourceVersion, it is a conflict with the Secret's
+// current state, so it is a 409; the reason tells them apart.
 func secretManagedElsewhere(err error) (apiErrorBody, bool) {
 	var byController *secretdefinition.ManagedByControllerError
 	switch {
