@@ -17,7 +17,7 @@ import { useClusterName } from 'hooks/api/useClusterName';
 import { useRBACPermissions } from 'hooks/rbac';
 import { Messages } from '../../storage-locations.messages';
 
-// The API patches only the Secrets it created (spec 020 §4.3).
+// The API patches only the Secrets it created.
 const MANAGED_SECRET_LABEL = 'openeverest.io/managed';
 
 // Why the keys of the storage's credentials can't be replaced in place, if
