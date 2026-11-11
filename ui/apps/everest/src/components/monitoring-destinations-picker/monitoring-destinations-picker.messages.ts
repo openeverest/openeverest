@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { MonitoringDestinationState } from 'shared-types/monitoring-destinations.types';
+import { DestinationStateMessages } from 'utils/monitoring-destinations.messages';
 import { MAX_MONITORING_DESTINATIONS } from './monitoring-destinations-picker.constants';
 import {
   DestinationDisabledReason,
@@ -32,17 +33,12 @@ export const Messages = {
     (namespace: string) => string
   >,
   addDestination: 'Add destination',
-  state: {
-    [MonitoringDestinationState.Ready]: 'Ready',
-    [MonitoringDestinationState.Pending]: 'Waiting for its controller',
-    [MonitoringDestinationState.Failing]: 'Not ready',
-    [MonitoringDestinationState.Deleting]: 'Being deleted',
-  } satisfies Record<MonitoringDestinationState, string>,
   disabledReason: {
     [DestinationDisabledReason.LimitReached]: `An instance can send to at most ${MAX_MONITORING_DESTINATIONS} destinations`,
     [DestinationDisabledReason.IntegrationTaken]:
       'Another destination of this system is already selected',
-    [DestinationDisabledReason.Deleting]: 'Being deleted',
+    [DestinationDisabledReason.Deleting]:
+      DestinationStateMessages[MonitoringDestinationState.Deleting],
   } satisfies Record<DestinationDisabledReason, string>,
   entryParameters: (destinationName: string) =>
     `Settings for ${destinationName}`,

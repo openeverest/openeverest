@@ -19,6 +19,7 @@ import {
   getDestinationName,
   getDestinationStatus,
 } from 'utils/monitoring-destinations';
+import { DestinationStateMessages } from 'utils/monitoring-destinations.messages';
 import {
   getMonitoringClassName,
   getMonitoringClassTitle,
@@ -79,7 +80,9 @@ export const MonitoringClassGroup = ({
                 subtitle: getDestinationAddress(destination, monitoringClass),
                 detail: disabledReason
                   ? Messages.disabledReason[disabledReason]
-                  : Messages.state[getDestinationStatus(destination).state],
+                  : DestinationStateMessages[
+                      getDestinationStatus(destination).state
+                    ],
               }}
               selected={selection.isSelected(destination)}
               disabled={!!disabledReason}

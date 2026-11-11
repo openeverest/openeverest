@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { MonitoringDestinationState } from 'shared-types/monitoring-destinations.types';
 import { DestinationUsage } from './monitoring-destinations.types';
 
 const countInstances = (count: number) =>
@@ -30,12 +29,6 @@ export const Messages = {
     usedBy: 'Used by',
   },
   none: '—',
-  state: {
-    [MonitoringDestinationState.Ready]: 'Ready',
-    [MonitoringDestinationState.Pending]: 'Pending',
-    [MonitoringDestinationState.Failing]: 'Not ready',
-    [MonitoringDestinationState.Deleting]: 'Deleting',
-  } satisfies Record<MonitoringDestinationState, string>,
   serverVersion: (version: string) => `v${version}`,
   usedByCount: countInstances,
   usedByDialogTitle: (name: string) => `Instances using ${name}`,
