@@ -27,9 +27,6 @@ package controller
 // The checks run inside the provider chart's Helm pre-upgrade hook, before
 // any of the release's resources are applied. Providers with rules a version
 // floor cannot capture implement the optional UpgradeProvider interface.
-//
-// Design background: spec 009 (provider upgrades) in the openeverest/specs
-// repository, which labels these two risks R1 and R2.
 
 import (
 	"context"

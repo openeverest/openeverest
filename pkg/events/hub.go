@@ -130,7 +130,7 @@ func (h *Hub) Epoch() string { return h.buffer.Epoch() }
 // resumed — its Epoch doesn't match this Hub's (the process restarted), or
 // its Seq has aged out of (or is ahead of) the buffer. The caller must
 // treat that as "resync required": relist current state and reconnect
-// without a cursor (spec 003 §10.6), same as any other 410.
+// without a cursor, same as any other 410.
 //
 // Race safety: the buffer snapshot (Subscription.Replay) and the
 // subscriber's registration happen under one acquisition of h.mu, which is
@@ -288,8 +288,7 @@ func (h *Hub) Start(ctx context.Context) error {
 }
 
 // Publish broadcasts an event from a non-watch source (e.g. an API handler
-// for session create/delete) into the same fan-out pipeline. Spec §10.5
-// "Direct publish".
+// for session create/delete) into the same fan-out pipeline.
 func (h *Hub) Publish(evt Event) {
 	if evt.OccurredAt.IsZero() {
 		evt.OccurredAt = time.Now().UTC()

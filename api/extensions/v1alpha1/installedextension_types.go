@@ -21,7 +21,7 @@ import (
 )
 
 // InstalledExtensionType discriminates between a generic plugin install
-// and a spec 001 provider install.
+// and a provider install (a Provider CR and the operator behind it).
 // +kubebuilder:validation:Enum=plugin;provider
 type InstalledExtensionType string
 
@@ -185,7 +185,7 @@ const (
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 
 // InstalledExtension is the cluster-scoped record of an installed extension
-// (a generic plugin or a spec 001 provider). It is created by
+// (a generic plugin or a provider). It is created by
 // `everestctl extension install` and owned by cluster-admin.
 type InstalledExtension struct {
 	metav1.TypeMeta `json:",inline"`
