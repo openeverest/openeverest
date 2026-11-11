@@ -56,7 +56,7 @@ func (pp *pluginProxy) canUsePlugin(c echo.Context, name string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	// resource is "plugin/<name>" per the design (§9.2).
+	// The RBAC resource for a plugin is "plugin/<name>".
 	resource := "plugin/" + name
 	for _, sub := range append([]string{user.Subject}, user.Groups...) {
 		// Direct "use" grant on the specific plugin.
@@ -89,7 +89,7 @@ func (pp *pluginProxy) proxyHandler(c echo.Context) error {
 }
 
 // authedProxyHandler reverse-proxies requests to a plugin's backend with RBAC:
-// the caller must have the "use" verb on "plugin/<name>" (§9.2). Served on the
+// the caller must have the "use" verb on "plugin/<name>". Served on the
 // JWT-protected /v1/clusters/:cluster/plugins/:name group.
 func (pp *pluginProxy) authedProxyHandler(c echo.Context) error {
 	name := c.Param("name")

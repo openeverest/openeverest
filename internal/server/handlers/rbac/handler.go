@@ -74,7 +74,8 @@ func (h *rbacHandler) enforce(
 		return err
 	}
 
-	// Hard denylist: plugin daemon tokens cannot write to spec-001 resources.
+	// Hard denylist: plugin daemon tokens cannot write to provider or
+	// monitoring resources.
 	if rbac.IsPluginWriteDenied(user.Subject, resource, action) {
 		h.log.Warnf("Plugin write denied: [%s %s %s %s]", user.Subject, resource, action, object)
 		return ErrInsufficientPermissions
