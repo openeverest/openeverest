@@ -100,7 +100,7 @@ export interface NumberFieldParams extends CommonFieldParams {
   placeholder?: string;
 }
 
-type SelectOptionsItem = { label: string; value: string };
+export type SelectOptionsItem = { label: string; value: string; isDefault?: boolean };
 
 type SelectFieldParamsBase = CommonFieldParams & {
   multiple?: boolean;
@@ -117,7 +117,7 @@ export type SelectFieldParams =
     })
   | (SelectFieldParamsBase & {
       optionsPath: string;
-      optionsPathConfig: { labelPath: string; valuePath: string };
+      optionsPathConfig: { labelPath: string; valuePath: string; defaultPath?: string };
       options?: never;
     });
 
