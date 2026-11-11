@@ -47,6 +47,7 @@ import {
   getCredentialsSecretName,
   getDefaultCredentialsSecretName,
 } from 'utils/monitoring-destinations';
+import { toSecretStringData } from 'utils/secrets';
 import {
   CREDENTIALS_SECTION_KEY,
   DESTINATION_SECTION_KEY,
@@ -258,14 +259,6 @@ export const getFormDefaults = ({
   };
 };
 
-const toStringData = (values: Record<string, unknown>) =>
-  Object.fromEntries(
-    Object.entries(values).map(([key, value]) => [
-      key,
-      typeof value === 'string' ? value : JSON.stringify(value),
-    ])
-  );
-
 const toParameters = (
   values: MonitoringDestinationFormValues,
   forms: DestinationClassForms,
@@ -316,7 +309,7 @@ const toCredentialsSecretWrite = (
   keptSecretName: string | undefined
 ): CredentialsSecretWrite | undefined => {
   const stringData = () =>
-    toStringData(
+    toSecretStringData(
       forms.credentials
         ? postprocessSectionForm(values.credentials, forms.credentials)
         : {}
