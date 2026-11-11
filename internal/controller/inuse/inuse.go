@@ -29,10 +29,13 @@
 // the cache or the API server as it requires.
 //
 // The finalizer (Guard) is the backstop for a count that is not up to date
-// yet and holds the referent while referrers being deleted remain. It is
-// added to every object, not only to those in use, so it is already there
-// when a deletion slips through, and it is removed only once a read of the
-// API server finds no referrer, those being deleted included.
+// yet and holds the referent while referrers being deleted remain. On core
+// kinds it is added to every object, not only to those in use, so it is
+// already there when a deletion slips through. On Secrets, which core does
+// not own, it is held only while the Secret is in use (Guard.WhileInUse),
+// so deleting an unused Secret is immediate. Either way it is removed only
+// once a read of the API server finds no referrer, those being deleted
+// included.
 package inuse
 
 import (
@@ -61,8 +64,23 @@ type Guard struct {
 	Recorder events.EventRecorder
 	// Finalizer is the finalizer the guard holds.
 	Finalizer string
-	// ReferrerKind names the referrers in events, e.g. "Instance".
+	// ReferrerKind names the referrers Release is given in events, e.g.
+	// "Instance".
 	ReferrerKind string
+	// WhileInUse holds the finalizer only while the object is in use, as on
+	// Secrets, instead of on every object: Unhold then also removes it from
+	// an object that is not being deleted. The caller adds it when the
+	// first referrer appears; Protect, which adds it unconditionally, is
+	// not used.
+	WhileInUse bool
+}
+
+// Referrers names the referrers of one kind an object has.
+type Referrers struct {
+	// Kind is the kind of the referrers, e.g. "MonitoringDestination".
+	Kind string
+	// Names are their names, those being deleted included.
+	Names []string
 }
 
 // Protect adds the finalizer to obj unless obj is already being deleted,
@@ -81,21 +99,74 @@ func (g Guard) Protect(ctx context.Context, obj client.Object) error {
 // the deletion, and a referrer being deleted may still need obj to tear
 // down. Measure's Referrers for a referent being deleted are such a list.
 // While referrers remain, it keeps the finalizer and records a
-// DeletionBlocked event naming them.
+// DeletionBlocked event naming them. It is Unhold, for referrers of
+// ReferrerKind, followed by the write.
 func (g Guard) Release(ctx context.Context, obj client.Object, referrers []string) (bool, error) {
-	if obj.GetDeletionTimestamp().IsZero() || !controllerutil.ContainsFinalizer(obj, g.Finalizer) {
+	base, ok := obj.DeepCopyObject().(client.Object)
+	if !ok {
+		return false, fmt.Errorf("copy %T", obj)
+	}
+	if !g.Unhold(obj, Referrers{Kind: g.ReferrerKind, Names: referrers}) {
 		return false, nil
 	}
-	if len(referrers) > 0 {
-		g.Recorder.Eventf(obj, nil, corev1.EventTypeWarning, ReasonDeletionBlocked, "Delete",
-			"deletion waits for %d %s(s) to stop using it: %s", len(referrers), g.ReferrerKind, summarise(referrers),
-		)
-		return false, nil
-	}
-	if err := g.patchFinalizers(ctx, obj, controllerutil.RemoveFinalizer); err != nil {
+	if err := g.patch(ctx, base, obj); err != nil {
 		return false, client.IgnoreNotFound(err)
 	}
 	return true, nil
+}
+
+// Unhold is Release without the write, for referrers of several kinds: it
+// removes the finalizer from obj in memory when referrers name no object,
+// and reports whether it did. The caller then writes obj, with its other
+// changes, in one patch locked on obj's resourceVersion. referrers must be
+// read from the API server, as for Release.
+//
+// It removes the finalizer only from an object being deleted, or from any
+// object with WhileInUse. While referrers remain and obj is being deleted,
+// it keeps the finalizer and records a DeletionBlocked event naming them
+// by kind, e.g. "1 MonitoringDestination: a; 2 BackupStorages: b, c".
+func (g Guard) Unhold(obj client.Object, referrers ...Referrers) bool {
+	deleting := !obj.GetDeletionTimestamp().IsZero()
+	if (!deleting && !g.WhileInUse) || !controllerutil.ContainsFinalizer(obj, g.Finalizer) {
+		return false
+	}
+	if message, inUse := blockedMessage(referrers); inUse {
+		if deleting {
+			g.Recorder.Eventf(obj, nil, corev1.EventTypeWarning, ReasonDeletionBlocked, "Delete", "%s", message)
+		}
+		return false
+	}
+	return controllerutil.RemoveFinalizer(obj, g.Finalizer)
+}
+
+// blockedMessage describes the referrers a deletion waits for, and reports
+// whether there is any.
+func blockedMessage(referrers []Referrers) (string, bool) {
+	var kinds []Referrers
+	total := 0
+	for _, r := range referrers {
+		if len(r.Names) > 0 {
+			kinds = append(kinds, r)
+			total += len(r.Names)
+		}
+	}
+	switch len(kinds) {
+	case 0:
+		return "", false
+	case 1:
+		return fmt.Sprintf("deletion waits for %d %s(s) to stop using it: %s",
+			len(kinds[0].Names), kinds[0].Kind, summarise(kinds[0].Names),
+		), true
+	}
+	parts := make([]string, 0, len(kinds))
+	for _, r := range kinds {
+		kind := r.Kind
+		if len(r.Names) != 1 {
+			kind += "s"
+		}
+		parts = append(parts, fmt.Sprintf("%d %s: %s", len(r.Names), kind, summarise(r.Names)))
+	}
+	return fmt.Sprintf("deletion waits for %d objects to stop using it: %s", total, strings.Join(parts, "; ")), true
 }
 
 // patchFinalizers applies mutate to obj's finalizers with an optimistic
@@ -106,6 +177,11 @@ func (g Guard) patchFinalizers(ctx context.Context, obj client.Object, mutate fu
 		return fmt.Errorf("copy %T", obj)
 	}
 	mutate(obj, g.Finalizer)
+	return g.patch(ctx, base, obj)
+}
+
+// patch writes the changes from base to obj with an optimistic lock.
+func (g Guard) patch(ctx context.Context, base, obj client.Object) error {
 	if err := g.Client.Patch(ctx, obj, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})); err != nil {
 		return fmt.Errorf("patch finalizers of %s: %w", client.ObjectKeyFromObject(obj), err)
 	}

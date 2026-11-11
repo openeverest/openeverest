@@ -170,6 +170,98 @@ func TestGuardRelease(t *testing.T) {
 	})
 }
 
+func TestGuardUnhold(t *testing.T) {
+	t.Parallel()
+
+	destinations := func(names ...string) Referrers { return Referrers{Kind: "MonitoringDestination", Names: names} }
+	storages := func(names ...string) Referrers { return Referrers{Kind: "BackupStorage", Names: names} }
+
+	tests := []struct {
+		name           string
+		obj            *corev1.ConfigMap
+		whileInUse     bool
+		referrers      []Referrers
+		wantReleased   bool
+		wantFinalizers []string
+		wantEvent      string
+	}{
+		{
+			name:           "keeps the finalizer of an object not being deleted",
+			obj:            referent(testFinalizer),
+			wantFinalizers: []string{testFinalizer},
+		},
+		{
+			name:           "while in use: removes the finalizer of an unused object not being deleted",
+			obj:            referent(testFinalizer, "other.io/finalizer"),
+			whileInUse:     true,
+			referrers:      []Referrers{destinations(), storages()},
+			wantReleased:   true,
+			wantFinalizers: []string{"other.io/finalizer"},
+		},
+		{
+			name:           "while in use: keeps the finalizer of a used object not being deleted, with no event",
+			obj:            referent(testFinalizer),
+			whileInUse:     true,
+			referrers:      []Referrers{destinations("pmm")},
+			wantFinalizers: []string{testFinalizer},
+		},
+		{
+			name:           "removes the finalizer of an unused object being deleted",
+			obj:            deleting(testFinalizer),
+			referrers:      []Referrers{destinations()},
+			wantReleased:   true,
+			wantFinalizers: []string{},
+		},
+		{
+			name:           "names the referrers of one kind",
+			obj:            deleting(testFinalizer),
+			whileInUse:     true,
+			referrers:      []Referrers{destinations("pmm", "grafana"), storages()},
+			wantFinalizers: []string{testFinalizer},
+			wantEvent:      "Warning DeletionBlocked deletion waits for 2 MonitoringDestination(s) to stop using it: grafana, pmm",
+		},
+		{
+			name:           "names the referrers of every kind",
+			obj:            deleting(testFinalizer),
+			whileInUse:     true,
+			referrers:      []Referrers{destinations("a"), storages("c", "b")},
+			wantFinalizers: []string{testFinalizer},
+			wantEvent:      "Warning DeletionBlocked deletion waits for 3 objects to stop using it: 1 MonitoringDestination: a; 2 BackupStorages: b, c",
+		},
+		{
+			name:       "does nothing without the finalizer",
+			obj:        deleting("other.io/finalizer"),
+			whileInUse: true,
+			referrers:  []Referrers{destinations("pmm")},
+			// The finalizer is not core's to hold: no event either.
+			wantFinalizers: []string{"other.io/finalizer"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			g, rec := newGuard()
+			g.WhileInUse = tt.whileInUse
+			obj := tt.obj.DeepCopy()
+
+			released := g.Unhold(obj, tt.referrers...)
+
+			assert.Equal(t, tt.wantReleased, released)
+			if len(tt.wantFinalizers) == 0 {
+				assert.Empty(t, obj.Finalizers)
+			} else {
+				assert.Equal(t, tt.wantFinalizers, obj.Finalizers)
+			}
+			if tt.wantEvent == "" {
+				assert.Empty(t, rec.Events)
+				return
+			}
+			require.Len(t, rec.Events, 1)
+			assert.Equal(t, tt.wantEvent, <-rec.Events)
+		})
+	}
+}
+
 func TestSummarise(t *testing.T) {
 	t.Parallel()
 
