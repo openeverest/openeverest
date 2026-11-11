@@ -17,31 +17,20 @@ import {
   useRBACPermissions,
 } from 'hooks/rbac';
 import { MonitoringDestinationPermissions } from '../monitoring-destination-modal.types';
-import { toWritableNamespaces } from '../monitoring-destination-modal.utils';
 
-// The namespaces the user may add, edit and delete destinations in.
+// The namespaces the user may add, edit and delete destinations in. Writing
+// one needs its class; Secret permissions are checked by the form, and only
+// for modes that keep credentials in a Secret.
 export const useMonitoringDestinationPermissions =
   (): MonitoringDestinationPermissions => {
-    const destinationPermissions = useNamespacePermissionsForResource(
-      'monitoring-destinations'
-    );
-    const secretPermissions = useNamespacePermissionsForResource('secrets');
+    const { canCreate, canUpdate, canDelete } =
+      useNamespacePermissionsForResource('monitoring-destinations');
     const { canRead: canReadClasses } =
       useRBACPermissions('monitoring-classes');
 
     return {
-      createNamespaces: toWritableNamespaces({
-        destinationNamespaces: destinationPermissions.canCreate,
-        secretCreateNamespaces: secretPermissions.canCreate,
-        secretReadNamespaces: secretPermissions.canRead,
-        canReadClasses,
-      }),
-      updateNamespaces: toWritableNamespaces({
-        destinationNamespaces: destinationPermissions.canUpdate,
-        secretCreateNamespaces: secretPermissions.canCreate,
-        secretReadNamespaces: secretPermissions.canRead,
-        canReadClasses,
-      }),
-      deleteNamespaces: destinationPermissions.canDelete,
+      createNamespaces: canReadClasses ? canCreate : [],
+      updateNamespaces: canReadClasses ? canUpdate : [],
+      deleteNamespaces: canDelete,
     };
   };

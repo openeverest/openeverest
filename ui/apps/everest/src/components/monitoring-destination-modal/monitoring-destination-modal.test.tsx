@@ -21,10 +21,17 @@ import {
 } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AxiosError, AxiosHeaders } from 'axios';
-import { createSecretFn, deleteSecretFn, getSecretFn } from 'api/secrets';
+import {
+  createSecretFn,
+  deleteSecretFn,
+  getSecretFn,
+  getSecretsFn,
+  patchSecretFn,
+} from 'api/secrets';
 import {
   createMonitoringDestinationFn,
   getMonitoringDestinationFn,
+  updateMonitoringDestinationFn,
 } from 'api/monitoring-destinations';
 import {
   MonitoringClass,
@@ -39,6 +46,7 @@ vi.mock('api/secrets', () => ({
   deleteSecretFn: vi.fn(),
   getSecretFn: vi.fn(),
   getSecretsFn: vi.fn(),
+  patchSecretFn: vi.fn(),
 }));
 vi.mock('api/monitoring-destinations', () => ({
   createMonitoringDestinationFn: vi.fn(),
@@ -47,6 +55,22 @@ vi.mock('api/monitoring-destinations', () => ({
   getMonitoringDestinationFn: vi.fn(),
   getMonitoringDestinationsFn: vi.fn(),
 }));
+vi.mock('api/monitoring-bindings', () => ({
+  getMonitoringBindingsFn: vi.fn().mockResolvedValue({ items: [] }),
+}));
+vi.mock('hooks/rbac', async (importOriginal) => {
+  const secretPermissions = {
+    canCreate: ['team-a'],
+    canRead: ['team-a'],
+    canUpdate: ['team-a'],
+    canDelete: ['team-a'],
+    isPermissionsLoading: false,
+  };
+  return {
+    ...(await importOriginal<typeof import('hooks/rbac')>()),
+    useNamespacePermissionsForResource: () => secretPermissions,
+  };
+});
 
 const conflict = new AxiosError('exists', '409', undefined, undefined, {
   status: 409,
@@ -184,13 +208,7 @@ describe('MonitoringDestinationModal', () => {
       'main',
       'team-a',
       {
-        metadata: {
-          name: 'pmm-prod',
-          annotations: {
-            'monitoring.openeverest.io/ui-created-credentials-secret':
-              'monitoring-destination-pmm-prod-credentials',
-          },
-        },
+        metadata: { name: 'pmm-prod' },
         spec: {
           classRef: { name: 'pmm' },
           authentication: {
@@ -205,22 +223,45 @@ describe('MonitoringDestinationModal', () => {
     );
   });
 
-  it('offers to reuse a Secret whose name is taken', async () => {
+  it('points to an existing Secret when the name is taken, and saves with it', async () => {
     vi.mocked(createSecretFn).mockRejectedValue(conflict);
+    vi.mocked(getSecretsFn).mockResolvedValue([
+      {
+        metadata: {
+          name: 'monitoring-destination-pmm-prod-credentials',
+          labels: pmmCredentialsLabels,
+        },
+      },
+    ]);
     const onClose = renderModal();
     await fillPmmDestination();
     await submit();
 
     expect(
       await screen.findByText(
-        /A Secret named monitoring-destination-pmm-prod-credentials already exists/
+        /monitoring-destination-pmm-prod-credentials already exists. Pick it under "Use an existing Secret"/
       )
     ).toBeInTheDocument();
     expect(createMonitoringDestinationFn).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Reuse it' }));
+    fireEvent.click(screen.getByLabelText('Use an existing Secret'));
+    fireEvent.mouseDown(
+      within(
+        await screen.findByTestId('select-existing-secret-name-button')
+      ).getByRole('combobox')
+    );
+    fireEvent.click(
+      await screen.findByRole('option', {
+        name: 'monitoring-destination-pmm-prod-credentials',
+      })
+    );
+    await submit();
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(getSecretsFn).toHaveBeenCalledWith('main', 'team-a', {
+      monitoringClass: 'pmm',
+      definition: 'ServiceAccountToken',
+    });
     expect(createSecretFn).toHaveBeenCalledTimes(1);
     expect(createMonitoringDestinationFn).toHaveBeenCalledWith(
       'main',
@@ -238,7 +279,7 @@ describe('MonitoringDestinationModal', () => {
     );
   });
 
-  it('does not offer a taken name whose Secret holds other credentials', async () => {
+  it('does not point to a taken name whose Secret holds other credentials', async () => {
     vi.mocked(createSecretFn).mockRejectedValue(conflict);
     vi.mocked(getSecretFn).mockResolvedValue({
       metadata: {
@@ -255,9 +296,6 @@ describe('MonitoringDestinationModal', () => {
         /doesn't hold credentials for this monitoring class/
       )
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Reuse it' })
-    ).not.toBeInTheDocument();
     expect(createMonitoringDestinationFn).not.toHaveBeenCalled();
   });
 
@@ -277,7 +315,7 @@ describe('MonitoringDestinationModal', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('warns about restarting the attached instances only once the parameters change', async () => {
+  const storedPmm = (): MonitoringDestination => {
     const stored: MonitoringDestination = {
       metadata: { name: 'pmm-prod', namespace: 'team-a', resourceVersion: '1' },
       spec: {
@@ -290,7 +328,52 @@ describe('MonitoringDestinationModal', () => {
       status: { attachedInstances: 2 },
     };
     Reflect.set(stored.spec, 'parameters', { url: 'https://pmm.example.com' });
-    vi.mocked(getMonitoringDestinationFn).mockResolvedValue(stored);
+    return stored;
+  };
+
+  it('updates the credentials in the Secret the destination uses', async () => {
+    vi.mocked(getMonitoringDestinationFn).mockResolvedValue(storedPmm());
+    vi.mocked(getSecretFn).mockResolvedValue({
+      metadata: { name: 'pmm-credentials', resourceVersion: '7' },
+    });
+    vi.mocked(patchSecretFn).mockReset().mockResolvedValue({});
+    vi.mocked(updateMonitoringDestinationFn)
+      .mockReset()
+      .mockResolvedValue(storedPmm());
+    const onClose = renderModal({ namespace: 'team-a', name: 'pmm-prod' });
+
+    fireEvent.click(await screen.findByLabelText('Enter new credentials'));
+    fireEvent.change(await screen.findByLabelText(/Service account token/), {
+      target: { value: 'n3w' },
+    });
+    const save = screen.getByTestId('form-dialog-save');
+    await waitFor(() => expect(save).toBeEnabled());
+    fireEvent.click(save);
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(patchSecretFn).toHaveBeenCalledWith(
+      'main',
+      'team-a',
+      'pmm-credentials',
+      { metadata: { resourceVersion: '7' }, stringData: { token: 'n3w' } }
+    );
+    expect(createSecretFn).not.toHaveBeenCalled();
+    expect(updateMonitoringDestinationFn).toHaveBeenCalledWith(
+      'main',
+      'team-a',
+      expect.objectContaining({
+        spec: expect.objectContaining({
+          authentication: {
+            mode: 'ServiceAccountToken',
+            credentialsSecretRef: { name: 'pmm-credentials' },
+          },
+        }),
+      })
+    );
+  });
+
+  it('warns about restarting the attached instances only once the parameters change', async () => {
+    vi.mocked(getMonitoringDestinationFn).mockResolvedValue(storedPmm());
     renderModal({ namespace: 'team-a', name: 'pmm-prod' });
 
     const url = await screen.findByLabelText(/PMM server URL/);
@@ -299,7 +382,7 @@ describe('MonitoringDestinationModal', () => {
       screen.queryByTestId('monitoring-destination-restart')
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByLabelText(/Replace the credentials/));
+    fireEvent.click(screen.getByLabelText('Enter new credentials'));
     await screen.findAllByLabelText(/token/i);
     expect(
       screen.queryByTestId('monitoring-destination-restart')

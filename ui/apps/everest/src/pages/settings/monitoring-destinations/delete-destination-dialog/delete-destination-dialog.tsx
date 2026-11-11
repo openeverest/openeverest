@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
+import { getCredentialsSecretName } from 'utils/monitoring-destinations';
 import { IN_USE_NAMES_SHOWN } from '../monitoring-destinations.constants';
 import { Messages } from '../monitoring-destinations.messages';
 import { MonitoringDestinationDeletion } from '../monitoring-destinations.types';
@@ -26,12 +27,14 @@ interface DeleteDestinationDialogProps {
 
 // A destination instances still use can't be deleted; the dialog names them.
 export const DeleteDestinationDialog = ({
-  deletion: { row, inUse, secretDeletedToo },
+  deletion: { row, inUse },
   isDeleting,
   onConfirm,
   onClose,
-}: DeleteDestinationDialogProps) =>
-  inUse ? (
+}: DeleteDestinationDialogProps) => {
+  const keptSecret = getCredentialsSecretName(row.raw);
+
+  return inUse ? (
     <ConfirmDialog
       open
       selectedId={row.name}
@@ -54,6 +57,7 @@ export const DeleteDestinationDialog = ({
       disabledButtons={isDeleting}
     >
       {Messages.deleteConfirmation(row.name)}
-      {secretDeletedToo && ` ${Messages.secretDeletedToo(secretDeletedToo)}`}
+      {keptSecret && ` ${Messages.secretKept(keptSecret)}`}
     </ConfirmDialog>
   );
+};

@@ -14,13 +14,15 @@
 
 import { useMemo, useState } from 'react';
 import { isAxiosError } from 'axios';
-import { Alert, Button, MenuItem } from '@mui/material';
+import { Alert, MenuItem } from '@mui/material';
 import { AutoCompleteInput, SelectInput, TextInput } from '@percona/ui-lib';
 import { FormDialog } from 'components/form-dialog';
 import {
   SecretAlreadyExistsError,
+  SecretChangedMeanwhileError,
   useSaveMonitoringDestination,
 } from 'hooks/api/monitoring-destinations';
+import { useNamespacePermissionsForResource } from 'hooks/rbac';
 import {
   getMonitoringClassName,
   getMonitoringClassTitle,
@@ -37,6 +39,7 @@ import {
 import {
   buildSaveRequest,
   getFormDefaults,
+  getSecretErrorMessage,
 } from '../monitoring-destination-modal.utils';
 import { TlsFields } from '../tls-fields/tls-fields';
 import { RestartNotice } from '../restart-notice/restart-notice';
@@ -52,12 +55,24 @@ export const MonitoringDestinationForm = ({
 }: MonitoringDestinationFormProps) => {
   const isEdit = !!original;
   const { mutate, isPending } = useSaveMonitoringDestination();
-  const [conflictingSecret, setConflictingSecret] =
-    useState<SecretAlreadyExistsError>();
+  const [secretError, setSecretError] = useState<
+    SecretAlreadyExistsError | SecretChangedMeanwhileError
+  >();
+  const { canCreate, canRead, canUpdate, isPermissionsLoading } =
+    useNamespacePermissionsForResource('secrets');
+  const secretPermissions = useMemo(
+    () => ({ canCreate, canRead, canUpdate }),
+    [canCreate, canRead, canUpdate]
+  );
 
   const schema = useMemo(
-    () => buildMonitoringDestinationSchema({ classes, original }),
-    [classes, original]
+    () =>
+      buildMonitoringDestinationSchema({
+        classes,
+        original,
+        secretPermissions,
+      }),
+    [classes, original, secretPermissions]
   );
   const defaultValues = useMemo(
     () =>
@@ -81,11 +96,8 @@ export const MonitoringDestinationForm = ({
     [classes, original]
   );
 
-  const save = (
-    values: MonitoringDestinationFormValues,
-    reuseSecretName?: string
-  ) => {
-    setConflictingSecret(undefined);
+  const save = (values: MonitoringDestinationFormValues) => {
+    setSecretError(undefined);
     mutate(
       buildSaveRequest({
         values,
@@ -93,13 +105,16 @@ export const MonitoringDestinationForm = ({
           (c) => getMonitoringClassName(c) === values.className
         ),
         original,
-        reuseSecretName,
+        secretPermissions,
       }),
       {
         onSuccess: onClose,
         onError: (error) => {
-          if (error instanceof SecretAlreadyExistsError) {
-            setConflictingSecret(error);
+          if (
+            error instanceof SecretAlreadyExistsError ||
+            error instanceof SecretChangedMeanwhileError
+          ) {
+            setSecretError(error);
           } else if (
             isEdit &&
             isAxiosError(error) &&
@@ -119,80 +134,65 @@ export const MonitoringDestinationForm = ({
       headerMessage={isEdit ? Messages.editTitle : Messages.createTitle}
       schema={schema}
       defaultValues={defaultValues}
-      onSubmit={(values) => save(values)}
+      onSubmit={save}
       submitting={isPending}
       submitMessage={isEdit ? Messages.save : Messages.create}
       dataTestId="monitoring-destination"
       size="XL"
     >
-      {({ handleSubmit }) => (
-        <>
-          {changedMeanwhile && (
-            <Alert severity="warning">{Messages.changedMeanwhile}</Alert>
-          )}
-          {original && (
-            <RestartNotice
-              destination={original}
-              monitoringClass={classes.find(
-                (c) => getMonitoringClassName(c) === original.spec.classRef.name
-              )}
-            />
-          )}
-          <TextInput
-            name={DestinationFormFields.name}
-            label={Messages.name}
-            isRequired
-            textFieldProps={{ disabled: isEdit }}
+      <>
+        {changedMeanwhile && (
+          <Alert severity="warning">{Messages.changedMeanwhile}</Alert>
+        )}
+        {original && (
+          <RestartNotice
+            destination={original}
+            monitoringClass={classes.find(
+              (c) => getMonitoringClassName(c) === original.spec.classRef.name
+            )}
           />
-          <AutoCompleteInput
-            name={DestinationFormFields.namespace}
-            label={Messages.namespace}
-            options={namespaces}
-            disabled={isEdit}
-            isRequired
-          />
-          <SelectInput
-            name={DestinationFormFields.className}
-            label={Messages.monitoringClass}
-            selectFieldProps={{ disabled: isEdit }}
-            isRequired
-          >
-            {selectableClasses.map((monitoringClass) => (
-              <MenuItem
-                key={getMonitoringClassName(monitoringClass)}
-                value={getMonitoringClassName(monitoringClass)}
-              >
-                {getMonitoringClassTitle(monitoringClass)}
-              </MenuItem>
-            ))}
-          </SelectInput>
-          <ClassFields classes={classes} original={original} />
-          <TlsFields />
-          {conflictingSecret && (
-            <Alert
-              severity="error"
-              sx={{ mt: 3 }}
-              action={
-                conflictingSecret.reusable && (
-                  <Button
-                    color="inherit"
-                    size="small"
-                    onClick={handleSubmit((values) =>
-                      save(values, conflictingSecret.secretName)
-                    )}
-                  >
-                    {Messages.reuseSecret}
-                  </Button>
-                )
-              }
+        )}
+        <TextInput
+          name={DestinationFormFields.name}
+          label={Messages.name}
+          isRequired
+          textFieldProps={{ disabled: isEdit }}
+        />
+        <AutoCompleteInput
+          name={DestinationFormFields.namespace}
+          label={Messages.namespace}
+          options={namespaces}
+          disabled={isEdit}
+          isRequired
+        />
+        <SelectInput
+          name={DestinationFormFields.className}
+          label={Messages.monitoringClass}
+          selectFieldProps={{ disabled: isEdit }}
+          isRequired
+        >
+          {selectableClasses.map((monitoringClass) => (
+            <MenuItem
+              key={getMonitoringClassName(monitoringClass)}
+              value={getMonitoringClassName(monitoringClass)}
             >
-              {conflictingSecret.reusable
-                ? Messages.secretExists(conflictingSecret.secretName)
-                : Messages.secretTaken(conflictingSecret.secretName)}
-            </Alert>
-          )}
-        </>
-      )}
+              {getMonitoringClassTitle(monitoringClass)}
+            </MenuItem>
+          ))}
+        </SelectInput>
+        <ClassFields
+          classes={classes}
+          original={original}
+          secretPermissions={secretPermissions}
+          secretPermissionsLoading={isPermissionsLoading}
+        />
+        <TlsFields />
+        {secretError && (
+          <Alert severity="error" sx={{ mt: 3 }}>
+            {getSecretErrorMessage(secretError)}
+          </Alert>
+        )}
+      </>
     </FormDialog>
   );
 };

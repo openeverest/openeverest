@@ -41,8 +41,8 @@ export const Messages = {
   deleteHeader: 'Delete monitoring destination',
   deleteConfirmation: (name: string) =>
     `Are you sure you want to delete the ${name} destination?`,
-  secretDeletedToo: (secret: string) =>
-    `Its credentials Secret ${secret} is deleted with it.`,
+  secretKept: (secret: string) =>
+    `Its credentials Secret ${secret} is kept and can be reused.`,
   inUseHeader: 'Destination in use',
   inUse: (
     name: string,

@@ -17,8 +17,13 @@ import {
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
 import {
+  CredentialsSource,
+  SecretNamespacePermissions,
+} from './monitoring-destination-modal.types';
+import {
   buildSaveRequest,
-  getCredentialsSecretAction,
+  getCredentialsSource,
+  getCredentialsSources,
   getFormDefaults,
   getKeptCredentialsSecretName,
 } from './monitoring-destination-modal.utils';
@@ -69,27 +74,100 @@ Reflect.set(stored.spec, 'parameters', {
   relabelings: [{ action: 'keep' }],
 });
 
-describe('getCredentialsSecretAction', () => {
-  it('creates a Secret for a new Secret-backed destination only', () => {
-    const values = { authMode: 'BasicAuth', replaceCredentials: false };
-    expect(getCredentialsSecretAction(values, undefined)).toBe('create');
+const ALL_SECRET_PERMISSIONS: SecretNamespacePermissions = {
+  canCreate: ['team-a'],
+  canRead: ['team-a'],
+  canUpdate: ['team-a'],
+};
+const only = (
+  ...granted: (keyof SecretNamespacePermissions)[]
+): SecretNamespacePermissions => ({
+  canCreate: granted.includes('canCreate') ? ['team-a'] : [],
+  canRead: granted.includes('canRead') ? ['team-a'] : [],
+  canUpdate: granted.includes('canUpdate') ? ['team-a'] : [],
+});
+
+describe('getCredentialsSources', () => {
+  const { Keep, Update, New, Existing } = CredentialsSource;
+
+  it.each<{
+    name: string;
+    authMode: string;
+    original?: MonitoringDestination;
+    permissions: SecretNamespacePermissions;
+    expected: CredentialsSource[];
+  }>([
+    {
+      name: 'a new destination: new or existing Secret',
+      authMode: 'BasicAuth',
+      permissions: ALL_SECRET_PERMISSIONS,
+      expected: [New, Existing],
+    },
+    {
+      name: 'a new destination without create: existing only',
+      authMode: 'BasicAuth',
+      permissions: only('canRead'),
+      expected: [Existing],
+    },
+    {
+      name: 'a new destination without read: new only',
+      authMode: 'BasicAuth',
+      permissions: only('canCreate'),
+      expected: [New],
+    },
+    {
+      name: 'an edit: keep, update or switch the Secret',
+      authMode: 'BasicAuth',
+      original: stored,
+      permissions: ALL_SECRET_PERMISSIONS,
+      expected: [Keep, Update, Existing],
+    },
+    {
+      name: 'an edit without update: no in-place update',
+      authMode: 'BasicAuth',
+      original: stored,
+      permissions: only('canRead', 'canCreate'),
+      expected: [Keep, Existing],
+    },
+    {
+      name: 'an edit without Secret permissions: keep only',
+      authMode: 'BasicAuth',
+      original: stored,
+      permissions: only(),
+      expected: [Keep],
+    },
+    {
+      name: 'an edit to another mode: its Secret no longer fits',
+      authMode: 'Token',
+      original: stored,
+      permissions: ALL_SECRET_PERMISSIONS,
+      expected: [New, Existing],
+    },
+    {
+      name: 'a mode without a Secret: none',
+      authMode: 'Anonymous',
+      original: stored,
+      permissions: ALL_SECRET_PERMISSIONS,
+      expected: [],
+    },
+  ])('offers $name', ({ authMode, original, permissions, expected }) => {
     expect(
-      getCredentialsSecretAction(
-        { ...values, authMode: 'Anonymous' },
-        undefined
+      getCredentialsSources(
+        { authMode, namespace: 'team-a' },
+        original,
+        permissions
       )
-    ).toBeUndefined();
+    ).toEqual(expected);
   });
 
-  it('keeps the Secret on edit unless replaced or the mode changes', () => {
-    const values = { authMode: 'BasicAuth', replaceCredentials: false };
-    expect(getCredentialsSecretAction(values, stored)).toBeUndefined();
+  it('falls back to the first offered source once the pick no longer applies', () => {
     expect(
-      getCredentialsSecretAction(
-        { ...values, replaceCredentials: true },
-        stored
+      getCredentialsSource(
+        { authMode: 'Token', namespace: 'team-a', credentialsSource: Keep },
+        stored,
+        ALL_SECRET_PERMISSIONS
       )
-    ).toBe('replace');
+    ).toBe(New);
   });
 });
 
@@ -157,6 +235,7 @@ describe('buildSaveRequest', () => {
         },
       },
       monitoringClass: prometheus,
+      secretPermissions: ALL_SECRET_PERMISSIONS,
     });
 
     expect(request.credentialsSecret).toEqual({
@@ -165,13 +244,7 @@ describe('buildSaveRequest', () => {
       stringData: { username: 'u', password: 'p' },
     });
     expect(request.destination).toEqual({
-      metadata: {
-        name: 'prom',
-        annotations: {
-          'monitoring.openeverest.io/ui-created-credentials-secret':
-            'monitoring-destination-prom-credentials',
-        },
-      },
+      metadata: { name: 'prom' },
       spec: {
         classRef: { name: 'prometheus' },
         authentication: {
@@ -185,24 +258,26 @@ describe('buildSaveRequest', () => {
     });
   });
 
-  it('does not record a reused Secret as created by the UI', () => {
+  it('references a picked existing Secret and writes none', () => {
     const request = buildSaveRequest({
       values: {
         ...getFormDefaults({ namespace: 'team-a', classes: [prometheus] }),
         name: 'prom',
         className: 'prometheus',
         authMode: 'BasicAuth',
+        credentialsSource: CredentialsSource.Existing,
+        existingSecretName: 'prom-credentials',
         credentials: { username: 'u', password: 'p' },
       },
       monitoringClass: prometheus,
-      reuseSecretName: 'prom-credentials',
+      secretPermissions: ALL_SECRET_PERMISSIONS,
     });
 
-    expect(request.credentialsSecret).toEqual({
-      action: 'reuse',
-      name: 'prom-credentials',
+    expect(request.credentialsSecret).toBeUndefined();
+    expect(request.destination.spec.authentication).toEqual({
+      mode: 'BasicAuth',
+      credentialsSecretRef: { name: 'prom-credentials' },
     });
-    expect(request.destination.metadata?.annotations).toBeUndefined();
   });
 
   it('updates the stored object, keeping what the form does not edit', () => {
@@ -220,6 +295,7 @@ describe('buildSaveRequest', () => {
       },
       monitoringClass: prometheus,
       original: stored,
+      secretPermissions: ALL_SECRET_PERMISSIONS,
     });
 
     expect(request.isEdit).toBe(true);
@@ -240,53 +316,30 @@ describe('buildSaveRequest', () => {
     });
   });
 
-  it('replaces the credentials in a new Secret the destination switches to', () => {
-    const replace = (original: MonitoringDestination) =>
-      buildSaveRequest({
-        values: {
-          ...getFormDefaults({
-            original,
-            namespace: 'team-a',
-            classes: [prometheus],
-          }),
-          replaceCredentials: true,
-          credentials: { username: 'u2', password: 'p2' },
-        },
-        monitoringClass: prometheus,
-        original,
-      });
-    const request = replace(stored);
+  it('updates the credentials in the Secret the destination already uses', () => {
+    const request = buildSaveRequest({
+      values: {
+        ...getFormDefaults({
+          original: stored,
+          namespace: 'team-a',
+          classes: [prometheus],
+        }),
+        credentialsSource: CredentialsSource.Update,
+        credentials: { username: 'u2', password: 'p2' },
+      },
+      monitoringClass: prometheus,
+      original: stored,
+      secretPermissions: ALL_SECRET_PERMISSIONS,
+    });
 
     expect(request.credentialsSecret).toEqual({
-      action: 'replace',
-      name: expect.stringMatching(
-        /^monitoring-destination-prom-credentials-[a-z0-9]+$/
-      ),
+      action: 'update',
+      name: 'prom-basic',
       stringData: { username: 'u2', password: 'p2' },
-      previousName: undefined,
     });
     expect(request.destination.spec.authentication).toEqual({
       mode: 'BasicAuth',
-      credentialsSecretRef: { name: request.credentialsSecret?.name },
-    });
-    expect(
-      request.destination.metadata?.annotations?.[
-        'monitoring.openeverest.io/ui-created-credentials-secret'
-      ]
-    ).toBe(request.credentialsSecret?.name);
-
-    const uiCreated: MonitoringDestination = {
-      ...stored,
-      metadata: {
-        ...stored.metadata,
-        annotations: {
-          'monitoring.openeverest.io/ui-created-credentials-secret':
-            'prom-basic',
-        },
-      },
-    };
-    expect(replace(uiCreated).credentialsSecret).toMatchObject({
-      previousName: 'prom-basic',
+      credentialsSecretRef: { name: 'prom-basic' },
     });
   });
 });

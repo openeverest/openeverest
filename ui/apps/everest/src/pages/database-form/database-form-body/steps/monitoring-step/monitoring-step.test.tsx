@@ -28,11 +28,19 @@ import { MONITORING_DESTINATIONS_FIELD } from 'components/monitoring-destination
 
 const mocks = vi.hoisted(() => ({
   permissions: { canRead: true, isPermissionsLoading: false },
+  secretPermissions: {
+    canCreate: ['team-a'],
+    canRead: ['team-a'],
+    canUpdate: ['team-a'],
+    canDelete: ['team-a'],
+    isPermissionsLoading: false,
+  },
   destinationsFailed: false,
 }));
 
 vi.mock('hooks/rbac', () => ({
   useRBACPermissions: () => mocks.permissions,
+  useNamespacePermissionsForResource: () => mocks.secretPermissions,
 }));
 
 vi.mock('hooks/api/monitoring-classes', () => {

@@ -24,7 +24,6 @@ import {
   getDefaultCredentialsSecretName,
   getDestinationAddress,
   getDestinationStatus,
-  getRotatedCredentialsSecretName,
   isCredentialsSecretFor,
   isDestinationInUseError,
 } from './monitoring-destinations';
@@ -222,18 +221,6 @@ describe('credentials Secret names', () => {
     expect(getDefaultCredentialsSecretName('pmm')).toBe(
       'monitoring-destination-pmm-credentials'
     );
-  });
-
-  it('gives rotated credentials a fresh name within the Secret name limit', () => {
-    expect(getRotatedCredentialsSecretName('pmm', 'k2x9a')).toBe(
-      'monitoring-destination-pmm-credentials-k2x9a'
-    );
-    expect(getRotatedCredentialsSecretName('pmm')).toMatch(
-      /^monitoring-destination-pmm-credentials-[a-z0-9]+$/
-    );
-    expect(
-      getRotatedCredentialsSecretName('x'.repeat(260), 'k2x9a')
-    ).toHaveLength(253);
   });
 });
 

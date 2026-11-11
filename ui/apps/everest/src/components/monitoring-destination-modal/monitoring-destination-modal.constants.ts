@@ -21,8 +21,9 @@ export enum DestinationFormFields {
   namespace = 'namespace',
   className = 'className',
   authMode = 'authMode',
-  replaceCredentials = 'replaceCredentials',
+  credentialsSource = 'credentialsSource',
   credentialsSecretName = 'credentialsSecretName',
+  existingSecretName = 'existingSecretName',
   // Root of the class credentials form: the Secret's keys.
   credentials = 'credentials',
   // Root of the class destination form, whose paths are relative to the

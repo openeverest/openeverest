@@ -24,17 +24,25 @@ import { useDestinationClassForms } from '../hooks/use-destination-class-forms';
 import { DestinationFormFields } from '../monitoring-destination-modal.constants';
 import { Messages } from '../monitoring-destination-modal.messages';
 import { MonitoringDestinationFormValues } from '../monitoring-destination-modal.types';
+import { SecretNamespacePermissions } from '../monitoring-destination-modal.types';
 import { getFormMode } from '../monitoring-destination-modal.utils';
 import { ParametersFields } from '../parameters-fields/parameters-fields';
 
 interface ClassFieldsProps {
   classes: MonitoringClass[];
   original?: MonitoringDestination;
+  secretPermissions: SecretNamespacePermissions;
+  secretPermissionsLoading: boolean;
 }
 
 // Everything the picked class defines: its auth modes, credentials and
 // parameters.
-export const ClassFields = ({ classes, original }: ClassFieldsProps) => {
+export const ClassFields = ({
+  classes,
+  original,
+  secretPermissions,
+  secretPermissionsLoading,
+}: ClassFieldsProps) => {
   const { control } = useFormContext<MonitoringDestinationFormValues>();
   const namespace = useWatch({
     control,
@@ -76,6 +84,8 @@ export const ClassFields = ({ classes, original }: ClassFieldsProps) => {
         form={forms.credentials}
         original={original}
         namespace={namespace}
+        secretPermissions={secretPermissions}
+        secretPermissionsLoading={secretPermissionsLoading}
       />
     </>
   );

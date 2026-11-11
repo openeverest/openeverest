@@ -19,13 +19,23 @@ import {
 } from 'shared-types/monitoring-destinations.types';
 import { MonitoringSectionForm } from 'utils/monitoring-classes';
 
+// Where the destination's credentials come from: its current Secret as it is
+// or with new credentials, a new Secret, or an existing one of the class.
+export enum CredentialsSource {
+  Keep = 'keep',
+  Update = 'update',
+  New = 'new',
+  Existing = 'existing',
+}
+
 export interface MonitoringDestinationFormValues {
   name: string;
   namespace: string;
   className: string;
   authMode: string;
-  replaceCredentials: boolean;
+  credentialsSource: CredentialsSource;
   credentialsSecretName: string;
+  existingSecretName: string;
   credentials: Record<string, unknown>;
   spec: Record<string, unknown>;
   fallbackParameters: Record<string, unknown>;
@@ -74,4 +84,11 @@ export interface MonitoringDestinationPermissions {
   createNamespaces: string[];
   updateNamespaces: string[];
   deleteNamespaces: string[];
+}
+
+// The namespaces the user may create, read and update Secrets in.
+export interface SecretNamespacePermissions {
+  canCreate: string[];
+  canRead: string[];
+  canUpdate: string[];
 }

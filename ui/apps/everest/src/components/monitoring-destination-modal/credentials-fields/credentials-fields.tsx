@@ -12,63 +12,95 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Stack, Typography } from '@mui/material';
-import { SwitchInput, TextInput } from '@percona/ui-lib';
+import { Alert, Stack, Typography } from '@mui/material';
+import { RadioGroup, TextInput } from '@percona/ui-lib';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { MonitoringDestination } from 'shared-types/monitoring-destinations.types';
-import { MonitoringSectionForm } from 'utils/monitoring-classes';
+import {
+  isSecretBackedAuthMode,
+  MonitoringSectionForm,
+} from 'utils/monitoring-classes';
 import { getDefaultCredentialsSecretName } from 'utils/monitoring-destinations';
 import { DestinationFormFields } from '../monitoring-destination-modal.constants';
 import { Messages } from '../monitoring-destination-modal.messages';
-import { MonitoringDestinationFormValues } from '../monitoring-destination-modal.types';
 import {
-  getCredentialsSecretAction,
+  CredentialsSource,
+  MonitoringDestinationFormValues,
+  SecretNamespacePermissions,
+} from '../monitoring-destination-modal.types';
+import {
+  getCredentialsSource,
+  getCredentialsSources,
   getKeptCredentialsSecretName,
+  takesCredentials,
 } from '../monitoring-destination-modal.utils';
+import { ExistingSecretSelect } from './existing-secret-select/existing-secret-select';
 
 interface CredentialsFieldsProps {
   form?: MonitoringSectionForm;
   original?: MonitoringDestination;
   namespace: string;
+  secretPermissions: SecretNamespacePermissions;
+  secretPermissionsLoading: boolean;
 }
 
 export const CredentialsFields = ({
   form,
   original,
   namespace,
+  secretPermissions,
+  secretPermissionsLoading,
 }: CredentialsFieldsProps) => {
   const { control } = useFormContext<MonitoringDestinationFormValues>();
-  const [name, authMode, replaceCredentials] = useWatch({
+  const [name, className, authMode, credentialsSource] = useWatch({
     control,
     name: [
       DestinationFormFields.name,
+      DestinationFormFields.className,
       DestinationFormFields.authMode,
-      DestinationFormFields.replaceCredentials,
+      DestinationFormFields.credentialsSource,
     ],
   });
-  const action = getCredentialsSecretAction(
-    { authMode, replaceCredentials },
-    original
-  );
-  const keptSecret = getKeptCredentialsSecretName(authMode, original);
+  const values = { authMode, namespace, credentialsSource };
+  const sources = getCredentialsSources(values, original, secretPermissions);
+  const source = getCredentialsSource(values, original, secretPermissions);
+  const keptSecret = getKeptCredentialsSecretName(authMode, original) ?? '';
 
-  if (!form || (!action && !keptSecret)) {
+  if (!form || !authMode || !isSecretBackedAuthMode(authMode)) {
     return null;
   }
 
   return (
     <Stack sx={{ mt: 3 }}>
       <Typography variant="sectionHeading">{Messages.credentials}</Typography>
-      {keptSecret && (
-        <SwitchInput
-          name={DestinationFormFields.replaceCredentials}
-          label={Messages.replaceCredentials}
-          labelCaption={Messages.replaceCredentialsCaption(keptSecret)}
+      {!source && !secretPermissionsLoading && (
+        <Alert severity="error" sx={{ mt: 1 }}>
+          {Messages.noSecretAccess(namespace)}
+        </Alert>
+      )}
+      {sources.length > 1 && (
+        <RadioGroup
+          name={DestinationFormFields.credentialsSource}
+          options={sources.map((option) => ({
+            value: option,
+            label: Messages.credentialsSource[option](keptSecret),
+          }))}
+          radioGroupFieldProps={{ value: source ?? '' }}
         />
       )}
-      {action === 'create' && (
+      {sources.length === 1 && source === CredentialsSource.Keep && (
+        <Typography variant="body2" sx={{ mt: 1 }}>
+          {Messages.keptCredentials(keptSecret)}
+        </Typography>
+      )}
+      {source === CredentialsSource.Update && (
+        <Typography variant="caption" color="text.secondary">
+          {Messages.updateCredentialsCaption(keptSecret)}
+        </Typography>
+      )}
+      {source === CredentialsSource.New && (
         <TextInput
           name={DestinationFormFields.credentialsSecretName}
           label={Messages.credentialsSecretName}
@@ -80,7 +112,14 @@ export const CredentialsFields = ({
           }}
         />
       )}
-      {action && (
+      {source === CredentialsSource.Existing && (
+        <ExistingSecretSelect
+          namespace={namespace}
+          className={className}
+          authMode={authMode}
+        />
+      )}
+      {takesCredentials(source) && (
         <UIGenerator
           sectionKey={form.sectionKey}
           sections={form.sections}

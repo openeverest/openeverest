@@ -13,22 +13,20 @@
 // limitations under the License.
 
 import { isAxiosError } from 'axios';
-import { Secret } from 'shared-types/api.types';
+import { Secret, SecretDataPatch } from 'shared-types/api.types';
 import {
   MonitoringDestination,
   MonitoringDestinationPayload,
 } from 'shared-types/monitoring-destinations.types';
 import {
   getCredentialsSecretLabels,
-  getDestinationName,
-  getSecretDeletedWithDestination,
   isCredentialsSecretFor,
-  isSecretUsedByOtherDestination,
 } from 'utils/monitoring-destinations';
 
 export interface MonitoringDestinationRequests {
   createSecret: (secret: Secret) => Promise<unknown>;
-  getSecret: (name: string) => Promise<Secret>;
+  getSecret: (name: string, quiet?: boolean) => Promise<Secret>;
+  patchSecret: (name: string, patch: SecretDataPatch) => Promise<unknown>;
   deleteSecret: (name: string) => Promise<unknown>;
   createDestination: (
     destination: MonitoringDestinationPayload
@@ -36,28 +34,15 @@ export interface MonitoringDestinationRequests {
   updateDestination: (
     destination: MonitoringDestinationPayload
   ) => Promise<MonitoringDestination>;
-  deleteDestination: (name: string) => Promise<unknown>;
-  listDestinations: () => Promise<MonitoringDestination[]>;
 }
 
-// create: a new Secret; replace: a new Secret under a fresh name that takes
-// over from previousName (there is no Secret update, and switching names
-// leaves no moment without credentials); reuse: an existing Secret as it is.
-// previousName is set only for a Secret the UI created, never one the user
-// brought.
-export type CredentialsSecretWrite =
-  | {
-      action: 'create';
-      name: string;
-      stringData: Record<string, string>;
-    }
-  | {
-      action: 'replace';
-      name: string;
-      stringData: Record<string, string>;
-      previousName?: string;
-    }
-  | { action: 'reuse'; name: string };
+// create: a new Secret; update: new credentials in the destination's Secret,
+// for every destination that uses it.
+export interface CredentialsSecretWrite {
+  action: 'create' | 'update';
+  name: string;
+  stringData: Record<string, string>;
+}
 
 export interface SaveMonitoringDestinationRequest {
   namespace: string;
@@ -67,7 +52,7 @@ export interface SaveMonitoringDestinationRequest {
 }
 
 // reusable: the Secret holds credentials of the destination's class and mode,
-// so the destination can reference it as it is.
+// so the destination can pick it as an existing Secret.
 export class SecretAlreadyExistsError extends Error {
   readonly secretName: string;
   readonly reusable: boolean;
@@ -80,37 +65,19 @@ export class SecretAlreadyExistsError extends Error {
   }
 }
 
+// The Secret changed between reading its version and writing the credentials.
+export class SecretChangedMeanwhileError extends Error {
+  readonly secretName: string;
+
+  constructor(secretName: string) {
+    super(`Secret ${secretName} changed meanwhile`);
+    this.secretName = secretName;
+    this.name = 'SecretChangedMeanwhileError';
+  }
+}
+
 const hasStatus = (error: unknown, status: number) =>
   isAxiosError(error) && error.response?.status === status;
-
-const ignoreNotFound = (error: unknown) => {
-  if (!hasStatus(error, 404)) {
-    throw error;
-  }
-};
-
-// The replaced Secret goes once the destination no longer references it, if
-// no other destination uses it. Best effort: the save has already succeeded.
-const deleteReplacedSecret = async (
-  destinationName: string,
-  secretName: string,
-  requests: MonitoringDestinationRequests
-) => {
-  try {
-    const namespaceDestinations = await requests.listDestinations();
-    if (
-      !isSecretUsedByOtherDestination(
-        destinationName,
-        secretName,
-        namespaceDestinations
-      )
-    ) {
-      await requests.deleteSecret(secretName);
-    }
-  } catch {
-    // A leftover Secret is harmless: the destination already uses the new one.
-  }
-};
 
 // Whether the Secret that took the name holds credentials of the class and
 // mode. One the user may not read can't be referenced either.
@@ -122,7 +89,7 @@ const isReusableSecret = async (
 ) => {
   try {
     return isCredentialsSecretFor(
-      await requests.getSecret(name),
+      await requests.getSecret(name, true),
       className,
       mode
     );
@@ -131,81 +98,71 @@ const isReusableSecret = async (
   }
 };
 
-// The Secret goes first, since the destination references it; a Secret this
-// call created is deleted again when the destination can't be saved.
+const createCredentialsSecret = async (
+  { name, stringData }: CredentialsSecretWrite,
+  destination: MonitoringDestinationPayload,
+  requests: MonitoringDestinationRequests
+) => {
+  const className = destination.spec.classRef.name;
+  const mode = destination.spec.authentication?.mode ?? '';
+  try {
+    await requests.createSecret({
+      metadata: { name, labels: getCredentialsSecretLabels(className, mode) },
+      stringData,
+    });
+  } catch (error) {
+    if (hasStatus(error, 409)) {
+      throw new SecretAlreadyExistsError(
+        name,
+        await isReusableSecret(name, className, mode, requests)
+      );
+    }
+    throw error;
+  }
+};
+
+const updateCredentialsSecret = async (
+  { name, stringData }: CredentialsSecretWrite,
+  requests: MonitoringDestinationRequests
+) => {
+  const { metadata } = await requests.getSecret(name);
+  try {
+    await requests.patchSecret(name, {
+      metadata: { resourceVersion: metadata?.resourceVersion ?? '' },
+      stringData,
+    });
+  } catch (error) {
+    if (hasStatus(error, 409)) {
+      throw new SecretChangedMeanwhileError(name);
+    }
+    throw error;
+  }
+};
+
+// The Secret goes first, since the destination references it. A Secret this
+// call created is deleted again when the destination can't be saved; updated
+// credentials stay, as the old ones can't be read back. Secrets are never
+// deleted otherwise: other destinations or users may hold them.
 export const saveMonitoringDestination = async (
   { isEdit, destination, credentialsSecret }: SaveMonitoringDestinationRequest,
   requests: MonitoringDestinationRequests
 ): Promise<MonitoringDestination> => {
-  let createdSecretName: string | undefined;
-
-  if (credentialsSecret && credentialsSecret.action !== 'reuse') {
-    const { action, name, stringData } = credentialsSecret;
-    const className = destination.spec.classRef.name;
-    const mode = destination.spec.authentication?.mode ?? '';
-    try {
-      await requests.createSecret({
-        metadata: { name, labels: getCredentialsSecretLabels(className, mode) },
-        stringData,
-      });
-    } catch (error) {
-      if (action === 'create' && hasStatus(error, 409)) {
-        throw new SecretAlreadyExistsError(
-          name,
-          await isReusableSecret(name, className, mode, requests)
-        );
-      }
-      throw error;
-    }
-    createdSecretName = name;
+  if (credentialsSecret?.action === 'create') {
+    await createCredentialsSecret(credentialsSecret, destination, requests);
+  } else if (credentialsSecret?.action === 'update') {
+    await updateCredentialsSecret(credentialsSecret, requests);
   }
 
-  let saved: MonitoringDestination;
   try {
-    saved = isEdit
+    return isEdit
       ? await requests.updateDestination(destination)
       : await requests.createDestination(destination);
   } catch (error) {
-    if (createdSecretName) {
-      await requests.deleteSecret(createdSecretName).catch(() => undefined);
+    if (credentialsSecret?.action === 'create') {
+      await requests
+        .deleteSecret(credentialsSecret.name)
+        .catch(() => undefined);
     }
     throw error;
-  }
-
-  if (
-    credentialsSecret?.action === 'replace' &&
-    credentialsSecret.previousName &&
-    credentialsSecret.previousName !== credentialsSecret.name
-  ) {
-    await deleteReplacedSecret(
-      destination.metadata?.name ?? '',
-      credentialsSecret.previousName,
-      requests
-    );
-  }
-  return saved;
-};
-
-export const deleteMonitoringDestination = async (
-  {
-    destination,
-    namespaceDestinations,
-  }: {
-    destination: MonitoringDestination;
-    namespaceDestinations: MonitoringDestination[];
-  },
-  requests: Pick<
-    MonitoringDestinationRequests,
-    'deleteDestination' | 'deleteSecret'
-  >
-): Promise<void> => {
-  await requests.deleteDestination(getDestinationName(destination));
-
-  const secretName = getSecretDeletedWithDestination(
-    destination,
-    namespaceDestinations
-  );
-  if (secretName) {
-    await requests.deleteSecret(secretName).catch(ignoreNotFound);
   }
 };

@@ -38,7 +38,7 @@ export const MonitoringDestinations = () => {
   const { rows, classes, isLoading } = useMonitoringDestinationRows();
   const permissions = useMonitoringDestinationPermissions();
   const { deletion, isDeleting, request, confirm, cancel } =
-    useDestinationDeletion(rows);
+    useDestinationDeletion();
   const [modal, setModal] = useState<ModalState>();
   const hasAddress = rows.some((row) => !!row.address);
 

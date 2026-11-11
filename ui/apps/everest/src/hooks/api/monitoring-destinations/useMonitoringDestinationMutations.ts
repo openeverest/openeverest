@@ -17,17 +17,20 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   createMonitoringDestinationFn,
   deleteMonitoringDestinationFn,
-  getMonitoringDestinationsFn,
   updateMonitoringDestinationFn,
 } from 'api/monitoring-destinations';
-import { createSecretFn, deleteSecretFn, getSecretFn } from 'api/secrets';
+import {
+  createSecretFn,
+  deleteSecretFn,
+  getSecretFn,
+  patchSecretFn,
+} from 'api/secrets';
 import { MONITORING_BINDINGS_QUERY_KEY } from 'hooks/api/monitoring-bindings';
 import { SECRETS_QUERY_KEY } from 'hooks/api/secrets';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { MonitoringDestination } from 'shared-types/monitoring-destinations.types';
 import { isDestinationInUseError } from 'utils/monitoring-destinations';
 import {
-  deleteMonitoringDestination,
   MonitoringDestinationRequests,
   saveMonitoringDestination,
   SaveMonitoringDestinationRequest,
@@ -39,19 +42,14 @@ const toRequests = (
   namespace: string
 ): MonitoringDestinationRequests => ({
   createSecret: (secret) => createSecretFn(cluster, namespace, secret),
-  // Asked only to resolve a taken name, so a refusal is no error to show.
-  getSecret: (name) => getSecretFn(cluster, namespace, name, true),
+  getSecret: (name, quiet = false) =>
+    getSecretFn(cluster, namespace, name, quiet),
+  patchSecret: (name, patch) => patchSecretFn(cluster, namespace, name, patch),
   deleteSecret: (name) => deleteSecretFn(cluster, namespace, name),
   createDestination: (destination) =>
     createMonitoringDestinationFn(cluster, namespace, destination),
   updateDestination: (destination) =>
     updateMonitoringDestinationFn(cluster, namespace, destination),
-  deleteDestination: (name) =>
-    deleteMonitoringDestinationFn(cluster, namespace, name),
-  listDestinations: () =>
-    getMonitoringDestinationsFn(cluster, namespace).then(
-      ({ items = [] }) => items
-    ),
 });
 
 // Settled, not only successful: a failed save may still have touched the
@@ -94,17 +92,18 @@ export const useSaveMonitoringDestination = () => {
 
 interface DeleteMonitoringDestinationVariables {
   namespace: string;
-  destination: MonitoringDestination;
-  namespaceDestinations: MonitoringDestination[];
+  name: string;
 }
 
+// The credentials Secret stays: other destinations or users may hold it.
 export const useDeleteMonitoringDestination = () => {
   const cluster = useClusterName();
   const invalidateNamespace = useInvalidateNamespace();
 
   return useMutation<void, unknown, DeleteMonitoringDestinationVariables>({
-    mutationFn: ({ namespace, ...request }) =>
-      deleteMonitoringDestination(request, toRequests(cluster, namespace)),
+    mutationFn: async ({ namespace, name }) => {
+      await deleteMonitoringDestinationFn(cluster, namespace, name);
+    },
     onSettled: (_data, _error, { namespace }) => invalidateNamespace(namespace),
   });
 };

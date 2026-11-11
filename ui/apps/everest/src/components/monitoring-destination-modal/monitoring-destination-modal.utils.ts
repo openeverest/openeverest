@@ -26,6 +26,8 @@ import {
 import {
   CredentialsSecretWrite,
   SaveMonitoringDestinationRequest,
+  SecretAlreadyExistsError,
+  SecretChangedMeanwhileError,
 } from 'hooks/api/monitoring-destinations';
 import {
   MonitoringClass,
@@ -44,17 +46,17 @@ import {
 import {
   getCredentialsSecretName,
   getDefaultCredentialsSecretName,
-  getRotatedCredentialsSecretName,
-  getUiCreatedCredentialsSecretName,
-  withUiCreatedCredentialsSecret,
 } from 'utils/monitoring-destinations';
 import {
   CREDENTIALS_SECTION_KEY,
   DESTINATION_SECTION_KEY,
 } from './monitoring-destination-modal.constants';
+import { Messages } from './monitoring-destination-modal.messages';
 import {
+  CredentialsSource,
   DestinationClassForms,
   MonitoringDestinationFormValues,
+  SecretNamespacePermissions,
 } from './monitoring-destination-modal.types';
 
 const NO_PARAMETER_FIELDS: OpenApiParameterFields = { fields: [], skipped: [] };
@@ -119,30 +121,7 @@ export const getNewDestinationClassDefaults = (
   };
 };
 
-// Whether the save writes a credentials Secret: always for a new
-// Secret-backed destination, and on edit when the mode changes, the
-// destination has no Secret yet or the user replaces the credentials. A
-// replacement goes to a new Secret the destination then switches to.
-export const getCredentialsSecretAction = (
-  {
-    authMode,
-    replaceCredentials,
-  }: Pick<MonitoringDestinationFormValues, 'authMode' | 'replaceCredentials'>,
-  original: MonitoringDestination | undefined
-): 'create' | 'replace' | undefined => {
-  if (!authMode || !isSecretBackedAuthMode(authMode)) {
-    return undefined;
-  }
-  const secretName = original && getCredentialsSecretName(original);
-  if (!original || !secretName) {
-    return 'create';
-  }
-  return replaceCredentials || authMode !== original.spec.authentication?.mode
-    ? 'replace'
-    : undefined;
-};
-
-// The Secret the destination keeps when the user doesn't replace the
+// The Secret the destination keeps when the user doesn't change the
 // credentials: only its current one, and only for the mode it was made for.
 export const getKeptCredentialsSecretName = (
   authMode: string,
@@ -153,6 +132,55 @@ export const getKeptCredentialsSecretName = (
     ? secretName
     : undefined;
 };
+
+// The credentials sources the user may pick for the mode: the destination's
+// own Secret as it is or updated, else a new one; and an existing Secret of
+// the class and mode. None for a mode without a Secret.
+export const getCredentialsSources = (
+  {
+    authMode,
+    namespace,
+  }: Pick<MonitoringDestinationFormValues, 'authMode' | 'namespace'>,
+  original: MonitoringDestination | undefined,
+  { canCreate, canRead, canUpdate }: SecretNamespacePermissions
+): CredentialsSource[] => {
+  if (!authMode || !isSecretBackedAuthMode(authMode)) {
+    return [];
+  }
+  const may = (namespaces: string[]) => namespaces.includes(namespace);
+  const ownSources = getKeptCredentialsSecretName(authMode, original)
+    ? [
+        CredentialsSource.Keep,
+        // Updating reads the Secret's version first.
+        ...(may(canUpdate) && may(canRead) ? [CredentialsSource.Update] : []),
+      ]
+    : may(canCreate)
+      ? [CredentialsSource.New]
+      : [];
+  return may(canRead)
+    ? [...ownSources, CredentialsSource.Existing]
+    : ownSources;
+};
+
+// The picked source, or the first offered once the pick no longer applies
+// (e.g. after the mode changed).
+export const getCredentialsSource = (
+  values: Pick<
+    MonitoringDestinationFormValues,
+    'authMode' | 'namespace' | 'credentialsSource'
+  >,
+  original: MonitoringDestination | undefined,
+  permissions: SecretNamespacePermissions
+): CredentialsSource | undefined => {
+  const sources = getCredentialsSources(values, original, permissions);
+  return sources.includes(values.credentialsSource)
+    ? values.credentialsSource
+    : sources[0];
+};
+
+// Whether the form takes new credentials for the source.
+export const takesCredentials = (source: CredentialsSource | undefined) =>
+  source === CredentialsSource.New || source === CredentialsSource.Update;
 
 export const getFormDefaults = ({
   original,
@@ -170,8 +198,9 @@ export const getFormDefaults = ({
     namespace,
     className: '',
     authMode: '',
-    replaceCredentials: false,
+    credentialsSource: CredentialsSource.New,
     credentialsSecretName: '',
+    existingSecretName: '',
     credentials: {},
     spec: {},
     fallbackParameters: {},
@@ -208,6 +237,9 @@ export const getFormDefaults = ({
     namespace: original.metadata?.namespace ?? namespace,
     className: originalClassName,
     authMode,
+    credentialsSource: getKeptCredentialsSecretName(authMode, original)
+      ? CredentialsSource.Keep
+      : CredentialsSource.New,
     credentials: forms.credentials
       ? getSectionFormDefaults(forms.credentials)
       : {},
@@ -280,36 +312,28 @@ const toTls = ({
 const toCredentialsSecretWrite = (
   values: MonitoringDestinationFormValues,
   forms: DestinationClassForms,
-  original: MonitoringDestination | undefined,
-  reuseSecretName: string | undefined
+  source: CredentialsSource | undefined,
+  keptSecretName: string | undefined
 ): CredentialsSecretWrite | undefined => {
-  const action = getCredentialsSecretAction(values, original);
-  if (!action) {
-    return undefined;
-  }
-  if (reuseSecretName) {
-    return { action: 'reuse', name: reuseSecretName };
-  }
-  const stringData = toStringData(
-    forms.credentials
-      ? postprocessSectionForm(values.credentials, forms.credentials)
-      : {}
-  );
-  if (action === 'replace') {
+  const stringData = () =>
+    toStringData(
+      forms.credentials
+        ? postprocessSectionForm(values.credentials, forms.credentials)
+        : {}
+    );
+  if (source === CredentialsSource.New) {
     return {
-      action,
-      name: getRotatedCredentialsSecretName(values.name),
-      stringData,
-      previousName: original && getUiCreatedCredentialsSecretName(original),
+      action: 'create',
+      name:
+        values.credentialsSecretName ||
+        getDefaultCredentialsSecretName(values.name),
+      stringData: stringData(),
     };
   }
-  return {
-    action,
-    name:
-      values.credentialsSecretName ||
-      getDefaultCredentialsSecretName(values.name),
-    stringData,
-  };
+  if (source === CredentialsSource.Update && keptSecretName) {
+    return { action: 'update', name: keptSecretName, stringData: stringData() };
+  }
+  return undefined;
 };
 
 // The requests a submit makes. Credentials go to the Secret only; the
@@ -318,12 +342,12 @@ export const buildSaveRequest = ({
   values,
   monitoringClass,
   original,
-  reuseSecretName,
+  secretPermissions,
 }: {
   values: MonitoringDestinationFormValues;
   monitoringClass: MonitoringClass | undefined;
   original?: MonitoringDestination;
-  reuseSecretName?: string;
+  secretPermissions: SecretNamespacePermissions;
 }): SaveMonitoringDestinationRequest => {
   const forms = getDestinationClassForms(
     monitoringClass,
@@ -332,21 +356,21 @@ export const buildSaveRequest = ({
   );
   const parameters = toParameters(values, forms, original);
   const tls = toTls(values);
+  const source = getCredentialsSource(values, original, secretPermissions);
+  const keptSecretName = getKeptCredentialsSecretName(
+    values.authMode,
+    original
+  );
   const credentialsSecret = toCredentialsSecretWrite(
     values,
     forms,
-    original,
-    reuseSecretName
+    source,
+    keptSecretName
   );
-  const secretName = isSecretBackedAuthMode(values.authMode)
-    ? (credentialsSecret?.name ??
-      (original && getCredentialsSecretName(original)))
-    : undefined;
-  const uiCreatedSecretName = credentialsSecret
-    ? credentialsSecret.action === 'reuse'
-      ? undefined
-      : credentialsSecret.name
-    : original && getUiCreatedCredentialsSecretName(original);
+  const secretName =
+    source === CredentialsSource.Existing
+      ? values.existingSecretName
+      : (credentialsSecret?.name ?? keptSecretName);
 
   return {
     namespace: values.namespace,
@@ -354,15 +378,13 @@ export const buildSaveRequest = ({
     credentialsSecret,
     destination: {
       ...(original && { apiVersion: original.apiVersion, kind: original.kind }),
-      metadata: withUiCreatedCredentialsSecret(
-        original ? { ...original.metadata } : { name: values.name },
-        secretName ? uiCreatedSecretName : undefined
-      ),
+      metadata: original ? { ...original.metadata } : { name: values.name },
       spec: {
         classRef: { name: values.className },
         authentication: {
           mode: values.authMode,
-          ...(secretName && { credentialsSecretRef: { name: secretName } }),
+          ...(source &&
+            secretName && { credentialsSecretRef: { name: secretName } }),
         },
         ...(tls && { tls }),
         ...(Object.keys(parameters).length > 0 && { parameters }),
@@ -371,26 +393,13 @@ export const buildSaveRequest = ({
   };
 };
 
-const intersect = (...lists: string[][]) =>
-  lists.reduce((common, list) => common.filter((item) => list.includes(item)));
-
-// Writing a destination may write its credentials Secret too, and needs the
-// class.
-export const toWritableNamespaces = ({
-  destinationNamespaces,
-  secretCreateNamespaces,
-  secretReadNamespaces,
-  canReadClasses,
-}: {
-  destinationNamespaces: string[];
-  secretCreateNamespaces: string[];
-  secretReadNamespaces: string[];
-  canReadClasses: boolean;
-}): string[] =>
-  canReadClasses
-    ? intersect(
-        destinationNamespaces,
-        secretCreateNamespaces,
-        secretReadNamespaces
-      )
-    : [];
+export const getSecretErrorMessage = (
+  error: SecretAlreadyExistsError | SecretChangedMeanwhileError
+) => {
+  if (error instanceof SecretChangedMeanwhileError) {
+    return Messages.secretChangedMeanwhile(error.secretName);
+  }
+  return error.reusable
+    ? Messages.secretExists(error.secretName)
+    : Messages.secretTaken(error.secretName);
+};

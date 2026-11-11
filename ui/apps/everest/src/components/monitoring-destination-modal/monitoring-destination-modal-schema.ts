@@ -29,9 +29,14 @@ import {
 } from './monitoring-destination-modal.constants';
 import { Messages } from './monitoring-destination-modal.messages';
 import {
-  getCredentialsSecretAction,
+  CredentialsSource,
+  SecretNamespacePermissions,
+} from './monitoring-destination-modal.types';
+import {
+  getCredentialsSource,
   getDestinationClassForms,
   getFormMode,
+  takesCredentials,
 } from './monitoring-destination-modal.utils';
 
 const required = z.string().min(1, Messages.required);
@@ -41,9 +46,11 @@ const required = z.string().min(1, Messages.required);
 export const buildMonitoringDestinationSchema = ({
   classes,
   original,
+  secretPermissions,
 }: {
   classes: MonitoringClass[];
   original?: MonitoringDestination;
+  secretPermissions: SecretNamespacePermissions;
 }) =>
   z
     .object({
@@ -53,7 +60,8 @@ export const buildMonitoringDestinationSchema = ({
       [DestinationFormFields.namespace]: required,
       [DestinationFormFields.className]: required,
       [DestinationFormFields.authMode]: required,
-      [DestinationFormFields.replaceCredentials]: z.boolean(),
+      [DestinationFormFields.credentialsSource]:
+        z.nativeEnum(CredentialsSource),
       [DestinationFormFields.credentialsSecretName]: z.union([
         z.literal(''),
         rfc_123_schema({
@@ -61,6 +69,7 @@ export const buildMonitoringDestinationSchema = ({
           maxLength: MAX_SECRET_NAME_LENGTH,
         }),
       ]),
+      [DestinationFormFields.existingSecretName]: z.string(),
       [DestinationFormFields.insecureSkipVerify]: z.boolean(),
       [DestinationFormFields.caSecretName]: z.string(),
       [DestinationFormFields.caSecretKey]: z.string(),
@@ -91,11 +100,33 @@ export const buildMonitoringDestinationSchema = ({
           buildOpenApiParametersSchema(forms.parameterFields)
         );
       }
-      if (forms.credentials && getCredentialsSecretAction(values, original)) {
-        validateAt(
-          DestinationFormFields.credentials,
-          getSectionFormZodSchema(forms.credentials)
+      if (forms.credentials) {
+        const source = getCredentialsSource(
+          values,
+          original,
+          secretPermissions
         );
+        if (!source) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [DestinationFormFields.credentialsSource],
+            message: Messages.noSecretAccess(values.namespace),
+          });
+        } else if (takesCredentials(source)) {
+          validateAt(
+            DestinationFormFields.credentials,
+            getSectionFormZodSchema(forms.credentials)
+          );
+        } else if (
+          source === CredentialsSource.Existing &&
+          !values.existingSecretName
+        ) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [DestinationFormFields.existingSecretName],
+            message: Messages.required,
+          });
+        }
       }
       if (
         !values.insecureSkipVerify &&

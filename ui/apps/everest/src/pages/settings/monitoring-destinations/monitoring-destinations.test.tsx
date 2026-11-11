@@ -75,14 +75,7 @@ vi.mock('hooks/api/monitoring-destinations', async (importOriginal) => {
     {
       data: [
         {
-          metadata: {
-            name: 'pmm-prod',
-            namespace: 'team-a',
-            annotations: {
-              'monitoring.openeverest.io/ui-created-credentials-secret':
-                'monitoring-destination-pmm-prod-credentials',
-            },
-          },
+          metadata: { name: 'pmm-prod', namespace: 'team-a' },
           spec: {
             classRef: { name: 'pmm' },
             authentication: {
@@ -231,14 +224,14 @@ describe('MonitoringDestinations', () => {
     ).toBeInTheDocument();
   });
 
-  it('deletes an unused destination with the Secret created for it', async () => {
+  it('deletes an unused destination and keeps its credentials Secret', async () => {
     mocks.canDelete.mockResolvedValue(true);
     renderPage();
     await clickDelete();
 
     expect(
       await screen.findByText(
-        /Its credentials Secret monitoring-destination-pmm-prod-credentials is deleted with it/
+        /Its credentials Secret monitoring-destination-pmm-prod-credentials is kept and can be reused/
       )
     ).toBeInTheDocument();
     expect(mocks.fetchBindings).not.toHaveBeenCalled();
@@ -246,15 +239,7 @@ describe('MonitoringDestinations', () => {
 
     await waitFor(() =>
       expect(mocks.deleteDestination).toHaveBeenCalledWith(
-        expect.objectContaining({
-          namespace: 'team-a',
-          destination: expect.objectContaining({
-            metadata: expect.objectContaining({
-              name: 'pmm-prod',
-              namespace: 'team-a',
-            }),
-          }),
-        }),
+        { namespace: 'team-a', name: 'pmm-prod' },
         expect.anything()
       )
     );

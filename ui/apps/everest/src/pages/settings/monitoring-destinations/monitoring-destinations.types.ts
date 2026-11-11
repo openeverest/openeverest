@@ -39,6 +39,4 @@ export interface MonitoringDestinationRow {
 export interface MonitoringDestinationDeletion {
   row: MonitoringDestinationRow;
   inUse?: DestinationUsage;
-  // The credentials Secret deleted along with the destination.
-  secretDeletedToo?: string;
 }

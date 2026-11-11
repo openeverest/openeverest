@@ -43,7 +43,7 @@ export const RestartNotice = ({
       DestinationFormFields.spec,
       DestinationFormFields.fallbackParameters,
       DestinationFormFields.authMode,
-      DestinationFormFields.credentialsSecretName,
+      DestinationFormFields.existingSecretName,
       DestinationFormFields.credentials,
     ],
   });
@@ -56,7 +56,7 @@ export const RestartNotice = ({
     !!dirtyFields.spec ||
     !!dirtyFields.fallbackParameters ||
     !!dirtyFields.authMode ||
-    !!dirtyFields.credentialsSecretName ||
+    !!dirtyFields.existingSecretName ||
     !!dirtyFields.credentials;
 
   if (

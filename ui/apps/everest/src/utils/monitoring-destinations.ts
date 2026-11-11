@@ -25,7 +25,6 @@ import {
   MonitoringDestinationState,
   MonitoringDestinationStatus,
 } from 'shared-types/monitoring-destinations.types';
-import { generateShortUID } from './generateShortUID';
 import { getMonitoringClassUiSchema } from './monitoring-classes';
 
 const ADDRESS_PARAMETER_PATH = 'parameters.url';
@@ -61,11 +60,6 @@ export const getInstanceMonitoringDestinationNames = (
 
 const CREDENTIALS_SECRET_PREFIX = 'monitoring-destination-';
 const CREDENTIALS_SECRET_SUFFIX = '-credentials';
-const MAX_SECRET_NAME_LENGTH = 253;
-// Names the credentials Secret the UI created for the destination. A Secret
-// the user brought is never recorded here, so it is never deleted.
-const UI_CREATED_SECRET_ANNOTATION =
-  'monitoring.openeverest.io/ui-created-credentials-secret';
 
 // The kind in the name keeps a destination's Secret apart from those of a
 // backup storage or an Instance with the same name.
@@ -98,79 +92,8 @@ export const isCredentialsSecretFor = (
   );
 };
 
-// A fresh name for rotated credentials, so the destination can move to the
-// new Secret before the old one goes.
-export const getRotatedCredentialsSecretName = (
-  destinationName: string,
-  suffix = `${Date.now().toString(36)}${generateShortUID()}`
-) => {
-  const base = getDefaultCredentialsSecretName(destinationName);
-  return `${base.slice(0, MAX_SECRET_NAME_LENGTH - suffix.length - 1)}-${suffix}`;
-};
-
 export const getCredentialsSecretName = (destination: MonitoringDestination) =>
   destination.spec.authentication?.credentialsSecretRef?.name;
-
-// The destination's credentials Secret, when the UI created it.
-export const getUiCreatedCredentialsSecretName = (
-  destination: MonitoringDestination
-): string | undefined => {
-  const secretName = getCredentialsSecretName(destination);
-  return secretName &&
-    destination.metadata?.annotations?.[UI_CREATED_SECRET_ANNOTATION] ===
-      secretName
-    ? secretName
-    : undefined;
-};
-
-// Records the Secret the UI created for the destination, or clears the record.
-export const withUiCreatedCredentialsSecret = <
-  Metadata extends { annotations?: Record<string, string> },
->(
-  metadata: Metadata,
-  secretName: string | undefined
-): Metadata => {
-  const annotations = Object.fromEntries(
-    Object.entries(metadata.annotations ?? {}).filter(
-      ([key]) => key !== UI_CREATED_SECRET_ANNOTATION
-    )
-  );
-  if (secretName) {
-    annotations[UI_CREATED_SECRET_ANNOTATION] = secretName;
-  }
-  return {
-    ...metadata,
-    annotations: Object.keys(annotations).length > 0 ? annotations : undefined,
-  };
-};
-
-export const isSecretUsedByOtherDestination = (
-  destinationName: string,
-  secretName: string,
-  namespaceDestinations: MonitoringDestination[]
-) =>
-  namespaceDestinations.some(
-    (other) =>
-      getDestinationName(other) !== destinationName &&
-      getCredentialsSecretName(other) === secretName
-  );
-
-// The credentials Secret that goes with the destination on delete: one the UI
-// created that no other destination of the namespace references.
-export const getSecretDeletedWithDestination = (
-  destination: MonitoringDestination,
-  namespaceDestinations: MonitoringDestination[]
-): string | undefined => {
-  const secretName = getUiCreatedCredentialsSecretName(destination);
-  return secretName &&
-    !isSecretUsedByOtherDestination(
-      getDestinationName(destination),
-      secretName,
-      namespaceDestinations
-    )
-    ? secretName
-    : undefined;
-};
 
 // "Reason: message", or whichever of the two a condition reports.
 export const describeCondition = ({

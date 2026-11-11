@@ -19,10 +19,7 @@ import {
   useDeleteMonitoringDestination,
 } from 'hooks/api/monitoring-destinations';
 import { useNamespacePermissionsForResource } from 'hooks/rbac';
-import {
-  getSecretDeletedWithDestination,
-  isDestinationInUseError,
-} from 'utils/monitoring-destinations';
+import { isDestinationInUseError } from 'utils/monitoring-destinations';
 import {
   DestinationUsage,
   MonitoringDestinationDeletion,
@@ -30,8 +27,8 @@ import {
 } from '../monitoring-destinations.types';
 import { toDestinationUsage } from '../monitoring-destinations.utils';
 
-// The server decides whether it can go; a Secret the form created goes with it.
-export const useDestinationDeletion = (rows: MonitoringDestinationRow[]) => {
+// The server decides whether it can go.
+export const useDestinationDeletion = () => {
   const [deletion, setDeletion] = useState<MonitoringDestinationDeletion>();
   const canDelete = useCanDeleteMonitoringDestination();
   const fetchBindings = useFetchMonitoringBindings();
@@ -40,9 +37,6 @@ export const useDestinationDeletion = (rows: MonitoringDestinationRow[]) => {
   );
   const { mutate: deleteDestination, isPending: isDeleting } =
     useDeleteMonitoringDestination();
-
-  const namespaceDestinationsOf = (namespace: string) =>
-    rows.filter((row) => row.namespace === namespace).map((row) => row.raw);
 
   // Names come from the bindings the user may read; the count from core.
   const getUsage = async ({
@@ -65,13 +59,7 @@ export const useDestinationDeletion = (rows: MonitoringDestinationRow[]) => {
     try {
       setDeletion(
         (await canDelete(row.namespace, row.name))
-          ? {
-              row,
-              secretDeletedToo: getSecretDeletedWithDestination(
-                row.raw,
-                namespaceDestinationsOf(row.namespace)
-              ),
-            }
+          ? { row }
           : { row, inUse: await getUsage(row) }
       );
     } catch {
@@ -85,11 +73,7 @@ export const useDestinationDeletion = (rows: MonitoringDestinationRow[]) => {
     }
     const { row } = deletion;
     deleteDestination(
-      {
-        namespace: row.namespace,
-        destination: row.raw,
-        namespaceDestinations: namespaceDestinationsOf(row.namespace),
-      },
+      { namespace: row.namespace, name: row.name },
       {
         onSuccess: () => setDeletion(undefined),
         // An Instance started using it after the dry run.
