@@ -15,7 +15,7 @@
 import {expect, test} from '@fixtures'
 import {CliHelper} from '@helpers/cliHelper'
 import {APIRequestContext, APIResponse} from '@playwright/test'
-import {EVEREST_CI_NAMESPACE} from '@root/constants';
+import {EVEREST_CI_NAMESPACE, TIMEOUTS} from '@root/constants';
 import * as th from '@tests/utils/api';
 
 const secretName1 = 'test-secret-name-1'
@@ -411,10 +411,10 @@ test.describe('Secret patch', () => {
         await request.patch(`${url}/${target}`, {data, headers: {'Content-Type': contentType}})
 
     try {
-      const created = await th.createSecretWithData(request, monitoringSecret(name, 'ServiceAccountToken', {
+      await th.createSecretWithData(request, monitoringSecret(name, 'ServiceAccountToken', {
         stringData: {token: 'glsa_test-token', orgID: '1'},
       }))
-      let version = created.metadata.resourceVersion
+      let version = (await th.getCountedSecret(request, name)).metadata.resourceVersion
 
       await test.step('dry run changes nothing', async () => {
         const response = await request.patch(`${url}/${name}?dryRun=All`, {
@@ -520,9 +520,12 @@ test.describe('Secret responses', () => {
         'openeverest.io/note': 'kept',
       },
       expectView = (response: unknown) => {
-        const secret = response as {metadata: {annotations?: object, managedFields?: object}}
+        const secret = response as {metadata: {annotations?: Record<string, string>, managedFields?: object}},
+          // Core's usage counts are openeverest.io annotations too.
+          kept = Object.fromEntries(Object.entries(secret.metadata.annotations ?? {})
+            .filter(([key]) => !th.secretUsageCountKeys.includes(key)))
 
-        expect(secret.metadata.annotations).toEqual({'openeverest.io/note': 'kept'})
+        expect(kept).toEqual({'openeverest.io/note': 'kept'})
         expect(secret.metadata.managedFields).toBeUndefined()
         expect(JSON.stringify(secret)).not.toContain('glsa_')
       }
@@ -535,7 +538,10 @@ test.describe('Secret responses', () => {
       })
 
       await test.step('get', async () => {
-        expectView(await th.getSecret(request, name))
+        const secret = await th.getCountedSecret(request, name)
+
+        expectView(secret)
+        expect(secret.metadata.annotations).toMatchObject({'monitoring.openeverest.io/attached-destinations': '0'})
       })
 
       await test.step('list', async () => {
@@ -545,7 +551,7 @@ test.describe('Secret responses', () => {
       })
 
       await test.step('patch', async () => {
-        const version = (await th.getSecret(request, name)).metadata.resourceVersion,
+        const version = (await th.getCountedSecret(request, name)).metadata.resourceVersion,
           response = await request.patch(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets/${name}`, {
             data: {metadata: {resourceVersion: version}, stringData: {token: 'glsa_rotated'}},
             headers: {'Content-Type': 'application/merge-patch+json'},
@@ -595,7 +601,7 @@ test.describe.parallel('Secrets written outside the API', () => {
       })
 
       await test.step('a patch is refused: it is changed where it was written', async () => {
-        const version = (await th.getSecret(request, name)).metadata.resourceVersion as string,
+        const version = (await th.getCountedSecret(request, name)).metadata.resourceVersion as string,
           response = await rotate(request, name, version)
 
         expect(response.status()).toBe(409)
@@ -703,6 +709,95 @@ test.describe.parallel('Secrets written outside the API', () => {
     }
     finally {
       await kubectl(cli, `delete secret ${name} --ignore-not-found`)
+    }
+  })
+})
+
+test.describe.parallel('Secrets in use', () => {
+  test.describe.configure({timeout: TIMEOUTS.ThreeMinutes})
+
+  const url = `/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets`,
+    destinationsURL = `/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-destinations`,
+    // The class need not exist: a destination uses the Secrets it names as soon as it is created.
+    createDestination = async (request: APIRequestContext, name: string, ca: string) => {
+      await th.checkError(await request.post(destinationsURL, {
+        data: {metadata: {name}, spec: {classRef: {name: 'pmm'}, tls: {ca: {secretKeyRef: {name: ca, key: 'ca.crt'}}}}},
+      }))
+    },
+    deleteDestination = async (request: APIRequestContext, name: string) => {
+      expect([204, 404]).toContain((await request.delete(`${destinationsURL}/${name}`)).status())
+    }
+
+  test('core counts the destinations that use a Secret', async ({request}) => {
+    const name = th.suffixedName('secret-counted-ca'),
+      destination = th.limitedSuffixedName('secret-counted-md'),
+      destinations = async () => {
+        const secret = (await th.getSecret(request, name)) as {metadata: {annotations?: Record<string, string>}}
+
+        return secret.metadata.annotations?.['monitoring.openeverest.io/attached-destinations']
+      },
+      poll = {intervals: [500], timeout: TIMEOUTS.ThirtySeconds}
+
+    try {
+      await th.createSecretWithData(request, caBundle(name, {'ca.crt': testCA}))
+
+      await test.step('an unused Secret counts 0', async () => {
+        await expect.poll(destinations, poll).toBe('0')
+      })
+
+      await test.step('a destination that names it counts', async () => {
+        await createDestination(request, destination, name)
+        await expect.poll(destinations, poll).toBe('1')
+      })
+
+      await test.step('a destination deleted stops counting', async () => {
+        await deleteDestination(request, destination)
+        await expect.poll(destinations, poll).toBe('0')
+      })
+    } finally {
+      await deleteDestination(request, destination)
+      await th.deleteSecret(request, name)
+    }
+  })
+
+  test('deleting a Secret in use is refused with the counts, dry run or not', async ({request}) => {
+    const name = th.suffixedName('secret-in-use-ca'),
+      destination = th.limitedSuffixedName('secret-in-use-md')
+
+    try {
+      await th.createSecretWithData(request, caBundle(name, {'ca.crt': testCA}))
+      await createDestination(request, destination, name)
+      await th.getCountedSecret(request, name, '1')
+
+      for (const query of ['?dryRun=All', '']) {
+        await test.step(`DELETE${query} is refused`, async () => {
+          const response = await request.delete(`${url}/${name}${query}`)
+
+          expect(response.status()).toBe(409)
+          expect(await response.json()).toMatchObject({
+            reason: 'InUse',
+            message: 'in use by 1 monitoring destination(s) and 0 backup storage(s); replace its values instead, ' +
+              `or point them at another Secret first (kubectl get monitoringdestinations,backupstorages -n ${EVEREST_CI_NAMESPACE} ` +
+              `--field-selector spec.tls.ca.secretKeyRef.name=${name})`,
+          })
+          expect((await th.getSecret(request, name)).metadata.deletionTimestamp).toBeUndefined()
+        })
+      }
+
+      await test.step('DELETE is let through once the destination is deleted', async () => {
+        await deleteDestination(request, destination)
+
+        // Core counts the deletion within moments; until it has, the answer is still 409.
+        await expect(async () => {
+          expect((await request.delete(`${url}/${name}`)).status()).toBe(204)
+        }).toPass({intervals: [1000], timeout: TIMEOUTS.ThirtySeconds})
+        await expect(async () => {
+          expect((await th.getSecretRaw(request, name)).status()).toBe(404)
+        }).toPass({intervals: [1000], timeout: TIMEOUTS.ThirtySeconds})
+      })
+    } finally {
+      await deleteDestination(request, destination)
+      await th.deleteSecret(request, name)
     }
   })
 })

@@ -106,7 +106,7 @@ func TestCreateSecret(t *testing.T) {
 	}
 }
 
-func TestCreateSecretDropsOwnerReferencesAndFinalizers(t *testing.T) {
+func TestCreateSecretDropsOwnerReferencesFinalizersAndCounts(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.Background()
@@ -135,6 +135,12 @@ func TestCreateSecretDropsOwnerReferencesAndFinalizers(t *testing.T) {
 				UID:        "1234",
 			}},
 			Finalizers: []string{"example.com/keep"},
+			// Only core counts the objects that use a Secret.
+			Annotations: map[string]string{
+				common.AttachedDestinationsAnnotation: "0",
+				common.AttachedStoragesAnnotation:     "3",
+				"openeverest.io/note":                 "kept",
+			},
 		},
 		Type:       corev1.SecretTypeOpaque,
 		StringData: map[string]string{"token": "glsa_token"},
@@ -147,6 +153,7 @@ func TestCreateSecretDropsOwnerReferencesAndFinalizers(t *testing.T) {
 	require.NoError(t, fakeClient.Get(ctx, ctrlclient.ObjectKey{Namespace: namespace, Name: "pmm-credentials"}, stored))
 	assert.Empty(t, stored.OwnerReferences)
 	assert.Empty(t, stored.Finalizers)
+	assert.Equal(t, map[string]string{"openeverest.io/note": "kept"}, stored.Annotations)
 	assert.Equal(t, "true", stored.Labels[common.OpenEverestManagedLabel])
 	assert.Equal(t, "pmm", stored.Labels[common.OpenEverestMonitoringClassLabel])
 }

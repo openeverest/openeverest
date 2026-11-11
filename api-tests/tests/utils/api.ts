@@ -506,3 +506,22 @@ export const deleteSecret = async (request, name) => {
 export const deleteSecretRaw = async (request, name) => {
   return await request.delete(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets/${name}`)
 }
+
+// The annotations in which core counts the objects that use a Secret it tracks.
+export const secretUsageCountKeys = ['monitoring.openeverest.io/attached-destinations', 'backup.openeverest.io/attached-storages']
+
+// The Secret once core has counted the destinations that use it. Core counts a tracked Secret right after it is
+// created, so its resourceVersion moves once; from then on it stays put while nothing starts or stops using it.
+export const getCountedSecret = async (request, name, destinations = '0') => {
+  let secret
+
+  await expect(async () => {
+    secret = await getSecret(request, name)
+    expect(secret.metadata.annotations?.['monitoring.openeverest.io/attached-destinations']).toBe(destinations)
+  }).toPass({
+    intervals: [500],
+    timeout: 30 * 1000,
+  })
+
+  return secret
+}

@@ -1,5 +1,6 @@
 resources:
 - monitoringdestination_in_use.yaml
+- secret_in_use.yaml
 - secret_reference.yaml
 
 configurations:
