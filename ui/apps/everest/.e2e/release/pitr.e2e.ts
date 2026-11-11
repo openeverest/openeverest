@@ -679,8 +679,8 @@ test.describe.serial(
 
     // -----------------------------------------------------------------------
     // DEFERRED: PITR restore to a NEW cluster (seed). Kept verbatim (v1) as a
-    // reference to port later. Scope: docs/ui/testing/pitr-golden-e2e-plan.md
-    // (§1, §4: "restore-to-new-cluster → separate branch"). Revisit in the
+    // reference to port later. Scope: docs/ui/testing/pitr-golden-e2e-plan.md,
+    // which defers restore-to-new-cluster to a separate branch. Revisit in the
     // dedicated seed PR.
     // When reviving for v2: replace the v1 restore interaction
     // (radio-option-fromPITR → CalendarIcon → OK) with the v2 recoveryTarget
