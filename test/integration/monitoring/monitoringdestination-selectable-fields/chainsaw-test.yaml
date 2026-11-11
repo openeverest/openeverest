@@ -5,8 +5,8 @@ metadata:
   name: monitoringdestination-selectable-fields
 spec:
   # The class and Secret references are CRD selectableFields, so kubectl finds
-  # the destinations of a class or of a Secret (spec 020 §4.7). Neither the
-  # classes nor the Secrets need exist for that.
+  # the destinations of a class or of a Secret. Neither the classes nor the
+  # Secrets need exist for that.
   steps:
   - name: destinations
     try:
