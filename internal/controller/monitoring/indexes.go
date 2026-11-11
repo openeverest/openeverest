@@ -22,24 +22,62 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/controller/secretusage"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 // instanceMonitoringDestinationField indexes Instances by the name of every
 // MonitoringDestination their spec.monitoring.destinations lists.
 const instanceMonitoringDestinationField = ".spec.monitoring.destinations.destinationRef.name"
 
+// destinationSecretsField indexes MonitoringDestinations by the name of every
+// Secret they reference.
+const destinationSecretsField = ".spec.secretNames"
+
 const destinationKind = "MonitoringDestination"
 
-// SetupIndexes registers the field indexes several monitoring controllers
-// list by. It runs once, before the controllers are set up: an index cannot
-// be registered twice.
+// SetupIndexes registers the field indexes several controllers list by,
+// the monitoring ones and the Secret usage reconciler (SecretReferrer). It
+// runs once, before the controllers are set up: an index cannot be
+// registered twice.
 func SetupIndexes(ctx context.Context, mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &corev1alpha1.Instance{},
 		instanceMonitoringDestinationField, instanceMonitoringDestinationNames,
 	); err != nil {
 		return fmt.Errorf("indexing instance by monitoring destination: %w", err)
 	}
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &monitoringv1alpha1.MonitoringDestination{},
+		destinationSecretsField, destinationSecretNames,
+	); err != nil {
+		return fmt.Errorf("indexing monitoring destination by secret: %w", err)
+	}
 	return nil
+}
+
+// SecretReferrer is the Secret usage registry entry of
+// MonitoringDestinations: the Secrets they name in
+// spec.authentication.credentialsSecretRef and spec.tls.ca.secretKeyRef
+// carry their count in monitoring.openeverest.io/attached-destinations. Its
+// index is registered by SetupIndexes.
+func SecretReferrer() secretusage.Referrer {
+	return secretusage.Referrer{
+		Kind:       destinationKind,
+		CountKey:   common.AttachedDestinationsAnnotation,
+		Object:     &monitoringv1alpha1.MonitoringDestination{},
+		NewList:    func() client.ObjectList { return &monitoringv1alpha1.MonitoringDestinationList{} },
+		IndexField: destinationSecretsField,
+		Names:      destinationSecretNames,
+	}
+}
+
+// destinationSecretNames is the extractor for destinationSecretsField.
+func destinationSecretNames(obj client.Object) []string {
+	dst, ok := obj.(*monitoringv1alpha1.MonitoringDestination)
+	if !ok {
+		return nil
+	}
+	return dst.Spec.SecretNames()
 }
 
 // instanceMonitoringDestinationNames is the extractor for

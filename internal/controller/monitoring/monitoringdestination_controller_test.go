@@ -462,6 +462,26 @@ func TestDestinationReconcilerEnqueuesDestinationsUsingSecret(t *testing.T) {
 	)
 }
 
+func TestSecretReferrer(t *testing.T) {
+	t.Parallel()
+	dst := newDestination("pmm-prod", "pmm")
+	dst.Spec.Authentication.CredentialsSecretRef = &common.SecretRef{Name: "pmm-token"}
+	dst.Spec.TLS = &common.TLSConfig{CA: &common.CABundleSource{SecretKeyRef: &common.SecretKeyRef{Name: "corp-ca", Key: "ca.crt"}}}
+	ref := SecretReferrer()
+
+	assert.Equal(t, "MonitoringDestination", ref.Kind)
+	assert.Equal(t, "monitoring.openeverest.io/attached-destinations", ref.CountKey)
+	assert.Equal(t, []string{"pmm-token", "corp-ca"}, ref.Names(dst))
+	assert.Empty(t, ref.Names(newSecret("pmm-token", nil)))
+	assert.IsType(t, &monitoringv1alpha1.MonitoringDestinationList{}, ref.NewList())
+
+	// The entry lists destinations by the index SetupIndexes registers.
+	c := newFakeClient(t, dst)
+	list := ref.NewList()
+	require.NoError(t, c.List(t.Context(), list, client.InNamespace(testNamespace), client.MatchingFields{ref.IndexField: "corp-ca"}))
+	assert.Len(t, list.(*monitoringv1alpha1.MonitoringDestinationList).Items, 1) //nolint:forcetypeassert
+}
+
 func TestDestinationReconcilerEnqueuesDestinationsOfClass(t *testing.T) {
 	t.Parallel()
 	teamB := newDestination("prom", "prometheus")
