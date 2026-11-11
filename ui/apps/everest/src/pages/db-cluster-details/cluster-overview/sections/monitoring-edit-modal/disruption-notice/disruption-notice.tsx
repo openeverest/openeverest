@@ -26,7 +26,7 @@ export const DisruptionNotice = ({
   instance,
   namespace,
 }: DisruptionNoticeProps) => {
-  const { restarts, singleReplica } = useMonitoringDisruption(
+  const { restarts, singleReplicaComponents } = useMonitoringDisruption(
     instance,
     namespace
   );
@@ -46,8 +46,10 @@ export const DisruptionNotice = ({
           {Messages.restart(change, classTitle)}
         </Typography>
       ))}
-      {singleReplica && (
-        <Typography variant="body2">{Messages.singleReplica}</Typography>
+      {singleReplicaComponents.length > 0 && (
+        <Typography variant="body2">
+          {Messages.singleReplica(singleReplicaComponents)}
+        </Typography>
       )}
     </Alert>
   );

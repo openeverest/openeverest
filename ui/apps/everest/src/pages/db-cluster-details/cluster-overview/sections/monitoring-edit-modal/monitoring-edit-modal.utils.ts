@@ -18,7 +18,7 @@ import {
   isPlainObject,
   setByPath,
 } from 'components/ui-generator/utils/object-path';
-import { Instance, Provider } from 'shared-types/api.types';
+import { Instance } from 'shared-types/api.types';
 import {
   InstanceMonitoringDestination,
   InstanceMonitoringDestinationPayload,
@@ -76,18 +76,19 @@ const toChanges = (before: MonitoringEntry[], after: MonitoringEntry[]) => {
   ];
 };
 
-// A rolling restart takes a component down when it runs a single replica.
-export const hasSingleReplicaMonitoredComponent = (
-  instance: Instance,
-  provider: Provider | undefined
-) => {
-  const monitoredTypes = Object.keys(
-    provider?.spec?.monitoring?.componentTypes ?? {}
+// Which components a class restarts isn't published, so all count; unknown replicas count as one.
+export const getSingleReplicaComponents = (instance: Instance): string[] => {
+  const running = new Map(
+    (instance.status?.components ?? []).map(({ name, replicas }) => [
+      name,
+      replicas,
+    ])
   );
-  return Object.values(instance.spec?.components ?? {}).some(
-    ({ type, replicas }) =>
-      !!type && monitoredTypes.includes(type) && replicas === 1
-  );
+  return Object.entries(instance.spec?.components ?? {})
+    .filter(
+      ([name, { replicas }]) => (replicas ?? running.get(name) ?? 1) === 1
+    )
+    .map(([name]) => name);
 };
 
 // Any change to an entry of a class that rolls the pods for this provider
@@ -98,14 +99,14 @@ export const getMonitoringDisruption = ({
   destinations,
   classes,
   provider,
-  hasSingleReplica,
+  singleReplicaComponents,
 }: {
   before: MonitoringEntry[];
   after: MonitoringEntry[];
   destinations: MonitoringDestination[];
   classes: MonitoringClass[];
   provider: string;
-  hasSingleReplica: boolean;
+  singleReplicaComponents: string[];
 }): MonitoringDisruption => {
   const restarts = toChanges(before, after).flatMap(({ name, change }) => {
     const className = destinations.find(
@@ -129,7 +130,8 @@ export const getMonitoringDisruption = ({
 
   return {
     restarts: uniqueRestarts,
-    singleReplica: uniqueRestarts.length > 0 && hasSingleReplica,
+    singleReplicaComponents:
+      uniqueRestarts.length > 0 ? singleReplicaComponents : [],
   };
 };
 

@@ -16,14 +16,13 @@ import { useMemo } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { useMonitoringClassesForProvider } from 'hooks/api/monitoring-classes';
 import { useMonitoringDestinations } from 'hooks/api/monitoring-destinations';
-import { useProviders } from 'hooks/api/providers/useProviders';
 import {
   finalizeMonitoringEntries,
   MONITORING_DESTINATIONS_FIELD,
   parseMonitoringDestinations,
   useMonitoringInstanceForms,
 } from 'components/monitoring-destinations-picker';
-import { Instance, Provider } from 'shared-types/api.types';
+import { Instance } from 'shared-types/api.types';
 import {
   MonitoringClass,
   MonitoringDestination,
@@ -31,12 +30,11 @@ import {
 import { MonitoringDisruption } from '../monitoring-edit-modal.types';
 import {
   getMonitoringDisruption,
-  hasSingleReplicaMonitoredComponent,
+  getSingleReplicaComponents,
 } from '../monitoring-edit-modal.utils';
 
 const NO_CLASSES: MonitoringClass[] = [];
 const NO_DESTINATIONS: MonitoringDestination[] = [];
-const NO_PROVIDERS: Provider[] = [];
 
 // The disruption the destinations picked in the form cause, compared with
 // those the Instance has now.
@@ -51,7 +49,6 @@ export const useMonitoringDisruption = (
     useMonitoringClassesForProvider(provider);
   const { data: destinations = NO_DESTINATIONS } =
     useMonitoringDestinations(namespace);
-  const { data: providers = NO_PROVIDERS } = useProviders();
   const instanceForms = useMonitoringInstanceForms(namespace, provider);
 
   return useMemo(
@@ -66,19 +63,8 @@ export const useMonitoringDisruption = (
         destinations,
         classes,
         provider,
-        hasSingleReplica: hasSingleReplicaMonitoredComponent(
-          instance,
-          providers.find((p) => p.metadata?.name === provider)
-        ),
+        singleReplicaComponents: getSingleReplicaComponents(instance),
       }),
-    [
-      instance,
-      entries,
-      instanceForms,
-      destinations,
-      classes,
-      provider,
-      providers,
-    ]
+    [instance, entries, instanceForms, destinations, classes, provider]
   );
 };

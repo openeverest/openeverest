@@ -25,6 +25,7 @@ export const Messages = {
   save: 'Save',
   restart: (change: MonitoringChange, classTitle: string) =>
     `${changeVerb[change]} ${classTitle} restarts the instance pods one at a time; connections briefly drop.`,
-  singleReplica: 'This instance will be briefly unavailable while it restarts.',
+  singleReplica: (components: string[]) =>
+    `This instance may be briefly unavailable while its single-replica components restart (${components.join(', ')}).`,
   saved: 'Monitoring updated',
 };

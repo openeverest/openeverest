@@ -75,20 +75,6 @@ vi.mock('hooks/api/db-instances/useUpdateDbInstance', () => ({
   useUpdateDbInstanceWithConflictRetry: () => ({ mutate: mocks.mutate }),
 }));
 
-vi.mock('hooks/api/providers/useProviders', () => {
-  const providers = {
-    data: [
-      {
-        metadata: { name: 'percona-server-mongodb' },
-        spec: {
-          monitoring: { componentTypes: { mongod: { kind: 'mongodb' } } },
-        },
-      },
-    ],
-  };
-  return { useProviders: () => providers };
-});
-
 const instance: Instance = {
   metadata: { name: 'orders-db', namespace: 'team-a', resourceVersion: '3' },
   spec: {
@@ -127,7 +113,7 @@ describe('MonitoringEditModal', () => {
 
     expect(screen.getByTestId('monitoring-disruption')).toHaveTextContent(
       'Enabling PMM restarts the instance pods one at a time; connections briefly drop.' +
-        'This instance will be briefly unavailable while it restarts.'
+        'This instance may be briefly unavailable while its single-replica components restart (engine).'
     );
 
     const save = screen.getByTestId('form-dialog-save');
