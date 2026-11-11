@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {randomBytes} from 'node:crypto'
 import {expect} from '@playwright/test'
 import {EVEREST_CI_NAMESPACE, TIMEOUTS} from '@root/constants';
 
@@ -21,13 +22,7 @@ import {EVEREST_CI_NAMESPACE, TIMEOUTS} from '@root/constants';
 // --------------------- General helpers --------------------------------------------------
 // testPrefix is used to differentiate between several workers
 // running this test to avoid conflicts in instance names
-export const testPrefix = () => {
-  let result = '';
-  while (result.length < 16) {
-    result += Math.random().toString(36).substring(2);
-  }
-  return result.substring(0, 16);
-}
+export const testPrefix = () => randomBytes(8).toString('hex')
 
 export const suffixedName = (name: string) => {
   return `${name}-${testPrefix()}`

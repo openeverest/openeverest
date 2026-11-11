@@ -138,10 +138,18 @@ func newMonReconcilerWith(t *testing.T, p providerAdapter, funcs interceptor.Fun
 	require.NoError(t, v1alpha1.AddToScheme(s))
 	require.NoError(t, monitoringv1alpha1.AddToScheme(s))
 	kubeSystem := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "kube-system", UID: types.UID(monTestClusterID)}}
+	// The fake client writes resourceVersion into the objects it is seeded
+	// with, and parallel subtests share fixtures, so it gets copies.
+	seed := make([]client.Object, 0, len(objs)+1)
+	for _, obj := range objs {
+		copied, ok := obj.DeepCopyObject().(client.Object)
+		require.True(t, ok, "copy %T", obj)
+		seed = append(seed, copied)
+	}
 	c := interceptor.NewClient(fake.NewClientBuilder().
 		WithScheme(s).
 		WithTypeConverters(monTypeConverter(t), managedfields.NewDeducedTypeConverter()).
-		WithObjects(append(objs, kubeSystem)...).
+		WithObjects(append(seed, kubeSystem)...).
 		WithStatusSubresource(&v1alpha1.Instance{}, &monitoringv1alpha1.MonitoringBinding{}).
 		WithIndex(&monitoringv1alpha1.MonitoringDestination{}, indexDestinationSecrets, destinationSecrets).
 		Build(), funcs,
