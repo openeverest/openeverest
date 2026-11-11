@@ -27,17 +27,15 @@ export interface MonitoringEntryOverview {
   mode?: MonitoringMode;
   // The entry's Ready condition: configured, and the destination is ready.
   ready: ConditionStatus;
-  // The reason and message of the condition that explains ready, empty
-  // when core reports none.
+  // What explains ready, in the user's terms where known; empty when the
+  // status says it all.
   details: string;
 }
 
 export interface MonitoringOverview {
-  // The MonitoringReady roll-up, independent of the Instance's Ready.
-  ready?: {
-    status: ConditionStatus;
-    details: string;
-  };
+  // The MonitoringReady roll-up, independent of the Instance's Ready; the
+  // entries explain it.
+  ready?: ConditionStatus;
   entries: MonitoringEntryOverview[];
 }
 

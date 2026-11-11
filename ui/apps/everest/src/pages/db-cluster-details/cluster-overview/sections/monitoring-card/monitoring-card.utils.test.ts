@@ -50,7 +50,7 @@ const instanceWith = (
 describe('getMonitoringOverview', () => {
   it.each([
     {
-      name: 'ready: explained by Configured',
+      name: 'ready: nothing to add to the status',
       conditions: [
         condition('Configured', 'True', 'Configured', 'Rendered by provider x'),
         condition(
@@ -61,10 +61,20 @@ describe('getMonitoringOverview', () => {
         ),
       ],
       ready: 'True',
-      details: 'Configured: Rendered by provider x',
+      details: '',
     },
     {
-      name: 'configured, but the destination is not ready: explained by Ready',
+      name: 'ready with an agent that skips TLS checks: says so plainly',
+      conditions: [
+        condition('Configured', 'True', 'AgentTLSNotVerified', 'no TLS check'),
+        condition('Ready', 'True', 'Ready', ''),
+      ],
+      ready: 'True',
+      details:
+        "The monitoring agent doesn't verify the server's TLS certificate, whatever the destination's TLS settings are.",
+    },
+    {
+      name: 'configured, but the destination is not ready: points to its status',
       conditions: [
         condition('Configured', 'True', 'AgentTLSNotVerified', 'no TLS check'),
         condition(
@@ -75,10 +85,21 @@ describe('getMonitoringOverview', () => {
         ),
       ],
       ready: 'False',
-      details: 'DestinationNotReady: pmm-prod: Unauthorized',
+      details:
+        'pmm-prod is not ready, so no data reaches it. Its status in Settings → Monitoring destinations tells why.',
     },
     {
-      name: 'not configured: explained by Configured',
+      name: 'a class that does not support the instance: says to remove it',
+      conditions: [
+        condition('Configured', 'False', 'KindUnsupported', 'kinds: [sql]'),
+        condition('Ready', 'False', 'NotAccepted', ''),
+      ],
+      ready: 'False',
+      details:
+        "The monitoring system of pmm-prod doesn't support this instance. Remove it from monitoring.",
+    },
+    {
+      name: 'a reason without a text: as core reports it',
       conditions: [
         condition(
           'Configured',
@@ -97,27 +118,19 @@ describe('getMonitoringOverview', () => {
       details: 'RenderFailed: destination has no url',
     },
     {
-      name: 'destination not probed yet: explained by Ready',
+      name: 'destination not probed yet: the status says it',
       conditions: [
         condition('Configured', 'True', 'Configured', 'Rendered by provider x'),
         condition('Ready', 'Unknown', 'Pending', 'Waiting for pmm-prod'),
       ],
       ready: 'Unknown',
-      details: 'Pending: Waiting for pmm-prod',
+      details: '',
     },
     {
       name: 'not reported yet',
       conditions: [],
       ready: 'Unknown',
       details: '',
-    },
-    {
-      name: 'configured, but Ready not reported: explained by Configured',
-      conditions: [
-        condition('Configured', 'True', 'Configured', 'Rendered by provider x'),
-      ],
-      ready: 'Unknown',
-      details: 'Configured: Rendered by provider x',
     },
   ])('$name', ({ conditions, ready, details }) => {
     const [entry] = getMonitoringOverview(instanceWith(conditions)).entries;
@@ -149,9 +162,6 @@ describe('getMonitoringOverview', () => {
       },
     };
 
-    expect(getMonitoringOverview(withRollUps).ready).toEqual({
-      status: 'False',
-      details: 'MonitoringNotReady: pmm: DestinationNotReady',
-    });
+    expect(getMonitoringOverview(withRollUps).ready).toBe('False');
   });
 });

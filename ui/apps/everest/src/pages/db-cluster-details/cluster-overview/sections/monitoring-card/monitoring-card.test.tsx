@@ -110,15 +110,13 @@ describe('MonitoringCard', () => {
 
     expect(
       screen.getByTestId('monitoring-ready-overview-section')
-    ).toHaveTextContent(
-      'Not readyDetailsMonitoringNotReady: pmm: DestinationNotReady; prometheus: Pending'
-    );
+    ).toHaveTextContent('Not ready');
     const pmm = screen.getByTestId('monitoring-pmm-overview-section');
     expect(pmm).toHaveTextContent('pmm-prod');
     expect(pmm).toHaveTextContent('Not ready');
     expect(pmm).toHaveTextContent('Provider-managed');
     expect(pmm).toHaveTextContent(
-      'DestinationNotReady: MonitoringDestination "pmm-prod" is not Ready (Unauthorized)'
+      'pmm-prod is not ready, so no data reaches it.'
     );
     expect(
       within(

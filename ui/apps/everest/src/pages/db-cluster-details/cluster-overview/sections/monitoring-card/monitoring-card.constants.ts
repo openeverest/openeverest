@@ -28,10 +28,20 @@ export const READY_TO_STATUS: Record<ConditionStatus, BaseStatus> = {
   Unknown: 'pending',
 };
 
-// Binding reasons the user fixes on this card, keyed as core reports them.
-export const ACTIONABLE_REASON_TEXT: Partial<
+// Entry reasons as core reports them, told in the user's terms; others show as core reports them.
+export const REASON_TEXT: Partial<
   Record<string, (destination: string) => string>
 > = {
   DestinationTerminating: Messages.destinationTerminating,
   DestinationNotFound: Messages.destinationNotFound,
+  DestinationNotReady: Messages.destinationNotReady,
+  AgentTLSNotVerified: Messages.agentTlsNotVerified,
+  IntegrationInUse: Messages.integrationInUse,
+  IntegrationUnsupported: Messages.unsupported,
+  Incompatible: Messages.unsupported,
+  KindUnsupported: Messages.unsupported,
+  PodMetadataUnsupported: Messages.unsupported,
 };
+
+// Reasons the status already says all about.
+export const STATUS_ONLY_REASONS = ['Configured', 'Ready', 'Pending'];
