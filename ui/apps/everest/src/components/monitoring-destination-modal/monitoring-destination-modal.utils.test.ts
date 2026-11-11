@@ -109,6 +109,7 @@ describe('getFormDefaults', () => {
   const pmm: MonitoringClass = {
     metadata: { name: 'pmm' },
     spec: {
+      controllerName: 'openeverest.io/monitoring-pmm',
       authModes: [
         { name: 'ServiceAccountToken', credentials: { required: ['token'] } },
       ],

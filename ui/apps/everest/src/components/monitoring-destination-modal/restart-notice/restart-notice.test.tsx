@@ -39,7 +39,10 @@ const monitoringClass = (
   disruption: 'None' | 'RollingRestart'
 ): MonitoringClass => ({
   metadata: { name: 'pmm' },
-  spec: { authModes: [{ name: 'Anonymous' }] },
+  spec: {
+    controllerName: 'openeverest.io/monitoring-pmm',
+    authModes: [{ name: 'Anonymous' }],
+  },
   status: {
     providers: [
       { name: 'percona-xtradb-cluster', disruption: 'None' },
