@@ -22,10 +22,17 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AxiosError, AxiosHeaders } from 'axios';
 import { createSecretFn, deleteSecretFn, getSecretFn } from 'api/secrets';
-import { createMonitoringDestinationFn } from 'api/monitoring-destinations';
-import { MonitoringClass } from 'shared-types/monitoring-destinations.types';
+import {
+  createMonitoringDestinationFn,
+  getMonitoringDestinationFn,
+} from 'api/monitoring-destinations';
+import {
+  MonitoringClass,
+  MonitoringDestination,
+} from 'shared-types/monitoring-destinations.types';
 import { TestWrapper } from 'utils/test';
 import { MonitoringDestinationModal } from './monitoring-destination-modal';
+import { MonitoringDestinationTarget } from './monitoring-destination-modal.types';
 
 vi.mock('api/secrets', () => ({
   createSecretFn: vi.fn(),
@@ -74,6 +81,9 @@ const pmm: MonitoringClass = {
         lastTransitionTime: '2026-01-01T00:00:00Z',
       },
     ],
+    providers: [
+      { name: 'percona-server-mongodb', disruption: 'RollingRestart' },
+    ],
   },
 };
 Reflect.set(pmm.spec, 'uiSchema', {
@@ -101,12 +111,13 @@ Reflect.set(pmm.spec, 'uiSchema', {
   },
 });
 
-const renderModal = () => {
+const renderModal = (target?: MonitoringDestinationTarget) => {
   const onClose = vi.fn();
   render(
     <QueryClientProvider client={new QueryClient()}>
       <TestWrapper>
         <MonitoringDestinationModal
+          target={target}
           classes={[pmm]}
           namespaces={['team-a']}
           onClose={onClose}
@@ -264,5 +275,39 @@ describe('MonitoringDestinationModal', () => {
       )
     );
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('warns about restarting the attached instances only once the parameters change', async () => {
+    const stored: MonitoringDestination = {
+      metadata: { name: 'pmm-prod', namespace: 'team-a', resourceVersion: '1' },
+      spec: {
+        classRef: { name: 'pmm' },
+        authentication: {
+          mode: 'ServiceAccountToken',
+          credentialsSecretRef: { name: 'pmm-credentials' },
+        },
+      },
+      status: { attachedInstances: 2 },
+    };
+    Reflect.set(stored.spec, 'parameters', { url: 'https://pmm.example.com' });
+    vi.mocked(getMonitoringDestinationFn).mockResolvedValue(stored);
+    renderModal({ namespace: 'team-a', name: 'pmm-prod' });
+
+    const url = await screen.findByLabelText(/PMM server URL/);
+    await waitFor(() => expect(url).toHaveValue('https://pmm.example.com'));
+    expect(
+      screen.queryByTestId('monitoring-destination-restart')
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText(/Replace the credentials/));
+    await screen.findAllByLabelText(/token/i);
+    expect(
+      screen.queryByTestId('monitoring-destination-restart')
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(url, { target: { value: 'https://pmm2.example.com' } });
+    expect(
+      await screen.findByTestId('monitoring-destination-restart')
+    ).toHaveTextContent('the 2 instances that send to this destination');
   });
 });

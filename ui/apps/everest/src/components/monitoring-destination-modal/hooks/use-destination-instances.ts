@@ -16,12 +16,11 @@ import { useMonitoringBindingsForNamespaces } from 'hooks/api/monitoring-binding
 import { useNamespacePermissionsForResource } from 'hooks/rbac';
 import { groupInstancesByDestination } from 'utils/monitoring-destinations';
 
-// The Instances that send to the destination, or undefined when the user
-// may not list them.
+// The Instances the user may read that send to the destination.
 export const useDestinationInstances = (
   namespace: string,
   name: string
-): string[] | undefined => {
+): string[] => {
   const { canRead } = useNamespacePermissionsForResource('monitoring-bindings');
   const readable = canRead.includes(namespace);
   const [bindings] = useMonitoringBindingsForNamespaces(
@@ -29,7 +28,7 @@ export const useDestinationInstances = (
   );
 
   if (!readable || !bindings?.data) {
-    return undefined;
+    return [];
   }
   return groupInstancesByDestination(bindings.data).get(name) ?? [];
 };

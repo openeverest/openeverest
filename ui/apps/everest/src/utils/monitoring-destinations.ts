@@ -39,9 +39,15 @@ export const isDestinationInUseError = (error: unknown) =>
   error.response?.status === 409 &&
   error.response.data?.reason === IN_USE_REASON;
 
-// Counted by core, so it includes Instances the user can't read.
-export const getAttachedInstancesCount = (destination: MonitoringDestination) =>
-  destination.status?.attachedInstances ?? 0;
+// Core counts the Instances the user can't read; the readable ones cover a status lagging a new attachment.
+export const getAttachedInstancesCount = (
+  destination: MonitoringDestination,
+  readableInstances: string[]
+) =>
+  Math.max(
+    destination.status?.attachedInstances ?? 0,
+    readableInstances.length
+  );
 
 export const getDestinationName = (destination: MonitoringDestination) =>
   destination.metadata?.name ?? '';

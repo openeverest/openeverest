@@ -38,14 +38,12 @@ export const Messages = {
   reuseSecret: 'Reuse it',
   changedMeanwhile:
     'This destination was changed meanwhile. The form now shows the latest version; review it and save again.',
-  restartsInstances: (count?: number) => {
+  restartsInstances: (count: number) => {
     const instances =
-      count === undefined
-        ? 'every instance that sends to this destination'
-        : count === 1
-          ? 'the instance that sends to this destination'
-          : `the ${count} instances that send to this destination`;
-    return `Saving changes restarts the pods of ${instances}, one at a time; an instance with a single replica is briefly unavailable.`;
+      count === 1
+        ? 'the instance that sends to this destination'
+        : `the ${count} instances that send to this destination`;
+    return `Saving these changes may restart the pods of ${instances}, one at a time; an instance with a single replica may be briefly unavailable.`;
   },
   tls: 'TLS',
   skipTlsVerification: 'Skip TLS certificate verification',

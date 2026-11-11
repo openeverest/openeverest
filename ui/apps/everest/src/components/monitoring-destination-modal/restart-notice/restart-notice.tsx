@@ -13,42 +13,64 @@
 // limitations under the License.
 
 import { Alert } from '@mui/material';
+import { useFormState } from 'react-hook-form';
 import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
 import { restartsPods } from 'utils/monitoring-classes';
-import { getDestinationName } from 'utils/monitoring-destinations';
+import {
+  getAttachedInstancesCount,
+  getDestinationName,
+} from 'utils/monitoring-destinations';
 import { useDestinationInstances } from '../hooks/use-destination-instances';
+import { DestinationFormFields } from '../monitoring-destination-modal.constants';
 import { Messages } from '../monitoring-destination-modal.messages';
+import { MonitoringDestinationFormValues } from '../monitoring-destination-modal.types';
 
 interface RestartNoticeProps {
   destination: MonitoringDestination;
   monitoringClass: MonitoringClass | undefined;
 }
 
-// Any change to a destination of a class that rolls the pods restarts every
-// Instance that sends to it.
+// Providers roll the pods on new parameters or credentials; none reads the TLS settings.
 export const RestartNotice = ({
   destination,
   monitoringClass,
 }: RestartNoticeProps) => {
-  const instances = useDestinationInstances(
+  const { dirtyFields } = useFormState<MonitoringDestinationFormValues>({
+    name: [
+      DestinationFormFields.spec,
+      DestinationFormFields.fallbackParameters,
+      DestinationFormFields.authMode,
+      DestinationFormFields.credentialsSecretName,
+      DestinationFormFields.credentials,
+    ],
+  });
+  const readableInstances = useDestinationInstances(
     destination.metadata?.namespace ?? '',
     getDestinationName(destination)
   );
+  const count = getAttachedInstancesCount(destination, readableInstances);
+  const changesReachPods =
+    !!dirtyFields.spec ||
+    !!dirtyFields.fallbackParameters ||
+    !!dirtyFields.authMode ||
+    !!dirtyFields.credentialsSecretName ||
+    !!dirtyFields.credentials;
 
   if (
+    !changesReachPods ||
     !monitoringClass ||
     !restartsPods(monitoringClass) ||
-    instances?.length === 0
+    count === 0
   ) {
     return null;
   }
 
   return (
     <Alert severity="warning" data-testid="monitoring-destination-restart">
-      {Messages.restartsInstances(instances?.length)}
+      {Messages.restartsInstances(count)}
     </Alert>
   );
 };

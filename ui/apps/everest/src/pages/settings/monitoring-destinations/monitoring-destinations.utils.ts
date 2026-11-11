@@ -37,7 +37,7 @@ export const toDestinationUsage = (
   destination: MonitoringDestination,
   instances: string[]
 ): DestinationUsage => ({
-  count: Math.max(getAttachedInstancesCount(destination), instances.length),
+  count: getAttachedInstancesCount(destination, instances),
   instances,
 });
 
