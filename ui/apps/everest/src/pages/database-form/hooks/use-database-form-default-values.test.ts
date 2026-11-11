@@ -22,6 +22,7 @@ import {
   buildImportNavigationRouteState,
   ImportSource,
 } from '../import-navigation-state';
+import { buildRestoreNavigationRouteState } from '../restore-navigation-state';
 import { useDatabasePageDefaultValues } from './use-database-form-default-values';
 
 const PROVIDER: Provider = {
@@ -44,17 +45,55 @@ const UI_SCHEMA: TopologyUISchemas = {
   sharded: { sections: {} },
 };
 
-const mocks = vi.hoisted(() => ({ state: undefined as unknown }));
+const mocks = vi.hoisted((): { state: unknown; sourceInstance: unknown } => ({
+  state: undefined,
+  sourceInstance: undefined,
+}));
 
 vi.mock('react-router-dom', async (importOriginal) => ({
   ...(await importOriginal<typeof import('react-router-dom')>()),
   useLocation: () => ({ state: mocks.state }),
 }));
 vi.mock('hooks/api/db-instances/useDbInstance', () => ({
-  useDbInstance: () => ({ status: 'pending', isFetching: false }),
+  useDbInstance: () => ({
+    data: mocks.sourceInstance,
+    status: 'pending',
+    isFetching: false,
+  }),
 }));
 
 describe('useDatabasePageDefaultValues', () => {
+  it("inherits the source's monitoring destinations, parameters included, on restore", () => {
+    const destinations = [
+      {
+        name: 'pmm',
+        destinationRef: { name: 'pmm-prod' },
+        parameters: { resources: { requests: { cpu: '100m' } } },
+      },
+    ];
+    mocks.state = buildRestoreNavigationRouteState('orders', 'team-a', {
+      type: 'Backup',
+      backupName: 'orders-backup',
+    });
+    mocks.sourceInstance = {
+      metadata: { name: 'orders', namespace: 'team-a' },
+      spec: {
+        providerRef: { name: 'psmdb' },
+        topology: { type: 'replicaset' },
+        monitoring: { destinations },
+      },
+    };
+    const { result } = renderHook(() =>
+      useDatabasePageDefaultValues(FormMode.Restore, UI_SCHEMA, 'replicaset')
+    );
+    mocks.sourceInstance = undefined;
+
+    expect(result.current.defaultValues).toMatchObject({
+      k8sNamespace: 'team-a',
+      monitoring: { destinations },
+    });
+  });
+
   it('prefills an import with the namespace and class of the backup', () => {
     mocks.state = buildImportNavigationRouteState(PROVIDER, IMPORT_SOURCE);
     const { result } = renderHook(() =>

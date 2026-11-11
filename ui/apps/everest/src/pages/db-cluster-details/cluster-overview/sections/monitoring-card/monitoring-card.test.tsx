@@ -110,15 +110,13 @@ describe('MonitoringCard', () => {
 
     expect(
       screen.getByTestId('monitoring-ready-overview-section')
-    ).toHaveTextContent(
-      'Not readyDetailsMonitoringNotReady: pmm: DestinationNotReady; prometheus: Pending'
-    );
+    ).toHaveTextContent('Not ready');
     const pmm = screen.getByTestId('monitoring-pmm-overview-section');
     expect(pmm).toHaveTextContent('pmm-prod');
     expect(pmm).toHaveTextContent('Not ready');
     expect(pmm).toHaveTextContent('Provider-managed');
     expect(pmm).toHaveTextContent(
-      'DestinationNotReady: MonitoringDestination "pmm-prod" is not Ready (Unauthorized)'
+      'pmm-prod is not ready, so no data reaches it.'
     );
     expect(
       within(
@@ -126,6 +124,36 @@ describe('MonitoringCard', () => {
       ).getByText('Pending')
     ).toBeInTheDocument();
     expect(screen.getByTestId('monitoring-edit-button')).toBeInTheDocument();
+  });
+
+  it('tells to remove a destination that is being deleted', () => {
+    renderCard({
+      ...monitoredInstance,
+      status: {
+        monitoring: {
+          destinations: [
+            {
+              name: 'pmm',
+              conditions: [
+                condition(
+                  'Configured',
+                  'False',
+                  'DestinationTerminating',
+                  'MonitoringDestination "pmm-prod" is being deleted'
+                ),
+                condition('Ready', 'False', 'NotAccepted', ''),
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(
+      screen.getByTestId('monitoring-pmm-overview-section')
+    ).toHaveTextContent(
+      'Not readyDetailspmm-prod is being deleted. Remove it from monitoring to let the deletion finish.'
+    );
   });
 
   it('is hidden when the provider has no monitoring and none is set', () => {

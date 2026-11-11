@@ -17,7 +17,12 @@ import { CrdsGen, HttpApi } from '@generated/api-types';
 export type GetProviders = CrdsGen.components['schemas']['ProviderList'];
 export type Provider = CrdsGen.components['schemas']['Provider'];
 export type Secret = HttpApi.components['schemas']['Secret'];
+// The Secrets API's PATCH: keys to set, guarded by the version they were read at.
+export type SecretDataPatch = Pick<Secret, 'stringData'> & {
+  metadata: { resourceVersion: string };
+};
 export type SecretList = HttpApi.components['schemas']['SecretList'];
+export type APIError = HttpApi.components['schemas']['APIError'];
 export type SecretListFilter = NonNullable<
   HttpApi.operations['listSecrets']['parameters']['query']
 >;

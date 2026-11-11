@@ -19,6 +19,11 @@ import { MonitoringEditModal } from './monitoring-edit-modal';
 
 const mocks = vi.hoisted(() => ({ mutate: vi.fn() }));
 
+vi.mock('hooks/rbac', () => {
+  const permissions = { canRead: true, isPermissionsLoading: false };
+  return { useRBACPermissions: () => permissions };
+});
+
 vi.mock('hooks/api/monitoring-classes', () => {
   const classes = {
     data: [
@@ -74,7 +79,7 @@ const instance: Instance = {
   metadata: { name: 'orders-db', namespace: 'team-a', resourceVersion: '3' },
   spec: {
     providerRef: { name: 'percona-server-mongodb' },
-    components: { engine: { replicas: 1 } },
+    components: { engine: { type: 'mongod', replicas: 1 } },
     monitoring: {
       destinations: [
         { name: 'coroot', destinationRef: { name: 'coroot' } },
@@ -107,8 +112,8 @@ describe('MonitoringEditModal', () => {
     fireEvent.click(getCard('pmm-a'));
 
     expect(screen.getByTestId('monitoring-disruption')).toHaveTextContent(
-      'Enabling PMM restarts the database pods one at a time; connections briefly drop.' +
-        'This database will be briefly unavailable while it restarts.'
+      'Enabling PMM restarts the instance pods one at a time; connections briefly drop.' +
+        'This instance may be briefly unavailable while its single-replica components restart (engine).'
     );
 
     const save = screen.getByTestId('form-dialog-save');

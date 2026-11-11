@@ -27,6 +27,18 @@ export const Messages = {
     False: 'Not ready',
     Unknown: 'Pending',
   } satisfies Record<ConditionStatus, string>,
+  destinationTerminating: (destination: string) =>
+    `${destination} is being deleted. Remove it from monitoring to let the deletion finish.`,
+  destinationNotFound: (destination: string) =>
+    `${destination} no longer exists. Remove it from monitoring.`,
+  destinationNotReady: (destination: string) =>
+    `${destination} is not ready, so no data reaches it. Its status in Settings → Monitoring destinations tells why.`,
+  agentTlsNotVerified: () =>
+    "The monitoring agent doesn't verify the server's TLS certificate, whatever the destination's TLS settings are.",
+  integrationInUse: () =>
+    'Another destination of the same monitoring system is set for this instance. Keep one of them.',
+  unsupported: (destination: string) =>
+    `The monitoring system of ${destination} doesn't support this instance. Remove it from monitoring.`,
   modes: {
     ProviderManaged: 'Provider-managed',
     ExtensionManaged: 'Extension-managed',

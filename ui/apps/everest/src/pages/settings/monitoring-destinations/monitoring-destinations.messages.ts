@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { MonitoringDestinationState } from 'shared-types/monitoring-destinations.types';
+import { DestinationUsage } from './monitoring-destinations.types';
+
+const countInstances = (count: number) =>
+  count === 1 ? '1 instance' : `${count} instances`;
 
 export const Messages = {
   add: 'Add destination',
@@ -26,15 +29,11 @@ export const Messages = {
     usedBy: 'Used by',
   },
   none: '—',
-  state: {
-    [MonitoringDestinationState.Ready]: 'Ready',
-    [MonitoringDestinationState.Pending]: 'Pending',
-    [MonitoringDestinationState.Failing]: 'Not ready',
-  } satisfies Record<MonitoringDestinationState, string>,
   serverVersion: (version: string) => `v${version}`,
-  usedByCount: (count: number) =>
-    count === 1 ? '1 database' : `${count} databases`,
-  usedByDialogTitle: (name: string) => `Databases using ${name}`,
+  usedByCount: countInstances,
+  usedByDialogTitle: (name: string) => `Instances using ${name}`,
+  hiddenInstances: (count: number) =>
+    `${countInstances(count)} you don't have access to`,
   edit: 'Edit',
   delete: 'Delete',
   cancel: 'Cancel',
@@ -42,13 +41,21 @@ export const Messages = {
   deleteHeader: 'Delete monitoring destination',
   deleteConfirmation: (name: string) =>
     `Are you sure you want to delete the ${name} destination?`,
-  secretDeletedToo: (secret: string) =>
-    `Its credentials Secret ${secret} is deleted with it.`,
+  secretKept: (secret: string) =>
+    `Its credentials Secret ${secret} is kept and can be reused.`,
   inUseHeader: 'Destination in use',
-  inUse: (name: string, instances: string[], shownLimit: number) => {
-    const shown = instances.slice(0, shownLimit).join(', ');
-    const more = instances.length - shownLimit;
-    const list = more > 0 ? `${shown} and ${more} more` : shown;
-    return `${name} is used by ${list}. Remove it from those databases first.`;
+  inUse: (
+    name: string,
+    { count, instances }: DestinationUsage,
+    shownLimit: number
+  ) => {
+    const shown = instances.slice(0, shownLimit);
+    if (shown.length === 0) {
+      return `${name} is used by ${countInstances(count)}. Remove it from them first.`;
+    }
+    const more = count - shown.length;
+    const list =
+      more > 0 ? `${shown.join(', ')} and ${more} more` : shown.join(', ');
+    return `${name} is used by ${list}. Remove it from those instances first.`;
   },
 };

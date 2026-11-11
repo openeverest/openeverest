@@ -23,10 +23,12 @@ export interface MonitoringEditModalProps {
 export enum MonitoringChange {
   Enable = 'enable',
   Remove = 'remove',
+  Update = 'update',
 }
 
 // What saving the new destinations does to the running database.
 export interface MonitoringDisruption {
   restarts: { change: MonitoringChange; classTitle: string }[];
-  singleReplica: boolean;
+  // Components a rolling restart may take down, keyed as in spec.components.
+  singleReplicaComponents: string[];
 }

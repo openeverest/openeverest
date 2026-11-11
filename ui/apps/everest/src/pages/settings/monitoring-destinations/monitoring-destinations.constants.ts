@@ -22,7 +22,8 @@ export const DESTINATION_STATE_TO_STATUS: Record<
   [MonitoringDestinationState.Ready]: 'success',
   [MonitoringDestinationState.Pending]: 'pending',
   [MonitoringDestinationState.Failing]: 'error',
+  [MonitoringDestinationState.Deleting]: 'deleting',
 };
 
-// Database names spelled out in the "in use" message before "and N more".
+// Instance names spelled out in the "in use" message before "and N more".
 export const IN_USE_NAMES_SHOWN = 5;

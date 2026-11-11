@@ -19,8 +19,7 @@ import {
   Section,
   TopologyUISchemas,
 } from 'components/ui-generator/ui-generator.types';
-import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
-import { applyModeOverrides } from 'components/ui-generator/utils/preprocess/apply-mode-overrides';
+import { preprocessSection } from 'components/ui-generator/utils/preprocess/preprocess-section';
 import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import { buildSectionZodSchema } from 'components/ui-generator/utils/schema-builder';
 import { postprocessSchemaData } from 'components/ui-generator/utils/postprocess/postprocess-schema';
@@ -67,6 +66,18 @@ export const isMonitoringClassAccepted = (monitoringClass: MonitoringClass) =>
       condition.status === 'True'
   );
 
+// Whether any change to an entry of the class restarts the pods of the
+// provider's Instances, or of any provider's when none is given.
+export const restartsPods = (
+  monitoringClass: MonitoringClass,
+  provider?: string
+) =>
+  (monitoringClass.status?.providers ?? []).some(
+    (entry) =>
+      (!provider || entry.name === provider) &&
+      entry.disruption === 'RollingRestart'
+  );
+
 export const getMonitoringClassName = (monitoringClass: MonitoringClass) =>
   monitoringClass.metadata?.name ?? '';
 
@@ -98,14 +109,11 @@ export const toMonitoringSectionForm = (
   section: Section,
   formMode: FormMode = FormMode.New
 ): MonitoringSectionForm => {
-  const { sections } = preprocessSchema({
-    [sectionKey]: { sections: { [sectionKey]: section } },
-  })[sectionKey];
-  const modeSections = applyModeOverrides(sections, formMode);
+  const sections = preprocessSection(sectionKey, section, formMode);
   return {
     sectionKey,
-    sections: modeSections,
-    schema: { [sectionKey]: { sections: modeSections } },
+    sections,
+    schema: { [sectionKey]: { sections } },
   };
 };
 

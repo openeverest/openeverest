@@ -12,23 +12,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { isAxiosError } from 'axios';
 import { Section } from 'components/ui-generator/ui-generator.types';
 import { SECRET_DEFINITION_LABEL } from 'components/ui-generator/secret-field/secret-create-modal/secret-create-modal.constants';
 import { getByPath } from 'components/ui-generator/utils/object-path';
-import { Instance, Secret } from 'shared-types/api.types';
+import { APIError, Instance, Secret } from 'shared-types/api.types';
 import {
+  MonitoringBinding,
   MonitoringClass,
   MonitoringConditionType,
   MonitoringDestination,
   MonitoringDestinationState,
   MonitoringDestinationStatus,
 } from 'shared-types/monitoring-destinations.types';
-import { generateShortUID } from './generateShortUID';
 import { getMonitoringClassUiSchema } from './monitoring-classes';
 
 const ADDRESS_PARAMETER_PATH = 'parameters.url';
 // The Ready reason a class controller reports before its first check.
 const READY_PENDING_REASON = 'Pending';
+// Reason on the 409 that refuses deleting a destination Instances still list.
+const IN_USE_REASON = 'InUse';
+
+export const isDestinationInUseError = (error: unknown) =>
+  isAxiosError<APIError>(error) &&
+  error.response?.status === 409 &&
+  error.response.data?.reason === IN_USE_REASON;
+
+// Core counts the Instances the user can't read; the readable ones cover a status lagging a new attachment.
+export const getAttachedInstancesCount = (
+  destination: MonitoringDestination,
+  readableInstances: string[]
+) =>
+  Math.max(
+    destination.status?.attachedInstances ?? 0,
+    readableInstances.length
+  );
 
 export const getDestinationName = (destination: MonitoringDestination) =>
   destination.metadata?.name ?? '';
@@ -42,7 +60,6 @@ export const getInstanceMonitoringDestinationNames = (
 
 const CREDENTIALS_SECRET_PREFIX = 'monitoring-destination-';
 const CREDENTIALS_SECRET_SUFFIX = '-credentials';
-const MAX_SECRET_NAME_LENGTH = 253;
 
 // The kind in the name keeps a destination's Secret apart from those of a
 // backup storage or an Instance with the same name.
@@ -75,63 +92,8 @@ export const isCredentialsSecretFor = (
   );
 };
 
-// A fresh name for rotated credentials, so the destination can move to the
-// new Secret before the old one goes.
-export const getRotatedCredentialsSecretName = (
-  destinationName: string,
-  suffix = `${Date.now().toString(36)}${generateShortUID()}`
-) => {
-  const base = getDefaultCredentialsSecretName(destinationName);
-  return `${base.slice(0, MAX_SECRET_NAME_LENGTH - suffix.length - 1)}-${suffix}`;
-};
-
-// Secrets the form names: monitoring-destination-<destination>-credentials, or
-// with a rotation suffix. Any other Secret was brought by the user and is never
-// deleted.
-export const isFormCreatedCredentialsSecret = (
-  destinationName: string,
-  secretName: string
-) => {
-  const base = getDefaultCredentialsSecretName(destinationName);
-  return (
-    secretName === base ||
-    (secretName.startsWith(`${base}-`) &&
-      /^[a-z0-9]+$/.test(secretName.slice(base.length + 1)))
-  );
-};
-
 export const getCredentialsSecretName = (destination: MonitoringDestination) =>
   destination.spec.authentication?.credentialsSecretRef?.name;
-
-// A Secret the form created for the destination may go once no other
-// destination of the namespace references it.
-export const isCredentialsSecretRemovable = (
-  destinationName: string,
-  secretName: string,
-  namespaceDestinations: MonitoringDestination[]
-) =>
-  isFormCreatedCredentialsSecret(destinationName, secretName) &&
-  !namespaceDestinations.some(
-    (other) =>
-      getDestinationName(other) !== destinationName &&
-      getCredentialsSecretName(other) === secretName
-  );
-
-// The credentials Secret that goes with the destination on delete.
-export const getSecretDeletedWithDestination = (
-  destination: MonitoringDestination,
-  namespaceDestinations: MonitoringDestination[]
-): string | undefined => {
-  const secretName = getCredentialsSecretName(destination);
-  return secretName &&
-    isCredentialsSecretRemovable(
-      getDestinationName(destination),
-      secretName,
-      namespaceDestinations
-    )
-    ? secretName
-    : undefined;
-};
 
 // "Reason: message", or whichever of the two a condition reports.
 export const describeCondition = ({
@@ -153,6 +115,10 @@ export const getDestinationStatus = (
     (c) => c.type === MonitoringConditionType.Ready
   );
   const serverVersion = destination.status?.serverVersion || undefined;
+  // Core holds the deletion until no Instance lists the destination.
+  if (destination.metadata?.deletionTimestamp) {
+    return { state: MonitoringDestinationState.Deleting, serverVersion };
+  }
   const explainedBy = (
     state: MonitoringDestinationState,
     condition: (typeof conditions)[number] | undefined
@@ -204,3 +170,16 @@ export const getDestinationAddress = (
   const url = getByPath(destination.spec, ADDRESS_PARAMETER_PATH);
   return typeof url === 'string' && url ? url : undefined;
 };
+
+// Instance names per destination name, from one namespace's bindings.
+export const groupInstancesByDestination = (
+  bindings: MonitoringBinding[]
+): Map<string, string[]> =>
+  bindings.reduce((byDestination, binding) => {
+    const destination = binding.spec.destinationRef.name;
+    byDestination.set(destination, [
+      ...(byDestination.get(destination) ?? []),
+      binding.spec.instanceRef.name,
+    ]);
+    return byDestination;
+  }, new Map<string, string[]>());

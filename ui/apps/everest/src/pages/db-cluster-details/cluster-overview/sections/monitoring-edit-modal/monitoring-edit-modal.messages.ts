@@ -17,13 +17,15 @@ import { MonitoringChange } from './monitoring-edit-modal.types';
 const changeVerb: Record<MonitoringChange, string> = {
   [MonitoringChange.Enable]: 'Enabling',
   [MonitoringChange.Remove]: 'Removing',
+  [MonitoringChange.Update]: 'Changing',
 };
 
 export const Messages = {
   title: 'Edit monitoring',
   save: 'Save',
   restart: (change: MonitoringChange, classTitle: string) =>
-    `${changeVerb[change]} ${classTitle} restarts the database pods one at a time; connections briefly drop.`,
-  singleReplica: 'This database will be briefly unavailable while it restarts.',
+    `${changeVerb[change]} ${classTitle} restarts the instance pods one at a time; connections briefly drop.`,
+  singleReplica: (components: string[]) =>
+    `This instance may be briefly unavailable while its single-replica components restart (${components.join(', ')}).`,
   saved: 'Monitoring updated',
 };

@@ -14,11 +14,10 @@
 
 import { MenuItem } from '@mui/material';
 import { Delete, Edit } from '@mui/icons-material';
+import { MonitoringDestinationPermissions } from 'components/monitoring-destination-modal';
+import { MonitoringDestinationState } from 'shared-types/monitoring-destinations.types';
 import { Messages } from './monitoring-destinations.messages';
-import {
-  MonitoringDestinationPermissions,
-  MonitoringDestinationRow,
-} from './monitoring-destinations.types';
+import { MonitoringDestinationRow } from './monitoring-destinations.types';
 
 export const getMonitoringDestinationMenuItems = ({
   row,
@@ -30,19 +29,25 @@ export const getMonitoringDestinationMenuItems = ({
   permissions: MonitoringDestinationPermissions;
   onEdit: (row: MonitoringDestinationRow) => void;
   onDelete: (row: MonitoringDestinationRow) => void;
-}) => [
-  ...(permissions.updateNamespaces.includes(row.namespace)
-    ? [
-        <MenuItem key="edit" onClick={() => onEdit(row)}>
-          <Edit /> {Messages.edit}
-        </MenuItem>,
-      ]
-    : []),
-  ...(permissions.deleteNamespaces.includes(row.namespace)
-    ? [
-        <MenuItem key="delete" onClick={() => onDelete(row)}>
-          <Delete /> {Messages.delete}
-        </MenuItem>,
-      ]
-    : []),
-];
+}) => {
+  // Core is already deleting it; nothing left to change.
+  if (row.status.state === MonitoringDestinationState.Deleting) {
+    return [];
+  }
+  return [
+    ...(permissions.updateNamespaces.includes(row.namespace)
+      ? [
+          <MenuItem key="edit" onClick={() => onEdit(row)}>
+            <Edit /> {Messages.edit}
+          </MenuItem>,
+        ]
+      : []),
+    ...(permissions.deleteNamespaces.includes(row.namespace)
+      ? [
+          <MenuItem key="delete" onClick={() => onDelete(row)}>
+            <Delete /> {Messages.delete}
+          </MenuItem>,
+        ]
+      : []),
+  ];
+};

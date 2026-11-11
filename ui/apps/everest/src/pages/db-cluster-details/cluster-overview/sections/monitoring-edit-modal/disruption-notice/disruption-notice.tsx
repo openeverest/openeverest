@@ -14,21 +14,25 @@
 
 import { Alert, Typography } from '@mui/material';
 import { Instance } from 'shared-types/api.types';
+import { MonitoringSectionForm } from 'utils/monitoring-classes';
 import { useMonitoringDisruption } from '../hooks/use-monitoring-disruption';
 import { Messages } from '../monitoring-edit-modal.messages';
 
 interface DisruptionNoticeProps {
   instance: Instance;
   namespace: string;
+  instanceForms: Map<string, MonitoringSectionForm>;
 }
 
 export const DisruptionNotice = ({
   instance,
   namespace,
+  instanceForms,
 }: DisruptionNoticeProps) => {
-  const { restarts, singleReplica } = useMonitoringDisruption(
+  const { restarts, singleReplicaComponents } = useMonitoringDisruption(
     instance,
-    namespace
+    namespace,
+    instanceForms
   );
 
   if (restarts.length === 0) {
@@ -46,8 +50,10 @@ export const DisruptionNotice = ({
           {Messages.restart(change, classTitle)}
         </Typography>
       ))}
-      {singleReplica && (
-        <Typography variant="body2">{Messages.singleReplica}</Typography>
+      {singleReplicaComponents.length > 0 && (
+        <Typography variant="body2">
+          {Messages.singleReplica(singleReplicaComponents)}
+        </Typography>
       )}
     </Alert>
   );

@@ -81,14 +81,8 @@ export const MonitoringCard = ({
                 <OverviewSection dataTestId="monitoring-ready">
                   <OverviewSectionRow
                     label={Messages.status}
-                    content={<ReadyStatus status={ready.status} />}
+                    content={<ReadyStatus status={ready} />}
                   />
-                  {ready.details && (
-                    <OverviewSectionRow
-                      label={Messages.details}
-                      content={ready.details}
-                    />
-                  )}
                 </OverviewSection>
               )}
               {entries.map((entry) => (

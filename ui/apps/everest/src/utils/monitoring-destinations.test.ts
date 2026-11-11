@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { AxiosError, AxiosHeaders } from 'axios';
 import { Secret } from 'shared-types/api.types';
 import {
   MonitoringClass,
@@ -23,9 +24,8 @@ import {
   getDefaultCredentialsSecretName,
   getDestinationAddress,
   getDestinationStatus,
-  getRotatedCredentialsSecretName,
   isCredentialsSecretFor,
-  isFormCreatedCredentialsSecret,
+  isDestinationInUseError,
 } from './monitoring-destinations';
 
 type Condition = {
@@ -132,6 +132,45 @@ describe('getDestinationStatus', () => {
       MonitoringDestinationState.Pending
     );
   });
+
+  it('is deleting once core holds a requested deletion', () => {
+    const destination = withStatus([
+      accepted,
+      { type: 'Ready', status: 'True', reason: 'Ready' },
+    ]);
+    destination.metadata = {
+      ...destination.metadata,
+      deletionTimestamp: '2026-01-02T00:00:00Z',
+    };
+
+    expect(getDestinationStatus(destination).state).toBe(
+      MonitoringDestinationState.Deleting
+    );
+  });
+});
+
+const httpError = (status: number, data: object) =>
+  new AxiosError('failed', String(status), undefined, undefined, {
+    status,
+    statusText: '',
+    data,
+    headers: {},
+    config: { headers: new AxiosHeaders() },
+  });
+
+describe('isDestinationInUseError', () => {
+  it('recognises only the 409 that refuses deleting a destination in use', () => {
+    expect(isDestinationInUseError(httpError(409, { reason: 'InUse' }))).toBe(
+      true
+    );
+    expect(
+      isDestinationInUseError(httpError(409, { reason: 'AlreadyExists' }))
+    ).toBe(false);
+    expect(isDestinationInUseError(httpError(403, { reason: 'InUse' }))).toBe(
+      false
+    );
+    expect(isDestinationInUseError(new Error('InUse'))).toBe(false);
+  });
 });
 
 const classWithUiSchema = (uiSchema: unknown): MonitoringClass => {
@@ -182,49 +221,6 @@ describe('credentials Secret names', () => {
     expect(getDefaultCredentialsSecretName('pmm')).toBe(
       'monitoring-destination-pmm-credentials'
     );
-  });
-
-  it('gives rotated credentials a fresh name within the Secret name limit', () => {
-    expect(getRotatedCredentialsSecretName('pmm', 'k2x9a')).toBe(
-      'monitoring-destination-pmm-credentials-k2x9a'
-    );
-    expect(getRotatedCredentialsSecretName('pmm')).toMatch(
-      /^monitoring-destination-pmm-credentials-[a-z0-9]+$/
-    );
-    expect(
-      getRotatedCredentialsSecretName('x'.repeat(260), 'k2x9a')
-    ).toHaveLength(253);
-  });
-
-  it('tells the Secrets the form created from those the user brought', () => {
-    expect(
-      isFormCreatedCredentialsSecret(
-        'pmm',
-        'monitoring-destination-pmm-credentials'
-      )
-    ).toBe(true);
-    expect(
-      isFormCreatedCredentialsSecret(
-        'pmm',
-        'monitoring-destination-pmm-credentials-k2x9a'
-      )
-    ).toBe(true);
-    expect(
-      isFormCreatedCredentialsSecret(
-        'pmm',
-        'monitoring-destination-pmm-eu-credentials'
-      )
-    ).toBe(false);
-    expect(
-      isFormCreatedCredentialsSecret(
-        'pmm',
-        'monitoring-destination-pmm-credentials-old-token'
-      )
-    ).toBe(false);
-    expect(isFormCreatedCredentialsSecret('pmm', 'pmm-credentials')).toBe(
-      false
-    );
-    expect(isFormCreatedCredentialsSecret('pmm', 'team-pmm-token')).toBe(false);
   });
 });
 

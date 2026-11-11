@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { BaseStatus } from 'components/status-field/status-field.types';
+import { Messages } from './monitoring-card.messages';
 import { ConditionStatus } from './monitoring-card.types';
 
 export const MONITORING_READY_CONDITION = 'MonitoringReady';
@@ -26,3 +27,21 @@ export const READY_TO_STATUS: Record<ConditionStatus, BaseStatus> = {
   False: 'error',
   Unknown: 'pending',
 };
+
+// Entry reasons as core reports them, told in the user's terms; others show as core reports them.
+export const REASON_TEXT: Partial<
+  Record<string, (destination: string) => string>
+> = {
+  DestinationTerminating: Messages.destinationTerminating,
+  DestinationNotFound: Messages.destinationNotFound,
+  DestinationNotReady: Messages.destinationNotReady,
+  AgentTLSNotVerified: Messages.agentTlsNotVerified,
+  IntegrationInUse: Messages.integrationInUse,
+  IntegrationUnsupported: Messages.unsupported,
+  Incompatible: Messages.unsupported,
+  KindUnsupported: Messages.unsupported,
+  PodMetadataUnsupported: Messages.unsupported,
+};
+
+// Reasons the status already says all about.
+export const STATUS_ONLY_REASONS = ['Configured', 'Ready', 'Pending'];

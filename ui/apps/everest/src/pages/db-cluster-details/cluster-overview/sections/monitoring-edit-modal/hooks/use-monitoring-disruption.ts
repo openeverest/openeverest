@@ -17,17 +17,21 @@ import { useFormContext, useWatch } from 'react-hook-form';
 import { useMonitoringClassesForProvider } from 'hooks/api/monitoring-classes';
 import { useMonitoringDestinations } from 'hooks/api/monitoring-destinations';
 import {
+  finalizeMonitoringEntries,
   MONITORING_DESTINATIONS_FIELD,
   parseMonitoringDestinations,
-} from 'pages/database-form/database-form-body/steps/monitoring-step';
+} from 'components/monitoring-destinations-picker';
 import { Instance } from 'shared-types/api.types';
 import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
-import { getInstanceMonitoringDestinationNames } from 'utils/monitoring-destinations';
+import { MonitoringSectionForm } from 'utils/monitoring-classes';
 import { MonitoringDisruption } from '../monitoring-edit-modal.types';
-import { getMonitoringDisruption } from '../monitoring-edit-modal.utils';
+import {
+  getMonitoringDisruption,
+  getSingleReplicaComponents,
+} from '../monitoring-edit-modal.utils';
 
 const NO_CLASSES: MonitoringClass[] = [];
 const NO_DESTINATIONS: MonitoringDestination[] = [];
@@ -36,7 +40,8 @@ const NO_DESTINATIONS: MonitoringDestination[] = [];
 // those the Instance has now.
 export const useMonitoringDisruption = (
   instance: Instance,
-  namespace: string
+  namespace: string,
+  instanceForms: Map<string, MonitoringSectionForm>
 ): MonitoringDisruption => {
   const provider = instance.spec?.providerRef.name ?? '';
   const { control } = useFormContext();
@@ -49,15 +54,17 @@ export const useMonitoringDisruption = (
   return useMemo(
     () =>
       getMonitoringDisruption({
-        before: getInstanceMonitoringDestinationNames(instance),
-        after: parseMonitoringDestinations(entries).map(
-          (entry) => entry.destinationRef.name
+        before: instance.spec?.monitoring?.destinations ?? [],
+        // Compared as they would be saved, so an untouched entry is no change.
+        after: finalizeMonitoringEntries(
+          parseMonitoringDestinations(entries),
+          instanceForms
         ),
         destinations,
         classes,
         provider,
-        engineReplicas: instance.spec?.components?.engine?.replicas,
+        singleReplicaComponents: getSingleReplicaComponents(instance),
       }),
-    [instance, entries, destinations, classes, provider]
+    [instance, entries, instanceForms, destinations, classes, provider]
   );
 };

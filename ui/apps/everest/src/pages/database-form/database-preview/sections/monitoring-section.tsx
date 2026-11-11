@@ -16,7 +16,7 @@ import { getByPath } from 'components/ui-generator/utils/object-path';
 import {
   MONITORING_DESTINATIONS_FIELD,
   parseMonitoringDestinations,
-} from 'pages/database-form/database-form-body/steps/monitoring-step';
+} from 'components/monitoring-destinations-picker';
 import { Messages } from '../database.preview.messages';
 import { PreviewContentText } from '../preview-section';
 import { SectionProps } from './section.types';

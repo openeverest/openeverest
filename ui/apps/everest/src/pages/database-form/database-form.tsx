@@ -71,9 +71,9 @@ import {
 } from './database-form-body/steps/backup-step';
 import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
+import { MONITORING_DESTINATIONS_FIELD } from 'components/monitoring-destinations-picker';
 import {
   MonitoringStep,
-  MONITORING_DESTINATIONS_FIELD,
   useMonitoringStep,
 } from './database-form-body/steps/monitoring-step';
 import { Messages as MonitoringStepMessages } from './database-form-body/steps/monitoring-step/monitoring-step.messages';

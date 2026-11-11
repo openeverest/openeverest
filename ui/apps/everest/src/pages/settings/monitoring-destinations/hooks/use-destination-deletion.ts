@@ -14,51 +14,75 @@
 
 import { useState } from 'react';
 import { useFetchMonitoringBindings } from 'hooks/api/monitoring-bindings';
-import { useDeleteMonitoringDestination } from 'hooks/api/monitoring-destinations';
-import { getSecretDeletedWithDestination } from 'utils/monitoring-destinations';
 import {
+  useCanDeleteMonitoringDestination,
+  useDeleteMonitoringDestination,
+} from 'hooks/api/monitoring-destinations';
+import { useNamespacePermissionsForResource } from 'hooks/rbac';
+import { isDestinationInUseError } from 'utils/monitoring-destinations';
+import {
+  DestinationUsage,
   MonitoringDestinationDeletion,
   MonitoringDestinationRow,
 } from '../monitoring-destinations.types';
+import { toDestinationUsage } from '../monitoring-destinations.utils';
 
-// Deleting asks the server who uses the destination first: one still in use
-// is not deleted. A Secret the form created for it goes with it.
-export const useDestinationDeletion = (rows: MonitoringDestinationRow[]) => {
+// The server decides whether it can go.
+export const useDestinationDeletion = () => {
   const [deletion, setDeletion] = useState<MonitoringDestinationDeletion>();
+  const canDelete = useCanDeleteMonitoringDestination();
   const fetchBindings = useFetchMonitoringBindings();
+  const { canRead: bindingNamespaces } = useNamespacePermissionsForResource(
+    'monitoring-bindings'
+  );
   const { mutate: deleteDestination, isPending: isDeleting } =
     useDeleteMonitoringDestination();
 
-  const namespaceDestinationsOf = (namespace: string) =>
-    rows.filter((row) => row.namespace === namespace).map((row) => row.raw);
+  // Names come from the bindings the user may read; the count from core.
+  const getUsage = async ({
+    namespace,
+    name,
+    raw,
+  }: MonitoringDestinationRow): Promise<DestinationUsage> => {
+    const bindings = bindingNamespaces.includes(namespace)
+      ? await fetchBindings(namespace, name)
+      : [];
+    const usage = toDestinationUsage(
+      raw,
+      bindings.map((binding) => binding.spec.instanceRef.name)
+    );
+    // The server refused, so someone uses it even if the count lags.
+    return { ...usage, count: Math.max(usage.count, 1) };
+  };
 
-  const request = (row: MonitoringDestinationRow) =>
-    fetchBindings(row.namespace, row.name)
-      .then((bindings) =>
-        setDeletion({
-          row,
-          usedBy: bindings.map((binding) => binding.spec.instanceRef.name),
-          secretDeletedToo: getSecretDeletedWithDestination(
-            row.raw,
-            namespaceDestinationsOf(row.namespace)
-          ),
-        })
-      )
+  const request = async (row: MonitoringDestinationRow) => {
+    try {
+      setDeletion(
+        (await canDelete(row.namespace, row.name))
+          ? { row }
+          : { row, inUse: await getUsage(row) }
+      );
+    } catch {
       // The request already reported the error.
-      .catch(() => undefined);
+    }
+  };
 
   const confirm = () => {
     if (!deletion) {
       return;
     }
-    const { namespace, raw } = deletion.row;
+    const { row } = deletion;
     deleteDestination(
+      { namespace: row.namespace, name: row.name },
       {
-        namespace,
-        destination: raw,
-        namespaceDestinations: namespaceDestinationsOf(namespace),
-      },
-      { onSuccess: () => setDeletion(undefined) }
+        onSuccess: () => setDeletion(undefined),
+        // An Instance started using it after the dry run.
+        onError: (error) => {
+          if (isDestinationInUseError(error)) {
+            request(row);
+          }
+        },
+      }
     );
   };
 

@@ -19,6 +19,8 @@ import {
   ENTRY_CONFIGURED_CONDITION,
   ENTRY_READY_CONDITION,
   MONITORING_READY_CONDITION,
+  REASON_TEXT,
+  STATUS_ONLY_REASONS,
 } from './monitoring-card.constants';
 import { ConditionStatus, MonitoringOverview } from './monitoring-card.types';
 
@@ -40,6 +42,18 @@ const explainingCondition = (
     ? (ready ?? configured)
     : (configured ?? ready);
 
+const describeEntry = (
+  condition: EntryCondition | undefined,
+  destination: string
+) => {
+  if (!condition || STATUS_ONLY_REASONS.includes(condition.reason)) {
+    return '';
+  }
+  return (
+    REASON_TEXT[condition.reason]?.(destination) ?? describeCondition(condition)
+  );
+};
+
 // Spec entries drive the list; one core has not reported on yet is Unknown.
 export const getMonitoringOverview = (
   instance: Instance
@@ -50,10 +64,7 @@ export const getMonitoringOverview = (
   );
 
   return {
-    ready: condition && {
-      status: condition.status,
-      details: describeCondition(condition),
-    },
+    ready: condition?.status,
     entries: (instance.spec?.monitoring?.destinations ?? []).map((entry) => {
       const status = statuses.find((s) => s.name === entry.name);
       const conditions = status?.conditions;
@@ -61,13 +72,16 @@ export const getMonitoringOverview = (
         (c) => c.type === ENTRY_CONFIGURED_CONDITION
       );
       const ready = conditions?.find((c) => c.type === ENTRY_READY_CONDITION);
-      const explaining = explainingCondition(configured, ready);
+      const destination = entry.destinationRef.name;
       return {
         name: entry.name,
-        destination: entry.destinationRef.name,
+        destination,
         mode: status?.mode,
         ready: toConditionStatus(ready?.status),
-        details: explaining ? describeCondition(explaining) : '',
+        details: describeEntry(
+          explainingCondition(configured, ready),
+          destination
+        ),
       };
     }),
   };

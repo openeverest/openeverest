@@ -20,6 +20,7 @@ import {
 import { MonitoringChange } from './monitoring-edit-modal.types';
 import {
   getMonitoringDisruption,
+  getSingleReplicaComponents,
   withMonitoringDestinations,
 } from './monitoring-edit-modal.utils';
 
@@ -59,41 +60,121 @@ const destinations = [
   destination('prom', 'prometheus'),
 ];
 
+const entry = (name: string, parameters?: Record<string, unknown>) => ({
+  destinationRef: { name },
+  parameters,
+});
+
 const disruption = (
   before: string[],
   after: string[],
-  engineReplicas?: number
+  singleReplicaComponents: string[] = []
 ) =>
   getMonitoringDisruption({
-    before,
-    after,
+    before: before.map((name) => entry(name)),
+    after: after.map((name) => entry(name)),
     destinations,
     classes,
     provider: PROVIDER,
-    engineReplicas,
+    singleReplicaComponents,
   });
 
 describe('getMonitoringDisruption', () => {
   it('warns when an added or removed class rolls the pods of the provider', () => {
-    expect(disruption([], ['pmm-a'], 3)).toEqual({
+    expect(disruption([], ['pmm-a'])).toEqual({
       restarts: [{ change: MonitoringChange.Enable, classTitle: 'PMM' }],
-      singleReplica: false,
+      singleReplicaComponents: [],
     });
-    expect(disruption(['pmm-a', 'coroot'], ['coroot'], 1)).toEqual({
+    expect(disruption(['pmm-a', 'coroot'], ['coroot'], ['engine'])).toEqual({
       restarts: [{ change: MonitoringChange.Remove, classTitle: 'PMM' }],
-      singleReplica: true,
+      singleReplicaComponents: ['engine'],
     });
   });
 
+  it('warns when the parameters of a kept entry change, in any key order', () => {
+    const change = (
+      before: Record<string, unknown>,
+      after: Record<string, unknown>
+    ) =>
+      getMonitoringDisruption({
+        before: [entry('pmm-a', before)],
+        after: [entry('pmm-a', after)],
+        destinations,
+        classes,
+        provider: PROVIDER,
+        singleReplicaComponents: [],
+      }).restarts;
+
+    expect(change({ cpu: '1' }, { cpu: '2' })).toEqual([
+      { change: MonitoringChange.Update, classTitle: 'PMM' },
+    ]);
+    expect(
+      change({ cpu: '1', memory: '1G' }, { memory: '1G', cpu: '1' })
+    ).toEqual([]);
+  });
+
   it('stays quiet for kept destinations and classes without a restart', () => {
-    expect(disruption(['pmm-a'], ['pmm-a', 'coroot'], 1)).toEqual({
+    expect(disruption(['pmm-a'], ['pmm-a', 'coroot'], ['engine'])).toEqual({
       restarts: [],
-      singleReplica: false,
+      singleReplicaComponents: [],
     });
     expect(disruption([], ['prom', 'gone'])).toEqual({
       restarts: [],
-      singleReplica: false,
+      singleReplicaComponents: [],
     });
+  });
+});
+
+describe('getSingleReplicaComponents', () => {
+  type Components = NonNullable<Instance['spec']>['components'];
+  const instance = (
+    components: Components,
+    running: NonNullable<Instance['status']>['components'] = []
+  ): Instance => ({
+    metadata: { name: 'db' },
+    spec: { providerRef: { name: PROVIDER }, components },
+    status: { components: running },
+  });
+
+  // PostgreSQL declares no monitored component types, so none may be skipped.
+  it.each<{ provider: string; components: Components; expected: string[] }>([
+    {
+      provider: 'PostgreSQL engine',
+      components: {
+        engine: { type: 'postgresql', replicas: 1 },
+        proxy: { type: 'pgbouncer', replicas: 2 },
+      },
+      expected: ['engine'],
+    },
+    {
+      provider: 'sharded MongoDB mongos',
+      components: {
+        engine: { type: 'mongod', replicas: 3 },
+        proxy: { type: 'mongos', replicas: 1 },
+        configServer: { type: 'cfg', replicas: 3 },
+      },
+      expected: ['proxy'],
+    },
+    {
+      provider: 'MySQL proxysql',
+      components: {
+        engine: { type: 'pxc', replicas: 3 },
+        proxy: { type: 'proxysql', replicas: 1 },
+      },
+      expected: ['proxy'],
+    },
+  ])('names a single-replica $provider', ({ components, expected }) => {
+    expect(getSingleReplicaComponents(instance(components))).toEqual(expected);
+  });
+
+  it('takes the running replicas when the spec leaves them out, and counts an unknown one as single', () => {
+    expect(
+      getSingleReplicaComponents(
+        instance({ engine: { type: 'mongod' }, proxy: { type: 'mongos' } }, [
+          { name: 'engine', replicas: 3 },
+        ])
+      )
+    ).toEqual(['proxy']);
   });
 });
 
