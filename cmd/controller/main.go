@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package main is the entry point for the Everest controller manager.
+// Package main is the entry point for the Everest controller manager, and
+// for its uninstall-check subcommand.
 package main
 
 import (
@@ -61,6 +62,10 @@ func init() {
 
 // nolint:gocyclo
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == uninstallCheckCommand {
+		os.Exit(runUninstallCheck(os.Args[2:], os.Stdout, os.Stderr))
+	}
+
 	var metricsAddr string
 	var metricsCertPath, metricsCertName, metricsCertKey string
 	var webhookCertPath, webhookCertName, webhookCertKey string
