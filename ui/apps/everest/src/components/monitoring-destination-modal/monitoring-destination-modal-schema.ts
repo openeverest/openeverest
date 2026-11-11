@@ -13,7 +13,6 @@
 // limitations under the License.
 
 import { z } from 'zod';
-import { buildOpenApiParametersSchema } from 'components/openapi-parameters-fields';
 import {
   MonitoringClass,
   MonitoringDestination,
@@ -93,11 +92,6 @@ export const buildMonitoringDestinationSchema = ({
         validateAt(
           DestinationFormFields.spec,
           getSectionFormZodSchema(forms.destination, formMode)
-        );
-      } else {
-        validateAt(
-          DestinationFormFields.fallbackParameters,
-          buildOpenApiParametersSchema(forms.parameterFields)
         );
       }
       if (forms.credentials) {

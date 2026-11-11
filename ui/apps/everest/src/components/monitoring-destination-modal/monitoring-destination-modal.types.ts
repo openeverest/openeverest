@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { OpenApiParameterFields } from 'components/openapi-parameters-fields';
 import {
   MonitoringClass,
   MonitoringDestination,
@@ -38,7 +37,6 @@ export interface MonitoringDestinationFormValues {
   existingSecretName: string;
   credentials: Record<string, unknown>;
   spec: Record<string, unknown>;
-  fallbackParameters: Record<string, unknown>;
   insecureSkipVerify: boolean;
   caSecretName: string;
   caSecretKey: string;
@@ -47,8 +45,8 @@ export interface MonitoringDestinationFormValues {
 // The forms a class renders for a destination, for the chosen auth mode.
 export interface DestinationClassForms {
   destination?: MonitoringSectionForm;
-  // Used when the class ships no destination form.
-  parameterFields: OpenApiParameterFields;
+  // Parameters the destination form can't edit, kept as they are on save.
+  skippedParameters: string[];
   credentials?: MonitoringSectionForm;
 }
 

@@ -64,10 +64,6 @@ export const useDestinationClassForms = (
       shouldValidate: true,
     });
     setValue(DestinationFormFields.spec, defaults.spec);
-    setValue(
-      DestinationFormFields.fallbackParameters,
-      defaults.fallbackParameters
-    );
   }, [className, monitoringClass, setValue]);
 
   const previousAuthMode = useRef(authMode);

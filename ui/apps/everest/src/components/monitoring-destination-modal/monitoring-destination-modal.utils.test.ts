@@ -229,9 +229,11 @@ describe('buildSaveRequest', () => {
         className: 'prometheus',
         authMode: 'BasicAuth',
         credentials: { username: 'u', password: 'p' },
-        fallbackParameters: {
-          interval: '',
-          podMonitorLabels: [{ key: 'release', value: 'kube-prom' }],
+        spec: {
+          parameters: {
+            interval: '',
+            podMonitorLabels: [{ key: 'release', value: 'kube-prom' }],
+          },
         },
       },
       monitoringClass: prometheus,
