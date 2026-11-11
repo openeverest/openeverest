@@ -148,7 +148,8 @@ func TestReconcile_SuspendKeepsExhaustedRetries(t *testing.T) {
 
 	assert.Equal(t, v1alpha1.InstancePhaseSuspended, got.Status.Phase)
 	assert.Equal(t, []string{"upgrade-to-0.3"}, r.breaker.blockedTokens(nn, "upgrade-to-0.3"),
-		"a suspended pass must not re-arm the retries of an exhausted action")
+		"a suspended pass must not re-arm the retries of an exhausted action",
+	)
 }
 
 func TestSuspendChanged(t *testing.T) {

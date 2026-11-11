@@ -15,8 +15,6 @@
 package reconciler
 
 import (
-	"slices"
-
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -46,12 +44,7 @@ func suspendAwarePhase(in *v1alpha1.Instance, reported v1alpha1.InstancePhase, m
 	}
 
 	stillStopped := reported == v1alpha1.InstancePhaseSuspending || reported == v1alpha1.InstancePhaseSuspended
-	startingAfterSuspend := isSuspendPhase(in.Status.Phase) && slices.Contains([]v1alpha1.InstancePhase{
-		v1alpha1.InstancePhasePending,
-		v1alpha1.InstancePhaseProvisioning,
-		v1alpha1.InstancePhaseInitializing,
-		v1alpha1.InstancePhaseUpdating,
-	}, reported)
+	startingAfterSuspend := isSuspendPhase(in.Status.Phase) && isStartUpPhase(reported)
 	if stillStopped || startingAfterSuspend {
 		if stillStopped || message == "" {
 			message = resumingMessage
@@ -59,6 +52,13 @@ func suspendAwarePhase(in *v1alpha1.Instance, reported v1alpha1.InstancePhase, m
 		return v1alpha1.InstancePhaseResuming, message
 	}
 	return reported, message
+}
+
+func isStartUpPhase(phase v1alpha1.InstancePhase) bool {
+	return phase == v1alpha1.InstancePhasePending ||
+		phase == v1alpha1.InstancePhaseProvisioning ||
+		phase == v1alpha1.InstancePhaseInitializing ||
+		phase == v1alpha1.InstancePhaseUpdating
 }
 
 func isSuspendPhase(phase v1alpha1.InstancePhase) bool {

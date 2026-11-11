@@ -42,8 +42,8 @@ const (
 func checkSuspend(in, old *v1alpha1.Instance, spec *v1alpha1.ProviderSpec) field.ErrorList {
 	specPath := field.NewPath("spec")
 	if in.SuspendRequested() && spec.Suspend == nil {
-		return field.ErrorList{field.Forbidden(specPath.Child(suspendField, "suspended"),
-			fmt.Sprintf("provider %s does not support suspending instances", in.Spec.ProviderRef.Name))}
+		detail := fmt.Sprintf("provider %s does not support suspending instances", in.Spec.ProviderRef.Name)
+		return field.ErrorList{field.Forbidden(specPath.Child(suspendField, "suspended"), detail)}
 	}
 	if old == nil || (!old.SuspendRequested() && !in.SuspendRequested()) {
 		return nil

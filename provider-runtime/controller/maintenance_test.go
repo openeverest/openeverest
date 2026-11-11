@@ -181,9 +181,11 @@ func TestRequestMaintenance_HeldWhileSuspended(t *testing.T) {
 	assert.False(t, c.MaintenanceSuspendHeld(), "a non-disruptive action is never held")
 
 	assert.False(t, c.RequestMaintenance("upgrade-to-0.3", "converge", MaintenanceRollingRestart),
-		"held despite the tolerance")
+		"held despite the tolerance",
+	)
 	assert.False(t, c.RequestMaintenance("rotate-certs", "rotate certificates", MaintenanceDowntime),
-		"held despite the approval")
+		"held despite the approval",
+	)
 	assert.True(t, c.MaintenanceSuspendHeld())
 	assert.Empty(t, c.GetApprovedMaintenance())
 	require.Len(t, c.GetPendingMaintenance(), 2)
