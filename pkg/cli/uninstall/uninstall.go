@@ -27,6 +27,7 @@ import (
 
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/pkg/cli/namespaces"
 	"github.com/openeverest/openeverest/v2/pkg/cli/steps"
@@ -47,6 +48,11 @@ type Uninstall struct {
 	kubeConnector kubernetes.KubernetesConnector
 	l             *zap.SugaredLogger
 	clusterType   kubernetes.ClusterType
+	// newCheckReader returns the reader the in-use check lists objects with.
+	newCheckReader func() (ctrlclient.Reader, error)
+	// checkInterval and checkTimeout pace the wait for in-use objects.
+	checkInterval time.Duration
+	checkTimeout  time.Duration
 }
 
 // Config stores configuration for the Uninstall command.
@@ -66,8 +72,10 @@ type Config struct {
 // NewUninstall returns a new Uninstall struct.
 func NewUninstall(c Config, l *zap.SugaredLogger) (*Uninstall, error) {
 	cli := &Uninstall{
-		config: c,
-		l:      l,
+		config:        c,
+		l:             l,
+		checkInterval: pollInterval,
+		checkTimeout:  pollTimeout,
 	}
 	if c.Pretty {
 		cli.l = zap.NewNop().Sugar()
@@ -78,6 +86,9 @@ func NewUninstall(c Config, l *zap.SugaredLogger) (*Uninstall, error) {
 		return nil, err
 	}
 	cli.kubeConnector = kubeClient
+	cli.newCheckReader = func() (ctrlclient.Reader, error) {
+		return ctrlclient.New(kubeClient.Config(), ctrlclient.Options{Scheme: kubernetes.CreateScheme()})
+	}
 	return cli, nil
 }
 
@@ -162,6 +173,7 @@ func (u *Uninstall) newUninstallSteps(nsList *corev1.NamespaceList) []steps.Step
 		}
 	}
 
+	uninstallSteps = append(uninstallSteps, u.newStepWaitForInUseRelease())
 	uninstallSteps = append(uninstallSteps, u.newStepUninstallHelmChart())
 	uninstallSteps = append(uninstallSteps, u.newStepDeleteNamespace(common.MonitoringNamespace))
 	uninstallSteps = append(uninstallSteps, u.newStepDeleteNamespace(u.kubeConnector.Namespace()))

@@ -114,6 +114,8 @@ const (
 	// OpenEverestCABundleDefinition is the definition of a CA bundle Secret, the one definition
 	// core owns: the Secret carries no source label, and every key holds PEM CA certificates.
 	OpenEverestCABundleDefinition = "ca-bundle"
+	// OpenEverestInUseProtectionFinalizer is held by core on a Secret while an object uses it.
+	OpenEverestInUseProtectionFinalizer = "openeverest.io/in-use-protection"
 
 	// InstancePresetAnnotation is the annotation key for the InstancePreset that an Instance was created from.
 	InstancePresetAnnotation = "openeverest.io/instance-preset"
