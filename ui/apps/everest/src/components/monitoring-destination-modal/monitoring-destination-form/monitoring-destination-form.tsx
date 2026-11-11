@@ -133,7 +133,9 @@ export const MonitoringDestinationForm = ({
       closeModal={onClose}
       headerMessage={isEdit ? Messages.editTitle : Messages.createTitle}
       schema={schema}
-      defaultValues={defaultValues}
+      // A destination that changed meanwhile refreshes what the user left untouched.
+      values={defaultValues}
+      resetOptions={{ keepDirtyValues: true }}
       onSubmit={save}
       submitting={isPending}
       submitMessage={isEdit ? Messages.save : Messages.create}

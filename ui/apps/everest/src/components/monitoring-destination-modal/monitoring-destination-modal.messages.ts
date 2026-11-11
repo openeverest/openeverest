@@ -57,7 +57,7 @@ export const Messages = {
   secretChangedMeanwhile: (secret: string) =>
     `Secret ${secret} changed while saving. Save again to store the new credentials.`,
   changedMeanwhile:
-    'This destination was changed meanwhile. The form now shows the latest version; review it and save again.',
+    'This destination was changed meanwhile. The form now shows the latest version with your changes kept; review it and save again.',
   restartsInstances: (count: number) => {
     const instances =
       count === 1

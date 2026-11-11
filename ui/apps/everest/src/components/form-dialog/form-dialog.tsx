@@ -43,6 +43,7 @@ export const FormDialog = <T extends FieldValues>({
   celDependencyGroups = [],
   defaultValues,
   values,
+  resetOptions,
   disableSubmit = false,
   onSubmit,
   cancelMessage = 'Cancel',
@@ -59,6 +60,7 @@ export const FormDialog = <T extends FieldValues>({
     resolver: zodResolver(schema),
     defaultValues,
     values,
+    resetOptions,
   });
   const {
     formState: { isDirty, isValid },

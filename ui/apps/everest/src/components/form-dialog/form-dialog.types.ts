@@ -18,6 +18,7 @@ import { ReactNode } from 'react';
 import {
   DefaultValues,
   FieldValues,
+  UseFormProps,
   UseFormReturn,
   ValidationMode,
 } from 'react-hook-form';
@@ -31,6 +32,8 @@ export interface FormDialogProps<T extends FieldValues> {
   celDependencyGroups?: string[][];
   defaultValues?: DefaultValues<T>;
   values?: T;
+  // How the form takes new `values`, e.g. keeping what the user edited.
+  resetOptions?: UseFormProps<T>['resetOptions'];
   onSubmit: (data: T) => void;
   children: ((formMethods: UseFormReturn<T>) => ReactNode) | ReactNode;
   cancelMessage?: string;

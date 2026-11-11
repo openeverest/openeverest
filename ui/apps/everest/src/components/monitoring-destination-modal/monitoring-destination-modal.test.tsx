@@ -372,6 +372,38 @@ describe('MonitoringDestinationModal', () => {
     );
   });
 
+  it('keeps the user edits when the destination changed meanwhile', async () => {
+    const changed = storedPmm();
+    changed.metadata = { ...changed.metadata, resourceVersion: '2' };
+    changed.spec.tls = { insecureSkipVerify: true };
+    vi.mocked(getMonitoringDestinationFn)
+      .mockResolvedValueOnce(storedPmm())
+      .mockResolvedValue(changed);
+    vi.mocked(updateMonitoringDestinationFn)
+      .mockReset()
+      .mockRejectedValue(conflict);
+    renderModal({ namespace: 'team-a', name: 'pmm-prod' });
+
+    const url = await screen.findByLabelText(/PMM server URL/);
+    await waitFor(() => expect(url).toHaveValue('https://pmm.example.com'));
+    fireEvent.change(url, { target: { value: 'https://pmm2.example.com' } });
+    const save = screen.getByTestId('form-dialog-save');
+    await waitFor(() => expect(save).toBeEnabled());
+    fireEvent.click(save);
+
+    expect(
+      await screen.findByText(/This destination was changed meanwhile/)
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getByLabelText('Skip TLS certificate verification')
+      ).toBeChecked()
+    );
+    expect(screen.getByLabelText(/PMM server URL/)).toHaveValue(
+      'https://pmm2.example.com'
+    );
+  });
+
   it('warns about restarting the attached instances only once the parameters change', async () => {
     vi.mocked(getMonitoringDestinationFn).mockResolvedValue(storedPmm());
     renderModal({ namespace: 'team-a', name: 'pmm-prod' });

@@ -50,7 +50,6 @@ export const MonitoringDestinationModal = ({
 
   return (
     <MonitoringDestinationForm
-      key={original?.metadata?.resourceVersion}
       original={original}
       classes={classes}
       namespaces={namespaces}
