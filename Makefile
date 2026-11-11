@@ -8,7 +8,6 @@ IMAGE_TAG ?= 0.0.0
 IMG = $(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME):$(IMAGE_TAG)
 EVEREST_CONTROLLER_IMG = $(IMAGE_PREFIX)/$(EVEREST_CONTROLLER_DEV_IMAGE_NAME):$(IMAGE_TAG)
 CONTROLLER_TOOLS_VERSION ?= v0.18.0
-VICTORIAMETRICS_OPERATOR_VERSION ?= 0.66.1
 
 .PHONY: default
 default: help
@@ -584,8 +583,6 @@ build-installer: gen-crds-manifests kustomize ## Generate a consolidated YAML wi
 
 .PHONY: deploy-test-controller
 deploy-test-controller: gen-crds-manifests kustomize deploy-cert-manager
-	kubectl apply -f https://raw.githubusercontent.com/VictoriaMetrics/operator/v$(VICTORIAMETRICS_OPERATOR_VERSION)/config/crd/overlay/crd.yaml
-	kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
 	cd config/test && "$(KUSTOMIZE)" edit set image controller=${EVEREST_CONTROLLER_IMG}
 	"$(KUSTOMIZE)" build config/crd | kubectl apply -f -
 	kubectl wait --for condition=established --timeout=30s crd backupstorageclasses.backup.openeverest.io

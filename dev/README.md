@@ -120,11 +120,6 @@ Copy file dev/config.yaml.example to dev/config.yaml and:
 - Set `enablePluginHubInstaller: false` to keep the Plugin Hub browse-only: this disables
   one-click install/upgrade/uninstall of plugins from the UI (on by default) and drops the
   plugin-hub cluster-admin binding.
-- Set `enableMonitoringStack: true` to also self-install the VictoriaMetrics operator
-  and kube-state-metrics in the dev cluster (off by default), so Everest's
-  MonitoringConfig/VMAgent flow has something to scrape. This mirrors the manual
-  setup documented in `percona-helm-charts/charts/pmm/README.md` for real PMM users,
-  since the `everest` chart no longer bundles this stack.
 
 3. (Optional) If you want to debug the Everest Server remotely, set the following environment variable in .env file or in the terminal:
 ```sh

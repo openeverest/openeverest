@@ -7,21 +7,10 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - namespaces
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - secrets
   verbs:
-  - create
-  - delete
   - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
@@ -145,33 +134,6 @@ rules:
 - apiGroups:
   - monitoring.openeverest.io
   resources:
-  - monitoringconfigs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - monitoring.openeverest.io
-  resources:
-  - monitoringconfigs/finalizers
-  - monitoringdestinations/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - monitoring.openeverest.io
-  resources:
-  - monitoringconfigs/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - monitoring.openeverest.io
-  resources:
   - monitoringdestinations
   verbs:
   - get
@@ -179,13 +141,8 @@ rules:
   - patch
   - watch
 - apiGroups:
-  - operator.victoriametrics.com
+  - monitoring.openeverest.io
   resources:
-  - vmagents
+  - monitoringdestinations/finalizers
   verbs:
-  - create
-  - delete
-  - get
-  - list
   - update
-  - watch

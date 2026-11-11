@@ -384,67 +384,6 @@ export const deleteBackupImport = async (request, name) => {
   })
 }
 
-// --------------------- Monitoring Config helpers (V2 - using new endpoints) -----
-
-export const createMonitoringConfigV2 = async (request, name) => {
-  const miData = {
-    type: 'pmm',
-    name: name,
-    url: `https://${process.env.PMM1_IP}`,
-    pmm: {
-      apiKey: `${process.env.PMM1_API_KEY}`,
-    },
-    verifyTLS: false,
-  }
-  return await createMonitoringConfigWithDataRawV2(request, miData)
-}
-
-export const createMonitoringConfigWithDataV2 = async (request, data) => {
-  const response = await createMonitoringConfigWithDataRawV2(request, data)
-  await checkError(response)
-  return (await response.json())
-}
-
-export const createMonitoringConfigWithDataRawV2 = async (request, data) => {
-  return await request.post(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-configs`, {data: data})
-}
-
-export const getMonitoringConfigV2 = async (request, name) => {
-  const response = await getMonitoringConfigRawV2(request, name)
-  await checkError(response)
-  return (await response.json())
-}
-
-export const getMonitoringConfigRawV2 = async (request, name) => {
-  return await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-configs/${name}`)
-}
-
-export const updateMonitoringConfigV2 = async (request, name, data) => {
-  const response = await updateMonitoringConfigRawV2(request, name, data)
-  await checkError(response)
-  return (await response.json())
-}
-
-export const updateMonitoringConfigRawV2 = async (request, name, data) => {
-  return await request.patch(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-configs/${name}`, {data: data})
-}
-
-export const deleteMonitoringConfigV2 = async (request, name) => {
-  // Wait for deletion mark.
-  await expect(async () => {
-    await deleteMonitoringConfigRawV2(request, name)
-    const res = await getMonitoringConfigRawV2(request, name)
-    await checkResourceDeletion(res)
-  }).toPass({
-    intervals: [1000],
-    timeout: 300 * 1000,
-  })
-}
-
-export const deleteMonitoringConfigRawV2 = async (request, name) => {
-  return await request.delete(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-configs/${name}`)
-}
-
 // --------------------- ConfigMap helpers --------------------------------------------
 
 export const createConfigMapWithData = async (request, data) => {
