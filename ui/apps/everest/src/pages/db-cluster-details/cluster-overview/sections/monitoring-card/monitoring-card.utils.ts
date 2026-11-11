@@ -13,12 +13,32 @@
 // limitations under the License.
 
 import { Instance } from 'shared-types/api.types';
+import { InstanceMonitoringStatus } from 'shared-types/monitoring-destinations.types';
 import { describeCondition } from 'utils/monitoring-destinations';
-import { MONITORING_CONFIGURED_CONDITION } from './monitoring-card.constants';
+import {
+  ENTRY_CONFIGURED_CONDITION,
+  ENTRY_READY_CONDITION,
+  MONITORING_READY_CONDITION,
+} from './monitoring-card.constants';
 import { ConditionStatus, MonitoringOverview } from './monitoring-card.types';
 
-const toConditionStatus = (value: string | undefined): ConditionStatus =>
-  value === 'True' || value === 'False' ? value : 'Unknown';
+type EntryCondition = NonNullable<
+  InstanceMonitoringStatus['conditions']
+>[number];
+
+const toConditionStatus = (
+  value: ConditionStatus | undefined
+): ConditionStatus => value ?? 'Unknown';
+
+// Ready decides the entry's status. Its explanation comes from Configured
+// unless the entry is configured and only its destination is not ready.
+const explainingCondition = (
+  configured: EntryCondition | undefined,
+  ready: EntryCondition | undefined
+) =>
+  configured?.status === 'True' && ready?.status !== 'True'
+    ? (ready ?? configured)
+    : (configured ?? ready);
 
 // Spec entries drive the list; one core has not reported on yet is Unknown.
 export const getMonitoringOverview = (
@@ -26,22 +46,28 @@ export const getMonitoringOverview = (
 ): MonitoringOverview => {
   const statuses = instance.status?.monitoring?.destinations ?? [];
   const condition = instance.status?.conditions?.find(
-    (c) => c.type === MONITORING_CONFIGURED_CONDITION
+    (c) => c.type === MONITORING_READY_CONDITION
   );
 
   return {
-    configured: condition && {
+    ready: condition && {
       status: condition.status,
       details: describeCondition(condition),
     },
     entries: (instance.spec?.monitoring?.destinations ?? []).map((entry) => {
       const status = statuses.find((s) => s.name === entry.name);
+      const conditions = status?.conditions;
+      const configured = conditions?.find(
+        (c) => c.type === ENTRY_CONFIGURED_CONDITION
+      );
+      const ready = conditions?.find((c) => c.type === ENTRY_READY_CONDITION);
+      const explaining = explainingCondition(configured, ready);
       return {
         name: entry.name,
         destination: entry.destinationRef.name,
         mode: status?.mode,
-        configured: toConditionStatus(status?.configured),
-        details: status ? describeCondition(status) : '',
+        ready: toConditionStatus(ready?.status),
+        details: explaining ? describeCondition(explaining) : '',
       };
     }),
   };

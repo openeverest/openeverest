@@ -22,9 +22,9 @@ export const Messages = {
   status: 'Status',
   mode: 'Mode',
   details: 'Details',
-  configured: {
-    True: 'Configured',
-    False: 'Not configured',
+  ready: {
+    True: 'Ready',
+    False: 'Not ready',
     Unknown: 'Pending',
   } satisfies Record<ConditionStatus, string>,
   modes: {

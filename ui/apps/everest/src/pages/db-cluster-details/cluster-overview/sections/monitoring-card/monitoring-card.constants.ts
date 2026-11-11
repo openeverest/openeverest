@@ -15,9 +15,13 @@
 import { BaseStatus } from 'components/status-field/status-field.types';
 import { ConditionStatus } from './monitoring-card.types';
 
-export const MONITORING_CONFIGURED_CONDITION = 'MonitoringConfigured';
+export const MONITORING_READY_CONDITION = 'MonitoringReady';
 
-export const CONFIGURED_TO_STATUS: Record<ConditionStatus, BaseStatus> = {
+// Condition types of an Instance.status.monitoring.destinations entry.
+export const ENTRY_CONFIGURED_CONDITION = 'Configured';
+export const ENTRY_READY_CONDITION = 'Ready';
+
+export const READY_TO_STATUS: Record<ConditionStatus, BaseStatus> = {
   True: 'success',
   False: 'error',
   Unknown: 'pending',

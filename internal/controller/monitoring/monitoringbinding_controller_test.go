@@ -19,9 +19,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -644,4 +646,158 @@ func TestBindingReconcilerDeletesStaleBindings(t *testing.T) {
 		names = append(names, b.Name)
 	}
 	assert.ElementsMatch(t, []string{rtmonitoring.BindingName(testInstance, "pmm"), "orders-handmade"}, names)
+}
+
+func TestBindingReconcilerWritesReady(t *testing.T) {
+	t.Parallel()
+	// The destination's Ready message can name Secrets and carry backend
+	// errors; the binding quotes only its reason.
+	const probeMessage = `GET https://pmm.example.com/v1/server/version: 401, Secret "pmm-prod-credentials"`
+	type want struct {
+		status  metav1.ConditionStatus
+		reason  monitoringv1alpha1.BindingReadyReason
+		message string
+	}
+	tests := []struct {
+		name string
+		// configured is the executor's report, none when empty.
+		configured monitoringv1alpha1.ConfiguredReason
+		// destination is the destination's Ready reason, none when empty.
+		destination monitoringv1alpha1.ReadyReason
+		want        want
+	}{
+		{
+			name:        "configured and the destination is ready",
+			configured:  monitoringv1alpha1.ReasonAgentTLSNotVerified,
+			destination: monitoringv1alpha1.ReasonReady,
+			want:        want{metav1.ConditionTrue, monitoringv1alpha1.ReasonBindingReady, `Configured, and MonitoringDestination "pmm-prod" is Ready`},
+		},
+		{
+			name:        "configured but the destination rejects the credentials",
+			configured:  monitoringv1alpha1.ReasonAgentTLSNotVerified,
+			destination: monitoringv1alpha1.ReasonUnauthorized,
+			want:        want{metav1.ConditionFalse, monitoringv1alpha1.ReasonDestinationNotReady, `MonitoringDestination "pmm-prod" is not Ready (Unauthorized)`},
+		},
+		{
+			name:        "not configured",
+			configured:  monitoringv1alpha1.ReasonRenderFailed,
+			destination: monitoringv1alpha1.ReasonReady,
+			want:        want{metav1.ConditionFalse, monitoringv1alpha1.ReasonBindingNotConfigured, "Binding is not Configured (RenderFailed)"},
+		},
+		{
+			name:        "the executor has not reported",
+			destination: monitoringv1alpha1.ReasonReady,
+			want:        want{metav1.ConditionUnknown, monitoringv1alpha1.ReasonBindingReadyPending, "Waiting for the binding to be Configured"},
+		},
+		{
+			name:       "the destination has not been probed",
+			configured: monitoringv1alpha1.ReasonConfigured,
+			want:       want{metav1.ConditionUnknown, monitoringv1alpha1.ReasonBindingReadyPending, `Waiting for MonitoringDestination "pmm-prod" to report Ready`},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			dst := pmmDestination("pmm-prod")
+			if tt.destination != "" {
+				dst.Status.Conditions = []metav1.Condition{{
+					Type: monitoringv1alpha1.MonitoringDestinationConditionReady, Status: tt.destination.Status(), Reason: string(tt.destination),
+					Message: probeMessage, ObservedGeneration: dst.Generation, LastTransitionTime: metav1.Now(),
+				}}
+			}
+			c := newFakeClient(t, pxcProvider(), pmmClass(), dst, newInstance(pxcProvider(), entry("pmm", "pmm-prod")))
+			reconcileInstance(t, c)
+			if tt.configured != "" {
+				reportConfigured(t, c, "pmm", tt.configured)
+				reconcileInstance(t, c)
+			}
+
+			b := getBinding(t, c, "pmm")
+			ready := meta.FindStatusCondition(b.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionReady)
+			require.NotNil(t, ready)
+			assert.Equal(t, tt.want, want{ready.Status, monitoringv1alpha1.BindingReadyReason(ready.Reason), ready.Message})
+			assert.Equal(t, b.Generation, ready.ObservedGeneration)
+			accepted := findAccepted(t, b.Status.Conditions)
+			assert.Equal(t, metav1.ConditionTrue, accepted.Status, "writing Ready leaves Accepted alone")
+		})
+	}
+}
+
+func TestBindingReconcilerFollowsDestinationReadiness(t *testing.T) {
+	t.Parallel()
+	dst := pmmDestination("pmm-prod")
+	dst.Status.Conditions = []metav1.Condition{{
+		Type: monitoringv1alpha1.MonitoringDestinationConditionReady, Status: metav1.ConditionTrue, Reason: string(monitoringv1alpha1.ReasonReady),
+		ObservedGeneration: dst.Generation, LastTransitionTime: metav1.Now(),
+	}}
+	c := newFakeClient(t, pxcProvider(), pmmClass(), dst, newInstance(pxcProvider(), entry("pmm", "pmm-prod")))
+	reconcileInstance(t, c)
+	reportConfigured(t, c, "pmm", monitoringv1alpha1.ReasonConfigured)
+	reconcileInstance(t, c)
+	require.Equal(t, metav1.ConditionTrue,
+		meta.FindStatusCondition(getBinding(t, c, "pmm").Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionReady).Status,
+	)
+
+	// The token is revoked: the class controller's probe is rejected.
+	stored := &monitoringv1alpha1.MonitoringDestination{}
+	require.NoError(t, c.Get(t.Context(), types.NamespacedName{Namespace: testNamespace, Name: "pmm-prod"}, stored))
+	require.NoError(t, rtmonitoring.ApplyCondition(t.Context(), c, stored, stored.Status.Conditions, "openeverest.io/monitoring-pmm",
+		rtmonitoring.NewCondition(stored, monitoringv1alpha1.MonitoringDestinationConditionReady, metav1.ConditionFalse,
+			string(monitoringv1alpha1.ReasonUnauthorized), "401",
+		),
+	))
+	reconcileInstance(t, c)
+
+	b := getBinding(t, c, "pmm")
+	ready := meta.FindStatusCondition(b.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionReady)
+	require.NotNil(t, ready)
+	assert.Equal(t, metav1.ConditionFalse, ready.Status)
+	assert.Equal(t, string(monitoringv1alpha1.ReasonDestinationNotReady), ready.Reason)
+	configured := meta.FindStatusCondition(b.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionConfigured)
+	require.NotNil(t, configured)
+	assert.Equal(t, metav1.ConditionTrue, configured.Status, "Configured still means the configuration was handed over")
+}
+
+func TestBindingConfiguredChanged(t *testing.T) {
+	t.Parallel()
+	binding := func(conditions ...metav1.Condition) *monitoringv1alpha1.MonitoringBinding {
+		return &monitoringv1alpha1.MonitoringBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: "orders-pmm", Namespace: testNamespace, Generation: 2},
+			Status:     monitoringv1alpha1.MonitoringBindingStatus{Conditions: conditions},
+		}
+	}
+	cond := func(condType string, status metav1.ConditionStatus, reason, message string, observedGeneration int64) metav1.Condition {
+		return metav1.Condition{Type: condType, Status: status, Reason: reason, Message: message, ObservedGeneration: observedGeneration}
+	}
+	const configuredType = monitoringv1alpha1.MonitoringBindingConditionConfigured
+	configured := cond(configuredType, metav1.ConditionTrue, "Configured", "Rendered by provider x", 2)
+	ready := cond(monitoringv1alpha1.MonitoringBindingConditionReady, metav1.ConditionTrue, "Ready", "", 2)
+
+	tests := []struct {
+		name     string
+		old, new *monitoringv1alpha1.MonitoringBinding
+		want     bool
+	}{
+		{name: "the executor reports for the first time", old: binding(), new: binding(configured), want: true},
+		{name: "Configured flips", old: binding(configured), new: binding(cond(configuredType, metav1.ConditionFalse, "RenderFailed", "", 2)), want: true},
+		{name: "Configured reported for a new generation", old: binding(cond(configuredType, metav1.ConditionTrue, "Configured", "", 1)), new: binding(configured), want: true},
+		{name: "only the message changes", old: binding(configured), new: binding(cond(configuredType, metav1.ConditionTrue, "Configured", "Rendered by provider y", 2)), want: false},
+		{name: "core's own Ready write", old: binding(configured), new: binding(configured, ready), want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, bindingConfiguredChanged().Update(event.UpdateEvent{ObjectOld: tt.old, ObjectNew: tt.new}))
+		})
+	}
+}
+
+// reportConfigured writes the binding's Configured condition as its executor
+// does.
+func reportConfigured(t *testing.T, c client.Client, entryName string, reason monitoringv1alpha1.ConfiguredReason) {
+	t.Helper()
+	b := getBinding(t, c, entryName)
+	require.NoError(t, rtmonitoring.ApplyCondition(t.Context(), c, b, b.Status.Conditions, "provider-percona-xtradb-cluster",
+		rtmonitoring.NewCondition(b, monitoringv1alpha1.MonitoringBindingConditionConfigured, reason.Status(), string(reason), ""),
+	))
 }

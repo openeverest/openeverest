@@ -97,6 +97,20 @@ type InstanceMonitoringStatus struct {
 	Destinations []InstanceMonitoringDestinationStatus `json:"destinations,omitempty"`
 }
 
+// Condition types of an Instance.status.monitoring.destinations[] entry.
+const (
+	// MonitoringEntryConditionConfigured mirrors the binding's Configured
+	// condition; False when the binding is not Accepted, Unknown while it is
+	// missing or pending. It means configuration was handed to the agent
+	// path, not that data flows.
+	MonitoringEntryConditionConfigured = "Configured"
+	// MonitoringEntryConditionReady is derived like the binding's Ready
+	// condition: True when the entry is Configured and its destination is
+	// Ready, so a destination that rejects the credentials or cannot be
+	// reached shows on the Instance.
+	MonitoringEntryConditionReady = "Ready"
+)
+
 // InstanceMonitoringDestinationStatus is the read-only summary of one entry,
 // mirrored from its MonitoringBinding.
 type InstanceMonitoringDestinationStatus struct {
@@ -106,16 +120,12 @@ type InstanceMonitoringDestinationStatus struct {
 	// Mode is the resolved execution mode.
 	// +optional
 	Mode MonitoringExecutionMode `json:"mode,omitempty"`
-	// Configured mirrors the binding's Configured condition; False when the
-	// binding is not Accepted, Unknown while it is missing or pending.
+	// Conditions are the entry's Configured and Ready conditions.
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=8
 	// +optional
-	Configured metav1.ConditionStatus `json:"configured,omitempty"`
-	// Reason is the machine-readable reason for Configured.
-	// +optional
-	Reason string `json:"reason,omitempty"`
-	// Message is the human-readable detail for Configured.
-	// +optional
-	Message string `json:"message,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // MetricsSource states how a component type exposes OpenMetrics.
