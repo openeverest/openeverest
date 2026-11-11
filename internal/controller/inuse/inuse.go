@@ -13,8 +13,7 @@
 // limitations under the License.
 
 // Package inuse holds the deletion safety of objects other objects refer
-// to (spec 015 §4.5): the referent's usage count and its in-use protection
-// finalizer.
+// to: the referent's usage count and its in-use protection finalizer.
 //
 // An admission policy refuses deleting a referent while its usage count is
 // above zero. Count is the rule every count follows, for every kind of
@@ -123,8 +122,7 @@ func summarise(names []string) string {
 }
 
 // Count returns the usage count a referent publishes for referrers, the
-// objects of one kind that refer to it. Every usage count follows this rule
-// (spec 015 §4.5.1):
+// objects of one kind that refer to it. Every usage count follows this rule:
 //
 //   - While the referent is not being deleted, referrers being deleted
 //     themselves do not count. The in-use policy then admits deleting the

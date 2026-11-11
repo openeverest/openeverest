@@ -1,9 +1,9 @@
-# Refuses deleting a MonitoringDestination while Instances list it (spec 015
-# §4.5.1). The core controller keeps status.attachedInstances up to date,
-# leaving out Instances being deleted, and holds the
-# monitoring.openeverest.io/in-use-protection finalizer until no Instance
-# lists the destination, those being deleted included, and for a deletion
-# admitted before the count caught up. Two deletions are exempt:
+# Refuses deleting a MonitoringDestination while Instances list it. The core
+# controller keeps status.attachedInstances up to date, leaving out Instances
+# being deleted, and holds the monitoring.openeverest.io/in-use-protection
+# finalizer until no Instance lists the destination, those being deleted
+# included, and for a deletion admitted before the count caught up. Two
+# deletions are exempt:
 # - a repeated one of a destination already being deleted: its deletion was
 #   admitted before, and the count now states what it waits for;
 # - one in a namespace being deleted: no Instance can be added to it, and
