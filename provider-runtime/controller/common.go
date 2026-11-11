@@ -79,6 +79,10 @@ type Context struct {
 	// pass because its retries were exhausted.
 	maintenanceBreakerHeld bool
 
+	// maintenanceSuspendHeld reports that at least one action was held this
+	// pass because the Instance is suspended.
+	maintenanceSuspendHeld bool
+
 	// maintenanceRequested reports that the provider invoked
 	// RequestMaintenance at least once this pass, so the staged pending set
 	// is authoritative even when Sync later fails.

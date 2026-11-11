@@ -55,6 +55,25 @@ func TestFlushPendingMaintenance(t *testing.T) {
 		assert.Equal(t, corev1alpha1.ReasonAwaitingApproval, cond.Reason)
 	})
 
+	t.Run("actions held while suspended say so", func(t *testing.T) {
+		t.Parallel()
+
+		in := &corev1alpha1.Instance{ObjectMeta: metav1.ObjectMeta{Name: "my-db", Namespace: "default"}}
+		in.Spec.Suspend = &corev1alpha1.SuspendSpec{Suspended: true}
+		in.Spec.Maintenance = &corev1alpha1.MaintenanceSpec{Approved: "upgrade-to-0.3"}
+		syncCtx := controller.NewContext(t.Context(), nil, in.DeepCopy(), "test-provider")
+		require.False(t, syncCtx.RequestMaintenance(
+			"upgrade-to-0.3", "brief rolling restart", controller.MaintenanceRollingRestart))
+
+		flushPendingMaintenance(syncCtx, in)
+
+		require.Len(t, in.Status.PendingMaintenance, 1)
+		cond := findMaintenanceCondition(in)
+		require.NotNil(t, cond)
+		assert.Equal(t, metav1.ConditionTrue, cond.Status)
+		assert.Equal(t, corev1alpha1.ReasonSuspended, cond.Reason)
+	})
+
 	t.Run("no requests leaves untouched instance without the condition", func(t *testing.T) {
 		t.Parallel()
 

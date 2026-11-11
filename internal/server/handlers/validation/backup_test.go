@@ -47,6 +47,9 @@ func TestCreateBackup_Validation(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "test-instance", Namespace: namespace},
 		Spec:       corev1alpha1.InstanceSpec{ProviderRef: common.ObjectRef{Name: "test-provider"}},
 	}
+	suspendedInstance := instance.DeepCopy()
+	suspendedInstance.Name = "suspended-instance"
+	suspendedInstance.Spec.Suspend = &corev1alpha1.SuspendSpec{Suspended: true}
 	storage := &backupv1alpha1.BackupStorage{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-storage", Namespace: namespace},
 	}
@@ -151,6 +154,24 @@ func TestCreateBackup_Validation(t *testing.T) {
 			objects:            []ctrlclient.Object{instance, storage, unsupportedClass},
 			err:                "provider not supported by backup class: class 'unsupported-class', provider 'test-provider'",
 			wantSentinel:       controller.ErrProviderUnsupported,
+			wantInvalidRequest: true,
+		},
+		{
+			name: "suspended instance fails",
+			backup: &backupv1alpha1.Backup{
+				ObjectMeta: metav1.ObjectMeta{Name: "b7", Namespace: namespace},
+				Spec: backupv1alpha1.BackupSpec{
+					Origin: backupv1alpha1.BackupOrigin{
+						Type:        backupv1alpha1.BackupOriginTypeInstance,
+						InstanceRef: &common.ObjectRef{Name: "suspended-instance"},
+					},
+					StorageRef: common.ObjectRef{Name: "test-storage"},
+					ClassRef:   common.ObjectRef{Name: "supported-class"},
+				},
+			},
+			objects:            []ctrlclient.Object{suspendedInstance, storage, supportedClass},
+			err:                "instance is suspended: 'suspended-instance'",
+			wantSentinel:       controller.ErrInstanceSuspended,
 			wantInvalidRequest: true,
 		},
 		{

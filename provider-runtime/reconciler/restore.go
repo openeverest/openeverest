@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
@@ -64,7 +65,7 @@ func setupRestoreReconciler(mgr ctrl.Manager, bp controller.BackupProvider, prov
 		).
 		Watches(&corev1alpha1.Instance{},
 			handler.EnqueueRequestsFromMapFunc(r.restoresForInstance),
-			builder.WithPredicates(existenceChanged()),
+			builder.WithPredicates(predicate.Or(existenceChanged(), suspendChanged())),
 		).
 		Watches(&backupv1alpha1.BackupStorage{},
 			handler.EnqueueRequestsFromMapFunc(r.restoresForStorage),
@@ -146,6 +147,15 @@ func (r *restoreRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	// A Restore that has not started waits while its Instance is suspended
+	// and continues once it resumes.
+	if err := controller.ValidateInstanceNotSuspended(instance); err != nil && restoreNotStarted(restore) {
+		logger.Info("Holding restore", "reason", err.Error())
+		restore.Status.State = backupv1alpha1.RestoreStatePending
+		restore.Status.Message = err.Error()
+		return reconcile.Result{}, r.updateStatus(ctx, restore, bc)
+	}
+
 	if pitr := restore.Spec.DataSource.PointInTime; pitr != nil &&
 		(restore.Status.State == "" || restore.Status.State == backupv1alpha1.RestoreStatePending) {
 		missing, err := missingBackupStorage(ctx, r.client, restore.Namespace, pitr.Source.StorageRef.Name)
@@ -159,6 +169,11 @@ func (r *restoreRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.
 		}
 	}
 
+	// A wait message the runtime set, e.g. while the Instance was suspended,
+	// is stale once the provider takes over.
+	if restoreNotStarted(restore) {
+		restore.Status.Message = ""
+	}
 	exec, err := r.provider.SyncRestore(inCtx, restore)
 	if err != nil {
 		if controller.IsWaitError(err) {
@@ -311,4 +326,12 @@ func applyRestoreExecutionStatus(restore *backupv1alpha1.Restore, bc *backupv1al
 	if exec.CompletedAt != nil {
 		restore.Status.CompletedAt = exec.CompletedAt
 	}
+}
+
+// restoreNotStarted reports whether the operator has not started the Restore,
+// whether or not the provider has already requested it.
+func restoreNotStarted(restore *backupv1alpha1.Restore) bool {
+	state := restore.Status.State
+	waiting := state == "" || state == backupv1alpha1.RestoreStatePending || state == backupv1alpha1.RestoreStateError
+	return waiting && restore.Status.StartedAt == nil
 }

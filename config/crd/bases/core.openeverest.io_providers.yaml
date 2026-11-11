@@ -286,6 +286,12 @@ spec:
                   type: object
                 description: Secrets defines Secret types this provider supports.
                 type: object
+              suspend:
+                description: |-
+                  Suspend declares that the provider can suspend Instances through
+                  Instance.spec.suspend. Unset means it cannot, and Instances asking to
+                  be suspended are rejected.
+                type: object
               topologies:
                 additionalProperties:
                   properties:

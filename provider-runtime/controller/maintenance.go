@@ -77,11 +77,19 @@ func severityRank(s MaintenanceSeverity) int {
 // retries: the runtime then holds it despite the approval, so a
 // crash-looping provider cannot repeatedly disrupt the database. Clearing
 // and re-setting spec.maintenance.approved re-arms the retries.
+//
+// While the Instance is suspended every action above NonDisruptive is held,
+// whatever the tolerance or approval, so resuming restarts the engine exactly
+// as it was suspended. The actions are evaluated again once it resumes.
 func (c *Context) RequestMaintenance(token, description string, severity MaintenanceSeverity) bool {
 	c.maintenanceRequested = true
-	if c.maintenanceApproved(token, severity) {
+	disruptive := severityRank(severity) > severityRank(MaintenanceNonDisruptive)
+	switch {
+	case disruptive && c.in.SuspendRequested():
+		c.maintenanceSuspendHeld = true
+	case c.maintenanceApproved(token, severity):
 		if _, blocked := c.blockedMaintenance[token]; !blocked {
-			if severityRank(severity) > severityRank(MaintenanceNonDisruptive) && !slices.Contains(c.approvedMaintenance, token) {
+			if disruptive && !slices.Contains(c.approvedMaintenance, token) {
 				c.approvedMaintenance = append(c.approvedMaintenance, token)
 			}
 			return true
@@ -144,6 +152,13 @@ func (c *Context) BlockMaintenance(tokens ...string) {
 // to pick the MaintenancePending condition reason).
 func (c *Context) MaintenanceBreakerHeld() bool {
 	return c.maintenanceBreakerHeld
+}
+
+// MaintenanceSuspendHeld reports whether at least one action was held this
+// pass because the Instance is suspended (used internally by the reconciler
+// to pick the MaintenancePending condition reason).
+func (c *Context) MaintenanceSuspendHeld() bool {
+	return c.maintenanceSuspendHeld
 }
 
 // MaintenanceRequested reports whether the provider invoked
