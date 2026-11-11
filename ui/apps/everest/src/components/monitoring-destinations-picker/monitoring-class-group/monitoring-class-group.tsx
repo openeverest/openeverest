@@ -25,6 +25,7 @@ import {
   getMonitoringClassTitle,
 } from 'utils/monitoring-classes';
 import { MonitoringEntryParameters } from '../monitoring-entry-parameters/monitoring-entry-parameters';
+import { DESTINATION_CARDS_GRID_SX } from '../monitoring-destinations-picker.constants';
 import { Messages } from '../monitoring-destinations-picker.messages';
 import {
   MonitoringClassDestinations,
@@ -61,13 +62,7 @@ export const MonitoringClassGroup = ({
         namespace={selection.namespace}
       />
     ) : (
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-          gap: 2,
-        }}
-      >
+      <Box sx={DESTINATION_CARDS_GRID_SX}>
         {destinations.map((destination) => {
           const name = getDestinationName(destination);
           const disabledReason = selection.getDisabledReason(destination);

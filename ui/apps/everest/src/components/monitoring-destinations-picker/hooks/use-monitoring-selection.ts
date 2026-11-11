@@ -14,14 +14,22 @@
 
 import { useCallback, useEffect, useMemo } from 'react';
 import { useController, useFormContext } from 'react-hook-form';
+import { getByPath } from 'components/ui-generator/utils/object-path';
 import { useMonitoringClassesForProvider } from 'hooks/api/monitoring-classes';
 import { useMonitoringDestinations } from 'hooks/api/monitoring-destinations';
 import { useRBACPermissions } from 'hooks/rbac';
-import { MonitoringDestination } from 'shared-types/monitoring-destinations.types';
+import {
+  InstanceMonitoringDestination,
+  MonitoringDestination,
+} from 'shared-types/monitoring-destinations.types';
 import { getMonitoringClassName } from 'utils/monitoring-classes';
 import { getDestinationName } from 'utils/monitoring-destinations';
-import { MONITORING_DESTINATIONS_FIELD } from '../monitoring-destinations-picker.constants';
 import {
+  MAX_MONITORING_DESTINATIONS,
+  MONITORING_DESTINATIONS_FIELD,
+} from '../monitoring-destinations-picker.constants';
+import {
+  DestinationDisabledReason,
   MonitoringSelection,
   MonitoringSelectionOptions,
 } from '../monitoring-destinations-picker.types';
@@ -29,11 +37,13 @@ import {
   getDefaultEntryParameters,
   getDestinationDisabledReason,
   getDestinationsUnavailableReason,
+  getUnavailableEntries,
   groupDestinationsByClass,
   isDestinationSelected,
   parseMonitoringDestinations,
   pruneMonitoringDestinations,
   toggleMonitoringDestination,
+  toggleMonitoringEntry,
 } from '../monitoring-destinations-picker.utils';
 
 // Works on the spec.monitoring.destinations field of the surrounding form.
@@ -43,7 +53,7 @@ export const useMonitoringSelection = ({
   pruneUnavailable,
   instanceForms,
 }: MonitoringSelectionOptions): MonitoringSelection => {
-  const { control, getValues } = useFormContext();
+  const { control, getValues, formState } = useFormContext();
 
   const {
     data: classes = [],
@@ -82,6 +92,46 @@ export const useMonitoringSelection = ({
   const groups = useMemo(
     () => groupDestinationsByClass(classes, destinations),
     [classes, destinations]
+  );
+
+  // The entries the form started from: an Instance's own, which it keeps.
+  const initialEntries = useMemo(
+    () =>
+      parseMonitoringDestinations(
+        getByPath(formState.defaultValues ?? {}, MONITORING_DESTINATIONS_FIELD)
+      ),
+    [formState.defaultValues]
+  );
+  const unavailableEntries = useMemo(
+    () =>
+      pruneUnavailable
+        ? []
+        : getUnavailableEntries(
+            initialEntries,
+            namespaceDestinations,
+            destinations
+          ).map(({ entry, reason }) => {
+            const selectedEntry = isDestinationSelected(
+              selected,
+              entry.destinationRef.name
+            );
+            return {
+              entry,
+              reason,
+              selected: selectedEntry,
+              disabledReason:
+                !selectedEntry && selected.length >= MAX_MONITORING_DESTINATIONS
+                  ? DestinationDisabledReason.LimitReached
+                  : undefined,
+            };
+          }),
+    [
+      pruneUnavailable,
+      initialEntries,
+      namespaceDestinations,
+      destinations,
+      selected,
+    ]
   );
 
   useEffect(() => {
@@ -154,9 +204,22 @@ export const useMonitoringSelection = ({
     [getValues, onChange, getInstanceForm]
   );
 
+  // Puts an entry back as the Instance had it, parameters included.
+  const toggleEntry = useCallback(
+    (entry: InstanceMonitoringDestination) =>
+      onChange(
+        toggleMonitoringEntry(
+          parseMonitoringDestinations(getValues(MONITORING_DESTINATIONS_FIELD)),
+          entry
+        )
+      ),
+    [getValues, onChange]
+  );
+
   return {
     namespace: namespaceName,
     groups,
+    unavailableEntries,
     isLoading: classesLoading || destinationsLoading || isPermissionsLoading,
     unavailableReason: getDestinationsUnavailableReason({
       canRead: canReadDestinations,
@@ -165,6 +228,7 @@ export const useMonitoringSelection = ({
     isSelected,
     getDisabledReason,
     toggle,
+    toggleEntry,
     getEntryIndex,
     getInstanceForm,
   };

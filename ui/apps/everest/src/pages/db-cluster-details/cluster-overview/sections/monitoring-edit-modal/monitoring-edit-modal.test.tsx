@@ -12,7 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { Instance } from 'shared-types/api.types';
 import { TestWrapper } from 'utils/test';
 import { MonitoringEditModal } from './monitoring-edit-modal';
@@ -93,17 +99,47 @@ const instance: Instance = {
 const getCard = (name: string) =>
   screen.getByRole('button', { name: new RegExp(`^${name}`) });
 
+const orphanedEntries = [{ name: 'gone', destinationRef: { name: 'gone' } }];
+const orphaned: Instance = {
+  ...instance,
+  spec: {
+    providerRef: { name: 'percona-server-mongodb' },
+    components: { engine: { type: 'mongod', replicas: 1 } },
+    monitoring: { destinations: orphanedEntries },
+  },
+};
+
+const renderModal = (modalInstance: Instance) =>
+  render(
+    <TestWrapper>
+      <MonitoringEditModal
+        instance={modalInstance}
+        namespace="team-a"
+        onClose={vi.fn()}
+      />
+    </TestWrapper>
+  );
+
+const getUnavailableCard = (name: string) =>
+  within(screen.getByTestId('monitoring-unavailable-entries')).getByRole(
+    'button',
+    { name: new RegExp(`^${name}`) }
+  );
+
+// Saves and returns spec.monitoring as written to the Instance.
+const save = async () => {
+  const button = screen.getByTestId('form-dialog-save');
+  await waitFor(() => expect(button).toBeEnabled());
+  fireEvent.click(button);
+  await waitFor(() => expect(mocks.mutate).toHaveBeenCalled());
+  return mocks.mutate.mock.lastCall?.[0].spec.monitoring;
+};
+
+afterEach(() => mocks.mutate.mockReset());
+
 describe('MonitoringEditModal', () => {
   it('warns about the restart an added destination causes and saves the entries', async () => {
-    render(
-      <TestWrapper>
-        <MonitoringEditModal
-          instance={instance}
-          namespace="team-a"
-          onClose={vi.fn()}
-        />
-      </TestWrapper>
-    );
+    renderModal(instance);
 
     expect(
       screen.queryByTestId('monitoring-disruption')
@@ -134,5 +170,25 @@ describe('MonitoringEditModal', () => {
         },
       },
     });
+  });
+
+  it('removes an entry whose destination is gone', async () => {
+    renderModal(orphaned);
+
+    const gone = getUnavailableCard('gone');
+    expect(gone).toHaveTextContent('The destination no longer exists');
+    expect(gone).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(gone);
+
+    expect(await save()).toBeUndefined();
+  });
+
+  it('puts a removed entry back as the instance had it', async () => {
+    renderModal(orphaned);
+
+    fireEvent.click(getUnavailableCard('gone'));
+    fireEvent.click(getUnavailableCard('gone'));
+
+    expect(await save()).toEqual({ destinations: orphanedEntries });
   });
 });

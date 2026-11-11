@@ -17,17 +17,22 @@ import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
-import { DestinationDisabledReason } from './monitoring-destinations-picker.types';
+import {
+  DestinationDisabledReason,
+  UnavailableEntryReason,
+} from './monitoring-destinations-picker.types';
 import {
   buildInstanceFormsByDestination,
   buildMonitoringParametersSchema,
   finalizeMonitoringEntries,
   getDefaultEntryParameters,
   getDestinationDisabledReason,
+  getUnavailableEntries,
   groupDestinationsByClass,
   parseMonitoringDestinations,
   pruneMonitoringDestinations,
   toggleMonitoringDestination,
+  toggleMonitoringEntry,
   toMonitoringEntryName,
   writeMonitoringEntries,
 } from './monitoring-destinations-picker.utils';
@@ -136,6 +141,41 @@ describe('toggleMonitoringDestination', () => {
         'prometheus'
       )
     ).toEqual([entry('pmm')]);
+  });
+});
+
+describe('toggleMonitoringEntry', () => {
+  it('puts an entry back with its parameters, renamed if its name was taken since', () => {
+    const gone = {
+      ...entry('pmm', 'pmm-old'),
+      parameters: { interval: '30s' },
+    };
+
+    expect(toggleMonitoringEntry([entry('pmm', 'pmm-new')], gone)).toEqual([
+      entry('pmm', 'pmm-new'),
+      { ...gone, name: 'pmm-2' },
+    ]);
+  });
+});
+
+describe('getUnavailableEntries', () => {
+  it('tells a deleted destination from one of a system the instance cannot use', () => {
+    const offered = makeDestination('prom', 'prometheus');
+    const unaccepted = makeDestination('coroot', 'coroot');
+
+    expect(
+      getUnavailableEntries(
+        [entry('prom'), entry('coroot'), entry('gone')],
+        [offered, unaccepted],
+        [offered]
+      )
+    ).toEqual([
+      {
+        entry: entry('coroot'),
+        reason: UnavailableEntryReason.ClassUnavailable,
+      },
+      { entry: entry('gone'), reason: UnavailableEntryReason.DestinationGone },
+    ]);
   });
 });
 

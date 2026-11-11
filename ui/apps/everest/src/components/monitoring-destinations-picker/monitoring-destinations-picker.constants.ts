@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { AlertColor } from '@mui/material';
+import { AlertColor, SxProps, Theme } from '@mui/material';
 import { DestinationsUnavailableReason } from './monitoring-destinations-picker.types';
 
 // Top-level wizard fields land in the Instance spec as-is, so this field holds
@@ -35,4 +35,10 @@ export const UNAVAILABLE_DESTINATIONS_SEVERITY: Record<
 > = {
   [DestinationsUnavailableReason.LoadFailed]: 'error',
   [DestinationsUnavailableReason.NoAccess]: 'info',
+};
+
+export const DESTINATION_CARDS_GRID_SX: SxProps<Theme> = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+  gap: 2,
 };

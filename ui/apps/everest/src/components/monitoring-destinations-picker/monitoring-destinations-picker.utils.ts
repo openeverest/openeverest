@@ -46,6 +46,8 @@ import {
   DestinationDisabledReason,
   DestinationsUnavailableReason,
   MonitoringClassDestinations,
+  UnavailableEntry,
+  UnavailableEntryReason,
 } from './monitoring-destinations-picker.types';
 
 // A user who may not list destinations would otherwise see an empty system.
@@ -127,23 +129,62 @@ export const toggleMonitoringDestination = (
   selected: InstanceMonitoringDestinationPayload[],
   destinationName: string,
   defaultParameters?: Record<string, unknown>
+): InstanceMonitoringDestinationPayload[] =>
+  toggleMonitoringEntry(selected, {
+    name: destinationName,
+    destinationRef: { name: destinationName },
+    ...(defaultParameters && { parameters: defaultParameters }),
+  });
+
+// Adds the entry under a name not taken yet, or removes the one sending to
+// its destination.
+export const toggleMonitoringEntry = (
+  selected: InstanceMonitoringDestinationPayload[],
+  entry: InstanceMonitoringDestinationPayload
 ): InstanceMonitoringDestinationPayload[] => {
+  const destinationName = entry.destinationRef.name;
   if (isDestinationSelected(selected, destinationName)) {
     return selected.filter(
-      (entry) => entry.destinationRef.name !== destinationName
+      (selectedEntry) => selectedEntry.destinationRef.name !== destinationName
     );
   }
   return [
     ...selected,
     {
+      ...entry,
       name: toMonitoringEntryName(
-        destinationName,
-        selected.map((entry) => entry.name)
+        entry.name,
+        selected.map((selectedEntry) => selectedEntry.name)
       ),
-      destinationRef: { name: destinationName },
-      ...(defaultParameters && { parameters: defaultParameters }),
     },
   ];
+};
+
+// The Instance's entries whose destination is not offered: deleted, or of a
+// system the Instance can't use now (class not accepted or not compatible).
+export const getUnavailableEntries = (
+  entries: InstanceMonitoringDestination[],
+  namespaceDestinations: MonitoringDestination[],
+  offeredDestinations: MonitoringDestination[]
+): Pick<UnavailableEntry, 'entry' | 'reason'>[] => {
+  const isIn = (destinations: MonitoringDestination[], name: string) =>
+    destinations.some(
+      (destination) => getDestinationName(destination) === name
+    );
+  return entries.flatMap((entry) => {
+    const name = entry.destinationRef.name;
+    if (isIn(offeredDestinations, name)) {
+      return [];
+    }
+    return [
+      {
+        entry,
+        reason: isIn(namespaceDestinations, name)
+          ? UnavailableEntryReason.ClassUnavailable
+          : UnavailableEntryReason.DestinationGone,
+      },
+    ];
+  });
 };
 
 // The integration a class is rendered through for the provider, when the

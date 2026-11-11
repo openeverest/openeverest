@@ -17,6 +17,7 @@ import { getMonitoringClassName } from 'utils/monitoring-classes';
 import { useMonitoringSelection } from './hooks/use-monitoring-selection';
 import { MonitoringSelectionOptions } from './monitoring-destinations-picker.types';
 import { MonitoringClassGroup } from './monitoring-class-group/monitoring-class-group';
+import { UnavailableEntries } from './unavailable-entries/unavailable-entries';
 import { UNAVAILABLE_DESTINATIONS_SEVERITY } from './monitoring-destinations-picker.constants';
 import { Messages } from './monitoring-destinations-picker.messages';
 
@@ -61,6 +62,9 @@ export const MonitoringDestinationsPicker = (
           selection={selection}
         />
       ))}
+      {selection.unavailableEntries.length > 0 && (
+        <UnavailableEntries selection={selection} />
+      )}
     </Stack>
   );
 };
