@@ -43,7 +43,9 @@ export const UnavailableEntries = ({ selection }: UnavailableEntriesProps) => (
               subtitle: Messages.unavailableEntryReason[reason],
               detail: disabledReason
                 ? Messages.disabledReason[disabledReason]
-                : undefined,
+                : selected
+                  ? undefined
+                  : Messages.removedOnSave,
             }}
             selected={selected}
             disabled={!!disabledReason}

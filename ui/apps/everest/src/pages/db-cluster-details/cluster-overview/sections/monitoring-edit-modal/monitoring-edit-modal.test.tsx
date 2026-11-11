@@ -179,6 +179,7 @@ describe('MonitoringEditModal', () => {
     expect(gone).toHaveTextContent('The destination no longer exists');
     expect(gone).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(gone);
+    expect(gone).toHaveTextContent('Removed when you save');
 
     expect(await save()).toBeUndefined();
   });
@@ -187,8 +188,42 @@ describe('MonitoringEditModal', () => {
     renderModal(orphaned);
 
     fireEvent.click(getUnavailableCard('gone'));
+    expect(getUnavailableCard('gone')).toHaveAttribute('aria-pressed', 'false');
     fireEvent.click(getUnavailableCard('gone'));
+    expect(getUnavailableCard('gone')).toHaveAttribute('aria-pressed', 'true');
 
     expect(await save()).toEqual({ destinations: orphanedEntries });
+  });
+
+  it('does not put a removed entry back once the limit is reached', () => {
+    renderModal({
+      ...orphaned,
+      spec: {
+        providerRef: { name: 'percona-server-mongodb' },
+        monitoring: {
+          destinations: [
+            { name: 'coroot', destinationRef: { name: 'coroot' } },
+            ...Array.from({ length: 7 }, (_, index) => ({
+              name: `gone-${index}`,
+              destinationRef: { name: `gone-${index}` },
+            })),
+          ],
+        },
+      },
+    });
+
+    fireEvent.click(getUnavailableCard('gone-0'));
+    fireEvent.click(getCard('pmm-a'));
+
+    const unavailable = screen.getByTestId('monitoring-unavailable-entries');
+    expect(within(unavailable).getByText('gone-0')).toBeInTheDocument();
+    expect(
+      within(unavailable).queryByRole('button', { name: /^gone-0/ })
+    ).not.toBeInTheDocument();
+    expect(
+      within(unavailable).getByText(
+        'An instance can send to at most 8 destinations'
+      )
+    ).toBeInTheDocument();
   });
 });

@@ -45,7 +45,8 @@ export const Messages = {
     `Settings for ${destinationName}`,
   unavailableEntries: 'No longer available',
   unavailableEntriesCaption:
-    "The instance still lists these destinations, but they don't receive its monitoring data. Deselect them to remove them from the instance.",
+    "The instance still lists these destinations, but they can't be used anymore. Deselect them to remove them from the instance.",
+  removedOnSave: 'Removed when you save',
   unavailableEntryReason: {
     [UnavailableEntryReason.DestinationGone]:
       'The destination no longer exists',

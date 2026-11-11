@@ -204,7 +204,7 @@ export const useMonitoringSelection = ({
     [getValues, onChange, getInstanceForm]
   );
 
-  // Puts an entry back as the Instance had it, parameters included.
+  // Removes an entry the Instance had, or puts it back as it was.
   const toggleEntry = useCallback(
     (entry: InstanceMonitoringDestination) =>
       onChange(
