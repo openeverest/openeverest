@@ -111,6 +111,14 @@ describe('getMonitoringOverview', () => {
       ready: 'Unknown',
       details: '',
     },
+    {
+      name: 'configured, but Ready not reported: explained by Configured',
+      conditions: [
+        condition('Configured', 'True', 'Configured', 'Rendered by provider x'),
+      ],
+      ready: 'Unknown',
+      details: 'Configured: Rendered by provider x',
+    },
   ])('$name', ({ conditions, ready, details }) => {
     const [entry] = getMonitoringOverview(instanceWith(conditions)).entries;
 

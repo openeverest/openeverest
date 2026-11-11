@@ -30,6 +30,13 @@ vi.mock('hooks/rbac', () => {
   return { useRBACPermissions: () => permissions };
 });
 
+// Tests may swap the classes response; put the default back so a test
+// added later does not inherit it.
+const initialClasses = mocks.classes;
+afterEach(() => {
+  mocks.classes = initialClasses;
+});
+
 const condition = (
   type: string,
   status: ConditionStatus,

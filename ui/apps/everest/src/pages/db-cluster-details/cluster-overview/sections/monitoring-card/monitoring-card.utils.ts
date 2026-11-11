@@ -26,8 +26,9 @@ type EntryCondition = NonNullable<
   InstanceMonitoringStatus['conditions']
 >[number];
 
-const toConditionStatus = (value: string | undefined): ConditionStatus =>
-  value === 'True' || value === 'False' ? value : 'Unknown';
+const toConditionStatus = (
+  value: ConditionStatus | undefined
+): ConditionStatus => value ?? 'Unknown';
 
 // Ready decides the entry's status. Its explanation comes from Configured
 // unless the entry is configured and only its destination is not ready.
@@ -36,7 +37,7 @@ const explainingCondition = (
   ready: EntryCondition | undefined
 ) =>
   configured?.status === 'True' && ready?.status !== 'True'
-    ? ready
+    ? (ready ?? configured)
     : (configured ?? ready);
 
 // Spec entries drive the list; one core has not reported on yet is Unknown.
