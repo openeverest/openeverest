@@ -121,6 +121,13 @@ const (
 	OpenEverestCABundleKey = "ca.crt"
 	// OpenEverestInUseProtectionFinalizer is held by core on a Secret while an object uses it.
 	OpenEverestInUseProtectionFinalizer = "openeverest.io/in-use-protection"
+	// AttachedDestinationsAnnotation counts, on a Secret, the MonitoringDestinations that use it.
+	// Core writes it; the secret-in-use admission policy refuses deleting the Secret while it is
+	// not "0".
+	AttachedDestinationsAnnotation = "monitoring.openeverest.io/attached-destinations"
+	// AttachedStoragesAnnotation counts, on a Secret, the BackupStorages that use it, as
+	// AttachedDestinationsAnnotation does for MonitoringDestinations.
+	AttachedStoragesAnnotation = "backup.openeverest.io/attached-storages"
 
 	// InstancePresetAnnotation is the annotation key for the InstancePreset that an Instance was created from.
 	InstancePresetAnnotation = "openeverest.io/instance-preset"

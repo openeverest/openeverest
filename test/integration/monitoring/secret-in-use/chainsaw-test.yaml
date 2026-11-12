@@ -1,0 +1,504 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: secret-in-use
+spec:
+  # Objects are applied by scripts so chainsaw's cleanup does not delete them
+  # one by one, which the policy may refuse; deleting the test namespace
+  # removes them.
+  steps:
+  - name: the-policy-refuses-any-count-but-0
+    try:
+    # Core never writes to these Secrets: the labelled ones are defined by a
+    # Provider, which core does not track yet, and the others carry no
+    # definition label. Their counts stay as set, so only the policy decides.
+    - script:
+        content: |
+          set -e
+          secret() {
+            # name, labelled (yes or no), annotations as JSON
+            labels='{}'
+            [ "$2" = yes ] && labels='{"openeverest.io/provider":"test-provider","openeverest.io/definition":"users"}'
+            kubectl apply -n $NAMESPACE -f - <<EOF
+          {"apiVersion":"v1","kind":"Secret","metadata":{"name":"$1","labels":$labels,"annotations":$3},"stringData":{"password":"x"}}
+          EOF
+          }
+          for labelled in yes no; do
+            secret matrix-$labelled-absent $labelled '{}'
+            secret matrix-$labelled-zero $labelled '{"monitoring.openeverest.io/attached-destinations":"0","backup.openeverest.io/attached-storages":"0"}'
+            secret matrix-$labelled-one $labelled '{"monitoring.openeverest.io/attached-destinations":"1"}'
+            secret matrix-$labelled-storage $labelled '{"backup.openeverest.io/attached-storages":"1"}'
+            secret matrix-$labelled-abc $labelled '{"monitoring.openeverest.io/attached-destinations":"abc"}'
+            secret matrix-$labelled-negative $labelled '{"monitoring.openeverest.io/attached-destinations":"-1"}'
+          done
+        check:
+          ($error): ~
+    - script:
+        content: |
+          fail=0
+          admitted() {
+            if ! out=$(kubectl delete secret "$@" -n $NAMESPACE --dry-run=server 2>&1); then
+              echo "refused, expected admitted: $* -> $out"; fail=1
+            fi
+          }
+          refused() {
+            want=$1; shift
+            if out=$(kubectl delete secret "$@" -n $NAMESPACE --dry-run=server 2>&1); then
+              echo "admitted, expected refused: $*"; fail=1
+            elif ! echo "$out" | grep -q 'Forbidden' || ! echo "$out" | grep -qF -- "$want"; then
+              echo "unexpected refusal: $* -> $out"; fail=1
+            fi
+          }
+          admitted matrix-yes-absent
+          admitted matrix-yes-zero
+          refused 'in use by 1 monitoring destination(s) and 0 backup storage(s)' matrix-yes-one
+          refused 'in use by 0 monitoring destination(s) and 1 backup storage(s)' matrix-yes-storage
+          refused 'in use by abc monitoring destination(s)' matrix-yes-abc
+          refused 'in use by -1 monitoring destination(s)' matrix-yes-negative
+          refused '--field-selector spec.authentication.credentialsSecretRef.name=matrix-yes-one)' matrix-yes-one
+          # Secrets outside OpenEverest never reach the policy.
+          for count in absent zero one storage abc negative; do admitted matrix-no-$count; done
+          # The garbage collector, under either of its names, deletes the
+          # Secrets whose owners are gone.
+          admitted matrix-yes-one --as=system:serviceaccount:kube-system:generic-garbage-collector
+          admitted matrix-yes-one --as=system:kube-controller-manager
+          exit $fail
+        check:
+          ($error): ~
+
+  - name: a-secret-already-being-deleted-can-be-deleted-again
+    try:
+    - script:
+        content: |
+          set -e
+          kubectl apply -n $NAMESPACE -f - <<'EOF'
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: matrix-deleting
+            labels:
+              openeverest.io/provider: test-provider
+              openeverest.io/definition: users
+            finalizers:
+            - test.openeverest.io/hold
+          stringData:
+            password: x
+          EOF
+          kubectl delete secret matrix-deleting -n $NAMESPACE --wait=false
+          kubectl annotate secret matrix-deleting -n $NAMESPACE monitoring.openeverest.io/attached-destinations=1
+          kubectl delete secret matrix-deleting -n $NAMESPACE --dry-run=server
+          kubectl delete secret matrix-deleting -n $NAMESPACE --wait=false
+        check:
+          ($error): ~
+    finally:
+    - script:
+        content: kubectl patch secret matrix-deleting -n $NAMESPACE --type=merge -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+
+  - name: counts-and-finalizer
+    try:
+    # shared-ca is the CA bundle of two destinations, pmm-token the
+    # credentials of one, and spare is used by none. cert-manager-ca is not
+    # labelled, so core never writes to it although a destination uses it.
+    - script:
+        content: |
+          kubectl apply -n $NAMESPACE -f - <<'EOF'
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: shared-ca
+            labels:
+              openeverest.io/definition: ca-bundle
+          stringData:
+            ca.crt: not checked here
+          ---
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: other-ca
+            labels:
+              openeverest.io/definition: ca-bundle
+          stringData:
+            ca.crt: not checked here
+          ---
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: pmm-token
+            labels:
+              openeverest.io/monitoring-class: in-use-test
+              openeverest.io/definition: ServiceAccountToken
+          stringData:
+            token: x
+          ---
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: spare
+            labels:
+              openeverest.io/monitoring-class: in-use-test
+              openeverest.io/definition: ServiceAccountToken
+          stringData:
+            token: x
+          ---
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: cert-manager-ca
+          stringData:
+            ca.crt: not checked here
+          ---
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: a
+          spec:
+            classRef:
+              name: in-use-test
+            authentication:
+              mode: ServiceAccountToken
+              credentialsSecretRef:
+                name: pmm-token
+            tls:
+              ca:
+                secretKeyRef:
+                  name: shared-ca
+                  key: ca.crt
+          ---
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: b
+          spec:
+            classRef:
+              name: in-use-test
+            tls:
+              ca:
+                secretKeyRef:
+                  name: shared-ca
+                  key: ca.crt
+          ---
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: c
+          spec:
+            classRef:
+              name: in-use-test
+            tls:
+              ca:
+                secretKeyRef:
+                  name: cert-manager-ca
+                  key: ca.crt
+          EOF
+        check:
+          ($error): ~
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: shared-ca
+            annotations:
+              monitoring.openeverest.io/attached-destinations: "2"
+            finalizers:
+            - openeverest.io/in-use-protection
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: pmm-token
+            annotations:
+              monitoring.openeverest.io/attached-destinations: "1"
+            finalizers:
+            - openeverest.io/in-use-protection
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: spare
+            annotations:
+              monitoring.openeverest.io/attached-destinations: "0"
+            (finalizers == null): true
+    # Requeued together with shared-ca, which is counted by now.
+    - script:
+        content: |
+          sleep 2
+          kubectl get secret cert-manager-ca -n $NAMESPACE -o jsonpath='{.metadata.annotations.monitoring\.openeverest\.io/attached-destinations}{.metadata.finalizers}'
+        check:
+          ($error): ~
+          ($stdout): ''
+
+  - name: a-shared-secret-is-refused-until-nothing-uses-it
+    try:
+    - script:
+        content: kubectl delete secret shared-ca -n $NAMESPACE --wait=false
+        check:
+          ($error != null): true
+          (contains($stderr, 'in use by 2 monitoring destination(s) and 0 backup storage(s); replace its values instead')): true
+          (contains($stderr, '--field-selector spec.tls.ca.secretKeyRef.name=shared-ca')): true
+    # A destination pointed at another Secret counts for that one only.
+    - script:
+        content: kubectl patch monitoringdestination a -n $NAMESPACE --type=merge -p '{"spec":{"tls":{"ca":{"secretKeyRef":{"name":"other-ca","key":"ca.crt"}}}}}'
+        check:
+          ($error): ~
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: shared-ca
+            annotations:
+              monitoring.openeverest.io/attached-destinations: "1"
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: other-ca
+            annotations:
+              monitoring.openeverest.io/attached-destinations: "1"
+            finalizers:
+            - openeverest.io/in-use-protection
+    - script:
+        content: kubectl delete secret shared-ca -n $NAMESPACE --wait=false
+        check:
+          ($error != null): true
+          (contains($stderr, 'in use by 1 monitoring destination(s)')): true
+    - script:
+        content: kubectl delete monitoringdestination b -n $NAMESPACE --timeout=20s
+        check:
+          ($error): ~
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: shared-ca
+            annotations:
+              monitoring.openeverest.io/attached-destinations: "0"
+            (finalizers == null): true
+    # Unused, it carries no finalizer, so it goes at once.
+    - script:
+        content: kubectl delete secret shared-ca -n $NAMESPACE --timeout=10s
+        check:
+          ($error): ~
+
+  - name: an-unused-secret-can-be-deleted-and-created-again
+    try:
+    - script:
+        content: |
+          set -e
+          kubectl delete secret spare -n $NAMESPACE --timeout=10s
+          kubectl apply -n $NAMESPACE -f - <<'EOF'
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: spare
+            labels:
+              openeverest.io/monitoring-class: in-use-test
+              openeverest.io/definition: ServiceAccountToken
+          stringData:
+            token: recreated
+          EOF
+        check:
+          ($error): ~
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: spare
+            annotations:
+              monitoring.openeverest.io/attached-destinations: "0"
+            (finalizers == null): true
+
+  - name: a-secret-and-its-destination-deleted-together
+    try:
+    # The destination's own finalizer keeps it terminating, as an engine's
+    # teardown can: its Secret must stay readable until it is gone.
+    - script:
+        content: |
+          kubectl apply -n $NAMESPACE -f - <<'EOF'
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: together-token
+            labels:
+              openeverest.io/monitoring-class: in-use-test
+              openeverest.io/definition: ServiceAccountToken
+          stringData:
+            token: x
+          ---
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: together
+            finalizers:
+            - test.openeverest.io/hold
+          spec:
+            classRef:
+              name: in-use-test
+            authentication:
+              mode: ServiceAccountToken
+              credentialsSecretRef:
+                name: together-token
+          EOF
+        check:
+          ($error): ~
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: together-token
+            annotations:
+              monitoring.openeverest.io/attached-destinations: "1"
+    - script:
+        content: kubectl delete monitoringdestination together -n $NAMESPACE --wait=false
+        check:
+          ($error): ~
+    # A destination being deleted stops counting while the Secret is live...
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: together-token
+            annotations:
+              monitoring.openeverest.io/attached-destinations: "0"
+            finalizers:
+            - openeverest.io/in-use-protection
+    - script:
+        content: kubectl delete secret together-token -n $NAMESPACE --wait=false
+        check:
+          ($error): ~
+    # ...and counts again once the Secret is being deleted, which the
+    # finalizer holds for it.
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: together-token
+            (deletionTimestamp != null): true
+            annotations:
+              monitoring.openeverest.io/attached-destinations: "1"
+            finalizers:
+            - openeverest.io/in-use-protection
+    - assert:
+        resource:
+          apiVersion: events.k8s.io/v1
+          kind: Event
+          type: Warning
+          reason: DeletionBlocked
+          regarding:
+            kind: Secret
+            name: together-token
+    - script:
+        content: kubectl delete secret together-token -n $NAMESPACE --wait=false
+        check:
+          ($error): ~
+    - script:
+        content: kubectl patch monitoringdestination together -n $NAMESPACE --type=merge -p '{"metadata":{"finalizers":null}}'
+        check:
+          ($error): ~
+    - error:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: together-token
+    finally:
+    - script:
+        content: kubectl patch monitoringdestination together -n $NAMESPACE --type=merge -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+
+  - name: a-namespace-with-secrets-in-use-deletes
+    try:
+    # held-token is in use by a destination its own finalizer keeps while
+    # the namespace goes, and waits for it. stale says it is in use although
+    # nothing uses it and core never corrects it, so only the namespace
+    # exemption can admit its deletion.
+    - script:
+        timeout: 2m
+        content: |
+          set -e
+          NS=$NAMESPACE-term
+          kubectl create namespace $NS
+          kubectl apply -n $NS -f - <<'EOF'
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: held-token
+            labels:
+              openeverest.io/monitoring-class: in-use-test
+              openeverest.io/definition: ServiceAccountToken
+          stringData:
+            token: x
+          ---
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: stale
+            labels:
+              openeverest.io/provider: test-provider
+              openeverest.io/definition: users
+            annotations:
+              monitoring.openeverest.io/attached-destinations: "1"
+          stringData:
+            password: x
+          ---
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: held
+            finalizers:
+            - test.openeverest.io/hold
+          spec:
+            classRef:
+              name: in-use-test
+            authentication:
+              mode: ServiceAccountToken
+              credentialsSecretRef:
+                name: held-token
+          EOF
+          kubectl wait -n $NS secret/held-token --for=jsonpath='{.metadata.finalizers[0]}'=openeverest.io/in-use-protection --timeout=30s
+          kubectl delete namespace $NS --wait=false
+          kubectl wait -n $NS secret/stale --for=delete --timeout=30s
+          # Held for the destination, then released once it goes.
+          for _ in $(seq 30); do
+            deleting=$(kubectl get secret held-token -n $NS -o jsonpath='{.metadata.deletionTimestamp}')
+            [ -n "$deleting" ] && break
+            sleep 1
+          done
+          [ -n "$deleting" ] || { echo "the Secret was not deleted with its namespace" >&2; exit 1; }
+          kubectl wait -n $NS secret/held-token --for=jsonpath='{.metadata.annotations.monitoring\.openeverest\.io/attached-destinations}'=1 --timeout=30s
+          kubectl patch monitoringdestination held -n $NS --type=merge -p '{"metadata":{"finalizers":null}}'
+          kubectl wait --for=delete namespace/$NS --timeout=60s
+        check:
+          ($error): ~
+    finally:
+    - script:
+        content: |
+          NS=$NAMESPACE-term
+          kubectl patch monitoringdestination held -n $NS --type=merge -p '{"metadata":{"finalizers":null}}' 2>/dev/null || true
+          kubectl delete namespace $NS --ignore-not-found --wait=false
+    catch:
+    - script:
+        content: kubectl get monitoringdestinations,secrets -n $NAMESPACE-term -o yaml
+    - podLogs:
+        namespace: openeverest-system
+        selector: control-plane=controller-manager
+        tail: 100
+
+  catch:
+  - script:
+      content: kubectl get monitoringdestinations,secrets -n $NAMESPACE -o yaml
+  - script:
+      content: kubectl get events.events.k8s.io -n $NAMESPACE
+  - podLogs:
+      namespace: openeverest-system
+      selector: control-plane=controller-manager
+      tail: 100

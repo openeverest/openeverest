@@ -33,9 +33,10 @@ import (
 
 // CreateSecret creates a Secret and labels it openeverest.io/managed, which
 // marks it as created through the API and lets the API patch it later.
-// Definition labels supplied by the caller are preserved; owner references
-// and finalizers are not, since OpenEverest manages the Secret's lifecycle.
-// The response is the Secret's secretView.
+// Definition labels supplied by the caller are preserved; owner references,
+// finalizers and usage counts are not, since OpenEverest manages the
+// Secret's lifecycle and core alone counts its users. The response is the
+// Secret's secretView.
 func (h *k8sHandler) CreateSecret(ctx context.Context, _ string, namespace string, secret *corev1.Secret) (*corev1.Secret, error) {
 	if secret.Labels == nil {
 		secret.Labels = map[string]string{}
@@ -44,6 +45,8 @@ func (h *k8sHandler) CreateSecret(ctx context.Context, _ string, namespace strin
 	secret.Namespace = namespace
 	secret.OwnerReferences = nil
 	secret.Finalizers = nil
+	delete(secret.Annotations, common.AttachedDestinationsAnnotation)
+	delete(secret.Annotations, common.AttachedStoragesAnnotation)
 
 	res, err := h.kubeConnector.CreateSecret(ctx, secret)
 	if err != nil {

@@ -3302,7 +3302,7 @@ paths:
 
         A CA bundle is trust material, not a credential of any provider or class, so one bundle can be referenced from `spec.tls.ca.secretKeyRef` by any kind; list them with `?definition=ca-bundle`. It holds its certificates under `ca.crt`, so a reference to it always names that key; other keys may hold more certificates.
 
-        The name follows the Kubernetes rules for Secret names. Client-supplied owner references and finalizers are dropped. Secrets of type `kubernetes.io/service-account-token` or `bootstrap.kubernetes.io/token` are refused.
+        The name follows the Kubernetes rules for Secret names. Client-supplied owner references, finalizers and usage counts (`monitoring.openeverest.io/attached-destinations`, `backup.openeverest.io/attached-storages`) are dropped: core alone counts the objects that use a Secret. Secrets of type `kubernetes.io/service-account-token` or `bootstrap.kubernetes.io/token` are refused.
         The response is the created Secret as `GET .../secrets/{name}` returns it, never with its data.
       operationId: createSecret
       parameters:
@@ -3575,6 +3575,10 @@ paths:
       description: |
         This API deletes the labelled Secret specified by the `name` in the specified `namespace` and `cluster`, whether or not it was created through this API, so leftovers of Git or `helm uninstall` can be removed. Whatever applied it may create it again.
         A Secret with a controller owner reference, such as an ExternalSecret, is refused with 409, reason `ManagedByController` and the message "managed by <Kind>/<name>", since the controller would recreate it; delete it at its source.
+        A Secret objects use is refused with `409` and reason `InUse`. Core counts them on the credentials and CA bundle Secrets that monitoring destinations and backup storages reference, in the annotations `monitoring.openeverest.io/attached-destinations` and `backup.openeverest.io/attached-storages` the response of get carries; any count but `0` refuses the deletion. The message gives the counts and the `kubectl get monitoringdestinations,backupstorages --field-selector` command that lists the objects.
+        With `dryRun=All` the answer is the same and nothing is deleted, so a client can ask before it deletes.
+        An object being deleted does not count, so a Secret can be deleted right after the objects that use it. Core counts their deletion within moments; until it has, the answer is still `409`, so a client deleting both retries briefly.
+        A deletion that is let through while an object still uses the Secret, one being deleted for instance, leaves the Secret listed with `metadata.deletionTimestamp` set until none does; the counts then include objects being deleted. Deleting a Secret that is already being deleted answers `204` again.
       operationId: deleteSecret
       parameters:
         - name: cluster
@@ -3612,7 +3616,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '409':
-          description: A controller owns the Secret (reason `ManagedByController`)
+          description: A controller owns the Secret (reason `ManagedByController`), or objects use it (reason `InUse`)
           content:
             application/json:
               schema:

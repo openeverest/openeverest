@@ -43,6 +43,7 @@ import (
 	backupcontroller "github.com/openeverest/openeverest/v2/internal/controller/backup"
 	plugincontroller "github.com/openeverest/openeverest/v2/internal/controller/extension"
 	monitoringcontroller "github.com/openeverest/openeverest/v2/internal/controller/monitoring"
+	"github.com/openeverest/openeverest/v2/internal/controller/secretusage"
 )
 
 var (
@@ -73,6 +74,7 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var secretProtection bool
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -92,6 +94,10 @@ func main() {
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.String("monitoring-namespace", "", "Deprecated and ignored; still accepted because the Helm chart passes it.")
+	flag.BoolVar(&secretProtection, secretProtectionFlag, true,
+		"Hold the openeverest.io/in-use-protection finalizer and usage counts on the Secrets objects use, so the "+
+			"secret-in-use admission policy refuses deleting them. With --secret-protection=false the controller removes "+
+			"them from every Secret at start instead.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -234,6 +240,15 @@ func main() {
 		Recorder:  mgr.GetEventRecorder("openeverest-monitoringdestination"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "MonitoringDestination")
+		os.Exit(1)
+	}
+
+	// One registry entry per kind that references Secrets; BackupStorage
+	// joins with its own.
+	if err := setupSecretProtection(mgr, secretProtection, []secretusage.Referrer{
+		monitoringcontroller.SecretReferrer(),
+	}); err != nil {
+		setupLog.Error(err, "Failed to set up Secret protection", "enabled", secretProtection)
 		os.Exit(1)
 	}
 

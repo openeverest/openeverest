@@ -41,20 +41,9 @@ import (
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/internal/controller/inuse"
+	"github.com/openeverest/openeverest/v2/internal/controller/secretusage"
 	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
 )
-
-// destinationSecretsField indexes MonitoringDestinations by the name of every
-// Secret they reference.
-const destinationSecretsField = ".spec.secretNames"
-
-func destinationSecretNames(obj client.Object) []string {
-	dst, ok := obj.(*monitoringv1alpha1.MonitoringDestination)
-	if !ok {
-		return nil
-	}
-	return dst.Spec.SecretNames()
-}
 
 // DestinationReconciler owns the Accepted condition, status.attachedInstances
 // and the in-use protection finalizer of MonitoringDestinations. Ready is
@@ -69,15 +58,9 @@ type DestinationReconciler struct {
 	Recorder  events.EventRecorder
 }
 
-// SetupWithManager registers the MonitoringDestination index on the Secrets
-// it references and sets up the controller. The Instance index it counts
-// Instances by is registered by SetupIndexes.
+// SetupWithManager sets up the controller. The indexes it lists Instances
+// and destinations by are registered by SetupIndexes.
 func (r *DestinationReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &monitoringv1alpha1.MonitoringDestination{},
-		destinationSecretsField, destinationSecretNames,
-	); err != nil {
-		return fmt.Errorf("indexing monitoring destination by secret: %w", err)
-	}
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("MonitoringDestination").
 		// The API server bumps metadata.generation when it marks an object for
@@ -87,8 +70,10 @@ func (r *DestinationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.enqueueDestinationsForClass),
 			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		).
+		// Not for the usage counts and finalizer core writes on the Secret.
 		Watches(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueDestinationsForSecret),
+			builder.WithPredicates(secretusage.ContentChanged()),
 		).
 		Watches(&corev1alpha1.Instance{}, enqueueDestinationsOfInstance()).
 		Complete(r)

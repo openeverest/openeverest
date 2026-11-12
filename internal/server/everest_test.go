@@ -20,6 +20,9 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"regexp"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -29,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"sigs.k8s.io/yaml"
 
 	"github.com/openeverest/openeverest/v2/internal/secretdefinition"
 )
@@ -131,6 +135,10 @@ func TestEverestErrorHandler_AdmissionDenial(t *testing.T) {
 	destinations := schema.GroupResource{Group: "monitoring.openeverest.io", Resource: "monitoringdestinations"}
 	inUse := "in use by 1 database; remove the destination from them first " +
 		"(kubectl get monitoringbindings -n team-a -l monitoring.openeverest.io/destination=pmm-prod)"
+	secrets := schema.GroupResource{Resource: "secrets"}
+	secretInUse := "in use by 2 monitoring destination(s) and 0 backup storage(s); replace its values instead, " +
+		"or point them at another Secret first (kubectl get monitoringdestinations,backupstorages -n team-a " +
+		"--field-selector spec.tls.ca.secretKeyRef.name=pmm-ca)"
 
 	tests := []struct {
 		name       string
@@ -158,6 +166,26 @@ func TestEverestErrorHandler_AdmissionDenial(t *testing.T) {
 			)),
 			code:       http.StatusConflict,
 			want:       inUse,
+			wantReason: "InUse",
+		},
+		{
+			name: "Secret in-use policy denial is a conflict",
+			err: k8serrors.NewForbidden(secrets, "pmm-ca", errors.New(
+				"ValidatingAdmissionPolicy 'secret-in-use.openeverest.io' with binding "+
+					"'secret-in-use.openeverest.io' denied request: "+secretInUse,
+			)),
+			code:       http.StatusConflict,
+			want:       secretInUse,
+			wantReason: "InUse",
+		},
+		{
+			name: "Secret in-use policy named with kustomize's prefix",
+			err: k8serrors.NewForbidden(secrets, "pmm-ca", errors.New(
+				"ValidatingAdmissionPolicy 'openeverest-secret-in-use.openeverest.io' with binding "+
+					"'openeverest-secret-in-use.openeverest.io' denied request: "+secretInUse,
+			)),
+			code:       http.StatusConflict,
+			want:       secretInUse,
 			wantReason: "InUse",
 		},
 		{
@@ -219,6 +247,37 @@ func TestEverestErrorHandler_AdmissionDenial(t *testing.T) {
 			assert.Equal(t, tt.want, body.Message)
 			assert.Equal(t, tt.wantReason, body.Reason)
 		})
+	}
+}
+
+// TestInUsePolicyCoversPolicies proves every in-use policy core ships
+// answers 409 InUse over HTTP, named as in the chart or with the prefix
+// kustomize's config/default adds.
+func TestInUsePolicyCoversPolicies(t *testing.T) {
+	t.Parallel()
+
+	files, err := filepath.Glob(filepath.Join("..", "..", "config", "policy", "*_in_use.yaml"))
+	require.NoError(t, err)
+	var names []string
+	for _, file := range files {
+		content, err := os.ReadFile(file) //nolint:gosec // the repository's own policy files
+		require.NoError(t, err)
+		for _, doc := range regexp.MustCompile(`(?m)^---\s*$`).Split(string(content), -1) {
+			obj := &metav1.PartialObjectMetadata{}
+			require.NoError(t, yaml.Unmarshal([]byte(doc), obj), file)
+			if obj.Kind == "ValidatingAdmissionPolicy" {
+				names = append(names, obj.Name)
+			}
+		}
+	}
+	require.Contains(t, names, "secret-in-use.openeverest.io")
+	require.Contains(t, names, "monitoringdestination-in-use.monitoring.openeverest.io")
+	for _, name := range names {
+		for _, deployed := range []string{name, "openeverest-" + name} {
+			assert.True(t, inUsePolicy.MatchString("ValidatingAdmissionPolicy '"+deployed+"' with binding '"+deployed+"' denied request: in use"),
+				deployed,
+			)
+		}
 	}
 }
 
