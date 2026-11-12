@@ -105,6 +105,7 @@ export default defineConfig({
         'instance',
         'cluster-instance-preset',
         'kubernetes',
+        'monitoring-destination',
         'secrets',
         'settings',
         'version',
@@ -152,6 +153,18 @@ export default defineConfig({
       name: 'kubernetes',
       testDir: 'tests',
       testMatch: /kubernetes\.spec\.ts/,
+      dependencies: ['global:auth:ci:setup'],
+      use: {
+        extraHTTPHeaders: {
+          'Authorization': `Bearer ${process.env[API_CI_TOKEN]}`,
+        }
+      },
+    },
+    // monitoring-destination tests
+    {
+      name: 'monitoring-destination',
+      testDir: 'tests',
+      testMatch: /monitoring-destination\.spec\.ts/,
       dependencies: ['global:auth:ci:setup'],
       use: {
         extraHTTPHeaders: {

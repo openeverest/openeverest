@@ -26,6 +26,8 @@ p, role:devteam, restores, *, dev/*/*
 p, role:devteam, backup-storages, *, dev/*/*
 p, role:devteam, backup-classes, *, dev/*
 p, role:devteam, monitoring-destinations, *, dev/*/*
+p, role:devteam, secrets, read, dev/*/*
+p, role:devteam, secrets, use, dev/*/*
 
 p, alice, instances, create, prod/ns1/*
 

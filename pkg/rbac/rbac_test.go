@@ -182,6 +182,11 @@ func TestLoadAdminPolicy(t *testing.T) {
 		}
 	})
 
+	t.Run("admin uses Secrets", func(t *testing.T) {
+		t.Parallel()
+		enf.assertAllowed("admin-user", ResourceSecrets, ActionUse, "prod/ns1/pmm-prod-credentials")
+	})
+
 	t.Run("admin only reads monitoring classes and bindings", func(t *testing.T) {
 		t.Parallel()
 		enf.assertAllowed("admin-user", ResourceMonitoringClasses, ActionRead, "prod/pmm")
@@ -236,6 +241,19 @@ func TestEnforceWithSpecificPolicies(t *testing.T) {
 		enf := newTestEnforcer(t, policy)
 		enf.assertAllowed("bob", ResourceClusters, ActionRead, "prod")
 		enf.assertDenied("bob", ResourceClusters, ActionRead, "staging")
+	})
+
+	t.Run("read on a Secret does not grant use", func(t *testing.T) {
+		t.Parallel()
+		lines := []string{
+			"p, role:dev, secrets, read, prod/ns1/*",
+			"p, role:dev, secrets, use, prod/ns1/pmm-prod-credentials",
+			"g, bob, role:dev",
+		}
+		enf := newTestEnforcer(t, strings.Join(lines, "\n"))
+		enf.assertAllowed("bob", ResourceSecrets, ActionUse, "prod/ns1/pmm-prod-credentials")
+		enf.assertAllowed("bob", ResourceSecrets, ActionRead, "prod/ns1/db1-root")
+		enf.assertDenied("bob", ResourceSecrets, ActionUse, "prod/ns1/db1-root")
 	})
 
 	t.Run("action-specific permissions", func(t *testing.T) {
