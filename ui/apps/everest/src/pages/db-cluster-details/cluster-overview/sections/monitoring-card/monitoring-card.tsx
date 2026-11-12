@@ -58,7 +58,9 @@ export const MonitoringCard = ({
         cardHeaderProps={{
           title: Messages.title,
           action:
-            editable && canUpdate && classes.length > 0 ? (
+            editable &&
+            canUpdate &&
+            (classes.length > 0 || entries.length > 0) ? (
               <EditIconButton
                 dataTestId="monitoring-edit-button"
                 onClick={() => setEditing(true)}

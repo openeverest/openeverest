@@ -156,6 +156,13 @@ describe('MonitoringCard', () => {
     );
   });
 
+  it('lets remove the destinations of a provider that can no longer be monitored', () => {
+    mocks.classes = { data: [] };
+    renderCard(monitoredInstance);
+
+    expect(screen.getByTestId('monitoring-edit-button')).toBeInTheDocument();
+  });
+
   it('is hidden when the provider has no monitoring and none is set', () => {
     mocks.classes = { data: [] };
     renderCard({

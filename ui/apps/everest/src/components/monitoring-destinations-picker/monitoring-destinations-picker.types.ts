@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import {
+  InstanceMonitoringDestination,
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
@@ -35,9 +36,23 @@ export interface MonitoringClassDestinations {
   destinations: MonitoringDestination[];
 }
 
+export enum UnavailableEntryReason {
+  DestinationGone = 'destinationGone',
+  ClassUnavailable = 'classUnavailable',
+}
+
+// An entry the Instance has whose destination the picker can't offer.
+export interface UnavailableEntry {
+  entry: InstanceMonitoringDestination;
+  reason: UnavailableEntryReason;
+  selected: boolean;
+  disabledReason?: DestinationDisabledReason;
+}
+
 export interface MonitoringSelection {
   namespace: string;
   groups: MonitoringClassDestinations[];
+  unavailableEntries: UnavailableEntry[];
   isLoading: boolean;
   unavailableReason?: DestinationsUnavailableReason;
   isSelected: (destination: MonitoringDestination) => boolean;
@@ -45,6 +60,7 @@ export interface MonitoringSelection {
     destination: MonitoringDestination
   ) => DestinationDisabledReason | undefined;
   toggle: (destination: MonitoringDestination) => void;
+  toggleEntry: (entry: InstanceMonitoringDestination) => void;
   // Position of the destination's entry in spec.monitoring.destinations, -1
   // when it is not selected.
   getEntryIndex: (destination: MonitoringDestination) => number;
@@ -57,8 +73,8 @@ export interface MonitoringSelectionOptions {
   namespace: string;
   provider: string;
   // Drop entries whose destination is not offered, e.g. after the namespace
-  // changed on an earlier wizard step. An existing Instance keeps them, so an
-  // edit never removes what it doesn't show.
+  // changed on an earlier wizard step. An existing Instance keeps them and
+  // shows them apart, for the user to remove.
   pruneUnavailable: boolean;
   // From useMonitoringInstanceForms, which the caller already needs to save.
   instanceForms: Map<string, MonitoringSectionForm>;

@@ -18,6 +18,7 @@ import { MAX_MONITORING_DESTINATIONS } from './monitoring-destinations-picker.co
 import {
   DestinationDisabledReason,
   DestinationsUnavailableReason,
+  UnavailableEntryReason,
 } from './monitoring-destinations-picker.types';
 
 export const Messages = {
@@ -42,4 +43,14 @@ export const Messages = {
   } satisfies Record<DestinationDisabledReason, string>,
   entryParameters: (destinationName: string) =>
     `Settings for ${destinationName}`,
+  unavailableEntries: 'No longer available',
+  unavailableEntriesCaption:
+    "The instance still lists these destinations, but they can't be used anymore. Deselect them to remove them from the instance.",
+  removedOnSave: 'Removed when you save',
+  unavailableEntryReason: {
+    [UnavailableEntryReason.DestinationGone]:
+      'The destination no longer exists',
+    [UnavailableEntryReason.ClassUnavailable]:
+      "Its monitoring system isn't available for this instance",
+  } satisfies Record<UnavailableEntryReason, string>,
 };
