@@ -12,128 +12,81 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package events defines the plugin-facing lifecycle event model.
+// Package events defines OpenEverest lifecycle events.
+//
+// Lifecycle events are Kubernetes Events (events.k8s.io/v1) that the OpenEverest
+// controllers write for the objects they manage, whether those objects were changed
+// through the OpenEverest API, kubectl or a GitOps tool, and that the API server writes
+// for authentication. They carry a small, kind-independent set of reasons; the kind is
+// taken from the object the Event refers to. GET /v1/clusters/{cluster}/events serves
+// them to clients such as audit plugins.
 package events
 
-import (
-	"fmt"
-	"strconv"
-	"strings"
-	"time"
-)
+// Reason is the kind-independent reason of a lifecycle event.
+type Reason string
 
-// Type identifies the kind of lifecycle event.
-type Type string
-
-// Lifecycle event types.
+// Lifecycle event reasons.
 const (
-	BackupStarted   Type = "backup.started"
-	BackupCompleted Type = "backup.completed"
-	BackupFailed    Type = "backup.failed"
+	// ReasonCreated is recorded when an object appears.
+	ReasonCreated Reason = "Created"
+	// ReasonUpdated is recorded when the spec of an object changes, that is when its
+	// metadata.generation increases.
+	ReasonUpdated Reason = "Updated"
+	// ReasonPhaseChanged is recorded when the phase (or state) in the status of an
+	// object changes.
+	ReasonPhaseChanged Reason = "PhaseChanged"
+	// ReasonDeletionRequested is recorded when the deletion of an object is requested.
+	ReasonDeletionRequested Reason = "DeletionRequested"
+	// ReasonDeleted is recorded when an object is gone.
+	ReasonDeleted Reason = "Deleted"
 
-	RestoreStarted   Type = "restore.started"
-	RestoreCompleted Type = "restore.completed"
-	RestoreFailed    Type = "restore.failed"
-
-	InstanceCreated Type = "instance.created"
-	InstanceDeleted Type = "instance.deleted"
-
-	UserLogin       Type = "user.login"
-	UserLoginFailed Type = "user.login-failed"
-	UserLogout      Type = "user.logout"
-
-	PluginInstalled   Type = "plugin.installed"
-	PluginUninstalled Type = "plugin.uninstalled"
-	PluginEnabled     Type = "plugin.enabled"
-	PluginDisabled    Type = "plugin.disabled"
-
-	NamespaceAdded   Type = "namespace.added"
-	NamespaceRemoved Type = "namespace.removed"
-
-	SettingsUpdated Type = "settings.updated"
+	// ReasonLoginSucceeded is recorded when a user logs in.
+	ReasonLoginSucceeded Reason = "LoginSucceeded"
+	// ReasonLoginFailed is recorded when a login attempt fails.
+	ReasonLoginFailed Reason = "LoginFailed"
+	// ReasonLogout is recorded when a user logs out.
+	ReasonLogout Reason = "Logout"
 )
 
-// AllTypes is the complete set of recognised event types.
-var AllTypes = []Type{
-	BackupStarted, BackupCompleted, BackupFailed,
-	RestoreStarted, RestoreCompleted, RestoreFailed,
-	InstanceCreated, InstanceDeleted,
-	UserLogin, UserLoginFailed, UserLogout,
-	PluginInstalled, PluginUninstalled, PluginEnabled, PluginDisabled,
-	NamespaceAdded, NamespaceRemoved,
-	SettingsUpdated,
+// AllReasons lists every lifecycle event reason.
+//
+//nolint:gochecknoglobals // immutable lookup table
+var AllReasons = []Reason{
+	ReasonCreated, ReasonUpdated, ReasonPhaseChanged, ReasonDeletionRequested, ReasonDeleted,
+	ReasonLoginSucceeded, ReasonLoginFailed, ReasonLogout,
 }
 
-// ResourceRef identifies the Kubernetes resource that triggered the event.
-type ResourceRef struct {
-	Kind    string `json:"kind"`
-	Name    string `json:"name"`
-	UID     string `json:"uid"`
-	Engine  string `json:"engine,omitempty"`
-	Version string `json:"version,omitempty"`
-}
+const (
+	// LabelLifecycleEvent marks the Kubernetes Events written by OpenEverest, so they can
+	// be listed and watched with a label selector.
+	LabelLifecycleEvent = "openeverest.io/lifecycle-event"
+	// LabelLifecycleEventValue is the value of LabelLifecycleEvent.
+	LabelLifecycleEventValue = "true"
 
-// StateSnapshot captures the phase of a resource at a point in time.
-type StateSnapshot struct {
-	Phase string `json:"phase,omitempty"`
-}
+	// ReportingController is the reportingController of every lifecycle event.
+	ReportingController = "openeverest.io/everest"
 
-// Actor describes who or what triggered the event. Both fields use
-// `omitempty` so an unattributed event simply omits the `actor` object
-// rather than emitting `{"type":"","id":""}` and looking deceptively
-// populated to audit consumers.
-type Actor struct {
-	Type string `json:"type,omitempty"` // "user", "system", "plugin"
-	ID   string `json:"id,omitempty"`
-}
+	// AnnotationEventActorType records Actor.Type on a lifecycle event.
+	AnnotationEventActorType = "openeverest.io/actor-type"
+	// AnnotationEventActorID records Actor.ID on a lifecycle event.
+	AnnotationEventActorID = "openeverest.io/actor-id"
+	// AnnotationPhaseFrom records the previous phase of a PhaseChanged event.
+	AnnotationPhaseFrom = "openeverest.io/phase-from"
+	// AnnotationPhaseTo records the new phase of a PhaseChanged event.
+	AnnotationPhaseTo = "openeverest.io/phase-to"
+	// AnnotationGeneration records the new metadata.generation of an Updated event.
+	AnnotationGeneration = "openeverest.io/generation"
+	// AnnotationSourceIP records the client IP of an authentication event.
+	AnnotationSourceIP = "openeverest.io/source-ip"
+)
 
-// Event is the normalised envelope streamed to plugins.
-type Event struct {
-	// Seq is a monotonic counter the Hub assigns to every event as it's
-	// broadcast, regardless of source. Unlike ResourceVersion, it's always
-	// set, so it's the one cursor value that covers direct-publish events
-	// (UserLogin, SettingsUpdated, ...) too. See Epoch and Cursor.
-	Seq uint64 `json:"seq"`
-	// Epoch identifies the Hub instance that assigned Seq. It's generated
-	// once when the Hub starts, so a Seq from a previous process is never
-	// mistaken for one from this one after a restart.
-	Epoch           string        `json:"epoch"`
-	ResourceVersion string        `json:"resourceVersion"`
-	Type            Type          `json:"type"`
-	OccurredAt      time.Time     `json:"occurredAt"`
-	Namespace       string        `json:"namespace"`
-	Resource        ResourceRef   `json:"resource"`
-	PrevState       StateSnapshot `json:"prevState,omitempty"`
-	NewState        StateSnapshot `json:"newState,omitempty"`
-	Actor           Actor         `json:"actor,omitempty"`
-}
-
-// Cursor is a subscriber's position in the event stream: the last Seq it
-// has seen, scoped to the Epoch it came from. It travels over the wire as
-// a single opaque string (see ParseCursor / String), so clients only ever
-// need to persist one value instead of tracking ResourceVersion and Seq
-// separately.
-type Cursor struct {
-	Epoch string
-	Seq   uint64
-}
-
-// String encodes the cursor to its wire form: "<epoch>:<seq>".
-func (c Cursor) String() string {
-	return c.Epoch + ":" + strconv.FormatUint(c.Seq, 10)
-}
-
-// ParseCursor decodes the "<epoch>:<seq>" wire form used by the `since`
-// query param. A parse error should be treated the same as an epoch
-// mismatch by the caller: the cursor can't be trusted, so resync (410).
-func ParseCursor(raw string) (Cursor, error) {
-	epoch, seqStr, ok := strings.Cut(raw, ":")
-	if !ok {
-		return Cursor{}, fmt.Errorf("invalid cursor %q: missing ':' separator", raw)
-	}
-	seq, err := strconv.ParseUint(seqStr, 10, 64)
-	if err != nil {
-		return Cursor{}, fmt.Errorf("invalid cursor %q: %w", raw, err)
-	}
-	return Cursor{Epoch: epoch, Seq: seq}, nil
-}
+// Actor types.
+const (
+	// ActorTypeUser is an OpenEverest user, identified by the subject of their token.
+	ActorTypeUser = "user"
+	// ActorTypeSystem is an OpenEverest component, such as a controller.
+	ActorTypeSystem = "system"
+	// ActorTypeKubernetesClient is a client that changed the object directly in
+	// Kubernetes (kubectl, a GitOps tool), identified by its field manager.
+	ActorTypeKubernetesClient = "kubernetes-client"
+)

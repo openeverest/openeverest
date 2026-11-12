@@ -17,6 +17,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -26,6 +27,7 @@ import (
 	"github.com/AlekSi/pointer"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	corev1 "k8s.io/api/core/v1"
 
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/internal/tokenregistry"
@@ -77,7 +79,7 @@ func (e *EverestServer) handlePasswordGrant(ctx echo.Context, params api.AuthTok
 	c := ctx.Request().Context()
 	if err := e.sessionMgr.Authenticate(c, *params.Username, *params.Password); err != nil {
 		e.attemptsStore.IncreaseTimeout(ctx.RealIP())
-		e.publishAuthEvent(events.UserLoginFailed, *params.Username, ctx.RealIP(), err.Error())
+		e.recordAuthEvent(ctx, events.ReasonLoginFailed, *params.Username, err.Error())
 		return sessionErrToHTTPRes(ctx, err)
 	}
 
@@ -88,7 +90,7 @@ func (e *EverestServer) handlePasswordGrant(ctx echo.Context, params api.AuthTok
 	}
 
 	e.attemptsStore.CleanupVisitor(ctx.RealIP())
-	e.publishAuthEvent(events.UserLogin, *params.Username, ctx.RealIP(), "")
+	e.recordAuthEvent(ctx, events.ReasonLoginSucceeded, *params.Username, "")
 
 	return e.respondWithTokens(ctx, *params.Username, refreshToken, useCookieDelivery(params))
 }
@@ -220,7 +222,7 @@ func (e *EverestServer) RevokeAuthToken(ctx echo.Context) error {
 		}
 	}
 
-	e.publishAuthEvent(events.UserLogout, subject, ctx.RealIP(), "")
+	e.recordAuthEvent(ctx, events.ReasonLogout, subject, "")
 	return ctx.NoContent(http.StatusNoContent)
 }
 
@@ -296,28 +298,43 @@ func sessionErrToHTTPRes(ctx echo.Context, err error) error {
 	return err
 }
 
-// publishAuthEvent emits an authentication-related event onto the hub.
-// `reason` is included only for the login-failed type.
-func (e *EverestServer) publishAuthEvent(t events.Type, subject, remoteIP, reason string) {
-	if e.eventHub == nil {
+// authEventTimeout bounds recording an authentication event, which happens in the
+// background so a slow Kubernetes API doesn't delay logins.
+const authEventTimeout = 10 * time.Second
+
+// recordAuthEvent records a login or logout of subject as a lifecycle event about the
+// user. detail explains a failed login.
+func (e *EverestServer) recordAuthEvent(ctx echo.Context, reason events.Reason, subject, detail string) {
+	if e.kubeConnector == nil {
 		return
 	}
-	evt := events.Event{
-		Type:       t,
-		OccurredAt: time.Now().UTC(),
-		Resource: events.ResourceRef{
-			Kind: "Session",
-			Name: subject,
-		},
-		Actor: events.Actor{Type: "user", ID: subject},
+	note := map[events.Reason]string{
+		events.ReasonLoginSucceeded: "User " + subject + " logged in",
+		events.ReasonLoginFailed:    "Login failed for user " + subject,
+		events.ReasonLogout:         "User " + subject + " logged out",
+	}[reason]
+	if detail != "" {
+		note += ": " + detail
 	}
-	if reason != "" {
-		evt.NewState = events.StateSnapshot{Phase: reason}
+	record := events.Record{
+		// Accounts live in the namespace OpenEverest runs in, so its users do too.
+		Regarding: corev1.ObjectReference{Kind: "User", Namespace: e.kubeConnector.Namespace(), Name: subject},
+		Reason:    reason,
+		Note:      note,
+		SourceIP:  ctx.RealIP(),
 	}
-	if remoteIP != "" {
-		// Use prevState slot to carry the IP without inventing new schema
-		// fields. Audit plugins read both prev/new phases for free-form context.
-		evt.PrevState = events.StateSnapshot{Phase: "ip=" + remoteIP}
+	if reason == events.ReasonLoginFailed {
+		// Whoever failed to log in did not prove to be the user, so there is no actor.
+		record.Warning = true
+	} else {
+		record.Actor = events.Actor{Type: events.ActorTypeUser, ID: subject}
 	}
-	e.eventHub.Publish(evt)
+	reqCtx := context.WithoutCancel(ctx.Request().Context())
+	go func() {
+		recordCtx, cancel := context.WithTimeout(reqCtx, authEventTimeout)
+		defer cancel()
+		if err := e.kubeConnector.RecordLifecycleEvent(recordCtx, record); err != nil {
+			e.l.Errorf("failed to record the %s event of user %q: %v", reason, subject, err)
+		}
+	}()
 }

@@ -21,6 +21,8 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
+	"k8s.io/apimachinery/pkg/watch"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
@@ -57,11 +59,23 @@ type Handler interface {
 	InstanceRestoreHandler
 	ConfigMapHandler
 	SecretHandler
+	EventHandler
 
 	GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error)
 	GetKubernetesClusterInfo(ctx context.Context) (*api.KubernetesClusterInfo, error)
 	GetUserPermissions(ctx context.Context) (*api.UserPermissions, error)
 	GetSettings(ctx context.Context) (*api.Settings, error)
+}
+
+// EventHandler provides the lifecycle events (see pkg/events).
+type EventHandler interface {
+	// ListEvents lists the lifecycle events in namespaces, or in all namespaces when
+	// namespaces is empty.
+	ListEvents(ctx context.Context, cluster string, namespaces []string) (*eventsv1.EventList, error)
+	// WatchEvents streams the lifecycle events in namespaces, or in all namespaces when
+	// namespaces is empty, recorded after resourceVersion, or from now on when it is
+	// empty. Bookmark and error events are passed through.
+	WatchEvents(ctx context.Context, cluster string, namespaces []string, resourceVersion string) (watch.Interface, error)
 }
 
 // NamespacesHandler provides methods for handling operations on namespaces.
