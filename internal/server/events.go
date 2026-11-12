@@ -16,120 +16,251 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"slices"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
+	eventsv1 "k8s.io/api/events/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/watch"
 
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/pkg/events"
 )
 
-// eventsHandler streams lifecycle events to the client as SSE.
-//
-//	GET /v1/events?types=<csv>&namespaces=<csv>&since=<epoch>:<seq>
-//	Accept: text/event-stream
-//
-// since is optional. When present it must be a cursor previously read off
-// an event's seq/epoch fields (openeverest#2582); an unparseable cursor, an
-// epoch that doesn't match this process, or a seq that's aged out of (or is
-// ahead of) the replay buffer all get a 410 — the client must resync (list
-// current state, then reconnect without since) rather than treat it as a
-// retryable error.
-func (e *EverestServer) eventsHandler(c echo.Context) error {
-	// Parse optional filters.
-	var typeFilter []events.Type
-	if raw := c.QueryParam("types"); raw != "" {
-		for _, t := range strings.Split(raw, ",") {
-			t = strings.TrimSpace(t)
-			if t != "" {
-				typeFilter = append(typeFilter, events.Type(t))
-			}
+// eventStreamKeepAlive is how often an idle event stream sends a comment, so proxies
+// don't close it.
+const eventStreamKeepAlive = 30 * time.Second
+
+// ListEvents lists the lifecycle events of a cluster, or streams them as Server-Sent
+// Events with watch=true.
+func (e *EverestServer) ListEvents(c echo.Context, cluster string, params api.ListEventsParams) error {
+	filter, err := newEventFilter(params)
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, api.Error{Message: new(err.Error())})
+	}
+	namespaces := splitCSV(params.Namespaces)
+	since := ""
+	if params.Since != nil {
+		since = *params.Since
+	}
+
+	if params.Watch != nil && *params.Watch {
+		return e.streamEvents(c, cluster, namespaces, since, filter)
+	}
+	if since != "" {
+		return c.JSON(http.StatusBadRequest, api.Error{Message: new("since is only supported with watch=true")})
+	}
+
+	list, err := e.handler.ListEvents(c.Request().Context(), cluster, namespaces)
+	if err != nil {
+		return err
+	}
+	items := make([]api.LifecycleEvent, 0, len(list.Items))
+	for i := range list.Items {
+		if filter.matches(&list.Items[i]) {
+			items = append(items, toLifecycleEvent(cluster, &list.Items[i]))
 		}
 	}
+	slices.SortStableFunc(items, func(a, b api.LifecycleEvent) int {
+		return a.OccurredAt.Compare(b.OccurredAt)
+	})
+	return c.JSON(http.StatusOK, api.LifecycleEventList{Items: items, ResourceVersion: list.ResourceVersion})
+}
 
-	var nsFilter []string
-	if raw := c.QueryParam("namespaces"); raw != "" {
-		for _, ns := range strings.Split(raw, ",") {
-			ns = strings.TrimSpace(ns)
-			if ns != "" {
-				nsFilter = append(nsFilter, ns)
-			}
-		}
-	}
-
-	var cursor *events.Cursor
-	if raw := c.QueryParam("since"); raw != "" {
-		parsed, err := events.ParseCursor(raw)
-		if err != nil {
-			return c.JSON(http.StatusGone, api.Error{
-				Message: new(fmt.Sprintf("invalid cursor: %s", err)),
-			})
-		}
-		cursor = &parsed
-	}
-
-	sub, ok := e.eventHub.Subscribe(typeFilter, nsFilter, cursor)
-	if !ok {
-		return c.JSON(http.StatusGone, api.Error{
-			Message: new("cursor is no longer valid; relist current state and reconnect without since"),
-		})
-	}
-	defer sub.Cancel()
-
-	// Set SSE headers.
-	w := c.Response()
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no") // disable nginx/proxy buffering
-	w.WriteHeader(http.StatusOK)
-
-	// Send an initial SSE comment so the browser sees the response immediately.
-	if _, err := fmt.Fprint(w, ": connected\n\n"); err != nil {
-		return nil
-	}
-	w.Flush()
-
-	for _, evt := range sub.Replay {
-		if err := writeEventFrame(w, evt); err != nil {
-			return nil // client disconnected
-		}
-		w.Flush()
-	}
-
+func (e *EverestServer) streamEvents(c echo.Context, cluster string, namespaces []string, since string, filter eventFilter) error {
 	ctx := c.Request().Context()
+	w, err := e.handler.WatchEvents(ctx, cluster, namespaces, since)
+	if err != nil {
+		return err
+	}
+	defer w.Stop()
+
+	res := c.Response()
+	res.Header().Set(echo.HeaderContentType, "text/event-stream")
+	res.Header().Set(echo.HeaderCacheControl, "no-cache")
+	res.Header().Set(echo.HeaderConnection, "keep-alive")
+	res.Header().Set("X-Accel-Buffering", "no") // disable nginx/proxy buffering
+	res.WriteHeader(http.StatusOK)
+	if _, err := io.WriteString(res, ": connected\n\n"); err != nil {
+		return nil // the client is gone
+	}
+	res.Flush()
+
+	keepAlive := time.NewTicker(eventStreamKeepAlive)
+	defer keepAlive.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-sub.Dropped:
-			// Slow consumer - broadcast gave up on us. Ch won't receive
-			// anything further.
-			return nil
-		case evt := <-sub.Ch:
-			if err := writeEventFrame(w, evt); err != nil {
-				return nil // client disconnected
+		case <-keepAlive.C:
+			if _, err := io.WriteString(res, ": keepalive\n\n"); err != nil {
+				return nil // the client is gone
 			}
-			w.Flush()
+		case ev, ok := <-w.ResultChan():
+			if !ok {
+				return nil
+			}
+			done, err := writeWatchEvent(res, cluster, ev, filter)
+			if err != nil || done {
+				return nil // the client is gone or the stream ended
+			}
 		}
+		res.Flush()
 	}
 }
 
-// writeEventFrame writes evt as a single SSE frame. id carries the
-// "<epoch>:<seq>" cursor rather than the legacy resourceVersion, since
-// seq/epoch is the cursor that's actually honored on reconnect and it's the
-// only one that's always populated (direct-publish events have no
-// resourceVersion). Native EventSource clients that use Last-Event-ID get a
-// usable value here; this server's own since handling still only reads the
-// since query param, not that header.
-func writeEventFrame(w http.ResponseWriter, evt events.Event) error {
-	data, err := json.Marshal(evt)
-	if err != nil {
-		return nil //nolint:nilerr // malformed envelope is skipped, not a disconnect
+// writeWatchEvent writes ev as a Server-Sent Event. It returns done when the stream
+// must end.
+func writeWatchEvent(w io.Writer, cluster string, ev watch.Event, filter eventFilter) (bool, error) {
+	switch ev.Type {
+	case watch.Added:
+		kubeEvent, ok := ev.Object.(*eventsv1.Event)
+		if !ok || !filter.matches(kubeEvent) {
+			return false, nil
+		}
+		event := toLifecycleEvent(cluster, kubeEvent)
+		return false, writeSSE(w, event.Cursor, event.Type, event)
+	case watch.Bookmark:
+		obj, err := meta.Accessor(ev.Object)
+		if err != nil {
+			return false, nil //nolint:nilerr // a malformed bookmark is skipped
+		}
+		return false, writeSSE(w, obj.GetResourceVersion(), "bookmark", struct{}{})
+	case watch.Error:
+		code, message := http.StatusInternalServerError, "the event stream failed"
+		if statusErr, ok := errors.AsType[*apierrors.StatusError](apierrors.FromObject(ev.Object)); ok {
+			code, message = int(statusErr.Status().Code), statusErr.Error()
+		}
+		if code == http.StatusGone {
+			message = "the cursor is too old: list the events again and stream from the new resourceVersion"
+		}
+		return true, writeSSE(w, "", "error", eventStreamError{Code: code, Message: message})
+	case watch.Modified, watch.Deleted:
+		// Lifecycle events are only created; updates and their expiry are not new events.
+		return false, nil
 	}
-	cursor := events.Cursor{Epoch: evt.Epoch, Seq: evt.Seq}
-	_, err = fmt.Fprintf(w, "id: %s\nevent: %s\ndata: %s\n\n", cursor.String(), evt.Type, data)
+	return false, nil
+}
+
+type eventStreamError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+func writeSSE(w io.Writer, id, eventType string, data any) error {
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return nil //nolint:nilerr // an event that can't be encoded is skipped
+	}
+	var frame strings.Builder
+	if id != "" {
+		fmt.Fprintf(&frame, "id: %s\n", id)
+	}
+	fmt.Fprintf(&frame, "event: %s\ndata: %s\n\n", eventType, payload)
+	_, err = io.WriteString(w, frame.String())
 	return err
+}
+
+// eventFilter keeps the events with one of the requested kinds and reasons.
+type eventFilter struct {
+	kinds   []string
+	reasons []string
+}
+
+func newEventFilter(params api.ListEventsParams) (eventFilter, error) {
+	filter := eventFilter{reasons: splitCSV(params.Reasons)}
+	for _, kind := range splitCSV(params.Kinds) {
+		filter.kinds = append(filter.kinds, strings.ToLower(kind))
+	}
+	for _, reason := range filter.reasons {
+		if !slices.Contains(events.AllReasons, events.Reason(reason)) {
+			return eventFilter{}, fmt.Errorf("unknown reason %q", reason)
+		}
+	}
+	return filter, nil
+}
+
+func (f eventFilter) matches(ev *eventsv1.Event) bool {
+	if len(f.kinds) > 0 && !slices.Contains(f.kinds, strings.ToLower(ev.Regarding.Kind)) {
+		return false
+	}
+	return len(f.reasons) == 0 || slices.Contains(f.reasons, ev.Reason)
+}
+
+func splitCSV(raw *string) []string {
+	if raw == nil {
+		return nil
+	}
+	var values []string
+	for v := range strings.SplitSeq(*raw, ",") {
+		if v = strings.TrimSpace(v); v != "" {
+			values = append(values, v)
+		}
+	}
+	return values
+}
+
+func toLifecycleEvent(cluster string, ev *eventsv1.Event) api.LifecycleEvent {
+	occurredAt := ev.EventTime.Time
+	if occurredAt.IsZero() {
+		occurredAt = ev.CreationTimestamp.Time
+	}
+	out := api.LifecycleEvent{
+		Name:       ev.Name,
+		Cursor:     ev.ResourceVersion,
+		OccurredAt: occurredAt.UTC(),
+		Type:       eventType(ev.Regarding.Kind, ev.Reason),
+		Reason:     api.LifecycleEventReason(ev.Reason),
+		Severity:   api.LifecycleEventSeverity(ev.Type),
+		Cluster:    cluster,
+		Object: api.LifecycleEventObject{
+			ApiVersion: nonEmpty(ev.Regarding.APIVersion),
+			Kind:       ev.Regarding.Kind,
+			Name:       ev.Regarding.Name,
+			Uid:        nonEmpty(string(ev.Regarding.UID)),
+		},
+		Namespace: nonEmpty(ev.Namespace),
+		Message:   nonEmpty(ev.Note),
+		SourceIP:  nonEmpty(ev.Annotations[events.AnnotationSourceIP]),
+	}
+	if actorType, actorID := ev.Annotations[events.AnnotationEventActorType], ev.Annotations[events.AnnotationEventActorID]; actorType != "" || actorID != "" {
+		out.Actor = &api.LifecycleEventActor{Id: nonEmpty(actorID)}
+		if actorType != "" {
+			out.Actor.Type = new(api.LifecycleEventActorType(actorType))
+		}
+	}
+	if from, to := ev.Annotations[events.AnnotationPhaseFrom], ev.Annotations[events.AnnotationPhaseTo]; from != "" || to != "" {
+		out.Phase = &api.LifecycleEventPhase{From: nonEmpty(from), To: nonEmpty(to)}
+	}
+	if generation, err := strconv.ParseInt(ev.Annotations[events.AnnotationGeneration], 10, 64); err == nil {
+		out.Generation = &generation
+	}
+	return out
+}
+
+// eventType returns the kind and reason of an event in the form "instance.phase-changed".
+func eventType(kind, reason string) string {
+	var kebab strings.Builder
+	for i, r := range reason {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			kebab.WriteByte('-')
+		}
+		kebab.WriteRune(r)
+	}
+	return strings.ToLower(kind) + "." + strings.ToLower(kebab.String())
+}
+
+func nonEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

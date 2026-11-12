@@ -83,6 +83,10 @@ const (
 	ResourceMonitoringClasses      = "monitoring-classes"
 	ResourceMonitoringDestinations = "monitoring-destinations"
 	ResourceMonitoringBindings     = "monitoring-bindings"
+
+	// ResourceEvents are the lifecycle events. Its RBAC object is
+	// cluster/namespace/name, where name is the object the event is about.
+	ResourceEvents = "events"
 )
 
 // GlobalResources is a list of all Everest API resources that are considered global.
@@ -118,12 +122,13 @@ var ClusterNamespacedResources = []string{
 	ResourceSecrets,
 	ResourceMonitoringDestinations,
 	ResourceMonitoringBindings,
+	ResourceEvents,
 }
 
 // isReadOnlyResource returns true if the API serves no writes for the
 // resource, so the admin role is granted only read on it.
 func isReadOnlyResource(resource string) bool {
-	return resource == ResourceMonitoringClasses || resource == ResourceMonitoringBindings
+	return resource == ResourceMonitoringClasses || resource == ResourceMonitoringBindings || resource == ResourceEvents
 }
 
 // IsGlobalResource returns true if the given resource is a global (non-namespaced) Everest API resource.

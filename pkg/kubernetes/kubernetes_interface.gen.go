@@ -11,6 +11,7 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +26,7 @@ import (
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/events"
 )
 
 // KubernetesConnector ...
@@ -383,28 +385,16 @@ type KubernetesConnector interface {
 	UpdateInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) (*v1alpha1.InstancePreset, error)
 	// DeleteInstancePreset deletes a namespace-scoped instance preset.
 	DeleteInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) error
-	// WatchBackups returns a watch.Interface that streams
-	// Backup events across all namespaces.
-	WatchBackups(ctx context.Context) (watch.Interface, error)
-	// WatchRestores returns a watch.Interface that streams
-	// Restore events across all namespaces.
-	WatchRestores(ctx context.Context) (watch.Interface, error)
-	// WatchInstances returns a watch.Interface that streams
-	// Instance events across all namespaces.
-	WatchInstances(ctx context.Context) (watch.Interface, error)
-	// WatchPlugins returns a watch.Interface that streams Plugin CR events.
-	// Plugin is cluster-scoped.
-	WatchPlugins(ctx context.Context) (watch.Interface, error)
-	// WatchInstalledExtensions returns a watch.Interface that streams
-	// InstalledExtension events across all namespaces.
-	WatchInstalledExtensions(ctx context.Context) (watch.Interface, error)
-	// WatchEverestManagedNamespaces returns a watch.Interface that streams
-	// events for Namespaces carrying the Everest managed-by label.
-	WatchEverestManagedNamespaces(ctx context.Context) (watch.Interface, error)
-	// WatchEverestSettings returns a watch.Interface that streams ConfigMap
-	// events for the Everest settings ConfigMap in the system namespace.
-	// Callers must filter results by name (the watch returns all ConfigMaps in
-	// the namespace; field-selector watches are not portable across the
-	// controller-runtime client).
-	WatchEverestSettings(ctx context.Context) (watch.Interface, error)
+	// RecordLifecycleEvent records r as a lifecycle event. Events about objects without a
+	// namespace, such as users, are recorded in the namespace of the connector.
+	RecordLifecycleEvent(ctx context.Context, r events.Record) error
+	// ListLifecycleEvents lists the lifecycle events (see pkg/events) in namespace, or in
+	// all namespaces when namespace is empty.
+	ListLifecycleEvents(ctx context.Context, namespace string) (*eventsv1.EventList, error)
+	// WatchLifecycleEvents watches the lifecycle events in namespace, or in all namespaces
+	// when namespace is empty, recorded after resourceVersion, or from now on when it is
+	// empty. The watch resumes on its own when the API server closes it. When
+	// resourceVersion is too old to resume from, it sends an error event with a 410 status
+	// and stops.
+	WatchLifecycleEvents(ctx context.Context, namespace, resourceVersion string) (watch.Interface, error)
 }

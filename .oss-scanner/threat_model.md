@@ -26,8 +26,10 @@ Project security policy: `SECURITY.md`.
     plugin backend APIs, injected credentials or other upstreams through it without a token is in scope. Check
     the JWT middleware's skipper (`newSkipperFunc`) and the hand-registered routes in
     `internal/server/everest.go`.
-  - `GET /v1/events` is an authenticated event stream registered outside OpenAPI validation and the handler
-    chain. Events about resources the user is not allowed to see must not be sent to them.
+  - `GET /v1/clusters/{cluster}/events` lists, or with `watch=true` streams, the lifecycle events stored as
+    Kubernetes Events. Each event is filtered by the `events` `read` grant on `{cluster}/{namespace}/{name}` of
+    the object it is about (`internal/server/handlers/rbac/events.go`). Events about resources the user is not
+    allowed to see must not be sent to them, including on the stream.
   - `GET .../instances/{instance}/connection` returns database host, username and password. It is the most
     sensitive read endpoint.
   - `.../secrets` endpoints must never return `Secret.data`. List and get return metadata only.
