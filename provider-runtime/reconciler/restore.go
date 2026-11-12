@@ -140,6 +140,7 @@ func (r *restoreRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.
 	inCtx := controller.NewContext(ctx, r.client, instance, r.providerName)
 
 	if controllerutil.AddFinalizer(restore, restoreRuntimeFinalizer) {
+		claimInstanceUID(restore, instance)
 		if err := r.client.Update(ctx, restore); err != nil {
 			return reconcile.Result{}, err
 		}

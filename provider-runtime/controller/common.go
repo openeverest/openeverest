@@ -899,6 +899,11 @@ const IndexRestoreInstanceName = "spec.instanceRef.name"
 // manages an Instance. Set automatically by the provider reconciler.
 const ProviderLabel = "core.openeverest.io/provider"
 
+// InstanceUIDLabel records the UID of the Instance a Backup or Restore was
+// claimed for. They reference their Instance by name only, and a later
+// Instance can reuse that name.
+const InstanceUIDLabel = "core.openeverest.io/instance-uid"
+
 // InstanceLabel and ComponentLabel identify the Instance and component a pod
 // belongs to. See Context.PodLabels.
 const (

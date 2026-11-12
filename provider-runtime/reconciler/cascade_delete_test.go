@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
@@ -167,4 +168,109 @@ func TestCascadeDeleteChildren_NoChildren(t *testing.T) {
 	remaining, err := r.cascadeDeleteChildren(context.Background(), inCtx, logger)
 	require.NoError(t, err)
 	assert.Equal(t, 0, remaining)
+}
+
+// A Backup or Restore kept (Orphan) from an earlier Instance must survive the
+// cascade delete of a later Instance that reuses the name.
+func TestCascadeDeleteChildren_SkipsChildrenOfEarlierInstanceWithSameName(t *testing.T) {
+	t.Parallel()
+
+	scheme := newTestScheme()
+	instance := &corev1alpha1.Instance{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-db", Namespace: "default", UID: "uid-later"},
+		Spec: corev1alpha1.InstanceSpec{
+			ProviderRef:    common.ObjectRef{Name: "test-provider"},
+			DeletionPolicy: corev1alpha1.InstanceDeletionPolicyCascade,
+		},
+	}
+	backup := func(name, claimedUID string) *backupv1alpha1.Backup {
+		b := &backupv1alpha1.Backup{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+			Spec: backupv1alpha1.BackupSpec{
+				Origin: backupv1alpha1.BackupOrigin{
+					Type:        backupv1alpha1.BackupOriginTypeInstance,
+					InstanceRef: &common.ObjectRef{Name: "my-db"},
+				},
+				ClassRef:   common.ObjectRef{Name: "bc"},
+				StorageRef: common.ObjectRef{Name: "s3"},
+			},
+		}
+		if claimedUID != "" {
+			b.Labels = map[string]string{controller.InstanceUIDLabel: claimedUID}
+		}
+		return b
+	}
+	restore := func(name, claimedUID string) *backupv1alpha1.Restore {
+		return &backupv1alpha1.Restore{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name, Namespace: "default",
+				Labels: map[string]string{controller.InstanceUIDLabel: claimedUID},
+			},
+			Spec: backupv1alpha1.RestoreSpec{InstanceRef: common.ObjectRef{Name: "my-db"}},
+		}
+	}
+
+	c := newFakeClient(scheme, instance,
+		backup("own", "uid-later"),
+		backup("unclaimed", ""),
+		backup("kept", "uid-earlier"),
+		restore("own-restore", "uid-later"),
+		restore("kept-restore", "uid-earlier"),
+	)
+	r := &ProviderReconciler{Client: c}
+	inCtx := controller.NewContext(context.Background(), c, instance, "test-provider")
+
+	remaining, err := r.cascadeDeleteChildren(context.Background(), inCtx, &testLogger{t: t})
+	require.NoError(t, err)
+	assert.Equal(t, 3, remaining, "only the later Instance's children are waited for")
+
+	exists := func(obj client.Object) bool {
+		err := c.Get(context.Background(), client.ObjectKeyFromObject(obj), obj)
+		return err == nil
+	}
+	assert.True(t, exists(backup("kept", "")), "Backup of the earlier Instance was deleted")
+	assert.True(t, exists(restore("kept-restore", "")), "Restore of the earlier Instance was deleted")
+	assert.False(t, exists(backup("own", "")))
+	assert.False(t, exists(backup("unclaimed", "")))
+	assert.False(t, exists(restore("own-restore", "")))
+}
+
+func TestBackupAndRestoreReconcile_ClaimRecordsInstanceUID(t *testing.T) {
+	t.Parallel()
+
+	instance := testOperationInstance()
+	instance.UID = "uid-orders"
+	backup := testBackup("")
+	backup.Finalizers = nil
+	source := testBackup(backupv1alpha1.BackupStateSucceeded)
+	source.Name = "nightly-1"
+	restore := &backupv1alpha1.Restore{
+		ObjectMeta: metav1.ObjectMeta{Name: "rollback", Namespace: "team-a"},
+		Spec: backupv1alpha1.RestoreSpec{
+			InstanceRef: common.ObjectRef{Name: "orders"},
+			DataSource: backupv1alpha1.DataSource{
+				Type:   backupv1alpha1.DataSourceTypeBackup,
+				Backup: &backupv1alpha1.DataSourceBackup{BackupRef: common.ObjectRef{Name: "nightly-1"}},
+			},
+		},
+	}
+	c := newOperationTestClient(
+		testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "test-provider"),
+		instance, backup, source, restore,
+	)
+	p := &countingBackupProvider{}
+
+	br := &backupRuntimeReconciler{client: c, reader: c, provider: p, providerName: "test-provider"}
+	_, err := br.Reconcile(t.Context(), reconcile.Request{NamespacedName: client.ObjectKeyFromObject(backup)})
+	require.NoError(t, err)
+	gotBackup := &backupv1alpha1.Backup{}
+	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(backup), gotBackup))
+	assert.Equal(t, "uid-orders", gotBackup.Labels[controller.InstanceUIDLabel])
+
+	rr := &restoreRuntimeReconciler{client: c, reader: c, provider: p, providerName: "test-provider"}
+	_, err = rr.Reconcile(t.Context(), reconcile.Request{NamespacedName: client.ObjectKeyFromObject(restore)})
+	require.NoError(t, err)
+	gotRestore := &backupv1alpha1.Restore{}
+	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(restore), gotRestore))
+	assert.Equal(t, "uid-orders", gotRestore.Labels[controller.InstanceUIDLabel])
 }
