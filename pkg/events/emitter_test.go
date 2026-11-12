@@ -74,10 +74,11 @@ func TestEmitter(t *testing.T) {
 		assert.Equal(t, ReportingController, ev.ReportingController)
 		assert.Equal(t, "controller-0", ev.ReportingInstance)
 		assert.Equal(t, instance, ev.Regarding)
-		assert.Equal(t, map[string]string{
+		wantAnnotations := map[string]string{
 			AnnotationEventActorType: "system", AnnotationEventActorID: "controller",
 			AnnotationPhaseFrom: "Provisioning", AnnotationPhaseTo: "Failed",
-		}, ev.Annotations)
+		}
+		assert.Equal(t, wantAnnotations, ev.Annotations)
 	})
 
 	t.Run("recording the same event again is a no-op", func(t *testing.T) {

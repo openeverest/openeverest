@@ -67,7 +67,8 @@ func TestToLifecycleEvent(t *testing.T) {
 		events.AnnotationPhaseFrom: "Ready", events.AnnotationPhaseTo: "Failed",
 	}
 
-	assert.Equal(t, api.LifecycleEvent{
+	systemActor := api.LifecycleEventActorTypeSystem
+	want := api.LifecycleEvent{
 		Name:       "db1.uid-1.phasechanged-7",
 		Cursor:     "7",
 		OccurredAt: at,
@@ -79,10 +80,11 @@ func TestToLifecycleEvent(t *testing.T) {
 		Object: api.LifecycleEventObject{
 			ApiVersion: new("core.openeverest.io/v1alpha1"), Kind: "Instance", Name: "db1", Uid: new("uid-1"),
 		},
-		Actor:   &api.LifecycleEventActor{Type: new(api.LifecycleEventActorTypeSystem), Id: new("controller")},
+		Actor:   &api.LifecycleEventActor{Type: &systemActor, Id: new("controller")},
 		Phase:   &api.LifecycleEventPhase{From: new("Ready"), To: new("Failed")},
 		Message: new("Instance team-a/db1 phase changed"),
-	}, toLifecycleEvent("main", &ev))
+	}
+	assert.Equal(t, want, toLifecycleEvent("main", &ev))
 
 	assert.Equal(t, "user.login-succeeded", eventType("User", "LoginSucceeded"))
 }
@@ -92,14 +94,15 @@ func TestListEvents(t *testing.T) {
 
 	at := time.Date(2026, 11, 12, 10, 0, 0, 0, time.UTC)
 	next := &handlers.MockHandler{}
-	next.On("ListEvents", mock.Anything, "main", []string{"team-a"}).Return(&eventsv1.EventList{
+	list := &eventsv1.EventList{
 		ListMeta: metav1.ListMeta{ResourceVersion: "50"},
 		Items: []eventsv1.Event{
 			kubeEvent("later", "12", "Instance", "PhaseChanged", at.Add(time.Minute)),
 			kubeEvent("earlier", "11", "Instance", "Created", at),
 			kubeEvent("other-kind", "13", "Backup", "Created", at),
 		},
-	}, nil)
+	}
+	next.On("ListEvents", mock.Anything, "main", []string{"team-a"}).Return(list, nil)
 	srv := &EverestServer{handler: next}
 
 	t.Run("lists the matching events, oldest first, with the resourceVersion to stream from", func(t *testing.T) {
