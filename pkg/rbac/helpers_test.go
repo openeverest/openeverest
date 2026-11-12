@@ -120,7 +120,6 @@ func TestIsClusterNamespacedResource(t *testing.T) {
 		{ResourceBackups, true},
 		{ResourceRestores, true},
 		{ResourceBackupStorages, true},
-		{ResourceMonitoringConfigs, true},
 		{ResourceMonitoringDestinations, true},
 		{ResourceMonitoringBindings, true},
 		{ResourceMonitoringClasses, false},

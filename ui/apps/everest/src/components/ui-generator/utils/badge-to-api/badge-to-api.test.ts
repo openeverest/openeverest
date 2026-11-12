@@ -18,7 +18,11 @@ import {
   applyBadgesToFormData,
   stripBadgeFromValue,
 } from './badge-to-api';
-import { FieldType, TopologyUISchemas } from '../../ui-generator.types';
+import {
+  Component,
+  FieldType,
+  TopologyUISchemas,
+} from '../../ui-generator.types';
 
 describe('extractBadgeMappings', () => {
   it('expands multipath fields into independent badge mappings', () => {
@@ -74,6 +78,34 @@ describe('extractBadgeMappings', () => {
 
     const mappings = extractBadgeMappings(schema, 'ha');
     expect(mappings).toEqual([]);
+  });
+
+  it('skips quantity fields even when badgeToApi is left over from a migration', () => {
+    // Simulate a YAML leftover: typed schemas forbid badge on quantity, but
+    // runtime YAML can still carry them after a number → quantity migration.
+    const memoryField: Extract<Component, { uiType: FieldType.Quantity }> = {
+      uiType: FieldType.Quantity,
+      path: 'spec.memory',
+      fieldParams: {
+        label: 'Memory',
+        unit: 'Gi',
+      },
+    };
+    Object.assign(memoryField.fieldParams, { badge: 'Gi', badgeToApi: true });
+
+    const schema: TopologyUISchemas = {
+      single: {
+        sections: {
+          resources: {
+            components: {
+              memory: memoryField,
+            },
+          },
+        },
+      },
+    };
+
+    expect(extractBadgeMappings(schema, 'single')).toEqual([]);
   });
 });
 

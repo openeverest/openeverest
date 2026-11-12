@@ -259,21 +259,24 @@ func TestClassIsAccepted(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name   string
-		status metav1.ConditionStatus
-		want   bool
+		name               string
+		status             metav1.ConditionStatus
+		observedGeneration int64
+		want               bool
 	}{
-		{name: "claimed", status: metav1.ConditionTrue, want: true},
-		{name: "rejected", status: metav1.ConditionFalse, want: false},
+		{name: "claimed", status: metav1.ConditionTrue, observedGeneration: 3, want: true},
+		{name: "claimed at an older generation", status: metav1.ConditionTrue, observedGeneration: 2, want: false},
+		{name: "claimed without an observed generation", status: metav1.ConditionTrue, want: false},
+		{name: "rejected", status: metav1.ConditionFalse, observedGeneration: 3, want: false},
 		{name: "waiting for controller", status: metav1.ConditionUnknown, want: false},
 		{name: "no condition", want: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			class := &monitoringv1alpha1.MonitoringClass{}
+			class := &monitoringv1alpha1.MonitoringClass{ObjectMeta: metav1.ObjectMeta{Generation: 3}}
 			if tt.status != "" {
-				class.Status.Conditions = []metav1.Condition{{Type: "Accepted", Status: tt.status}}
+				class.Status.Conditions = []metav1.Condition{{Type: "Accepted", Status: tt.status, ObservedGeneration: tt.observedGeneration}}
 			}
 			assert.Equal(t, tt.want, monitoring.ClassIsAccepted(class))
 		})

@@ -58,11 +58,12 @@ Project security policy: `SECURITY.md`.
   plugin backend that should not get it, and plugin tokens being accepted with more privilege than intended.
 - **Controller manager** (`cmd/controller`, `internal/controller/{backup,monitoring,extension}`) and
   **admission webhooks** (`internal/webhook`). These reconcile the CRDs in `api/` (instances, backups,
-  restores, backup classes and storages, monitoring configs, providers and plugins). Backup and restore jobs
-  build Pod specs and container commands from CR fields (`internal/controller/backup/backup_controller.go`,
-  `restore_controller.go`). Fields a namespace-level user controls (Backup, Restore, BackupStorage,
-  MonitoringConfig, instance specs) must not let them inject commands, args, env, volumes, images or service
-  accounts beyond what the administrator-defined BackupClass allows, or reach Secrets in other namespaces.
+  restores, backup classes and storages, monitoring destinations, providers and plugins). Backup and restore
+  jobs build Pod specs and container commands from CR fields
+  (`internal/controller/backup/backup_controller.go`, `restore_controller.go`). Fields a namespace-level user
+  controls (Backup, Restore, BackupStorage, MonitoringDestination, instance specs) must not let them inject
+  commands, args, env, volumes, images or service accounts beyond what the administrator-defined BackupClass
+  allows, or reach Secrets in other namespaces.
 - **Provider runtime** (`provider-runtime/`). This SDK is used by database-provider operators. It runs an HTTP
   server (`provider-runtime/server/server.go`) with `/validate`, `/healthz` and `/readyz`; treat
   validation request bodies as untrusted.

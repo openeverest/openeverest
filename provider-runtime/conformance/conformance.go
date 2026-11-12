@@ -44,7 +44,8 @@ type Config struct {
 	// Unverifiable maps a UI schema path to the reason the harness cannot
 	// observe it. Use it when a provider reshapes a value so thoroughly that
 	// it is unrecognisable in the resulting engine CR — not to silence a
-	// field that is genuinely unhandled.
+	// field that is genuinely unhandled. UISchemaIsAccepted skips these paths
+	// too.
 	Unverifiable map[string]string
 }
 

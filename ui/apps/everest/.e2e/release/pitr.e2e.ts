@@ -46,6 +46,7 @@ import {
   waitForDelete,
   findRowAndClickActions,
   waitForDbListLoad,
+  confirmDeletion,
 } from '@e2e/utils/table';
 import { clickOnDemandBackup } from '@e2e/pr/db-cluster-details/utils';
 import {
@@ -611,7 +612,7 @@ test.describe.serial(
       await gotoDbClusterRestores(page, clusterName);
       await findRowAndClickActions(page, firstRestoreName, 'Delete');
       await expect(page.getByLabel('Delete restore')).toBeVisible();
-      await page.getByTestId('confirm-dialog-delete').click();
+      await confirmDeletion(page, 'confirm-dialog-delete');
       // Restore cleanup is a provider finalizer that can wait a 10s requeue.
       await waitForDelete(page, firstRestoreName, TIMEOUTS.OneMinute);
     });

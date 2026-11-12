@@ -825,62 +825,6 @@ export interface paths {
         patch: operations["patchBackupStorage"];
         trace?: never;
     };
-    "/clusters/{cluster}/namespaces/{namespace}/monitoring-configs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List monitoring configs
-         * @description This API lists all monitoring configs in a given namespace.
-         */
-        get: operations["listMonitoringConfigs"];
-        put?: never;
-        /**
-         * Create monitoring config
-         * @description This API creates a new monitoring config.
-         *
-         *     A monitoring config object requires `type` to be set.
-         *     Based on the `type` the respective key with configuration needs to be set.
-         *     Such as, if `type: pmm`, then `pmm` key needs to be provided with a configuration.
-         */
-        post: operations["createMonitoringConfig"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/clusters/{cluster}/namespaces/{namespace}/monitoring-configs/{name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get monitoring config
-         * @description This API gets the monitoring config specified by the `name`.
-         */
-        get: operations["getMonitoringConfig"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete monitoring config
-         * @description This API deletes the monitoring config specified by the `name`.
-         */
-        delete: operations["deleteMonitoringConfig"];
-        options?: never;
-        head?: never;
-        /**
-         * Update monitoring config
-         * @description This API updates the monitoring config specified by the `name`.
-         */
-        patch: operations["updateMonitoringConfig"];
-        trace?: never;
-    };
     "/clusters/{cluster}/monitoring-classes": {
         parameters: {
             query?: never;
@@ -892,7 +836,7 @@ export interface paths {
          * List monitoring classes
          * @description This API lists all monitoring classes in the specified cluster.
          *     Monitoring classes are installed with their extension and are read-only over this API.
-         *     Optionally filter by provider: only the classes whose `status.providers` entry for that provider carries a `mode` are returned, so the result is what an Instance of that provider can use.
+         *     Optionally filter by provider: only the classes whose `status.providers` entry for that provider carries a `mode` and was computed for the class's current generation (`classGeneration`) are returned, so the result is what an Instance of that provider can use.
          */
         get: operations["listMonitoringClasses"];
         put?: never;
@@ -933,7 +877,16 @@ export interface paths {
         /**
          * List monitoring destinations
          * @description This API lists all monitoring destinations in the specified namespace and cluster.
-         *     Optionally filter by monitoring class: only the destinations whose `spec.classRef.name` is that class are returned.
+         *
+         *     The filters are field selectors passed through to Kubernetes, so they return the same destinations as
+         *     `kubectl get monitoringdestinations --field-selector <field>=<value>`:
+         *     - `class` returns the destinations whose `spec.classRef.name` is that class;
+         *     - `secret` returns the destinations that reference that Secret, either as their credentials
+         *       (`spec.authentication.credentialsSecretRef.name`) or as their CA bundle (`spec.tls.ca.secretKeyRef.name`),
+         *       each destination once.
+         *
+         *     When both are set, a destination must match both. Like any list, the result holds only the destinations
+         *     the caller may read.
          */
         get: operations["listMonitoringDestinations"];
         put?: never;
@@ -941,7 +894,7 @@ export interface paths {
          * Create monitoring destination
          * @description This API creates a new monitoring destination in the specified namespace and cluster.
          *     Only `metadata.name`, `metadata.generateName`, `metadata.labels`, `metadata.annotations` and `spec` are taken from the request; the namespace is the one in the path.
-         *     Credentials are never part of the payload: create the Secret through the secrets API, labelled `openeverest.io/monitoring-class: <class>` and `openeverest.io/definition: <mode>`, and reference it in `spec.authentication.credentialsSecretRef`, together with the `spec.authentication.mode` of the monitoring class it holds the keys of. A CA bundle is referenced in `spec.tls.ca.secretKeyRef`. Referencing a Secret requires `read` on it.
+         *     Credentials are never part of the payload: create the Secret through the secrets API, labelled `openeverest.io/monitoring-class: <class>` and `openeverest.io/definition: <mode>`, and reference it in `spec.authentication.credentialsSecretRef`, together with the `spec.authentication.mode` of the monitoring class it holds the keys of. A CA bundle is referenced in `spec.tls.ca.secretKeyRef`. Referencing a Secret requires `use` on it (`secrets:use`), since the destination sends its contents to, or trusts them for, the endpoint it names; `read` is not enough.
          *     `spec.classRef` requires `read` on the monitoring class it names.
          */
         post: operations["createMonitoringDestination"];
@@ -966,16 +919,21 @@ export interface paths {
         /**
          * Update monitoring destination
          * @description This API replaces the labels, annotations and `spec` of the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
-         *     Include `metadata.resourceVersion` from the object being replaced to make the update fail with 409 if the monitoring destination has changed since; without it, the destination is replaced whatever its current version.
-         *     `spec.classRef` is immutable and requires `read` on the monitoring class it names. Credentials are never part of the payload: update the Secret named by `spec.authentication.credentialsSecretRef` instead. Referencing a Secret, as credentials or as `spec.tls.ca.secretKeyRef`, requires `read` on it.
+         *     Include `metadata.resourceVersion` from the object being replaced to make the update fail with 409 if the monitoring destination has changed since; without it, the destination is replaced whatever its current version, except that an update leaving `spec` unchanged is made against the version read to authorise it, so it fails with 409 if the destination changes in between.
+         *     `spec.classRef` is immutable and requires `read` on the monitoring class it names. Credentials are never part of the payload: update the Secret named by `spec.authentication.credentialsSecretRef` instead, with `PATCH .../secrets/{name}`.
+         *     An update that changes `spec` requires `use` (`secrets:use`) on every Secret the updated destination references, as credentials or as `spec.tls.ca.secretKeyRef`, including those it already referenced: pointing a destination at another endpoint while keeping its Secret sends the Secret's contents there. `read` is not enough. An update of labels or annotations only needs no `use`.
          */
         put: operations["updateMonitoringDestination"];
         post?: never;
         /**
          * Delete monitoring destination
          * @description This API deletes the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
-         *     Instances that still list it in `spec.monitoring.destinations` keep their current monitoring and report the destination as not found;
-         *     list them first with `GET .../monitoring-bindings?destination={name}`.
+         *     It is refused with `409` and reason `InUse` while Instances that are not being deleted list the destination in `spec.monitoring.destinations` (`status.attachedInstances` above zero);
+         *     the message gives their number, and `GET .../monitoring-bindings?destination={name}` lists them.
+         *     With `dryRun=All` the answer is the same and nothing is deleted, so a client can ask before it deletes.
+         *     An Instance being deleted does not count, so a destination can be deleted right after the Instances that list it. Core counts their deletion within moments; until it has, the answer is still `409`, so a client deleting both retries briefly.
+         *     A deletion that is let through leaves the destination listed with `metadata.deletionTimestamp` set until no Instance lists it any more, those being deleted included; `status.attachedInstances` then counts them.
+         *     Deleting a destination that is already being deleted answers `204` again.
          */
         delete: operations["deleteMonitoringDestination"];
         options?: never;
@@ -1084,8 +1042,9 @@ export interface paths {
         };
         /**
          * List secrets
-         * @description This API lists OpenEverest-managed Secrets in the specified namespace and cluster.
-         *     Only metadata is returned; secret data is never included.
+         * @description This API lists the labelled Secrets in the specified namespace and cluster: those carrying `openeverest.io/definition` and exactly one source label, or `openeverest.io/definition: ca-bundle` and no source label, as on create.
+         *     They are listed whether they were created through this API or applied with kubectl, by Git or by a secret manager; `openeverest.io/managed` tells which, and `metadata.ownerReferences` whether a controller owns the Secret. Only the Secrets the caller may `read` are listed.
+         *     Each Secret is returned as `GET .../secrets/{name}` returns it, never with its data.
          *     Optionally filter by the labels that name the Secret's definition.
          */
         get: operations["listSecrets"];
@@ -1093,7 +1052,7 @@ export interface paths {
         /**
          * Create secret
          * @description This API creates a new Secret in the specified namespace and cluster.
-         *     The Secret is labeled as managed by OpenEverest.
+         *     The server adds the label `openeverest.io/managed: "true"`, which marks the Secret as created through this API: only such Secrets can be patched through it.
          *
          *     The Secret names the object that defines its shape with exactly one source label, and the definition within that source with `openeverest.io/definition`:
          *
@@ -1101,8 +1060,12 @@ export interface paths {
          *     |---|---|---|
          *     | `openeverest.io/provider: <provider>` | a key of the Provider's `spec.secrets` | the definition's `type` and `parametersSchema` |
          *     | `openeverest.io/monitoring-class: <class>` | an authentication mode of the MonitoringClass, e.g. `ServiceAccountToken` | type `Opaque` and the keys the mode requires |
+         *     | none | `ca-bundle`, the one definition core owns | type `Opaque`; key `ca.crt` present; every key holds PEM CA certificates and no other PEM block |
          *
-         *     The name follows the Kubernetes rules for Secret names. Client-supplied owner references and finalizers are dropped. Secrets of type `kubernetes.io/service-account-token` or `bootstrap.kubernetes.io/token` are refused.
+         *     A CA bundle is trust material, not a credential of any provider or class, so one bundle can be referenced from `spec.tls.ca.secretKeyRef` by any kind; list them with `?definition=ca-bundle`. It holds its certificates under `ca.crt`, so a reference to it always names that key; other keys may hold more certificates.
+         *
+         *     The name follows the Kubernetes rules for Secret names. Client-supplied owner references, finalizers and usage counts (`monitoring.openeverest.io/attached-destinations`, `backup.openeverest.io/attached-storages`) are dropped: core alone counts the objects that use a Secret. Secrets of type `kubernetes.io/service-account-token` or `bootstrap.kubernetes.io/token` are refused.
+         *     The response is the created Secret as `GET .../secrets/{name}` returns it, never with its data.
          */
         post: operations["createSecret"];
         delete?: never;
@@ -1120,20 +1083,35 @@ export interface paths {
         };
         /**
          * Get secret
-         * @description This API gets OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`.
-         *     Note: Secret data is NOT included in the response for security reasons. Only metadata is returned.
+         * @description This API gets the labelled Secret specified by the `name` in the specified `namespace` and `cluster`, whoever created it. A Secret without the labels that name a definition (see list) is not found, with the same answer as a missing Secret, here and on patch and delete.
+         *     The response never carries the Secret's data. It holds `type`, `immutable` and these members of `metadata`: `name`, `namespace`, `uid`, `resourceVersion`, `creationTimestamp`, `deletionTimestamp`, `labels`, `ownerReferences` (without `blockOwnerDeletion`), and the annotations whose key is in the `openeverest.io` domain or one of its subdomains.
+         *     Any other metadata, such as `managedFields` and annotations written by kubectl or other tools, is left out because it can hold or reveal the data.
          */
         get: operations["getSecret"];
         put?: never;
         post?: never;
         /**
          * Delete secret
-         * @description This API deletes the OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`.
+         * @description This API deletes the labelled Secret specified by the `name` in the specified `namespace` and `cluster`, whether or not it was created through this API, so leftovers of Git or `helm uninstall` can be removed. Whatever applied it may create it again.
+         *     A Secret with a controller owner reference, such as an ExternalSecret, is refused with 409, reason `ManagedByController` and the message "managed by <Kind>/<name>", since the controller would recreate it; delete it at its source.
+         *     A Secret objects use is refused with `409` and reason `InUse`. Core counts them on the credentials and CA bundle Secrets that monitoring destinations and backup storages reference, in the annotations `monitoring.openeverest.io/attached-destinations` and `backup.openeverest.io/attached-storages` the response of get carries; any count but `0` refuses the deletion. The message gives the counts and the `kubectl get monitoringdestinations,backupstorages --field-selector` command that lists the objects.
+         *     With `dryRun=All` the answer is the same and nothing is deleted, so a client can ask before it deletes.
+         *     An object being deleted does not count, so a Secret can be deleted right after the objects that use it. Core counts their deletion within moments; until it has, the answer is still `409`, so a client deleting both retries briefly.
+         *     A deletion that is let through while an object still uses the Secret, one being deleted for instance, leaves the Secret listed with `metadata.deletionTimestamp` set until none does; the counts then include objects being deleted. Deleting a Secret that is already being deleted answers `204` again.
          */
         delete: operations["deleteSecret"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Patch secret
+         * @description This API applies Merge Patch to the data of the labelled Secret specified by the `name` in the specified `namespace` and `cluster`, for instance to rotate credentials without renaming the Secret.
+         *     Only a Secret created through this API (`openeverest.io/managed: "true"`) that no controller owns can be patched; whatever else manages a Secret would revert the change. A Secret with a controller owner reference, such as an ExternalSecret, is refused with 409, reason `ManagedByController` and the message "managed by <Kind>/<name>"; any other Secret not created through this API with 409, reason `ManagedOutside`. Change those at their source.
+         *     Keys sent in `data` or `stringData` are set, keys left out keep their value, and `data: {"<key>": null}` removes a key. The patched data is checked against the Secret's definition, as on create.
+         *     `metadata.resourceVersion` is required: send the one returned when you read the Secret. The patch fails with 409 if the Secret has changed since, so a change made in between is never overwritten.
+         *     Only the data changes. `type`, `immutable` and `metadata.labels`, when sent, must match the stored Secret, and the rest of `metadata` is ignored, so a Secret returned by `GET` can be sent back as a patch and changes nothing.
+         *     A member a Secret does not have is rejected rather than ignored. A Secret marked `immutable` can't be patched. The response is the patched Secret as `GET .../secrets/{name}` returns it, never with its data.
+         */
+        patch: operations["patchSecret"];
         trace?: never;
     };
 }
@@ -1150,7 +1128,7 @@ export interface components {
          */
         APIError: components["schemas"]["Error"] & {
             /**
-             * @description Machine-readable reason for the conflict.
+             * @description Machine-readable reason for the error.
              * @example AlreadyExists
              */
             reason: string;
@@ -1159,8 +1137,28 @@ export interface components {
              * @example metadata.name
              */
             field?: string;
+            /** @description Every field that failed validation, on a 422. */
+            causes?: components["schemas"]["APIErrorCause"][];
         };
-        /** @description A list of OpenEverest-managed Secrets (metadata only). */
+        /** @description One field that failed validation. */
+        APIErrorCause: {
+            /**
+             * @description Machine-readable kind of failure.
+             * @example FieldValueInvalid
+             */
+            reason?: string;
+            /**
+             * @description What is wrong with the field.
+             * @example Invalid value: 1: replicas in body should be a multiple of 2
+             */
+            message?: string;
+            /**
+             * @description The path of the field.
+             * @example spec.components[hidden].replicas
+             */
+            field?: string;
+        };
+        /** @description A list of labelled Secrets (metadata only). */
         SecretList: {
             /** @example v1 */
             apiVersion?: string;
@@ -1391,37 +1389,6 @@ export interface components {
         /** @description Monitoring instance information */
         MonitoringInstance: components["schemas"]["MonitoringInstanceBaseWithName"];
         MonitoringInstancesList: components["schemas"]["MonitoringInstance"][];
-        /** @description MonitoringConfigBase contains common fields for monitoring config */
-        MonitoringConfigBase: {
-            /** @enum {string} */
-            type?: "pmm";
-            url?: string;
-            /** @description VerifyTLS is set to ensure TLS/SSL verification. */
-            verifyTLS?: boolean;
-        };
-        /** @description MonitoringConfigBaseWithName contains common fields for monitoring config with name and namespace */
-        MonitoringConfigBaseWithName: components["schemas"]["MonitoringConfigBase"] & {
-            /**
-             * @description A user defined string name of the storage in the DNS name format https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names
-             * @example pmm-instance
-             */
-            name?: string;
-        };
-        /** @description MonitoringConfigPMM contains PMM-specific fields for monitoring config */
-        MonitoringConfigPMM: {
-            pmm?: {
-                /** @example admin */
-                user?: string;
-                /** @example password */
-                password?: string;
-                /** @example apikey */
-                apiKey?: string;
-            };
-        };
-        /** @description MonitoringConfigCreateParams contains parameters for creating a monitoring config */
-        MonitoringConfigCreateParams: components["schemas"]["MonitoringConfigBaseWithName"] & components["schemas"]["MonitoringConfigPMM"];
-        /** @description MonitoringConfigUpdateParams contains parameters for updating a monitoring config */
-        MonitoringConfigUpdateParams: components["schemas"]["MonitoringConfigBase"] & components["schemas"]["MonitoringConfigPMM"];
         /** @description kubernetes object */
         DatabaseClusterCredential: {
             /** @example postgres://user:secret@100.100.100.100:5432 */
@@ -1751,9 +1718,8 @@ export interface components {
                  * @description Backup configures the backup feature for this Instance. When enabled,
                  *     the provider's reconciler is given the resolved BackupClass and storage
                  *     list so it can configure the engine accordingly (sidecars, agent
-                 *     configuration, etc.). Required for ProviderManaged BackupClasses; Job
-                 *     classes do not need an entry here because they read directly from
-                 *     individual Backup CRs.
+                 *     configuration, etc.). Required to back up the Instance with its
+                 *     ProviderManaged BackupClass.
                  */
                 backup?: {
                     /**
@@ -3076,9 +3042,8 @@ export interface components {
                  * @description Backup configures the backup feature for this Instance. When enabled,
                  *     the provider's reconciler is given the resolved BackupClass and storage
                  *     list so it can configure the engine accordingly (sidecars, agent
-                 *     configuration, etc.). Required for ProviderManaged BackupClasses; Job
-                 *     classes do not need an entry here because they read directly from
-                 *     individual Backup CRs.
+                 *     configuration, etc.). Required to back up the Instance with its
+                 *     ProviderManaged BackupClass.
                  */
                 backup?: {
                     /**
@@ -4393,6 +4358,14 @@ export interface components {
                          *     Instance nor a version bundle selects one.
                          */
                         defaultVersion?: string;
+                        /**
+                         * @description Kind is the shared classification of the software the component type
+                         *     runs (e.g. "mongodb", "mysql", "haproxy"), matched by monitoring class
+                         *     filters and set on the component's published monitoring endpoints.
+                         *     Databases use OpenTelemetry db.system.name values; unknown kinds are
+                         *     allowed. A type without a kind matches no kind filter.
+                         */
+                        kind?: string;
                         versions?: {
                             /**
                              * @description Deprecated marks a version as still supported but scheduled for
@@ -4459,16 +4432,26 @@ export interface components {
                     componentTypes?: {
                         [key: string]: {
                             /**
-                             * @description Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
-                             *     follow OpenTelemetry db.system.name; unknown kinds are allowed.
+                             * @description Connection states whether monitoring agents can connect to the
+                             *     component over its native protocol, with the monitor credential.
+                             * @default None
+                             * @enum {string}
                              */
-                            kind: string;
+                            connection: "Supported" | "None";
                             /**
                              * @description Metrics states how the component exposes OpenMetrics.
                              * @default None
                              * @enum {string}
                              */
                             metrics: "Native" | "Exporter" | "None";
+                            /**
+                             * @description PodMetadata states whether the provider renders the pod annotations
+                             *     monitoring classes request (Context.MonitoringPodAnnotations) into the
+                             *     pods of the component type.
+                             * @default None
+                             * @enum {string}
+                             */
+                            podMetadata: "Supported" | "None";
                         };
                     };
                     /**
@@ -4488,6 +4471,33 @@ export interface components {
                              *     not listed is not bound.
                              */
                             authModes?: string[];
+                            /**
+                             * @description DestinationParametersSchema is the schema of MonitoringDestination
+                             *     parameters in the integration contract version the provider was built
+                             *     with, generated by provider-sdk. Core will check destination parameters
+                             *     against it as well as against the class (spec 019 §4.4).
+                             */
+                            destinationParametersSchema?: {
+                                /**
+                                 * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                                 *     parameters payload.
+                                 */
+                                openAPIV3Schema?: unknown;
+                            };
+                            /**
+                             * @description InstanceParametersSchema is the schema of
+                             *     Instance.spec.monitoring.destinations[].parameters in the integration
+                             *     contract version the provider was built with, generated by
+                             *     provider-sdk. Core will check entry parameters against it as well as
+                             *     against the class (spec 019 §4.4).
+                             */
+                            instanceParametersSchema?: {
+                                /**
+                                 * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                                 *     parameters payload.
+                                 */
+                                openAPIV3Schema?: unknown;
+                            };
                         };
                     };
                 };
@@ -4682,9 +4692,8 @@ export interface components {
                  * @description Backup configures the backup feature for this Instance. When enabled,
                  *     the provider's reconciler is given the resolved BackupClass and storage
                  *     list so it can configure the engine accordingly (sidecars, agent
-                 *     configuration, etc.). Required for ProviderManaged BackupClasses; Job
-                 *     classes do not need an entry here because they read directly from
-                 *     individual Backup CRs.
+                 *     configuration, etc.). Required to back up the Instance with its
+                 *     ProviderManaged BackupClass.
                  */
                 backup?: {
                     /**
@@ -6049,13 +6058,42 @@ export interface components {
                 monitoring?: {
                     /** @description Destinations has one entry per spec.monitoring.destinations[] entry. */
                     destinations?: {
-                        /**
-                         * @description Configured mirrors the binding's Configured condition; False when the
-                         *     binding is not Accepted, Unknown while it is missing or pending.
-                         */
-                        configured?: string;
-                        /** @description Message is the human-readable detail for Configured. */
-                        message?: string;
+                        /** @description Conditions are the entry's Configured and Ready conditions. */
+                        conditions?: {
+                            /**
+                             * Format: date-time
+                             * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                             *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                             */
+                            lastTransitionTime: string;
+                            /**
+                             * @description message is a human readable message indicating details about the transition.
+                             *     This may be an empty string.
+                             */
+                            message: string;
+                            /**
+                             * Format: int64
+                             * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                             *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                             *     with respect to the current state of the instance.
+                             */
+                            observedGeneration?: number;
+                            /**
+                             * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                             *     Producers of specific condition types may define expected values and meanings for this field,
+                             *     and whether the values are considered a guaranteed API.
+                             *     The value should be a CamelCase string.
+                             *     This field may not be empty.
+                             */
+                            reason: string;
+                            /**
+                             * @description status of the condition, one of True, False, Unknown.
+                             * @enum {string}
+                             */
+                            status: "True" | "False" | "Unknown";
+                            /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                            type: string;
+                        }[];
                         /**
                          * @description Mode is the resolved execution mode.
                          * @enum {string}
@@ -6063,14 +6101,77 @@ export interface components {
                         mode?: "ProviderManaged" | "ExtensionManaged";
                         /** @description Name matches spec.monitoring.destinations[].name. */
                         name: string;
-                        /** @description Reason is the machine-readable reason for Configured. */
-                        reason?: string;
                     }[];
                     /**
                      * @description Sources is the per-Instance publication of the provider's monitoring
                      *     contract, consumed by ExtensionManaged class controllers.
                      */
                     sources?: {
+                        /**
+                         * @description Connections lists the endpoints monitoring agents connect to over the
+                         *     engine's native protocol (e.g. agents discovering databases through
+                         *     pod annotations), one per serving component.
+                         */
+                        connections?: {
+                            /**
+                             * @description Auth names the credential profile agents log in with, normally
+                             *     CredentialProfileMonitor.
+                             */
+                            auth?: {
+                                /** @description CredentialProfile matches MonitoringSources.credentials[].profile. */
+                                credentialProfile: string;
+                            };
+                            /** @description Component is the Instance component name (e.g. "engine"). */
+                            component: string;
+                            /**
+                             * @description Container is the name of the container serving the endpoint, for
+                             *     agents that address containers (e.g. Datadog Autodiscovery).
+                             */
+                            container?: string;
+                            /**
+                             * @description Kind is the kind of the component's type
+                             *     (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+                             *     A provider may leave it empty; an endpoint it computes with another
+                             *     kind is not published.
+                             */
+                            kind: string;
+                            /** @description PodSelector selects the pods serving the endpoint. */
+                            podSelector: {
+                                [key: string]: string;
+                            };
+                            /** @description Port is the container port, by name or number. */
+                            port: number | string;
+                            /**
+                             * @description TLS is set when the endpoint accepts TLS connections; absent means
+                             *     plaintext only.
+                             */
+                            tls?: {
+                                /**
+                                 * @description CA is the PEM bundle that verifies the server certificate. Server
+                                 *     certificates name Services, not pod IPs, so agents verify the chain
+                                 *     only.
+                                 */
+                                ca?: {
+                                    /** @description SecretKeyRef selects the Secret key holding the PEM bundle. */
+                                    secretKeyRef?: {
+                                        /** @description Key within the Secret. */
+                                        key: string;
+                                        /** @description Name of the referenced Secret. */
+                                        name: string;
+                                    };
+                                };
+                                /**
+                                 * @description ClientCertificateSecretRef references a kubernetes.io/tls Secret
+                                 *     (keys tls.crt and tls.key) agents present as a client certificate.
+                                 */
+                                clientCertificateSecretRef?: {
+                                    /** @description Name of the referenced Secret. */
+                                    name: string;
+                                };
+                                /** @description Required means the endpoint rejects connections without TLS. */
+                                required?: boolean;
+                            };
+                        }[];
                         /**
                          * @description Credentials lists the Instance-owned monitoring credential Secrets by
                          *     profile.
@@ -6112,7 +6213,12 @@ export interface components {
                             };
                             /** @description Component is the Instance component name (e.g. "engine", "proxy"). */
                             component: string;
-                            /** @description Kind is the component's engine kind. */
+                            /**
+                             * @description Kind is the kind of the component's type
+                             *     (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+                             *     A provider may leave it empty; an endpoint it computes with another
+                             *     kind is not published.
+                             */
                             kind: string;
                             /** @description Params are extra scrape query parameters (e.g. target for /probe). */
                             params?: {
@@ -6149,6 +6255,15 @@ export interface components {
                                         /** @description Name of the referenced Secret. */
                                         name: string;
                                     };
+                                };
+                                /**
+                                 * @description ClientCertificateSecretRef references a kubernetes.io/tls Secret
+                                 *     (keys tls.crt and tls.key) the scraper presents as a client
+                                 *     certificate, for an endpoint that requires mutual TLS.
+                                 */
+                                clientCertificateSecretRef?: {
+                                    /** @description Name of the referenced Secret. */
+                                    name: string;
                                 };
                                 /** @description InsecureSkipVerify disables verification of the server certificate. */
                                 insecureSkipVerify?: boolean;
@@ -6230,7 +6345,7 @@ export interface components {
             password?: string;
             /** @description Port is the port number to connect to */
             port?: string;
-            /** @description Provider is the provider that manages this instance */
+            /** @description Provider is the name of the Provider that manages this instance, as in the Instance's spec.providerRef.name. The provider-runtime reconciler writes it; a value set by the provider is replaced. */
             provider?: string;
             /** @description Type is the type of database (e.g., mongodb, postgresql, mysql) */
             type?: string;
@@ -6264,9 +6379,7 @@ export interface components {
                 /**
                  * @description ClassRef references the cluster-scoped BackupClass that defines how
                  *     this Backup is executed. The class's executionMode controls the runtime
-                 *     path: Job classes are reconciled by the in-cluster Backup job
-                 *     controller; ProviderManaged classes are reconciled by the provider's
-                 *     runtime.
+                 *     path; ProviderManaged classes are reconciled by the provider's runtime.
                  */
                 classRef: {
                     /** @description Name of the referenced object. */
@@ -6430,16 +6543,7 @@ export interface components {
                  *     started. Recorded for observability.
                  * @enum {string}
                  */
-                executionMode?: "ProviderManaged" | "Job";
-                /**
-                 * @description JobRef references the Job that is running the backup.
-                 *     Populated only for Job classes. Empty for external backups, which run
-                 *     no Job.
-                 */
-                jobRef?: {
-                    /** @description Name of the referenced object. */
-                    name: string;
-                };
+                executionMode?: "ProviderManaged";
                 /**
                  * Format: int64
                  * @description LastObservedGeneration is the last observed generation of the Backup CR.
@@ -6672,15 +6776,7 @@ export interface components {
                  *     started. Recorded for observability.
                  * @enum {string}
                  */
-                executionMode?: "ProviderManaged" | "Job";
-                /**
-                 * @description JobRef references the Job that is running the restore.
-                 *     Populated only for Job classes.
-                 */
-                jobRef?: {
-                    /** @description Name of the referenced object. */
-                    name: string;
-                };
+                executionMode?: "ProviderManaged";
                 /**
                  * Format: int64
                  * @description LastObservedGeneration is the last observed generation of the Restore CR.
@@ -6755,10 +6851,12 @@ export interface components {
                 /** @description DisplayName is a human-readable name for the backup class. */
                 displayName?: string;
                 /**
-                 * @description ExecutionMode selects between job-based and provider-managed execution.
+                 * @description ExecutionMode selects who executes the class's backup and restore
+                 *     operations. ProviderManaged is the only mode: the provider named in
+                 *     SupportedProviders executes them.
                  * @enum {string}
                  */
-                executionMode: "ProviderManaged" | "Job";
+                executionMode: "ProviderManaged";
                 /**
                  * @description InstanceConstraints defines compatibility requirements that must be
                  *     satisfied by an Instance before this backup class can be used with it.
@@ -6770,148 +6868,6 @@ export interface components {
                      *     For example, ".spec.engine.type" or ".spec.dataSource.dataImport.config.someField".
                      */
                     requiredFields?: string[];
-                };
-                /**
-                 * @description Job contains all execution detail for ExecutionMode="Job". Required
-                 *     when ExecutionMode is "Job"; must be unset when ExecutionMode is
-                 *     "ProviderManaged".
-                 */
-                job?: {
-                    /** @description Backup describes the job spawned per Backup CR. */
-                    backup: {
-                        /**
-                         * @description CleanupJobSpec is the optional specification of a cleanup job that runs
-                         *     when the parent Backup or Restore CR is deleted.
-                         */
-                        cleanupJobSpec?: {
-                            /** @description Command is the command to run the backup class. */
-                            command?: string[];
-                            /** @description Image is the image of the backup class. */
-                            image?: string;
-                        };
-                        /**
-                         * @description ClusterPermissions are cluster-scoped PolicyRules granted via a
-                         *     generated ClusterRole and ClusterRoleBinding.
-                         */
-                        clusterPermissions?: {
-                            /**
-                             * @description apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                             *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                             */
-                            apiGroups?: string[];
-                            /**
-                             * @description nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                             *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                             *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                             */
-                            nonResourceURLs?: string[];
-                            /** @description resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
-                            resourceNames?: string[];
-                            /** @description resources is a list of resources this rule applies to. '*' represents all resources. */
-                            resources?: string[];
-                            /** @description verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
-                            verbs: string[];
-                        }[];
-                        /** @description JobSpec is the specification of the backup or restore job. */
-                        jobSpec: {
-                            /** @description Command is the command to run the backup class. */
-                            command?: string[];
-                            /** @description Image is the image of the backup class. */
-                            image?: string;
-                        };
-                        /**
-                         * @description Permissions are namespace-scoped PolicyRules granted to the job pod via
-                         *     a generated Role and RoleBinding.
-                         */
-                        permissions?: {
-                            /**
-                             * @description apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                             *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                             */
-                            apiGroups?: string[];
-                            /**
-                             * @description nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                             *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                             *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                             */
-                            nonResourceURLs?: string[];
-                            /** @description resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
-                            resourceNames?: string[];
-                            /** @description resources is a list of resources this rule applies to. '*' represents all resources. */
-                            resources?: string[];
-                            /** @description verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
-                            verbs: string[];
-                        }[];
-                    };
-                    /**
-                     * @description Restore describes the job spawned per Restore CR. When unset, restores
-                     *     are not supported by this class.
-                     */
-                    restore?: {
-                        /**
-                         * @description CleanupJobSpec is the optional specification of a cleanup job that runs
-                         *     when the parent Backup or Restore CR is deleted.
-                         */
-                        cleanupJobSpec?: {
-                            /** @description Command is the command to run the backup class. */
-                            command?: string[];
-                            /** @description Image is the image of the backup class. */
-                            image?: string;
-                        };
-                        /**
-                         * @description ClusterPermissions are cluster-scoped PolicyRules granted via a
-                         *     generated ClusterRole and ClusterRoleBinding.
-                         */
-                        clusterPermissions?: {
-                            /**
-                             * @description apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                             *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                             */
-                            apiGroups?: string[];
-                            /**
-                             * @description nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                             *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                             *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                             */
-                            nonResourceURLs?: string[];
-                            /** @description resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
-                            resourceNames?: string[];
-                            /** @description resources is a list of resources this rule applies to. '*' represents all resources. */
-                            resources?: string[];
-                            /** @description verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
-                            verbs: string[];
-                        }[];
-                        /** @description JobSpec is the specification of the backup or restore job. */
-                        jobSpec: {
-                            /** @description Command is the command to run the backup class. */
-                            command?: string[];
-                            /** @description Image is the image of the backup class. */
-                            image?: string;
-                        };
-                        /**
-                         * @description Permissions are namespace-scoped PolicyRules granted to the job pod via
-                         *     a generated Role and RoleBinding.
-                         */
-                        permissions?: {
-                            /**
-                             * @description apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                             *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                             */
-                            apiGroups?: string[];
-                            /**
-                             * @description nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                             *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                             *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                             */
-                            nonResourceURLs?: string[];
-                            /** @description resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
-                            resourceNames?: string[];
-                            /** @description resources is a list of resources this rule applies to. '*' represents all resources. */
-                            resources?: string[];
-                            /** @description verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
-                            verbs: string[];
-                        }[];
-                    };
                 };
                 /**
                  * @description ParametersSchema declares the OpenAPI v3 schema describing the
@@ -6929,8 +6885,8 @@ export interface components {
                  * @description ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
                  *     schema is intentionally open: providers may surface capability
                  *     information (e.g., whether PITR is supported, schedule expression
-                 *     dialect) without forcing a CRD change. Must be unset when
-                 *     ExecutionMode is "Job".
+                 *     dialect) without forcing a CRD change. Must be unset for any other
+                 *     execution mode.
                  */
                 providerManaged?: {
                     /**
@@ -7280,93 +7236,6 @@ export interface components {
                 namespace?: string;
             };
         };
-        /** @description MonitoringConfig is the Schema for the monitoringconfigs API. */
-        MonitoringConfig: {
-            /**
-             * @description APIVersion defines the versioned schema of this representation of an object.
-             *     Servers should convert recognized schemas to the latest internal value, and
-             *     may reject unrecognized values.
-             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-             */
-            apiVersion?: string;
-            /**
-             * @description Kind is a string value representing the REST resource this object represents.
-             *     Servers may infer this from the endpoint the client submits requests to.
-             *     Cannot be updated.
-             *     In CamelCase.
-             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-             */
-            kind?: string;
-            metadata?: components["schemas"]["ObjectMeta"];
-            /** @description spec defines the desired state of MonitoringConfig */
-            spec: {
-                /**
-                 * @description PMM contains PMM-specific monitoring configuration.
-                 *     Required when type is "pmm".
-                 */
-                pmm?: {
-                    /**
-                     * @description CredentialsSecretRef references the Secret in the same namespace
-                     *     containing the API key. It contains an `apiKey` key with the API key
-                     *     value.
-                     */
-                    credentialsSecretRef: {
-                        /** @description Name of the referenced Secret. */
-                        name: string;
-                    };
-                    /** @description URL is the URL of the PMM server. */
-                    url: string;
-                    /**
-                     * @description VerifyTLS is set to ensure TLS/SSL verification.
-                     *     If unspecified, the default value is true.
-                     * @default true
-                     */
-                    verifyTLS: boolean;
-                };
-                /**
-                 * @description Type is the name of monitoring tool (e.g., "pmm").
-                 * @enum {string}
-                 */
-                type: "pmm";
-            };
-            /**
-             * @description status defines the observed state of MonitoringConfig
-             * @default {
-             *       "inUse": false
-             *     }
-             */
-            status: {
-                /**
-                 * @description InUse is a flag that indicates if any Instance uses the monitoring config.
-                 * @default false
-                 */
-                inUse: boolean;
-                /**
-                 * Format: int64
-                 * @description LastObservedGeneration is the most recent generation observed for this MonitoringConfig.
-                 */
-                lastObservedGeneration?: number;
-                /** @description PMM contains PMM-specific status information. */
-                pmm?: {
-                    /** @description ServerVersion shows the PMM server version. */
-                    serverVersion?: string;
-                };
-            };
-        };
-        /** @description MonitoringConfigList is an object that contains the list of the existing monitoringconfigs. */
-        MonitoringConfigList: {
-            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
-            apiVersion?: string;
-            items?: components["schemas"]["MonitoringConfig"][];
-            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
-            kind?: string;
-            metadata?: {
-                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
-                name?: string;
-                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
-                namespace?: string;
-            };
-        };
         /**
          * @description MonitoringClass is one monitoring technology, claimed by the out-of-tree
          *     controller that serves it.
@@ -7407,6 +7276,13 @@ export interface components {
                     /** @description Name identifies the mode, in PascalCase (e.g. AccessKey, BasicAuth). */
                     name: string;
                 }[];
+                /**
+                 * @description ControllerName is the controller that claims the class and sets its
+                 *     Accepted condition, as GatewayClass.spec.controllerName: a
+                 *     domain-qualified path (e.g. "openeverest.io/monitoring-pmm"). One
+                 *     controller may claim several classes. Immutable.
+                 */
+                controllerName: string;
                 /** @description Description describes the monitoring technology. */
                 description?: string;
                 /** @description DestinationParametersSchema validates MonitoringDestination.spec.parameters. */
@@ -7426,10 +7302,38 @@ export interface components {
                  */
                 extensionManaged?: {
                     /**
+                     * @description PodMetadata lets the class controller request annotations on the
+                     *     pods of bound Instances (status.podMetadata of its bindings), for
+                     *     backends whose agents discover databases through pod annotations. The
+                     *     provider renders them into the pod templates, which rolls the pods.
+                     *     When set, only component types declaring podMetadata: Supported are
+                     *     eligible.
+                     */
+                    podMetadata?: {
+                        /**
+                         * @description AnnotationPrefixes are the annotation key prefixes the class
+                         *     controller may request, each a DNS subdomain followed by "/"
+                         *     (e.g. "coroot.com/"). Kubernetes and OpenEverest prefixes are
+                         *     reserved.
+                         */
+                        annotationPrefixes: string[];
+                    };
+                    /**
                      * @description Requires lists the source capabilities a component must satisfy to
                      *     be eligible for this class.
                      */
                     requires?: {
+                        /**
+                         * @description Connection requires the component to accept native-protocol
+                         *     connections from monitoring agents (connection: Supported).
+                         */
+                        connection?: boolean;
+                        /**
+                         * @description Kinds, when set, makes only the components whose type's kind
+                         *     (Provider.spec.componentTypes.<type>.kind) is listed eligible. Empty
+                         *     means any kind.
+                         */
+                        kinds?: string[];
                         /**
                          * @description Metrics requires the component to expose OpenMetrics
                          *     (metrics: Native or Exporter).
@@ -7535,6 +7439,12 @@ export interface components {
                  *     Provider.
                  */
                 providers?: {
+                    /**
+                     * Format: int64
+                     * @description ClassGeneration is the class's metadata.generation the entry was
+                     *     computed for. An entry computed for another generation is stale.
+                     */
+                    classGeneration?: number;
                     /**
                      * @description Disruption is the worst that enabling the class does to the pods of
                      *     one of the Provider's Instances. Set when Mode is set.
@@ -7661,6 +7571,18 @@ export interface components {
              *     }
              */
             status: {
+                /**
+                 * Format: int32
+                 * @description AttachedInstances is the number of Instances in this namespace whose
+                 *     spec.monitoring.destinations lists this destination, whatever the
+                 *     state of their binding. While the destination is not being deleted,
+                 *     Instances being deleted are left out, so an Instance and then its
+                 *     destination can be deleted right away; once the destination is being
+                 *     deleted, they count too, and the number is what its deletion waits
+                 *     for. Written by core; deleting the destination is refused while it is
+                 *     above zero.
+                 */
+                attachedInstances?: number;
                 conditions?: {
                     /**
                      * Format: date-time
@@ -7834,6 +7756,21 @@ export interface components {
                     /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
                     type: string;
                 }[];
+                /**
+                 * @description PodMetadata is the pod metadata the class controller of an
+                 *     ExtensionManaged binding requests per component, written together
+                 *     with Configured. provider-runtime hands the annotations allowed by
+                 *     the class's spec.extensionManaged.podMetadata to the provider, which
+                 *     renders them on the component's pods.
+                 */
+                podMetadata?: {
+                    /** @description Annotations to set on the component's pods. */
+                    annotations?: {
+                        [key: string]: string;
+                    };
+                    /** @description Component is the Instance component name. */
+                    component: string;
+                }[];
             };
         };
         /** @description MonitoringBindingList is an object that contains the list of the existing monitoringbindings. */
@@ -7852,9 +7789,19 @@ export interface components {
         };
     };
     responses: never;
-    parameters: never;
+    parameters: {
+        /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+        DryRun: "All";
+    };
     requestBodies: never;
-    headers: never;
+    headers: {
+        /**
+         * @description A warning Kubernetes returned while handling the request, such as an admission webhook reporting that a Secret the Instance names does not exist yet.
+         *     The header is repeated once per distinct warning, and each value has Kubernetes' warning format, `299 - "<text>"`, the `Warning` field of RFC 7234.
+         * @example 299 - "secret \"db-credentials\" named by spec.userSecretRef not found"
+         */
+        Warning: string;
+    };
     pathItems: never;
 }
 export type $defs = Record<string, never>;
@@ -8414,6 +8361,15 @@ export interface operations {
                     "application/json": components["schemas"]["APIError"];
                 };
             };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -8538,6 +8494,15 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8801,7 +8766,10 @@ export interface operations {
     };
     createInstance: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -8821,6 +8789,7 @@ export interface operations {
             /** @description Instance created successfully */
             200: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -8830,6 +8799,7 @@ export interface operations {
             /** @description Instance created successfully */
             201: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -8857,6 +8827,16 @@ export interface operations {
             /** @description Conflict */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -8930,7 +8910,10 @@ export interface operations {
     };
     updateInstance: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -8952,6 +8935,7 @@ export interface operations {
             /** @description Instance updated successfully */
             200: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -8979,6 +8963,16 @@ export interface operations {
             /** @description Conflict */
             409: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -9076,7 +9070,10 @@ export interface operations {
     };
     patchInstance: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -9100,6 +9097,7 @@ export interface operations {
             /** @description Instance patched successfully */
             200: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -9140,6 +9138,16 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    Warning: components["headers"]["Warning"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -9486,6 +9494,15 @@ export interface operations {
                     "application/json": components["schemas"]["APIError"];
                 };
             };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -9727,6 +9744,15 @@ export interface operations {
                     "application/json": components["schemas"]["APIError"];
                 };
             };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -9892,6 +9918,15 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10141,6 +10176,15 @@ export interface operations {
                     "application/json": components["schemas"]["APIError"];
                 };
             };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -10274,6 +10318,15 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10430,318 +10483,17 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    listMonitoringConfigs: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The name of the cluster */
-                cluster: string;
-                /** @description Namespace of the monitoring configs */
-                namespace: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful operation */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MonitoringConfigList"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    createMonitoringConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The name of the cluster */
-                cluster: string;
-                /** @description Namespace of the monitoring config */
-                namespace: string;
-            };
-            cookie?: never;
-        };
-        /** @description The Monitoring config object to be created */
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MonitoringConfigCreateParams"];
-            };
-        };
-        responses: {
-            /** @description Successful operation */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MonitoringConfig"];
-                };
-            };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Namespace not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["APIError"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getMonitoringConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The name of the cluster */
-                cluster: string;
-                /** @description Name of the monitoring config */
-                name: string;
-                /** @description Namespace of the monitoring config */
-                namespace: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful operation */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MonitoringConfig"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Monitoring config not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    deleteMonitoringConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The name of the cluster */
-                cluster: string;
-                /** @description Name of the monitoring config */
-                name: string;
-                /** @description Namespace of the monitoring config */
-                namespace: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful operation */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Monitoring config not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["APIError"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    updateMonitoringConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The name of the cluster */
-                cluster: string;
-                /** @description Name of the monitoring config */
-                name: string;
-                /** @description Namespace of the monitoring config */
-                namespace: string;
-            };
-            cookie?: never;
-        };
-        /** @description The monitoring config object to be updated. */
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MonitoringConfigUpdateParams"];
-            };
-        };
-        responses: {
-            /** @description Successful operation */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MonitoringConfig"];
-                };
-            };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Monitoring config not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["APIError"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10841,8 +10593,13 @@ export interface operations {
     listMonitoringDestinations: {
         parameters: {
             query?: {
-                /** @description Return only the monitoring destinations of the monitoring class with this name */
+                /** @description Return only the monitoring destinations of the monitoring class with this name (`spec.classRef.name`) */
                 class?: string;
+                /**
+                 * @description Return only the monitoring destinations that reference the Secret with this name, as their credentials
+                 *     (`spec.authentication.credentialsSecretRef.name`) or as their CA bundle (`spec.tls.ca.secretKeyRef.name`)
+                 */
+                secret?: string;
             };
             header?: never;
             path: {
@@ -10877,7 +10634,10 @@ export interface operations {
     };
     createMonitoringDestination: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -10932,6 +10692,15 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11006,7 +10775,10 @@ export interface operations {
     };
     updateMonitoringDestination: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -11070,6 +10842,15 @@ export interface operations {
                     "application/json": components["schemas"]["APIError"];
                 };
             };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -11083,7 +10864,10 @@ export interface operations {
     };
     deleteMonitoringDestination: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -11120,6 +10904,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Instances still use the destination (reason `InUse`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -11327,6 +11120,15 @@ export interface operations {
                     "application/json": components["schemas"]["APIError"];
                 };
             };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -11496,7 +11298,10 @@ export interface operations {
     };
     createSecret: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -11558,6 +11363,15 @@ export interface operations {
                     "application/json": components["schemas"]["APIError"];
                 };
             };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -11603,7 +11417,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Secret not found */
+            /** @description Secret not found, or not labelled */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -11625,7 +11439,10 @@ export interface operations {
     };
     deleteSecret: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -11655,7 +11472,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Secret not found */
+            /** @description Secret not found, or not labelled */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -11664,8 +11481,108 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Conflict */
+            /** @description A controller owns the Secret (reason `ManagedByController`), or objects use it (reason `InUse`) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    patchSecret: {
+        parameters: {
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the secret */
+                namespace: string;
+                /** @description The name of the secret */
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** @description A partial Secret document with `metadata.resourceVersion` and the `data` or `stringData` keys to set or remove. */
+        requestBody: {
+            content: {
+                "application/merge-patch+json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Secret patched successfully (metadata only) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Secret"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Secret not found, or not labelled */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The Secret changed since `metadata.resourceVersion` (reason `Conflict`), a controller owns it (reason `ManagedByController`) or it was not created through this API (reason `ManagedOutside`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description The Content-Type is not application/merge-patch+json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -472,7 +472,7 @@ test.describe(
         await page.goto(`/databases/${namespace}/${secondClusterName}`);
         await page.getByText('Advanced configuration').waitFor();
         await expect(
-          page.getByTestId('pod-scheduling policy-overview-section-row')
+          page.getByTestId('pod-scheduling-policy-overview-section-row')
         ).toHaveText('Pod scheduling policyDisabled');
         await page.getByTestId('edit-advanced-configuration-db-btn').click();
         await page
@@ -485,7 +485,7 @@ test.describe(
           .click();
         await page.getByTestId('form-dialog-save').click();
         await expect(
-          page.getByTestId('pod-scheduling policy-overview-section-row')
+          page.getByTestId('pod-scheduling-policy-overview-section-row')
         ).toHaveText(`Pod scheduling policy${MySQLPolicyName}`);
       });
 

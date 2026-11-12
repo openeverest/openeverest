@@ -15,6 +15,7 @@
 import {
   Component,
   ComponentGroup,
+  FieldType,
   FormMode,
   Section,
   isWidgetComponent,
@@ -31,6 +32,7 @@ import {
 } from '../toggleable/toggleable';
 import { getWidgetTargets } from '../widget-targets';
 import { getSchemaDefault } from './get-schema-default';
+import { readQuantity } from '../quantity';
 
 /*
  Walks schema components across all sections and extracts current values
@@ -86,12 +88,19 @@ const extractFlat = (
     if (sourcePath) {
       const instanceValue = getByPath(instance, sourcePath);
       if (instanceValue !== undefined) {
-        result[fieldId] = stripBadgeFromValue(
-          instanceValue,
-          component.fieldParams?.badgeToApi
-            ? component.fieldParams.badge
-            : undefined
-        );
+        if (component.uiType === FieldType.Quantity) {
+          result[fieldId] = readQuantity(
+            instanceValue,
+            component.fieldParams.unit
+          );
+        } else {
+          result[fieldId] = stripBadgeFromValue(
+            instanceValue,
+            component.fieldParams?.badgeToApi
+              ? component.fieldParams.badge
+              : undefined
+          );
+        }
         continue;
       }
     }

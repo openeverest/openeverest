@@ -17,7 +17,10 @@ import type {
   ComponentGroup,
   WidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
-import { isWidgetComponent } from 'components/ui-generator/ui-generator.types';
+import {
+  FieldType,
+  isWidgetComponent,
+} from 'components/ui-generator/ui-generator.types';
 import type {
   WidgetSummary,
   WidgetSummaryRegistry,
@@ -31,6 +34,7 @@ import {
   getComponentTargetPaths,
 } from 'components/ui-generator/utils/preprocess/normalized-component';
 import { stripBadgeFromValue } from 'components/ui-generator/utils/badge-to-api/badge-to-api';
+import { formatQuantity } from 'components/ui-generator/utils/quantity';
 import {
   getToggleableMeta,
   isToggleableOnInInstance,
@@ -66,6 +70,23 @@ const formatBadgedValue = (rawValue: unknown, badge?: string): string => {
     }
   }
   return formatDisplayValue(rawValue);
+};
+
+const formatFieldDisplayValue = (
+  component: Component,
+  rawValue: unknown
+): string => {
+  if (component.uiType === FieldType.Quantity) {
+    return (
+      formatQuantity(
+        rawValue,
+        component.fieldParams.unit,
+        component.fieldParams.unitLabel
+      ) ?? formatDisplayValue(rawValue)
+    );
+  }
+
+  return formatBadgedValue(rawValue, component.fieldParams?.badge);
 };
 
 export const collectSectionFields = (
@@ -138,10 +159,7 @@ export const collectSectionFields = (
     fields.push({
       label: component.fieldParams?.label ?? key,
       path,
-      value: formatBadgedValue(
-        getByPath(instance, path),
-        component.fieldParams?.badge
-      ),
+      value: formatFieldDisplayValue(component, getByPath(instance, path)),
     });
   }
 

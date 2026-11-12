@@ -17,9 +17,12 @@ package controller
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
@@ -191,6 +194,10 @@ type RequiredSources struct {
 	// exporter must not flap with it. It is Unresolved while an entry has
 	// no binding, or one without a mode or, for ExtensionManaged, a class.
 	Metrics Requirement
+	// Connections is Required when an ExtensionManaged binding's class
+	// requires connections; the provider then publishes connection
+	// endpoints and the monitor credential. Resolved like Metrics.
+	Connections Requirement
 	// Integrations has one key per integration the Provider declares in
 	// spec.monitoring.integrations or the provider returns from
 	// MonitoringIntegrations. An integration is Required while one of its
@@ -221,12 +228,19 @@ func (c *Context) RequiredSources() (RequiredSources, error) {
 		entries = c.in.Spec.Monitoring.Destinations
 	}
 	return RequiredSources{
-		Metrics:      metricsRequirement(bindings, entries),
+		Metrics: sourceRequirement(bindings, entries, func(r monitoringv1alpha1.SourceRequirements) bool { return r.Metrics }),
+		Connections: sourceRequirement(bindings, entries, func(r monitoringv1alpha1.SourceRequirements) bool {
+			return r.Connection
+		}),
 		Integrations: integrationRequirements(c.knownIntegrations(spec), bindings, entries),
 	}, nil
 }
 
-func metricsRequirement(bindings []ResolvedBinding, entries []v1alpha1.InstanceMonitoringDestination) Requirement {
+func sourceRequirement(
+	bindings []ResolvedBinding,
+	entries []v1alpha1.InstanceMonitoringDestination,
+	requires func(monitoringv1alpha1.SourceRequirements) bool,
+) Requirement {
 	resolved := make(map[string]bool)
 	for _, rb := range bindings {
 		if rb.Entry == nil {
@@ -240,7 +254,7 @@ func metricsRequirement(bindings []ResolvedBinding, entries []v1alpha1.InstanceM
 				continue
 			}
 			resolved[rb.Entry.Name] = true
-			if em := rb.Class.Spec.ExtensionManaged; em != nil && em.Requires.Metrics {
+			if em := rb.Class.Spec.ExtensionManaged; em != nil && requires(em.Requires) {
 				return Required
 			}
 		}
@@ -330,4 +344,52 @@ func (c *Context) SetMonitoringBindingResult(bindingName string, reason monitori
 func (c *Context) MonitoringBindingResult(bindingName string) (monitoringv1alpha1.ConfiguredReason, string, bool) {
 	r, ok := c.monitoringResults[bindingName]
 	return r.reason, r.message, ok
+}
+
+// MonitoringPodAnnotations returns the annotations the class controllers of
+// the Instance's ExtensionManaged bindings request for the pods of
+// component (MonitoringBinding.status.podMetadata). Only keys under the
+// class's spec.extensionManaged.podMetadata prefixes are returned. A binding
+// whose entry was removed, or that core rejected for its current generation,
+// contributes nothing; a binding that is merely pending keeps contributing,
+// so the pods are not rolled while it settles. When two bindings request
+// the same key, the binding whose name sorts first wins.
+//
+// The provider renders the result into the component's pod template.
+func (c *Context) MonitoringPodAnnotations(component string) (map[string]string, error) {
+	bindings, err := c.MonitoringBindings()
+	if err != nil {
+		return nil, err
+	}
+	slices.SortFunc(bindings, func(a, b ResolvedBinding) int { return strings.Compare(a.Binding.Name, b.Binding.Name) })
+
+	out := make(map[string]string)
+	for _, rb := range bindings {
+		if !contributesPodMetadata(rb) {
+			continue
+		}
+		policy := rb.Class.Spec.ExtensionManaged.PodMetadata
+		for _, pm := range rb.Binding.Status.PodMetadata {
+			if pm.Component != component {
+				continue
+			}
+			for key, value := range pm.Annotations {
+				if _, taken := out[key]; taken || !policy.AllowsAnnotation(key) {
+					continue
+				}
+				out[key] = value
+			}
+		}
+	}
+	return out, nil
+}
+
+func contributesPodMetadata(rb ResolvedBinding) bool {
+	if rb.Entry == nil || rb.Mode() != v1alpha1.MonitoringExecutionModeExtensionManaged ||
+		rb.Class == nil || rb.Class.Spec.ExtensionManaged == nil || rb.Class.Spec.ExtensionManaged.PodMetadata == nil {
+		return false
+	}
+	accepted := meta.FindStatusCondition(rb.Binding.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionAccepted)
+	rejected := accepted != nil && accepted.Status == metav1.ConditionFalse && accepted.ObservedGeneration == rb.Binding.Generation
+	return !rejected
 }
