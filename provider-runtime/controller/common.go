@@ -553,59 +553,130 @@ func (cd ConnectionDetails) ToSecretData() map[string][]byte {
 // STATUS TYPES
 // =============================================================================
 
-// Status represents the current state of the database cluster.
-type Status struct {
-	Phase             v1alpha1.InstancePhase
-	Message           string
-	ConnectionDetails ConnectionDetails
+// Availability says whether clients can connect to the engine, as far as the
+// provider can tell.
+type Availability string
+
+const (
+	// AvailabilityUnreported is the zero value: the provider does not say.
+	// The runtime then assumes the engine is available when the provider
+	// reports it converged, unavailable until it has first been available,
+	// and unknown otherwise, so a provider never claims an outage it cannot
+	// see.
+	AvailabilityUnreported Availability = ""
+	// Available means the published endpoint serves the engine's normal
+	// requests: for a database, reads and writes of all its data.
+	Available Availability = "True"
+	// Unavailable means it does not.
+	Unavailable Availability = "False"
+	// AvailabilityUnknown means the provider looked and cannot tell.
+	AvailabilityUnknown Availability = "Unknown"
+)
+
+// Operation is a long-running operation in progress, such as a restore or an
+// upgrade. Type is the Instance condition that reports it
+// (v1alpha1.ConditionRestoring, ConditionUpgrading, ConditionStorageResizing).
+// Whether clients can connect meanwhile is reported through Status.Available,
+// not here.
+type Operation struct {
+	Type    string
+	Reason  string
+	Message string
 }
 
-// ToV2Alpha1 converts Status to the API type.
-func (s Status) ToV2Alpha1() v1alpha1.InstanceStatus {
-	return v1alpha1.InstanceStatus{
-		Phase:   s.Phase,
-		Message: s.Message,
-	}
+// Problem is something wrong with the engine that the provider can name.
+// Reason is CamelCase and becomes the status word users see; Message is one
+// sentence they can act on.
+//
+// A problem is expected to clear by itself unless Terminal is set: the
+// runtime warns at once and reports the Instance as stalled only once the
+// problem has outlasted its deadline. Set Terminal only when nothing but a
+// person can resolve it, typically because the engine cannot do what the spec
+// asks. A terminal problem stalls the Instance at once.
+type Problem struct {
+	Reason   string
+	Message  string
+	Terminal bool
+}
+
+// Status is what a provider observes about the engine. It reports facts; the
+// runtime derives the Instance's phase, conditions and status word from them
+// the same way for every provider.
+type Status struct {
+	// Converged is true when the engine runs what the Instance asks for and
+	// the provider has nothing left to do.
+	Converged bool
+	// Message says what the provider is waiting for while not converged.
+	Message string
+	// Available says whether clients can connect. Leave it unset if the
+	// provider cannot tell.
+	Available Availability
+	// AvailableReason and AvailableMessage explain an Unavailable or unknown
+	// answer, for example which shard has no primary.
+	AvailableReason  string
+	AvailableMessage string
+	// ConnectionDetails is how clients connect. The runtime publishes it.
+	ConnectionDetails ConnectionDetails
+	// Operations lists the long operations in progress. Name every operation
+	// that can take long: an unnamed wait is subject to the progress deadline.
+	Operations []Operation
+	// Problems lists what is wrong with the engine.
+	Problems []Problem
+}
+
+// WithAvailable reports whether clients can connect.
+func (s Status) WithAvailable(a Availability) Status {
+	s.Available = a
+	return s
+}
+
+// WithUnavailable reports that clients cannot connect, and why.
+func (s Status) WithUnavailable(reason, message string) Status {
+	s.Available = Unavailable
+	s.AvailableReason = reason
+	s.AvailableMessage = message
+	return s
+}
+
+// WithOperation adds a long operation in progress.
+func (s Status) WithOperation(conditionType, reason, message string) Status {
+	s.Operations = append(s.Operations, Operation{Type: conditionType, Reason: reason, Message: message})
+	return s
+}
+
+// WithProblem adds a problem that is expected to clear by itself.
+func (s Status) WithProblem(reason, message string) Status {
+	s.Problems = append(s.Problems, Problem{Reason: reason, Message: message})
+	return s
+}
+
+// WithTerminalProblem adds a problem nothing but a person can resolve.
+func (s Status) WithTerminalProblem(reason, message string) Status {
+	s.Problems = append(s.Problems, Problem{Reason: reason, Message: message, Terminal: true})
+	return s
 }
 
 // =============================================================================
 // STATUS HELPER FUNCTIONS
 // =============================================================================
 //
-// These functions are the primary way for providers to report instance state
-// from their Status() method. Each function corresponds to a phase in the
-// Instance lifecycle (v1alpha1.InstancePhase).
+// These functions are the primary way for providers to report what they
+// observe from their Status() method. A provider that knows only "not ready
+// yet, ready, broken" needs Progressing, Ready and Failed. One that knows more
+// adds facts with the With... methods:
 //
-// The Pending and Terminating phases are managed automatically by the
-// reconciler and do not have corresponding helper functions — providers
-// should not return those phases directly.
+//	return controller.Progressing("rolling out").
+//		WithAvailable(controller.Available).
+//		WithOperation(v1alpha1.ConditionUpgrading, "MinorVersionRolling", "1 of 3 pods updated"), nil
 
-// Pending returns a status indicating the instance has been accepted but
-// provisioning has not yet started (e.g., waiting on prerequisites).
-func Pending(message string) Status {
-	return Status{Phase: v1alpha1.InstancePhasePending, Message: message}
-}
-
-// Provisioning returns a status indicating the operator is actively creating
-// the underlying infrastructure (StatefulSets, PVCs, Services, etc.).
-func Provisioning(message string) Status {
-	return Status{Phase: v1alpha1.InstancePhaseProvisioning, Message: message}
-}
-
-// Initializing returns a status indicating the infrastructure exists and the
-// instance engine is booting (bootstrap scripts, initial quorum, etc.).
-func Initializing(message string) Status {
-	return Status{Phase: v1alpha1.InstancePhaseInitializing, Message: message}
-}
-
-// Ready returns a status indicating the instance is fully operational and
-// accepting client connections. Use ReadyWithConnectionDetails when
-// connection information is available.
+// Ready returns a status indicating the engine runs what the Instance asks
+// for. Use ReadyWithConnectionDetails when connection information is
+// available.
 func Ready() Status {
-	return Status{Phase: v1alpha1.InstancePhaseReady}
+	return Status{Converged: true}
 }
 
-// ReadyWithConnectionDetails returns a ready status with connection details.
+// ReadyWithConnectionDetails returns a converged status with connection details.
 // The reconciler writes these details to an auto-generated Secret.
 //
 // Providers should populate the well-known fields so the API server can expose
@@ -628,54 +699,78 @@ func Ready() Status {
 //	})
 func ReadyWithConnectionDetails(details ConnectionDetails) Status {
 	return Status{
-		Phase:             v1alpha1.InstancePhaseReady,
+		Converged:         true,
 		ConnectionDetails: details,
 	}
 }
 
-// Updating returns a status indicating a mutation is being rolled out
-// (scaling, config change, version upgrade, etc.).
-func Updating(message string) Status {
-	return Status{Phase: v1alpha1.InstancePhaseUpdating, Message: message}
+// Progressing returns a status indicating the engine has not converged yet
+// and nothing is wrong. The message says what the provider is waiting for.
+func Progressing(message string) Status {
+	return Status{Message: message}
 }
 
-// Failed returns a status indicating the instance has encountered a terminal
-// or semi-terminal error requiring human intervention.
-func Failed(message string) Status {
-	return Status{Phase: v1alpha1.InstancePhaseFailed, Message: message}
-}
-
-// =============================================================================
-// STATUS HELPER FUNCTIONS — Data Recovery
-// =============================================================================
-
-// Restoring returns a status indicating the instance is downloading and
-// unpacking data from an external backup source.
+// Restoring returns a status indicating a restore is running. Clients cannot
+// connect while data is loaded, unless the provider says otherwise.
 func Restoring(message string) Status {
-	return Status{Phase: v1alpha1.InstancePhaseRestoring, Message: message}
+	return Progressing(message).
+		WithOperation(v1alpha1.ConditionRestoring, v1alpha1.ConditionRestoring, message)
+}
+
+// Failed returns a status indicating something is wrong with the engine and
+// the provider cannot name it. Prefer Progressing(...).WithProblem(reason,
+// message), which gives users a status word they can search for.
+func Failed(message string) Status {
+	return Progressing(message).WithProblem(v1alpha1.ReasonEngineError, message)
 }
 
 // =============================================================================
-// STATUS HELPER FUNCTIONS — Cost-Saving (Compute-to-Zero)
+// STATUS HELPER FUNCTIONS — deprecated
 // =============================================================================
+//
+// These helpers named a phase. The phase is now derived by the runtime, so
+// they all mean "not converged yet" and are kept only so that providers keep
+// compiling.
 
-// Suspending returns a status indicating the instance engine is gracefully
-// shutting down and preparing to scale compute to zero.
-func Suspending(message string) Status {
-	return Status{Phase: v1alpha1.InstancePhaseSuspending, Message: message}
-}
+// Pending is Progressing.
+//
+// Deprecated: use Progressing.
+func Pending(message string) Status { return Progressing(message) }
 
-// Suspended returns a status indicating the instance compute is scaled to zero.
-// Storage (PVCs) remains intact.
+// Provisioning is Progressing.
+//
+// Deprecated: use Progressing.
+func Provisioning(message string) Status { return Progressing(message) }
+
+// Initializing is Progressing.
+//
+// Deprecated: use Progressing.
+func Initializing(message string) Status { return Progressing(message) }
+
+// Updating is Progressing.
+//
+// Deprecated: use Progressing, with WithOperation when the update has a name.
+func Updating(message string) Status { return Progressing(message) }
+
+// Suspending is Progressing.
+//
+// Deprecated: use Progressing.
+func Suspending(message string) Status { return Progressing(message) }
+
+// Suspended reports an engine that is not running and not converging.
+//
+// Deprecated: an Instance cannot ask to be suspended yet, so an engine found
+// stopped was stopped outside OpenEverest. Report that as a problem.
 func Suspended() Status {
-	return Status{Phase: v1alpha1.InstancePhaseSuspended}
+	return Progressing("the engine is stopped").
+		WithUnavailable("Stopped", "the engine is stopped").
+		WithProblem("StoppedOutsideOpenEverest", "the engine was stopped outside OpenEverest")
 }
 
-// Resuming returns a status indicating the instance is scaling compute back up
-// and reattaching existing storage.
-func Resuming(message string) Status {
-	return Status{Phase: v1alpha1.InstancePhaseResuming, Message: message}
-}
+// Resuming is Progressing.
+//
+// Deprecated: use Progressing.
+func Resuming(message string) Status { return Progressing(message) }
 
 // =============================================================================
 // WAIT HELPERS
@@ -693,9 +788,11 @@ type WaitError struct {
 
 // BackupConfigError is returned from Sync when backup configuration (storage
 // resolution, schedule translation, PITR wiring) fails but the engine itself
-// is otherwise healthy. The runtime surfaces it on the BackupConfigured
-// condition instead of marking the Instance as Failed, so operators can see
-// that the database is running but backups need attention.
+// is otherwise healthy. The runtime reports it on the BackupConfigured
+// condition, as a problem that may clear by itself: the Instance is not Ready
+// and shows Reason as its status word, while its availability is left as it
+// was, so operators can see that the database is running but backups need
+// attention.
 //
 // Usage inside Sync:
 //
@@ -725,9 +822,9 @@ func AsBackupConfigError(err error) *BackupConfigError {
 
 // DataSourceConfigError is returned from Sync when the initial-seeding
 // preconditions cannot be met (e.g., the source Instance's credentials secret
-// has been deleted). The runtime surfaces it on the DataSourceReady condition
-// without marking the Instance as Failed, so operators can see the database
-// is still running but seeding requires manual intervention.
+// has been deleted). The runtime reports it on the DataSourceReady condition,
+// as a problem with Reason as the Instance's status word, so operators can
+// see that seeding requires manual intervention.
 //
 // Usage inside Sync:
 //
@@ -995,11 +1092,12 @@ type DataSourceState string
 const (
 	// DataSourceStateNone means the Instance has no .spec.dataSource.
 	DataSourceStateNone DataSourceState = ""
-	// DataSourceStateWaiting means the helper has not yet created the Restore
-	// because a precondition is not satisfied (e.g., source Backup missing or
-	// not Succeeded, storage mismatch, BackupClass unsupported). Providers
-	// typically treat this as "keep the engine in Restoring phase and let the
-	// next reconcile re-evaluate".
+	// DataSourceStateWaiting means the Restore has not been created yet,
+	// either because the engine is not ready to be restored into or because
+	// a precondition is not satisfied (e.g., source Backup missing, storage
+	// mismatch, BackupClass unsupported); DataSourceStatus.Blocked tells the
+	// two apart. Providers typically keep reporting a restore and let the
+	// next reconcile re-evaluate.
 	DataSourceStateWaiting DataSourceState = "Waiting"
 	// DataSourceStateRestoring means the Restore CR exists and the
 	// operator-native restore is in flight.
@@ -1023,6 +1121,11 @@ type DataSourceStatus struct {
 	Done bool
 	// State is the current high-level state of the seeding restore.
 	State DataSourceState
+	// Blocked is true when seeding cannot go on until something outside the
+	// engine changes, such as a source Backup that does not exist. The
+	// runtime then reports ConditionDataSourceReady as False, a problem,
+	// instead of Unknown, in progress.
+	Blocked bool
 	// Reason is the condition reason that the reconciler should publish on
 	// ConditionDataSourceReady (one of the v1alpha1.ReasonDataSource* values).
 	Reason string
@@ -1072,10 +1175,10 @@ func (c *Context) GetDataSourceStatus() *DataSourceStatus {
 //     DataSourceStatus. The returned status is also staged on the Context so
 //     the runtime reconciler can flush ConditionDataSourceReady.
 //
-// Done=true means the Instance no longer needs to be held in the Restoring
-// phase — either no DataSource is configured, or the restore reached a
-// terminal state (Succeeded or Failed). Providers should report
-// InstancePhaseRestoring while Done is false.
+// Done=true means the Instance is no longer being seeded — either no
+// DataSource is configured, or the restore reached a terminal state
+// (Succeeded or Failed). Providers should report a restore, with
+// controller.Restoring, while Done is false.
 //
 // Once seeding has Succeeded the helper returns that result without touching
 // the source or the Restore: the source Backup may since have been deleted
@@ -1112,6 +1215,7 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 			s := DataSourceStatus{
 				Done:    false,
 				State:   DataSourceStateWaiting,
+				Blocked: true,
 				Reason:  v1alpha1.ReasonDataSourceClassUnsupported,
 				Message: fmt.Sprintf("BackupClass %q resolved from %s not found", origin.classRefName, origin.description),
 			}
@@ -1160,6 +1264,7 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 		s := DataSourceStatus{
 			Done:    false,
 			State:   DataSourceStateWaiting,
+			Blocked: true,
 			Reason:  v1alpha1.ReasonDataSourceStorageMismatch,
 			Message: fmt.Sprintf("Instance.spec.backup.storages does not include storage %q used by %s", origin.storageName, origin.description),
 		}
@@ -1276,6 +1381,7 @@ func (c *Context) resolveBackupOrigin(
 			return nil, &DataSourceStatus{
 				Done:    false,
 				State:   DataSourceStateWaiting,
+				Blocked: true,
 				Reason:  v1alpha1.ReasonDataSourceSourceBackupNotFound,
 				Message: fmt.Sprintf("source Backup %q not found in namespace %q", backupName, c.in.Namespace),
 			}, nil
@@ -1285,10 +1391,14 @@ func (c *Context) resolveBackupOrigin(
 
 	if vErr := ValidateBackupSucceeded(src); vErr != nil {
 		// A backup that has not Succeeded is a state to wait in, not a
-		// reconcile failure, so the validation error becomes status.
+		// reconcile failure, so the validation error becomes status. One
+		// that is still running finishes by itself; one that failed or is
+		// being deleted never will.
 		waiting := &DataSourceStatus{
-			Done:    false,
-			State:   DataSourceStateWaiting,
+			Done:  false,
+			State: DataSourceStateWaiting,
+			Blocked: src.Status.State == backupv1alpha1.BackupStateFailed ||
+				src.Status.State == backupv1alpha1.BackupStateDeleting,
 			Reason:  v1alpha1.ReasonDataSourceSourceBackupNotSucceeded,
 			Message: fmt.Sprintf("source Backup %q is in state %q, waiting for Succeeded", backupName, src.Status.State),
 		}
@@ -1332,6 +1442,7 @@ func (c *Context) resolvePointInTimeOrigin(
 		return nil, &DataSourceStatus{
 			Done:    false,
 			State:   DataSourceStateWaiting,
+			Blocked: true,
 			Reason:  v1alpha1.ReasonDataSourceClassUnsupported,
 			Message: fmt.Sprintf("Instance %q has no backup class configured; cannot resolve how to read its point-in-time stream", instanceName),
 		}, nil
@@ -1368,6 +1479,7 @@ func (c *Context) sourceInstance(name string) (*v1alpha1.Instance, *DataSourceSt
 			return nil, &DataSourceStatus{
 				Done:    false,
 				State:   DataSourceStateWaiting,
+				Blocked: true,
 				Reason:  v1alpha1.ReasonDataSourceSourceInstanceNotFound,
 				Message: fmt.Sprintf("source Instance %q not found in namespace %q", name, c.in.Namespace),
 			}, nil

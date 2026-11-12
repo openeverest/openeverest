@@ -44,13 +44,22 @@ type ProviderInterface interface {
 	// topologies, components, versions and schemas its Provider declares.
 	Validate(in ValidationInput) ValidationResult
 
-	// Sync ensures all required resources exist and are configured.
+	// Sync ensures all required resources exist and are configured. Return
+	// WaitFor to be called again later: the Instance then reads as in
+	// progress, with the reason as its message. Any other error is retried
+	// with backoff and reported as a problem once Sync or Status has kept
+	// failing for a minute.
 	Sync(c *Context) error
 
-	// Status computes the current status of the database.
+	// Status reports what the provider observes about the engine: whether it
+	// runs what the Instance asks for, whether clients can connect, and the
+	// operations and problems in progress. The runtime derives the
+	// Instance's phase, conditions and status word from it.
 	Status(c *Context) (Status, error)
 
 	// Cleanup handles deletion (called when deletion timestamp is set).
+	// Return WaitFor while something is still being deleted: the reason is
+	// shown as what the deletion waits for.
 	Cleanup(c *Context) error
 }
 

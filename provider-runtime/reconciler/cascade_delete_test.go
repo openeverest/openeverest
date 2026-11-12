@@ -122,11 +122,12 @@ func TestCascadeDeleteChildren_DeletesBackupsAndRestores(t *testing.T) {
 	inCtx := controller.NewContext(context.Background(), c, instance, "test-provider")
 	logger := &testLogger{t: t}
 
-	remaining, err := r.cascadeDeleteChildren(context.Background(), inCtx, logger)
+	backupsLeft, restoresLeft, err := r.cascadeDeleteChildren(context.Background(), inCtx, logger)
 	require.NoError(t, err)
-	// We expect 3 items (2 backups + 1 restore for "my-db") to be in the remaining count
+	// We expect the 2 backups and the restore of "my-db" to be counted as remaining
 	// because the list is done before deletion and the objects still exist at count time.
-	assert.Equal(t, 3, remaining)
+	assert.Equal(t, 2, backupsLeft)
+	assert.Equal(t, 1, restoresLeft)
 
 	// After deletion, re-listing should show them gone (fake client honors Delete immediately).
 	backups := &backupv1alpha1.BackupList{}
@@ -164,7 +165,8 @@ func TestCascadeDeleteChildren_NoChildren(t *testing.T) {
 	inCtx := controller.NewContext(context.Background(), c, instance, "test-provider")
 	logger := &testLogger{t: t}
 
-	remaining, err := r.cascadeDeleteChildren(context.Background(), inCtx, logger)
+	backupsLeft, restoresLeft, err := r.cascadeDeleteChildren(context.Background(), inCtx, logger)
 	require.NoError(t, err)
-	assert.Equal(t, 0, remaining)
+	assert.Zero(t, backupsLeft)
+	assert.Zero(t, restoresLeft)
 }
