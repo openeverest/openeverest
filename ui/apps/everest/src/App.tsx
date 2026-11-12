@@ -120,9 +120,9 @@ const App = () => {
                   // that as the single owner of the OIDC state
                   onSignIn: async (user) => {
                     try {
-                      if (user?.access_token) {
+                      if (user?.id_token) {
                         const everestToken = await exchangeSsoToken(
-                          user.access_token
+                          user.id_token
                         );
                         localStorage.setItem('everestToken', everestToken);
                       }

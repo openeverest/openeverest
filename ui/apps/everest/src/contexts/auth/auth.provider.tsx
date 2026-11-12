@@ -195,10 +195,8 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
       }
       try {
         const newLoggedUser = await userManager.signinSilent();
-        if (newLoggedUser?.access_token) {
-          const everestToken = await exchangeSsoToken(
-            newLoggedUser.access_token
-          );
+        if (newLoggedUser?.id_token) {
+          const everestToken = await exchangeSsoToken(newLoggedUser.id_token);
           localStorage.setItem('everestToken', everestToken);
           return everestToken;
         }
@@ -276,7 +274,7 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
 
     // The token exchange has a single owner per path — onSignIn (login, see App.tsx) and
     // silentlyRenewToken (renew). addUserLoaded must NOT exchange too, or every login/renew
-    // hits the IdP's rate-limited UserInfo endpoint twice and the two calls race.
+    // hits the rate-limited exchange endpoint twice and the two calls race.
     const handleTokenExpiring = () => {
       silentlyRenewToken();
     };

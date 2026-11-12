@@ -24,8 +24,12 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	"github.com/openeverest/openeverest/v2/pkg/oidc"
 )
 
 func TestEverestErrorHandler_Conflict(t *testing.T) {
@@ -102,4 +106,33 @@ func TestEverestErrorHandler_Conflict(t *testing.T) {
 			assert.JSONEq(t, tt.want, rec.Body.String())
 		})
 	}
+}
+
+func TestNewSSOTokenVerifier(t *testing.T) {
+	t.Parallel()
+
+	provider := func(clientID string) *oidc.ProviderConfig {
+		return &oidc.ProviderConfig{
+			Issuer:   "https://idp.example.com",
+			JWKSURL:  "https://idp.example.com/jwks",
+			ClientID: clientID,
+		}
+	}
+
+	t.Run("OIDC not configured disables SSO", func(t *testing.T) {
+		t.Parallel()
+		assert.Nil(t, newSSOTokenVerifier(t.Context(), zap.NewNop().Sugar(), nil))
+	})
+
+	t.Run("invalid OIDC settings disable SSO instead of failing the server", func(t *testing.T) {
+		t.Parallel()
+		core, logs := observer.New(zap.ErrorLevel)
+		assert.Nil(t, newSSOTokenVerifier(t.Context(), zap.New(core).Sugar(), provider("")))
+		assert.Equal(t, 1, logs.FilterMessageSnippet("SSO is disabled").Len())
+	})
+
+	t.Run("valid OIDC settings enable SSO", func(t *testing.T) {
+		t.Parallel()
+		assert.NotNil(t, newSSOTokenVerifier(t.Context(), zap.NewNop().Sugar(), provider("everest")))
+	})
 }

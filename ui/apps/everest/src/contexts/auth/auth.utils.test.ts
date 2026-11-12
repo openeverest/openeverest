@@ -49,22 +49,22 @@ describe('exchangeSsoToken', () => {
       .mockRejectedValueOnce(axiosError(429))
       .mockResolvedValueOnce({ data: { access_token: 'everest-jwt' } });
 
-    const result = exchangeSsoToken('oidc-token');
+    const result = exchangeSsoToken('id-token');
     await vi.runAllTimersAsync();
 
     await expect(result).resolves.toBe('everest-jwt');
     expect(post).toHaveBeenCalledTimes(2);
     expect(post).toHaveBeenLastCalledWith('/auth/token', {
       grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
-      subject_token: 'oidc-token',
-      subject_token_type: 'urn:ietf:params:oauth:token-type:access_token',
+      subject_token: 'id-token',
+      subject_token_type: 'urn:ietf:params:oauth:token-type:id_token',
     });
   });
 
   it('gives up after the retry budget', async () => {
     const post = vi.spyOn(api, 'post').mockRejectedValue(axiosError(429));
 
-    const result = exchangeSsoToken('oidc-token');
+    const result = exchangeSsoToken('id-token');
     const assertion = expect(result).rejects.toBeInstanceOf(AxiosError);
     await vi.runAllTimersAsync();
 
@@ -75,7 +75,7 @@ describe('exchangeSsoToken', () => {
   it('does not retry an invalid token', async () => {
     const post = vi.spyOn(api, 'post').mockRejectedValue(axiosError(401));
 
-    await expect(exchangeSsoToken('oidc-token')).rejects.toBeInstanceOf(
+    await expect(exchangeSsoToken('id-token')).rejects.toBeInstanceOf(
       AxiosError
     );
     expect(post).toHaveBeenCalledTimes(1);

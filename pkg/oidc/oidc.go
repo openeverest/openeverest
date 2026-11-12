@@ -35,14 +35,17 @@ import (
 //
 //nolint:tagliatelle
 type ProviderConfig struct {
-	OriginalIssuer string   `json:"OriginalIssuer"`
-	Issuer         string   `json:"issuer"`
-	AuthURL        string   `json:"authorization_endpoint"`
-	TokenURL       string   `json:"token_endpoint"`
-	DeviceAuthURL  string   `json:"device_authorization_endpoint"`
-	JWKSURL        string   `json:"jwks_uri"`
-	UserInfoURL    string   `json:"userinfo_endpoint"`
-	Algorithms     []string `json:"id_token_signing_alg_values_supported"`
+	OriginalIssuer string `json:"OriginalIssuer"`
+	// ClientID is the Everest client registered with the provider. It comes from the Everest
+	// settings, not from the provider's well-known configuration.
+	ClientID      string   `json:"-"`
+	Issuer        string   `json:"issuer"`
+	AuthURL       string   `json:"authorization_endpoint"`
+	TokenURL      string   `json:"token_endpoint"`
+	DeviceAuthURL string   `json:"device_authorization_endpoint"`
+	JWKSURL       string   `json:"jwks_uri"`
+	UserInfoURL   string   `json:"userinfo_endpoint"`
+	Algorithms    []string `json:"id_token_signing_alg_values_supported"`
 }
 
 const (
@@ -96,6 +99,17 @@ func NewProviderConfig(ctx context.Context, issuer string) (ProviderConfig, erro
 	// Need to store the original issuerUrl too.
 	result.OriginalIssuer = issuer
 	return result, nil
+}
+
+// NewIDTokenVerifier returns a verifier for ID tokens that this provider issued to ClientID.
+// Both the issuer advertised by the provider and the one configured in Everest are accepted,
+// because they differ for some providers (e.g. Microsoft Entra ID).
+func (c *ProviderConfig) NewIDTokenVerifier(ctx context.Context) (*IDTokenVerifier, error) {
+	keyFunc, err := c.NewKeyFunc(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return NewIDTokenVerifier(keyFunc, c.ClientID, c.Issuer, c.OriginalIssuer)
 }
 
 // NewKeyFunc returns a new function for getting the public JWK keys

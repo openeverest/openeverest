@@ -42,20 +42,18 @@ const SSO_EXCHANGE_MAX_RETRIES = 3;
 const SSO_RENEW_LOCK_NAME = 'everest-sso-renew';
 const MIN_REUSABLE_TOKEN_VALIDITY_MS = 60_000;
 
-// Exchanges an OIDC access token (JWT or opaque) for an Everest-signed JWT via the RFC 8693
-// token-exchange grant. The exchange shares a per-IP rate limit, so a throttled (429) attempt
-// is retried with jittered backoff.
-export const exchangeSsoToken = async (
-  accessToken: string
-): Promise<string> => {
+// Exchanges the OIDC ID token for an Everest-signed JWT via the RFC 8693 token-exchange grant.
+// The ID token, unlike the access token, proves that the IdP issued it to Everest. The exchange
+// shares a per-IP rate limit, so a throttled (429) attempt is retried with jittered backoff.
+export const exchangeSsoToken = async (idToken: string): Promise<string> => {
   for (let attempt = 0; ; attempt++) {
     try {
       const response = await api.post<
         HttpApi.components['schemas']['AuthTokenResponse']
       >('/auth/token', {
         grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
-        subject_token: accessToken,
-        subject_token_type: 'urn:ietf:params:oauth:token-type:access_token',
+        subject_token: idToken,
+        subject_token_type: 'urn:ietf:params:oauth:token-type:id_token',
       } satisfies HttpApi.components['schemas']['AuthTokenRequest']);
       return response.data.access_token;
     } catch (error) {
