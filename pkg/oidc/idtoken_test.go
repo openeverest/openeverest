@@ -84,12 +84,13 @@ func TestIDTokenVerifier(t *testing.T) {
 	otherKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 
-	verifier, err := NewIDTokenVerifier(func(token *jwt.Token) (any, error) {
+	keyFunc := func(token *jwt.Token) (any, error) {
 		if token.Header["kid"] != kid {
 			return nil, errors.New("unknown kid")
 		}
 		return idpKey.Public(), nil
-	}, clientID, issuer, originalIssuer)
+	}
+	verifier, err := NewIDTokenVerifier(keyFunc, clientID, issuer, originalIssuer)
 	require.NoError(t, err)
 
 	sign := func(t *testing.T, method jwt.SigningMethod, key any, claims jwt.MapClaims, header map[string]any) string {
@@ -131,13 +132,14 @@ func TestIDTokenVerifier(t *testing.T) {
 		t.Parallel()
 		identity, err := verifier.Verify(sign(t, jwt.SigningMethodRS256, idpKey, validClaims(), nil))
 		require.NoError(t, err)
-		assert.Equal(t, &Identity{
+		want := &Identity{
 			Subject:           "oidc-subject",
 			Email:             "user@example.com",
 			Name:              "Example User",
 			PreferredUsername: "euser",
 			Groups:            StringList{"admins", "devs"},
-		}, identity)
+		}
+		assert.Equal(t, want, identity)
 	})
 
 	accepted := map[string]jwt.MapClaims{

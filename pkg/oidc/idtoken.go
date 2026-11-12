@@ -158,8 +158,10 @@ func (v *IDTokenVerifier) Verify(rawIDToken string) (*Identity, error) {
 		return nil, errors.New("ID token is missing the 'iat' claim")
 	}
 	if age := time.Since(claims.IssuedAt.Time); age > maxIDTokenAge+clockSkewLeeway {
-		return nil, fmt.Errorf("ID token was issued %s ago, only tokens issued within %s are accepted",
-			age.Round(time.Second), maxIDTokenAge)
+		return nil, fmt.Errorf(
+			"ID token was issued %s ago, only tokens issued within %s are accepted",
+			age.Round(time.Second), maxIDTokenAge,
+		)
 	}
 
 	return &Identity{
