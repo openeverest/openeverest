@@ -385,8 +385,7 @@ type KubernetesConnector interface {
 	UpdateInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) (*v1alpha1.InstancePreset, error)
 	// DeleteInstancePreset deletes a namespace-scoped instance preset.
 	DeleteInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) error
-	// RecordLifecycleEvent records r as a lifecycle event. Events about objects without a
-	// namespace, such as users, are recorded in the namespace of the connector.
+	// RecordLifecycleEvent records r as a lifecycle event.
 	RecordLifecycleEvent(ctx context.Context, r events.Record) error
 	// ListLifecycleEvents lists the lifecycle events (see pkg/events) in namespace, or in
 	// all namespaces when namespace is empty.
@@ -396,5 +395,7 @@ type KubernetesConnector interface {
 	// empty. The watch resumes on its own when the API server closes it. When
 	// resourceVersion is too old to resume from, it sends an error event with a 410 status
 	// and stops.
+	//
+	//nolint:ireturn // watch.Interface is the client-go streaming contract
 	WatchLifecycleEvents(ctx context.Context, namespace, resourceVersion string) (watch.Interface, error)
 }
