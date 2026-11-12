@@ -38,7 +38,7 @@ const (
 
 	// DefaultDBNamespaceName is the name of the default DB namespace during installation.
 	DefaultDBNamespaceName = "everest"
-	// MonitoringNamespace is the namespace where monitoring configs are created.
+	// MonitoringNamespace is the namespace the Helm chart creates for monitoring components.
 	MonitoringNamespace = "everest-monitoring"
 	// PerconaEverestDeploymentName stores the name of everest API Server deployment.
 	PerconaEverestDeploymentName = "everest-server"
@@ -56,9 +56,6 @@ const (
 
 	// EverestOperatorName holds the name for Everest operator.
 	EverestOperatorName = "everest-operator"
-
-	// VictoriaMetricsOperatorName holds the name for VictoriaMetrics operator.
-	VictoriaMetricsOperatorName = "victoriametrics-operator"
 
 	// EverestAccountsSecretName is the name of the secret that holds accounts.
 	EverestAccountsSecretName = "everest-accounts"
@@ -106,10 +103,19 @@ const (
 
 	// OpenEverestManagedLabel indicates a Secret or ConfigMap is managed by OpenEverest.
 	OpenEverestManagedLabel = "openeverest.io/managed"
-	// OpenEverestProviderLabel identifies the provider that uses the Secret or ConfigMap.
+	// OpenEverestProviderLabel identifies the provider that defines a Secret or ConfigMap.
 	OpenEverestProviderLabel = "openeverest.io/provider"
-	// OpenEverestDefinitionLabel identifies the Secret or ConfigMap definition for filtering.
+	// OpenEverestMonitoringClassLabel identifies the MonitoringClass that defines a Secret.
+	OpenEverestMonitoringClassLabel = "openeverest.io/monitoring-class"
+	// OpenEverestDefinitionLabel names the definition a Secret or ConfigMap follows within its
+	// source: a key of Provider.spec.secrets or Provider.spec.configMaps, or an authentication
+	// mode of a MonitoringClass.
 	OpenEverestDefinitionLabel = "openeverest.io/definition"
+	// OpenEverestCABundleDefinition is the definition of a CA bundle Secret, the one definition
+	// core owns: the Secret carries no source label, and every key holds PEM CA certificates.
+	OpenEverestCABundleDefinition = "ca-bundle"
+	// OpenEverestInUseProtectionFinalizer is held by core on a Secret while an object uses it.
+	OpenEverestInUseProtectionFinalizer = "openeverest.io/in-use-protection"
 
 	// InstancePresetAnnotation is the annotation key for the InstancePreset that an Instance was created from.
 	InstancePresetAnnotation = "openeverest.io/instance-preset"

@@ -49,6 +49,7 @@ import { DbWizardFormFields } from 'consts';
 import {
   BASE_STEP_ID,
   BACKUP_STEP_ID,
+  MONITORING_STEP_ID,
 } from './database-form-body/steps/constants';
 import {
   useFormEngine,
@@ -70,6 +71,12 @@ import {
 } from './database-form-body/steps/backup-step';
 import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
+import { MONITORING_DESTINATIONS_FIELD } from 'components/monitoring-destinations-picker';
+import {
+  MonitoringStep,
+  useMonitoringStep,
+} from './database-form-body/steps/monitoring-step';
+import { Messages as MonitoringStepMessages } from './database-form-body/steps/monitoring-step/monitoring-step.messages';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { PluginFormSections } from './plugin-form-sections';
 import { useSubmitPluginInstanceConfig } from 'hooks/api/plugins/useSubmitPluginInstanceConfig';
@@ -295,6 +302,15 @@ export const DatabasePage = () => {
     typeof selectedPreset === 'string' ? selectedPreset : ''
   );
 
+  // ── Monitoring step (shown when a class is compatible with the provider)
+  const monitoringStep = useMonitoringStep(
+    typeof selectedNamespace === 'string' ? selectedNamespace : '',
+    typeof selectedProvider === 'string'
+      ? selectedProvider
+      : (providerObject?.metadata?.name ?? '')
+  );
+  const { hasMonitoringStep } = monitoringStep;
+
   // Single owner of programmatic form writes: populate from the picked preset
   // (and revert on clear) and merge topology defaults on a manual switch.
   useDatabaseFormSync({
@@ -335,8 +351,16 @@ export const DatabasePage = () => {
         fields: [BACKUP_SCHEDULES_FIELD],
       });
     }
+    if (hasMonitoringStep) {
+      steps.push({
+        id: MONITORING_STEP_ID,
+        label: MonitoringStepMessages.title,
+        component: MonitoringStep,
+        fields: [MONITORING_DESTINATIONS_FIELD],
+      });
+    }
     return steps;
-  }, [hasBackupStep]);
+  }, [hasBackupStep, hasMonitoringStep]);
 
   const engine = useFormEngine({
     uiSchema,
@@ -376,7 +400,8 @@ export const DatabasePage = () => {
   // Validation
   const validationSchema = useDbValidationSchema(
     dbInstancesList,
-    engine.zodSchema
+    engine.zodSchema,
+    monitoringStep.parametersSchema
   ) as unknown as ZodType<DbWizardType>;
 
   useEffect(() => {
@@ -475,6 +500,8 @@ export const DatabasePage = () => {
       }
     }
 
+    monitoringStep.writeEntries(formData);
+
     latestDataRef.current = postProcessedData;
 
     // Seed the new instance from the source in a single atomic create: the
@@ -562,6 +589,7 @@ export const DatabasePage = () => {
         sectionsOrder: engine.sectionsOrder,
         providerObject,
         hasBackupStep,
+        hasMonitoringStep,
       }}
     >
       <Stack direction={isDesktop ? 'row' : 'column'}>

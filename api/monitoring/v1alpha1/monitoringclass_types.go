@@ -16,6 +16,7 @@ package v1alpha1
 
 import (
 	"slices"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,6 +39,15 @@ const (
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.providerManaged) || has(self.providerManaged)",message="spec.providerManaged cannot be removed once set"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.extensionManaged) || has(self.extensionManaged)",message="spec.extensionManaged cannot be removed once set"
 type MonitoringClassSpec struct {
+	// ControllerName is the controller that claims the class and sets its
+	// Accepted condition, as GatewayClass.spec.controllerName: a
+	// domain-qualified path (e.g. "openeverest.io/monitoring-pmm"). One
+	// controller may claim several classes. Immutable.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)+/[a-z0-9]([-a-z0-9._]*[a-z0-9])?$`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.controllerName is immutable"
+	ControllerName string `json:"controllerName"`
 	// DisplayName is a human-readable name for the monitoring technology.
 	// +optional
 	DisplayName string `json:"displayName,omitempty"`
@@ -110,16 +120,63 @@ type ExtensionManagedFulfilment struct {
 	// be eligible for this class.
 	// +optional
 	Requires SourceRequirements `json:"requires,omitzero"`
+	// PodMetadata lets the class controller request annotations on the
+	// pods of bound Instances (status.podMetadata of its bindings), for
+	// backends whose agents discover databases through pod annotations. The
+	// provider renders them into the pod templates, which rolls the pods.
+	// When set, only component types declaring podMetadata: Supported are
+	// eligible.
+	// +optional
+	PodMetadata *PodMetadataPolicy `json:"podMetadata,omitempty"`
+}
+
+// PodMetadataPolicy bounds what a class controller may put on database pods.
+type PodMetadataPolicy struct {
+	// AnnotationPrefixes are the annotation key prefixes the class
+	// controller may request, each a DNS subdomain followed by "/"
+	// (e.g. "coroot.com/"). Kubernetes and OpenEverest prefixes are
+	// reserved.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=8
+	// +kubebuilder:validation:items:MaxLength=254
+	// +kubebuilder:validation:items:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)+/$`
+	// +kubebuilder:validation:XValidation:rule="self.all(p, !(p.endsWith('kubernetes.io/') || p.endsWith('k8s.io/') || p.endsWith('openeverest.io/')))",message="kubernetes.io, k8s.io and openeverest.io prefixes are reserved"
+	// +listType=set
+	AnnotationPrefixes []string `json:"annotationPrefixes"`
+}
+
+// AllowsAnnotation reports whether key falls under one of the prefixes.
+func (p *PodMetadataPolicy) AllowsAnnotation(key string) bool {
+	if p == nil {
+		return false
+	}
+	return slices.ContainsFunc(p.AnnotationPrefixes, func(prefix string) bool {
+		return len(key) > len(prefix) && strings.HasPrefix(key, prefix)
+	})
 }
 
 // SourceRequirements is matched against
-// Provider.spec.monitoring.componentTypes.<type>: a component is eligible when
-// every flag holds.
+// Provider.spec.monitoring.componentTypes.<type> and the type's kind: a
+// component is eligible when every flag holds and its kind is listed in
+// kinds, if set.
 type SourceRequirements struct {
 	// Metrics requires the component to expose OpenMetrics
 	// (metrics: Native or Exporter).
 	// +optional
 	Metrics bool `json:"metrics,omitempty"`
+	// Connection requires the component to accept native-protocol
+	// connections from monitoring agents (connection: Supported).
+	// +optional
+	Connection bool `json:"connection,omitempty"`
+	// Kinds, when set, makes only the components whose type's kind
+	// (Provider.spec.componentTypes.<type>.kind) is listed eligible. Empty
+	// means any kind.
+	// +listType=set
+	// +kubebuilder:validation:MaxItems=32
+	// +kubebuilder:validation:items:Pattern=`^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
+	// +optional
+	Kinds []string `json:"kinds,omitempty"`
 }
 
 // FindAuthMode returns the class's authentication mode named name, or nil.
@@ -153,7 +210,8 @@ const (
 )
 
 // ProviderCompatibility is the class's compatibility with one Provider,
-// computed by core from Provider.spec.monitoring.
+// computed by core from Provider.spec.monitoring and the kinds of
+// Provider.spec.componentTypes.
 type ProviderCompatibility struct {
 	// Name is the Provider name.
 	// +kubebuilder:validation:Required
@@ -172,6 +230,21 @@ type ProviderCompatibility struct {
 	// Message is the human-readable detail for Reason.
 	// +optional
 	Message string `json:"message,omitempty"`
+	// ClassGeneration is the class's metadata.generation the entry was
+	// computed for. An entry computed for another generation is stale.
+	// +optional
+	ClassGeneration int64 `json:"classGeneration,omitempty"`
+}
+
+// CurrentProviderCompatibility returns the status.providers entry for the
+// Provider called name, or nil when there is none or it was computed for
+// another generation of the class.
+func (c *MonitoringClass) CurrentProviderCompatibility(name string) *ProviderCompatibility {
+	i := slices.IndexFunc(c.Status.Providers, func(p ProviderCompatibility) bool { return p.Name == name })
+	if i < 0 || c.Status.Providers[i].ClassGeneration != c.Generation {
+		return nil
+	}
+	return &c.Status.Providers[i]
 }
 
 // MonitoringClassStatus defines the observed state of MonitoringClass. It

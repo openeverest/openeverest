@@ -39,6 +39,7 @@ import {
   waitForStatus,
   waitForDelete,
   findRowAndClickActions,
+  confirmDeletion,
 } from '@e2e/utils/table';
 import { clickCreateSchedule } from '@e2e/pr/db-cluster-details/utils';
 import { prepareTestDB, queryTestDB } from '@e2e/utils/db-cmd-line';
@@ -492,7 +493,7 @@ function getNextScheduleMinute(incrementMinutes: number): string {
           await test.step('Delete the restore entry', async () => {
             await findRowAndClickActions(page, restoredClusterName, 'Delete');
             await expect(page.getByLabel('Delete restore')).toBeVisible();
-            await page.getByTestId('confirm-dialog-delete').click();
+            await confirmDeletion(page, 'confirm-dialog-delete');
             await waitForDelete(page, restoredClusterName, 15000);
           });
         });

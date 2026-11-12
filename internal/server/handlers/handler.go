@@ -51,7 +51,6 @@ type Handler interface {
 	BackupImportHandler
 	RestoreHandler
 	InstanceBackupHandler
-	MonitoringConfigHandler
 	MonitoringClassHandler
 	MonitoringDestinationHandler
 	MonitoringBindingHandler
@@ -158,15 +157,6 @@ type InstanceBackupHandler interface {
 	ListInstanceBackups(ctx context.Context, cluster, namespace, instance string) (*backupv1alpha1.BackupList, error)
 }
 
-// MonitoringConfigHandler provides methods for handling operations on monitoring configs.
-type MonitoringConfigHandler interface {
-	CreateMonitoringConfig(ctx context.Context, cluster, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha1.MonitoringConfig, error)
-	UpdateMonitoringConfig(ctx context.Context, cluster, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha1.MonitoringConfig, error)
-	ListMonitoringConfigs(ctx context.Context, cluster, namespaces string) (*monitoringv1alpha1.MonitoringConfigList, error)
-	GetMonitoringConfig(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha1.MonitoringConfig, error)
-	DeleteMonitoringConfig(ctx context.Context, cluster, namespace, name string) error
-}
-
 // MonitoringClassHandler provides methods for handling operations on monitoring classes.
 type MonitoringClassHandler interface {
 	ListMonitoringClasses(ctx context.Context, cluster, provider string) (*monitoringv1alpha1.MonitoringClassList, error)
@@ -205,7 +195,16 @@ type ConfigMapHandler interface {
 // SecretHandler provides methods for handling operations on secrets.
 type SecretHandler interface {
 	CreateSecret(ctx context.Context, cluster, namespace string, secret *corev1.Secret) (*corev1.Secret, error)
-	ListSecrets(ctx context.Context, cluster, namespace, provider, definition string) (*corev1.SecretList, error)
+	ListSecrets(ctx context.Context, cluster, namespace string, filter SecretFilter) (*corev1.SecretList, error)
 	GetSecret(ctx context.Context, cluster, namespace, name string) (*corev1.Secret, error)
+	PatchSecret(ctx context.Context, cluster, namespace, name string, patch []byte) (*corev1.Secret, error)
 	DeleteSecret(ctx context.Context, cluster, namespace, name string) error
+}
+
+// SecretFilter selects Secrets by the labels that name their definition.
+// Empty fields match any value.
+type SecretFilter struct {
+	Provider        string
+	MonitoringClass string
+	Definition      string
 }

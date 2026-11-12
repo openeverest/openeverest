@@ -33,7 +33,7 @@ vi.mock('../../api-providers', async () => {
     providerRegistry: {
       ...actual.providerRegistry,
       has: () => true,
-      getAvailableKeys: () => ['monitoringConfigs', 'storageClasses'],
+      getAvailableKeys: () => ['storageClasses'],
     },
   };
 });
@@ -71,18 +71,18 @@ describe('preprocessSchema', () => {
 
   it('preserves dataSource through preprocessing', () => {
     const dataSource: DataSource = {
-      provider: 'monitoringConfigs',
+      provider: 'storageClasses',
     };
     const schema: TopologyUISchemas = {
       single: {
         sections: {
-          monitoring: {
+          storage: {
             components: {
-              monitoringEndpoint: {
+              storageClass: {
                 uiType: FieldType.Select,
                 dataSource,
-                path: 'spec.components.monitoring.customSpec.monitoringConfigName',
-                fieldParams: { label: 'Monitoring endpoint' },
+                path: 'spec.components.engine.storage.storageClass',
+                fieldParams: { label: 'Storage class' },
               },
             },
           },
@@ -91,11 +91,10 @@ describe('preprocessSchema', () => {
     };
 
     const result = preprocessSchema(schema);
-    const comp = result.single.sections.monitoring.components
-      .monitoringEndpoint as Component;
 
-    expect(comp.uiType).toBe(FieldType.Select);
-    expect(comp.dataSource).toEqual(dataSource);
+    expect(
+      result.single.sections.storage.components.storageClass
+    ).toMatchObject({ uiType: FieldType.Select, dataSource });
   });
 
   it('applies the form mode, so restore leaves out the source value of a field hidden in it', () => {

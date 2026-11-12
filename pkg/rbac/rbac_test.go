@@ -167,7 +167,6 @@ func TestLoadAdminPolicy(t *testing.T) {
 		enf.assertAllowed("admin-user", ResourceBackups, ActionRead, "prod/default/backup-1")
 		enf.assertAllowed("admin-user", ResourceRestores, ActionCreate, "staging/ns2/restore-1")
 		enf.assertAllowed("admin-user", ResourceBackupStorages, ActionUpdate, "prod/default/my-storage")
-		enf.assertAllowed("admin-user", ResourceMonitoringConfigs, ActionDelete, "prod/ns1/mc-1")
 	})
 
 	t.Run("admin cannot access cluster-namespaced resources via v1 format", func(t *testing.T) {

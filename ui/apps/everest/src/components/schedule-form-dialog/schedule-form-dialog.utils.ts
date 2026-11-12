@@ -21,6 +21,7 @@ import { ScheduleFormData } from './schedule-form/schedule-form-schema';
 import { ScheduleFormFields } from './schedule-form/schedule-form.types';
 import { generateShortUID } from 'utils/generateShortUID';
 import { WizardMode } from 'shared-types/wizard.types';
+import { retentionFieldsFromApi } from './schedule-form/schedule-form.utils';
 
 export const scheduleModalDefaultValues = (
   mode: WizardMode,
@@ -33,8 +34,7 @@ export const scheduleModalDefaultValues = (
     return {
       [ScheduleFormFields.scheduleName]: name || '',
       [ScheduleFormFields.storageLocation]: { metadata: { name: storageName } },
-      [ScheduleFormFields.retentionCopies]:
-        retention?.type === 'count' ? String(retention.count) : '0',
+      ...retentionFieldsFromApi(retention),
       [ScheduleFormFields.backupClassName]: initialBackupClassName ?? '',
       ...formValues,
       // UIGenerator fields are registered under sectionKey "parameters"
@@ -46,7 +46,7 @@ export const scheduleModalDefaultValues = (
   return {
     [ScheduleFormFields.scheduleName]: `backup-${generateShortUID()}`,
     [ScheduleFormFields.storageLocation]: null,
-    [ScheduleFormFields.retentionCopies]: '0',
+    ...retentionFieldsFromApi(undefined),
     [ScheduleFormFields.backupClassName]: initialBackupClassName ?? '',
     ...TIME_SELECTION_DEFAULTS,
   };

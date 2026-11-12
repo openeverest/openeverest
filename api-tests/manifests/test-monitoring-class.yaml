@@ -1,0 +1,15 @@
+apiVersion: monitoring.openeverest.io/v1alpha1
+kind: MonitoringClass
+metadata:
+  name: test-monitoring-class
+spec:
+  controllerName: test.openeverest.io/api-tests
+  displayName: Test Monitoring Class
+  description: Defines the credentials Secrets the api-tests create.
+  extensionManaged:
+    requires:
+      metrics: true
+  authModes:
+    - name: ServiceAccountToken
+      credentials: {required: [token]}
+    - name: Anonymous

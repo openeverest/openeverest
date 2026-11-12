@@ -9,6 +9,15 @@ info:
     All requests to Everest API require `Authorization: Bearer <token>` header with a valid token in plain-text.
     
     The token can be obtained by using `everestctl token reset` which resets the token and prints it to the screen.
+
+    # Warnings
+    A response carries one `Warning` header per distinct warning Kubernetes raised while handling the request, whether it succeeds or fails: an admission webhook warning on a write, for example, or the deprecation of a resource version.
+    Each value has Kubernetes' warning format, `299 - "<text>"`, the `Warning` field of RFC 7234.
+
+    # Dry run
+    Writes that accept the `dryRun=All` query parameter run every check a real write would, including admission webhooks, and answer as it would, without persisting anything.
+    The response body is the object as it would be stored, and errors and `Warning` headers are those of the real write.
+    A write that does not accept the parameter rejects it with 400.
 tags:
   - name: Kubernetes
     description: Everything related to the Kubernetes Clusters
@@ -564,6 +573,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -684,6 +699,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
           content:
             application/json:
               schema:
@@ -941,6 +962,7 @@ paths:
           description: The namespace where the instance will be created
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       requestBody:
         description: The instance object to be created
         required: true
@@ -951,12 +973,18 @@ paths:
       responses:
         '200':
           description: Instance created successfully
+          headers:
+            Warning:
+              $ref: '#/components/headers/Warning'
           content:
             application/json:
               schema:
                 $ref: 'crds.gen.yaml#/components/schemas/Instance'
         '201':
           description: Instance created successfully
+          headers:
+            Warning:
+              $ref: '#/components/headers/Warning'
           content:
             application/json:
               schema:
@@ -975,6 +1003,15 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
+          headers:
+            Warning:
+              $ref: '#/components/headers/Warning'
           content:
             application/json:
               schema:
@@ -1066,6 +1103,7 @@ paths:
           description: The name of the instance
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       requestBody:
         description: The instance object to be updated
         required: true
@@ -1076,6 +1114,9 @@ paths:
       responses:
         '200':
           description: Instance updated successfully
+          headers:
+            Warning:
+              $ref: '#/components/headers/Warning'
           content:
             application/json:
               schema:
@@ -1094,6 +1135,15 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
+          headers:
+            Warning:
+              $ref: '#/components/headers/Warning'
           content:
             application/json:
               schema:
@@ -1133,6 +1183,7 @@ paths:
           description: The name of the instance
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       requestBody:
         description: |
           A partial Instance document. `status` and the `ownerReferences`, `finalizers`, `name` and `namespace` members of `metadata` are rejected.
@@ -1145,6 +1196,9 @@ paths:
       responses:
         '200':
           description: Instance patched successfully
+          headers:
+            Warning:
+              $ref: '#/components/headers/Warning'
           content:
             application/json:
               schema:
@@ -1173,6 +1227,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation failed
+          headers:
+            Warning:
+              $ref: '#/components/headers/Warning'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1594,6 +1657,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1820,6 +1889,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -1976,6 +2051,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
           content:
             application/json:
               schema:
@@ -2147,6 +2228,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
           content:
             application/json:
               schema:
@@ -2328,6 +2415,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -2400,6 +2493,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -2466,287 +2565,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  '/clusters/{cluster}/namespaces/{namespace}/monitoring-configs':
-    x-everest-resource-name: monitoring-configs
-    post:
-      tags:
-        - Monitoring
-      summary: Create monitoring config
-      description: |
-        This API creates a new monitoring config.
-
-        A monitoring config object requires `type` to be set.
-        Based on the `type` the respective key with configuration needs to be set.
-        Such as, if `type: pmm`, then `pmm` key needs to be provided with a configuration.
-      operationId: createMonitoringConfig
-      parameters:
-        - name: cluster
-          in: path
-          required: true
-          description: The name of the cluster
-          schema:
-            type: string
-        - name: namespace
-          in: path
-          description: Namespace of the monitoring config
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfig'
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Namespace not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/APIError'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-      requestBody:
-        description: The Monitoring config object to be created
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MonitoringConfigCreateParams'
-    get:
-      tags:
-        - Monitoring
-      summary: List monitoring configs
-      description: This API lists all monitoring configs in a given namespace.
-      operationId: listMonitoringConfigs
-      parameters:
-        - name: cluster
-          in: path
-          required: true
-          description: The name of the cluster
-          schema:
-            type: string
-        - name: namespace
-          in: path
-          description: Namespace of the monitoring configs
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfigList'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-  '/clusters/{cluster}/namespaces/{namespace}/monitoring-configs/{name}':
-    x-everest-resource-name: monitoring-configs
-    get:
-      tags:
-        - Monitoring
-      summary: Get monitoring config
-      description: This API gets the monitoring config specified by the `name`.
-      operationId: getMonitoringConfig
-      parameters:
-        - name: cluster
-          in: path
-          required: true
-          description: The name of the cluster
-          schema:
-            type: string
-        - name: name
-          in: path
-          description: Name of the monitoring config
-          required: true
-          schema:
-            type: string
-        - name: namespace
-          in: path
-          description: Namespace of the monitoring config
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfig'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Monitoring config not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-    patch:
-      tags:
-        - Monitoring
-      summary: Update monitoring config
-      description: This API updates the monitoring config specified by the `name`.
-      operationId: updateMonitoringConfig
-      parameters:
-        - name: cluster
-          in: path
-          required: true
-          description: The name of the cluster
-          schema:
-            type: string
-        - name: name
-          in: path
-          description: Name of the monitoring config
-          required: true
-          schema:
-            type: string
-        - name: namespace
-          in: path
-          description: Namespace of the monitoring config
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                $ref: 'crds.gen.yaml#/components/schemas/MonitoringConfig'
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Monitoring config not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/APIError'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-      requestBody:
-        description: The monitoring config object to be updated.
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MonitoringConfigUpdateParams'
-    delete:
-      tags:
-        - Monitoring
-      summary: Delete monitoring config
-      description: This API deletes the monitoring config specified by the `name`.
-      operationId: deleteMonitoringConfig
-      parameters:
-        - name: cluster
-          in: path
-          required: true
-          description: The name of the cluster
-          schema:
-            type: string
-        - name: name
-          in: path
-          description: Name of the monitoring config
-          required: true
-          schema:
-            type: string
-        - name: namespace
-          in: path
-          description: Namespace of the monitoring config
-          required: true
-          schema:
-            type: string
-      responses:
-        '204':
-          description: Successful operation
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: Monitoring config not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '409':
-          description: Conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/APIError'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/monitoring-classes':
     x-everest-resource-name: monitoring-classes
     get:
@@ -2756,7 +2574,7 @@ paths:
       description: |
         This API lists all monitoring classes in the specified cluster.
         Monitoring classes are installed with their extension and are read-only over this API.
-        Optionally filter by provider: only the classes whose `status.providers` entry for that provider carries a `mode` are returned, so the result is what an Instance of that provider can use.
+        Optionally filter by provider: only the classes whose `status.providers` entry for that provider carries a `mode` and was computed for the class's current generation (`classGeneration`) are returned, so the result is what an Instance of that provider can use.
       operationId: listMonitoringClasses
       parameters:
         - name: cluster
@@ -2840,7 +2658,7 @@ paths:
       description: |
         This API creates a new monitoring destination in the specified namespace and cluster.
         Only `metadata.name`, `metadata.generateName`, `metadata.labels`, `metadata.annotations` and `spec` are taken from the request; the namespace is the one in the path.
-        Credentials are never part of the payload: create the Secret through the secrets API and reference it in `spec.authentication.credentialsSecretRef`, together with the `spec.authentication.mode` of the monitoring class it holds the keys of. A CA bundle is referenced the same way in `spec.tls.ca.secretKeyRef`. Referencing a Secret requires `read` on it.
+        Credentials are never part of the payload: create the Secret through the secrets API, labelled `openeverest.io/monitoring-class: <class>` and `openeverest.io/definition: <mode>`, and reference it in `spec.authentication.credentialsSecretRef`, together with the `spec.authentication.mode` of the monitoring class it holds the keys of. A CA bundle is referenced in `spec.tls.ca.secretKeyRef`. Referencing a Secret requires `read` on it.
         `spec.classRef` requires `read` on the monitoring class it names.
       operationId: createMonitoringDestination
       parameters:
@@ -2856,6 +2674,7 @@ paths:
           description: The namespace where the monitoring destination will be created
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '201':
           description: Successful operation
@@ -2883,6 +2702,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
           content:
             application/json:
               schema:
@@ -3000,7 +2825,7 @@ paths:
       description: |
         This API replaces the labels, annotations and `spec` of the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
         Include `metadata.resourceVersion` from the object being replaced to make the update fail with 409 if the monitoring destination has changed since; without it, the destination is replaced whatever its current version.
-        `spec.classRef` is immutable and requires `read` on the monitoring class it names. Credentials are never part of the payload: update the Secret named by `spec.authentication.credentialsSecretRef` instead. Referencing a Secret, as credentials or as `spec.tls.ca.secretKeyRef`, requires `read` on it.
+        `spec.classRef` is immutable and requires `read` on the monitoring class it names. Credentials are never part of the payload: update the Secret named by `spec.authentication.credentialsSecretRef` instead, with `PATCH .../secrets/{name}`. Referencing a Secret, as credentials or as `spec.tls.ca.secretKeyRef`, requires `read` on it.
       operationId: updateMonitoringDestination
       parameters:
         - name: cluster
@@ -3021,6 +2846,7 @@ paths:
           description: The name of the monitoring destination
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '200':
           description: Successful operation
@@ -3052,6 +2878,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -3071,8 +2903,12 @@ paths:
       summary: Delete monitoring destination
       description: |
         This API deletes the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
-        Instances that still list it in `spec.monitoring.destinations` keep their current monitoring and report the destination as not found;
-        list them first with `GET .../monitoring-bindings?destination={name}`.
+        It is refused with `409` and reason `InUse` while Instances that are not being deleted list the destination in `spec.monitoring.destinations` (`status.attachedInstances` above zero);
+        the message gives their number, and `GET .../monitoring-bindings?destination={name}` lists them.
+        With `dryRun=All` the answer is the same and nothing is deleted, so a client can ask before it deletes.
+        An Instance being deleted does not count, so a destination can be deleted right after the Instances that list it. Core counts their deletion within moments; until it has, the answer is still `409`, so a client deleting both retries briefly.
+        A deletion that is let through leaves the destination listed with `metadata.deletionTimestamp` set until no Instance lists it any more, those being deleted included; `status.attachedInstances` then counts them.
+        Deleting a destination that is already being deleted answers `204` again.
       operationId: deleteMonitoringDestination
       parameters:
         - name: cluster
@@ -3093,6 +2929,7 @@ paths:
           description: The name of the monitoring destination
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '204':
           description: Monitoring destination deleted successfully
@@ -3108,6 +2945,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '409':
+          description: Instances still use the destination (reason `InUse`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         default:
           description: Error
           content:
@@ -3270,6 +3113,12 @@ paths:
                 $ref: '#/components/schemas/Error'
         '409':
           description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
           content:
             application/json:
               schema:
@@ -3441,6 +3290,19 @@ paths:
       description: |
         This API creates a new Secret in the specified namespace and cluster.
         The Secret is labeled as managed by OpenEverest.
+
+        The Secret names the object that defines its shape with exactly one source label, and the definition within that source with `openeverest.io/definition`:
+
+        | Source label | `openeverest.io/definition` | Checked against |
+        |---|---|---|
+        | `openeverest.io/provider: <provider>` | a key of the Provider's `spec.secrets` | the definition's `type` and `parametersSchema` |
+        | `openeverest.io/monitoring-class: <class>` | an authentication mode of the MonitoringClass, e.g. `ServiceAccountToken` | type `Opaque` and the keys the mode requires |
+        | none | `ca-bundle`, the one definition core owns | type `Opaque`; every key holds PEM CA certificates and no other PEM block |
+
+        A CA bundle is trust material, not a credential of any provider or class, so one bundle can be referenced from `spec.tls.ca.secretKeyRef` by any kind; list them with `?definition=ca-bundle`.
+
+        The name follows the Kubernetes rules for Secret names. Client-supplied owner references and finalizers are dropped. Secrets of type `kubernetes.io/service-account-token` or `bootstrap.kubernetes.io/token` are refused.
+        The response is the created Secret as `GET .../secrets/{name}` returns it, never with its data.
       operationId: createSecret
       parameters:
         - name: cluster
@@ -3455,6 +3317,7 @@ paths:
           description: The namespace where the secret will be created
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       requestBody:
         description: The secret object to be created
         required: true
@@ -3493,6 +3356,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/APIError'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
         '500':
           description: Internal server error
           content:
@@ -3505,8 +3374,8 @@ paths:
       summary: List secrets
       description: |
         This API lists OpenEverest-managed Secrets in the specified namespace and cluster.
-        Only metadata is returned; secret data is never included.
-        Optionally filter by provider and definition.
+        Each Secret is returned as `GET .../secrets/{name}` returns it, never with its data.
+        Optionally filter by the labels that name the Secret's definition.
       operationId: listSecrets
       parameters:
         - name: cluster
@@ -3524,13 +3393,19 @@ paths:
         - name: provider
           in: query
           required: false
-          description: Filter secrets by provider name
+          description: Filter secrets by the provider that defines them (`openeverest.io/provider`)
+          schema:
+            type: string
+        - name: monitoringClass
+          in: query
+          required: false
+          description: Filter secrets by the MonitoringClass that defines them (`openeverest.io/monitoring-class`)
           schema:
             type: string
         - name: definition
           in: query
           required: false
-          description: Filter secrets by definition
+          description: Filter secrets by definition (`openeverest.io/definition`)
           schema:
             type: string
       responses:
@@ -3554,7 +3429,8 @@ paths:
       summary: Get secret
       description: |
         This API gets OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`.
-        Note: Secret data is NOT included in the response for security reasons. Only metadata is returned.
+        The response never carries the Secret's data. It holds `type`, `immutable` and these members of `metadata`: `name`, `namespace`, `uid`, `resourceVersion`, `creationTimestamp`, `deletionTimestamp`, `labels`, `ownerReferences` (without `blockOwnerDeletion`), and the annotations whose key is in the `openeverest.io` domain or one of its subdomains.
+        Any other metadata, such as `managedFields` and annotations written by kubectl or other tools, is left out because it can hold or reveal the data.
       operationId: getSecret
       parameters:
         - name: cluster
@@ -3600,6 +3476,95 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+    patch:
+      tags:
+        - Secret
+      summary: Patch secret
+      description: |
+        This API applies Merge Patch to the data of the OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`, for instance to rotate credentials without renaming the Secret.
+        Keys sent in `data` or `stringData` are set, keys left out keep their value, and `data: {"<key>": null}` removes a key. The patched data is checked against the Secret's definition, as on create.
+        `metadata.resourceVersion` is required: send the one returned when you read the Secret. The patch fails with 409 if the Secret has changed since, so a change made in between is never overwritten.
+        Only the data changes. `type`, `immutable` and `metadata.labels`, when sent, must match the stored Secret, and the rest of `metadata` is ignored, so a Secret returned by `GET` can be sent back as a patch and changes nothing.
+        A member a Secret does not have is rejected rather than ignored. A Secret marked `immutable` can't be patched. The response is the patched Secret as `GET .../secrets/{name}` returns it, never with its data.
+      operationId: patchSecret
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespace
+          in: path
+          required: true
+          description: The namespace of the secret
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the secret
+          schema:
+            type: string
+        - $ref: '#/components/parameters/DryRun'
+      requestBody:
+        description: |
+          A partial Secret document with `metadata.resourceVersion` and the `data` or `stringData` keys to set or remove.
+        required: true
+        content:
+          application/merge-patch+json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        '200':
+          description: Secret patched successfully (metadata only)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Secret'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Secret not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '415':
+          description: The Content-Type is not application/merge-patch+json
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
     delete:
       tags:
         - Secret
@@ -3626,6 +3591,7 @@ paths:
           description: The name of the secret
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '204':
           description: Secret deleted successfully
@@ -3658,6 +3624,24 @@ components:
     BearerAuth:
       type: http
       scheme: bearer
+  parameters:
+    DryRun:
+      name: dryRun
+      in: query
+      required: false
+      description: |
+        `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything.
+      schema:
+        type: string
+        enum: [All]
+  headers:
+    Warning:
+      description: |
+        A warning Kubernetes returned while handling the request, such as an admission webhook reporting that a Secret the Instance names does not exist yet.
+        The header is repeated once per distinct warning, and each value has Kubernetes' warning format, `299 - "<text>"`, the `Warning` field of RFC 7234.
+      schema:
+        type: string
+      example: '299 - "secret \"db-credentials\" named by spec.userSecretRef not found"'
   schemas:
     Error:
       type: object
@@ -3675,14 +3659,35 @@ components:
           properties:
             reason:
               type: string
-              description: Machine-readable reason for the conflict.
+              description: Machine-readable reason for the error.
               example: AlreadyExists
             field:
               type: string
               description: The field path that caused the conflict.
               example: metadata.name
+            causes:
+              type: array
+              description: Every field that failed validation, on a 422.
+              items:
+                $ref: '#/components/schemas/APIErrorCause'
           required:
             - reason
+    APIErrorCause:
+      type: object
+      description: One field that failed validation.
+      properties:
+        reason:
+          type: string
+          description: Machine-readable kind of failure.
+          example: FieldValueInvalid
+        message:
+          type: string
+          description: What is wrong with the field.
+          example: 'Invalid value: 1: replicas in body should be a multiple of 2'
+        field:
+          type: string
+          description: The path of the field.
+          example: spec.components[hidden].replicas
     SecretList:
       type: object
       description: A list of OpenEverest-managed Secrets (metadata only).
@@ -4089,70 +4094,6 @@ components:
       items:
         type: object
         $ref: '#/components/schemas/MonitoringInstance'
-    MonitoringConfigBase:
-      type: object
-      description: MonitoringConfigBase contains common fields for monitoring config
-      properties:
-        type:
-          type: string
-          enum:
-          - pmm
-          x-go-type-skip-optional-pointer: true
-        url:
-          type: string
-          minLength: 1
-          x-go-type-skip-optional-pointer: true
-        verifyTLS:
-          description: VerifyTLS is set to ensure TLS/SSL verification.
-          type: boolean
-    MonitoringConfigBaseWithName:
-      type: object
-      description: MonitoringConfigBaseWithName contains common fields for monitoring config with name and namespace
-      allOf:
-        - $ref: '#/components/schemas/MonitoringConfigBase'
-        - type: object
-          properties:
-            name:
-              type: string
-              minLength: 1
-              description: A user defined string name of the storage in the DNS name format https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names
-              x-go-type-skip-optional-pointer: true
-              example: pmm-instance
-    MonitoringConfigPMM:
-      type: object
-      description: MonitoringConfigPMM contains PMM-specific fields for monitoring config
-      properties:
-        pmm:
-          type: object
-          x-go-type-name: MonitoringConfigPMMSpec
-          properties:
-            user:
-              type: string
-              x-go-type-skip-optional-pointer: true
-              example: admin
-            password:
-              type: string
-              x-go-type-skip-optional-pointer: true
-              example: password
-            apiKey:
-              type: string
-              minLength: 1
-              x-go-type-skip-optional-pointer: true
-              example: apikey
-    MonitoringConfigCreateParams:
-      description: MonitoringConfigCreateParams contains parameters for creating a monitoring config
-      allOf:
-        - $ref: '#/components/schemas/MonitoringConfigBaseWithName'
-        - $ref: '#/components/schemas/MonitoringConfigPMM'
-      required:
-        - type
-        - url
-        - name
-    MonitoringConfigUpdateParams:
-      description: MonitoringConfigUpdateParams contains parameters for updating a monitoring config
-      allOf:
-        - $ref: '#/components/schemas/MonitoringConfigBase'
-        - $ref: '#/components/schemas/MonitoringConfigPMM'
     DatabaseClusterCredential:
       type: object
       description: kubernetes object

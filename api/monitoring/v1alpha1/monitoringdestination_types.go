@@ -34,6 +34,16 @@ const (
 	MonitoringDestinationConditionReady = "Ready"
 )
 
+// InUseProtectionFinalizer is held by core on every MonitoringDestination
+// and removed only once it is being deleted and no Instance lists it any
+// more, Instances being deleted included, read uncached so an Instance the
+// cache has not seen yet still holds the deletion. The primary guard is the
+// admission policy that refuses the deletion while status.attachedInstances
+// is above zero; the finalizer covers a count that is not up to date yet
+// and Instances being deleted, which the count leaves out until the
+// destination's own deletion starts.
+const InUseProtectionFinalizer = "monitoring.openeverest.io/in-use-protection"
+
 // Reasons for the MonitoringDestination Accepted condition, besides
 // ReasonAccepted, ReasonClassNotFound, ReasonInvalidParameters and
 // ReasonAuthModeUnsupported.
@@ -124,6 +134,17 @@ type MonitoringDestinationStatus struct {
 	// controller.
 	// +optional
 	ServerVersion string `json:"serverVersion,omitempty"`
+	// AttachedInstances is the number of Instances in this namespace whose
+	// spec.monitoring.destinations lists this destination, whatever the
+	// state of their binding. While the destination is not being deleted,
+	// Instances being deleted are left out, so an Instance and then its
+	// destination can be deleted right away; once the destination is being
+	// deleted, they count too, and the number is what its deletion waits
+	// for. Written by core; deleting the destination is refused while it is
+	// above zero.
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	AttachedInstances int32 `json:"attachedInstances,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +optional
@@ -138,6 +159,7 @@ type MonitoringDestinationStatus struct {
 // +kubebuilder:printcolumn:name="Accepted",type="string",JSONPath=".status.conditions[?(@.type==\"Accepted\")].reason"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.serverVersion"
+// +kubebuilder:printcolumn:name="Instances",type="integer",JSONPath=".status.attachedInstances"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="a MonitoringDestination name must be at most 63 characters"
 

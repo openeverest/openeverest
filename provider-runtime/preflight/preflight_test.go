@@ -61,8 +61,10 @@ type stubProvider struct {
 	controller.BaseProvider
 }
 
-func (p *stubProvider) Validate(*controller.Context) error { return nil }
-func (p *stubProvider) Sync(*controller.Context) error     { return nil }
+func (p *stubProvider) Validate(controller.ValidationInput) controller.ValidationResult {
+	return controller.ValidationResult{}
+}
+func (p *stubProvider) Sync(*controller.Context) error { return nil }
 func (p *stubProvider) Status(*controller.Context) (controller.Status, error) {
 	return controller.Status{}, nil
 }

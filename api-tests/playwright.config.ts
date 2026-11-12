@@ -93,41 +93,6 @@ export default defineConfig({
       testDir: 'tests/setup/auth',
       testMatch: /test\.setup\.ts/,
     },
-    // global:pmm
-    {
-      name: 'global:pmm:api-key:setup',
-      testDir: 'tests/setup',
-      testMatch: /pmm\.setup\.ts/,
-      use: {
-        ignoreHTTPSErrors: true,
-      },
-    },
-    // global:monitoring-config
-    {
-      name: 'global:monitoring-config:setup',
-      testDir: 'tests/setup',
-      testMatch: /monitoring-config\.setup\.ts/,
-      dependencies: [
-        'global:auth:ci:setup',
-        'global:pmm:api-key:setup',
-      ],
-      teardown: 'global:monitoring-config:teardown',
-      use: {
-        extraHTTPHeaders: {
-          'Authorization': `Bearer ${process.env[API_CI_TOKEN]}`,
-        },
-      },
-    },
-    {
-      name: 'global:monitoring-config:teardown',
-      testDir: 'tests/teardown',
-      testMatch: /monitoring-config\.teardown\.ts/,
-      use: {
-        extraHTTPHeaders: {
-          'Authorization': `Bearer ${process.env[API_CI_TOKEN]}`,
-        },
-      },
-    },
     // ---------------------- TESTS ----------------------
     // api-tests project
     {
@@ -140,7 +105,6 @@ export default defineConfig({
         'instance',
         'cluster-instance-preset',
         'kubernetes',
-        'monitoring-config-v2',
         'secrets',
         'settings',
         'version',
@@ -189,21 +153,6 @@ export default defineConfig({
       testDir: 'tests',
       testMatch: /kubernetes\.spec\.ts/,
       dependencies: ['global:auth:ci:setup'],
-      use: {
-        extraHTTPHeaders: {
-          'Authorization': `Bearer ${process.env[API_CI_TOKEN]}`,
-        }
-      },
-    },
-    // monitoring-config-v2 tests
-    {
-      name: 'monitoring-config-v2',
-      testDir: 'tests',
-      testMatch: /monitoring-config-v2\.spec\.ts/,
-      dependencies: [
-        'global:auth:ci:setup',
-        'global:pmm:api-key:setup',
-      ],
       use: {
         extraHTTPHeaders: {
           'Authorization': `Bearer ${process.env[API_CI_TOKEN]}`,

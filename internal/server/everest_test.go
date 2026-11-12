@@ -16,6 +16,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -25,7 +26,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 func TestEverestErrorHandler_Conflict(t *testing.T) {
@@ -99,6 +102,174 @@ func TestEverestErrorHandler_Conflict(t *testing.T) {
 			handler(tt.err, c)
 
 			require.Equal(t, http.StatusConflict, rec.Code)
+			assert.JSONEq(t, tt.want, rec.Body.String())
+		})
+	}
+}
+
+func TestEverestErrorHandler_AdmissionDenial(t *testing.T) {
+	t.Parallel()
+
+	destinations := schema.GroupResource{Group: "monitoring.openeverest.io", Resource: "monitoringdestinations"}
+	inUse := "in use by 1 database; remove the destination from them first " +
+		"(kubectl get monitoringbindings -n team-a -l monitoring.openeverest.io/destination=pmm-prod)"
+
+	tests := []struct {
+		name       string
+		err        error
+		code       int
+		want       string
+		wantReason string
+	}{
+		{
+			name: "in-use policy denial is a conflict",
+			// admission.NewForbidden in the ValidatingAdmissionPolicy dispatcher of k8s.io/apiserver.
+			err: k8serrors.NewForbidden(destinations, "pmm-prod", errors.New(
+				"ValidatingAdmissionPolicy 'monitoringdestination-in-use.monitoring.openeverest.io' with binding "+
+					"'monitoringdestination-in-use.monitoring.openeverest.io' denied request: "+inUse,
+			)),
+			code:       http.StatusConflict,
+			want:       inUse,
+			wantReason: "InUse",
+		},
+		{
+			name: "in-use policy named with kustomize's prefix",
+			err: k8serrors.NewForbidden(destinations, "pmm-prod", errors.New(
+				"ValidatingAdmissionPolicy 'openeverest-monitoringdestination-in-use.monitoring.openeverest.io' with binding "+
+					"'openeverest-monitoringdestination-in-use.monitoring.openeverest.io' denied request: "+inUse,
+			)),
+			code:       http.StatusConflict,
+			want:       inUse,
+			wantReason: "InUse",
+		},
+		{
+			name: "other policy denial stays forbidden",
+			err: k8serrors.NewForbidden(destinations, "pmm-prod", errors.New(
+				"ValidatingAdmissionPolicy 'destination-naming.example.com' denied request: names must start with team-",
+			)),
+			code: http.StatusForbidden,
+			want: "names must start with team-",
+		},
+		{
+			name: "webhook denial",
+			// webhookerrors.ToStatusErr in k8s.io/apiserver.
+			err: &k8serrors.StatusError{ErrStatus: metav1.Status{
+				Status:  metav1.StatusFailure,
+				Code:    http.StatusForbidden,
+				Reason:  metav1.StatusReasonForbidden,
+				Message: `admission webhook "vinstance.percona-server-mongodb.openeverest.io" denied the request: replicas must be odd`,
+			}},
+			code: http.StatusForbidden,
+			want: "replicas must be odd",
+		},
+		{
+			name: "other forbidden error unchanged",
+			err:  k8serrors.NewForbidden(destinations, "pmm-prod", errors.New("namespace team-a is being terminated")),
+			code: http.StatusForbidden,
+			want: `monitoringdestinations.monitoring.openeverest.io "pmm-prod" is forbidden: namespace team-a is being terminated`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			e := echo.New()
+			rec := httptest.NewRecorder()
+			c := e.NewContext(httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/", nil), rec)
+
+			handler := everestErrorHandler(e.DefaultHTTPErrorHandler)
+			handler(tt.err, c)
+
+			require.Equal(t, tt.code, rec.Code)
+			var body struct {
+				Message string `json:"message"`
+				Reason  string `json:"reason"`
+			}
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+			assert.Equal(t, tt.want, body.Message)
+			assert.Equal(t, tt.wantReason, body.Reason)
+		})
+	}
+}
+
+func TestEverestErrorHandler_Invalid(t *testing.T) {
+	t.Parallel()
+
+	instanceKind := schema.GroupKind{Group: "core.openeverest.io", Kind: "Instance"}
+
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			name: "every field is a cause",
+			err: k8serrors.NewInvalid(instanceKind, "my-db", field.ErrorList{
+				field.Invalid(field.NewPath("spec", "components").Key("hidden").Child("replicas"), 1, "replicas in body should be a multiple of 2"),
+				field.Required(field.NewPath("spec", "topology", "type"), ""),
+			}),
+			want: `{
+				"message": "Instance.core.openeverest.io \"my-db\" is invalid: [spec.components[hidden].replicas: Invalid value: 1: replicas in body should be a multiple of 2, spec.topology.type: Required value]",
+				"reason": "Invalid",
+				"causes": [
+					{
+						"reason": "FieldValueInvalid",
+						"message": "Invalid value: 1: replicas in body should be a multiple of 2",
+						"field": "spec.components[hidden].replicas"
+					},
+					{
+						"reason": "FieldValueRequired",
+						"message": "Required value",
+						"field": "spec.topology.type"
+					}
+				]
+			}`,
+		},
+		{
+			name: "strict decoding drops the object",
+			err: k8serrors.NewInvalid(schema.GroupKind{}, "", field.ErrorList{
+				field.Invalid(field.NewPath("patch"), `{"spec":{"replicaz":3}}`, `strict decoding error: unknown field "spec.replicaz"`),
+			}),
+			want: `{
+				"message": "strict decoding error: unknown field \"spec.replicaz\"",
+				"reason": "Invalid",
+				"causes": [
+					{
+						"reason": "FieldValueInvalid",
+						"message": "strict decoding error: unknown field \"spec.replicaz\"",
+						"field": "patch"
+					}
+				]
+			}`,
+		},
+		{
+			name: "no details",
+			err: &k8serrors.StatusError{ErrStatus: metav1.Status{
+				Status:  metav1.StatusFailure,
+				Code:    http.StatusUnprocessableEntity,
+				Reason:  metav1.StatusReasonInvalid,
+				Message: "the object is invalid",
+			}},
+			want: `{
+				"message": "the object is invalid",
+				"reason": "Invalid"
+			}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			e := echo.New()
+			rec := httptest.NewRecorder()
+			c := e.NewContext(httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil), rec)
+
+			handler := everestErrorHandler(e.DefaultHTTPErrorHandler)
+			handler(tt.err, c)
+
+			require.Equal(t, http.StatusUnprocessableEntity, rec.Code)
 			assert.JSONEq(t, tt.want, rec.Body.String())
 		})
 	}
