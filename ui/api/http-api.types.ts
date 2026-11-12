@@ -1024,7 +1024,8 @@ export interface paths {
         };
         /**
          * List secrets
-         * @description This API lists OpenEverest-managed Secrets in the specified namespace and cluster.
+         * @description This API lists the labelled Secrets in the specified namespace and cluster: those carrying `openeverest.io/definition` and exactly one source label, or `openeverest.io/definition: ca-bundle` and no source label, as on create.
+         *     They are listed whether they were created through this API or applied with kubectl, by Git or by a secret manager; `openeverest.io/managed` tells which, and `metadata.ownerReferences` whether a controller owns the Secret. Only the Secrets the caller may `read` are listed.
          *     Each Secret is returned as `GET .../secrets/{name}` returns it, never with its data.
          *     Optionally filter by the labels that name the Secret's definition.
          */
@@ -1033,7 +1034,7 @@ export interface paths {
         /**
          * Create secret
          * @description This API creates a new Secret in the specified namespace and cluster.
-         *     The Secret is labeled as managed by OpenEverest.
+         *     The server adds the label `openeverest.io/managed: "true"`, which marks the Secret as created through this API: only such Secrets can be patched through it.
          *
          *     The Secret names the object that defines its shape with exactly one source label, and the definition within that source with `openeverest.io/definition`:
          *
@@ -1041,9 +1042,9 @@ export interface paths {
          *     |---|---|---|
          *     | `openeverest.io/provider: <provider>` | a key of the Provider's `spec.secrets` | the definition's `type` and `parametersSchema` |
          *     | `openeverest.io/monitoring-class: <class>` | an authentication mode of the MonitoringClass, e.g. `ServiceAccountToken` | type `Opaque` and the keys the mode requires |
-         *     | none | `ca-bundle`, the one definition core owns | type `Opaque`; every key holds PEM CA certificates and no other PEM block |
+         *     | none | `ca-bundle`, the one definition core owns | type `Opaque`; key `ca.crt` present; every key holds PEM CA certificates and no other PEM block |
          *
-         *     A CA bundle is trust material, not a credential of any provider or class, so one bundle can be referenced from `spec.tls.ca.secretKeyRef` by any kind; list them with `?definition=ca-bundle`.
+         *     A CA bundle is trust material, not a credential of any provider or class, so one bundle can be referenced from `spec.tls.ca.secretKeyRef` by any kind; list them with `?definition=ca-bundle`. It holds its certificates under `ca.crt`, so a reference to it always names that key; other keys may hold more certificates.
          *
          *     The name follows the Kubernetes rules for Secret names. Client-supplied owner references and finalizers are dropped. Secrets of type `kubernetes.io/service-account-token` or `bootstrap.kubernetes.io/token` are refused.
          *     The response is the created Secret as `GET .../secrets/{name}` returns it, never with its data.
@@ -1064,7 +1065,7 @@ export interface paths {
         };
         /**
          * Get secret
-         * @description This API gets OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`.
+         * @description This API gets the labelled Secret specified by the `name` in the specified `namespace` and `cluster`, whoever created it. A Secret without the labels that name a definition (see list) is not found, with the same answer as a missing Secret, here and on patch and delete.
          *     The response never carries the Secret's data. It holds `type`, `immutable` and these members of `metadata`: `name`, `namespace`, `uid`, `resourceVersion`, `creationTimestamp`, `deletionTimestamp`, `labels`, `ownerReferences` (without `blockOwnerDeletion`), and the annotations whose key is in the `openeverest.io` domain or one of its subdomains.
          *     Any other metadata, such as `managedFields` and annotations written by kubectl or other tools, is left out because it can hold or reveal the data.
          */
@@ -1073,14 +1074,16 @@ export interface paths {
         post?: never;
         /**
          * Delete secret
-         * @description This API deletes the OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`.
+         * @description This API deletes the labelled Secret specified by the `name` in the specified `namespace` and `cluster`, whether or not it was created through this API, so leftovers of Git or `helm uninstall` can be removed. Whatever applied it may create it again.
+         *     A Secret with a controller owner reference, such as an ExternalSecret, is refused with 409, reason `ManagedByController` and the message "managed by <Kind>/<name>", since the controller would recreate it; delete it at its source.
          */
         delete: operations["deleteSecret"];
         options?: never;
         head?: never;
         /**
          * Patch secret
-         * @description This API applies Merge Patch to the data of the OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`, for instance to rotate credentials without renaming the Secret.
+         * @description This API applies Merge Patch to the data of the labelled Secret specified by the `name` in the specified `namespace` and `cluster`, for instance to rotate credentials without renaming the Secret.
+         *     Only a Secret created through this API (`openeverest.io/managed: "true"`) that no controller owns can be patched; whatever else manages a Secret would revert the change. A Secret with a controller owner reference, such as an ExternalSecret, is refused with 409, reason `ManagedByController` and the message "managed by <Kind>/<name>"; any other Secret not created through this API with 409, reason `ManagedOutside`. Change those at their source.
          *     Keys sent in `data` or `stringData` are set, keys left out keep their value, and `data: {"<key>": null}` removes a key. The patched data is checked against the Secret's definition, as on create.
          *     `metadata.resourceVersion` is required: send the one returned when you read the Secret. The patch fails with 409 if the Secret has changed since, so a change made in between is never overwritten.
          *     Only the data changes. `type`, `immutable` and `metadata.labels`, when sent, must match the stored Secret, and the rest of `metadata` is ignored, so a Secret returned by `GET` can be sent back as a patch and changes nothing.
@@ -1133,7 +1136,7 @@ export interface components {
              */
             field?: string;
         };
-        /** @description A list of OpenEverest-managed Secrets (metadata only). */
+        /** @description A list of labelled Secrets (metadata only). */
         SecretList: {
             /** @example v1 */
             apiVersion?: string;
@@ -11376,7 +11379,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Secret not found */
+            /** @description Secret not found, or not labelled */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -11431,7 +11434,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Secret not found */
+            /** @description Secret not found, or not labelled */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -11440,7 +11443,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Conflict */
+            /** @description A controller owns the Secret (reason `ManagedByController`) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -11513,7 +11516,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Secret not found */
+            /** @description Secret not found, or not labelled */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -11522,7 +11525,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Conflict */
+            /** @description The Secret changed since `metadata.resourceVersion` (reason `Conflict`), a controller owns it (reason `ManagedByController`) or it was not created through this API (reason `ManagedOutside`) */
             409: {
                 headers: {
                     [name: string]: unknown;

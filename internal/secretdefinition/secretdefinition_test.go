@@ -451,6 +451,10 @@ func TestValidateCABundle(t *testing.T) {
 			secret: caBundle(map[string][]byte{"ca.crt": ca}),
 		},
 		{
+			name:   "ca.crt and another key, both with certificates",
+			secret: caBundle(map[string][]byte{"ca.crt": ca, "bundle.pem": ca}),
+		},
+		{
 			name:   "several keys, one with two certificates",
 			secret: caBundle(map[string][]byte{"ca.crt": ca, "bundle.pem": append(append([]byte{}, ca...), ca...)}),
 		},
@@ -467,7 +471,17 @@ func TestValidateCABundle(t *testing.T) {
 		{
 			name:    "no keys",
 			secret:  caBundle(nil),
-			wantErr: "a CA bundle needs at least one key",
+			wantErr: `missing key "ca.crt"; a CA bundle holds its certificates under it`,
+		},
+		{
+			name:    "certificates under another key only",
+			secret:  caBundle(map[string][]byte{"bundle.pem": ca}),
+			wantErr: `missing key "ca.crt"; a CA bundle holds its certificates under it`,
+		},
+		{
+			name:    "an empty ca.crt",
+			secret:  caBundle(map[string][]byte{"ca.crt": nil, "bundle.pem": ca}),
+			wantErr: `key "ca.crt": no PEM certificate found`,
 		},
 		{
 			name:    "a key without a certificate",

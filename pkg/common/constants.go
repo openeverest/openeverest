@@ -101,7 +101,8 @@ const (
 	// that holds the name of the resource being served by an API endpoint.
 	EverestAPIExtnResourceName = "x-everest-resource-name"
 
-	// OpenEverestManagedLabel indicates a Secret or ConfigMap is managed by OpenEverest.
+	// OpenEverestManagedLabel marks a Secret or ConfigMap created through the OpenEverest API.
+	// For a Secret it gates changing the data through the API, not whether the API shows it.
 	OpenEverestManagedLabel = "openeverest.io/managed"
 	// OpenEverestProviderLabel identifies the provider that defines a Secret or ConfigMap.
 	OpenEverestProviderLabel = "openeverest.io/provider"
@@ -112,8 +113,12 @@ const (
 	// mode of a MonitoringClass.
 	OpenEverestDefinitionLabel = "openeverest.io/definition"
 	// OpenEverestCABundleDefinition is the definition of a CA bundle Secret, the one definition
-	// core owns: the Secret carries no source label, and every key holds PEM CA certificates.
+	// core owns: the Secret carries no source label, holds its certificates under
+	// OpenEverestCABundleKey, and every key holds PEM CA certificates.
 	OpenEverestCABundleDefinition = "ca-bundle"
+	// OpenEverestCABundleKey is the key every CA bundle Secret holds its certificates under, so
+	// a reference to a labelled bundle never has to ask for the key.
+	OpenEverestCABundleKey = "ca.crt"
 	// OpenEverestInUseProtectionFinalizer is held by core on a Secret while an object uses it.
 	OpenEverestInUseProtectionFinalizer = "openeverest.io/in-use-protection"
 

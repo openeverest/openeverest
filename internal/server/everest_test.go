@@ -29,6 +29,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	"github.com/openeverest/openeverest/v2/internal/secretdefinition"
 )
 
 func TestEverestErrorHandler_Conflict(t *testing.T) {
@@ -86,6 +88,22 @@ func TestEverestErrorHandler_Conflict(t *testing.T) {
 			want: `{
 				"message": "Operation cannot be fulfilled on secrets \"my-secret\": something went wrong",
 				"reason": "Conflict"
+			}`,
+		},
+		{
+			name: "Secret owned by a controller",
+			err:  &secretdefinition.ManagedByControllerError{Kind: "ExternalSecret", Name: "pmm-credentials"},
+			want: `{
+				"message": "managed by ExternalSecret/pmm-credentials",
+				"reason": "ManagedByController"
+			}`,
+		},
+		{
+			name: "Secret not created through the API",
+			err:  secretdefinition.ErrManagedOutside,
+			want: `{
+				"message": "managed outside OpenEverest; change it at its source",
+				"reason": "ManagedOutside"
 			}`,
 		},
 	}
