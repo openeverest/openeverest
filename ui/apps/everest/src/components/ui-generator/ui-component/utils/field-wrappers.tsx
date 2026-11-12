@@ -18,6 +18,7 @@ import {
   Component,
   FieldType,
 } from 'components/ui-generator/ui-generator.types';
+import { isNumberLikeField } from './is-number-like-field';
 
 type FieldWrapper = (
   element: React.ReactElement,
@@ -25,7 +26,9 @@ type FieldWrapper = (
 ) => React.ReactElement;
 
 const shouldCompensateTooltipMargin = (item: Component): boolean => {
-  return item.uiType === FieldType.Number || item.uiType === FieldType.Text;
+  // TextInput-based fields own their top margin; move it onto the tooltip
+  // wrapper so the field stays aligned with neighbours.
+  return isNumberLikeField(item.uiType) || item.uiType === FieldType.Text;
 };
 
 const tooltipWrapper: FieldWrapper = (element, item) => {
