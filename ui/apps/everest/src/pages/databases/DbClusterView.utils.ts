@@ -21,44 +21,13 @@ import {
   BackupStatus,
   getBackupState,
 } from 'shared-types/backups.types';
-import { DbErrorType } from 'shared-types/dbErrors.types';
-import {
-  DB_INSTANCE_UNKNOWN_PHASE,
-  DbInstancePhase,
-} from 'shared-types/instance.types';
 import { DbInstanceForNamespaceResult } from 'hooks/api/db-instances';
-
-// const DB_INSTANCE_STATUS_HUMANIFIED: Record<DbInstancePhase, string> = {
-//   Failed: Messages.statusProvider.down,
-//   Initializing: Messages.statusProvider.initializing,
-//   Pending: 'Pending',
-//   Provisioning: Messages.statusProvider.creating,
-//   Ready: Messages.statusProvider.up,
-//   Restoring: Messages.statusProvider.restoring,
-//   Resuming: 'Resuming',
-//   Suspended: Messages.statusProvider.paused,
-//   Suspending: 'Suspending',
-//   Terminating: Messages.statusProvider.deleting,
-//   Updating: Messages.statusProvider.upgrading,
-//   [DB_INSTANCE_UNKNOWN_PHASE]: DB_INSTANCE_UNKNOWN_PHASE,
-// };
-
-export const beautifyDbInstanceStatus = (
-  status: DbInstancePhase,
-  conditions?: { type: string }[]
-): string => {
-  // TODO importFeature should check DBErrorType
-  if (
-    status === 'Failed' &&
-    conditions?.some((c) => c.type === DbErrorType.ImportFailed)
-  ) {
-    return Messages.statusProvider.importFailed;
-  }
-  return status.toString();
-};
+import { getInstanceStatusDetails } from 'utils/instance-conditions';
+import { getInstanceStatusDisplay } from 'utils/instance-status';
 
 export const convertDbInstancesPayloadToTableFormat = (
-  data: DbInstanceForNamespaceResult[]
+  data: DbInstanceForNamespaceResult[],
+  now: Date
 ): InstanceTableElement[] => {
   const result: InstanceTableElement[] = [];
   data.forEach((item) => {
@@ -66,7 +35,8 @@ export const convertDbInstancesPayloadToTableFormat = (
       ?.isSuccess
       ? item.queryResult?.data.map((instance) => ({
           namespace: item.namespace,
-          phase: instance.status?.phase ?? DB_INSTANCE_UNKNOWN_PHASE,
+          status: getInstanceStatusDisplay(instance, now),
+          notices: getInstanceStatusDetails(instance).markers,
           provider: instance.spec?.providerRef?.name ?? '',
           // dbVersion: cluster.spec.engine.version || '',
           // backupsEnabled: (cluster.spec.backup?.schedules || []).length > 0,

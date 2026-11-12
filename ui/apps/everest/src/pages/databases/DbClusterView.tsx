@@ -16,18 +16,22 @@
 
 import { Box, Card, CardContent, CardHeader, Stack } from '@mui/material';
 import { Table } from '@percona/ui-lib';
-import { InstanceStatus } from 'components/instance-status';
+import {
+  countNeedingAttention,
+  getInstanceStatusColumns,
+  INSTANCE_STATUS_SORTING,
+  NeedsAttentionFilter,
+} from 'components/instance-status';
 import { type MRT_ColumnDef } from 'material-react-table';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { beautifyDbInstanceStatus } from './DbClusterView.utils';
+import { Messages } from './dbClusterView.messages';
 import { InstanceTableElement } from './dbClusterView.types';
 import { CreateDbButton } from 'components/create-db-button';
 import { ImportDbButton } from 'components/import-db-button';
 import EmptyStateDatabases from 'components/empty-state-databases/empty-state-databases';
 import EmptyStateNamespaces from 'components/empty-state-namespaces/empty-state-namespaces';
 import { DbActions } from 'components/db-actions/db-actions';
-import { DbInstancePhaseValues } from 'shared-types/instance.types';
 import { usePlugins } from 'contexts/plugins';
 import type { GlobalDashboardWidgetExtension } from '@openeverest/plugin-sdk';
 import PluginErrorBoundary from 'components/plugin-host/PluginErrorBoundary';
@@ -44,33 +48,27 @@ export const DbClusterView = () => {
     canAddCluster,
   } = useDatabasesView();
 
-  const columns = useMemo<MRT_ColumnDef<InstanceTableElement>[]>(
-    () => [
-      {
-        accessorKey: 'phase',
-        header: 'Status',
-        filterVariant: 'multi-select',
-        filterSelectOptions: DbInstancePhaseValues.map((status) => ({
-          text: beautifyDbInstanceStatus(status),
-          value: status,
-        })),
-        maxSize: 120,
-        Cell: ({ row }) => (
-          <InstanceStatus
-            instance={row.original.raw}
-            dataTestId={row.original.instanceName}
-          />
-        ),
-      },
+  const columns = useMemo<MRT_ColumnDef<InstanceTableElement>[]>(() => {
+    const [status, available, notices] =
+      getInstanceStatusColumns<InstanceTableElement>((row) => ({
+        name: row.instanceName,
+        status: row.status,
+        notices: row.notices,
+      }));
+
+    return [
+      status,
+      available,
       {
         accessorKey: 'instanceName',
-        header: 'Name',
+        header: Messages.columns.name,
+        enableHiding: false,
       },
       {
         accessorFn: ({ provider }) => provider,
         filterVariant: 'multi-select',
         filterSelectOptions: providersNamesFilter,
-        header: 'Provider',
+        header: Messages.columns.provider,
         id: 'provider',
         Cell: ({ row }) => (
           <Stack
@@ -103,8 +101,9 @@ export const DbClusterView = () => {
       {
         accessorKey: 'namespace',
         id: 'namespace',
-        header: 'Namespace',
+        header: Messages.columns.namespace,
       },
+      notices,
       // {
       //   accessorKey: 'backupsEnabled',
       //   header: 'Backups',
@@ -117,9 +116,8 @@ export const DbClusterView = () => {
       //   accessorKey: 'kubernetesCluster',
       //   header: 'Kubernetes Cluster',
       // },
-    ],
-    []
-  );
+    ];
+  }, []);
 
   // Collect plugin globalDashboardWidget extensions.
   const { plugins } = usePlugins();
@@ -194,6 +192,7 @@ export const DbClusterView = () => {
             getRowId={(row) => row.instanceName}
             tableName="dbClusterView"
             state={{ isLoading: false }}
+            initialState={{ sorting: INSTANCE_STATUS_SORTING }}
             columns={columns}
             data={state.rows}
             enableRowActions
@@ -225,14 +224,32 @@ export const DbClusterView = () => {
                 `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
               )
             }
-            renderTopToolbarCustomActions={() =>
-              canAddCluster && (
-                <Box display="flex" gap={1} mb={1}>
-                  <ImportDbButton />
-                  <CreateDbButton />
-                </Box>
-              )
-            }
+            renderTopToolbarCustomActions={({ table }) => (
+              // Takes the room the toolbar has left, so the shortcut stays
+              // with the filters and the buttons at the far end.
+              <Box
+                sx={{
+                  display: 'flex',
+                  flex: 1,
+                  flexWrap: 'wrap',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 1,
+                  mb: 1,
+                }}
+              >
+                <NeedsAttentionFilter
+                  table={table}
+                  count={countNeedingAttention(state.rows)}
+                />
+                {canAddCluster && (
+                  <Box display="flex" gap={1}>
+                    <ImportDbButton />
+                    <CreateDbButton />
+                  </Box>
+                )}
+              </Box>
+            )}
             hideExpandAllIcon
           />
         )}

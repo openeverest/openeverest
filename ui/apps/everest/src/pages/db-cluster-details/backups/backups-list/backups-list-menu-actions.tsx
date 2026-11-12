@@ -37,6 +37,10 @@ interface BackupActionButtonsParams {
     canDelete: boolean;
   };
   isDeleting?: boolean;
+  // The database the backups belong to is going away, so it can't be
+  // restored into. Restoring is otherwise allowed whatever its state: a
+  // database is most often restored when it is down.
+  instanceDeleting?: boolean;
 }
 
 // Row-level backup actions: restore in place, clone into a new DB, and delete.
@@ -46,6 +50,7 @@ export const getBackupActionButtons = ({
   handlers,
   permissions,
   isDeleting = false,
+  instanceDeleting = false,
 }: BackupActionButtonsParams) => {
   const backupName = row.original.metadata?.name ?? '';
   const backupState = getBackupState(row.original);
@@ -55,7 +60,9 @@ export const getBackupActionButtons = ({
       ? [
           <MenuItem
             key="restore"
-            disabled={backupState !== BackupStatus.SUCCEEDED}
+            disabled={
+              backupState !== BackupStatus.SUCCEEDED || instanceDeleting
+            }
             onClick={() => handlers.onRestore(backupName)}
             sx={{ m: 0, gap: 1, px: 2, py: '10px' }}
           >

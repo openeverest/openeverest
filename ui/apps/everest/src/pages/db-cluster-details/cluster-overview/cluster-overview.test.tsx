@@ -20,6 +20,8 @@ import { DbInstanceContextProps } from '../dbCluster.context.types';
 import { ClusterOverview } from './cluster-overview';
 import { FieldType } from 'components/ui-generator/ui-generator.types';
 import { Instance } from 'shared-types/api.types';
+import { InstanceCondition } from 'shared-types/instance.types';
+import { getFixtureInstance } from 'utils/tests/instance-status-fixtures';
 
 const { useDbInstanceCredentials } = vi.hoisted(() => ({
   useDbInstanceCredentials: vi.fn(() => ({ data: undefined })),
@@ -43,7 +45,34 @@ const mockInstance: Instance = {
     providerRef: { name: 'test-provider' },
     topology: { type: 'ha' },
   },
-  status: { phase: 'Ready' },
+  status: getFixtureInstance('healthy').status,
+};
+
+const connectionDetails = (
+  status: InstanceCondition['status']
+): InstanceCondition => ({
+  type: 'ConnectionDetailsReady',
+  status,
+  reason: status === 'True' ? 'Published' : 'NotReported',
+  message: '',
+  lastTransitionTime: '2026-03-01T11:00:00Z',
+});
+
+// The database in the state a status fixture describes, with or without
+// its connection details published.
+const instanceIn = (
+  fixture: string,
+  published: InstanceCondition['status']
+): Instance => {
+  const { status } = getFixtureInstance(fixture);
+
+  return {
+    ...mockInstance,
+    status: {
+      ...status,
+      conditions: [...(status?.conditions ?? []), connectionDetails(published)],
+    },
+  };
 };
 
 const queryClient = new QueryClient({
@@ -130,8 +159,10 @@ describe('ClusterOverview', () => {
     expect(screen.queryByTestId('cluster-overview')).not.toBeInTheDocument();
   });
 
-  it('polls credentials when instance phase is ready', () => {
-    renderOverview('my-ns', 'my-test-db');
+  it('loads credentials once the connection details are published', () => {
+    renderOverview('my-ns', 'my-test-db', {
+      instance: instanceIn('healthy', 'True'),
+    });
 
     expect(useDbInstanceCredentials).toHaveBeenCalledWith(
       'my-test-db',
@@ -142,21 +173,92 @@ describe('ClusterOverview', () => {
     );
   });
 
-  // TODO recheck condition, probably we should show oriented on the plag int he conditions in status
-  it('does not query credentials before instance is ready', () => {
+  it('keeps the credentials while a change rolls out', () => {
     renderOverview('my-ns', 'my-test-db', {
-      instance: {
-        ...mockInstance,
-        status: { phase: 'Initializing' },
-      },
+      instance: instanceIn('rolling-upgrade', 'True'),
     });
 
     expect(useDbInstanceCredentials).toHaveBeenCalledWith(
       'my-test-db',
       'my-ns',
       expect.objectContaining({
-        enabled: false,
+        enabled: true,
       })
+    );
+  });
+
+  it.each([
+    ['are not published yet', instanceIn('creating', 'False')],
+    ['are not reported at all', mockInstance],
+  ])(
+    'does not load credentials while the connection details %s',
+    (_, instance) => {
+      renderOverview('my-ns', 'my-test-db', { instance });
+
+      expect(useDbInstanceCredentials).toHaveBeenCalledWith(
+        'my-test-db',
+        'my-ns',
+        expect.objectContaining({
+          enabled: false,
+        })
+      );
+    }
+  );
+
+  it('opens with the status of the database', () => {
+    renderOverview('my-ns', 'my-test-db', {
+      instance: instanceIn('rolling-upgrade', 'True'),
+    });
+
+    expect(screen.getByTestId('status-card-status')).toHaveTextContent(
+      'Up \u00b7 Upgrading'
+    );
+  });
+
+  it.each([
+    ['may be edited', 'healthy', true],
+    // Converging does not lock the database: the next change queues up.
+    ['may be edited', 'rolling-upgrade', true],
+    ['may not be edited', 'deleting', false],
+  ])('%s when %s', (_, fixture, editable) => {
+    vi.mocked(useProviders).mockReturnValue({
+      data: [
+        {
+          metadata: { name: 'test-provider' },
+          spec: {
+            uiSchema: {
+              ha: {
+                sections: {
+                  resources: {
+                    label: 'Resources',
+                    components: {
+                      replicas: {
+                        uiType: FieldType.Number,
+                        path: 'spec.components.engine.replicas',
+                        fieldParams: { label: 'Nodes' },
+                      },
+                    },
+                  },
+                },
+                sectionsOrder: ['resources'],
+              },
+            },
+          },
+        },
+      ],
+      isLoading: false,
+    } as unknown as ReturnType<typeof useProviders>);
+
+    renderOverview('my-ns', 'my-test-db', {
+      instance: {
+        ...getFixtureInstance(fixture),
+        spec: mockInstance.spec,
+      },
+    });
+
+    expect(screen.getByTestId('resources-details')).toBeInTheDocument();
+    expect(screen.queryAllByTestId('resources-edit-button')).toHaveLength(
+      editable ? 1 : 0
     );
   });
 

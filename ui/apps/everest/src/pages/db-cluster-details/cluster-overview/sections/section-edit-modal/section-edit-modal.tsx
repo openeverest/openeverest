@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { useMemo, useState } from 'react';
+import { Alert } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FormDialog } from 'components/form-dialog/form-dialog';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
@@ -32,6 +33,8 @@ import {
 import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/useUpdateDbInstance';
 import { useKubernetesClusterInfo } from 'hooks/api/kubernetesClusters/useKubernetesClusterInfo';
 import type { Instance } from 'shared-types/api.types';
+import { InstanceConditionType } from 'shared-types/instance.types';
+import { isInstanceConditionTrue } from 'utils/instance-status';
 import { widgetRegistry } from 'pages/database-form/widget-registry';
 import type { SectionEditModalProps } from './section-edit-modal.types';
 import { applyRuntimeOverrides } from './section-edit-modal.utils';
@@ -132,6 +135,17 @@ const SectionEditModal = ({
       size="XL"
       submitting={submitting}
     >
+      {/* Editing is allowed while the database converges; the person is
+          told that their change comes on top of one still being applied. */}
+      {isInstanceConditionTrue(instance, InstanceConditionType.Reconciling) && (
+        <Alert
+          severity="info"
+          sx={{ mb: 2 }}
+          data-testid="edit-reconciling-hint"
+        >
+          {Messages.reconciling}
+        </Alert>
+      )}
       <UIGenerator
         sectionKey={sectionKey}
         sections={editSections}

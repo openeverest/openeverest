@@ -21,8 +21,9 @@ import {
   ProxyExposeType,
 } from 'shared-types/dbCluster.types';
 import { DbEngineType } from 'shared-types/dbEngines.types';
-import { DbInstancePhase } from 'shared-types/instance.types';
+import { InstanceStatusDisplay } from 'shared-types/instance.types';
 import { Instance } from 'shared-types/api.types';
+import { InstanceConditionEntry } from 'utils/instance-conditions';
 
 export interface DbTypeIconProviderProps {
   dbType: DbEngineType | DbType;
@@ -51,7 +52,9 @@ export interface DbClusterTableElement {
 export interface InstanceTableElement {
   namespace: string;
   instanceName: string;
-  phase: DbInstancePhase;
+  status: InstanceStatusDisplay;
+  // What the row flags beside its status, without changing it.
+  notices: InstanceConditionEntry[];
   provider: string;
   topologyType: string;
   raw: Instance;

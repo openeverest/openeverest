@@ -106,7 +106,7 @@ const ConnectionSection = ({
           label={Messages.fields.status}
           content={
             canReadCredentials
-              ? ConnectionSectionMessages.waitingForInstance
+              ? ConnectionSectionMessages.notPublished
               : ConnectionSectionMessages.noPermission
           }
         />

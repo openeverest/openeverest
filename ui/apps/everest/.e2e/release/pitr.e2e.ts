@@ -392,7 +392,7 @@ test.describe.serial(
           timeout: TIMEOUTS.ThirtySeconds,
         });
         try {
-          await waitForStatus(page, clusterName, 'Provisioning', 30000);
+          await waitForStatus(page, clusterName, 'Creating', 30000);
         } catch {
           // Transitional status can be short-lived; continue with readiness checks.
         }

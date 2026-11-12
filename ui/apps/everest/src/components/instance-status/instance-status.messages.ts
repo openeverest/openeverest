@@ -13,5 +13,19 @@
 // limitations under the License.
 
 export const Messages = {
-  podsNeedAttention: 'Some pods need attention.',
+  since: (elapsed: string) => `since ${elapsed}`,
+  notices: (count: number) => `${count} notice${count === 1 ? '' : 's'}`,
+  columns: {
+    status: 'Status',
+    available: 'Available',
+    notices: 'Notices',
+  },
+  // The cell shows a dash, which says nothing in a list of options.
+  availabilityFilter: {
+    Yes: 'Yes',
+    No: 'No',
+    Unknown: 'Unknown',
+  },
+  needsAttention: (count: number) => `Needs attention (${count})`,
+  none: '\u2014',
 };

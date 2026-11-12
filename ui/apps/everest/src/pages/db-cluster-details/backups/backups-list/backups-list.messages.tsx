@@ -17,6 +17,10 @@
 // import { PG_SLOTS_LIMIT } from 'consts';
 
 export const Messages = {
+  restoreInProgress: {
+    title: 'Restore in progress',
+    content: 'The database is being restored from a backup.',
+  },
   deleteDialog: {
     header: 'Delete backup',
     content: (backupName: string) => (

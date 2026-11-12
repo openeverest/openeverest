@@ -412,3 +412,64 @@ describe('SectionEditModal dataSource field disabled on edit', () => {
     ).toBeInTheDocument();
   });
 });
+
+describe('SectionEditModal while the database converges', () => {
+  const { sections } = preprocessSchema({
+    replicaSet: {
+      sections: {
+        resources: {
+          label: 'Resources',
+          components: {
+            replicas: makeNumber('spec.components.engine.replicas', 'Nodes'),
+          },
+        },
+      },
+    },
+  }).replicaSet;
+
+  const renderModal = (reconciling: 'True' | 'False') =>
+    render(
+      <TestWrapper>
+        <SectionEditModal
+          sectionKey="resources"
+          sections={sections}
+          instance={
+            {
+              metadata: { name: 'test-db', namespace: 'ns' },
+              spec: { components: { engine: { replicas: 3 } } },
+              status: {
+                conditions: [
+                  {
+                    type: 'Reconciling',
+                    status: reconciling,
+                    reason: 'Upgrading',
+                    message: '',
+                    lastTransitionTime: '2026-03-01T11:56:00Z',
+                  },
+                ],
+              },
+            } as unknown as Instance
+          }
+          provider={{ spec: {} } as Provider}
+          namespace="ns"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+        />
+      </TestWrapper>
+    );
+
+  it('says that a change is still being applied, and lets the person edit', () => {
+    renderModal('True');
+
+    expect(screen.getByTestId('edit-reconciling-hint')).toBeInTheDocument();
+    expect(screen.getByLabelText('Nodes')).toBeEnabled();
+  });
+
+  it('says nothing once the database has converged', () => {
+    renderModal('False');
+
+    expect(
+      screen.queryByTestId('edit-reconciling-hint')
+    ).not.toBeInTheDocument();
+  });
+});

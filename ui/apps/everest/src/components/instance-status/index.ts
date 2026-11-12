@@ -12,4 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+export { InstanceAvailability } from './instance-availability';
 export { InstanceStatus } from './instance-status';
+export {
+  countNeedingAttention,
+  getInstanceStatusColumns,
+  INSTANCE_STATUS_SORTING,
+  type InstanceStatusRow,
+} from './instance-status-columns';
+export { InstanceStatusMarker } from './instance-status-marker';
+export { InstanceStatusSince } from './instance-status-since';
+export { TONE_TO_BASE_STATUS } from './instance-status.constants';
+export { NeedsAttentionFilter } from './needs-attention-filter';
+export { useInstanceStatus } from './use-instance-status';

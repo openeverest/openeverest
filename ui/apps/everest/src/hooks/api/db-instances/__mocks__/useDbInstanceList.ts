@@ -45,7 +45,8 @@ export const mockInstances: Instance[] = [
       },
     },
     status: {
-      phase: 'Ready',
+      phase: 'Provisioned',
+      observedGeneration: 1,
       components: [
         {
           name: 'psmdb',
@@ -56,6 +57,13 @@ export const mockInstances: Instance[] = [
         },
       ],
       conditions: [
+        {
+          lastTransitionTime: '2026-03-20T10:00:00Z',
+          message: '',
+          reason: 'Available',
+          status: 'True',
+          type: 'Available',
+        },
         {
           lastTransitionTime: '2026-03-20T10:00:00Z',
           message: 'Instance is ready',
@@ -94,9 +102,32 @@ export const mockInstances: Instance[] = [
       },
     },
     status: {
-      phase: 'Initializing',
+      phase: 'Pending',
+      observedGeneration: 1,
       components: [],
-      conditions: [],
+      conditions: [
+        {
+          lastTransitionTime: '2026-03-20T10:00:00Z',
+          message: 'The database has not been available yet',
+          reason: 'NotCreated',
+          status: 'False',
+          type: 'Available',
+        },
+        {
+          lastTransitionTime: '2026-03-20T10:00:00Z',
+          message: 'Waiting for the replica set to initialise',
+          reason: 'Creating',
+          status: 'False',
+          type: 'Ready',
+        },
+        {
+          lastTransitionTime: '2026-03-20T10:00:00Z',
+          message: 'Waiting for the replica set to initialise',
+          reason: 'Creating',
+          status: 'True',
+          type: 'Reconciling',
+        },
+      ],
     },
   },
 ];

@@ -15,4 +15,6 @@
 export const Messages = {
   onSuccess: 'Section updated successfully',
   submitMessage: 'Save',
+  reconciling:
+    'A change is still being applied to this database. What you save now is applied after it.',
 };

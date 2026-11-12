@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { Alert, AlertTitle } from '@mui/material';
 import { Table } from '@percona/ui-lib';
 import StatusField from 'components/status-field';
 import { CustomConfirmDialog } from 'components/custom-confirm-dialog/custom-confirm-dialog';
@@ -46,6 +47,7 @@ import { useClusterName } from 'hooks/api/useClusterName.ts';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/useUpdateDbInstance';
 import { Instance } from 'shared-types/api.types';
+import { getRunningRestore, isInstanceDeleting } from 'utils/instance-status';
 import { removeUnusedStorages } from '../backups.utils';
 import { useRBACPermissions } from 'hooks/rbac';
 import { useCanRestore } from 'hooks/api/restores/useCanRestore';
@@ -254,6 +256,8 @@ export const BackupsList = () => {
     return null;
   }
 
+  const restore = getRunningRestore(instance);
+
   const handleManualBackup = () => {
     setOpenOnDemandModal(true);
   };
@@ -265,6 +269,12 @@ export const BackupsList = () => {
 
   return (
     <>
+      {restore && (
+        <Alert severity="info" sx={{ mb: 1 }} data-testid="restore-in-progress">
+          <AlertTitle>{Messages.restoreInProgress.title}</AlertTitle>
+          {restore.message || Messages.restoreInProgress.content}
+        </Alert>
+      )}
       <Table
         getRowId={(row) => row.metadata?.name ?? ''}
         tableName="backupList"
@@ -303,6 +313,7 @@ export const BackupsList = () => {
               isDeleting:
                 deletingBackup &&
                 selectedBackup === (row.original.metadata?.name ?? ''),
+              instanceDeleting: isInstanceDeleting(instance),
             })}
           />
         )}

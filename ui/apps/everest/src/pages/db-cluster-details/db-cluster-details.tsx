@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Box, Skeleton, Tab, Tabs } from '@mui/material';
+import { Box, Skeleton, Tab, Tabs, Typography } from '@mui/material';
 import {
   Link,
   Navigate,
@@ -28,11 +28,15 @@ import { DbInstanceContext } from './dbCluster.context';
 import { useContext, useMemo } from 'react';
 import DbActions from 'components/db-actions/db-actions';
 import { Messages } from './db-cluster-details.messages';
-import { InstanceStatus } from 'components/instance-status';
-import { getPodsAlertConditions } from 'shared-types/instance.types';
+import {
+  InstanceStatus,
+  InstanceStatusSince,
+  useInstanceStatus,
+} from 'components/instance-status';
 import { usePlugins } from 'contexts/plugins';
 import type { ClusterDetailTabExtension } from '@openeverest/plugin-sdk';
-import { PodsAlert } from './pods-alert';
+import { getInstanceStatusExplanation } from 'utils/instance-status';
+import { StatusAlert } from './status-alert';
 
 const WithPermissionDetails = ({
   instanceName,
@@ -43,7 +47,8 @@ const WithPermissionDetails = ({
 }) => {
   const { instance /*clusterDeleted */ } = useContext(DbInstanceContext);
   const navigate = useNavigate();
-  const podsAlerts = getPodsAlertConditions(instance);
+  const status = useInstanceStatus(instance);
+  const explanation = getInstanceStatusExplanation(status);
 
   // TODO RBAC
   // useRBACPermissionRoute([
@@ -107,10 +112,41 @@ const WithPermissionDetails = ({
               alignItems: 'center',
             }}
           >
-            <InstanceStatus instance={instance} dataTestId={instanceName} />
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                columnGap: 1.5,
+              }}
+            >
+              <InstanceStatus
+                status={status}
+                showAvailability
+                dataTestId={instanceName}
+              />
+              {status.since && (
+                <InstanceStatusSince
+                  since={status.since}
+                  data-testid="instance-status-since"
+                >
+                  {Messages.since}
+                </InstanceStatusSince>
+              )}
+            </Box>
             <DbActions showStatusActions dbInstance={instance!} />
           </Box>
         </Box>
+        {explanation && (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ mb: 1, wordBreak: 'break-word', whiteSpace: 'pre-line' }}
+            data-testid="instance-status-message"
+          >
+            {explanation}
+          </Typography>
+        )}
         <Box
           sx={{
             borderBottom: 1,
@@ -146,15 +182,7 @@ const WithPermissionDetails = ({
             ))}
           </Tabs>
         </Box>
-        {/*TODO return when statuses will be ready */}
-        {/* {instance!.status?.status === DbInstanceStatus.restoring && (
-          <Alert severity="warning" sx={{ my: 1 }}>
-            {Messages.restoringDb}
-          </Alert>
-        )} */}
-        {podsAlerts.map((condition) => (
-          <PodsAlert key={condition.type} condition={condition} />
-        ))}
+        <StatusAlert instance={instance!} status={status} />
         <Outlet />
       </Box>
     </>

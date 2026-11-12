@@ -65,7 +65,7 @@ describe('ConnectionSection', () => {
     renderWithContext(true, undefined);
 
     expect(
-      screen.getByText('Waiting for instance to be ready...')
+      screen.getByText('Connection details are not available yet.')
     ).toBeInTheDocument();
   });
 
@@ -88,7 +88,7 @@ describe('ConnectionSection', () => {
     expect(screen.queryByTestId('hidden-row')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Connection URL')).not.toBeInTheDocument();
     expect(
-      screen.queryByText('Waiting for instance to be ready...')
+      screen.queryByText('Connection details are not available yet.')
     ).not.toBeInTheDocument();
   });
 

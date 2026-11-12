@@ -24,15 +24,24 @@ import {
 import { DbCluster, Spec } from 'shared-types/dbCluster.types';
 import { ClusterStatusTableProps } from './types';
 import { useDbClusters } from 'hooks/api/db-clusters/useDbClusters';
-import StatusField from 'components/status-field';
+import { useDbInstanceList } from 'hooks/api/db-instances';
+import { useNow } from 'hooks/utils/useNow';
+import {
+  countNeedingAttention,
+  getInstanceStatusColumns,
+  INSTANCE_STATUS_SORTING,
+  InstanceStatusRow,
+  NeedsAttentionFilter,
+} from 'components/instance-status';
+import { getInstanceStatusDetails } from 'utils/instance-conditions';
+import { getInstanceStatusDisplay } from 'utils/instance-status';
 import UpdateCrDialog from './update-cr-dialog';
 import UpdateEngineDialog from './update-engine-dialog';
-import { DB_INSTANCE_STATUS_TO_BASE_STATUS } from 'pages/databases/DbClusterView.constants';
-import { beautifyDbInstanceStatus } from 'pages/databases/DbClusterView.utils';
-import { DbInstancePhase } from 'shared-types/instance.types';
 
 type EnhancedDbList = OperatorUpgradePendingAction & {
   db?: DbCluster;
+  // How the database is doing; absent until its Instance is loaded.
+  instance?: InstanceStatusRow;
 };
 
 const ClusterStatusTable = ({
@@ -48,6 +57,10 @@ const ClusterStatusTable = ({
       ),
     enabled: !!namespace && !!pendingActions.length,
   });
+  const { data: instances = [] } = useDbInstanceList(namespace, {
+    enabled: !!namespace && !!pendingActions.length,
+  });
+  const now = useNow();
   const [openUpdateCrDialog, setOpenUpdateCrDialog] = useState(false);
   const [openUpdateEngineDialog, setOpenUpdateEngineDialog] = useState(false);
   const selectedDbCluster = useRef<DbCluster>();
@@ -58,13 +71,21 @@ const ClusterStatusTable = ({
         const db = dbClusters.find(
           (cluster) => cluster.metadata.name === action.name
         );
+        const instance = instances.find(
+          (item) => item.metadata?.name === action.name
+        );
 
         return {
           ...action,
           db,
+          instance: instance && {
+            name: action.name,
+            status: getInstanceStatusDisplay(instance, now),
+            notices: getInstanceStatusDetails(instance).markers,
+          },
         };
       }),
-    [dbClusters, pendingActions]
+    [dbClusters, instances, now, pendingActions]
   );
 
   const onDbClick = useCallback(
@@ -132,24 +153,13 @@ const ClusterStatusTable = ({
     [dbClusters, dbEngines]
   );
 
-  const columns = useMemo<MRT_ColumnDef<EnhancedDbList>[]>(
-    () => [
-      {
-        id: 'status',
-        header: 'Status',
-        accessorFn: (row) => row.db?.status?.status,
-        Cell: ({ cell }) => (
-          <StatusField
-            status={cell.getValue<DbInstancePhase>()}
-            statusMap={DB_INSTANCE_STATUS_TO_BASE_STATUS}
-          >
-            {beautifyDbInstanceStatus(
-              cell.getValue<DbInstancePhase>(),
-              cell.row?.original.db?.status?.conditions || []
-            )}
-          </StatusField>
-        ),
-      },
+  const columns = useMemo<MRT_ColumnDef<EnhancedDbList>[]>(() => {
+    const [status, available, notices] =
+      getInstanceStatusColumns<EnhancedDbList>((row) => row.instance);
+
+    return [
+      status,
+      available,
       {
         accessorKey: 'name',
         header: 'Name',
@@ -202,9 +212,9 @@ const ClusterStatusTable = ({
           return message || task;
         },
       },
-    ],
-    [dbClusters, onDbClick]
-  );
+      notices,
+    ];
+  }, [dbClusters, onDbClick]);
 
   return (
     <>
@@ -212,8 +222,17 @@ const ClusterStatusTable = ({
         getRowId={(row) => row.name}
         tableName={`${namespace}-upgrade-pending-actions`}
         noDataMessage="No pending actions"
+        initialState={{ sorting: INSTANCE_STATUS_SORTING }}
         columns={columns}
         data={enhancedDbList}
+        renderTopToolbarCustomActions={({ table }) => (
+          <NeedsAttentionFilter
+            table={table}
+            count={countNeedingAttention(
+              enhancedDbList.map((row) => row.instance)
+            )}
+          />
+        )}
       />
       {selectedDbCluster.current && openUpdateCrDialog && (
         <UpdateCrDialog

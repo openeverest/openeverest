@@ -27,9 +27,10 @@ import { BackupsDetails } from './old-cards/backups-details';
 // import OtherFieldsCard from './sections/other-fields-card';
 import { SectionEditModal } from './sections/section-edit-modal';
 import { MonitoringCard } from './sections/monitoring-card/monitoring-card';
+import { StatusCard } from './sections/status-card';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { isSectionEditable } from 'components/ui-generator/utils/section-editable';
-import { shouldDbActionsBeBlocked } from 'utils/db';
+import { isInstanceDeleting } from 'utils/instance-status';
 import { usePlugins } from 'contexts/plugins';
 import type { ClusterCardExtension } from '@openeverest/plugin-sdk';
 import PluginErrorBoundary from 'components/plugin-host/PluginErrorBoundary';
@@ -71,10 +72,11 @@ export const ClusterOverview = () => {
     return null;
   }
 
-  const actionsBlocked = shouldDbActionsBeBlocked(instance?.status?.phase);
+  const actionsBlocked = isInstanceDeleting(instance);
 
   return (
     <>
+      <StatusCard instance={instance} />
       <MasonryColumns
         minColumnWidth={440}
         maxColumns={3}

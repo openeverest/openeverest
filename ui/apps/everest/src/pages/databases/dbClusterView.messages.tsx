@@ -16,20 +16,10 @@
 
 export const Messages = {
   createDatabase: 'Create',
-  statusProvider: {
-    up: 'Up',
-    down: 'Down',
-    initializing: 'Initializing',
-    pausing: 'Pausing',
-    stopping: 'Stopping',
-    paused: 'Paused',
-    restoring: 'Restoring',
-    deleting: 'Deleting',
-    resizingVolumes: 'Resizing volumes',
-    creating: 'Creating',
-    upgrading: 'Upgrading',
-    importing: 'Importing',
-    importFailed: 'Import Failed',
+  columns: {
+    name: 'Name',
+    provider: 'Provider',
+    namespace: 'Namespace',
   },
   lastBackup: {
     warningTooltip: 'Check your backups page for more info',

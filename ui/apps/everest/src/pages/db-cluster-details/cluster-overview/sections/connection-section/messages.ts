@@ -13,6 +13,6 @@
 // limitations under the License.
 
 export const ConnectionSectionMessages = {
-  waitingForInstance: 'Waiting for instance to be ready...',
+  notPublished: 'Connection details are not available yet.',
   noPermission: 'You do not have permission to view connection details.',
 };
