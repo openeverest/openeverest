@@ -287,3 +287,74 @@ test.describe('Monitoring destination Secret use', () => {
     }
   })
 });
+
+test.describe('Monitoring destination filters', () => {
+  test('?class= and ?secret= return what the field selectors select', async ({request}) => {
+    const suffix = th.testPrefix().substring(0, 8),
+      classA = `md-filter-a-${suffix}`,
+      classB = `md-filter-b-${suffix}`,
+      shared = `md-filter-shared-${suffix}`,
+      corpCA = `md-filter-ca-${suffix}`,
+      // Name, class, credentials Secret and CA bundle Secret. Neither the classes nor the Secrets need exist:
+      // a destination is checked against them at reconcile time.
+      destinations: [string, string, string?, string?][] = [
+        [`md-filter-1-${suffix}`, classA, shared, corpCA],
+        // Its credentials are the CA bundle of the first one.
+        [`md-filter-2-${suffix}`, classA, corpCA],
+        // The same Secret as credentials and CA bundle.
+        [`md-filter-3-${suffix}`, classB, shared, shared],
+        [`md-filter-4-${suffix}`, classB],
+      ],
+      [first, second, third, fourth] = destinations.map(([name]) => name),
+      list = async (query: string) => {
+        const response = await request.get(`${url}${query}`)
+
+        await th.checkError(response)
+
+        return ((await response.json()) as {items: {metadata: {name: string}, spec: {classRef: {name: string}}}[]}).items
+      },
+      names = async (query: string) => (await list(query)).map((d) => d.metadata.name).sort()
+
+    try {
+      for (const [name, classRef, credentials, ca] of destinations) {
+        await th.checkError(await request.post(url, {
+          data: {
+            metadata: {name},
+            spec: {
+              classRef: {name: classRef},
+              ...(credentials && {authentication: {mode: 'BasicAuth', credentialsSecretRef: {name: credentials}}}),
+              ...(ca && {tls: {ca: {secretKeyRef: {name: ca, key: 'ca.crt'}}}}),
+            },
+          },
+        }))
+      }
+
+      await test.step('?class= returns the destinations of the class, as filtering the whole list does', async () => {
+        const all = await list('')
+
+        for (const [classRef, want] of [[classA, [first, second]], [classB, [third, fourth]]] as const) {
+          expect(await names(`?class=${classRef}`)).toEqual(want)
+          expect(all.filter((d) => d.spec.classRef.name === classRef).map((d) => d.metadata.name).sort()).toEqual(want)
+        }
+
+        expect(await names(`?class=md-filter-none-${suffix}`)).toEqual([])
+      });
+
+      await test.step('?secret= returns the destinations referencing it as credentials or CA, each once', async () => {
+        expect(await names(`?secret=${shared}`)).toEqual([first, third])
+        expect(await names(`?secret=${corpCA}`)).toEqual([first, second])
+        expect(await names(`?secret=md-filter-none-${suffix}`)).toEqual([])
+      });
+
+      await test.step('?class= and ?secret= together must both match', async () => {
+        expect(await names(`?class=${classA}&secret=${shared}`)).toEqual([first])
+        expect(await names(`?class=${classB}&secret=${shared}`)).toEqual([third])
+        expect(await names(`?class=${classB}&secret=${corpCA}`)).toEqual([])
+      });
+    } finally {
+      for (const [name] of destinations) {
+        await request.delete(`${url}/${name}`)
+      }
+    }
+  })
+});

@@ -44,6 +44,19 @@ const (
 // destination's own deletion starts.
 const InUseProtectionFinalizer = "monitoring.openeverest.io/in-use-protection"
 
+// Selectable fields of MonitoringDestination, the keys a field selector
+// lists destinations by (kubectl get --field-selector, the HTTP API's
+// ?class= and ?secret=). They match the selectablefield markers below.
+const (
+	// DestinationClassField is the referenced MonitoringClass name.
+	DestinationClassField = "spec.classRef.name"
+	// DestinationCredentialsSecretField is the credentials Secret name.
+	DestinationCredentialsSecretField = "spec.authentication.credentialsSecretRef.name"
+	// DestinationCASecretField is the name of the Secret holding the CA
+	// bundle.
+	DestinationCASecretField = "spec.tls.ca.secretKeyRef.name" //nolint:gosec // a field path, not a credential
+)
+
 // Reasons for the MonitoringDestination Accepted condition, besides
 // ReasonAccepted, ReasonClassNotFound, ReasonInvalidParameters and
 // ReasonAuthModeUnsupported.
@@ -161,6 +174,11 @@ type MonitoringDestinationStatus struct {
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.serverVersion"
 // +kubebuilder:printcolumn:name="Instances",type="integer",JSONPath=".status.attachedInstances"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Credentials",type="string",JSONPath=".spec.authentication.credentialsSecretRef.name",priority=1
+// +kubebuilder:printcolumn:name="CA",type="string",JSONPath=".spec.tls.ca.secretKeyRef.name",priority=1
+// +kubebuilder:selectablefield:JSONPath=".spec.classRef.name"
+// +kubebuilder:selectablefield:JSONPath=".spec.authentication.credentialsSecretRef.name"
+// +kubebuilder:selectablefield:JSONPath=".spec.tls.ca.secretKeyRef.name"
 // +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="a MonitoringDestination name must be at most 63 characters"
 
 // MonitoringDestination is one place a namespace sends monitoring data to,
