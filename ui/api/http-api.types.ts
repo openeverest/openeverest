@@ -5908,7 +5908,12 @@ export interface components {
                  */
                 version?: string;
             };
-            /** @description InstanceStatus defines the observed state of Instance. */
+            /**
+             * @description InstanceStatus defines the observed state of Instance.
+             * @default {
+             *       "observedGeneration": -1
+             *     }
+             */
             status?: {
                 /**
                  * @description Backup surfaces backup-related observability data reported by the
@@ -6028,8 +6033,6 @@ export interface components {
                     /** @description Name of the referenced Secret. */
                     name: string;
                 };
-                /** @description Message is a custom user-facing message describing the current state of the instance. */
-                message?: string;
                 /**
                  * @description Monitoring is what the Instance exposes to monitoring (sources) and
                  *     one read-only summary per spec.monitoring.destinations[] entry.
@@ -6257,7 +6260,8 @@ export interface components {
                  * Format: int64
                  * @description ObservedGeneration is the metadata.generation the provider-runtime last
                  *     reconciled. Status describes an older spec while it is lower than
-                 *     metadata.generation.
+                 *     metadata.generation. It defaults to -1, so an Instance no provider has
+                 *     reconciled reads as in progress, never as current.
                  */
                 observedGeneration?: number;
                 /**
@@ -6285,10 +6289,12 @@ export interface components {
                     severity: "NonDisruptive" | "RollingRestart" | "Downtime";
                 }[];
                 /**
-                 * @description Phase of the database cluster.
+                 * @description Phase is where the Instance is in its life: Pending until the database
+                 *     is first available, Provisioned afterwards, Terminating once deletion
+                 *     is requested. Read the conditions for everything else.
                  * @enum {string}
                  */
-                phase?: "Pending" | "Provisioning" | "Initializing" | "Ready" | "Updating" | "Terminating" | "Failed" | "Restoring" | "Suspending" | "Suspended" | "Resuming";
+                phase?: "Pending" | "Provisioned" | "Terminating";
                 /**
                  * @description Version is the effective version bundle that is currently applied to this
                  *     Instance. On the first reconciliation the provider-runtime writes the

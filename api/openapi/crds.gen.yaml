@@ -5194,6 +5194,8 @@ components:
             rule: '!has(oldSelf.userSecretRef) || (has(self.userSecretRef) && self.userSecretRef
               == oldSelf.userSecretRef)'
         status:
+          default:
+            observedGeneration: -1
           description: InstanceStatus defines the observed state of Instance.
           properties:
             backup:
@@ -5372,10 +5374,6 @@ components:
               - name
               type: object
               x-kubernetes-map-type: atomic
-            message:
-              description: Message is a custom user-facing message describing the
-                current state of the instance.
-              type: string
             monitoring:
               description: |-
                 Monitoring is what the Instance exposes to monitoring (sources) and
@@ -5781,7 +5779,8 @@ components:
               description: |-
                 ObservedGeneration is the metadata.generation the provider-runtime last
                 reconciled. Status describes an older spec while it is lower than
-                metadata.generation.
+                metadata.generation. It defaults to -1, so an Instance no provider has
+                reconciled reads as in progress, never as current.
               format: int64
               type: integer
             pendingMaintenance:
@@ -5821,19 +5820,14 @@ components:
                 type: object
               type: array
             phase:
-              description: Phase of the database cluster.
+              description: |-
+                Phase is where the Instance is in its life: Pending until the database
+                is first available, Provisioned afterwards, Terminating once deletion
+                is requested. Read the conditions for everything else.
               enum:
               - Pending
-              - Provisioning
-              - Initializing
-              - Ready
-              - Updating
+              - Provisioned
               - Terminating
-              - Failed
-              - Restoring
-              - Suspending
-              - Suspended
-              - Resuming
               type: string
             version:
               description: |-

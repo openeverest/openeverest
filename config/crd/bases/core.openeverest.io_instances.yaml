@@ -24,23 +24,28 @@ spec:
     - jsonPath: .status.version
       name: Version
       type: string
-    - jsonPath: .status.phase
-      name: Phase
-      type: string
-    - jsonPath: .status.conditions[?(@.type=="Ready")].status
-      name: Ready
+    - jsonPath: .status.conditions[?(@.type=="Available")].status
+      name: Available
       type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].reason
-      name: Reason
+      name: Status
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .status.phase
+      name: Phase
+      priority: 1
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Stalled")].status
+      name: Stalled
+      priority: 1
+      type: string
     - jsonPath: .spec.topology.type
       name: Topology
       priority: 1
       type: string
-    - jsonPath: .status.message
+    - jsonPath: .status.conditions[?(@.type=="Ready")].message
       name: Message
       priority: 1
       type: string
@@ -1906,6 +1911,8 @@ spec:
               rule: '!has(oldSelf.userSecretRef) || (has(self.userSecretRef) && self.userSecretRef
                 == oldSelf.userSecretRef)'
           status:
+            default:
+              observedGeneration: -1
             description: InstanceStatus defines the observed state of Instance.
             properties:
               backup:
@@ -2084,10 +2091,6 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
-              message:
-                description: Message is a custom user-facing message describing the
-                  current state of the instance.
-                type: string
               monitoring:
                 description: |-
                   Monitoring is what the Instance exposes to monitoring (sources) and
@@ -2496,7 +2499,8 @@ spec:
                 description: |-
                   ObservedGeneration is the metadata.generation the provider-runtime last
                   reconciled. Status describes an older spec while it is lower than
-                  metadata.generation.
+                  metadata.generation. It defaults to -1, so an Instance no provider has
+                  reconciled reads as in progress, never as current.
                 format: int64
                 type: integer
               pendingMaintenance:
@@ -2536,19 +2540,14 @@ spec:
                   type: object
                 type: array
               phase:
-                description: Phase of the database cluster.
+                description: |-
+                  Phase is where the Instance is in its life: Pending until the database
+                  is first available, Provisioned afterwards, Terminating once deletion
+                  is requested. Read the conditions for everything else.
                 enum:
                 - Pending
-                - Provisioning
-                - Initializing
-                - Ready
-                - Updating
+                - Provisioned
                 - Terminating
-                - Failed
-                - Restoring
-                - Suspending
-                - Suspended
-                - Resuming
                 type: string
               version:
                 description: |-
@@ -2566,6 +2565,8 @@ spec:
         required:
         - spec
         type: object
+    selectableFields:
+    - jsonPath: .status.phase
     served: true
     storage: true
     subresources:
