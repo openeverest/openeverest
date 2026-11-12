@@ -20,6 +20,7 @@ import {
   GroupType,
   TopologyUISchemas,
 } from 'components/ui-generator/ui-generator.types';
+import { Provider } from 'shared-types/api.types';
 import { preprocessSchema } from '../preprocess/preprocess-schema';
 import { getToggleableMeta } from './toggleable';
 import { findUnguardedCelReferences } from './find-unguarded-cel-references';
@@ -35,6 +36,7 @@ interface SharedIssue {
 
 interface SharedCase {
   name: string;
+  topologies?: NonNullable<Provider['spec']['topologies']>;
   uiSchema: TopologyUISchemas;
   issues: SharedIssue[];
 }
@@ -66,8 +68,11 @@ const collectDegraded = (
 };
 
 describe('toggleable rules shared with the Go validator', () => {
-  it.each(cases)('$name', ({ uiSchema, issues }) => {
-    const processed = preprocessSchema(uiSchema);
+  it.each(cases)('$name', ({ topologies, uiSchema, issues }) => {
+    const processed = preprocessSchema(
+      uiSchema,
+      topologies ? { spec: { topologies } } : undefined
+    );
     const degraded: string[] = [];
     const unguarded: string[] = [];
 

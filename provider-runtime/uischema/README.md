@@ -1,6 +1,6 @@
 # uischema
 
-`Validate(Input{UISchema: ...})` checks a provider UI schema (`Provider.spec.uiSchema`: topology name → `{sections: {<key>: {components: ...}}}`) and returns the toggleable groups the UI will not render as the author declared them, and the CEL rules that fail while such a group is switched off.
+`Validate(Input{UISchema: ..., Topologies: ...})` checks a provider UI schema (`Provider.spec.uiSchema`: topology name → `{sections: {<key>: {components: ...}}}`) and returns the toggleable groups the UI will not render as the author declared them, and the CEL rules that fail while such a group is switched off.
 
 The UI applies the same rules at runtime in `ui/apps/everest/src/components/ui-generator/utils/toggleable/`: `resolveToggleable` (in `toggleable.ts`, called by `preprocessSchema`) and `findUnguardedCelReferences` (a dev-time warning). [testdata/toggleable.yaml](testdata/toggleable.yaml) is the shared set of cases both implementations are tested against: `validate_test.go` here and `toggleable-shared-cases.test.ts` in the same UI folder. CI runs both suites when the file changes.
 
@@ -13,9 +13,10 @@ Rules are evaluated per topology `T`.
 - **paths(f)**, the API paths a field `f` writes:
   - `path` is a non-empty string `s` → `{s}`
   - `path` is a list → the set of its non-empty string entries (duplicates collapse)
+  - `uiType: widget` → the paths the widget writes, resolved from `Input.Topologies` (`Provider.spec.topologies`: topology name → `{components: ...}`) as `widgetTargetResolvers` does in the UI:
+    - `widgetType: podSchedulingPolicy` → `spec.components.<c>.schedulingPolicy.affinity` for every component `c` of `T` that accepts `affinity`: its `supportedFields` is unset, or `supportedFields.openAPIV3Schema.properties.schedulingPolicy` exists and either has no `properties` or lists `affinity`;
+    - any other `widgetType`, or `T` missing from `Input.Topologies` → `∅`
   - otherwise → `∅`
-
-  Not covered: a marker widget (`uiType: widget` without `path`, e.g. `podSchedulingPolicy`) writes paths the UI resolves from the Provider at runtime, so `Validate` sees `∅` for it. A toggleable holding only such widgets is reported as `toggleable-no-fields`, and overlaps through widget paths are not detected.
 - **Fields(C)**, all fields under a components map `C`, found by walking every container recursively.
 - **P(g)**, the paths of group `g`: the multiset `⋃ paths(f)` over `f ∈ Fields(g.components)`.
 - **usage_T(p)**: the number of fields `f` in all sections of `T` with `p ∈ paths(f)`.
@@ -87,5 +88,6 @@ Notes:
 Add an entry to `cases` in `testdata/toggleable.yaml`:
 
 - `name`: a sentence describing the case;
+- `topologies` (optional): the Provider's `spec.topologies`, for cases with widgets;
 - `uiSchema`: the input schema;
 - `issues`: the expected list of `{rule, topology, group}`, plus `field` for `toggleable-cel-unguarded`. Use `[]` when the schema is valid.
