@@ -234,7 +234,8 @@ func toLifecycleEvent(cluster string, ev *eventsv1.Event) api.LifecycleEvent {
 	if actorType, actorID := ev.Annotations[events.AnnotationEventActorType], ev.Annotations[events.AnnotationEventActorID]; actorType != "" || actorID != "" {
 		out.Actor = &api.LifecycleEventActor{Id: nonEmpty(actorID)}
 		if actorType != "" {
-			out.Actor.Type = new(api.LifecycleEventActorType(actorType))
+			typ := api.LifecycleEventActorType(actorType)
+			out.Actor.Type = &typ
 		}
 	}
 	if from, to := ev.Annotations[events.AnnotationPhaseFrom], ev.Annotations[events.AnnotationPhaseTo]; from != "" || to != "" {

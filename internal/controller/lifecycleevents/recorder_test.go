@@ -101,10 +101,11 @@ func TestRecorder_Add(t *testing.T) {
 		rec := emitter.records[0]
 		assert.Equal(t, events.ReasonCreated, rec.Reason)
 		assert.Equal(t, events.Actor{Type: "user", ID: "alice"}, rec.Actor)
-		assert.Equal(t, corev1.ObjectReference{
+		wantRegarding := corev1.ObjectReference{
 			APIVersion: "core.openeverest.io/v1alpha1", Kind: "Instance",
 			Namespace: "team-a", Name: "db1", UID: "uid-1", ResourceVersion: "100",
-		}, rec.Regarding)
+		}
+		assert.Equal(t, wantRegarding, rec.Regarding)
 	})
 
 	t.Run("the initial list only records objects created within the lookback", func(t *testing.T) {
@@ -116,7 +117,8 @@ func TestRecorder_Add(t *testing.T) {
 
 		handler.OnAdd(instance(1, "Ready", 10*time.Minute), true)
 		assert.Equal(t, []events.Reason{events.ReasonCreated}, emitter.reasons(),
-			"an object created while no recorder ran is recorded")
+			"an object created while no recorder ran is recorded",
+		)
 	})
 
 	t.Run("the initial list records deletions requested within the lookback", func(t *testing.T) {

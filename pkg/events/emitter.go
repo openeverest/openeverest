@@ -108,7 +108,7 @@ func (e *Emitter) newEvent(r Record) *eventsv1.Event {
 		eventType = corev1.EventTypeWarning
 	}
 
-	annotations := map[string]string{}
+	annotations := make(map[string]string)
 	setIfNotEmpty(annotations, AnnotationEventActorType, r.Actor.Type)
 	setIfNotEmpty(annotations, AnnotationEventActorID, r.Actor.ID)
 	setIfNotEmpty(annotations, AnnotationPhaseFrom, r.PhaseFrom)

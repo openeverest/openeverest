@@ -230,7 +230,8 @@ func (r *Recorder) record(ctx context.Context, obj client.Object, rec events.Rec
 	}
 	if err := r.emitter.Emit(ctx, rec); err != nil {
 		r.log.Error(err, "Failed to record a lifecycle event",
-			"reason", rec.Reason, "kind", gvk.Kind, "object", client.ObjectKeyFromObject(obj))
+			"reason", rec.Reason, "kind", gvk.Kind, "object", client.ObjectKeyFromObject(obj),
+		)
 	}
 }
 
