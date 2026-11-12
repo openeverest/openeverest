@@ -30,6 +30,12 @@ export const DatabasePage = lazy(() =>
   }))
 );
 
+export const DatabaseImportPage = lazy(() =>
+  import('pages/database-import').then((module) => ({
+    default: module.DatabaseImportPage,
+  }))
+);
+
 export const UIGeneratorBuilder = lazy(() =>
   import('pages/plugin-developer/ui-generator-builder').then((module) => ({
     default: module.UIGeneratorBuilder,
@@ -64,10 +70,10 @@ export const StorageLocations = lazy(() =>
   )
 );
 
-export const MonitoringEndpoints = lazy(() =>
-  import('pages/settings/monitoring-endpoints/monitoring-endpoints').then(
+export const MonitoringDestinations = lazy(() =>
+  import('pages/settings/monitoring-destinations/monitoring-destinations').then(
     (module) => ({
-      default: module.MonitoringEndpoints,
+      default: module.MonitoringDestinations,
     })
   )
 );

@@ -49,13 +49,13 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  CMP["Component"] --> UT["uiType<br/>(number, select, text, toggle, secret, hidden)"]
+  CMP["Component"] --> UT["uiType<br/>(number, quantity, select, text, toggle, secret, hidden)"]
   CMP --> PID{"path | id"}
   CMP --> TP2["techPreview? 🛠️"]
   CMP --> DS2["dataSource?"]
-  DS2 --> PROVIDER["provider<br/>(monitoringConfigs, storageClasses)"]
+  DS2 --> PROVIDER["provider<br/>(storageClasses)"]
   CMP --> MOD2["modes?"]
-  MOD2 --> FORM_MODE["FormMode<br/>(new, edit, restore, import🛠️)"]
+  MOD2 --> FORM_MODE["FormMode<br/>(new, edit, restore, import)"]
   CMP --> FP2["fieldParams"]
   CMP --> VAL2["validation?"]
 
@@ -65,7 +65,7 @@ flowchart TD
 
 - **`path` | `id`** — `path` (`string` | `string[]`) writes to the API; an array is a multi-path (`[0]` is the source, all entries are targets). `id` has no API binding and is used only for validation / CEL.
 - **`dataSource.provider`** — a key in the open runtime registry (`register()`), not a closed enum.
-- **`modes?`** — `{ [FormMode]: { uiType? } }`; `import` is declared in the enum but is not used by the code.
+- **`modes?`** — `{ [FormMode]: { uiType? } }`; the create wizard runs in `import` when it creates a database from an imported backup.
 
 ## Level 2 — Widget (host-rendered leaf)
 
@@ -105,6 +105,14 @@ classDiagram
   class NumberFieldParams {
     step?
     placeholder?
+  }
+  class QuantityFieldParams {
+    unit?
+    unitLabel?
+    step?
+    placeholder?
+    badge? never
+    badgeToApi? never
   }
   class TextFieldParams {
     placeholder?
@@ -154,6 +162,7 @@ classDiagram
     <<CommonFieldParams>>
   }
   CommonFieldParams <|-- NumberFieldParams
+  CommonFieldParams <|-- QuantityFieldParams
   CommonFieldParams <|-- TextFieldParams
   CommonFieldParams <|-- SelectFieldParams
   CommonFieldParams <|-- ToggleFieldParams
@@ -163,6 +172,7 @@ classDiagram
   SelectFieldParams <|-- SelectStaticOptions
   SelectFieldParams <|-- SelectDynamicOptions
   note for SelectFieldParams "options XOR optionsPath + optionsPathConfig"
+  note for QuantityFieldParams "unit is a Kubernetes suffix; omit step for any fractional value"
 ```
 
 ## Level 3 — validation (by field type, mode-aware)
@@ -183,6 +193,9 @@ classDiagram
     int?
     multipleOf?
     safe?
+  }
+  class QuantityValidation {
+    <<NumberValidation>>
   }
   class TextValidation {
     min?
@@ -208,6 +221,7 @@ classDiagram
     <<CommonValidation>>
   }
   CommonValidation <|-- NumberValidation
+  NumberValidation <|-- QuantityValidation
   CommonValidation <|-- TextValidation
   CommonValidation <|-- SelectValidation
   CommonValidation <|-- ToggleValidation
@@ -218,6 +232,7 @@ classDiagram
 - **`toggle`** — `required` is always optional (`never`).
 - **`select` / `hidden`** — common rules only.
 - **`secret`** — `text` rules; the value is the Secret's name.
+- **`quantity`** — same numeric rules as `number`; bounds and CEL see the number in `unit`.
 
 ## Cross-Cutting Concepts
 
@@ -233,12 +248,12 @@ classDiagram
 ## To Consider
 
 - **Disabling a group (including a toggleable switch)** — covered by group-level `modes` (`hidden` / `disabled` per form mode) in [#3080](https://github.com/openeverest/openeverest/issues/3080). Conditional disabling via CEL depends on [#1837](https://github.com/openeverest/openeverest/issues/1837).
-- **`fieldParams.badge` / `badgeToApi`** — currently inherited by all field types through `CommonFieldParams`; visual badge rendering is supported for `number` and `select`, while `text` / `toggle` / `hidden` have asymmetric behavior.
+- **`fieldParams.badge` / `badgeToApi`** — inherited by most field types through `CommonFieldParams`; visual badge rendering is supported for `number` and `select`, while `text` / `toggle` / `hidden` have asymmetric behavior. **`quantity` forbids both** (`never`) and skips them in `extractBadgeMappings` — use `unit` / `unitLabel` instead.
 
-  When `badgeToApi` is set, the badge also acts as the value's **unit**: applied on write and converted back on read by `stripBadgeFromValue` (`badge-to-api`), which the overview cards reuse for display. The unit semantics, conversion rules and supported-unit list are documented for users in [number-field](../../ui-generator/components/number-field.md#unit-badge).
+  When `badgeToApi` is set on a `number` (or other non-quantity) field, the badge also acts as the value's **unit**: applied on write and converted back on read by `stripBadgeFromValue` (`badge-to-api`), which the overview cards reuse for display. The unit semantics, conversion rules and supported-unit list are documented for users in [number-field](../../ui-generator/components/number-field.md#unit-badge). For resource quantities prefer [quantity-field](../../ui-generator/components/quantity-field.md).
 
 ## Metadata
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-13
+- Last updated: 2026-11-06

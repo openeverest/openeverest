@@ -15,6 +15,8 @@
 package v1alpha1
 
 import (
+	"slices"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -32,10 +34,35 @@ const (
 	MonitoringDestinationConditionReady = "Ready"
 )
 
+// InUseProtectionFinalizer is held by core on every MonitoringDestination
+// and removed only once it is being deleted and no Instance lists it any
+// more, Instances being deleted included, read uncached so an Instance the
+// cache has not seen yet still holds the deletion. The primary guard is the
+// admission policy that refuses the deletion while status.attachedInstances
+// is above zero; the finalizer covers a count that is not up to date yet
+// and Instances being deleted, which the count leaves out until the
+// destination's own deletion starts.
+const InUseProtectionFinalizer = "monitoring.openeverest.io/in-use-protection"
+
+// Selectable fields of MonitoringDestination, the keys a field selector
+// lists destinations by (kubectl get --field-selector, the HTTP API's
+// ?class= and ?secret=). They match the selectablefield markers below.
+const (
+	// DestinationClassField is the referenced MonitoringClass name.
+	DestinationClassField = "spec.classRef.name"
+	// DestinationCredentialsSecretField is the credentials Secret name.
+	DestinationCredentialsSecretField = "spec.authentication.credentialsSecretRef.name"
+	// DestinationCASecretField is the name of the Secret holding the CA
+	// bundle.
+	DestinationCASecretField = "spec.tls.ca.secretKeyRef.name" //nolint:gosec // a field path, not a credential
+)
+
 // Reasons for the MonitoringDestination Accepted condition, besides
-// ReasonAccepted, ReasonClassNotFound and ReasonInvalidParameters.
+// ReasonAccepted, ReasonClassNotFound, ReasonInvalidParameters and
+// ReasonAuthModeUnsupported.
 const (
 	ReasonCredentialsNotFound = "CredentialsNotFound"
+	ReasonInvalidCABundle     = "InvalidCABundle"
 )
 
 // ReadyReason is a reason of the MonitoringDestination Ready condition. The
@@ -84,16 +111,33 @@ type MonitoringDestinationSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec.classRef is immutable"
 	ClassRef common.ObjectRef `json:"classRef"`
-	// CredentialsSecretRef references the Secret in the same namespace that
-	// holds the destination credentials; its keys are described by the
-	// class's credentialsSchema.
+	// Authentication names one of the class's authModes and, for every mode
+	// but WorkloadIdentity and Anonymous, the Secret in the same namespace
+	// holding that mode's credentials keys. Defaults to mode Anonymous, which
+	// only classes that list Anonymous accept.
+	// +kubebuilder:default={mode: "Anonymous"}
 	// +optional
-	CredentialsSecretRef *common.SecretRef `json:"credentialsSecretRef,omitempty"`
+	Authentication common.Authentication `json:"authentication,omitzero"`
+	// TLS is how the backend's certificate is verified.
+	// +optional
+	TLS *common.TLSConfig `json:"tls,omitempty"`
 	// Parameters are validated against
 	// MonitoringClass.spec.destinationParametersSchema.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Parameters *runtime.RawExtension `json:"parameters,omitempty"`
+}
+
+// SecretNames returns the names of the Secrets the destination references.
+func (s *MonitoringDestinationSpec) SecretNames() []string {
+	var names []string
+	if ref := s.Authentication.CredentialsSecretRef; ref != nil {
+		names = append(names, ref.Name)
+	}
+	if s.TLS != nil && s.TLS.CA != nil && s.TLS.CA.SecretKeyRef != nil && !slices.Contains(names, s.TLS.CA.SecretKeyRef.Name) {
+		names = append(names, s.TLS.CA.SecretKeyRef.Name)
+	}
+	return names
 }
 
 // MonitoringDestinationStatus defines the observed state of
@@ -103,6 +147,17 @@ type MonitoringDestinationStatus struct {
 	// controller.
 	// +optional
 	ServerVersion string `json:"serverVersion,omitempty"`
+	// AttachedInstances is the number of Instances in this namespace whose
+	// spec.monitoring.destinations lists this destination, whatever the
+	// state of their binding. While the destination is not being deleted,
+	// Instances being deleted are left out, so an Instance and then its
+	// destination can be deleted right away; once the destination is being
+	// deleted, they count too, and the number is what its deletion waits
+	// for. Written by core; deleting the destination is refused while it is
+	// above zero.
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	AttachedInstances int32 `json:"attachedInstances,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +optional
@@ -113,10 +168,17 @@ type MonitoringDestinationStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=mdest
 // +kubebuilder:printcolumn:name="Class",type="string",JSONPath=".spec.classRef.name"
+// +kubebuilder:printcolumn:name="Auth",type="string",JSONPath=".spec.authentication.mode"
 // +kubebuilder:printcolumn:name="Accepted",type="string",JSONPath=".status.conditions[?(@.type==\"Accepted\")].reason"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.serverVersion"
+// +kubebuilder:printcolumn:name="Instances",type="integer",JSONPath=".status.attachedInstances"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Credentials",type="string",JSONPath=".spec.authentication.credentialsSecretRef.name",priority=1
+// +kubebuilder:printcolumn:name="CA",type="string",JSONPath=".spec.tls.ca.secretKeyRef.name",priority=1
+// +kubebuilder:selectablefield:JSONPath=".spec.classRef.name"
+// +kubebuilder:selectablefield:JSONPath=".spec.authentication.credentialsSecretRef.name"
+// +kubebuilder:selectablefield:JSONPath=".spec.tls.ca.secretKeyRef.name"
 // +kubebuilder:validation:XValidation:rule="size(self.metadata.name) <= 63",message="a MonitoringDestination name must be at most 63 characters"
 
 // MonitoringDestination is one place a namespace sends monitoring data to,

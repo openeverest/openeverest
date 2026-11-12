@@ -50,17 +50,74 @@ spec:
           spec:
             description: MonitoringClassSpec defines the desired state of MonitoringClass.
             properties:
-              credentialsSchema:
+              authModes:
                 description: |-
-                  CredentialsSchema lists the keys the MonitoringDestination credentials
-                  Secret must carry.
-                properties:
-                  required:
-                    description: Required is the list of required Secret keys.
-                    items:
+                  AuthModes lists the authentication methods a MonitoringDestination of
+                  this class can use. A mode the class defines is Secret-backed and lists
+                  its credentials keys; WorkloadIdentity and Anonymous are reserved by
+                  core and take no Secret.
+                items:
+                  description: |-
+                    AuthMode is one authentication method a class supports. A mode the class
+                    defines lists the credentials Secret keys it needs; the reserved modes
+                    (WorkloadIdentity, Anonymous) list none.
+                  properties:
+                    credentials:
+                      description: Credentials lists the keys the credentials Secret
+                        must or may carry.
+                      properties:
+                        optional:
+                          description: Optional keys are read when present.
+                          items:
+                            maxLength: 253
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          maxItems: 16
+                          type: array
+                          x-kubernetes-list-type: set
+                        required:
+                          description: Required keys must be present and non-empty.
+                          items:
+                            maxLength: 253
+                            pattern: ^[-._a-zA-Z0-9]+$
+                            type: string
+                          maxItems: 16
+                          minItems: 1
+                          type: array
+                          x-kubernetes-list-type: set
+                      required:
+                      - required
+                      type: object
+                    name:
+                      description: Name identifies the mode, in PascalCase (e.g. AccessKey,
+                        BasicAuth).
+                      pattern: ^[A-Z][A-Za-z0-9]{0,62}$
                       type: string
-                    type: array
-                type: object
+                  required:
+                  - name
+                  type: object
+                  x-kubernetes-validations:
+                  - message: WorkloadIdentity and Anonymous take no credentials; every
+                      other mode must declare its credentials keys
+                    rule: (self.name in ['WorkloadIdentity', 'Anonymous']) != has(self.credentials)
+                maxItems: 16
+                minItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+              controllerName:
+                description: |-
+                  ControllerName is the controller that claims the class and sets its
+                  Accepted condition, as GatewayClass.spec.controllerName: a
+                  domain-qualified path (e.g. "openeverest.io/monitoring-pmm"). One
+                  controller may claim several classes. Immutable.
+                maxLength: 253
+                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)+/[a-z0-9]([-a-z0-9._]*[a-z0-9])?$
+                type: string
+                x-kubernetes-validations:
+                - message: spec.controllerName is immutable
+                  rule: self == oldSelf
               description:
                 description: Description describes the monitoring technology.
                 type: string
@@ -83,11 +140,58 @@ spec:
                   from the provider's monitoring contract alone
                   (Instance.status.monitoring.sources).
                 properties:
+                  podMetadata:
+                    description: |-
+                      PodMetadata lets the class controller request annotations on the
+                      pods of bound Instances (status.podMetadata of its bindings), for
+                      backends whose agents discover databases through pod annotations. The
+                      provider renders them into the pod templates, which rolls the pods.
+                      When set, only component types declaring podMetadata: Supported are
+                      eligible.
+                    properties:
+                      annotationPrefixes:
+                        description: |-
+                          AnnotationPrefixes are the annotation key prefixes the class
+                          controller may request, each a DNS subdomain followed by "/"
+                          (e.g. "coroot.com/"). Kubernetes and OpenEverest prefixes are
+                          reserved.
+                        items:
+                          maxLength: 254
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)+/$
+                          type: string
+                        maxItems: 8
+                        minItems: 1
+                        type: array
+                        x-kubernetes-list-type: set
+                        x-kubernetes-validations:
+                        - message: kubernetes.io, k8s.io and openeverest.io prefixes
+                            are reserved
+                          rule: self.all(p, !(p.endsWith('kubernetes.io/') || p.endsWith('k8s.io/')
+                            || p.endsWith('openeverest.io/')))
+                    required:
+                    - annotationPrefixes
+                    type: object
                   requires:
                     description: |-
                       Requires lists the source capabilities a component must satisfy to
                       be eligible for this class.
                     properties:
+                      connection:
+                        description: |-
+                          Connection requires the component to accept native-protocol
+                          connections from monitoring agents (connection: Supported).
+                        type: boolean
+                      kinds:
+                        description: |-
+                          Kinds, when set, makes only the components whose type's kind
+                          (Provider.spec.componentTypes.<type>.kind) is listed eligible. Empty
+                          means any kind.
+                        items:
+                          pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
+                          type: string
+                        maxItems: 32
+                        type: array
+                        x-kubernetes-list-type: set
                       metrics:
                         description: |-
                           Metrics requires the component to expose OpenMetrics
@@ -144,9 +248,13 @@ spec:
               uiSchema:
                 description: |-
                   UISchema holds free-form form-rendering hints consumed only by the UI,
-                  grouped by the form they decorate (destination, instance, credentials).
+                  grouped by the form they decorate (destination, instance, and
+                  credentials keyed by authentication mode).
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
+            required:
+            - authModes
+            - controllerName
             type: object
             x-kubernetes-validations:
             - message: a MonitoringClass must declare at least one fulfilment block
@@ -235,8 +343,15 @@ spec:
                 items:
                   description: |-
                     ProviderCompatibility is the class's compatibility with one Provider,
-                    computed by core from Provider.spec.monitoring.
+                    computed by core from Provider.spec.monitoring and the kinds of
+                    Provider.spec.componentTypes.
                   properties:
+                    classGeneration:
+                      description: |-
+                        ClassGeneration is the class's metadata.generation the entry was
+                        computed for. An entry computed for another generation is stale.
+                      format: int64
+                      type: integer
                     disruption:
                       description: |-
                         Disruption is the worst that enabling the class does to the pods of

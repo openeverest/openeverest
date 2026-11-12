@@ -167,7 +167,6 @@ func TestLoadAdminPolicy(t *testing.T) {
 		enf.assertAllowed("admin-user", ResourceBackups, ActionRead, "prod/default/backup-1")
 		enf.assertAllowed("admin-user", ResourceRestores, ActionCreate, "staging/ns2/restore-1")
 		enf.assertAllowed("admin-user", ResourceBackupStorages, ActionUpdate, "prod/default/my-storage")
-		enf.assertAllowed("admin-user", ResourceMonitoringConfigs, ActionDelete, "prod/ns1/mc-1")
 	})
 
 	t.Run("admin cannot access cluster-namespaced resources via v1 format", func(t *testing.T) {
@@ -181,6 +180,11 @@ func TestLoadAdminPolicy(t *testing.T) {
 		for _, action := range []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete} {
 			enf.assertAllowed("admin-user", ResourceMonitoringDestinations, action, "prod/ns1/pmm-prod")
 		}
+	})
+
+	t.Run("admin uses Secrets", func(t *testing.T) {
+		t.Parallel()
+		enf.assertAllowed("admin-user", ResourceSecrets, ActionUse, "prod/ns1/pmm-prod-credentials")
 	})
 
 	t.Run("admin only reads monitoring classes and bindings", func(t *testing.T) {
@@ -237,6 +241,19 @@ func TestEnforceWithSpecificPolicies(t *testing.T) {
 		enf := newTestEnforcer(t, policy)
 		enf.assertAllowed("bob", ResourceClusters, ActionRead, "prod")
 		enf.assertDenied("bob", ResourceClusters, ActionRead, "staging")
+	})
+
+	t.Run("read on a Secret does not grant use", func(t *testing.T) {
+		t.Parallel()
+		lines := []string{
+			"p, role:dev, secrets, read, prod/ns1/*",
+			"p, role:dev, secrets, use, prod/ns1/pmm-prod-credentials",
+			"g, bob, role:dev",
+		}
+		enf := newTestEnforcer(t, strings.Join(lines, "\n"))
+		enf.assertAllowed("bob", ResourceSecrets, ActionUse, "prod/ns1/pmm-prod-credentials")
+		enf.assertAllowed("bob", ResourceSecrets, ActionRead, "prod/ns1/db1-root")
+		enf.assertDenied("bob", ResourceSecrets, ActionUse, "prod/ns1/db1-root")
 	})
 
 	t.Run("action-specific permissions", func(t *testing.T) {

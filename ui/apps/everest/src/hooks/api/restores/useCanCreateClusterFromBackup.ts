@@ -12,25 +12,48 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useRBACPermissions } from 'hooks/rbac';
+import { useMemo } from 'react';
+import { useRBACAction, useRBACPermissions } from 'hooks/rbac';
 import { useCanRestore } from './useCanRestore';
 
 interface CanCreateClusterFromBackupOptions {
   hasSchedules?: boolean;
-  monitoringEnabled?: boolean;
+  // Destinations the source sends monitoring data to; the clone lists them
+  // too, which needs read on each.
+  monitoringDestinations?: string[];
 }
 
+const NO_DESTINATIONS: string[] = [];
+
 // A user may clone an instance into a new database (restore-to-new-DB) when they
-// can restore the source and create database clusters in its namespace. Single
-// source of truth for this combined gate, shared by the instance and backup-row
-// action menus.
+// can restore the source, read its connection details and create instances in
+// its namespace. Single source of truth for this combined gate, shared by the
+// instance and backup-row action menus.
 export const useCanCreateClusterFromBackup = (
   namespace: string,
   instanceName: string,
   options: CanCreateClusterFromBackupOptions = {}
 ) => {
-  const { hasSchedules = false, monitoringEnabled = false } = options;
+  const { hasSchedules = false, monitoringDestinations = NO_DESTINATIONS } =
+    options;
+  // Keyed by the names so a new array with the same destinations keeps the
+  // permission check stable.
+  const destinationsKey = monitoringDestinations.join(',');
+  const destinationObjects = useMemo(
+    () =>
+      destinationsKey
+        ? destinationsKey.split(',').map((name) => `${namespace}/${name}`)
+        : NO_DESTINATIONS,
+    [namespace, destinationsKey]
+  );
   const canRestore = useCanRestore(namespace, instanceName);
+  // The provider copies the source's users secret into the clone, so cloning
+  // reveals the source credentials.
+  const { isAllowed: canReadSourceConnection } = useRBACAction(
+    'read-connection',
+    'instances',
+    `${namespace}/${instanceName}`
+  );
   const { canCreate: canCreateClusters } = useRBACPermissions(
     'instances',
     `${namespace}/*`
@@ -40,15 +63,16 @@ export const useCanCreateClusterFromBackup = (
     `${namespace}/${instanceName}`
   );
   const { canRead: canReadMonitoring } = useRBACPermissions(
-    'monitoring-configs',
-    `${namespace}/${instanceName}`
+    'monitoring-destinations',
+    destinationObjects
   );
 
-  let canCreateClusterFromBackup = canRestore && canCreateClusters;
+  let canCreateClusterFromBackup =
+    canRestore && canReadSourceConnection && canCreateClusters;
   if (hasSchedules) {
     canCreateClusterFromBackup = canCreateClusterFromBackup && canCreateBackups;
   }
-  if (monitoringEnabled) {
+  if (destinationObjects.length > 0) {
     canCreateClusterFromBackup =
       canCreateClusterFromBackup && canReadMonitoring;
   }

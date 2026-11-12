@@ -91,7 +91,8 @@ flowchart TD
 - **`extractInstanceValues`** — reads values from the instance (by `sourcePath`). In edit it uses
   **only** the instance, so edit doesn't inject defaults; in restore and for a preset it falls back
   to schema defaults. A field hidden in the mode has no `sourcePath`, so restore doesn't copy its
-  value from the source.
+  value from the source. A `quantity` field is read through `readQuantity` into a number in
+  `unit` (or cores / bytes when `unit` is omitted).
 - **Toggleable switches** — `false` on create; when values come from an instance or preset, on
   if any of the group's `childPaths` has a value.
 
@@ -118,7 +119,8 @@ flowchart TD
 - **`UIGroup`** — picks the wrapper by `groupType`. `ToggleableWrapper` mounts the body only
   while the switch is on; turning it on focuses the first field without validating untouched ones.
 - **`UIComponent`** — maps `uiType` to a concrete input (`@percona/ui-lib`: SelectInput / TextInput /
-  SwitchInput …).
+  SwitchInput …). `quantity` reuses the number TextInput; the adornment is `unitLabel ?? unit`,
+  and omitting `step` applies HTML `step="any"`.
 
 **Principle:** every component is isolated by `ComponentErrorBoundary` — a single failing field doesn't break the form.
 
@@ -129,7 +131,7 @@ flowchart TD
 ```mermaid
 flowchart TD
   REG["1. Registry<br/>api-providers/registry.ts<br/>register(key, entry)<br/>useProviderOptions(key, params)"]
-  PROVIDERS["2. Provider registrations<br/>api-providers/providers.ts<br/>monitoringConfigs<br/>storageClasses"]
+  PROVIDERS["2. Provider registrations<br/>api-providers/providers.ts<br/>storageClasses"]
   RUNTIME["3. Runtime"]
   PREFETCH["DataSourcePrefetcher<br/>prefetches options per provider<br/>sets defaults on form mount"]
   FIELD["DataSourceField<br/>wraps one select<br/>patches fieldParams.options<br/>handles loading/error/empty states"]
@@ -143,10 +145,31 @@ flowchart TD
 `getDefaultValues()` runs synchronously before the API responds, so `dataSource` fields start with
 an empty value. The default is set asynchronously in two places: `DataSourcePrefetcher` on form
 mount and `DataSourceField` when the specific field renders. Both check the current value via
-`getValues(path)` before writing, so they never overwrite a user selection or an existing value.
+`getValues(path)` before writing: a value that is among the options is kept, an empty one gets the
+first option, and one no longer among the options is replaced with the first option, or cleared
+when there are none.
+In `edit` mode `DataSourceField` doesn't auto-select at all — the same rule `extractInstanceValues`
+applies to schema defaults: the form shows the stored spec as-is, so a value that is unset or no
+longer among the options stays untouched instead of being written into the spec on save. A stored
+value missing from the options is appended to the select's options (labelled as unavailable once
+the options have loaded), so the select shows what the spec holds. It is taken from the form's
+`defaultValues`, so it stays listed after the user picks another option and the pick can be undone.
+The appended option only affects rendering: the select's zod schema is built from the section
+schema, where `dataSource` fields have no static `options`. Once the options have loaded, the
+helper text explains an unavailable stored value (without claiming a cause) or an empty one (via the
+registry entry's `unsetValueHint`); it reads the current value with `useWatch`, so it clears as soon
+as the user picks another option.
+A resource created from the provider's `emptyStateFallback` is a separate path: the fallback calls
+`onCreated(value)` once the refetched options include it, and `DataSourceField` sets it as a user
+change (`shouldDirty`) in every mode — the user picked it, so the edit rule doesn't apply. The
+fallback waits for the refetch as a safeguard: in create modes the reconcile could reset a value
+that isn't among the options yet if the options update without it.
 
 `DataSourcePrefetcher` skips fields of switched-off `toggleable` groups, so a disabled section
-triggers no request.
+triggers no request. With `autoSelect={false}` it still prefetches the options but writes no value;
+the create wizard passes it while a preset is selected, because the preset's spec is sent verbatim
+and an auto-selected option would only show in the preview (e.g. a storage class the preset leaves
+to the cluster default).
 
 ### Secret fields on a namespace switch
 
@@ -166,7 +189,11 @@ Read-only and disabled fields keep their value.
     switch, e.g. `spec.components.mixCoord` after switching Milvus cluster → standalone). Paths shared with the selected topology, or nested under/over one of its paths, are
     kept; values no topology binds (`dbName`, `backup`, …) are untouched.
   - **`extractMultiPathMappings` / `applyMultiPathMappings`** — one value → all `targetPaths`.
-  - **`extractBadgeMappings` / `applyBadgesToFormData`** — unit suffix (`8` → `8Gi`).
+  - **`extractQuantityMappings` / `applyQuantitiesToFormData`** — number in `unit` → quantity
+    string (`10` → `"10Gi"`). When `originalData` is set and the form number still equals the
+    stored quantity, the stored string is kept (`"10240Mi"` stays). Runs before badges.
+  - **`extractBadgeMappings` / `applyBadgesToFormData`** — unit suffix (`8` → `8Gi`). Skips
+    `quantity` fields (they use `unit`, not `badge` / `badgeToApi`).
   - **`getInactiveToggleablePaths`** — returns the `childPaths` of switched-off toggleable groups;
     they are deleted together with the form-only `toggleable-switches` key.
   - **`removeEmptyFieldValues`** — strip `undefined` / `null` / `""`.
@@ -180,8 +207,10 @@ flowchart TD
   OVERVIEW["Overview page"] --> EDITABLE["isSectionEditable(section, Edit)"]
   EDITABLE --> MODAL["SectionEditModal"]
   MODAL --> MODE["applyModeOverrides(sections, Edit)"]
-  MODE --> ZOD_EDIT["buildSectionZodSchema(sectionKey, editSections,<br/>{ formMode: Edit, originalData: instance })"]
   MODE --> VALUES["extractInstanceValues(editSections, instance)"]
+  VALUES --> ORIGINAL["originalDataForCel =<br/>stripBadges(deepMerge(instance, defaultValues))"]
+  ORIGINAL --> ZOD_EDIT["buildSectionZodSchema(…, { originalData })"]
+  MODE --> ZOD_EDIT
   ZOD_EDIT --> FORM["FormDialog + UIGenerator"]
   VALUES --> FORM
   FORM --> SUBMIT["submit"]
@@ -192,6 +221,10 @@ flowchart TD
 The edit modal reuses the same `UIGenerator` but validates only the target section via
 `buildSectionZodSchema`; other fields pass through `.passthrough()`, while CEL dependencies are
 collected from all sections.
+
+CEL's `original` is built from the same read as the form (`extractInstanceValues`), so a
+`quantity` disk rule like `size >= original.size` compares numbers (`10 >= 10`), not
+`10 >= "10240Mi"`. Legacy `badgeToApi` fields are still stripped on top.
 
 The update replaces the whole instance and `deepMerge` keeps keys missing from the form, so
 `mergeSectionEdit` deletes the paths of switched-off toggleable groups explicitly, with parents
@@ -247,6 +280,7 @@ components:
 | CEL validation             | `utils/schema-builder/cel-validation/`                     |
 | Defaults                   | `utils/default-values/`                                    |
 | Instance values            | `utils/default-values/extract-instance-values.ts`          |
+| Quantity codec             | `utils/quantity/`                                          |
 | Section editability        | `utils/section-editable/is-section-editable.ts`            |
 | Renderer                   | `utils/component-renderer/render-component.tsx`            |
 | UI component mapper        | `ui-component/`                                            |
@@ -263,11 +297,10 @@ components:
 | DataSourcePrefetcher       | `api-providers/data-source-prefetcher.tsx`                 |
 | SecretNamespaceSync        | `secret-field/secret-namespace-sync.tsx`                   |
 | Error boundary             | `component-error-boundary/component-error-boundary.tsx`    |
-| Monitoring options hook    | `hooks/api/monitoring/useMonitoringConfigsOptions.ts`      |
 | Storage classes hook       | `hooks/api/kubernetesClusters/useStorageClassesOptions.ts` |
 
 ## Metadata
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-10-23
+- Last updated: 2026-11-09

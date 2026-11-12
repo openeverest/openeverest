@@ -20,5 +20,4 @@ export type ProviderTileProps = {
   name: string;
   label: string;
   meta?: ResolvedExtensionMeta;
-  showImport: boolean;
 };

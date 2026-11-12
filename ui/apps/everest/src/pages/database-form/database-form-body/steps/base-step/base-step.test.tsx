@@ -25,6 +25,8 @@ import {
   PresetSelectionContextType,
 } from 'pages/database-form/preset-selection';
 import { BaseInfoStep } from './base-step';
+import { useDatabasePageMode } from '../../../hooks/use-database-page-mode';
+import { useImportNavigationState } from 'pages/database-form/hooks/use-import-navigation-state';
 import { PreviewSectionOne } from 'pages/database-form/database-preview/sections/base-step';
 import {
   getDBWizardSchema,
@@ -50,6 +52,12 @@ vi.mock('../../../hooks/use-database-page-mode', () => ({
   useDatabasePageMode: vi.fn(() => WizardMode.New),
 }));
 
+vi.mock('pages/database-form/hooks/use-import-navigation-state', () => ({
+  useImportNavigationState: vi.fn(() => undefined),
+}));
+
+vi.mock('./import-source-banner', () => ({ ImportSourceBanner: () => null }));
+
 const makeDefaultValues = (topologyType = 'replica') => ({
   [DbWizardFormFields.provider]: 'psmdb',
   [DbWizardFormFields.dbName]: 'my-test-db',
@@ -66,6 +74,7 @@ const makeContextValue = (topologies: string[] = ['replica']) => ({
   sectionsOrder: [],
   providerObject: undefined,
   hasBackupStep: false,
+  hasMonitoringStep: false,
 });
 
 const presetSelectionValue: PresetSelectionContextType = {
@@ -73,9 +82,7 @@ const presetSelectionValue: PresetSelectionContextType = {
   isLoadingPresets: false,
   isError: false,
   presetName: '',
-  resolvedPreset: null,
-  isResolving: false,
-  resolveError: null,
+  selectedPreset: null,
   presetSelected: false,
   presetPending: false,
 };
@@ -169,10 +176,59 @@ describe('BaseInfoStep', () => {
       )
     );
   });
+
+  it('keeps the namespace of the backup it imports', () => {
+    vi.mocked(useDatabasePageMode).mockReturnValue(WizardMode.Import);
+    try {
+      render(
+        <Wrapper>
+          <BaseInfoStep loadingDefaultsForEdition={false} />
+        </Wrapper>
+      );
+
+      expect(screen.getByTestId('text-input-k8s-namespace')).toBeDisabled();
+    } finally {
+      vi.mocked(useDatabasePageMode).mockReturnValue(WizardMode.New);
+    }
+  });
+
+  it('locks the topology of the backup it imports', async () => {
+    vi.mocked(useDatabasePageMode).mockReturnValue(WizardMode.Import);
+    vi.mocked(useImportNavigationState).mockReturnValue({
+      providerName: 'psmdb',
+      importSource: {
+        namespace: 'test-namespace',
+        backupClassName: 'psmdb-pbm',
+        dataSource: {
+          type: 'Backup',
+          backupName: 'import-abc12-1',
+          storageName: 's3',
+        },
+        sourceMetadata: { topology: 'sharded' },
+      },
+    });
+    try {
+      render(
+        <Wrapper
+          topologies={['replica', 'sharded']}
+          defaultValues={makeDefaultValues('sharded')}
+        >
+          <BaseInfoStep loadingDefaultsForEdition={false} />
+        </Wrapper>
+      );
+
+      await waitFor(() =>
+        expect(screen.getByTestId('select-input-topology.type')).toBeDisabled()
+      );
+    } finally {
+      vi.mocked(useDatabasePageMode).mockReturnValue(WizardMode.New);
+      vi.mocked(useImportNavigationState).mockReturnValue(undefined);
+    }
+  });
 });
 
 describe('basicInfoSchema (topology as nested object)', () => {
-  const schema = getDBWizardSchema([], false);
+  const schema = getDBWizardSchema([]);
 
   it('passes when topology is provided as a nested object { type: string }', () => {
     const result = schema.safeParse(makeDefaultValues('replica'));

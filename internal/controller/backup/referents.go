@@ -90,12 +90,6 @@ func backupNamesClass(o, class client.Object) bool {
 	return ok && backupUnfinished(b) && b.Spec.ClassRef.Name == class.GetName()
 }
 
-func backupNamesInstance(o, instance client.Object) bool {
-	b, ok := o.(*backupv1alpha1.Backup)
-	return ok && backupUnfinished(b) &&
-		b.Spec.Origin.InstanceRef != nil && b.Spec.Origin.InstanceRef.Name == instance.GetName()
-}
-
 // restoreWaitsForClass selects the Restores still waiting for a referent; the
 // class is reached through the source Backup or Instance, so it cannot be
 // matched by name.

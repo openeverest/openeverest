@@ -15,9 +15,12 @@ spec:
           metadata:
             name: mon-api-cel-defaults
           spec:
+            controllerName: example.com/mon-api
             extensionManaged:
               requires:
                 metrics: true
+            authModes:
+            - name: Anonymous
           EOF
         check:
           ($error): ~
@@ -29,7 +32,10 @@ spec:
           kind: MonitoringClass
           metadata:
             name: mon-api-cel-no-block
-          spec: {}
+          spec:
+            controllerName: example.com/mon-api
+            authModes:
+            - name: Anonymous
           EOF
         check:
           ($error != null): true
@@ -42,9 +48,12 @@ spec:
           metadata:
             name: mon-api-cel-no-agent
           spec:
+            controllerName: example.com/mon-api
             providerManaged:
               integration: pmm
               agentVersion: ""
+            authModes:
+            - name: Anonymous
           EOF
         check:
           ($error != null): true
@@ -58,11 +67,155 @@ spec:
           metadata:
             name: mon-api-cel-a-class-name-that-is-longer-than-sixty-three-characters
           spec:
+            controllerName: example.com/mon-api
             extensionManaged: {}
+            authModes:
+            - name: Anonymous
           EOF
         check:
           ($error != null): true
           (contains($stderr, 'a MonitoringClass name must be at most 63 characters')): true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringClass
+          metadata:
+            name: mon-api-cel-no-modes
+          spec:
+            controllerName: example.com/mon-api
+            extensionManaged: {}
+          EOF
+        check:
+          ($error != null): true
+          "(contains($stderr, 'spec.authModes: Required value'))": true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringClass
+          metadata:
+            name: mon-api-cel-modes
+          spec:
+            controllerName: example.com/mon-api
+            extensionManaged: {}
+            authModes:
+            - name: Anonymous
+              credentials: {required: [token]}
+            - name: BasicAuth
+            - name: bearer-token
+              credentials: {required: [token]}
+          EOF
+        check:
+          ($error != null): true
+          "(contains($stderr, 'spec.authModes[0]: Invalid value'))": true
+          "(contains($stderr, 'spec.authModes[1]: Invalid value'))": true
+          (contains($stderr, 'WorkloadIdentity and Anonymous take no credentials; every other mode must declare its credentials keys')): true
+          (contains($stderr, 'spec.authModes[2].name in body should match')): true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringClass
+          metadata:
+            name: mon-api-cel-duplicate-modes
+          spec:
+            controllerName: example.com/mon-api
+            extensionManaged: {}
+            authModes:
+            - name: Anonymous
+            - name: Anonymous
+          EOF
+        check:
+          ($error != null): true
+          "(contains($stderr, 'spec.authModes[1]: Duplicate value'))": true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringClass
+          metadata:
+            name: mon-api-cel-no-controller
+          spec:
+            extensionManaged: {}
+            authModes:
+            - name: Anonymous
+          EOF
+        check:
+          ($error != null): true
+          "(contains($stderr, 'spec.controllerName: Required value'))": true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringClass
+          metadata:
+            name: mon-api-cel-unqualified-controller
+          spec:
+            controllerName: monitoring-pmm
+            extensionManaged: {}
+            authModes:
+            - name: Anonymous
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.controllerName in body should match')): true
+    - script:
+        content: |
+          kubectl create --dry-run=server -o jsonpath='{.spec.extensionManaged.requires.kinds}' -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringClass
+          metadata:
+            name: mon-api-cel-kinds
+          spec:
+            controllerName: openeverest.io/monitoring-coroot
+            extensionManaged:
+              requires:
+                connection: true
+                kinds: [mongodb, postgresql, microsoft.sql_server, example.com/engine]
+            authModes:
+            - name: Anonymous
+          EOF
+        check:
+          ($error): ~
+          ($stdout): '["mongodb","postgresql","microsoft.sql_server","example.com/engine"]'
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringClass
+          metadata:
+            name: mon-api-cel-bad-kinds
+          spec:
+            controllerName: example.com/mon-api
+            extensionManaged:
+              requires:
+                kinds: [mongodb, Bad Kind, mongodb]
+            authModes:
+            - name: Anonymous
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.extensionManaged.requires.kinds[1] in body should match')): true
+          "(contains($stderr, 'spec.extensionManaged.requires.kinds[2]: Duplicate value'))": true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringClass
+          metadata:
+            name: mon-api-cel-too-many-kinds
+          spec:
+            controllerName: example.com/mon-api
+            extensionManaged:
+              requires:
+                kinds: [k01, k02, k03, k04, k05, k06, k07, k08, k09, k10, k11, k12, k13, k14, k15, k16, k17, k18, k19, k20, k21, k22, k23, k24, k25, k26, k27, k28, k29, k30, k31, k32, k33]
+            authModes:
+            - name: Anonymous
+          EOF
+        check:
+          ($error != null): true
+          "(contains($stderr, 'spec.extensionManaged.requires.kinds: Too many'))": true
 
   - name: class-immutability
     try:
@@ -73,9 +226,12 @@ spec:
           metadata:
             name: mon-api-cel-class
           spec:
+            controllerName: example.com/mon-api
             extensionManaged:
               requires:
                 metrics: true
+            authModes:
+            - name: Anonymous
     - script:
         content: |
           kubectl patch monitoringclass mon-api-cel-class --type=json --dry-run=server \
@@ -101,6 +257,13 @@ spec:
         check:
           ($error != null): true
           (contains($stderr, 'spec.providerManaged.integration is immutable')): true
+    - script:
+        content: |
+          kubectl patch monitoringclass mon-api-cel-class --type=merge --dry-run=server \
+            -p '{"spec":{"controllerName":"example.com/another-controller"}}'
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.controllerName is immutable')): true
     - script:
         content: |
           kubectl patch monitoringclass mon-api-cel-class --type=merge --dry-run=server \
@@ -145,6 +308,10 @@ spec:
               name: pmm
             parameters:
               url: https://pmm.example.com
+            authentication:
+              mode: ServiceAccountToken
+              credentialsSecretRef:
+                name: pmm-token
     - script:
         content: |
           kubectl patch monitoringdestination pmm-prod -n "$NAMESPACE" --type=merge --dry-run=server \
@@ -155,7 +322,81 @@ spec:
     - script:
         content: |
           kubectl patch monitoringdestination pmm-prod -n "$NAMESPACE" --type=merge --dry-run=server \
-            -p '{"spec":{"parameters":{"url":"https://pmm-2.example.com"},"credentialsSecretRef":{"name":"pmm-token"}}}'
+            -p '{"spec":{"parameters":{"url":"https://pmm-2.example.com"},"authentication":{"credentialsSecretRef":{"name":"pmm-token-2"}},"tls":{"ca":{"secretKeyRef":{"name":"corp-ca","key":"ca.crt"}}}}}'
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -o jsonpath='{.spec.authentication.mode}' -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: no-authentication
+          spec:
+            classRef: {name: prometheus}
+          EOF
+        check:
+          ($error): ~
+          ($stdout): Anonymous
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: token-without-secret
+          spec:
+            classRef: {name: pmm}
+            authentication: {mode: ServiceAccountToken}
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'credentialsSecretRef is required for every mode except WorkloadIdentity and Anonymous, which take none')): true
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: anonymous-with-secret
+          spec:
+            classRef: {name: prometheus}
+            authentication: {mode: Anonymous, credentialsSecretRef: {name: db1-conn}}
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'credentialsSecretRef is required for every mode except WorkloadIdentity and Anonymous, which take none')): true
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: ca-and-skip
+          spec:
+            classRef: {name: pmm}
+            authentication: {mode: Anonymous}
+            tls:
+              ca: {secretKeyRef: {name: corp-ca, key: ca.crt}}
+              insecureSkipVerify: true
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'ca and insecureSkipVerify are mutually exclusive')): true
+    - script:
+        content: |
+          kubectl create -n "$NAMESPACE" --dry-run=server -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: empty-ca
+          spec:
+            classRef: {name: pmm}
+            authentication: {mode: Anonymous}
+            tls:
+              ca: {}
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.tls.ca in body should have at least 1 properties')): true
 
   - name: binding
     try:
@@ -379,18 +620,65 @@ spec:
           (contains($stderr, 'monitoring.sources.metrics[0].podSelector in body should have at least 1 properties')): true
     - script:
         content: |
+          kubectl patch instance sources -n "$NAMESPACE" --subresource=status --type=merge --dry-run=server \
+            -p '{"status":{"monitoring":{"sources":{"metrics":[{"component":"engine","kind":"mysql","podSelector":{"app":"x"},"port":"metrics","scheme":"https","tls":{"ca":{"secretKeyRef":{"name":"orders-ca","key":"ca.crt"}},"insecureSkipVerify":true}}]}}}}'
+        check:
+          ($error != null): true
+          (contains($stderr, 'ca and insecureSkipVerify are mutually exclusive')): true
+    - script:
+        content: |
           kubectl create --dry-run=server -f - <<'EOF'
           apiVersion: core.openeverest.io/v1alpha1
           kind: Provider
           metadata:
             name: mon-api-cel-provider
           spec:
+            componentTypes:
+              engine: {kind: microsoft.sql_server}
+              proxy: {kind: Bad Kind}
             monitoring:
+              integrations:
+                pmm: {authModes: [ServiceAccountToken, api-key]}
               componentTypes:
-                engine: {kind: microsoft.sql_server, metrics: Exporter}
-                proxy: {kind: Bad Kind}
+                engine: {metrics: Exporter, podMetadata: Supported}
+                proxy: {podMetadata: Always}
           EOF
         check:
           ($error != null): true
-          (contains($stderr, 'spec.monitoring.componentTypes.proxy.kind in body should match')): true
+          (contains($stderr, 'spec.componentTypes.proxy.kind in body should match')): true
           (contains($stderr, 'componentTypes.engine.kind')): false
+          "(contains($stderr, 'spec.monitoring.componentTypes.proxy.podMetadata: Unsupported value'))": true
+          (contains($stderr, 'componentTypes.engine.podMetadata')): false
+          (contains($stderr, 'spec.monitoring.integrations.pmm.authModes[1] in body should match')): true
+    - script:
+        content: |
+          kubectl create --dry-run=server -o jsonpath='{.spec.monitoring.componentTypes.engine.podMetadata}' -f - <<'EOF'
+          apiVersion: core.openeverest.io/v1alpha1
+          kind: Provider
+          metadata:
+            name: mon-api-cel-provider-defaults
+          spec:
+            componentTypes:
+              engine: {kind: mongodb}
+            monitoring:
+              componentTypes:
+                engine: {metrics: Exporter}
+          EOF
+        check:
+          ($error): ~
+          ($stdout): None
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'EOF'
+          apiVersion: core.openeverest.io/v1alpha1
+          kind: Provider
+          metadata:
+            name: mon-api-cel-provider-monitoring-kind
+          spec:
+            monitoring:
+              componentTypes:
+                engine: {kind: mongodb, metrics: Exporter}
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'unknown field "spec.monitoring.componentTypes.engine.kind"')): true

@@ -31,16 +31,17 @@ const ConnectionSection = ({
   credentials,
   loading,
 }: ConnectionSectionProps) => {
-  const { canReadCredentials } = useContext(DbInstanceContext);
+  const { canReadCredentials, isCredentialsPermissionLoading } =
+    useContext(DbInstanceContext);
   const [showUrl, setShowUrl] = useState(false);
 
   return (
     <OverviewSection
       dataTestId="connection-details"
       title={Messages.titles.connectionDetails}
-      loading={loading}
+      loading={loading || isCredentialsPermissionLoading}
     >
-      {credentials ? (
+      {canReadCredentials && credentials ? (
         <>
           <OverviewSectionRow
             label={Messages.fields.host}
@@ -52,23 +53,19 @@ const ConnectionSection = ({
             label={Messages.fields.port}
             content={credentials.port}
           />
-          {canReadCredentials && (
-            <>
-              <OverviewSectionRow
-                label={Messages.fields.username}
-                content={credentials.username}
+          <OverviewSectionRow
+            label={Messages.fields.username}
+            content={credentials.username}
+          />
+          <OverviewSectionRow
+            label={Messages.fields.password}
+            content={
+              <HiddenPasswordToggle
+                showCopy
+                value={credentials.password || ''}
               />
-              <OverviewSectionRow
-                label={Messages.fields.password}
-                content={
-                  <HiddenPasswordToggle
-                    showCopy
-                    value={credentials.password || ''}
-                  />
-                }
-              />
-            </>
-          )}
+            }
+          />
 
           {credentials.uri && (
             <TextField
@@ -107,7 +104,11 @@ const ConnectionSection = ({
       ) : (
         <OverviewSectionRow
           label={Messages.fields.status}
-          content={ConnectionSectionMessages.waitingForInstance}
+          content={
+            canReadCredentials
+              ? ConnectionSectionMessages.waitingForInstance
+              : ConnectionSectionMessages.noPermission
+          }
         />
       )}
     </OverviewSection>

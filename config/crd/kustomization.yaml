@@ -6,7 +6,6 @@ resources:
 - bases/core.openeverest.io_instances.yaml
 - bases/backup.openeverest.io_backupclasses.yaml
 - bases/backup.openeverest.io_backups.yaml
-- bases/monitoring.openeverest.io_monitoringconfigs.yaml
 - bases/backup.openeverest.io_restores.yaml
 - bases/backup.openeverest.io_backupstorages.yaml
 - bases/extensions.openeverest.io_plugins.yaml
@@ -17,6 +16,7 @@ resources:
 - bases/monitoring.openeverest.io_monitoringclasses.yaml
 - bases/monitoring.openeverest.io_monitoringdestinations.yaml
 - bases/monitoring.openeverest.io_monitoringbindings.yaml
+- bases/backup.openeverest.io_backupstorageclasses.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

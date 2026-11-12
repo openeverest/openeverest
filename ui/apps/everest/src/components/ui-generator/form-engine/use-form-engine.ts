@@ -40,6 +40,7 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
     namespace,
     formMode,
     widgetRegistry,
+    originalData,
   } = config;
 
   // 1. Schema processing (sections, zod, field map)
@@ -139,8 +140,9 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
       postprocessSchemaData(data, {
         schema: stableUiSchema,
         selectedTopology,
+        originalData,
       }),
-    [stableUiSchema, selectedTopology]
+    [stableUiSchema, selectedTopology, originalData]
   );
 
   return useMemo(

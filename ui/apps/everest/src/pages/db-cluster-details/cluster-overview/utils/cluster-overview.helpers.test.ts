@@ -34,6 +34,22 @@ const numberField = (
   fieldParams: { label, ...(badge ? { badge, badgeToApi: true } : {}) },
 });
 
+const quantityField = (
+  path: string,
+  label: string,
+  fieldParams: {
+    unit?: Extract<
+      Component,
+      { uiType: FieldType.Quantity }
+    >['fieldParams']['unit'];
+    unitLabel?: string;
+  } = {}
+): Component => ({
+  uiType: FieldType.Quantity,
+  path,
+  fieldParams: { label, ...fieldParams },
+});
+
 const components: Record<string, Component | ComponentGroup> = {
   cpu: numberField('spec.components.engine.resources.limits.cpu', 'CPU'),
   memory: numberField(
@@ -97,6 +113,72 @@ describe('collectSectionFields', () => {
     const fields = collectSectionFields(components, instance, ['memory']);
 
     expect(fields[0].value).toBe('16kg');
+  });
+
+  it('renders quantity fields with unitLabel / unit (not raw milli values)', () => {
+    const quantityComponents: Record<string, Component | ComponentGroup> = {
+      cpu: quantityField('spec.components.engine.resources.limits.cpu', 'CPU', {
+        unitLabel: 'cores',
+      }),
+      memory: quantityField(
+        'spec.components.engine.resources.limits.memory',
+        'Memory',
+        { unit: 'Gi' }
+      ),
+    };
+
+    const fields = collectSectionFields(
+      quantityComponents,
+      {
+        spec: {
+          components: {
+            engine: {
+              resources: {
+                limits: { cpu: '500m', memory: '10240Mi' },
+              },
+            },
+          },
+        },
+      },
+      ['cpu', 'memory']
+    );
+
+    expect(fields).toEqual([
+      {
+        label: 'CPU',
+        path: 'spec.components.engine.resources.limits.cpu',
+        value: '0.5 cores',
+      },
+      {
+        label: 'Memory',
+        path: 'spec.components.engine.resources.limits.memory',
+        value: '10 Gi',
+      },
+    ]);
+  });
+
+  it('converts Kubernetes-normalised memory quantities for quantity fields', () => {
+    const fields = collectSectionFields(
+      {
+        memory: quantityField(
+          'spec.components.engine.resources.limits.memory',
+          'Memory',
+          { unit: 'Gi' }
+        ),
+      },
+      {
+        spec: {
+          components: {
+            engine: {
+              resources: { limits: { memory: '644245094400m' } },
+            },
+          },
+        },
+      },
+      ['memory']
+    );
+
+    expect(fields[0].value).toBe('0.6 Gi');
   });
 
   describe('toggleable group', () => {

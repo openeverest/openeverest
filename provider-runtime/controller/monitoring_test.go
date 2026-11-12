@@ -19,6 +19,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,6 +41,7 @@ const (
 func monitoringTestContext(t *testing.T, in *v1alpha1.Instance, objs ...client.Object) *Context {
 	t.Helper()
 	s := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(s))
 	require.NoError(t, v1alpha1.AddToScheme(s))
 	require.NoError(t, monitoringv1alpha1.AddToScheme(s))
 	provider := &v1alpha1.Provider{
@@ -48,7 +50,16 @@ func monitoringTestContext(t *testing.T, in *v1alpha1.Instance, objs ...client.O
 			Integrations: map[string]v1alpha1.MonitoringIntegration{"pmm": {}},
 		}},
 	}
-	c := fake.NewClientBuilder().WithScheme(s).WithObjects(append(objs, provider)...).Build()
+	// The fake client stamps the objects it is seeded with, and parallel
+	// subtests may share them: seed copies.
+	seeded := make([]client.Object, 0, len(objs)+1)
+	for _, o := range objs {
+		obj, ok := o.DeepCopyObject().(client.Object)
+		require.True(t, ok, "%T is not a client.Object", o)
+		seeded = append(seeded, obj)
+	}
+	seeded = append(seeded, provider)
+	c := fake.NewClientBuilder().WithScheme(s).WithObjects(seeded...).Build()
 	return NewContext(t.Context(), c, in, "test-provider")
 }
 
@@ -112,6 +123,7 @@ func pmmClass() *monitoringv1alpha1.MonitoringClass {
 	return &monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "pmm"},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
+			ControllerName:  "openeverest.io/monitoring-pmm",
 			ProviderManaged: &monitoringv1alpha1.ProviderManagedFulfilment{Integration: "pmm"},
 		},
 	}
@@ -121,6 +133,7 @@ func extensionManagedClass(name string, metrics bool) *monitoringv1alpha1.Monito
 	return &monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
+			ControllerName: "openeverest.io/monitoring-" + name,
 			ExtensionManaged: &monitoringv1alpha1.ExtensionManagedFulfilment{
 				Requires: monitoringv1alpha1.SourceRequirements{Metrics: metrics},
 			},
@@ -277,7 +290,8 @@ func TestRequiredSources(t *testing.T) {
 
 			got, err := c.RequiredSources()
 			require.NoError(t, err)
-			assert.Equal(t, RequiredSources{Metrics: tc.wantMetrics, Integrations: tc.wantIntegrations}, got)
+			assert.Equal(t, tc.wantMetrics, got.Metrics)
+			assert.Equal(t, tc.wantIntegrations, got.Integrations)
 		})
 	}
 }
@@ -438,6 +452,84 @@ func TestMonitoringBindings(t *testing.T) {
 			if tc.wantClass {
 				assert.Equal(t, "pmm", rb.Integration())
 			}
+		})
+	}
+}
+
+func TestMonitoringCredentials(t *testing.T) {
+	t.Parallel()
+
+	class := pmmClass()
+	class.Spec.AuthModes = []common.AuthMode{
+		{Name: "ServiceAccountToken", Credentials: &common.CredentialKeys{Required: []string{"token"}}},
+		{Name: common.AuthModeAnonymous},
+	}
+	withAuth := func(auth common.Authentication) *monitoringv1alpha1.MonitoringDestination {
+		dst := pmmDestination("pmm-dest")
+		dst.Spec.Authentication = auth
+		return dst
+	}
+	secret := func(data map[string][]byte) *corev1.Secret {
+		return &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "pmm-token", Namespace: monitoringTestNamespace}, Data: data}
+	}
+	tokenAuth := common.Authentication{Mode: "ServiceAccountToken", CredentialsSecretRef: &common.SecretRef{Name: "pmm-token"}}
+	token := map[string][]byte{"token": []byte("glsa_token")}
+
+	tests := []struct {
+		name     string
+		dst      *monitoringv1alpha1.MonitoringDestination
+		objects  []client.Object
+		wantMode string
+		wantData map[string][]byte
+		wantErr  string
+	}{
+		{
+			name:     "Secret-backed mode",
+			dst:      withAuth(tokenAuth),
+			objects:  []client.Object{secret(token)},
+			wantMode: "ServiceAccountToken",
+			wantData: token,
+		},
+		{
+			name:     "reserved mode has no Secret",
+			dst:      withAuth(common.Authentication{Mode: common.AuthModeAnonymous}),
+			wantMode: common.AuthModeAnonymous,
+		},
+		{
+			name:    "mode the class does not define",
+			dst:     withAuth(common.Authentication{Mode: "BasicAuth", CredentialsSecretRef: &common.SecretRef{Name: "pmm-token"}}),
+			wantErr: `MonitoringClass "pmm" has no authentication mode "BasicAuth"`,
+		},
+		{
+			name:    "Secret missing",
+			dst:     withAuth(tokenAuth),
+			wantErr: `get credentials Secret "pmm-token" of MonitoringDestination "pmm-dest"`,
+		},
+		{
+			name:    "key the mode requires missing",
+			dst:     withAuth(tokenAuth),
+			objects: []client.Object{secret(map[string][]byte{"apiKey": []byte("glsa_token")})},
+			wantErr: `missing key "token" required by authentication mode "ServiceAccountToken"`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			c := monitoringTestContext(t, monitoredInstance("pmm"), tt.objects...)
+
+			mode, data, err := c.MonitoringCredentials(ResolvedBinding{
+				Binding:     monitoringBinding("pmm", v1alpha1.MonitoringExecutionModeProviderManaged, "pmm", metav1.ConditionTrue),
+				Destination: tt.dst,
+				Class:       class,
+			})
+
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantMode, mode)
+			assert.Equal(t, tt.wantData, data)
 		})
 	}
 }

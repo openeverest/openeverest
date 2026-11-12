@@ -45,6 +45,7 @@ const renderDetails = (contextValue?: Partial<DbInstanceContextProps>) => {
     isLoading: false,
     instanceDeleted: false,
     canReadCredentials: true,
+    isCredentialsPermissionLoading: false,
     ...contextValue,
   };
 

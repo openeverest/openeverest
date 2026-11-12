@@ -48,10 +48,6 @@ func TestRBAC_ClusterInstancePreset(t *testing.T) {
 			&corev1alpha1.ClusterInstancePreset{ObjectMeta: metav1.ObjectMeta{Name: "small"}},
 			nil,
 		)
-		h.On("ResolveClusterInstancePreset", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
-			&corev1alpha1.ClusterInstancePreset{ObjectMeta: metav1.ObjectMeta{Name: "small"}},
-			nil,
-		)
 		return h
 	}
 
@@ -239,123 +235,6 @@ func TestRBAC_ClusterInstancePreset(t *testing.T) {
 				}
 
 				result, err := h.GetClusterInstancePreset(ctx, tc.cluster, tc.name)
-				if tc.wantErr != nil {
-					require.ErrorIs(t, err, tc.wantErr)
-				} else {
-					require.NoError(t, err)
-					assert.Equal(t, "small", result.Name)
-				}
-			})
-		}
-	})
-
-	t.Run("ResolveClusterInstancePreset", func(t *testing.T) {
-		t.Parallel()
-
-		testCases := []struct {
-			desc      string
-			cluster   string
-			name      string
-			namespace string
-			policy    string
-			wantErr   error
-		}{
-			{
-				desc:      "admin",
-				cluster:   "prod",
-				name:      "small",
-				namespace: "default",
-				policy: newPolicy(
-					"g, bob, role:admin",
-				),
-			},
-			{
-				desc:      "exact match with namespace access",
-				cluster:   "prod",
-				name:      "small",
-				namespace: "default",
-				policy: newPolicy(
-					"p, role:test, cluster-instance-presets, read, prod/small",
-					"p, role:test, namespaces, read, prod/default",
-					"g, bob, role:test",
-				),
-			},
-			{
-				desc:      "wildcard on cluster and namespace",
-				cluster:   "prod",
-				name:      "small",
-				namespace: "default",
-				policy: newPolicy(
-					"p, role:test, cluster-instance-presets, read, prod/*",
-					"p, role:test, namespaces, read, prod/*",
-					"g, bob, role:test",
-				),
-			},
-			{
-				desc:      "no instance-preset access",
-				cluster:   "prod",
-				name:      "small",
-				namespace: "default",
-				policy: newPolicy(
-					"p, role:test, namespaces, read, prod/default",
-					"g, bob, role:test",
-				),
-				wantErr: ErrInsufficientPermissions,
-			},
-			{
-				desc:      "no namespace access",
-				cluster:   "prod",
-				name:      "small",
-				namespace: "default",
-				policy: newPolicy(
-					"p, role:test, cluster-instance-presets, read, prod/small",
-					"g, bob, role:test",
-				),
-				wantErr: ErrInsufficientPermissions,
-			},
-			{
-				desc:      "wrong cluster for instance-preset",
-				cluster:   "prod",
-				name:      "small",
-				namespace: "default",
-				policy: newPolicy(
-					"p, role:test, cluster-instance-presets, read, staging/small",
-					"p, role:test, namespaces, read, prod/default",
-					"g, bob, role:test",
-				),
-				wantErr: ErrInsufficientPermissions,
-			},
-			{
-				desc:      "wrong cluster for namespace",
-				cluster:   "prod",
-				name:      "small",
-				namespace: "default",
-				policy: newPolicy(
-					"p, role:test, cluster-instance-presets, read, prod/small",
-					"p, role:test, namespaces, read, staging/default",
-					"g, bob, role:test",
-				),
-				wantErr: ErrInsufficientPermissions,
-			},
-		}
-
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
-		for _, tc := range testCases {
-			t.Run(tc.desc, func(t *testing.T) {
-				t.Parallel()
-				k8sMock := newConfigMapMock(tc.policy)
-				enf, err := rbac.NewEnforcer(ctx, k8sMock, zap.NewNop().Sugar())
-				require.NoError(t, err)
-				next := mockClusterInstancePresets()
-
-				h := &rbacHandler{
-					next:       next,
-					log:        zap.NewNop().Sugar(),
-					enforcer:   enf,
-					userGetter: testUserGetter,
-				}
-
-				result, err := h.ResolveClusterInstancePreset(ctx, tc.cluster, tc.name, tc.namespace)
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
 				} else {

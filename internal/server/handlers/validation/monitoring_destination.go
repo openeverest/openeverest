@@ -18,11 +18,12 @@ import (
 	"context"
 
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 // ListMonitoringDestinations proxies the request to the next handler.
-func (h *validateHandler) ListMonitoringDestinations(ctx context.Context, cluster, namespace, class string) (*monitoringv1alpha1.MonitoringDestinationList, error) {
-	return h.next.ListMonitoringDestinations(ctx, cluster, namespace, class)
+func (h *validateHandler) ListMonitoringDestinations(ctx context.Context, cluster, namespace string, params *api.ListMonitoringDestinationsParams) (*monitoringv1alpha1.MonitoringDestinationList, error) {
+	return h.next.ListMonitoringDestinations(ctx, cluster, namespace, params)
 }
 
 // GetMonitoringDestination proxies the request to the next handler.

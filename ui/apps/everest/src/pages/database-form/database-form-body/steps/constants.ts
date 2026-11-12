@@ -13,5 +13,5 @@
 // limitations under the License.
 
 export const BASE_STEP_ID = 'base';
-export const IMPORT_STEP_ID = 'import';
 export const BACKUP_STEP_ID = 'backups';
+export const MONITORING_STEP_ID = 'monitoring';

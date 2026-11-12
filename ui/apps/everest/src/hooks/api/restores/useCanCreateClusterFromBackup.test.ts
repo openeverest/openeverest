@@ -17,6 +17,7 @@ import { useCanCreateClusterFromBackup } from './useCanCreateClusterFromBackup';
 
 const mockUseCanRestore = vi.fn();
 const mockUseRBACPermissions = vi.fn();
+const mockUseRBACAction = vi.fn();
 
 vi.mock('./useCanRestore', () => ({
   useCanRestore: (...args: unknown[]) => mockUseCanRestore(...args),
@@ -24,6 +25,7 @@ vi.mock('./useCanRestore', () => ({
 
 vi.mock('hooks/rbac', () => ({
   useRBACPermissions: (...args: unknown[]) => mockUseRBACPermissions(...args),
+  useRBACAction: (...args: unknown[]) => mockUseRBACAction(...args),
 }));
 
 describe('useCanCreateClusterFromBackup', () => {
@@ -31,7 +33,11 @@ describe('useCanCreateClusterFromBackup', () => {
     canCreateClusters?: boolean;
     canCreateBackups?: boolean;
     canReadMonitoring?: boolean;
+    canReadSourceConnection?: boolean;
   }) => {
+    mockUseRBACAction.mockReturnValue({
+      isAllowed: permissions.canReadSourceConnection ?? true,
+    });
     mockUseRBACPermissions.mockImplementation((resource: string) => {
       if (resource === 'instances') {
         return { canCreate: permissions.canCreateClusters ?? false };
@@ -39,7 +45,7 @@ describe('useCanCreateClusterFromBackup', () => {
       if (resource === 'backups') {
         return { canCreate: permissions.canCreateBackups ?? false };
       }
-      if (resource === 'monitoring-configs') {
+      if (resource === 'monitoring-destinations') {
         return { canRead: permissions.canReadMonitoring ?? false };
       }
       return { canCreate: false, canRead: false };
@@ -88,6 +94,23 @@ describe('useCanCreateClusterFromBackup', () => {
     expect(result.current).toBe(false);
   });
 
+  // The clone receives the source's credentials.
+  it('requires read-connection on the source instance', () => {
+    mockUseCanRestore.mockReturnValue(true);
+    setPermissions({ canCreateClusters: true, canReadSourceConnection: false });
+
+    const { result } = renderHook(() =>
+      useCanCreateClusterFromBackup('ns-a', 'inst-a')
+    );
+
+    expect(mockUseRBACAction).toHaveBeenCalledWith(
+      'read-connection',
+      'instances',
+      'ns-a/inst-a'
+    );
+    expect(result.current).toBe(false);
+  });
+
   it('checks cluster creation permission in the source namespace wildcard scope', () => {
     mockUseCanRestore.mockReturnValue(true);
     setPermissions({ canCreateClusters: true });
@@ -114,7 +137,7 @@ describe('useCanCreateClusterFromBackup', () => {
     expect(result.current).toBe(false);
   });
 
-  it('requires monitoring read permission when monitoring is enabled', () => {
+  it('requires read on the monitoring destinations the source uses', () => {
     mockUseCanRestore.mockReturnValue(true);
     setPermissions({
       canCreateClusters: true,
@@ -123,10 +146,14 @@ describe('useCanCreateClusterFromBackup', () => {
 
     const { result } = renderHook(() =>
       useCanCreateClusterFromBackup('ns-a', 'inst-a', {
-        monitoringEnabled: true,
+        monitoringDestinations: ['pmm', 'prometheus'],
       })
     );
 
+    expect(mockUseRBACPermissions).toHaveBeenCalledWith(
+      'monitoring-destinations',
+      ['ns-a/pmm', 'ns-a/prometheus']
+    );
     expect(result.current).toBe(false);
   });
 
@@ -141,7 +168,7 @@ describe('useCanCreateClusterFromBackup', () => {
     const { result } = renderHook(() =>
       useCanCreateClusterFromBackup('ns-a', 'inst-a', {
         hasSchedules: true,
-        monitoringEnabled: true,
+        monitoringDestinations: ['pmm'],
       })
     );
 

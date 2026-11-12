@@ -18,6 +18,7 @@
   - [Validation-level modes](#validation-level-modes)
 - Field Types
   - [Number Field](components/number-field.md)
+  - [Quantity Field](components/quantity-field.md)
   - [Secret Field](components/secret-field.md)
   - [Select Field](components/select-field.md)
   - [Text Field](components/text-field.md)
@@ -207,6 +208,15 @@ for UI that plain fields can't describe. See [Widgets](widgets.md) for the suppo
 
 ## Mode-Aware Overrides
 
+The form runs in one of four modes:
+
+| Mode      | When                                                             |
+| --------- | ---------------------------------------------------------------- |
+| `new`     | Creating a database                                              |
+| `edit`    | Changing an existing database                                    |
+| `restore` | Creating a database from a backup of another database            |
+| `import`  | Creating a database from a backup imported from a backup storage |
+
 ### Component-level modes
 
 Use a component's `modes` to hide it in a mode with `uiType: hidden`. A hidden field isn't
@@ -275,11 +285,19 @@ schema describes. Spell the real sub-structure below that root, so the schema al
 value lands. The host supplies the root (the form field is `<root>.<path>`) and never injects keys
 between the root and the path.
 
-| Schema              | Root                 | Example `path`                    |
-| ------------------- | -------------------- | --------------------------------- |
-| Topology            | the Instance         | `spec.components.engine.replicas` |
-| Backup class `pitr` | one storage's `pitr` | `parameters.timeBetweenUploads`   |
-| Secret definition   | the secret's data    | `MONGODB_USER`                    |
+| Schema                                    | Root                                        | Example `path`                      |
+| ----------------------------------------- | ------------------------------------------- | ----------------------------------- |
+| Topology                                  | the Instance                                | `spec.components.engine.replicas`   |
+| Backup class `pitr`                       | one storage's `pitr`                        | `parameters.timeBetweenUploads`     |
+| Secret definition                         | the secret's data                           | `MONGODB_USER`                      |
+| Monitoring class `destination`            | the MonitoringDestination's `spec`          | `parameters.url`                    |
+| Monitoring class `credentials.<authMode>` | the credentials Secret's data               | `token`                             |
+| Monitoring class `instance`               | one entry of `spec.monitoring.destinations` | `parameters.resources.requests.cpu` |
+
+A monitoring class without a `destination` form gets text and key/value fields generated from the
+string and string-map properties of its `destinationParametersSchema`; without a
+`credentials.<authMode>` form, it gets one masked input per credential key the auth mode declares.
+Settings shows a destination's address only when the `destination` form writes `parameters.url`.
 
 - ❌ `path: spec.backup.storages[].pitr.parameters.timeBetweenUploads`
 

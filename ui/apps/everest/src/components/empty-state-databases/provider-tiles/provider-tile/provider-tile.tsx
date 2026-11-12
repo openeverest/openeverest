@@ -22,7 +22,6 @@ export const ProviderTile = ({
   name,
   label,
   meta,
-  showImport,
 }: ProviderTileProps) => {
   const prefetchPresets = usePrefetchClusterInstancePresets();
 
@@ -33,7 +32,7 @@ export const ProviderTile = ({
       meta={meta}
       link={{
         to: '/databases/new',
-        state: { selectedDbProvider: provider, showImport },
+        state: { selectedDbProvider: provider },
       }}
       footer={<ArrowForwardIcon fontSize="small" aria-hidden="true" />}
       onActivate={() => prefetchPresets(provider)}

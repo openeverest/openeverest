@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -41,60 +42,29 @@ import (
 	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
 )
 
-// instanceMonitoringDestinationField indexes Instances by every
-// spec.monitoring.destinations[].destinationRef.name.
-const instanceMonitoringDestinationField = ".spec.monitoring.destinations.destinationRef.name"
-
-const destinationKind = "MonitoringDestination"
-
-// instanceMonitoringDestinationNames is the extractor for
-// instanceMonitoringDestinationField.
-func instanceMonitoringDestinationNames(obj client.Object) []string {
-	in, ok := obj.(*corev1alpha1.Instance)
-	if !ok {
-		return nil
-	}
-	entries := instanceMonitoringDestinations(in)
-	names := make([]string, 0, len(entries))
-	for _, e := range entries {
-		names = append(names, e.DestinationRef.Name)
-	}
-	return names
-}
-
-// instanceMonitoringDestinations returns the Instance's destination entries.
-func instanceMonitoringDestinations(in *corev1alpha1.Instance) []corev1alpha1.InstanceMonitoringDestination {
-	if in.Spec.Monitoring == nil {
-		return nil
-	}
-	return in.Spec.Monitoring.Destinations
-}
-
 // BindingReconciler materialises one MonitoringBinding per
 // Instance.spec.monitoring.destinations[] entry and owns the bindings' spec
-// and Accepted condition. It never touches Instance status.
+// and their Accepted and Ready conditions. It never touches Instance status.
 type BindingReconciler struct {
 	client.Client
 
 	Scheme *runtime.Scheme
 }
 
-// SetupWithManager registers the Instance index on
-// spec.monitoring.destinations[].destinationRef.name and sets up the
-// controller.
+// SetupWithManager sets up the controller. The Instance index it lists by is
+// registered by SetupIndexes. Besides spec changes, it follows the inputs of
+// the bindings' Ready condition: the executor's Configured condition and the
+// destination's Ready condition.
 func (r *BindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1alpha1.Instance{},
-		instanceMonitoringDestinationField, instanceMonitoringDestinationNames,
-	); err != nil {
-		return fmt.Errorf("indexing instance by monitoring destination: %w", err)
-	}
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("MonitoringBinding").
 		For(&corev1alpha1.Instance{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
-		Owns(&monitoringv1alpha1.MonitoringBinding{}, builder.WithPredicates(predicate.GenerationChangedPredicate{})).
+		Owns(&monitoringv1alpha1.MonitoringBinding{}, builder.WithPredicates(
+			predicate.Or(predicate.GenerationChangedPredicate{}, bindingConfiguredChanged()),
+		)).
 		Watches(&monitoringv1alpha1.MonitoringDestination{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueInstancesForDestination),
-			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+			builder.WithPredicates(predicate.Or(predicate.GenerationChangedPredicate{}, rtmonitoring.DestinationReadinessChanged())),
 		).
 		Watches(&monitoringv1alpha1.MonitoringClass{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueInstancesForClass),
@@ -250,6 +220,9 @@ type resolution struct {
 	classRef      *common.ObjectRef
 	executionMode corev1alpha1.MonitoringExecutionMode
 	accepted      metav1.Condition
+	// destination is the resolved destination, nil when the entry is
+	// rejected.
+	destination *monitoringv1alpha1.MonitoringDestination
 }
 
 // resolve computes the class, execution mode and Accepted condition for an
@@ -262,7 +235,7 @@ func (r *BindingReconciler) resolve(
 	existing *monitoringv1alpha1.MonitoringBinding,
 	usedIntegrations map[string]string,
 ) (resolution, error) {
-	class, rejected, err := r.resolveClass(ctx, in, entry, existing)
+	dst, class, rejected, err := r.resolveClass(ctx, in, entry, existing)
 	if err != nil || class == nil {
 		return rejected, err
 	}
@@ -290,7 +263,7 @@ func (r *BindingReconciler) resolve(
 		), nil
 	}
 
-	f := assess(provider, class, instanceComponentTypes(in, provider))
+	f := assess(provider, class, dst.Spec.Authentication.Mode, instanceComponentTypes(in, provider))
 	if f.providerManaged.ok {
 		if by, used := usedIntegrations[class.Spec.ProviderManaged.Integration]; used && by != entry.Name {
 			f.providerManaged = verdict{
@@ -314,29 +287,37 @@ func (r *BindingReconciler) resolve(
 			Type: monitoringv1alpha1.MonitoringBindingConditionAccepted, Status: metav1.ConditionTrue,
 			Reason: monitoringv1alpha1.ReasonAccepted, Message: fmt.Sprintf("resolved to %s", mode),
 		},
+		destination: dst,
 	}, nil
 }
 
 // resolveClass follows entry -> destination -> class and returns the
-// claimed class, or nil and the rejection naming the missing or unusable
-// link.
+// destination and its claimed class, or a nil class and the rejection naming
+// the missing or unusable link.
 func (r *BindingReconciler) resolveClass(
 	ctx context.Context,
 	in *corev1alpha1.Instance,
 	entry corev1alpha1.InstanceMonitoringDestination,
 	existing *monitoringv1alpha1.MonitoringBinding,
-) (*monitoringv1alpha1.MonitoringClass, resolution, error) {
+) (*monitoringv1alpha1.MonitoringDestination, *monitoringv1alpha1.MonitoringClass, resolution, error) {
 	dst := &monitoringv1alpha1.MonitoringDestination{}
 	if err := r.Get(ctx, types.NamespacedName{Namespace: in.Namespace, Name: entry.DestinationRef.Name}, dst); err != nil {
 		if !apierrors.IsNotFound(err) {
-			return nil, resolution{}, fmt.Errorf("get MonitoringDestination %q: %w", entry.DestinationRef.Name, err)
+			return nil, nil, resolution{}, fmt.Errorf("get MonitoringDestination %q: %w", entry.DestinationRef.Name, err)
 		}
-		return nil, rejection(existing, nil, monitoringv1alpha1.ReasonDestinationNotFound,
+		return nil, nil, rejection(existing, nil, monitoringv1alpha1.ReasonDestinationNotFound,
 			fmt.Sprintf("MonitoringDestination %q not found", entry.DestinationRef.Name),
 		), nil
 	}
+	if !dst.DeletionTimestamp.IsZero() {
+		// Its deletion completes once no Instance lists it; the hold rule keeps
+		// what is already configured meanwhile.
+		return nil, nil, rejection(existing, nil, monitoringv1alpha1.ReasonDestinationTerminating,
+			fmt.Sprintf("MonitoringDestination %q is being deleted; remove this entry to let the deletion finish", dst.Name),
+		), nil
+	}
 	if existing != nil && existing.Spec.ClassRef != nil && existing.Spec.ClassRef.Name != dst.Spec.ClassRef.Name {
-		return nil, rejection(existing, nil, monitoringv1alpha1.ReasonIncompatible,
+		return nil, nil, rejection(existing, nil, monitoringv1alpha1.ReasonIncompatible,
 			fmt.Sprintf("binding was created for MonitoringClass %q but MonitoringDestination %q now references %q",
 				existing.Spec.ClassRef.Name, dst.Name, dst.Spec.ClassRef.Name,
 			),
@@ -346,18 +327,18 @@ func (r *BindingReconciler) resolveClass(
 	class := &monitoringv1alpha1.MonitoringClass{}
 	if err := r.Get(ctx, types.NamespacedName{Name: dst.Spec.ClassRef.Name}, class); err != nil {
 		if !apierrors.IsNotFound(err) {
-			return nil, resolution{}, fmt.Errorf("get MonitoringClass %q: %w", dst.Spec.ClassRef.Name, err)
+			return nil, nil, resolution{}, fmt.Errorf("get MonitoringClass %q: %w", dst.Spec.ClassRef.Name, err)
 		}
-		return nil, rejection(existing, nil, monitoringv1alpha1.ReasonClassNotFound,
+		return nil, nil, rejection(existing, nil, monitoringv1alpha1.ReasonClassNotFound,
 			fmt.Sprintf("MonitoringClass %q not found", dst.Spec.ClassRef.Name),
 		), nil
 	}
 	if !rtmonitoring.ClassIsAccepted(class) {
-		return nil, rejection(existing, &common.ObjectRef{Name: class.Name}, monitoringv1alpha1.ReasonClassNotAccepted,
+		return nil, nil, rejection(existing, &common.ObjectRef{Name: class.Name}, monitoringv1alpha1.ReasonClassNotAccepted,
 			fmt.Sprintf("no controller has claimed MonitoringClass %q", class.Name),
 		), nil
 	}
-	return class, resolution{}, nil
+	return dst, class, resolution{}, nil
 }
 
 // rejection is an Accepted=False resolution. classRef, when known, is
@@ -405,7 +386,7 @@ func resolveMode(
 }
 
 // materialise creates or updates the binding for an entry and applies the
-// Accepted condition.
+// Accepted and Ready conditions.
 func (r *BindingReconciler) materialise(
 	ctx context.Context,
 	in *corev1alpha1.Instance,
@@ -432,12 +413,59 @@ func (r *BindingReconciler) materialise(
 
 	cond := res.accepted
 	cond.ObservedGeneration = b.Generation
-	if prev := meta.FindStatusCondition(b.Status.Conditions, cond.Type); prev != nil &&
-		prev.Status == cond.Status && prev.Reason == cond.Reason && prev.Message == cond.Message &&
-		prev.ObservedGeneration == cond.ObservedGeneration {
+	if !sameCondition(b.Status.Conditions, cond) {
+		if err := rtmonitoring.ApplyCondition(ctx, r.Client, b, b.Status.Conditions, rtmonitoring.MaterializerFieldOwner, cond); err != nil {
+			return err
+		}
+	}
+	return r.applyReady(ctx, b, cond, res.destination)
+}
+
+// applyReady writes the binding's Ready condition from the Accepted
+// condition just resolved, the executor's Configured condition and the
+// destination's Ready condition.
+func (r *BindingReconciler) applyReady(
+	ctx context.Context,
+	b *monitoringv1alpha1.MonitoringBinding,
+	accepted metav1.Condition,
+	dst *monitoringv1alpha1.MonitoringDestination,
+) error {
+	var configured metav1.Condition
+	if c := meta.FindStatusCondition(b.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionConfigured); c != nil &&
+		c.ObservedGeneration == b.Generation {
+		configured = *c
+	}
+	ready := rtmonitoring.BindingReady(b, accepted, configured, dst)
+	if sameCondition(b.Status.Conditions, ready) {
 		return nil
 	}
-	return rtmonitoring.ApplyCondition(ctx, r.Client, b, b.Status.Conditions, rtmonitoring.MaterializerFieldOwner, cond)
+	return rtmonitoring.ApplyCondition(ctx, r.Client, b, b.Status.Conditions, rtmonitoring.ReadinessFieldOwner, ready)
+}
+
+// sameCondition reports whether conditions already hold cond, ignoring its
+// lastTransitionTime.
+func sameCondition(conditions []metav1.Condition, cond metav1.Condition) bool {
+	prev := meta.FindStatusCondition(conditions, cond.Type)
+	return prev != nil && prev.Status == cond.Status && prev.Reason == cond.Reason && prev.Message == cond.Message &&
+		prev.ObservedGeneration == cond.ObservedGeneration
+}
+
+// bindingConfiguredChanged passes binding updates that change the status,
+// reason or observed generation of the executor's Configured condition.
+func bindingConfiguredChanged() predicate.Funcs {
+	return predicate.Funcs{UpdateFunc: func(e event.UpdateEvent) bool {
+		oldB, okOld := e.ObjectOld.(*monitoringv1alpha1.MonitoringBinding)
+		newB, okNew := e.ObjectNew.(*monitoringv1alpha1.MonitoringBinding)
+		if !okOld || !okNew {
+			return false
+		}
+		before := meta.FindStatusCondition(oldB.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionConfigured)
+		after := meta.FindStatusCondition(newB.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionConfigured)
+		if before == nil || after == nil {
+			return before != after
+		}
+		return before.Status != after.Status || before.Reason != after.Reason || before.ObservedGeneration != after.ObservedGeneration
+	}}
 }
 
 func (r *BindingReconciler) createBinding(

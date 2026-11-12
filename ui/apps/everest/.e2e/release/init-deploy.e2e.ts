@@ -43,7 +43,7 @@ import {
   getPGStsName,
 } from '@e2e/utils/db-cmd-line';
 import { getK8sResource } from '@e2e/utils/kubernetes';
-import { checkDBMetrics, checkQAN } from '@e2e/utils/monitoring-config';
+import { checkDBMetrics, checkQAN } from '@e2e/utils/pmm';
 
 let token: string;
 

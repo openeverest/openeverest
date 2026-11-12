@@ -45,12 +45,53 @@ const (
 	// spec.executionMode (provider-runtime or the class controller). It means
 	// configuration was handed to the agent path; it never claims data flows.
 	MonitoringBindingConditionConfigured = "Configured"
+	// MonitoringBindingConditionReady is owned by core and summarises the
+	// binding: True when it is Accepted and Configured and its destination
+	// is Ready. It quotes the destination's Ready reason, never its message.
+	// Like Configured, it never claims data flows.
+	MonitoringBindingConditionReady = "Ready"
 )
+
+// BindingReadyReason is a reason of the MonitoringBinding Ready condition.
+// The condition status is derived from the reason, see Status.
+type BindingReadyReason string
+
+// Reasons for the MonitoringBinding Ready condition.
+const (
+	// ReasonBindingReady means the binding is Accepted and Configured and
+	// its destination is Ready.
+	ReasonBindingReady BindingReadyReason = "Ready"
+	// ReasonBindingReadyPending means an input has not been reported yet,
+	// or was reported for an older generation.
+	ReasonBindingReadyPending BindingReadyReason = "Pending"
+	// ReasonBindingNotAccepted means the binding is not Accepted.
+	ReasonBindingNotAccepted BindingReadyReason = "NotAccepted"
+	// ReasonBindingNotConfigured means the binding is not Configured.
+	ReasonBindingNotConfigured BindingReadyReason = "NotConfigured"
+	// ReasonDestinationNotReady means the destination is not Ready.
+	ReasonDestinationNotReady BindingReadyReason = "DestinationNotReady"
+)
+
+// Status returns the condition status the reason implies; unknown reasons
+// imply False.
+func (r BindingReadyReason) Status() metav1.ConditionStatus {
+	switch r {
+	case ReasonBindingReady:
+		return metav1.ConditionTrue
+	case ReasonBindingReadyPending:
+		return metav1.ConditionUnknown
+	case ReasonBindingNotAccepted, ReasonBindingNotConfigured, ReasonDestinationNotReady:
+		return metav1.ConditionFalse
+	default:
+		return metav1.ConditionFalse
+	}
+}
 
 // Reasons for the Accepted condition.
 const (
 	ReasonAccepted               = "Accepted"
 	ReasonDestinationNotFound    = "DestinationNotFound"
+	ReasonDestinationTerminating = "DestinationTerminating"
 	ReasonClassNotFound          = "ClassNotFound"
 	ReasonClassNotAccepted       = "ClassNotAccepted"
 	ReasonProviderNotFound       = "ProviderNotFound"
@@ -58,6 +99,14 @@ const (
 	ReasonIntegrationInUse       = "IntegrationInUse"
 	ReasonIncompatible           = "Incompatible"
 	ReasonInvalidParameters      = "InvalidParameters"
+	ReasonAuthModeUnsupported    = "AuthModeUnsupported"
+	// ReasonKindUnsupported means the class lists requires.kinds and no
+	// component's kind is among them.
+	ReasonKindUnsupported = "KindUnsupported"
+	// ReasonPodMetadataUnsupported means the class requests pod metadata
+	// and no component meeting its other requirements declares
+	// podMetadata: Supported.
+	ReasonPodMetadataUnsupported = "PodMetadataUnsupported"
 )
 
 // ConfiguredReason is a reason of the Configured condition. The condition
@@ -68,6 +117,10 @@ type ConfiguredReason string
 const (
 	// ReasonConfigured means the configuration was handed to the agent path.
 	ReasonConfigured ConfiguredReason = "Configured"
+	// ReasonAgentTLSNotVerified means the configuration was handed to an
+	// agent that does not verify the destination's certificate, whatever
+	// spec.tls says.
+	ReasonAgentTLSNotVerified ConfiguredReason = "AgentTLSNotVerified"
 	// ReasonMaintenancePending means newer content awaits the owner's
 	// approval while the live content is kept.
 	ReasonMaintenancePending ConfiguredReason = "MaintenancePending"
@@ -97,7 +150,7 @@ const (
 // imply False.
 func (r ConfiguredReason) Status() metav1.ConditionStatus {
 	switch r {
-	case ReasonConfigured, ReasonMaintenancePending:
+	case ReasonConfigured, ReasonAgentTLSNotVerified, ReasonMaintenancePending:
 		return metav1.ConditionTrue
 	case ReasonPending, ReasonRetained:
 		return metav1.ConditionUnknown
@@ -145,6 +198,27 @@ type MonitoringBindingStatus struct {
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// PodMetadata is the pod metadata the class controller of an
+	// ExtensionManaged binding requests per component, written together
+	// with Configured. provider-runtime hands the annotations allowed by
+	// the class's spec.extensionManaged.podMetadata to the provider, which
+	// renders them on the component's pods.
+	// +listType=map
+	// +listMapKey=component
+	// +kubebuilder:validation:MaxItems=16
+	// +optional
+	PodMetadata []ComponentPodMetadata `json:"podMetadata,omitempty"`
+}
+
+// ComponentPodMetadata is the metadata requested for one component's pods.
+type ComponentPodMetadata struct {
+	// Component is the Instance component name.
+	// +kubebuilder:validation:Required
+	Component string `json:"component"`
+	// Annotations to set on the component's pods.
+	// +kubebuilder:validation:MaxProperties=32
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -155,6 +229,7 @@ type MonitoringBindingStatus struct {
 // +kubebuilder:printcolumn:name="Class",type="string",JSONPath=".spec.classRef.name"
 // +kubebuilder:printcolumn:name="Accepted",type="string",JSONPath=".status.conditions[?(@.type==\"Accepted\")].reason"
 // +kubebuilder:printcolumn:name="Configured",type="string",JSONPath=".status.conditions[?(@.type==\"Configured\")].reason"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Mode",type="string",JSONPath=".spec.executionMode",priority=1
 

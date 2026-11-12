@@ -15,7 +15,6 @@
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -44,11 +43,11 @@ const (
 	CredentialSecretKeyPassword = "password"
 )
 
-// MonitoringKindPattern validates every monitoring engine kind. Kubebuilder
-// markers cannot reference constants, so the Pattern markers on
-// MonitoringComponentType.Kind and MetricsEndpoint.Kind must stay identical
-// to it.
-const MonitoringKindPattern = `^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
+// CredentialProfileMonitor is the well-known credential profile of a
+// read-only monitoring user: the engine's monitoring role (e.g. MongoDB
+// clusterMonitor plus read on local, PostgreSQL pg_monitor) and nothing more.
+// Connection endpoints that monitoring agents log in to name it.
+const CredentialProfileMonitor = "monitor"
 
 // InstanceMonitoringSpec configures where the Instance sends monitoring data.
 // It is an object so Instance-wide fields can be added without a breaking
@@ -98,6 +97,20 @@ type InstanceMonitoringStatus struct {
 	Destinations []InstanceMonitoringDestinationStatus `json:"destinations,omitempty"`
 }
 
+// Condition types of an Instance.status.monitoring.destinations[] entry.
+const (
+	// MonitoringEntryConditionConfigured mirrors the binding's Configured
+	// condition; False when the binding is not Accepted, Unknown while it is
+	// missing or pending. It means configuration was handed to the agent
+	// path, not that data flows.
+	MonitoringEntryConditionConfigured = "Configured"
+	// MonitoringEntryConditionReady is derived like the binding's Ready
+	// condition: True when the entry is Configured and its destination is
+	// Ready, so a destination that rejects the credentials or cannot be
+	// reached shows on the Instance.
+	MonitoringEntryConditionReady = "Ready"
+)
+
 // InstanceMonitoringDestinationStatus is the read-only summary of one entry,
 // mirrored from its MonitoringBinding.
 type InstanceMonitoringDestinationStatus struct {
@@ -107,16 +120,12 @@ type InstanceMonitoringDestinationStatus struct {
 	// Mode is the resolved execution mode.
 	// +optional
 	Mode MonitoringExecutionMode `json:"mode,omitempty"`
-	// Configured mirrors the binding's Configured condition; False when the
-	// binding is not Accepted, Unknown while it is missing or pending.
+	// Conditions are the entry's Configured and Ready conditions.
+	// +listType=map
+	// +listMapKey=type
+	// +kubebuilder:validation:MaxItems=8
 	// +optional
-	Configured metav1.ConditionStatus `json:"configured,omitempty"`
-	// Reason is the machine-readable reason for Configured.
-	// +optional
-	Reason string `json:"reason,omitempty"`
-	// Message is the human-readable detail for Configured.
-	// +optional
-	Message string `json:"message,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // MetricsSource states how a component type exposes OpenMetrics.
@@ -132,6 +141,36 @@ const (
 	MetricsSourceExporter MetricsSource = "Exporter"
 	// MetricsSourceNone means no metrics are available.
 	MetricsSourceNone MetricsSource = "None"
+)
+
+// ConnectionSupport states whether monitoring agents can connect to a
+// component type over its native protocol.
+//
+// +kubebuilder:validation:Enum=Supported;None
+type ConnectionSupport string
+
+const (
+	// ConnectionSupported means the provider publishes connection endpoints
+	// and a monitor credential for the component type.
+	ConnectionSupported ConnectionSupport = "Supported"
+	// ConnectionNone means agents cannot connect to the component type.
+	ConnectionNone ConnectionSupport = "None"
+)
+
+// PodMetadataSupport states whether the provider renders requested pod
+// annotations into a component type's pods.
+//
+// +kubebuilder:validation:Enum=Supported;None
+type PodMetadataSupport string
+
+const (
+	// PodMetadataSupported means the provider renders the annotations
+	// returned by Context.MonitoringPodAnnotations into the component type's
+	// pods.
+	PodMetadataSupported PodMetadataSupport = "Supported"
+	// PodMetadataNone means requested annotations do not reach the
+	// component type's pods.
+	PodMetadataNone PodMetadataSupport = "None"
 )
 
 // ProviderMonitoring is the provider's static monitoring contract.
@@ -152,19 +191,47 @@ type MonitoringIntegration struct {
 	// render (e.g. ">=3.0.0 <4.0.0").
 	// +optional
 	AgentVersions string `json:"agentVersions,omitempty"`
+	// AuthModes lists the authentication modes of the integration's
+	// MonitoringClass the provider can render. A destination whose mode is
+	// not listed is not bound.
+	// +kubebuilder:validation:MaxItems=16
+	// +kubebuilder:validation:items:Pattern=`^[A-Z][A-Za-z0-9]{0,62}$`
+	// +listType=set
+	// +optional
+	AuthModes []string `json:"authModes,omitempty"`
+	// DestinationParametersSchema is the schema of MonitoringDestination
+	// parameters in the integration contract version the provider was built
+	// with, generated by provider-sdk. Core will check destination parameters
+	// against it as well as against the class (spec 019 §4.4).
+	// +optional
+	DestinationParametersSchema *common.ParametersSchema `json:"destinationParametersSchema,omitempty"`
+	// InstanceParametersSchema is the schema of
+	// Instance.spec.monitoring.destinations[].parameters in the integration
+	// contract version the provider was built with, generated by
+	// provider-sdk. Core will check entry parameters against it as well as
+	// against the class (spec 019 §4.4).
+	// +optional
+	InstanceParametersSchema *common.ParametersSchema `json:"instanceParametersSchema,omitempty"`
 }
 
-// MonitoringComponentType declares what one component type exposes.
+// MonitoringComponentType declares what one component type exposes. The
+// component type's kind is declared on Provider.spec.componentTypes.
 type MonitoringComponentType struct {
-	// Kind is the engine kind (e.g. "mysql", "haproxy"). Well-known values
-	// follow OpenTelemetry db.system.name; unknown kinds are allowed.
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern=`^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
-	Kind string `json:"kind"`
 	// Metrics states how the component exposes OpenMetrics.
 	// +kubebuilder:default=None
 	// +optional
 	Metrics MetricsSource `json:"metrics,omitempty"`
+	// Connection states whether monitoring agents can connect to the
+	// component over its native protocol, with the monitor credential.
+	// +kubebuilder:default=None
+	// +optional
+	Connection ConnectionSupport `json:"connection,omitempty"`
+	// PodMetadata states whether the provider renders the pod annotations
+	// monitoring classes request (Context.MonitoringPodAnnotations) into the
+	// pods of the component type.
+	// +kubebuilder:default=None
+	// +optional
+	PodMetadata PodMetadataSupport `json:"podMetadata,omitempty"`
 }
 
 // MonitoringSources is the per-Instance publication of the monitoring
@@ -187,6 +254,13 @@ type MonitoringSources struct {
 	// +kubebuilder:validation:MaxItems=32
 	// +optional
 	Metrics []MetricsEndpoint `json:"metrics,omitempty"`
+	// Connections lists the endpoints monitoring agents connect to over the
+	// engine's native protocol (e.g. agents discovering databases through
+	// pod annotations), one per serving component.
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=32
+	// +optional
+	Connections []ConnectionEndpoint `json:"connections,omitempty"`
 }
 
 // MonitoringIdentity identifies the Instance towards monitoring destinations.
@@ -220,7 +294,10 @@ type MetricsEndpoint struct {
 	// Component is the Instance component name (e.g. "engine", "proxy").
 	// +kubebuilder:validation:Required
 	Component string `json:"component"`
-	// Kind is the component's engine kind.
+	// Kind is the kind of the component's type
+	// (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+	// A provider may leave it empty; an endpoint it computes with another
+	// kind is not published.
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
 	Kind string `json:"kind"`
@@ -251,18 +328,19 @@ type MetricsEndpoint struct {
 	Params map[string][]string `json:"params,omitempty"`
 }
 
-// MetricsEndpointTLS describes how to verify an https endpoint.
+// MetricsEndpointTLS describes how to verify an https endpoint and, for an
+// endpoint that requires mutual TLS, the client certificate to present.
 type MetricsEndpointTLS struct {
-	// CA selects the Secret key in the Instance's namespace holding the CA
-	// bundle.
-	// +optional
-	CA *corev1.SecretKeySelector `json:"ca,omitempty"`
+	common.TLSConfig `json:",inline"`
+
 	// ServerName overrides the expected server name.
 	// +optional
 	ServerName string `json:"serverName,omitempty"`
-	// InsecureSkipVerify disables verification.
+	// ClientCertificateSecretRef references a kubernetes.io/tls Secret
+	// (keys tls.crt and tls.key) the scraper presents as a client
+	// certificate, for an endpoint that requires mutual TLS.
 	// +optional
-	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
+	ClientCertificateSecretRef *common.SecretRef `json:"clientCertificateSecretRef,omitempty"`
 }
 
 // MetricsEndpointAuth names the credential profile a scraper authenticates with.
@@ -270,4 +348,57 @@ type MetricsEndpointAuth struct {
 	// CredentialProfile matches MonitoringSources.credentials[].profile.
 	// +kubebuilder:validation:Required
 	CredentialProfile string `json:"credentialProfile"`
+}
+
+// ConnectionEndpoint is one component's native-protocol endpoint, reached on
+// each selected pod directly (not through a proxy or a Service), so agents
+// collect per-instance statistics.
+type ConnectionEndpoint struct {
+	// Component is the Instance component name (e.g. "engine").
+	// +kubebuilder:validation:Required
+	Component string `json:"component"`
+	// Kind is the kind of the component's type
+	// (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+	// A provider may leave it empty; an endpoint it computes with another
+	// kind is not published.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
+	Kind string `json:"kind"`
+	// PodSelector selects the pods serving the endpoint.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinProperties=1
+	PodSelector map[string]string `json:"podSelector"`
+	// Container is the name of the container serving the endpoint, for
+	// agents that address containers (e.g. Datadog Autodiscovery).
+	// +optional
+	Container string `json:"container,omitempty"`
+	// Port is the container port, by name or number.
+	// +kubebuilder:validation:Required
+	Port intstr.IntOrString `json:"port"`
+	// TLS is set when the endpoint accepts TLS connections; absent means
+	// plaintext only.
+	// +optional
+	TLS *ConnectionTLS `json:"tls,omitempty"`
+	// Auth names the credential profile agents log in with, normally
+	// CredentialProfileMonitor.
+	// +optional
+	Auth *MetricsEndpointAuth `json:"auth,omitempty"`
+}
+
+// ConnectionTLS describes TLS on a connection endpoint. It is published
+// whenever the endpoint accepts TLS, not only when it requires it, so that
+// tightening Required does not change what agents are configured with.
+type ConnectionTLS struct {
+	// Required means the endpoint rejects connections without TLS.
+	// +optional
+	Required bool `json:"required,omitempty"`
+	// CA is the PEM bundle that verifies the server certificate. Server
+	// certificates name Services, not pod IPs, so agents verify the chain
+	// only.
+	// +optional
+	CA *common.CABundleSource `json:"ca,omitempty"`
+	// ClientCertificateSecretRef references a kubernetes.io/tls Secret
+	// (keys tls.crt and tls.key) agents present as a client certificate.
+	// +optional
+	ClientCertificateSecretRef *common.SecretRef `json:"clientCertificateSecretRef,omitempty"`
 }

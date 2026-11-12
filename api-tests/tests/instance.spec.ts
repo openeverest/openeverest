@@ -31,11 +31,11 @@ test.describe('Instance PATCH', () => {
   test.describe.configure({mode: 'serial', timeout: TIMEOUTS.OneMinute});
 
   test.beforeAll(async ({request}) => {
-    const resolveResponse = await request.get(
-      `/v1/clusters/${CLUSTER_NAME}/cluster-instance-presets/${PRESET_NAME}/resolve?namespace=${EVEREST_CI_NAMESPACE}`
+    const presetResponse = await request.get(
+      `/v1/clusters/${CLUSTER_NAME}/cluster-instance-presets/${PRESET_NAME}`
     );
-    await checkError(resolveResponse);
-    const preset = await resolveResponse.json();
+    await checkError(presetResponse);
+    const preset = await presetResponse.json();
 
     const response = await request.post(
       `/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/instances`,
@@ -76,6 +76,12 @@ test.describe('Instance PATCH', () => {
     // and answers 200 having changed nothing.
     expect(response.status()).toBe(422);
     expect(await response.text()).toContain('spec.replicaz');
+
+    const body = await response.json();
+    expect(body.reason).toBe('Invalid');
+    expect(body.causes).toEqual(
+      expect.arrayContaining([expect.objectContaining({message: expect.stringContaining('spec.replicaz')})]),
+    );
 
     const after = await request.get(instanceURL);
     await checkError(after);
@@ -129,5 +135,62 @@ test.describe('Instance PATCH', () => {
       });
       expect(response.status(), `patch ${JSON.stringify(patch)}`).toBe(400);
     }
+  });
+
+  test('a dry-run patch answers with the result and stores nothing', async ({request}) => {
+    const before = await request.get(instanceURL);
+    await checkError(before);
+    const replicas = (await before.json()).spec.components.engine.replicas;
+
+    const response = await request.patch(`${instanceURL}?dryRun=All`, {
+      headers: {'Content-Type': MERGE_PATCH},
+      data: {spec: {components: {engine: {replicas: replicas + 2}}}},
+    });
+
+    await checkError(response);
+    expect((await response.json()).spec.components.engine.replicas).toBe(replicas + 2);
+
+    const after = await request.get(instanceURL);
+    await checkError(after);
+    expect((await after.json()).spec.components.engine.replicas).toBe(replicas);
+  });
+
+  test('a dry-run create stores nothing', async ({request}) => {
+    const preset = await request.get(`/v1/clusters/${CLUSTER_NAME}/cluster-instance-presets/${PRESET_NAME}`);
+    await checkError(preset);
+    const name = `${INSTANCE_NAME}-dry-run`;
+
+    const response = await request.post(
+      `/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/instances?dryRun=All`,
+      {data: {metadata: {name}, spec: (await preset.json()).spec}},
+    );
+
+    await checkError(response);
+    expect((await response.json()).metadata.name).toBe(name);
+
+    const after = await request.get(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/instances/${name}`);
+    expect(after.status()).toBe(404);
+  });
+
+  test('a write without dry run rejects the parameter', async ({request}) => {
+    const response = await request.delete(`${instanceURL}?dryRun=All`);
+    expect(response.status()).toBe(400);
+
+    const after = await request.get(instanceURL);
+    await checkError(after);
+  });
+
+  test.describe('no authorization header', () => {
+    test.use({
+      extraHTTPHeaders: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+    });
+
+    test('authentication comes before the dryRun check', async ({request}) => {
+      const response = await request.delete(`${instanceURL}?dryRun=All`);
+      expect(response.status()).toBe(401);
+    });
   });
 });

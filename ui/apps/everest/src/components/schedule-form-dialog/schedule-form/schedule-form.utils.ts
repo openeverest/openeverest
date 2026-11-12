@@ -19,25 +19,123 @@ import { FlattenedSchedule } from '../schedule-form-dialog-context/schedule-form
 import { getCronExpressionFromFormValues } from '../../time-selection/time-selection.utils';
 import { ScheduleWizardMode, WizardMode } from 'shared-types/wizard.types';
 import { removeEmptyFieldValues } from 'components/ui-generator/utils/postprocess/postprocess-schema';
+import { ScheduleRetention } from 'shared-types/backups.types';
+import {
+  DEFAULT_RETENTION_COPIES,
+  DEFAULT_RETENTION_DURATION_UNIT,
+  DEFAULT_RETENTION_DURATION_VALUE,
+  RETENTION_DURATION_PATTERN,
+  RetentionDurationUnit,
+  RetentionType,
+} from './schedule-form.constants';
+import { ScheduleFormFields } from './schedule-form.types';
 
 /** Known static field keys in ScheduleFormData (everything else is dynamic config). */
-const STATIC_KEYS = new Set([
-  'scheduleName',
-  'backupClassName',
-  'storageLocation',
-  'retentionCopies',
-  'selectedTime',
-  'minute',
-  'hour',
-  'amPm',
-  'onDay',
-  'weekDay',
+const STATIC_KEYS = new Set<string>([
+  ScheduleFormFields.scheduleName,
+  ScheduleFormFields.backupClassName,
+  ScheduleFormFields.storageLocation,
+  ScheduleFormFields.retentionType,
+  ScheduleFormFields.retentionCopies,
+  ScheduleFormFields.retentionDurationValue,
+  ScheduleFormFields.retentionDurationUnit,
+  ScheduleFormFields.selectedTime,
+  ScheduleFormFields.minute,
+  ScheduleFormFields.hour,
+  ScheduleFormFields.amPm,
+  ScheduleFormFields.onDay,
+  ScheduleFormFields.weekDay,
 ]);
+
+const retentionFieldDefaults = {
+  [ScheduleFormFields.retentionCopies]: DEFAULT_RETENTION_COPIES,
+  [ScheduleFormFields.retentionDurationValue]: DEFAULT_RETENTION_DURATION_VALUE,
+  [ScheduleFormFields.retentionDurationUnit]: DEFAULT_RETENTION_DURATION_UNIT,
+};
 
 type UpdateScheduleArrayProps = {
   formData: ScheduleFormData;
   mode: ScheduleWizardMode;
   schedules: FlattenedSchedule[];
+};
+
+export const parseRetentionDuration = (
+  duration: string
+): {
+  value: string;
+  unit: RetentionDurationUnit;
+} => {
+  const match = duration.match(RETENTION_DURATION_PATTERN);
+  const unit = Object.values(RetentionDurationUnit).find(
+    (u) => u === match?.[2]
+  );
+  if (!match || !unit) {
+    return {
+      value: DEFAULT_RETENTION_DURATION_VALUE,
+      unit: DEFAULT_RETENTION_DURATION_UNIT,
+    };
+  }
+
+  return {
+    value: match[1],
+    unit,
+  };
+};
+
+export const retentionFieldsFromApi = (
+  retention: ScheduleRetention | undefined
+) => {
+  if (retention?.type === RetentionType.count && retention.count != null) {
+    return {
+      ...retentionFieldDefaults,
+      [ScheduleFormFields.retentionType]: RetentionType.count,
+      [ScheduleFormFields.retentionCopies]: String(retention.count),
+    };
+  }
+  if (retention?.type === RetentionType.time && retention.duration) {
+    const { value, unit } = parseRetentionDuration(retention.duration);
+    return {
+      ...retentionFieldDefaults,
+      [ScheduleFormFields.retentionType]: RetentionType.time,
+      [ScheduleFormFields.retentionDurationValue]: value,
+      [ScheduleFormFields.retentionDurationUnit]: unit,
+    };
+  }
+  return {
+    ...retentionFieldDefaults,
+    [ScheduleFormFields.retentionType]: RetentionType.keepAll,
+  };
+};
+
+export const retentionToApi = (
+  formData: Pick<
+    ScheduleFormData,
+    | 'retentionType'
+    | 'retentionCopies'
+    | 'retentionDurationValue'
+    | 'retentionDurationUnit'
+  >
+): ScheduleRetention | undefined => {
+  const {
+    retentionType,
+    retentionCopies,
+    retentionDurationValue,
+    retentionDurationUnit,
+  } = formData;
+
+  if (retentionType === RetentionType.count) {
+    return {
+      type: RetentionType.count,
+      count: parseInt(retentionCopies, 10),
+    };
+  }
+  if (retentionType === RetentionType.time) {
+    return {
+      type: RetentionType.time,
+      duration: `${retentionDurationValue}${retentionDurationUnit}`,
+    };
+  }
+  return undefined;
 };
 
 export const getSchedulesPayload = ({
@@ -54,7 +152,6 @@ export const getSchedulesPayload = ({
     weekDay,
     scheduleName,
     storageLocation,
-    retentionCopies,
   } = formData;
   const cron = getCronExpressionFromFormValues({
     selectedTime,
@@ -89,18 +186,7 @@ export const getSchedulesPayload = ({
       ? removeEmptyFieldValues(rawParameters)
       : undefined;
 
-  const copies = parseInt(retentionCopies, 10);
-  const existing = schedules.find((item) => item.name === scheduleName);
-
-  // Form only edits count retention. copies > 0 -> count. Keep 0 on a schedule that
-  // already has time retention (form shows "0" for non-count) else
-  // omit (keep all).
-  const retention =
-    copies > 0
-      ? { type: 'count' as const, count: copies }
-      : existing?.retention?.type === 'time'
-        ? existing.retention
-        : undefined;
+  const retention = retentionToApi(formData);
 
   const newSchedule: FlattenedSchedule = {
     enabled: true,

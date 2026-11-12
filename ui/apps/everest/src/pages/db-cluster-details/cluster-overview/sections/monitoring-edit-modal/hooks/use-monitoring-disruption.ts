@@ -1,0 +1,70 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import { useMemo } from 'react';
+import { useFormContext, useWatch } from 'react-hook-form';
+import { useMonitoringClassesForProvider } from 'hooks/api/monitoring-classes';
+import { useMonitoringDestinations } from 'hooks/api/monitoring-destinations';
+import {
+  finalizeMonitoringEntries,
+  MONITORING_DESTINATIONS_FIELD,
+  parseMonitoringDestinations,
+} from 'components/monitoring-destinations-picker';
+import { Instance } from 'shared-types/api.types';
+import {
+  MonitoringClass,
+  MonitoringDestination,
+} from 'shared-types/monitoring-destinations.types';
+import { MonitoringSectionForm } from 'utils/monitoring-classes';
+import { MonitoringDisruption } from '../monitoring-edit-modal.types';
+import {
+  getMonitoringDisruption,
+  getSingleReplicaComponents,
+} from '../monitoring-edit-modal.utils';
+
+const NO_CLASSES: MonitoringClass[] = [];
+const NO_DESTINATIONS: MonitoringDestination[] = [];
+
+// The disruption the destinations picked in the form cause, compared with
+// those the Instance has now.
+export const useMonitoringDisruption = (
+  instance: Instance,
+  namespace: string,
+  instanceForms: Map<string, MonitoringSectionForm>
+): MonitoringDisruption => {
+  const provider = instance.spec?.providerRef.name ?? '';
+  const { control } = useFormContext();
+  const entries = useWatch({ control, name: MONITORING_DESTINATIONS_FIELD });
+  const { data: classes = NO_CLASSES } =
+    useMonitoringClassesForProvider(provider);
+  const { data: destinations = NO_DESTINATIONS } =
+    useMonitoringDestinations(namespace);
+
+  return useMemo(
+    () =>
+      getMonitoringDisruption({
+        before: instance.spec?.monitoring?.destinations ?? [],
+        // Compared as they would be saved, so an untouched entry is no change.
+        after: finalizeMonitoringEntries(
+          parseMonitoringDestinations(entries),
+          instanceForms
+        ),
+        destinations,
+        classes,
+        provider,
+        singleReplicaComponents: getSingleReplicaComponents(instance),
+      }),
+    [instance, entries, instanceForms, destinations, classes, provider]
+  );
+};

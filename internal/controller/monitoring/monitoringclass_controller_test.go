@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
@@ -50,6 +51,16 @@ func TestClassCompatibilityMatrix(t *testing.T) {
 			Name:    provider,
 			Reason:  monitoringv1alpha1.ReasonIncompatible,
 			Message: `MonitoringClass "pmm" agentVersion 2.44.0 is outside the range ">=3.0.0 <4.0.0" Provider "` + provider + `" supports`,
+		}
+	}
+
+	basicAuthPMM := pmmClass()
+	basicAuthPMM.Spec.AuthModes = []common.AuthMode{{Name: "BasicAuth", Credentials: &common.CredentialKeys{Required: []string{"username", "password"}}}}
+	noMode := func(provider string) monitoringv1alpha1.ProviderCompatibility {
+		return monitoringv1alpha1.ProviderCompatibility{
+			Name:    provider,
+			Reason:  monitoringv1alpha1.ReasonAuthModeUnsupported,
+			Message: `Provider "` + provider + `" renders none of the authentication modes of MonitoringClass "pmm" for integration "pmm"`,
 		}
 	}
 
@@ -97,6 +108,25 @@ func TestClassCompatibilityMatrix(t *testing.T) {
 			},
 		},
 		{
+			name:  "ProviderManaged class whose modes no provider renders",
+			class: basicAuthPMM,
+			want: []monitoringv1alpha1.ProviderCompatibility{
+				{
+					Name:    "mariadb",
+					Reason:  monitoringv1alpha1.ReasonIntegrationUnsupported,
+					Message: `Provider "mariadb" declares no monitoring contract`,
+				},
+				noMode("percona-postgresql"),
+				noMode("percona-server-mongodb"),
+				noMode("percona-xtradb-cluster"),
+				{
+					Name:    "provider-kserve",
+					Reason:  monitoringv1alpha1.ReasonIntegrationUnsupported,
+					Message: `Provider "provider-kserve" does not declare integration "pmm"`,
+				},
+			},
+		},
+		{
 			name:  "ExtensionManaged class",
 			class: prometheusClass(),
 			want: []monitoringv1alpha1.ProviderCompatibility{
@@ -117,19 +147,86 @@ func TestClassCompatibilityMatrix(t *testing.T) {
 				{Name: "provider-kserve", Mode: corev1alpha1.MonitoringExecutionModeExtensionManaged, Disruption: monitoringv1alpha1.DisruptionNone},
 			},
 		},
+		{
+			name:  "ExtensionManaged class requiring connections and requesting pod metadata",
+			class: annotationDiscoveryClass(),
+			want: []monitoringv1alpha1.ProviderCompatibility{
+				{
+					Name:    "mariadb",
+					Reason:  monitoringv1alpha1.ReasonIncompatible,
+					Message: `Provider "mariadb" declares no monitoring contract`,
+				},
+				{
+					Name:    "percona-postgresql",
+					Reason:  monitoringv1alpha1.ReasonIncompatible,
+					Message: `no component satisfies the requirements of MonitoringClass "coroot"`,
+				},
+				// Only mongod accepts connections and renders pod
+				// annotations; rendering them into the pod template rolls
+				// the pods.
+				{Name: "percona-server-mongodb", Mode: corev1alpha1.MonitoringExecutionModeExtensionManaged, Disruption: monitoringv1alpha1.DisruptionRollingRestart},
+				{
+					Name:    "percona-xtradb-cluster",
+					Reason:  monitoringv1alpha1.ReasonKindUnsupported,
+					Message: `no component is of a kind MonitoringClass "coroot" supports (mongodb, postgresql); found haproxy, mysql`,
+				},
+				{
+					Name:    "provider-kserve",
+					Reason:  monitoringv1alpha1.ReasonKindUnsupported,
+					Message: `no component is of a kind MonitoringClass "coroot" supports (mongodb, postgresql); found vllm`,
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
+			tt.class.Generation = 4
 			c := newFakeClient(t, tt.class, pxcProvider(), psmdbProvider(), kserveProvider(), pgProvider(),
-				newProvider("mariadb", map[string]string{"engine": "mariadb"}, nil),
+				newProvider("mariadb", map[string]string{"engine": "mariadb"}, map[string]string{"mariadb": "mariadb"}, nil),
 			)
 
 			class := reconcileClass(t, c, tt.class.Name)
 
+			for i := range tt.want {
+				tt.want[i].ClassGeneration = 4
+			}
 			assert.Equal(t, tt.want, class.Status.Providers)
 		})
 	}
+}
+
+func TestClassCompatibilityRecordsClassGeneration(t *testing.T) {
+	t.Parallel()
+	class := annotationDiscoveryClass()
+	class.Generation = 1
+	c := newFakeClient(t, class, pxcProvider())
+
+	class = reconcileClass(t, c, "coroot")
+	assert.Equal(t, []monitoringv1alpha1.ProviderCompatibility{{
+		Name:            "percona-xtradb-cluster",
+		Reason:          monitoringv1alpha1.ReasonKindUnsupported,
+		Message:         `no component is of a kind MonitoringClass "coroot" supports (mongodb, postgresql); found haproxy, mysql`,
+		ClassGeneration: 1,
+	}}, class.Status.Providers,
+	)
+	assert.NotNil(t, class.CurrentProviderCompatibility("percona-xtradb-cluster"))
+
+	class.Spec.ExtensionManaged.Requires.Kinds = append(class.Spec.ExtensionManaged.Requires.Kinds, "mysql")
+	class.Generation = 2
+	require.NoError(t, c.Update(t.Context(), class))
+	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(class), class))
+	assert.Nil(t, class.CurrentProviderCompatibility("percona-xtradb-cluster"), "an entry computed for generation 1 is stale at generation 2")
+
+	class = reconcileClass(t, c, "coroot")
+	assert.Equal(t, []monitoringv1alpha1.ProviderCompatibility{{
+		Name:            "percona-xtradb-cluster",
+		Reason:          monitoringv1alpha1.ReasonIncompatible,
+		Message:         `no component satisfies the requirements of MonitoringClass "coroot"`,
+		ClassGeneration: 2,
+	}}, class.Status.Providers,
+	)
+	assert.NotNil(t, class.CurrentProviderCompatibility("percona-xtradb-cluster"))
 }
 
 func TestClassCompatibilityKeepsClassControllerCondition(t *testing.T) {
@@ -137,7 +234,7 @@ func TestClassCompatibilityKeepsClassControllerCondition(t *testing.T) {
 	unclaimed := pmmClass()
 	unclaimed.Status = monitoringv1alpha1.MonitoringClassStatus{}
 	c := newFakeClient(t, unclaimed, pxcProvider())
-	pmmController := rtmonitoring.ClassController{Client: c, FieldOwner: "openeverest.io/monitoring-pmm", ClassName: "pmm"}
+	pmmController := rtmonitoring.ClassController{Client: c, FieldOwner: "openeverest.io/monitoring-pmm", ControllerName: "openeverest.io/monitoring-pmm"}
 
 	reconcileClass(t, c, "pmm")
 	require.NoError(t, pmmController.Claim(t.Context()))
