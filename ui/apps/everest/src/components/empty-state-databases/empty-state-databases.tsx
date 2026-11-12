@@ -20,13 +20,15 @@ import { useExtensionCatalog } from 'hooks/api/extension-catalog';
 import { Messages } from './messages';
 import { ProviderTiles } from './provider-tiles';
 import { ProviderButtons } from './provider-buttons';
+import { NoProviders } from './no-providers';
 import type { EmptyStateDatabasesProps } from './empty-state-databases.types';
 
 const EmptyStateDatabases = ({
   hasCreatePermission = false,
 }: EmptyStateDatabasesProps) => {
   const { data: providers = [] } = useProviders();
-  const { getProviderMeta, providerMeta } = useExtensionCatalog();
+  const { getProviderMeta, providerMeta, catalogProviders } =
+    useExtensionCatalog();
 
   if (!hasCreatePermission) {
     return (
@@ -56,14 +58,7 @@ const EmptyStateDatabases = ({
     return (
       <EmptyState
         showCreationButton={false}
-        contentSlot={
-          <>
-            <Typography variant="h6">{Messages.noProvidersTitle}</Typography>
-            <Typography textAlign="center">
-              {Messages.noProvidersBody}
-            </Typography>
-          </>
-        }
+        contentSlot={<NoProviders catalogProviders={catalogProviders} />}
       />
     );
   }

@@ -89,6 +89,15 @@ export interface ResolvedExtensionMeta {
   version?: string;
   categories?: string[];
   maturity?: ExtensionMaturity;
+  verified?: boolean;
+}
+
+export interface ResolvedExtensionCatalog {
+  // Lookup keyed by every identifier a provider can be matched by (provider CR
+  // name and catalog entry name).
+  providerMeta: Map<string, ResolvedExtensionMeta>;
+  // Every provider listed in the catalog, installed or not, in catalog order.
+  providers: ResolvedExtensionMeta[];
 }
 
 // Untrusted shapes for data coming off the wire. The hub is an independent
