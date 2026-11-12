@@ -20,8 +20,9 @@ Prefer `quantity` over `number` + `badge` / `badgeToApi` for resource fields
 (see [Migrating from `number`](#migrating-from-number)). `badge` / `badgeToApi`
 are not supported on this type.
 
-**Important:** a provider whose schema uses `quantity` must require an
-OpenEverest release that supports it. See [Compatibility](#compatibility).
+**Important:** `quantity` is available in OpenEverest releases after
+`2.0.0-dev.4`. A provider whose schema uses it must require such a release.
+See [Compatibility](#compatibility).
 
 ## Properties:
 
@@ -151,5 +152,5 @@ Remove `badge` and `badgeToApi` in the same change: they are not allowed on
 An OpenEverest UI that predates `quantity` does not render the field, but it
 still sends the field's `defaultValue` as a bare number, so `defaultValue: 4`
 with `unit: Gi` is created as 4 bytes. A provider whose schema uses `quantity`
-must require the first OpenEverest release that supports it: raise the minimum
+must require an OpenEverest release after `2.0.0-dev.4`: raise the minimum
 OpenEverest version in the provider's compatibility table.
