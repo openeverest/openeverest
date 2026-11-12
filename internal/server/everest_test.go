@@ -151,6 +151,17 @@ func TestEverestErrorHandler_AdmissionDenial(t *testing.T) {
 			want: "names must start with team-",
 		},
 		{
+			// A missing permission, not a state the caller can wait out.
+			name: "secret-reference policy denial stays forbidden",
+			err: k8serrors.NewForbidden(destinations, "pmm-prod", errors.New(
+				"ValidatingAdmissionPolicy 'openeverest-secret-reference.openeverest.io' with binding "+
+					"'openeverest-secret-reference.openeverest.io' denied request: "+
+					"you need get on Secret pmm-prod-credentials to reference it or to change an object that uses it",
+			)),
+			code: http.StatusForbidden,
+			want: "you need get on Secret pmm-prod-credentials to reference it or to change an object that uses it",
+		},
+		{
 			name: "webhook denial",
 			// webhookerrors.ToStatusErr in k8s.io/apiserver.
 			err: &k8serrors.StatusError{ErrStatus: metav1.Status{
