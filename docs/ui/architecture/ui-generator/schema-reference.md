@@ -173,6 +173,7 @@ classDiagram
   SelectFieldParams <|-- SelectDynamicOptions
   note for SelectFieldParams "options XOR optionsPath + optionsPathConfig"
   note for QuantityFieldParams "unit is a Kubernetes suffix; omit step for any fractional value"
+  note for SelectDynamicOptions "optionsPathConfig: labelPath, valuePath, defaultValuePath? (create-only pre-selection)"
 ```
 
 ## Level 3 — validation (by field type, mode-aware)
@@ -256,4 +257,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-06
+- Last updated: 2026-11-13
