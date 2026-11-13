@@ -104,7 +104,9 @@ jobs:
             runner: cncf-ubuntu-8-32-x86
             platform: linux/amd64
           - arch: arm64
-            runner: cncf-ubuntu-8-32-arm
+            # GitHub-hosted, as in release-v1.yml: jobs on the CNCF arm64
+            # scale set have queued for up to two hours waiting for a runner.
+            runner: ubuntu-24.04-arm
             platform: linux/arm64
 
     runs-on: ${{ matrix.runner }}
