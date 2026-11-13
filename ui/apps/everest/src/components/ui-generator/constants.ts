@@ -15,8 +15,8 @@
 import { ComponentType } from 'react';
 import { SelectInput, SwitchInput, TextInput } from '@percona/ui-lib';
 import { FieldType, GroupType, GroupWrapperProps } from './ui-generator.types';
-import AccordionWrapper from './ui-group-wrappers/accordion-wrapper';
 import { BorderedWrapper } from './ui-group-wrappers/bordered-wrapper';
+import { CollapsibleWrapper } from './ui-group-wrappers/collapsible-wrapper';
 import StackWrapper from './ui-group-wrappers/stack-wrapper';
 import { ToggleableWrapper } from './ui-group-wrappers/toggleable-wrapper';
 import { z } from 'zod';
@@ -33,8 +33,9 @@ export const componentGroupMap: Record<
   GroupType,
   ComponentType<GroupWrapperProps>
 > = {
-  [GroupType.Accordion]: AccordionWrapper,
+  [GroupType.Accordion]: CollapsibleWrapper,
   [GroupType.Bordered]: BorderedWrapper,
+  [GroupType.Collapsible]: CollapsibleWrapper,
   [GroupType.Line]: StackWrapper,
   [GroupType.Toggleable]: ToggleableWrapper,
 };
