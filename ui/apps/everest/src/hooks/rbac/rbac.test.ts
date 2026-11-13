@@ -18,6 +18,7 @@ import { stopAuthorizerFetchLoop } from 'utils/rbac';
 import {
   useNamespacePermissionsForResource,
   useRBACAction,
+  useRBACAllowedObjects,
   useRBACPermissions,
 } from './rbac';
 
@@ -49,6 +50,25 @@ describe('RBAC hooks with v2 policies', () => {
     const { result } = renderHook(() => useRBACPermissions('backup-classes'));
 
     await waitFor(() => expect(result.current.canRead).toBe(true));
+  });
+
+  it('filters specific objects down to those the grant covers', async () => {
+    await grantRBAC([
+      'backup-storages',
+      'read',
+      'main/ns1/readable-storage',
+    ]);
+
+    const { result } = renderHook(() =>
+      useRBACAllowedObjects('read', 'backup-storages', [
+        'ns1/readable-storage',
+        'ns1/unreadable-storage',
+      ])
+    );
+
+    await waitFor(() =>
+      expect(result.current.allowedObjects).toEqual(['ns1/readable-storage'])
+    );
   });
 
   it('matches a cluster-wide grant when checking every namespace', async () => {
