@@ -34,7 +34,84 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	configmapadapter "github.com/openeverest/openeverest/v2/pkg/rbac/configmap-adapter"
+	"github.com/openeverest/openeverest/v2/pkg/session"
 )
+
+// TestSSOGroupPolicy pins that a policy granted only to an IdP group still applies to an SSO
+// user, whose Everest-issued token carries the IdP groups in its "groups" claim.
+func TestSSOGroupPolicy(t *testing.T) {
+	t.Parallel()
+
+	enf, err := NewIOReaderEnforcer(strings.NewReader(
+		"p, role:dev, instances, read, */*\n" +
+			"g, everest-devs, role:dev\n",
+	))
+	require.NoError(t, err)
+
+	// Claims as produced by session.Manager.CreateSSO and decoded by the JWT middleware.
+	token := &jwt.Token{Claims: jwt.MapClaims{
+		"iss":         session.SessionManagerClaimsIssuer,
+		"sub":         "oidc-subject",
+		"oidc_issuer": "https://idp.example.com",
+		"groups":      []any{"everest-devs"},
+	}}
+	ctx := context.WithValue(context.Background(), common.UserCtxKey, token) //nolint:staticcheck // mirrors how the JWT middleware stores the token
+
+	user, err := GetUser(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "oidc-subject", user.Subject)
+	assert.Equal(t, []string{"everest-devs"}, user.Groups)
+
+	ok, err := enf.Enforce(user.Subject, "instances", "read", "ns/db")
+	require.NoError(t, err)
+	assert.False(t, ok, "the subject itself has no policy")
+
+	ok, err = enf.Enforce(user.Groups[0], "instances", "read", "ns/db")
+	require.NoError(t, err)
+	assert.True(t, ok, "the group policy must apply")
+}
+
+// TestGetUserSubject pins that only built-in tokens have their "<user>:<capability>" subject
+// trimmed: an SSO subject containing colons (e.g. Keycloak federated "f:<id>:alice", or a
+// user-chosen "admin:x") must not collapse into a different identity such as "admin".
+func TestGetUserSubject(t *testing.T) {
+	t.Parallel()
+
+	testcases := []struct {
+		name     string
+		claims   jwt.MapClaims
+		expected string
+	}{
+		{
+			name:     "built-in user",
+			claims:   jwt.MapClaims{"iss": session.SessionManagerClaimsIssuer, "sub": "admin:login"},
+			expected: "admin",
+		},
+		{
+			name: "SSO user with colons in subject",
+			claims: jwt.MapClaims{
+				"iss":                   session.SessionManagerClaimsIssuer,
+				"sub":                   "admin:x",
+				session.OIDCIssuerClaim: "https://idp.example.com",
+			},
+			expected: "admin:x",
+		},
+		{
+			name:     "IdP-issued token",
+			claims:   jwt.MapClaims{"iss": "https://idp.example.com", "sub": "f:1:alice"},
+			expected: "f:1:alice",
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.WithValue(context.Background(), common.UserCtxKey, &jwt.Token{Claims: tc.claims}) //nolint:staticcheck // mirrors how the JWT middleware stores the token
+			user, err := GetUser(ctx)
+			require.NoError(t, err)
+			assert.Equal(t, tc.expected, user.Subject)
+		})
+	}
+}
 
 func TestGetScopeValues(t *testing.T) {
 	t.Parallel()

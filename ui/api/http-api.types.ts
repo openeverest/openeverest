@@ -22,6 +22,15 @@ export interface paths {
          *     - `password` — log in with username/password. The user must have the `login` capability.
          *     - `refresh_token` — exchange a refresh token for a new token pair. The presented
          *       refresh token is rotated (consumed and replaced).
+         *     - `urn:ietf:params:oauth:grant-type:token-exchange` — exchange an OIDC ID token that the
+         *       configured SSO provider issued to the Everest client for an Everest access JWT
+         *       (RFC 8693). The ID token must be signed by the provider, and its `iss` and `aud`
+         *       (and `azp`, when present) must match the configured issuer and client ID, and it must
+         *       have been issued within the last 5 minutes. Access tokens are not accepted, because
+         *       they don't prove which application they were issued to. No refresh token is issued:
+         *       the client renews its IdP session and exchanges the new ID token again, so a user
+         *       disabled in the IdP loses access at the latest 5 minutes plus one access JWT lifetime
+         *       later.
          *
          *     When `refresh_token_delivery` is set to `cookie`, the refresh token is returned in an
          *     `HttpOnly` cookie instead of the response body. For the `refresh_token` grant the
@@ -1165,7 +1174,7 @@ export interface components {
         /** @description OAuth 2.0-style token request (RFC 6749, JSON-encoded) */
         AuthTokenRequest: {
             /** @enum {string} */
-            grant_type: "password" | "refresh_token";
+            grant_type: "password" | "refresh_token" | "urn:ietf:params:oauth:grant-type:token-exchange";
             /** @description The username. Required for the `password` grant. */
             username?: string;
             /** @description The password. Required for the `password` grant. */
@@ -1175,6 +1184,17 @@ export interface components {
              *     May be omitted when the refresh token is carried by the refresh token cookie.
              */
             refresh_token?: string;
+            /**
+             * @description The OIDC ID token to exchange.
+             *     Required for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.
+             */
+            subject_token?: string;
+            /**
+             * @description The type of `subject_token`. Only OIDC ID tokens are supported.
+             *     Required for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.
+             * @enum {string}
+             */
+            subject_token_type?: "urn:ietf:params:oauth:token-type:id_token";
             /**
              * @description How the refresh token is returned to the client.
              *     `body` returns it in the response body; `cookie` sets an HttpOnly cookie

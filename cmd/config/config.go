@@ -57,6 +57,9 @@ type EverestConfig struct {
 	APIRequestsRateLimit int `default:"100" envconfig:"API_REQUESTS_RATE_LIMIT"`
 	// LoginRateLimit is the maximum number of login (password grant) requests per second per IP.
 	LoginRateLimit int `default:"5" envconfig:"LOGIN_RATE_LIMIT"`
+	// SSOTokenExchangeRateLimit is the maximum number of SSO token exchange requests per second per IP.
+	// It is looser than LoginRateLimit: every open tab renews its SSO session, and users behind one NAT share an IP.
+	SSOTokenExchangeRateLimit int `default:"10" envconfig:"SSO_TOKEN_EXCHANGE_RATE_LIMIT"`
 	// AccessTokenTTL is the lifetime of access JWTs.
 	AccessTokenTTL time.Duration `default:"15m" envconfig:"ACCESS_TOKEN_TTL"`
 	// RefreshTokenTTL is the lifetime of refresh tokens.

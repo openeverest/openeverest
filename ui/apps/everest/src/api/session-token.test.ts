@@ -23,13 +23,21 @@ vi.mock('axios', () => ({
 }));
 
 // Import after mocking so that the module picks up our mocked axios.create
-const { refreshSession, setAccessToken, getAccessToken, clearAccessToken } =
-  await import('./session-token');
+const {
+  refreshSession,
+  renewSession,
+  setSsoTokenRefresher,
+  setAccessToken,
+  getAccessToken,
+  clearAccessToken,
+} = await import('./session-token');
 
 describe('session-token', () => {
   beforeEach(() => {
     mockPost.mockReset();
     clearAccessToken();
+    setSsoTokenRefresher(null);
+    localStorage.clear();
   });
 
   afterEach(() => {
@@ -112,6 +120,50 @@ describe('session-token', () => {
       expect(second).toBe('second');
 
       expect(mockPost).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('renewSession', () => {
+    it('refreshes internal sessions through the refresh token cookie', async () => {
+      const ssoRefresher = vi.fn();
+      setSsoTokenRefresher(ssoRefresher);
+      setAccessToken('internal-token', 900);
+      mockPost.mockResolvedValueOnce({
+        data: {
+          access_token: 'rotated',
+          token_type: 'Bearer',
+          expires_in: 900,
+        },
+      });
+
+      await expect(renewSession('internal-token')).resolves.toBe('rotated');
+      expect(ssoRefresher).not.toHaveBeenCalled();
+    });
+
+    it('renews SSO sessions through the IdP, once for concurrent callers', async () => {
+      localStorage.setItem('everestToken', 'expired-sso-token');
+      const ssoRefresher = vi.fn().mockResolvedValue('renewed-sso-token');
+      setSsoTokenRefresher(ssoRefresher);
+
+      const results = await Promise.all([
+        renewSession('expired-sso-token'),
+        renewSession('expired-sso-token'),
+      ]);
+
+      expect(results).toEqual(['renewed-sso-token', 'renewed-sso-token']);
+      expect(ssoRefresher).toHaveBeenCalledTimes(1);
+      expect(mockPost).not.toHaveBeenCalled();
+    });
+
+    it('reuses an SSO token that already replaced the rejected one', async () => {
+      localStorage.setItem('everestToken', 'renewed-by-other-tab');
+      const ssoRefresher = vi.fn();
+      setSsoTokenRefresher(ssoRefresher);
+
+      await expect(renewSession('expired-sso-token')).resolves.toBe(
+        'renewed-by-other-tab'
+      );
+      expect(ssoRefresher).not.toHaveBeenCalled();
     });
   });
 });

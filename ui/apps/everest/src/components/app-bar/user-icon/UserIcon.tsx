@@ -55,7 +55,12 @@ const AppBarUserIcon = () => {
     return <Skeleton variant="circular" width={40} height={40} />;
   }
 
-  const decoded = jwtDecode(token) as UserToken;
+  let decoded: UserToken;
+  try {
+    decoded = jwtDecode<UserToken>(token);
+  } catch {
+    decoded = { sub: '' };
+  }
 
   const preferredUsername = decoded.preferred_username;
   const name = decoded.name;
