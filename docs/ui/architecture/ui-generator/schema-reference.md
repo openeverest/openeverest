@@ -34,8 +34,8 @@ flowchart TD
 flowchart TD
   G["ComponentGroup"] --> U["uiType<br/>(group, hidden)"]
   G --> LD["label? / description?"]
-  G --> GT["groupType?<br/>(accordion, line, bordered, toggleable, collapsible🛠️)"]
-  G --> GP["groupParams?<br/>(Record&lt;string, unknown&gt;, GroupParams🛠️)"]
+  G --> GT["groupType?<br/>(collapsible, bordered, line, toggleable; accordion deprecated alias)"]
+  G --> GP["groupParams?<br/>(collapsible: defaultExpanded?)"]
   G --> CH["components / componentsOrder?"]
   CH --> GATE["child toggle: gate? 🛠️"]
 
@@ -43,7 +43,8 @@ flowchart TD
   class GATE planned;
 ```
 
-`gate` 🛠️ is a flag on a child `toggle` (part of the group-kernel proposal, tracked separately).
+- **`groupType: collapsible`** — bordered fold; children stay mounted and keep validating. `groupParams.defaultExpanded` (default `true`) sets the initial state. `accordion` is a deprecated alias.
+- **`gate` 🛠️** — flag on a child `toggle` (part of the group-kernel proposal, tracked separately).
 
 ## Level 2 — Component (leaf field)
 
@@ -243,7 +244,7 @@ classDiagram
 | **dataSource / API providers** | `dataSource: { provider }` names an API-backed option source; preprocess dev-validates the provider key, and at runtime `DataSourceField` loads the options through the registry (`DataSourcePrefetcher` sets defaults on mount) | implemented |
 | **CEL validation**             | Cross-field validation rules declared via `celExpressions` (with an `original` namespace available in edit mode)                                                                                                                 | implemented |
 | **CEL conditional rendering**  | Show / hide fields based on another field value through a generic mechanism                                                                                                                                                      | 🛠️          |
-| **group kernel**               | `bordered`, `toggleable` (form-only switch); planned: `collapsible`, persisted `gate` ([#3290](https://github.com/openeverest/openeverest/issues/3290)), `direction`                                                             | partial     |
+| **group kernel**               | `bordered`, `collapsible` (visual fold), `toggleable` (form-only switch); planned: persisted `gate` ([#3290](https://github.com/openeverest/openeverest/issues/3290)), `direction`                                                   | partial     |
 
 ## To Consider
 
@@ -256,4 +257,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-06
+- Last updated: 2026-11-13
