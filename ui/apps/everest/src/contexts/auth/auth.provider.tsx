@@ -169,8 +169,8 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
       }
       try {
         const newLoggedUser = await userManager.signinSilent();
-        if (newLoggedUser?.access_token) {
-          return await exchangeAndStoreSsoToken(newLoggedUser.access_token);
+        if (newLoggedUser?.id_token) {
+          return await exchangeAndStoreSsoToken(newLoggedUser.id_token);
         }
         return null;
       } catch (error) {
