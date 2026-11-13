@@ -14,14 +14,14 @@
 
 import { Alert, Typography } from '@mui/material';
 import { Instance } from 'shared-types/api.types';
-import { MonitoringSectionForm } from 'utils/monitoring-classes';
+import type { SectionForm } from 'components/ui-generator/utils/section-form';
 import { useMonitoringDisruption } from '../hooks/use-monitoring-disruption';
 import { Messages } from '../monitoring-edit-modal.messages';
 
 interface DisruptionNoticeProps {
   instance: Instance;
   namespace: string;
-  instanceForms: Map<string, MonitoringSectionForm>;
+  instanceForms: Map<string, SectionForm>;
 }
 
 export const DisruptionNotice = ({

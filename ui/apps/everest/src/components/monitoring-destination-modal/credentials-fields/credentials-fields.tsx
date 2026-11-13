@@ -17,11 +17,9 @@ import { RadioGroup, TextInput } from '@percona/ui-lib';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
+import type { SectionForm } from 'components/ui-generator/utils/section-form';
 import { MonitoringDestination } from 'shared-types/monitoring-destinations.types';
-import {
-  isSecretBackedAuthMode,
-  MonitoringSectionForm,
-} from 'utils/monitoring-classes';
+import { isSecretBackedAuthMode } from 'utils/monitoring-classes';
 import { getDefaultCredentialsSecretName } from 'utils/monitoring-destinations';
 import { DestinationFormFields } from '../monitoring-destination-modal.constants';
 import { Messages } from '../monitoring-destination-modal.messages';
@@ -39,7 +37,7 @@ import {
 import { ExistingSecretSelect } from './existing-secret-select/existing-secret-select';
 
 interface CredentialsFieldsProps {
-  form?: MonitoringSectionForm;
+  form?: SectionForm;
   original?: MonitoringDestination;
   namespace: string;
   secretPermissions: SecretNamespacePermissions;

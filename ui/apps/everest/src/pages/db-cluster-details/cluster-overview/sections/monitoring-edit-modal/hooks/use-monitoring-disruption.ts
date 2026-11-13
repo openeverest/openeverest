@@ -26,7 +26,7 @@ import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
-import { MonitoringSectionForm } from 'utils/monitoring-classes';
+import type { SectionForm } from 'components/ui-generator/utils/section-form';
 import { MonitoringDisruption } from '../monitoring-edit-modal.types';
 import {
   getMonitoringDisruption,
@@ -41,7 +41,7 @@ const NO_DESTINATIONS: MonitoringDestination[] = [];
 export const useMonitoringDisruption = (
   instance: Instance,
   namespace: string,
-  instanceForms: Map<string, MonitoringSectionForm>
+  instanceForms: Map<string, SectionForm>
 ): MonitoringDisruption => {
   const provider = instance.spec?.providerRef.name ?? '';
   const { control } = useFormContext();

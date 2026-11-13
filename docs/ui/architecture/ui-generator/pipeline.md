@@ -254,6 +254,23 @@ The update replaces the whole instance and `deepMerge` keeps keys missing from t
 left empty. Widget and array values are written whole for the same reason: a map entry removed
 in the form would otherwise survive the merge.
 
+## Section forms
+
+A section rendered as a form of its own, outside a provider topology (today a monitoring class's
+destination, credentials and Instance entry forms), goes through the same stages via
+`utils/section-form/`:
+
+- **`toSectionForm(sectionKey, section, formMode)`** — wraps the section as a one-section topology
+  (`preprocessSection`) and keeps both shapes the stages take: `{ sectionKey, sections, schema }`.
+- **`getSectionFormDefaults`** — create defaults (`getDefaultValues`).
+- **`getSectionFormValues(form, saved)`** — edit values: saved values over the defaults, then the
+  fields the schema owns in the form's shape (`extractInstanceValues`, e.g. an array's map → rows).
+  Saved keys the schema doesn't own are kept, so a save doesn't drop them. The destination modal
+  reads with it; the Instance's monitoring entries editor still loads saved entries as they are
+  (see [Known Limitations](../../ui-generator/known-limitations.md#arrays)).
+- **`getSectionFormZodSchema`** — `buildSectionZodSchema` for the section.
+- **`postprocessSectionForm`** — `postprocessSchemaData` for the section.
+
 ## Cross-cutting principles
 
 1. **Single path pass** — `_normalized` is computed in preprocess and reused by validation / render /
@@ -313,6 +330,7 @@ components:
 | Toggleable groups          | `utils/toggleable/toggleable.ts`                           |
 | Toggleable validation      | `utils/schema-builder/apply-toggleable-validation.ts`      |
 | Section edit merge         | `utils/postprocess/merge-section-edit.ts`                  |
+| Section forms              | `utils/section-form/section-form.ts`                       |
 | Array fields (rows ↔ map) | `utils/array-field/`                                       |
 | Array field render         | `array-field/array-field.tsx`                              |
 | Topology scope             | `utils/topology-scope/topology-scope.ts`                   |

@@ -17,7 +17,7 @@ import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
-import { MonitoringSectionForm } from 'utils/monitoring-classes';
+import type { SectionForm } from 'components/ui-generator/utils/section-form';
 
 export enum DestinationDisabledReason {
   LimitReached = 'limitReached',
@@ -66,7 +66,7 @@ export interface MonitoringSelection {
   getEntryIndex: (destination: MonitoringDestination) => number;
   getInstanceForm: (
     destination: MonitoringDestination
-  ) => MonitoringSectionForm | undefined;
+  ) => SectionForm | undefined;
 }
 
 export interface MonitoringSelectionOptions {
@@ -77,5 +77,5 @@ export interface MonitoringSelectionOptions {
   // shows them apart, for the user to remove.
   pruneUnavailable: boolean;
   // From useMonitoringInstanceForms, which the caller already needs to save.
-  instanceForms: Map<string, MonitoringSectionForm>;
+  instanceForms: Map<string, SectionForm>;
 }

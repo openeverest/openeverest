@@ -19,10 +19,8 @@ import {
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
 import { rfc_123_schema } from 'utils/common-validation';
-import {
-  getMonitoringClassName,
-  getSectionFormZodSchema,
-} from 'utils/monitoring-classes';
+import { getSectionFormZodSchema } from 'components/ui-generator/utils/section-form';
+import { getMonitoringClassName } from 'utils/monitoring-classes';
 import {
   DestinationFormFields,
   MAX_SECRET_NAME_LENGTH,
