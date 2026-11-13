@@ -46,6 +46,8 @@ func TestCreateRestore_Validation(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "test-instance", Namespace: namespace},
 		Spec:       corev1alpha1.InstanceSpec{ProviderRef: common.ObjectRef{Name: "test-provider"}},
 	}
+	suspendedInstance := instance.DeepCopy()
+	suspendedInstance.Spec.Suspend = &corev1alpha1.SuspendSpec{Suspended: true}
 	// Point-in-time recovery resolves its read class from the Instance owning
 	// the stream, so these carry backup config the plain fixture does not.
 	newStreamInstance := func(className string) *corev1alpha1.Instance {
@@ -209,6 +211,14 @@ func TestCreateRestore_Validation(t *testing.T) {
 			objects:            []ctrlclient.Object{succeededBackupUnsupportedProvider, unsupportedProviderClass, instance},
 			err:                "provider not supported by backup class: class 'unsupported-provider-class', provider 'test-provider'",
 			wantSentinel:       controller.ErrProviderUnsupported,
+			wantInvalidRequest: true,
+		},
+		{
+			name:               "suspended target instance fails",
+			restore:            newRestore("succeeded-backup-no-pitr"),
+			objects:            []ctrlclient.Object{succeededBackupNoPitr, noPitrClass, suspendedInstance},
+			err:                "instance is suspended: 'test-instance'",
+			wantSentinel:       controller.ErrInstanceSuspended,
 			wantInvalidRequest: true,
 		},
 		{

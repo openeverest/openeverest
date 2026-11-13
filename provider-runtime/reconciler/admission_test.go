@@ -120,8 +120,13 @@ func testProviderCR() *v1alpha1.Provider {
 		Spec: v1alpha1.ProviderSpec{
 			Components: map[string]v1alpha1.Component{"engine": {Type: "db"}},
 			Versions:   []v1alpha1.VersionBundle{{Name: "7.0"}, {Name: "8.0"}},
+			Suspend:    &v1alpha1.ProviderSuspend{},
 		},
 	}
+}
+
+func withSuspended(in *v1alpha1.Instance) {
+	in.Spec.Suspend = &v1alpha1.SuspendSpec{Suspended: true}
 }
 
 func causeFields(resp admission.Response) []string {
@@ -205,6 +210,20 @@ func TestInstanceAdmission(t *testing.T) {
 			old:        admissionInstance(nil),
 			wantCauses: []string{"spec.version"},
 			wantCalls:  2,
+		},
+		{
+			name:        "update suspends alone",
+			in:          admissionInstance(withSuspended),
+			old:         admissionInstance(nil),
+			wantAllowed: true,
+			wantCalls:   1,
+		},
+		{
+			name:       "update changes a suspended Instance",
+			in:         admissionInstance(func(in *v1alpha1.Instance) { withSuspended(in); withReplicas(5)(in) }),
+			old:        admissionInstance(withSuspended),
+			wantCauses: []string{"spec.components"},
+			wantCalls:  1,
 		},
 	}
 

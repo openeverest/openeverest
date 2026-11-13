@@ -570,8 +570,10 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return reconcile.Result{}, err
 	}
 	// A pass that merely held a tripped action succeeds trivially; resetting
-	// then would un-trip the breaker and restart the failure bursts.
-	if !syncCtx.MaintenanceBreakerHeld() {
+	// then would un-trip the breaker and restart the failure bursts. Neither
+	// does a pass of a suspended Instance, which holds every action before
+	// the breaker is consulted, prove that an approved action now works.
+	if !syncCtx.MaintenanceBreakerHeld() && !in.SuspendRequested() {
 		r.breaker.reset(req.NamespacedName)
 	}
 	// Clear any stale BackupConfigured=False condition left from a previous failed Sync.
@@ -607,8 +609,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	}
 
 	instanceStatus := status.ToV2Alpha1()
-	in.Status.Phase = instanceStatus.Phase
-	in.Status.Message = instanceStatus.Message
+	in.Status.Phase, in.Status.Message = suspendAwarePhase(in, instanceStatus.Phase, instanceStatus.Message)
 	recheck := r.setPodStatus(ctx, in, syncCtx.LabelledComponents(), time.Now())
 
 	// Collect per-storage backup observability data (e.g. the latest
@@ -975,7 +976,11 @@ func flushPendingMaintenance(syncCtx *controller.Context, in *v1alpha1.Instance)
 	if len(pending) > 0 {
 		reason := v1alpha1.ReasonAwaitingApproval
 		message := fmt.Sprintf("%d action(s) require approval to proceed", len(pending))
-		if syncCtx.MaintenanceBreakerHeld() {
+		switch {
+		case syncCtx.MaintenanceSuspendHeld():
+			reason = v1alpha1.ReasonSuspended
+			message = fmt.Sprintf("%d action(s) held while the instance is suspended; they are evaluated again once it resumes", len(pending))
+		case syncCtx.MaintenanceBreakerHeld():
 			reason = v1alpha1.ReasonRetriesExhausted
 			message = fmt.Sprintf(
 				"%d action(s) held; an approved action kept failing and is no longer retried — change spec.maintenance.approved (set it to the pending action's token, or clear and re-set it) to retry",

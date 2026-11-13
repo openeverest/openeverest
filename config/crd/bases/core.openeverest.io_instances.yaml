@@ -1841,6 +1841,23 @@ spec:
                 - name
                 type: object
                 x-kubernetes-map-type: atomic
+              suspend:
+                description: |-
+                  Suspend stops the Instance's compute while keeping its data. It is
+                  accepted only when the referenced Provider declares .spec.suspend.
+                properties:
+                  suspended:
+                    description: |-
+                      Suspended asks the provider to stop the Instance's compute through the
+                      operator's own mechanism (e.g. spec.pause, hibernation). Volumes and
+                      data are kept, and setting it back to false resumes the Instance.
+
+                      While the Instance is suspended, and on the update that suspends or
+                      resumes it, no other spec field may change except deletionPolicy.
+                      Disruptive maintenance is held, scheduled backups do not run, and
+                      Backups and Restores that have not started wait until it resumes.
+                    type: boolean
+                type: object
               topology:
                 description: Topology defines the deployment topology and its configuration.
                 properties:

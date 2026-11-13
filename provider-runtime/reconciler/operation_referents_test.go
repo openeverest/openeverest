@@ -72,6 +72,12 @@ func testOperationInstance() *v1alpha1.Instance {
 	}
 }
 
+func testSuspendedOperationInstance() *v1alpha1.Instance {
+	in := testOperationInstance()
+	in.Spec.Suspend = &v1alpha1.SuspendSpec{Suspended: true}
+	return in
+}
+
 func testBackup(state backupv1alpha1.BackupState) *backupv1alpha1.Backup {
 	return &backupv1alpha1.Backup{
 		ObjectMeta: metav1.ObjectMeta{
@@ -100,6 +106,7 @@ func TestBackupReconcile_WaitsForReferents(t *testing.T) {
 	tests := []struct {
 		name        string
 		state       backupv1alpha1.BackupState
+		schedule    string
 		objs        func() []client.Object
 		wantState   backupv1alpha1.BackupState
 		wantMessage string
@@ -139,6 +146,39 @@ func TestBackupReconcile_WaitsForReferents(t *testing.T) {
 			wantMessage: "secret s3-keys with the credentials of backup storage s3-prod not found in team-a",
 		},
 		{
+			name:        "suspended instance holds a backup that has not started",
+			objs:        func() []client.Object { return []client.Object{class(), testSuspendedOperationInstance()} },
+			wantState:   backupv1alpha1.BackupStatePending,
+			wantMessage: "instance is suspended: 'orders'",
+		},
+		{
+			name:        "suspended instance holds a backup retrying an error",
+			state:       backupv1alpha1.BackupStateError,
+			objs:        func() []client.Object { return []client.Object{class(), testSuspendedOperationInstance()} },
+			wantState:   backupv1alpha1.BackupStatePending,
+			wantMessage: "instance is suspended: 'orders'",
+		},
+		{
+			name:     "a scheduled backup is adopted while its instance is suspended",
+			schedule: "daily",
+			objs: func() []client.Object {
+				return []client.Object{
+					class(), testSuspendedOperationInstance(), testBackupStorage("s3-prod", "s3-keys"), testSecret("s3-keys"),
+				}
+			},
+			wantSynced: true,
+		},
+		{
+			name:  "a running backup is left to finish after its instance is suspended",
+			state: backupv1alpha1.BackupStateRunning,
+			objs: func() []client.Object {
+				return []client.Object{
+					class(), testSuspendedOperationInstance(), testBackupStorage("s3-prod", "s3-keys"), testSecret("s3-keys"),
+				}
+			},
+			wantSynced: true,
+		},
+		{
 			name: "every referent present",
 			objs: func() []client.Object {
 				return []client.Object{
@@ -152,7 +192,9 @@ func TestBackupReconcile_WaitsForReferents(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			c := newOperationTestClient(append(tc.objs(), testBackup(tc.state))...)
+			backup := testBackup(tc.state)
+			backup.Spec.ScheduleName = tc.schedule
+			c := newOperationTestClient(append(tc.objs(), backup)...)
 			p := &countingBackupProvider{}
 			r := &backupRuntimeReconciler{client: c, reader: c, provider: p, providerName: "test-provider"}
 
@@ -207,6 +249,52 @@ func TestRestoreReconcile_WaitsForInstance(t *testing.T) {
 	reqs := r.restoresForInstance(t.Context(), testOperationInstance())
 	require.Len(t, reqs, 1)
 	assert.Equal(t, "rollback", reqs[0].Name)
+}
+
+func TestRestoreReconcile_SuspendedInstance(t *testing.T) {
+	t.Parallel()
+
+	source := testBackup(backupv1alpha1.BackupStateSucceeded)
+	source.Name = "nightly-1"
+	restore := &backupv1alpha1.Restore{
+		ObjectMeta: metav1.ObjectMeta{Name: "rollback", Namespace: "team-a"},
+		Spec: backupv1alpha1.RestoreSpec{
+			InstanceRef: common.ObjectRef{Name: "orders"},
+			DataSource: backupv1alpha1.DataSource{
+				Type:   backupv1alpha1.DataSourceTypeBackup,
+				Backup: &backupv1alpha1.DataSourceBackup{BackupRef: common.ObjectRef{Name: "nightly-1"}},
+			},
+		},
+	}
+	c := newOperationTestClient(
+		testBackupClass(backupv1alpha1.BackupExecutionModeProviderManaged, "test-provider"), source, restore,
+		testSuspendedOperationInstance(),
+	)
+	p := &countingBackupProvider{}
+	r := &restoreRuntimeReconciler{client: c, reader: c, provider: p, providerName: "test-provider"}
+
+	key := client.ObjectKeyFromObject(restore)
+	for range 2 { // the first pass adds the finalizer
+		_, err := r.Reconcile(t.Context(), reconcile.Request{NamespacedName: key})
+		require.NoError(t, err)
+	}
+
+	got := &backupv1alpha1.Restore{}
+	require.NoError(t, c.Get(t.Context(), key, got))
+	assert.Equal(t, backupv1alpha1.RestoreStatePending, got.Status.State)
+	assert.Equal(t, "instance is suspended: 'orders'", got.Status.Message)
+	assert.Zero(t, p.restores, "the provider must not be called while the instance is suspended")
+
+	resumed := &v1alpha1.Instance{}
+	require.NoError(t, c.Get(t.Context(), client.ObjectKey{Namespace: "team-a", Name: "orders"}, resumed))
+	resumed.Spec.Suspend = nil
+	require.NoError(t, c.Update(t.Context(), resumed))
+	_, err := r.Reconcile(t.Context(), reconcile.Request{NamespacedName: key})
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, p.restores, "a held restore continues once the instance resumes")
+	require.NoError(t, c.Get(t.Context(), key, got))
+	assert.Empty(t, got.Status.Message, "the hold message is cleared once the provider takes over")
 }
 
 func TestBackupsForReferents(t *testing.T) {

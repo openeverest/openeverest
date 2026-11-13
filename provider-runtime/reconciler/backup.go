@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
@@ -68,7 +69,7 @@ func setupBackupReconciler(mgr ctrl.Manager, bp controller.BackupProvider, provi
 		).
 		Watches(&corev1alpha1.Instance{},
 			handler.EnqueueRequestsFromMapFunc(r.backupsForInstance),
-			builder.WithPredicates(existenceChanged()),
+			builder.WithPredicates(predicate.Or(existenceChanged(), suspendChanged())),
 		).
 		Watches(&backupv1alpha1.BackupStorage{},
 			handler.EnqueueRequestsFromMapFunc(r.backupsForStorage),
@@ -175,6 +176,18 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	// A Backup that has not started waits while its Instance is suspended
+	// and continues once it resumes. A scheduled Backup mirrors an operator
+	// backup that already exists, so it is still synced for the provider to
+	// adopt.
+	if err := controller.ValidateInstanceNotSuspended(instance); err != nil &&
+		backup.Spec.ScheduleName == "" && backupNotStarted(backup) {
+		logger.Info("Holding backup", "reason", err.Error())
+		backup.Status.State = backupv1alpha1.BackupStatePending
+		backup.Status.Message = err.Error()
+		return reconcile.Result{}, r.updateStatus(ctx, backup, bc)
+	}
+
 	// A Backup that has not started waits for its storage; the watches
 	// enqueue it once the storage and its credentials exist.
 	if backup.Status.State == "" || backup.Status.State == backupv1alpha1.BackupStatePending {
@@ -189,6 +202,11 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 		}
 	}
 
+	// A wait message the runtime set, e.g. while the Instance was suspended,
+	// is stale once the provider takes over.
+	if backupNotStarted(backup) {
+		backup.Status.Message = ""
+	}
 	exec, err := r.provider.SyncBackup(inCtx, backup)
 	if err != nil {
 		if controller.IsWaitError(err) {
@@ -312,4 +330,12 @@ func applyBackupExecutionStatus(backup *backupv1alpha1.Backup, bc *backupv1alpha
 	if exec.Size != nil {
 		backup.Status.Size = exec.Size
 	}
+}
+
+// backupNotStarted reports whether the operator has not started the Backup,
+// whether or not the provider has already requested it.
+func backupNotStarted(backup *backupv1alpha1.Backup) bool {
+	state := backup.Status.State
+	waiting := state == "" || state == backupv1alpha1.BackupStatePending || state == backupv1alpha1.BackupStateError
+	return waiting && backup.Status.StartedAt == nil
 }

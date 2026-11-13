@@ -2916,6 +2916,23 @@ export interface components {
                     /** @description Name of the referenced object. */
                     name: string;
                 };
+                /**
+                 * @description Suspend stops the Instance's compute while keeping its data. It is
+                 *     accepted only when the referenced Provider declares .spec.suspend.
+                 */
+                suspend?: {
+                    /**
+                     * @description Suspended asks the provider to stop the Instance's compute through the
+                     *     operator's own mechanism (e.g. spec.pause, hibernation). Volumes and
+                     *     data are kept, and setting it back to false resumes the Instance.
+                     *
+                     *     While the Instance is suspended, and on the update that suspends or
+                     *     resumes it, no other spec field may change except deletionPolicy.
+                     *     Disruptive maintenance is held, scheduled backups do not run, and
+                     *     Backups and Restores that have not started wait until it resumes.
+                     */
+                    suspended?: boolean;
+                };
                 /** @description Topology defines the deployment topology and its configuration. */
                 topology?: {
                     /**
@@ -4240,6 +4257,23 @@ export interface components {
                     /** @description Name of the referenced object. */
                     name: string;
                 };
+                /**
+                 * @description Suspend stops the Instance's compute while keeping its data. It is
+                 *     accepted only when the referenced Provider declares .spec.suspend.
+                 */
+                suspend?: {
+                    /**
+                     * @description Suspended asks the provider to stop the Instance's compute through the
+                     *     operator's own mechanism (e.g. spec.pause, hibernation). Volumes and
+                     *     data are kept, and setting it back to false resumes the Instance.
+                     *
+                     *     While the Instance is suspended, and on the update that suspends or
+                     *     resumes it, no other spec field may change except deletionPolicy.
+                     *     Disruptive maintenance is held, scheduled backups do not run, and
+                     *     Backups and Restores that have not started wait until it resumes.
+                     */
+                    suspended?: boolean;
+                };
                 /** @description Topology defines the deployment topology and its configuration. */
                 topology?: {
                     /**
@@ -4553,6 +4587,12 @@ export interface components {
                         uiSchema?: Record<string, never>;
                     };
                 };
+                /**
+                 * @description Suspend declares that the provider can suspend Instances through
+                 *     Instance.spec.suspend. Unset means it cannot, and Instances asking to
+                 *     be suspended are rejected.
+                 */
+                suspend?: Record<string, never>;
                 topologies?: {
                     [key: string]: {
                         components?: {
@@ -5889,6 +5929,23 @@ export interface components {
                 providerRef: {
                     /** @description Name of the referenced object. */
                     name: string;
+                };
+                /**
+                 * @description Suspend stops the Instance's compute while keeping its data. It is
+                 *     accepted only when the referenced Provider declares .spec.suspend.
+                 */
+                suspend?: {
+                    /**
+                     * @description Suspended asks the provider to stop the Instance's compute through the
+                     *     operator's own mechanism (e.g. spec.pause, hibernation). Volumes and
+                     *     data are kept, and setting it back to false resumes the Instance.
+                     *
+                     *     While the Instance is suspended, and on the update that suspends or
+                     *     resumes it, no other spec field may change except deletionPolicy.
+                     *     Disruptive maintenance is held, scheduled backups do not run, and
+                     *     Backups and Restores that have not started wait until it resumes.
+                     */
+                    suspended?: boolean;
                 };
                 /** @description Topology defines the deployment topology and its configuration. */
                 topology?: {

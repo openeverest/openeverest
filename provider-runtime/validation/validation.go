@@ -34,14 +34,16 @@ type Validator interface {
 	Validate(in controller.ValidationInput) controller.ValidationResult
 }
 
-// Run checks in.Instance against the parameter schemas, the supportedFields
-// and the catalog that in.Provider declares, then calls v.Validate only if
-// those found no errors, so Validate can rely on them.
+// Run checks in.Instance against the parameter schemas, the supportedFields,
+// the catalog and the suspend support that in.Provider declares, and against
+// in.Old for the changes a suspended Instance forbids, then calls v.Validate
+// only if those found no errors, so Validate can rely on them.
 func Run(ctx context.Context, v Validator, in controller.ValidationInput) controller.ValidationResult {
 	spec := &in.Provider.Spec
 	errs := checkSchemas(ctx, in.Instance, spec)
 	catalogErrs, warnings := checkCatalog(in.Instance, spec)
 	errs = append(errs, catalogErrs...)
+	errs = append(errs, checkSuspend(in.Instance, in.Old, spec)...)
 	if len(errs) > 0 {
 		return controller.ValidationResult{Errors: errs, Warnings: warnings}
 	}

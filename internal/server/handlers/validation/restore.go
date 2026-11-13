@@ -46,7 +46,7 @@ func (h *validateHandler) CreateRestore(ctx context.Context, cluster string, res
 // validateRestoreRefs rejects restores whose source cannot be resolved, or is
 // incompatible with the target Instance:
 //
-//   - the target Instance must exist;
+//   - the target Instance must exist and not be suspended;
 //   - type=Backup: the source Backup must exist and have Succeeded;
 //   - type=PointInTime: the Instance owning the stream must have a backup class
 //     configured, and must be archiving to the named storage;
@@ -83,6 +83,9 @@ func (h *validateHandler) validateRestoreRefs(ctx context.Context, restore *back
 	}
 
 	if err := controller.ValidateClassSupportsProvider(bc, target.Spec.ProviderRef.Name); err != nil {
+		return err
+	}
+	if err := controller.ValidateInstanceNotSuspended(target); err != nil {
 		return err
 	}
 	return controller.ValidateRestorePITR(restore, bc)

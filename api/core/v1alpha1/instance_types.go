@@ -110,6 +110,11 @@ type InstanceSpec struct {
 	// +optional
 	Maintenance *MaintenanceSpec `json:"maintenance,omitempty"`
 
+	// Suspend stops the Instance's compute while keeping its data. It is
+	// accepted only when the referenced Provider declares .spec.suspend.
+	// +optional
+	Suspend *SuspendSpec `json:"suspend,omitempty"`
+
 	// UserSecretRef optionally seeds the engine's initial (bootstrap)
 	// credentials from a Secret in the same namespace, for providers whose
 	// engine supports setting initial credentials at creation time.
@@ -198,6 +203,20 @@ type MaintenanceSpec struct {
 	// +kubebuilder:validation:MaxLength=253
 	// +optional
 	Approved string `json:"approved,omitempty"`
+}
+
+// SuspendSpec controls whether an Instance runs.
+type SuspendSpec struct {
+	// Suspended asks the provider to stop the Instance's compute through the
+	// operator's own mechanism (e.g. spec.pause, hibernation). Volumes and
+	// data are kept, and setting it back to false resumes the Instance.
+	//
+	// While the Instance is suspended, and on the update that suspends or
+	// resumes it, no other spec field may change except deletionPolicy.
+	// Disruptive maintenance is held, scheduled backups do not run, and
+	// Backups and Restores that have not started wait until it resumes.
+	// +optional
+	Suspended bool `json:"suspended,omitempty"`
 }
 
 // PendingMaintenanceAction is one disruptive action currently held awaiting
@@ -463,6 +482,12 @@ func (in *Instance) GetComponentsOfType(t string) map[string]ComponentSpec {
 		}
 	}
 	return result
+}
+
+// SuspendRequested reports whether spec.suspend asks for the Instance to be
+// suspended.
+func (in *Instance) SuspendRequested() bool {
+	return in.Spec.Suspend != nil && in.Spec.Suspend.Suspended
 }
 
 // GetTopologyType returns the topology type, or empty string if not specified.
@@ -882,6 +907,10 @@ const (
 	// action's token (for actions auto-approved by autoApproveUpTo), or
 	// clear and re-set it.
 	ReasonRetriesExhausted = "RetriesExhausted"
+
+	// ReasonSuspended indicates disruptive actions are held because the
+	// Instance is suspended; they are evaluated again once it resumes.
+	ReasonSuspended = "Suspended"
 )
 
 // Reasons for the BackupConfigured condition set by the provider-runtime before
