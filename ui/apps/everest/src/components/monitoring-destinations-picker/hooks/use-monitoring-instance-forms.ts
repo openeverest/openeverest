@@ -19,7 +19,7 @@ import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
-import { MonitoringSectionForm } from 'utils/monitoring-classes';
+import type { SectionForm } from 'components/ui-generator/utils/section-form';
 import { buildInstanceFormsByDestination } from '../monitoring-destinations-picker.utils';
 
 const NO_CLASSES: MonitoringClass[] = [];
@@ -30,7 +30,7 @@ const NO_DESTINATIONS: MonitoringDestination[] = [];
 export const useMonitoringInstanceForms = (
   namespace: string,
   provider: string
-): Map<string, MonitoringSectionForm> => {
+): Map<string, SectionForm> => {
   const { data: classes = NO_CLASSES } =
     useMonitoringClassesForProvider(provider);
   const { data: destinations = NO_DESTINATIONS } =

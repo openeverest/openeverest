@@ -15,9 +15,10 @@
 // Package uischema checks provider UI schemas (the `uiSchema` rendered by the
 // UI generator) against the rules documented in docs/ui/ui-generator.
 //
-// The UI applies the same rules at runtime (ui-generator utils/toggleable);
-// testdata/*.yaml is the shared contract both implementations are tested
-// against (see toggleable-shared-cases.test.ts in the UI), so keep them in sync.
+// The UI applies the same rules at runtime (ui-generator utils/map-field and
+// utils/toggleable, both run by preprocessSchema); testdata/*.yaml is the
+// shared contract both implementations are tested against (see
+// preprocess-shared-cases.test.ts in the UI), so keep them in sync.
 package uischema
 
 import (
@@ -35,6 +36,9 @@ type Rule string
 
 // Rules checked by Validate; see README.md for their exact conditions.
 const (
+	RuleMapUnsupported         Rule = "map-unsupported"
+	RuleMapMultiPath           Rule = "map-multi-path"
+	RuleMapOverlap             Rule = "map-overlap"
 	RuleToggleableUnsafeKey    Rule = "toggleable-unsafe-key"
 	RuleToggleableNoFields     Rule = "toggleable-no-fields"
 	RuleToggleableNested       Rule = "toggleable-nested"
@@ -47,10 +51,11 @@ type Issue struct {
 	Rule     Rule
 	Topology string
 	// Group is the dotted key path of the toggleable group: section key followed
-	// by group keys, e.g. "advanced.monitoring".
+	// by group keys, e.g. "advanced.monitoring". Empty for map rules.
 	Group string
-	// Field is the dotted key path of the field whose CEL rule reads the group;
-	// empty for rules about the group itself.
+	// Field is the dotted key path of the field a map rule is about, or of
+	// the field whose CEL rule reads the group; empty for rules about the group
+	// itself.
 	Field   string
 	Message string
 }
@@ -77,7 +82,7 @@ type Input struct {
 //	replicaset:              # topology
 //	  sections:
 //	    advanced:            # section key
-//	      components:        # walked by validateToggleables
+//	      components:        # walked by validateMaps and validateToggleables
 //	        monitoring: {...}
 //	sharded:
 //	  sections: {...}
@@ -89,7 +94,11 @@ func Validate(in Input) []Issue {
 		if !ok {
 			continue
 		}
-		issues = append(issues, validateToggleables(topology, sections)...)
+		// The UI drops these map fields before resolving toggleables, so the
+		// toggleable rules see them as writing nothing.
+		mapIssues, droppedMaps := validateMaps(topology, sections)
+		issues = append(issues, mapIssues...)
+		issues = append(issues, validateToggleables(topology, sections, droppedMaps)...)
 	}
 	slices.SortStableFunc(issues, func(a, b Issue) int {
 		return cmp.Or(
@@ -107,6 +116,140 @@ const (
 	groupTypeToggleable = "toggleable"
 	degradedSuffix      = "; the UI renders it as a bordered group"
 )
+
+const (
+	uiTypeMap               = "map"
+	uiTypeWidget            = "widget"
+	widgetTypeKeyValue      = "keyValue"
+	droppedMapSuffix        = "; the UI does not render it"
+	mapOwnsValueSentence    = "a map field must own its value alone"
+	mapReadsOnePathSentence = "an edit reads only the first one, so the others would drift from it"
+)
+
+// field is a field found by collectFields: its dotted key path, the item and
+// the API paths it writes.
+type field struct {
+	key   string
+	item  map[string]any
+	paths []string
+}
+
+// validateMaps mirrors resolveMapFields in the UI: a map field owns the whole
+// value at its path, so the UI renders only a shape it implements, with one
+// path, and only when no other field writes that path, a path inside it or
+// one it sits in. It returns the issues and the key paths of the map fields
+// the UI drops. A dropped field writes nothing, so it never makes another map
+// overlap.
+//
+// sections is one topology's `sections` map:
+//
+//	advanced:
+//	  components:
+//	    labels:                  # rendered: a key/value map owning spec.labels
+//	      uiType: map
+//	      path: spec.labels
+//	      itemTemplate: {uiType: widget, widgetType: keyValue}
+//	    users:                   # map-unsupported: rows from a custom group
+//	      uiType: map
+//	      path: spec.users
+//	      itemTemplate: {uiType: group, components: {...}}
+func validateMaps(topology string, sections map[string]any) ([]Issue, map[string]bool) {
+	var issues []Issue
+	dropped := make(map[string]bool)
+	var writers []field
+	for _, key := range sortedKeys(sections) {
+		section, _ := sections[key].(map[string]any)
+		components, _ := section["components"].(map[string]any)
+		for _, f := range collectFields(components, []string{key}) {
+			if rule, msg := mapDropRule(f); rule != "" {
+				dropped[f.key] = true
+				issues = append(issues, Issue{
+					Rule:     rule,
+					Topology: topology,
+					Field:    f.key,
+					Message:  msg + droppedMapSuffix,
+				})
+				continue
+			}
+			writers = append(writers, f)
+		}
+	}
+
+	for _, m := range writers {
+		if m.item["uiType"] != uiTypeMap {
+			continue
+		}
+		if other, path := findOverlap(m, writers); other != "" {
+			dropped[m.key] = true
+			issues = append(issues, Issue{
+				Rule:     RuleMapOverlap,
+				Topology: topology,
+				Field:    m.key,
+				Message: fmt.Sprintf("overlaps the path %q of field %q, while %s%s",
+					path, other, mapOwnsValueSentence, droppedMapSuffix,
+				),
+			})
+		}
+	}
+	return issues, dropped
+}
+
+// mapDropRule returns the rule a map field breaks on its own, with its
+// message, or "" when it has none (or is not a map). The order matches
+// resolveMapFields in the UI.
+func mapDropRule(f field) (Rule, string) {
+	if f.item["uiType"] != uiTypeMap {
+		return "", ""
+	}
+	if !isKeyValueTemplate(f.item) {
+		return RuleMapUnsupported, describeUnsupportedMap(f.item)
+	}
+	if len(f.paths) > 1 {
+		return RuleMapMultiPath, fmt.Sprintf("has %d paths, while %s", len(f.paths), mapReadsOnePathSentence)
+	}
+	return "", ""
+}
+
+// isKeyValueTemplate reports whether a map field's rows come from the one
+// item template the UI implements:
+//
+//	itemTemplate: {uiType: widget, widgetType: keyValue}
+func isKeyValueTemplate(item map[string]any) bool {
+	itemTemplate, _ := item["itemTemplate"].(map[string]any)
+	return itemTemplate["uiType"] == uiTypeWidget && itemTemplate["widgetType"] == widgetTypeKeyValue
+}
+
+func describeUnsupportedMap(item map[string]any) string {
+	itemTemplate, _ := item["itemTemplate"].(map[string]any)
+	uiType, _ := itemTemplate["uiType"].(string)
+	widgetType, _ := itemTemplate["widgetType"].(string)
+	return fmt.Sprintf("has an itemTemplate with uiType %q and widgetType %q, while only uiType %q with widgetType %q is supported",
+		uiType, widgetType, uiTypeWidget, widgetTypeKeyValue,
+	)
+}
+
+// findOverlap returns the first other field writing a path that overlaps one
+// of the map's paths, with that path, or "" when there is none.
+func findOverlap(m field, writers []field) (string, string) {
+	for _, other := range writers {
+		if other.key == m.key {
+			continue
+		}
+		for _, path := range other.paths {
+			if slices.ContainsFunc(m.paths, func(own string) bool { return pathsOverlap(path, own) }) {
+				return other.key, path
+			}
+		}
+	}
+	return "", ""
+}
+
+// pathsOverlap reports whether two paths are the same or one sits inside the
+// other: spec.labels overlaps spec.labels and spec.labels.team, but not
+// spec.labelsMode.
+func pathsOverlap(a, b string) bool {
+	return a == b || strings.HasPrefix(a, b+".") || strings.HasPrefix(b, a+".")
+}
 
 // Keys name the group's form-only switch; the UI rejects anything else.
 var switchKeyPattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
@@ -172,18 +315,18 @@ type celField struct {
 //	      validation:
 //	        celExpressions:
 //	          - celExpr: "!has(spec.monitoring.url) || spec.replicas > 1"
-func validateToggleables(topology string, sections map[string]any) []Issue {
+func validateToggleables(topology string, sections map[string]any, droppedMaps map[string]bool) []Issue {
 	// pathWriters counts the fields writing each path across the topology.
 	pathWriters := make(map[string]int)
 	for _, key := range sortedKeys(sections) {
 		section, _ := sections[key].(map[string]any)
 		components, _ := section["components"].(map[string]any)
-		for _, p := range getPaths(components) {
+		for _, p := range getPaths(components, []string{key}, droppedMaps) {
 			pathWriters[p]++
 		}
 	}
 
-	w := toggleableWalker{topology: topology, pathWriters: pathWriters}
+	w := toggleableWalker{topology: topology, pathWriters: pathWriters, droppedMaps: droppedMaps}
 	for _, key := range sortedKeys(sections) {
 		section, _ := sections[key].(map[string]any)
 		components, _ := section["components"].(map[string]any)
@@ -197,6 +340,7 @@ func validateToggleables(topology string, sections map[string]any) []Issue {
 type toggleableWalker struct {
 	topology    string
 	pathWriters map[string]int
+	droppedMaps map[string]bool
 
 	issues      []Issue
 	toggleables []toggleable
@@ -237,7 +381,10 @@ func (w *toggleableWalker) walk(components map[string]any, parent []string, pare
 		currentPath := slices.Concat(parent, []string{key})
 		uiType, _ := current["uiType"].(string)
 		if uiType != uiTypeGroup && uiType != uiTypeHidden {
-			w.recordCelExpressions(current, currentPath, parentToggleable)
+			// A dropped map field isn't rendered, so its rules never run.
+			if !w.droppedMaps[strings.Join(currentPath, ".")] {
+				w.recordCelExpressions(current, currentPath, parentToggleable)
+			}
 			continue
 		}
 		children, ok := current["components"].(map[string]any)
@@ -273,7 +420,7 @@ func (w *toggleableWalker) recordCelExpressions(item map[string]any, currentPath
 // degradeRule) is reported as an issue instead. isToggleable is whether the group
 // sits inside a working toggleable.
 func (w *toggleableWalker) recordToggleable(children map[string]any, currentPath []string, isToggleable bool) bool {
-	paths := getPaths(children)
+	paths := getPaths(children, currentPath, w.droppedMaps)
 	groupKey := strings.Join(currentPath, ".")
 	if rule, msg := degradeRule(currentPath, paths, isToggleable, w.pathWriters); rule != "" {
 		w.issues = append(w.issues, Issue{
@@ -445,9 +592,9 @@ func pathWrittenOutside(groupPaths []string, topologyPaths map[string]int) strin
 	return ""
 }
 
-// getPaths returns the paths found in the given components. The uiType
-// `groups` and `hidden` are recursively searched if they contain
-// components.
+// getPaths returns the paths written by the fields under components (see
+// collectFields), except the map fields in droppedMaps; parent is the key
+// path of components.
 //
 //	url:                         # -> [spec.monitoring.url]
 //	  uiType: text
@@ -460,8 +607,22 @@ func pathWrittenOutside(groupPaths []string, topologyPaths map[string]int) strin
 //	  components: {...}
 //	label:                       # no uiType: nothing
 //	  path: spec.label
-func getPaths(components map[string]any) []string {
+func getPaths(components map[string]any, parent []string, droppedMaps map[string]bool) []string {
 	var paths []string
+	for _, f := range collectFields(components, parent) {
+		if !droppedMaps[f.key] {
+			paths = append(paths, f.paths...)
+		}
+	}
+	return paths
+}
+
+// collectFields returns the fields under components in key order, depth
+// first, keyed under parent. The uiType `group` and `hidden` are containers,
+// searched recursively when they contain components; an item without uiType
+// is not a field.
+func collectFields(components map[string]any, parent []string) []field {
+	var fields []field
 	for _, key := range sortedKeys(components) {
 		item, _ := components[key].(map[string]any)
 		uiType, ok := item["uiType"]
@@ -469,16 +630,21 @@ func getPaths(components map[string]any) []string {
 			continue
 		}
 
+		keyPath := slices.Concat(parent, []string{key})
 		switch uiType {
 		case uiTypeGroup, uiTypeHidden:
 			if children, ok := item["components"].(map[string]any); ok {
-				paths = append(paths, getPaths(children)...)
+				fields = append(fields, collectFields(children, keyPath)...)
 			}
 		default:
-			paths = append(paths, normalizePaths(item["path"])...)
+			fields = append(fields, field{
+				key:   strings.Join(keyPath, "."),
+				item:  item,
+				paths: normalizePaths(item["path"]),
+			})
 		}
 	}
-	return paths
+	return fields
 }
 
 // normalizePaths normalizes a field's `path` based on its type,

@@ -82,6 +82,7 @@ Read the whole file; apply Frontend rules only when touching files under `ui/`.
 Schema-driven form renderer. Layers: preprocess → schema-build (zod) → render → postprocess.
 Runtime field behavior goes through the `fieldOverrides` map on `UiGeneratorContext` (keyed by path), computed in the consumer — never hardcode path checks or add queries inside render internals.
 **Keep docs in sync (required):** any change to the UI Generator architecture or its schema props (adding/renaming/removing a prop, `uiType`, `groupType`, validation rule, mode behavior, etc.) must update the architecture docs in `docs/ui/architecture/ui-generator/` and the user-facing docs in `docs/ui/ui-generator/` in the same PR, and bump the `Last updated` date in the touched docs.
+**Keep the Go validator in sync (required):** `provider-runtime/uischema` is how provider authors find schema mistakes — `provider-sdk generate` rejects a schema with any issue — so it must know every rule the UI applies. A change to what the UI Generator accepts or how it reads a schema (a new or changed `uiType` or variant, a `fieldParams` / `validation` value with a constraint such as quantity's `unit`, path semantics, or a fallback that drops, degrades or ignores part of a schema) updates the validator and its `README.md` in the same PR, with cases in `provider-runtime/uischema/testdata/`: both `validate_test.go` and the UI's `utils/preprocess/preprocess-shared-cases.test.ts` run every file there. If a change has nothing to check, say so in the PR description.
 
 ### Don'ts
 

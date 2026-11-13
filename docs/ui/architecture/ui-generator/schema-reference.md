@@ -49,7 +49,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-  CMP["Component"] --> UT["uiType<br/>(number, quantity, select, text, toggle, secret, hidden)"]
+  CMP["Component"] --> UT["uiType<br/>(number, quantity, select, text, toggle, secret, map, hidden)"]
   CMP --> PID{"path | id"}
   CMP --> TP2["techPreview? 🛠️"]
   CMP --> DS2["dataSource?"]
@@ -67,7 +67,34 @@ flowchart TD
 - **`dataSource.provider`** — a key in the open runtime registry (`register()`), not a closed enum.
 - **`modes?`** — `{ [FormMode]: { uiType? } }`; the create wizard runs in `import` when it creates a database from an imported backup.
 
-## Level 2 — Widget (host-rendered leaf)
+## Level 2 — Map (repeatable leaf, Tech Preview)
+
+```mermaid
+flowchart TD
+  M["Map"] --> MU["uiType: map"]
+  M --> MP["path<br/>(one)"]
+  M --> MI["itemTemplate"]
+  MI --> MIU["uiType: widget<br/>widgetType: keyValue<br/>(custom group 🛠️)"]
+  MI --> MIP["fieldParams? { key?, value? }<br/>(TextFieldParams)"]
+  MI --> MIV["validation? { key?, value? }<br/>(TextValidation without CEL)"]
+  M --> MR["_row<br/>(set by preprocess)"]
+```
+
+- **The data shape is the `uiType`** — `map` writes `{ key: value }`; `list` is planned in
+  [#1959](https://github.com/openeverest/openeverest/issues/1959).
+- **One field, one `path`** — the map writes its whole value to `path`; paths inside a row are the
+  row's own (`key`, `value`), never schema paths. A map with several paths is dropped: an edit reads
+  only the first.
+- **`itemTemplate`** is what a row is. Today the `keyValue` template widget, which preprocess
+  expands into `_row`: a `line` group of a text `key` and a text `value`, with the widget's
+  `fieldParams` / `validation` for each over theirs. The row renders through the UI Generator, so
+  a text field's params (but `defaultValue` and badges) and rules apply, transforms included.
+- **Unique keys** are implied by the map and can't be switched off.
+- **Other shapes are ignored**: preprocess drops a map whose item template it doesn't implement,
+  with several paths, or that doesn't own its path, like an unknown `uiType`; the Go validator
+  reports `map-unsupported` / `map-multi-path` / `map-overlap`.
+
+## Level 2 — Widget (host-rendered leaf or template)
 
 ```mermaid
 flowchart TD
@@ -80,6 +107,8 @@ flowchart TD
 - **`widgetType`** selects the renderer from the consumer's `WidgetRegistry` (edit) and
   `WidgetSummaryRegistry` (`label` + `View` + `digest` for the overview and wizard preview).
   Unknown types render nothing.
+- **Template widgets** (`TemplateWidgetType`) stand for a piece of schema and are expanded by
+  preprocess instead of rendered: `keyValue`, a map row (see Map above). No registry renders them.
 - **Location is defined per widget type** — a widget is unique, so there is no shared rule
   for where its data lives:
   - `affinity` (internal) binds one `path`, like a field.
@@ -161,6 +190,10 @@ classDiagram
   class HiddenFieldParams {
     <<CommonFieldParams>>
   }
+  class MapFieldParams {
+    addButtonLabel?
+    defaultValue? map
+  }
   CommonFieldParams <|-- NumberFieldParams
   CommonFieldParams <|-- QuantityFieldParams
   CommonFieldParams <|-- TextFieldParams
@@ -168,6 +201,7 @@ classDiagram
   CommonFieldParams <|-- ToggleFieldParams
   CommonFieldParams <|-- SecretFieldParams
   CommonFieldParams <|-- HiddenFieldParams
+  CommonFieldParams <|-- MapFieldParams
   TextFieldParams --> TextType : type
   SelectFieldParams <|-- SelectStaticOptions
   SelectFieldParams <|-- SelectDynamicOptions
@@ -220,12 +254,21 @@ classDiagram
   class HiddenValidation {
     <<CommonValidation>>
   }
+  class MapValidation {
+    required?
+    minItems?
+    maxItems?
+    modes?
+    regex? never
+    celExpressions? never
+  }
   CommonValidation <|-- NumberValidation
   NumberValidation <|-- QuantityValidation
   CommonValidation <|-- TextValidation
   CommonValidation <|-- SelectValidation
   CommonValidation <|-- ToggleValidation
   CommonValidation <|-- HiddenValidation
+  CommonValidation <|-- MapValidation
 ```
 
 - **modes (mode-aware)** — `{ [FormMode]: <same rules> + inheritShared? }`.
@@ -233,6 +276,9 @@ classDiagram
 - **`select` / `hidden`** — common rules only.
 - **`secret`** — `text` rules; the value is the Secret's name.
 - **`quantity`** — same numeric rules as `number`; bounds and CEL see the number in `unit`.
+- **`map`** — rules on the count of filled rows; `required` means at least one. CEL waits for
+  `self` support. `minItems` / `maxItems` vs JSON Schema's `minProperties` / `maxProperties` is an
+  open question.
 
 ## Cross-Cutting Concepts
 
@@ -256,4 +302,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-06
+- Last updated: 2026-11-13

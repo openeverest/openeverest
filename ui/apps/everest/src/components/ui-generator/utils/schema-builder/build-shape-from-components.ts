@@ -16,12 +16,15 @@ import { z } from 'zod';
 import {
   Component,
   ComponentGroup,
+  FieldType,
   FormMode,
+  isMapComponent,
   isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { ZOD_SCHEMA_MAP } from 'components/ui-generator/constants';
 import { generateFieldId } from '../component-renderer/generate-field-id';
 import { getComponentSourcePath } from '../preprocess/normalized-component';
+import { buildMapFieldSchema, getMapRow } from '../map-field';
 import { applyValidationFromSchema } from './apply-from-schema';
 import { resolveValidationForMode } from '../validation/resolve-validation-for-mode';
 import {
@@ -101,8 +104,22 @@ export const buildShapeFromComponents = (
 
     let fieldSchema: z.ZodTypeAny;
 
-    // Apply validation rules if present
-    if (resolvedValidation) {
+    if (component.uiType === FieldType.Map) {
+      // Rows are validated even without rules: a map can't hold a key twice.
+      // Each row against its own fields' rules, built here like any field's. A
+      // shape this version doesn't implement isn't validated, so its value
+      // passes through like an unknown uiType's.
+      fieldSchema = isMapComponent(component)
+        ? buildMapFieldSchema(
+            buildShapeFromComponents(
+              getMapRow(component).components,
+              '',
+              formMode
+            ).schemaShape,
+            resolveValidationForMode(component.validation, formMode)
+          )
+        : z.any().optional();
+    } else if (resolvedValidation) {
       // Create a component with resolved (flat) validation for the downstream pipeline
       const resolvedComponent = {
         ...component,

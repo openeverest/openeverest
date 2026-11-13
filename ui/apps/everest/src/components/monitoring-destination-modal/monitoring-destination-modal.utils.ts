@@ -19,10 +19,13 @@ import {
   toOpenApiParameterFormValues,
 } from 'components/openapi-parameters-fields';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
+import { isPlainObject } from 'components/ui-generator/utils/object-path';
 import {
-  deepMerge,
-  isPlainObject,
-} from 'components/ui-generator/utils/object-path';
+  getSectionFormDefaults,
+  getSectionFormValues,
+  postprocessSectionForm,
+  toSectionForm,
+} from 'components/ui-generator/utils/section-form';
 import {
   CredentialsSecretWrite,
   SaveMonitoringDestinationRequest,
@@ -38,10 +41,7 @@ import {
   getCredentialsSection,
   getMonitoringClassName,
   getMonitoringClassUiSchema,
-  getSectionFormDefaults,
   isSecretBackedAuthMode,
-  postprocessSectionForm,
-  toMonitoringSectionForm,
 } from 'utils/monitoring-classes';
 import {
   getCredentialsSecretName,
@@ -79,7 +79,7 @@ export const getDestinationClassForms = (
   return {
     destination:
       destination &&
-      toMonitoringSectionForm(DESTINATION_SECTION_KEY, destination, formMode),
+      toSectionForm(DESTINATION_SECTION_KEY, destination, formMode),
     parameterFields: destination
       ? NO_PARAMETER_FIELDS
       : getOpenApiParameterFields(
@@ -87,8 +87,7 @@ export const getDestinationClassForms = (
         ),
     // New credentials are always typed in full, also when editing.
     credentials:
-      credentials &&
-      toMonitoringSectionForm(CREDENTIALS_SECTION_KEY, credentials),
+      credentials && toSectionForm(CREDENTIALS_SECTION_KEY, credentials),
   };
 };
 
@@ -245,7 +244,7 @@ export const getFormDefaults = ({
       ? getSectionFormDefaults(forms.credentials)
       : {},
     spec: forms.destination
-      ? deepMerge(getSectionFormDefaults(forms.destination), {
+      ? getSectionFormValues(forms.destination, {
           parameters: isPlainObject(parameters) ? parameters : {},
         })
       : {},

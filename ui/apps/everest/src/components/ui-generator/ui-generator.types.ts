@@ -62,6 +62,7 @@ export enum FieldType {
   Toggle = 'toggle',
   Hidden = 'hidden',
   Secret = 'secret',
+  Map = 'map',
 }
 
 export enum WidgetType {
@@ -71,6 +72,13 @@ export enum WidgetType {
   // Internal to the scheduling orchestrator's own UIGenerator, not authored by
   // providers.
   Affinity = 'affinity',
+}
+
+// Widgets that stand for a piece of schema: preprocess expands them into
+// ordinary components, so no host renders them.
+export enum TemplateWidgetType {
+  // A map row: a text `key` and a text `value` side by side.
+  KeyValue = 'keyValue',
 }
 
 // Host-rendered component; `widgetType` picks the renderer, like `groupType`
@@ -166,6 +174,12 @@ export interface TextFieldParams extends CommonFieldParams {
   margin?: 'none' | 'dense' | 'normal';
 }
 
+export interface MapFieldParams extends CommonFieldParams {
+  addButtonLabel?: string;
+  // In the API shape: a map of strings.
+  defaultValue?: Record<string, string>;
+}
+
 // Toggles are always optional booleans, so `required` is unsupported. Typing it
 // as `never` forbids setting it (a compile error), while keeping the property
 // present so the generic validation pipeline can still read
@@ -182,6 +196,7 @@ export type FieldParamsMap = {
   [FieldType.Toggle]: ToggleFieldParams;
   [FieldType.Hidden]: CommonFieldParams;
   [FieldType.Secret]: SecretFieldParams;
+  [FieldType.Map]: MapFieldParams;
 };
 
 type PathOrId =
@@ -226,6 +241,18 @@ export type NumberValidation = CommonValidation & {
   safe?: boolean;
 };
 
+// `required` means at least one entry. CEL on the whole map waits for `self`
+// support, so it is forbidden for now, like regex.
+export type MapValidation = Omit<
+  CommonValidation,
+  'regex' | 'celExpressions'
+> & {
+  regex?: never;
+  celExpressions?: never;
+  minItems?: number;
+  maxItems?: number;
+};
+
 export type ValidationMap = {
   [FieldType.Number]: NumberValidation;
   [FieldType.Quantity]: NumberValidation;
@@ -234,26 +261,67 @@ export type ValidationMap = {
   [FieldType.Toggle]: ToggleValidation;
   [FieldType.Hidden]: CommonValidation;
   [FieldType.Secret]: CommonValidation;
+  [FieldType.Map]: MapValidation;
 };
 
 type ComponentCommonFields = {
   techPreview?: boolean;
   modes?: ComponentModeOverrides;
   _normalized?: NormalizedPathMeta;
+  // Set by the engine on a field it renders itself, e.g. a map row's key.
+  _renderOverrides?: RenderOverrides;
   dataSource?: DataSource;
 };
+
+export interface RenderOverrides {
+  // Names an input shown without a visible label, e.g. "Key 2".
+  accessibleName?: string;
+  disabled?: boolean;
+  autoFocus?: boolean;
+}
 
 export type ModeAwareValidation<T extends CommonValidation> = T & {
   modes?: Partial<Record<FormMode, T & { inheritShared?: boolean }>>;
 };
 
-type FieldComponent = {
-  [K in keyof FieldParamsMap]: ComponentCommonFields & {
+type FieldComponentOf<K extends keyof FieldParamsMap> =
+  ComponentCommonFields & {
     uiType: K;
     validation?: ModeAwareValidation<ValidationMap[K]>;
     fieldParams: FieldParamsMap[K];
   } & PathOrId;
-}[keyof FieldParamsMap];
+
+type ScalarFieldType = Exclude<keyof FieldParamsMap, FieldType.Map>;
+
+type FieldComponent = {
+  [K in ScalarFieldType]: FieldComponentOf<K>;
+}[ScalarFieldType];
+
+// A row field takes a text field's params, but no default (the map's own sets
+// the entries; a new row starts empty) and no badges, which a row doesn't write.
+export type MapRowFieldParams = Omit<
+  TextFieldParams,
+  'defaultValue' | 'badge' | 'badgeToApi'
+>;
+
+// Stands for a map row: preprocess expands it into a `line` group of a text
+// `key` and a text `value`, with these params and rules over theirs. CEL is
+// left out: a row can't evaluate it yet.
+export interface KeyValueWidget {
+  uiType: typeof WIDGET_UI_TYPE;
+  widgetType: TemplateWidgetType.KeyValue;
+  fieldParams?: { key?: MapRowFieldParams; value?: MapRowFieldParams };
+  validation?: {
+    key?: Omit<TextValidation, 'celExpressions'>;
+    value?: Omit<TextValidation, 'celExpressions'>;
+  };
+}
+
+export type MapComponent = FieldComponentOf<FieldType.Map> & {
+  itemTemplate: KeyValueWidget;
+  // The row the item template stands for, expanded by preprocess.
+  _row?: ComponentGroup;
+};
 
 export interface WidgetTarget {
   // Display key, e.g. the Instance component the value belongs to.
@@ -272,10 +340,18 @@ export type WidgetComponent = ComponentCommonFields & {
   // A pure marker widget (e.g. podSchedulingPolicy) binds no value.
 } & (PathOrId | { path?: never; id?: never });
 
-export type Component = FieldComponent | WidgetComponent;
+export type Component = FieldComponent | MapComponent | WidgetComponent;
 
 export const isWidgetComponent = (item: Component): item is WidgetComponent =>
   item.uiType === WIDGET_UI_TYPE;
+
+// Only the map shape this version implements: rows from a keyValue widget.
+// Preprocess drops any other `uiType: map`, so the stages leave it alone like
+// an unknown uiType.
+export const isMapComponent = (item: Component): item is MapComponent =>
+  item.uiType === FieldType.Map &&
+  item.itemTemplate?.uiType === WIDGET_UI_TYPE &&
+  item.itemTemplate.widgetType === TemplateWidgetType.KeyValue;
 
 // Narrows an opaque API payload (e.g. a CRD's uiSchema) to a section.
 export const isSection = (value: unknown): value is Section =>

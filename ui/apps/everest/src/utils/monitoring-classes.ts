@@ -12,17 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { z } from 'zod';
-import {
-  FormMode,
-  isSection,
-  Section,
-  TopologyUISchemas,
-} from 'components/ui-generator/ui-generator.types';
-import { preprocessSection } from 'components/ui-generator/utils/preprocess/preprocess-section';
-import { getDefaultValues } from 'components/ui-generator/utils/default-values';
-import { buildSectionZodSchema } from 'components/ui-generator/utils/schema-builder';
-import { postprocessSchemaData } from 'components/ui-generator/utils/postprocess/postprocess-schema';
+import { isSection, Section } from 'components/ui-generator/ui-generator.types';
 import { isPlainObject } from 'components/ui-generator/utils/object-path';
 import {
   MonitoringClass,
@@ -36,14 +26,6 @@ export interface MonitoringClassUiSchema {
   destination?: Section;
   instance?: Section;
   credentials: Record<string, Section>;
-}
-
-// One class form rendered on its own, prepared by the same pipeline stages the
-// ui-generator runs on a provider topology.
-export interface MonitoringSectionForm {
-  sectionKey: string;
-  schema: TopologyUISchemas;
-  sections: Record<string, Section>;
 }
 
 // Modes core resolves without a Secret.
@@ -103,39 +85,6 @@ export const getMonitoringClassUiSchema = (
     credentials: toSectionMap(uiSchema.credentials),
   };
 };
-
-export const toMonitoringSectionForm = (
-  sectionKey: string,
-  section: Section,
-  formMode: FormMode = FormMode.New
-): MonitoringSectionForm => {
-  const sections = preprocessSection(sectionKey, section, formMode);
-  return {
-    sectionKey,
-    sections,
-    schema: { [sectionKey]: { sections } },
-  };
-};
-
-export const getSectionFormDefaults = (
-  form: MonitoringSectionForm
-): Record<string, unknown> => getDefaultValues(form.schema, form.sectionKey);
-
-export const getSectionFormZodSchema = (
-  form: MonitoringSectionForm,
-  formMode: FormMode = FormMode.New
-): z.ZodTypeAny =>
-  buildSectionZodSchema(form.sectionKey, form.sections, { formMode }).schema;
-
-// Coerces numbers, drops inactive toggleable groups and empty values.
-export const postprocessSectionForm = (
-  values: Record<string, unknown>,
-  form: MonitoringSectionForm
-): Record<string, unknown> =>
-  postprocessSchemaData(values, {
-    schema: form.schema,
-    selectedTopology: form.sectionKey,
-  });
 
 // The class's credentials form for the mode or, when it ships none, one masked
 // input per credential key the mode declares.

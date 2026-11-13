@@ -1,0 +1,215 @@
+# Shared contract for map field rules.
+# Go: provider-runtime/uischema (Validate) reports `issues`.
+# UI: preprocessSchema drops every map field with an issue, so it is neither
+#     rendered nor sent and an edit keeps its saved value. The toggleable rules
+#     then run as if the field weren't there.
+cases:
+  - name: a key/value map owning its path is rendered
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+              replicas: { uiType: number, path: spec.replicas, fieldParams: { label: Replicas } }
+    issues: []
+
+  - name: a map whose rows are a custom group is not supported yet
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              users:
+                uiType: map
+                path: spec.users
+                fieldParams: { label: Users }
+                itemTemplate:
+                  uiType: group
+                  components:
+                    role: { uiType: text, path: value.role, fieldParams: { label: Role } }
+    issues:
+      - { rule: map-unsupported, topology: replicaSet, field: advanced.users }
+
+  - name: a map whose item template is another widget is not supported
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                itemTemplate: { uiType: widget, widgetType: chips }
+    issues:
+      - { rule: map-unsupported, topology: replicaSet, field: advanced.labels }
+
+  - name: a map without an item template is not supported
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels: { uiType: map, path: spec.labels, fieldParams: { label: Labels } }
+    issues:
+      - { rule: map-unsupported, topology: replicaSet, field: advanced.labels }
+
+  - name: a map with several paths is not supported, since an edit reads only the first
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              podLabels:
+                uiType: map
+                path: [spec.engine.podLabels, spec.proxy.podLabels]
+                fieldParams: { label: Pod labels }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+    issues:
+      - { rule: map-multi-path, topology: replicaSet, field: advanced.podLabels }
+
+  - name: a field writing inside the map overlaps it
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+              team: { uiType: text, path: spec.labels.team, fieldParams: { label: Team } }
+    issues:
+      - { rule: map-overlap, topology: replicaSet, field: advanced.labels }
+
+  - name: a field writing a path the map sits in overlaps it
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              annotations:
+                uiType: map
+                path: spec.proxy.annotations
+                fieldParams: { label: Annotations }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+              proxy: { uiType: text, path: spec.proxy, fieldParams: { label: Proxy } }
+    issues:
+      - { rule: map-overlap, topology: replicaSet, field: advanced.annotations }
+
+  - name: a field in another section writing the same path overlaps the map
+    uiSchema:
+      replicaSet:
+        sections:
+          basic:
+            components:
+              labels: { uiType: text, path: spec.labels, fieldParams: { label: Labels } }
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+    issues:
+      - { rule: map-overlap, topology: replicaSet, field: advanced.labels }
+
+  - name: a path sharing only a prefix does not overlap
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+              labelsMode: { uiType: text, path: spec.labelsMode, fieldParams: { label: Mode } }
+    issues: []
+
+  - name: two maps writing the same path both overlap
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+              moreLabels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: More labels }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+    issues:
+      - { rule: map-overlap, topology: replicaSet, field: advanced.labels }
+      - { rule: map-overlap, topology: replicaSet, field: advanced.moreLabels }
+
+  - name: an unsupported map writes nothing, so another map on its path stays
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              customLabels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Custom labels }
+                itemTemplate:
+                  uiType: group
+                  components:
+                    key: { uiType: text, path: key, fieldParams: { label: Key } }
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+    issues:
+      - { rule: map-unsupported, topology: replicaSet, field: advanced.customLabels }
+
+  - name: a multi-path map writes nothing, so a map on one of its paths stays
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              podLabels:
+                uiType: map
+                path: [spec.engine.podLabels, spec.proxy.podLabels]
+                fieldParams: { label: Pod labels }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+              proxyLabels:
+                uiType: map
+                path: spec.proxy.podLabels
+                fieldParams: { label: Proxy pod labels }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+    issues:
+      - { rule: map-multi-path, topology: replicaSet, field: advanced.podLabels }
+
+  - name: a toggleable holding only an unsupported map has nothing to switch off
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              backup:
+                uiType: group
+                groupType: toggleable
+                components:
+                  users:
+                    uiType: map
+                    path: spec.backup.users
+                    fieldParams: { label: Users }
+                    itemTemplate: { uiType: group, components: {} }
+    issues:
+      - { rule: map-unsupported, topology: replicaSet, field: advanced.backup.users }
+      - { rule: toggleable-no-fields, topology: replicaSet, group: advanced.backup }

@@ -23,4 +23,7 @@ export interface KeyValueArrayProps {
   label?: string;
   keyPlaceholder?: string;
   valuePlaceholder?: string;
+  addButtonText?: string;
+  disabled?: boolean;
+  helperText?: string;
 }

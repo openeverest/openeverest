@@ -21,6 +21,13 @@ import {
   setByPath,
 } from 'components/ui-generator/utils/object-path';
 import {
+  getSectionFormDefaults,
+  getSectionFormZodSchema,
+  postprocessSectionForm,
+  type SectionForm,
+  toSectionForm,
+} from 'components/ui-generator/utils/section-form';
+import {
   InstanceMonitoringDestination,
   InstanceMonitoringDestinationPayload,
   MonitoringClass,
@@ -30,11 +37,6 @@ import { getDestinationName } from 'utils/monitoring-destinations';
 import {
   getMonitoringClassName,
   getMonitoringClassUiSchema,
-  getSectionFormDefaults,
-  getSectionFormZodSchema,
-  MonitoringSectionForm,
-  postprocessSectionForm,
-  toMonitoringSectionForm,
 } from 'utils/monitoring-classes';
 import {
   MAX_MONITORING_DESTINATIONS,
@@ -270,25 +272,22 @@ export const pruneMonitoringDestinations = (
 export const buildInstanceFormsByDestination = (
   classes: MonitoringClass[],
   destinations: MonitoringDestination[]
-): Map<string, MonitoringSectionForm> => {
+): Map<string, SectionForm> => {
   const formsByClass = new Map(
-    classes.flatMap((monitoringClass): [string, MonitoringSectionForm][] => {
+    classes.flatMap((monitoringClass): [string, SectionForm][] => {
       const { instance } = getMonitoringClassUiSchema(monitoringClass);
       return instance
         ? [
             [
               getMonitoringClassName(monitoringClass),
-              toMonitoringSectionForm(
-                MONITORING_INSTANCE_SECTION_KEY,
-                instance
-              ),
+              toSectionForm(MONITORING_INSTANCE_SECTION_KEY, instance),
             ],
           ]
         : [];
     })
   );
   return new Map(
-    destinations.flatMap((destination): [string, MonitoringSectionForm][] => {
+    destinations.flatMap((destination): [string, SectionForm][] => {
       const form = formsByClass.get(destination.spec.classRef.name);
       return form ? [[getDestinationName(destination), form]] : [];
     })
@@ -296,7 +295,7 @@ export const buildInstanceFormsByDestination = (
 };
 
 export const getDefaultEntryParameters = (
-  form: MonitoringSectionForm | undefined
+  form: SectionForm | undefined
 ): Record<string, unknown> | undefined => {
   const parameters = form ? getSectionFormDefaults(form).parameters : undefined;
   return isPlainObject(parameters) ? parameters : undefined;
@@ -305,7 +304,7 @@ export const getDefaultEntryParameters = (
 // Each entry's parameters are validated against its class's instance form;
 // issues point at the entry's own fields in the wizard.
 export const buildMonitoringParametersSchema = (
-  formsByDestination: Map<string, MonitoringSectionForm>
+  formsByDestination: Map<string, SectionForm>
 ): z.ZodTypeAny => {
   const schemasByDestination = new Map(
     [...formsByDestination].map(([destinationName, form]) => [
@@ -336,7 +335,7 @@ export const buildMonitoringParametersSchema = (
 // ui-generator form and left out when nothing was filled.
 export const finalizeMonitoringEntries = (
   entries: InstanceMonitoringDestination[],
-  formsByDestination: Map<string, MonitoringSectionForm>
+  formsByDestination: Map<string, SectionForm>
 ): InstanceMonitoringDestinationPayload[] =>
   entries.map(({ name, destinationRef, parameters }) => {
     const form = formsByDestination.get(destinationRef.name);
@@ -356,7 +355,7 @@ export const finalizeMonitoringEntries = (
 // spec.monitoring when no destination is selected.
 export const writeMonitoringEntries = (
   formData: Record<string, unknown>,
-  formsByDestination: Map<string, MonitoringSectionForm>
+  formsByDestination: Map<string, SectionForm>
 ) => {
   const entries = parseMonitoringDestinations(
     getByPath(formData, MONITORING_DESTINATIONS_FIELD)

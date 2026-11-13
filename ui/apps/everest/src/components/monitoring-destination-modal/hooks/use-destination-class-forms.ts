@@ -18,7 +18,7 @@ import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
-import { getSectionFormDefaults } from 'utils/monitoring-classes';
+import { getSectionFormDefaults } from 'components/ui-generator/utils/section-form';
 import { DestinationFormFields } from '../monitoring-destination-modal.constants';
 import {
   DestinationClassForms,

@@ -24,6 +24,7 @@ import { useUiGeneratorContext } from '../ui-generator-context';
 import { getMappedParams, MappedFieldProps } from './utils/get-mapped-params';
 import { resolveValidationForMode } from '../utils/validation/resolve-validation-for-mode';
 import { buildFieldProps } from './utils/build-field-props';
+import { applyRenderOverrides } from './utils/apply-render-overrides';
 import { applyFieldWrappers } from './utils/field-wrappers';
 
 type ComponentByType<T extends Component['uiType']> = Extract<
@@ -55,8 +56,11 @@ const UIComponent: React.FC<ComponentProps> = ({ item, name }) => {
     return Widget ? <Widget name={name} item={item} /> : null;
   }
 
-  const { uiType, fieldParams, validation } = item;
-  const isDisabled = !!loadingDefaultsForEdition || !!fieldParams?.disabled;
+  const { uiType, fieldParams, validation, _renderOverrides } = item;
+  const isDisabled =
+    !!loadingDefaultsForEdition ||
+    !!fieldParams?.disabled ||
+    !!_renderOverrides?.disabled;
   const resolvedValidation = resolveValidationForMode(validation, formMode);
   const errorObj = get(errors, name);
   const error = errorObj?.message as string | undefined;
@@ -69,7 +73,7 @@ const UIComponent: React.FC<ComponentProps> = ({ item, name }) => {
   const mappedProps = getMappedParams(uiType, fieldParams, resolvedValidation);
   const finalProps = buildFieldProps(
     uiType,
-    mappedProps as MappedFieldProps,
+    applyRenderOverrides(mappedProps as MappedFieldProps, _renderOverrides),
     isDisabled
   );
 

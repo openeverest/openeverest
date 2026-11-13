@@ -20,9 +20,11 @@ import {
   Component,
   ComponentGroup,
   FieldType,
+  isMapComponent,
   isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { getValueByPath } from 'components/ui-generator/ui-component/utils/get-value-by-path';
+import { formatMapFieldValue } from 'components/ui-generator/utils/map-field';
 import { formatQuantity } from 'components/ui-generator/utils/quantity';
 import {
   getToggleableMeta,
@@ -111,6 +113,8 @@ export const renderComponent = (
 
   if (value === null || value === undefined) {
     displayValue = '-';
+  } else if (isMapComponent(leafComponent)) {
+    displayValue = formatMapFieldValue(value) ?? '-';
   } else if (typeof value === 'boolean') {
     displayValue = value ? Messages.enabled : Messages.disabled;
   } else if (typeof value === 'object' && !Array.isArray(value)) {
