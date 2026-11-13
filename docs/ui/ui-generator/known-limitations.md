@@ -12,7 +12,11 @@ documented in the main [Readme](./Readme.md).
   such a shape isn't rendered or sent, and an edit keeps its saved value.
 - **CEL:** `celExpressions` on the list, or on a row's key or value. `regex` on the list.
 - **Backup class parameter forms** (backup schedules, on-demand backups, PITR): they don't write
-  rows in the API shape. Use array fields in Instance and monitoring class schemas.
+  rows in the API shape. Use array fields in Instance schemas and monitoring class destination
+  forms.
+- **Monitoring entry parameters on edit:** the Instance's monitoring editor loads saved entries as
+  they are, so an array field in a monitoring class's `instance` form shows no rows for a saved map
+  and fails validation. Adding an entry works; only saved ones are affected.
 - **Paths into an array:** a `path` like `storages.0.name` — in a reusable section **or** in a
   main topology schema — will **not** bind. Arrays such as `storages[]` and `schedules[]` are
   managed by a host React component via `useFieldArray`, which renders one element's relative

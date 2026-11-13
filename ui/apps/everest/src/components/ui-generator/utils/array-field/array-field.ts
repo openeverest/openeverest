@@ -96,13 +96,17 @@ export const getArrayFieldTargetPaths = (
   return paths;
 };
 
-// Mutates `values`: an array with no filled row leaves its path unset.
+// Mutates `values`: an array with no filled row leaves its path unset. A value
+// that isn't rows, like the saved map of a field the form mode hides, is
+// already in the API shape and is left as is.
 export const writeArrayFieldsInApiShape = (
   values: Record<string, unknown>,
   paths: string[]
 ): void =>
   paths.forEach((path) => {
-    const value = rowsToObject(getByPath(values, path));
+    const rows = getByPath(values, path);
+    if (rows !== undefined && !Array.isArray(rows)) return;
+    const value = rowsToObject(rows);
     if (value) {
       setByPath(values, path, value);
     } else {

@@ -19,6 +19,8 @@ import type {
   Section,
 } from 'components/ui-generator/ui-generator.types';
 import {
+  ArrayItemType,
+  ArrayOutputType,
   FieldType,
   FormMode,
   GroupType,
@@ -308,6 +310,65 @@ describe('SectionEditModal toggleable group', () => {
     await waitFor(() => expect(mutate).toHaveBeenCalled());
     // No `monitoring: {}` left behind either.
     expect(mutate.mock.calls[0][0].spec).toEqual({ other: 'kept' });
+  });
+});
+
+describe('SectionEditModal array field', () => {
+  it('keeps the saved map of an array field the edit mode hides', async () => {
+    mutate.mockClear();
+    const { sections } = preprocessSchema({
+      replicaSet: {
+        sections: {
+          advanced: {
+            label: 'Advanced',
+            components: {
+              labels: {
+                uiType: FieldType.Array,
+                outputType: ArrayOutputType.Object,
+                path: 'spec.labels',
+                fieldParams: { label: 'Labels' },
+                itemTemplate: { uiType: ArrayItemType.KeyValue },
+                // Set on create only.
+                modes: { [FormMode.Edit]: { uiType: FieldType.Hidden } },
+              },
+              replicas: makeNumber('spec.replicas', 'Replicas'),
+            },
+          },
+        },
+      },
+    }).replicaSet;
+
+    const instance = {
+      metadata: { name: 'test-db', namespace: 'ns' },
+      spec: { labels: { team: 'db' }, replicas: 3 },
+    } as unknown as Instance;
+
+    render(
+      <TestWrapper>
+        <SectionEditModal
+          sectionKey="advanced"
+          sections={sections}
+          instance={instance}
+          provider={{ spec: {} } as Provider}
+          namespace="ns"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+        />
+      </TestWrapper>
+    );
+
+    fireEvent.change(screen.getByLabelText('Replicas'), {
+      target: { value: '5' },
+    });
+    const saveButton = screen.getByTestId('form-dialog-save');
+    await waitFor(() => expect(saveButton).toBeEnabled());
+    fireEvent.click(saveButton);
+
+    await waitFor(() => expect(mutate).toHaveBeenCalled());
+    expect(mutate.mock.calls[0][0].spec).toEqual({
+      labels: { team: 'db' },
+      replicas: 5,
+    });
   });
 });
 

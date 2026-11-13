@@ -232,6 +232,17 @@ describe('array field through the pipeline', () => {
       })
     ).toEqual(saved);
   });
+
+  it('leaves a saved map the form holds as it is, instead of reading it as rows', () => {
+    // As forms that load saved values unconverted, like the monitoring
+    // entries editor, hand it over.
+    expect(
+      postprocessSchemaData(
+        { spec: { proxy: { annotations: { team: 'db' } } } },
+        { schema: schemaWith(annotations()), selectedTopology: 'replicaSet' }
+      )
+    ).toEqual({ spec: { proxy: { annotations: { team: 'db' } } } });
+  });
 });
 
 describe('array field in a shape this version does not support', () => {

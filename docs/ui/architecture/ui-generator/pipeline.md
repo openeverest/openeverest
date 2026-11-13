@@ -208,7 +208,8 @@ Read-only and disabled fields keep their value.
     kept; values no topology binds (`dbName`, `backup`, …) are untouched.
   - **`writeArrayFieldsInApiShape`** — an `array` field's rows → its map at the source path;
     empty rows are dropped, and no filled row leaves the path unset. Runs before multi-path, so
-    targets get the map.
+    targets get the map. A value that isn't rows, like a saved map a form loaded as it is, is left
+    untouched.
   - **`extractMultiPathMappings` / `applyMultiPathMappings`** — one value → all `targetPaths`.
   - **`extractQuantityMappings` / `applyQuantitiesToFormData`** — number in `unit` → quantity
     string (`10` → `"10Gi"`). When `originalData` is set and the form number still equals the
@@ -237,7 +238,7 @@ flowchart TD
   ZOD_EDIT --> FORM["FormDialog + UIGenerator"]
   VALUES --> FORM
   FORM --> SUBMIT["submit"]
-  SUBMIT --> MERGE["mergeSectionEdit:<br/>postprocessSchemaData → deepMerge into spec<br/>→ delete switched-off toggleable paths<br/>(and parents left empty)<br/>→ replace widget and array values whole"]
+  SUBMIT --> MERGE["mergeSectionEdit(editSections):<br/>postprocessSchemaData → deepMerge into spec<br/>→ delete switched-off toggleable paths<br/>(and parents left empty)<br/>→ replace widget and array values whole"]
   MERGE --> UPDATE["useUpdateDbInstanceWithConflictRetry"]
 ```
 
@@ -252,7 +253,9 @@ CEL's `original` is built from the same read as the form (`extractInstanceValues
 The update replaces the whole instance and `deepMerge` keeps keys missing from the form, so
 `mergeSectionEdit` deletes the paths of switched-off toggleable groups explicitly, with parents
 left empty. Widget and array values are written whole for the same reason: a map entry removed
-in the form would otherwise survive the merge.
+in the form would otherwise survive the merge. The merge gets the same mode-applied sections the
+form was read and rendered with: a field the edit mode hides isn't in the form, so it is neither
+replaced nor deleted.
 
 ## Section forms
 
