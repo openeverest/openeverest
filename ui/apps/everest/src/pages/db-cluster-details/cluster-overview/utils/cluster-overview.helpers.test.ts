@@ -220,5 +220,51 @@ describe('collectSectionFields', () => {
         }).map(({ label, value }) => ({ label, value }))
       ).toEqual([{ label: 'URL', value: 'http://pmm' }]);
     });
+    describe('gated toggleable group (#3290)', () => {
+      const { advancedWithGate } = preprocessSchema({
+        replicaSet: {
+          sections: {
+            advancedWithGate: {
+              components: {
+                monitoring: {
+                  uiType: 'group',
+                  groupType: GroupType.Toggleable,
+                  label: 'Monitoring',
+                  components: {
+                    enabled: {
+                      uiType: FieldType.Toggle,
+                      path: 'spec.monitoring.enabled',
+                      gate: true,
+                      fieldParams: { label: 'Enable monitoring' },
+                    },
+                    url: {
+                      uiType: FieldType.Text,
+                      path: 'spec.monitoring.url',
+                      fieldParams: { label: 'URL' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }).replicaSet.sections;
+
+      it('shows a switched-off gate as a single Disabled row', () => {
+        expect(
+          collectSectionFields(advancedWithGate.components, {
+            spec: { monitoring: { enabled: false, url: 'http://pmm' } },
+          }).map(({ label, value }) => ({ label, value }))
+        ).toEqual([{ label: 'Monitoring', value: 'Disabled' }]);
+      });
+
+      it('lists the child fields of a switched-on gate without duplicating the switch', () => {
+        expect(
+          collectSectionFields(advancedWithGate.components, {
+            spec: { monitoring: { enabled: true, url: 'http://pmm' } },
+          }).map(({ label, value }) => ({ label, value }))
+        ).toEqual([{ label: 'URL', value: 'http://pmm' }]);
+      });
+    });
   });
 });

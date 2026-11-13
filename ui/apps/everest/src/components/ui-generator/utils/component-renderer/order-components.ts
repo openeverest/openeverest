@@ -7,7 +7,9 @@ export const orderComponents = (
   components: { [key: string]: Component | ComponentGroup },
   componentsOrder?: string[]
 ): [string, Component | ComponentGroup][] => {
-  const entries = Object.entries(components);
+  const entries = Object.entries(components).filter(
+    ([_, comp]) => !('gate' in comp && (comp as Component).gate === true)
+  );
 
   if (!componentsOrder || componentsOrder.length === 0) {
     return entries;

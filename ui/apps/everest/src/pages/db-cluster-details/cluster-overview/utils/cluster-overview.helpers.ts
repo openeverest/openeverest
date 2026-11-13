@@ -127,6 +127,7 @@ export const collectSectionFields = (
     }
 
     const component = comp as Component;
+    if (component.gate === true) continue;
 
     // Widget components (e.g. affinity) hold structured values that don't
     // flatten to a scalar row; delegate to their registered read-only summary.

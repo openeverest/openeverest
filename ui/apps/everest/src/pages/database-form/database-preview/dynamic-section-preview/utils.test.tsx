@@ -239,6 +239,62 @@ describe('renderComponent - toggleable group', () => {
   });
 });
 
+
+describe('renderComponent - gated toggleable group (#3290)', () => {
+  const rawMonitoringWithGate: ComponentGroup = {
+    uiType: 'group',
+    groupType: GroupType.Toggleable,
+    label: 'Monitoring',
+    components: {
+      enabled: {
+        uiType: FieldType.Toggle,
+        path: 'spec.monitoring.enabled',
+        gate: true,
+        fieldParams: { label: 'Enable monitoring' },
+      },
+      endpoint: makeTextComponent('spec.monitoring.endpoint', 'Endpoint'),
+    },
+  };
+
+  const monitoringWithGate = preprocessSchema({
+    replicaSet: {
+      sections: {
+        advanced: { components: { monitoring: rawMonitoringWithGate } },
+      },
+    },
+  }).replicaSet.sections.advanced.components.monitoring;
+
+  const renderWithGate = (gateOn: boolean) =>
+    render(
+      <TestWrapper>
+        <>
+          {renderComponent('monitoring', monitoringWithGate, {
+            spec: {
+              monitoring: {
+                enabled: gateOn,
+                endpoint: 'pmm:443',
+              },
+            },
+          })}
+        </>
+      </TestWrapper>
+    );
+
+  it('summarises a switched-off gated section as disabled, without its child fields', () => {
+    renderWithGate(false);
+
+    expect(screen.getByText('Monitoring: Disabled')).toBeInTheDocument();
+    expect(screen.queryByText(/Endpoint/)).not.toBeInTheDocument();
+  });
+
+  it('lists the child fields of a switched-on gated section without duplicating the gate switch', () => {
+    renderWithGate(true);
+
+    expect(screen.getByText('Endpoint: pmm:443')).toBeInTheDocument();
+    expect(screen.queryByText('Monitoring: Disabled')).not.toBeInTheDocument();
+  });
+});
+
 describe('renderComponent - widget markers', () => {
   const enginePath = 'spec.components.engine.schedulingPolicy.affinity';
   const marker: Component = {
