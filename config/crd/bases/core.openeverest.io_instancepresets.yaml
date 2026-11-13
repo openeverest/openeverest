@@ -1802,6 +1802,30 @@ spec:
                     - message: each MonitoringDestination may be listed at most once
                       rule: self.all(a, self.exists_one(b, b.destinationRef.name ==
                         a.destinationRef.name))
+                  sources:
+                    description: |-
+                      Sources configures the monitoring sources the Instance runs whether or
+                      not a destination needs them.
+                    properties:
+                      metrics:
+                        description: Metrics configures the Instance's OpenMetrics
+                          endpoints.
+                        properties:
+                          policy:
+                            default: OnDemand
+                            description: |-
+                              Policy says when the provider runs the exporters and turns on the
+                              optional metrics endpoints of the Instance's components. OnDemand runs
+                              them while a destination's class needs metrics. Always runs them
+                              without a destination, for scrapers that OpenEverest does not
+                              configure. The serving endpoints are listed in
+                              status.monitoring.sources.metrics.
+                            enum:
+                            - OnDemand
+                            - Always
+                            type: string
+                        type: object
+                    type: object
                 type: object
               parameters:
                 description: |-

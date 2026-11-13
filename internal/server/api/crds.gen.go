@@ -318,6 +318,24 @@ func (e ClusterInstancePresetSpecMonitoringDestinationsDestinationRefKind) Valid
 	}
 }
 
+// Defines values for ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy.
+const (
+	ClusterInstancePresetSpecMonitoringSourcesMetricsPolicyAlways   ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy = "Always"
+	ClusterInstancePresetSpecMonitoringSourcesMetricsPolicyOnDemand ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy = "OnDemand"
+)
+
+// Valid indicates whether the value is a known member of the ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy enum.
+func (e ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy) Valid() bool {
+	switch e {
+	case ClusterInstancePresetSpecMonitoringSourcesMetricsPolicyAlways:
+		return true
+	case ClusterInstancePresetSpecMonitoringSourcesMetricsPolicyOnDemand:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ClusterInstancePresetStatusConditionsStatus.
 const (
 	ClusterInstancePresetStatusConditionsStatusFalse   ClusterInstancePresetStatusConditionsStatus = "False"
@@ -507,6 +525,24 @@ const (
 func (e InstanceSpecMonitoringDestinationsDestinationRefKind) Valid() bool {
 	switch e {
 	case InstanceSpecMonitoringDestinationsDestinationRefKindMonitoringDestination:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstanceSpecMonitoringSourcesMetricsPolicy.
+const (
+	InstanceSpecMonitoringSourcesMetricsPolicyAlways   InstanceSpecMonitoringSourcesMetricsPolicy = "Always"
+	InstanceSpecMonitoringSourcesMetricsPolicyOnDemand InstanceSpecMonitoringSourcesMetricsPolicy = "OnDemand"
+)
+
+// Valid indicates whether the value is a known member of the InstanceSpecMonitoringSourcesMetricsPolicy enum.
+func (e InstanceSpecMonitoringSourcesMetricsPolicy) Valid() bool {
+	switch e {
+	case InstanceSpecMonitoringSourcesMetricsPolicyAlways:
+		return true
+	case InstanceSpecMonitoringSourcesMetricsPolicyOnDemand:
 		return true
 	default:
 		return false
@@ -777,6 +813,24 @@ const (
 func (e InstancePresetSpecMonitoringDestinationsDestinationRefKind) Valid() bool {
 	switch e {
 	case InstancePresetSpecMonitoringDestinationsDestinationRefKindMonitoringDestination:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for InstancePresetSpecMonitoringSourcesMetricsPolicy.
+const (
+	InstancePresetSpecMonitoringSourcesMetricsPolicyAlways   InstancePresetSpecMonitoringSourcesMetricsPolicy = "Always"
+	InstancePresetSpecMonitoringSourcesMetricsPolicyOnDemand InstancePresetSpecMonitoringSourcesMetricsPolicy = "OnDemand"
+)
+
+// Valid indicates whether the value is a known member of the InstancePresetSpecMonitoringSourcesMetricsPolicy enum.
+func (e InstancePresetSpecMonitoringSourcesMetricsPolicy) Valid() bool {
+	switch e {
+	case InstancePresetSpecMonitoringSourcesMetricsPolicyAlways:
+		return true
+	case InstancePresetSpecMonitoringSourcesMetricsPolicyOnDemand:
 		return true
 	default:
 		return false
@@ -2861,6 +2915,21 @@ type ClusterInstancePreset struct {
 				// Parameters Parameters are validated against the class's instanceParametersSchema.
 				Parameters *map[string]interface{} `json:"parameters,omitempty"`
 			} `json:"destinations,omitempty"`
+
+			// Sources Sources configures the monitoring sources the Instance runs whether or
+			// not a destination needs them.
+			Sources *struct {
+				// Metrics Metrics configures the Instance's OpenMetrics endpoints.
+				Metrics *struct {
+					// Policy Policy says when the provider runs the exporters and turns on the
+					// optional metrics endpoints of the Instance's components. OnDemand runs
+					// them while a destination's class needs metrics. Always runs them
+					// without a destination, for scrapers that OpenEverest does not
+					// configure. The serving endpoints are listed in
+					// status.monitoring.sources.metrics.
+					Policy *ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy `json:"policy,omitempty"`
+				} `json:"metrics,omitempty"`
+			} `json:"sources,omitempty"`
 		} `json:"monitoring,omitempty"`
 
 		// Parameters Parameters contains structured parameters that apply to the Instance
@@ -3016,6 +3085,14 @@ type ClusterInstancePresetSpecMaintenanceAutoApproveUpTo string
 
 // ClusterInstancePresetSpecMonitoringDestinationsDestinationRefKind Kind of the referenced object.
 type ClusterInstancePresetSpecMonitoringDestinationsDestinationRefKind string
+
+// ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy Policy says when the provider runs the exporters and turns on the
+// optional metrics endpoints of the Instance's components. OnDemand runs
+// them while a destination's class needs metrics. Always runs them
+// without a destination, for scrapers that OpenEverest does not
+// configure. The serving endpoints are listed in
+// status.monitoring.sources.metrics.
+type ClusterInstancePresetSpecMonitoringSourcesMetricsPolicy string
 
 // ClusterInstancePresetStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type ClusterInstancePresetStatusConditionsStatus string
@@ -4187,6 +4264,21 @@ type Instance struct {
 				// Parameters Parameters are validated against the class's instanceParametersSchema.
 				Parameters *map[string]interface{} `json:"parameters,omitempty"`
 			} `json:"destinations,omitempty"`
+
+			// Sources Sources configures the monitoring sources the Instance runs whether or
+			// not a destination needs them.
+			Sources *struct {
+				// Metrics Metrics configures the Instance's OpenMetrics endpoints.
+				Metrics *struct {
+					// Policy Policy says when the provider runs the exporters and turns on the
+					// optional metrics endpoints of the Instance's components. OnDemand runs
+					// them while a destination's class needs metrics. Always runs them
+					// without a destination, for scrapers that OpenEverest does not
+					// configure. The serving endpoints are listed in
+					// status.monitoring.sources.metrics.
+					Policy *InstanceSpecMonitoringSourcesMetricsPolicy `json:"policy,omitempty"`
+				} `json:"metrics,omitempty"`
+			} `json:"sources,omitempty"`
 		} `json:"monitoring,omitempty"`
 
 		// Parameters Parameters contains structured parameters that apply to the Instance
@@ -4643,6 +4735,14 @@ type InstanceSpecMaintenanceAutoApproveUpTo string
 
 // InstanceSpecMonitoringDestinationsDestinationRefKind Kind of the referenced object.
 type InstanceSpecMonitoringDestinationsDestinationRefKind string
+
+// InstanceSpecMonitoringSourcesMetricsPolicy Policy says when the provider runs the exporters and turns on the
+// optional metrics endpoints of the Instance's components. OnDemand runs
+// them while a destination's class needs metrics. Always runs them
+// without a destination, for scrapers that OpenEverest does not
+// configure. The serving endpoints are listed in
+// status.monitoring.sources.metrics.
+type InstanceSpecMonitoringSourcesMetricsPolicy string
 
 // InstanceStatusBackupStoragesPitrState State summarises whether a trustworthy window exists.
 type InstanceStatusBackupStoragesPitrState string
@@ -5748,6 +5848,21 @@ type InstancePreset struct {
 				// Parameters Parameters are validated against the class's instanceParametersSchema.
 				Parameters *map[string]interface{} `json:"parameters,omitempty"`
 			} `json:"destinations,omitempty"`
+
+			// Sources Sources configures the monitoring sources the Instance runs whether or
+			// not a destination needs them.
+			Sources *struct {
+				// Metrics Metrics configures the Instance's OpenMetrics endpoints.
+				Metrics *struct {
+					// Policy Policy says when the provider runs the exporters and turns on the
+					// optional metrics endpoints of the Instance's components. OnDemand runs
+					// them while a destination's class needs metrics. Always runs them
+					// without a destination, for scrapers that OpenEverest does not
+					// configure. The serving endpoints are listed in
+					// status.monitoring.sources.metrics.
+					Policy *InstancePresetSpecMonitoringSourcesMetricsPolicy `json:"policy,omitempty"`
+				} `json:"metrics,omitempty"`
+			} `json:"sources,omitempty"`
 		} `json:"monitoring,omitempty"`
 
 		// Parameters Parameters contains structured parameters that apply to the Instance
@@ -5903,6 +6018,14 @@ type InstancePresetSpecMaintenanceAutoApproveUpTo string
 
 // InstancePresetSpecMonitoringDestinationsDestinationRefKind Kind of the referenced object.
 type InstancePresetSpecMonitoringDestinationsDestinationRefKind string
+
+// InstancePresetSpecMonitoringSourcesMetricsPolicy Policy says when the provider runs the exporters and turns on the
+// optional metrics endpoints of the Instance's components. OnDemand runs
+// them while a destination's class needs metrics. Always runs them
+// without a destination, for scrapers that OpenEverest does not
+// configure. The serving endpoints are listed in
+// status.monitoring.sources.metrics.
+type InstancePresetSpecMonitoringSourcesMetricsPolicy string
 
 // InstancePresetStatusConditionsStatus status of the condition, one of True, False, Unknown.
 type InstancePresetStatusConditionsStatus string

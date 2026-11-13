@@ -184,15 +184,18 @@ func (r Requirement) Else(current bool) bool {
 	return current
 }
 
-// RequiredSources is what the classes bound to an Instance need from it.
+// RequiredSources is what the Instance's metrics source policy and the
+// classes bound to it need from it.
 // Bindings whose entry was removed from spec.monitoring.destinations are
 // ignored: only removing the entry removes what it asked for.
 type RequiredSources struct {
-	// Metrics is Required when an ExtensionManaged binding's class requires
-	// metrics. Acceptance is deliberately not looked at: a binding that is
+	// Metrics is Required when spec.monitoring.sources.metrics.policy is
+	// Always or an ExtensionManaged binding's class requires metrics.
+	// Acceptance is deliberately not looked at: a binding that is
 	// not Accepted still records that the user asked for metrics, and the
-	// exporter must not flap with it. It is Unresolved while an entry has
-	// no binding, or one without a mode or, for ExtensionManaged, a class.
+	// exporter must not flap with it. Otherwise it is Unresolved while an
+	// entry has no binding, or one without a mode or, for ExtensionManaged,
+	// a class.
 	Metrics Requirement
 	// Connections is Required when an ExtensionManaged binding's class
 	// requires connections; the provider then publishes connection
@@ -212,8 +215,8 @@ type RequiredSources struct {
 }
 
 // RequiredSources tells the provider which sources and integrations the
-// classes bound to the Instance need, so it runs exporters and agents only
-// while something consumes them.
+// Instance needs, so it runs exporters and agents only while the metrics
+// source policy or a bound class asks for them.
 func (c *Context) RequiredSources() (RequiredSources, error) {
 	bindings, err := c.MonitoringBindings()
 	if err != nil {
@@ -227,8 +230,12 @@ func (c *Context) RequiredSources() (RequiredSources, error) {
 	if c.in.Spec.Monitoring != nil {
 		entries = c.in.Spec.Monitoring.Destinations
 	}
+	metrics := Required
+	if c.in.GetMetricsSourcePolicy() != v1alpha1.MonitoringSourcePolicyAlways {
+		metrics = sourceRequirement(bindings, entries, func(r monitoringv1alpha1.SourceRequirements) bool { return r.Metrics })
+	}
 	return RequiredSources{
-		Metrics: sourceRequirement(bindings, entries, func(r monitoringv1alpha1.SourceRequirements) bool { return r.Metrics }),
+		Metrics: metrics,
 		Connections: sourceRequirement(bindings, entries, func(r monitoringv1alpha1.SourceRequirements) bool {
 			return r.Connection
 		}),

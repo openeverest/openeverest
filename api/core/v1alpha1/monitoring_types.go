@@ -49,10 +49,13 @@ const (
 // Connection endpoints that monitoring agents log in to name it.
 const CredentialProfileMonitor = "monitor"
 
-// InstanceMonitoringSpec configures where the Instance sends monitoring data.
-// It is an object so Instance-wide fields can be added without a breaking
-// change.
+// InstanceMonitoringSpec configures what the Instance exposes for monitoring
+// and where it sends monitoring data.
 type InstanceMonitoringSpec struct {
+	// Sources configures the monitoring sources the Instance runs whether or
+	// not a destination needs them.
+	// +optional
+	Sources *InstanceMonitoringSources `json:"sources,omitempty"`
 	// Destinations lists the MonitoringDestinations this Instance sends to.
 	// Core creates one MonitoringBinding per entry.
 	// +listType=map
@@ -61,6 +64,51 @@ type InstanceMonitoringSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self.all(a, self.exists_one(b, b.destinationRef.name == a.destinationRef.name))",message="each MonitoringDestination may be listed at most once"
 	// +optional
 	Destinations []InstanceMonitoringDestination `json:"destinations,omitempty"`
+}
+
+// InstanceMonitoringSources configures the Instance's monitoring sources, one
+// key per signal.
+type InstanceMonitoringSources struct {
+	// Metrics configures the Instance's OpenMetrics endpoints.
+	// +optional
+	Metrics *InstanceMetricsSource `json:"metrics,omitempty"`
+}
+
+// InstanceMetricsSource configures when the Instance serves OpenMetrics.
+type InstanceMetricsSource struct {
+	// Policy says when the provider runs the exporters and turns on the
+	// optional metrics endpoints of the Instance's components. OnDemand runs
+	// them while a destination's class needs metrics. Always runs them
+	// without a destination, for scrapers that OpenEverest does not
+	// configure. The serving endpoints are listed in
+	// status.monitoring.sources.metrics.
+	// +kubebuilder:default=OnDemand
+	// +optional
+	Policy MonitoringSourcePolicy `json:"policy,omitempty"`
+}
+
+// MonitoringSourcePolicy says when the provider runs a monitoring source.
+//
+// +kubebuilder:validation:Enum=OnDemand;Always
+type MonitoringSourcePolicy string
+
+const (
+	// MonitoringSourcePolicyOnDemand runs the source while a destination's
+	// class needs it.
+	MonitoringSourcePolicyOnDemand MonitoringSourcePolicy = "OnDemand"
+	// MonitoringSourcePolicyAlways runs the source whether or not a
+	// destination needs it.
+	MonitoringSourcePolicyAlways MonitoringSourcePolicy = "Always"
+)
+
+// GetMetricsSourcePolicy returns spec.monitoring.sources.metrics.policy, or
+// OnDemand when it is not set.
+func (in *Instance) GetMetricsSourcePolicy() MonitoringSourcePolicy {
+	m := in.Spec.Monitoring
+	if m == nil || m.Sources == nil || m.Sources.Metrics == nil || m.Sources.Metrics.Policy == "" {
+		return MonitoringSourcePolicyOnDemand
+	}
+	return m.Sources.Metrics.Policy
 }
 
 // InstanceMonitoringDestination sends the Instance's monitoring data to one
