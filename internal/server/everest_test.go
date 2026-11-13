@@ -16,9 +16,13 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"regexp"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -28,6 +32,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"sigs.k8s.io/yaml"
+
+	"github.com/openeverest/openeverest/v2/internal/secretdefinition"
 )
 
 func TestEverestErrorHandler_Conflict(t *testing.T) {
@@ -87,6 +94,22 @@ func TestEverestErrorHandler_Conflict(t *testing.T) {
 				"reason": "Conflict"
 			}`,
 		},
+		{
+			name: "Secret owned by a controller",
+			err:  &secretdefinition.ManagedByControllerError{Kind: "ExternalSecret", Name: "pmm-credentials"},
+			want: `{
+				"message": "managed by ExternalSecret/pmm-credentials",
+				"reason": "ManagedByController"
+			}`,
+		},
+		{
+			name: "Secret not created through the API",
+			err:  secretdefinition.ErrManagedOutside,
+			want: `{
+				"message": "managed outside OpenEverest; change it at its source",
+				"reason": "ManagedOutside"
+			}`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -103,6 +126,158 @@ func TestEverestErrorHandler_Conflict(t *testing.T) {
 			require.Equal(t, http.StatusConflict, rec.Code)
 			assert.JSONEq(t, tt.want, rec.Body.String())
 		})
+	}
+}
+
+func TestEverestErrorHandler_AdmissionDenial(t *testing.T) {
+	t.Parallel()
+
+	destinations := schema.GroupResource{Group: "monitoring.openeverest.io", Resource: "monitoringdestinations"}
+	inUse := "in use by 1 database; remove the destination from them first " +
+		"(kubectl get monitoringbindings -n team-a -l monitoring.openeverest.io/destination=pmm-prod)"
+	secrets := schema.GroupResource{Resource: "secrets"}
+	secretInUse := "in use by 2 monitoring destination(s) and 0 backup storage(s); replace its values instead, " +
+		"or point them at another Secret first (kubectl get monitoringdestinations,backupstorages -n team-a " +
+		"--field-selector spec.tls.ca.secretKeyRef.name=pmm-ca)"
+
+	tests := []struct {
+		name       string
+		err        error
+		code       int
+		want       string
+		wantReason string
+	}{
+		{
+			name: "in-use policy denial is a conflict",
+			// admission.NewForbidden in the ValidatingAdmissionPolicy dispatcher of k8s.io/apiserver.
+			err: k8serrors.NewForbidden(destinations, "pmm-prod", errors.New(
+				"ValidatingAdmissionPolicy 'monitoringdestination-in-use.monitoring.openeverest.io' with binding "+
+					"'monitoringdestination-in-use.monitoring.openeverest.io' denied request: "+inUse,
+			)),
+			code:       http.StatusConflict,
+			want:       inUse,
+			wantReason: "InUse",
+		},
+		{
+			name: "in-use policy named with kustomize's prefix",
+			err: k8serrors.NewForbidden(destinations, "pmm-prod", errors.New(
+				"ValidatingAdmissionPolicy 'openeverest-monitoringdestination-in-use.monitoring.openeverest.io' with binding "+
+					"'openeverest-monitoringdestination-in-use.monitoring.openeverest.io' denied request: "+inUse,
+			)),
+			code:       http.StatusConflict,
+			want:       inUse,
+			wantReason: "InUse",
+		},
+		{
+			name: "Secret in-use policy denial is a conflict",
+			err: k8serrors.NewForbidden(secrets, "pmm-ca", errors.New(
+				"ValidatingAdmissionPolicy 'secret-in-use.openeverest.io' with binding "+
+					"'secret-in-use.openeverest.io' denied request: "+secretInUse,
+			)),
+			code:       http.StatusConflict,
+			want:       secretInUse,
+			wantReason: "InUse",
+		},
+		{
+			name: "Secret in-use policy named with kustomize's prefix",
+			err: k8serrors.NewForbidden(secrets, "pmm-ca", errors.New(
+				"ValidatingAdmissionPolicy 'openeverest-secret-in-use.openeverest.io' with binding "+
+					"'openeverest-secret-in-use.openeverest.io' denied request: "+secretInUse,
+			)),
+			code:       http.StatusConflict,
+			want:       secretInUse,
+			wantReason: "InUse",
+		},
+		{
+			name: "other policy denial stays forbidden",
+			err: k8serrors.NewForbidden(destinations, "pmm-prod", errors.New(
+				"ValidatingAdmissionPolicy 'destination-naming.example.com' denied request: names must start with team-",
+			)),
+			code: http.StatusForbidden,
+			want: "names must start with team-",
+		},
+		{
+			// A missing permission, not a state the caller can wait out.
+			name: "secret-reference policy denial stays forbidden",
+			err: k8serrors.NewForbidden(destinations, "pmm-prod", errors.New(
+				"ValidatingAdmissionPolicy 'openeverest-secret-reference.openeverest.io' with binding "+
+					"'openeverest-secret-reference.openeverest.io' denied request: "+
+					"you need get on Secret pmm-prod-credentials to reference it or to change an object that uses it",
+			)),
+			code: http.StatusForbidden,
+			want: "you need get on Secret pmm-prod-credentials to reference it or to change an object that uses it",
+		},
+		{
+			name: "webhook denial",
+			// webhookerrors.ToStatusErr in k8s.io/apiserver.
+			err: &k8serrors.StatusError{ErrStatus: metav1.Status{
+				Status:  metav1.StatusFailure,
+				Code:    http.StatusForbidden,
+				Reason:  metav1.StatusReasonForbidden,
+				Message: `admission webhook "vinstance.percona-server-mongodb.openeverest.io" denied the request: replicas must be odd`,
+			}},
+			code: http.StatusForbidden,
+			want: "replicas must be odd",
+		},
+		{
+			name: "other forbidden error unchanged",
+			err:  k8serrors.NewForbidden(destinations, "pmm-prod", errors.New("namespace team-a is being terminated")),
+			code: http.StatusForbidden,
+			want: `monitoringdestinations.monitoring.openeverest.io "pmm-prod" is forbidden: namespace team-a is being terminated`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			e := echo.New()
+			rec := httptest.NewRecorder()
+			c := e.NewContext(httptest.NewRequestWithContext(context.Background(), http.MethodDelete, "/", nil), rec)
+
+			handler := everestErrorHandler(e.DefaultHTTPErrorHandler)
+			handler(tt.err, c)
+
+			require.Equal(t, tt.code, rec.Code)
+			var body struct {
+				Message string `json:"message"`
+				Reason  string `json:"reason"`
+			}
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+			assert.Equal(t, tt.want, body.Message)
+			assert.Equal(t, tt.wantReason, body.Reason)
+		})
+	}
+}
+
+// TestInUsePolicyCoversPolicies proves every in-use policy core ships
+// answers 409 InUse over HTTP, named as in the chart or with the prefix
+// kustomize's config/default adds.
+func TestInUsePolicyCoversPolicies(t *testing.T) {
+	t.Parallel()
+
+	files, err := filepath.Glob(filepath.Join("..", "..", "config", "policy", "*_in_use.yaml"))
+	require.NoError(t, err)
+	var names []string
+	for _, file := range files {
+		content, err := os.ReadFile(file) //nolint:gosec // the repository's own policy files
+		require.NoError(t, err)
+		for _, doc := range regexp.MustCompile(`(?m)^---\s*$`).Split(string(content), -1) {
+			obj := &metav1.PartialObjectMetadata{}
+			require.NoError(t, yaml.Unmarshal([]byte(doc), obj), file)
+			if obj.Kind == "ValidatingAdmissionPolicy" {
+				names = append(names, obj.Name)
+			}
+		}
+	}
+	require.Contains(t, names, "secret-in-use.openeverest.io")
+	require.Contains(t, names, "monitoringdestination-in-use.monitoring.openeverest.io")
+	for _, name := range names {
+		for _, deployed := range []string{name, "openeverest-" + name} {
+			assert.True(t, inUsePolicy.MatchString("ValidatingAdmissionPolicy '"+deployed+"' with binding '"+deployed+"' denied request: in use"),
+				deployed,
+			)
+		}
 	}
 }
 

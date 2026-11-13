@@ -18,28 +18,71 @@ import (
 	"context"
 	"maps"
 	"slices"
+	"strings"
 
+	"github.com/AlekSi/pointer"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/pkg/events"
 )
 
-// ListMonitoringDestinations returns the monitoring destinations in a namespace, only those of class when it is set.
-func (h *k8sHandler) ListMonitoringDestinations(ctx context.Context, _, namespace, class string) (*monitoringv1alpha1.MonitoringDestinationList, error) {
-	list, err := h.kubeConnector.ListMonitoringDestinations(ctx, ctrlclient.InNamespace(namespace))
+// ListMonitoringDestinations returns the monitoring destinations in a
+// namespace, only those of params.Class and referencing params.Secret when
+// they are set. Both filters are field selectors answered by the Kubernetes
+// API server, as for kubectl get --field-selector. A Secret is referenced
+// through either of two fields, so it takes one list per field, merged
+// with each destination once.
+func (h *k8sHandler) ListMonitoringDestinations(ctx context.Context, _, namespace string, params *api.ListMonitoringDestinationsParams) (*monitoringv1alpha1.MonitoringDestinationList, error) {
+	if params == nil {
+		params = &api.ListMonitoringDestinationsParams{}
+	}
+	fields := ctrlclient.MatchingFields{}
+	if class := pointer.Get(params.Class); class != "" {
+		fields[monitoringv1alpha1.DestinationClassField] = class
+	}
+	secret := pointer.Get(params.Secret)
+	if secret == "" {
+		return h.listMonitoringDestinations(ctx, namespace, fields)
+	}
+
+	withSecret := func(field string) ctrlclient.MatchingFields {
+		selected := maps.Clone(fields)
+		selected[field] = secret
+		return selected
+	}
+	merged, err := h.listMonitoringDestinations(ctx, namespace, withSecret(monitoringv1alpha1.DestinationCredentialsSecretField))
 	if err != nil {
 		return nil, err
 	}
-	if class == "" {
-		return list, nil
+	byCA, err := h.listMonitoringDestinations(ctx, namespace, withSecret(monitoringv1alpha1.DestinationCASecretField))
+	if err != nil {
+		return nil, err
 	}
-	list.Items = slices.DeleteFunc(list.Items, func(d monitoringv1alpha1.MonitoringDestination) bool {
-		return d.Spec.ClassRef.Name != class
+	for _, destination := range byCA.Items {
+		if !slices.ContainsFunc(merged.Items, func(d monitoringv1alpha1.MonitoringDestination) bool {
+			return d.GetName() == destination.GetName()
+		}) {
+			merged.Items = append(merged.Items, destination)
+		}
+	}
+	// Two reads have no single resourceVersion to report.
+	merged.ResourceVersion = ""
+	slices.SortFunc(merged.Items, func(a, b monitoringv1alpha1.MonitoringDestination) int {
+		return strings.Compare(a.GetName(), b.GetName())
 	})
-	return list, nil
+	return merged, nil
+}
+
+func (h *k8sHandler) listMonitoringDestinations(ctx context.Context, namespace string, fields ctrlclient.MatchingFields) (*monitoringv1alpha1.MonitoringDestinationList, error) {
+	opts := []ctrlclient.ListOption{ctrlclient.InNamespace(namespace)}
+	if len(fields) > 0 {
+		opts = append(opts, fields)
+	}
+	return h.kubeConnector.ListMonitoringDestinations(ctx, opts...)
 }
 
 // GetMonitoringDestination returns a monitoring destination by name and namespace.

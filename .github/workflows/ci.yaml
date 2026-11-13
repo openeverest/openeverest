@@ -563,6 +563,7 @@ jobs:
 
       - name: Unit tests
         run: |
+          pnpm --filter "@percona/utils" test
           pnpm --filter "@percona/ui-lib" test
           pnpm --filter "@percona/everest" test:unit
 

@@ -138,6 +138,10 @@ export const useDatabasePageDefaultValues = (
         // Inherit the source instance's backups (schedules, class, PITR) so the
         // clone mirrors it, matching v1's restore prefill.
         backup: extractWizardBackup(sourceInstance),
+        // Its monitoring destinations too; the Monitoring step can drop them.
+        monitoring: {
+          destinations: sourceInstance.spec?.monitoring?.destinations ?? [],
+        },
       };
     }
 

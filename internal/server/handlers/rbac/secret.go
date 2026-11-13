@@ -63,6 +63,15 @@ func (h *rbacHandler) GetSecret(ctx context.Context, cluster, namespace, name st
 	return h.next.GetSecret(ctx, cluster, namespace, name)
 }
 
+// PatchSecret applies a merge patch to the data of a secret, gated by RBAC.
+func (h *rbacHandler) PatchSecret(ctx context.Context, cluster, namespace, name string, patch []byte) (*corev1.Secret, error) {
+	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
+	if err := h.enforce(ctx, rbac.ResourceSecrets, rbac.ActionUpdate, object); err != nil {
+		return nil, err
+	}
+	return h.next.PatchSecret(ctx, cluster, namespace, name, patch)
+}
+
 // DeleteSecret deletes a secret, gated by RBAC.
 func (h *rbacHandler) DeleteSecret(ctx context.Context, cluster, namespace, name string) error {
 	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)

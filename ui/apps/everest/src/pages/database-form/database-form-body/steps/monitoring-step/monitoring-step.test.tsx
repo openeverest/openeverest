@@ -24,7 +24,24 @@ import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { TestWrapper } from 'utils/test';
 import { DbWizardFormFields } from 'consts';
 import { MonitoringStep } from './monitoring-step';
-import { MONITORING_DESTINATIONS_FIELD } from './monitoring-step.constants';
+import { MONITORING_DESTINATIONS_FIELD } from 'components/monitoring-destinations-picker';
+
+const mocks = vi.hoisted(() => ({
+  permissions: { canRead: true, isPermissionsLoading: false },
+  secretPermissions: {
+    canCreate: ['team-a'],
+    canRead: ['team-a'],
+    canUpdate: ['team-a'],
+    canDelete: ['team-a'],
+    isPermissionsLoading: false,
+  },
+  destinationsFailed: false,
+}));
+
+vi.mock('hooks/rbac', () => ({
+  useRBACPermissions: () => mocks.permissions,
+  useNamespacePermissionsForResource: () => mocks.secretPermissions,
+}));
 
 vi.mock('hooks/api/monitoring-classes', () => {
   const classes = [
@@ -39,6 +56,11 @@ vi.mock('hooks/api/monitoring-classes', () => {
           agentVersion: '3.0.0',
         },
         uiSchema: {
+          destination: {
+            components: {
+              url: { path: 'parameters.url', uiType: 'text' },
+            },
+          },
           instance: {
             components: {
               cpuRequest: {
@@ -86,6 +108,7 @@ vi.mock('hooks/api/monitoring-classes', () => {
         authModes: [{ name: 'Anonymous' }],
       },
       status: {
+        conditions: [{ type: 'Accepted', status: 'True' }],
         providers: [
           { name: 'percona-server-mongodb', mode: 'ExtensionManaged' },
         ],
@@ -136,8 +159,29 @@ vi.mock('hooks/api/monitoring-destinations', () => {
     isLoading: false,
     isSuccess: true,
   };
-  return { useMonitoringDestinations: () => result };
+  const failed = { isLoading: false, isSuccess: false, isError: true };
+  const save = { mutate: () => {}, isPending: false };
+  const noDestination = {};
+  return {
+    useMonitoringDestinations: () =>
+      mocks.destinationsFailed ? failed : result,
+    useMonitoringDestination: () => noDestination,
+    useSaveMonitoringDestination: () => save,
+    SecretAlreadyExistsError: class extends Error {},
+  };
 });
+
+vi.mock(
+  'components/monitoring-destination-modal/hooks/use-monitoring-destination-permissions',
+  () => {
+    const permissions = {
+      createNamespaces: ['team-a'],
+      updateNamespaces: ['team-a'],
+      deleteNamespaces: ['team-a'],
+    };
+    return { useMonitoringDestinationPermissions: () => permissions };
+  }
+);
 
 const SelectedValue = () => {
   const value = useWatch({ name: MONITORING_DESTINATIONS_FIELD });
@@ -179,6 +223,11 @@ const getCard = (name: string) =>
   screen.getByRole('button', { name: cardPattern(name) });
 
 describe('MonitoringStep', () => {
+  afterEach(() => {
+    mocks.permissions = { canRead: true, isPermissionsLoading: false };
+    mocks.destinationsFailed = false;
+  });
+
   it('groups destinations under their monitoring system', () => {
     render(
       <Wrapper>
@@ -197,6 +246,24 @@ describe('MonitoringStep', () => {
     ).toHaveTextContent(
       'No destinations of this system in the team-a namespace yet.'
     );
+  });
+
+  it('creates a destination of an empty system in place, in its class and namespace', async () => {
+    render(
+      <Wrapper>
+        <MonitoringStep />
+      </Wrapper>
+    );
+
+    fireEvent.click(
+      within(
+        screen.getByTestId('no-monitoring-destinations-victoriametrics')
+      ).getByRole('button', { name: 'Add destination' })
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('VictoriaMetrics')).toBeInTheDocument();
+    expect(within(dialog).getByDisplayValue('team-a')).toBeInTheDocument();
   });
 
   it('writes spec.monitoring.destinations entries when cards are toggled', () => {
@@ -305,5 +372,36 @@ describe('MonitoringStep', () => {
       },
     ]);
     expect(fieldOf('prometheus', /Scrape interval/)).toHaveValue('30s');
+  });
+
+  it("says the destinations can't be read instead of offering to add one", () => {
+    mocks.permissions = { canRead: false, isPermissionsLoading: false };
+    render(
+      <Wrapper>
+        <MonitoringStep />
+      </Wrapper>
+    );
+
+    expect(
+      screen.getByTestId('monitoring-destinations-unavailable')
+    ).toHaveTextContent(
+      "You don't have permission to view monitoring destinations in the team-a namespace."
+    );
+    expect(screen.queryByText('Add destination')).not.toBeInTheDocument();
+  });
+
+  it('says the destinations could not be loaded', () => {
+    mocks.destinationsFailed = true;
+    render(
+      <Wrapper>
+        <MonitoringStep />
+      </Wrapper>
+    );
+
+    expect(
+      screen.getByTestId('monitoring-destinations-unavailable')
+    ).toHaveTextContent(
+      'Monitoring destinations could not be loaded. Try again later.'
+    );
   });
 });

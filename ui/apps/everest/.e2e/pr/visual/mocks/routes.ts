@@ -32,8 +32,10 @@ import {
   mockInstancesListEmpty,
   mockInstanceConnection,
   mockNamespaces,
-  mockMonitoringConfigs,
-  mockMonitoringConfigsEmpty,
+  mockMonitoringBindings,
+  mockMonitoringClasses,
+  mockMonitoringDestinations,
+  mockMonitoringDestinationsEmpty,
   mockBackupStorages,
   mockBackups,
   mockBackupClasses,
@@ -96,16 +98,31 @@ export const mockNamespacesRoute = (page: Page) =>
     route.fulfill(json(mockNamespaces))
   );
 
-// GET clusters/main/namespaces/{ns}/monitoring-configs -> MonitoringConfigList
-export const mockMonitoringConfigsRoute = (
-  page: Page,
-  payload = mockMonitoringConfigs
-) =>
-  page.route(/\/monitoring-configs$/, (route) => route.fulfill(json(payload)));
+// GET clusters/main/monitoring-classes[?provider=] -> MonitoringClassList
+export const mockMonitoringClassesRoute = (page: Page) =>
+  page.route(/\/monitoring-classes(\?|$)/, (route) =>
+    route.fulfill(json(mockMonitoringClasses))
+  );
 
-// Variant: monitoring-configs with no endpoints (no-endpoint-available state).
-export const mockMonitoringConfigsEmptyRoute = (page: Page) =>
-  mockMonitoringConfigsRoute(page, mockMonitoringConfigsEmpty);
+// GET clusters/main/namespaces/{ns}/monitoring-destinations
+//   -> MonitoringDestinationList
+export const mockMonitoringDestinationsRoute = (
+  page: Page,
+  payload = mockMonitoringDestinations
+) =>
+  page.route(/\/monitoring-destinations(\?|$)/, (route) =>
+    route.fulfill(json(payload))
+  );
+
+// Variant: no destination in the namespace (no-destination state).
+export const mockMonitoringDestinationsEmptyRoute = (page: Page) =>
+  mockMonitoringDestinationsRoute(page, mockMonitoringDestinationsEmpty);
+
+// GET clusters/main/namespaces/{ns}/monitoring-bindings -> MonitoringBindingList
+export const mockMonitoringBindingsRoute = (page: Page) =>
+  page.route(/\/monitoring-bindings(\?|$)/, (route) =>
+    route.fulfill(json(mockMonitoringBindings))
+  );
 
 // GET clusters/main/namespaces/{ns}/backup-storages -> BackupStorageList
 export const mockBackupStoragesRoute = (page: Page) =>
@@ -202,7 +219,9 @@ export const installVisualMocks = async (page: Page) => {
   await mockInstancesListRoute(page);
   await mockInstanceDetail(page);
   await mockInstanceConnectionRoute(page);
-  await mockMonitoringConfigsRoute(page);
+  await mockMonitoringClassesRoute(page);
+  await mockMonitoringDestinationsRoute(page);
+  await mockMonitoringBindingsRoute(page);
   await mockBackupStoragesRoute(page);
   await mockBackupsRoute(page);
   await mockBackupClassesRoute(page);

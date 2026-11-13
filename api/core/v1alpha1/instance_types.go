@@ -767,6 +767,15 @@ const (
 	// has no destinations.
 	ConditionMonitoringConfigured = "MonitoringConfigured"
 
+	// ConditionMonitoringReady aggregates the Ready condition of
+	// status.monitoring.destinations[] the same way MonitoringConfigured
+	// aggregates Configured: False if any entry is Ready=False, else Unknown
+	// if any is Unknown, else True. It goes False when a destination is not
+	// Ready even though every entry is Configured. It never claims data
+	// flows and does not affect the Instance's Ready. Absent when
+	// spec.monitoring has no destinations.
+	ConditionMonitoringReady = "MonitoringReady"
+
 	// ConditionDataSourceReady indicates the outcome of seeding an Instance
 	// from .spec.dataSource. The condition is set only when the Instance has
 	// a DataSource configured. Status=True means the source data has been
@@ -913,6 +922,17 @@ const (
 	// ReasonMonitoringIntegrationUnsupported indicates the provider
 	// implements no monitoring interface, so no destination can be served.
 	ReasonMonitoringIntegrationUnsupported = "MonitoringIntegrationUnsupported"
+)
+
+// Reasons for the MonitoringReady condition, besides ReasonMonitoringPending
+// and ReasonMonitoringIntegrationUnsupported.
+const (
+	// ReasonMonitoringReady indicates every destination is Ready.
+	ReasonMonitoringReady = "MonitoringReady"
+
+	// ReasonMonitoringNotReady indicates at least one destination is not
+	// Ready.
+	ReasonMonitoringNotReady = "MonitoringNotReady"
 )
 
 // Reasons for the DataSourceReady condition.

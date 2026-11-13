@@ -15,6 +15,8 @@
 package server
 
 import (
+	"errors"
+	"io"
 	"net/http"
 
 	"github.com/AlekSi/pointer"
@@ -26,7 +28,7 @@ import (
 )
 
 // CreateSecret creates a new secret in the specified namespace and cluster.
-func (e *EverestServer) CreateSecret(c echo.Context, cluster, namespace string) error {
+func (e *EverestServer) CreateSecret(c echo.Context, cluster, namespace string, _ api.CreateSecretParams) error {
 	secret := &corev1.Secret{}
 	if err := c.Bind(secret); err != nil {
 		e.l.Errorf("CreateSecret: failed to bind request body: %v", err)
@@ -73,8 +75,25 @@ func (e *EverestServer) GetSecret(c echo.Context, cluster, namespace, name strin
 	return c.JSON(http.StatusOK, result)
 }
 
+// PatchSecret applies a merge patch to the data of the secret specified by name (returns metadata only, no data).
+func (e *EverestServer) PatchSecret(c echo.Context, cluster, namespace, name string, _ api.PatchSecretParams) error {
+	patch, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		e.l.Errorf("PatchSecret: failed to read request body: %v", err)
+		return errors.Join(errFailedToReadRequestBody, err)
+	}
+
+	result, err := e.handler.PatchSecret(c.Request().Context(), cluster, namespace, name, patch)
+	if err != nil {
+		e.l.Errorf("PatchSecret failed: %v", err)
+		return err
+	}
+
+	return c.JSON(http.StatusOK, result)
+}
+
 // DeleteSecret deletes the secret specified by name in the namespace and cluster.
-func (e *EverestServer) DeleteSecret(c echo.Context, cluster, namespace, name string) error {
+func (e *EverestServer) DeleteSecret(c echo.Context, cluster, namespace, name string, _ api.DeleteSecretParams) error {
 	if err := e.handler.DeleteSecret(c.Request().Context(), cluster, namespace, name); err != nil {
 		e.l.Errorf("DeleteSecret failed: %v", err)
 		return err

@@ -14,6 +14,7 @@
 
 import { ComponentType, ReactNode } from 'react';
 import { Provider } from 'shared-types/api.types';
+import type { kubernetesUnit } from 'utils/k8ResourceParser';
 
 export enum FormMode {
   New = 'new',
@@ -55,6 +56,7 @@ export interface DataSource {
 
 export enum FieldType {
   Number = 'number',
+  Quantity = 'quantity',
   Select = 'select',
   Text = 'text',
   Toggle = 'toggle',
@@ -96,6 +98,22 @@ interface CommonFieldParams {
 }
 
 export interface NumberFieldParams extends CommonFieldParams {
+  step?: number;
+  placeholder?: string;
+}
+
+// Kubernetes resource quantity (CPU / memory / disk). Prefer `unit` /
+// `unitLabel` over badge / badgeToApi — the quantity codec owns conversion.
+export interface QuantityFieldParams
+  extends Omit<CommonFieldParams, 'badge' | 'badgeToApi'> {
+  // Not supported: quantity owns conversion via `unit` / `unitLabel`.
+  badge?: never;
+  badgeToApi?: never;
+  // Target unit for form values and API writes (e.g. Gi). Omit for CPU (cores).
+  unit?: kubernetesUnit;
+  // End-adornment / display label falls back to `unit` (e.g. "cores").
+  unitLabel?: string;
+  // Omit to accept "any" fractional value.
   step?: number;
   placeholder?: string;
 }
@@ -158,6 +176,7 @@ export type ToggleValidation = Omit<CommonValidation, 'required'> & {
 
 export type FieldParamsMap = {
   [FieldType.Number]: NumberFieldParams;
+  [FieldType.Quantity]: QuantityFieldParams;
   [FieldType.Select]: SelectFieldParams;
   [FieldType.Text]: TextFieldParams;
   [FieldType.Toggle]: ToggleFieldParams;
@@ -209,6 +228,7 @@ export type NumberValidation = CommonValidation & {
 
 export type ValidationMap = {
   [FieldType.Number]: NumberValidation;
+  [FieldType.Quantity]: NumberValidation;
   [FieldType.Text]: TextValidation;
   [FieldType.Select]: CommonValidation;
   [FieldType.Toggle]: ToggleValidation;

@@ -19,8 +19,7 @@ import {
   Section,
   TopologyUISchemas,
 } from 'components/ui-generator/ui-generator.types';
-import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
-import { applyModeOverrides } from 'components/ui-generator/utils/preprocess/apply-mode-overrides';
+import { preprocessSection } from 'components/ui-generator/utils/preprocess/preprocess-section';
 import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import { buildSectionZodSchema } from 'components/ui-generator/utils/schema-builder';
 import { postprocessSchemaData } from 'components/ui-generator/utils/postprocess/postprocess-schema';
@@ -29,6 +28,7 @@ import {
   MonitoringClass,
   MonitoringConditionType,
 } from 'shared-types/monitoring-destinations.types';
+import { getAuthModeCredentialsSection } from './auth-mode-credentials';
 
 // The class uiSchema groups its forms by what they fill: the destination's
 // spec, the Secret of each auth mode and an Instance's monitoring entry.
@@ -46,6 +46,9 @@ export interface MonitoringSectionForm {
   sections: Record<string, Section>;
 }
 
+// Modes core resolves without a Secret.
+const SECRETLESS_AUTH_MODES = ['Anonymous', 'WorkloadIdentity'];
+
 const toSectionMap = (value: unknown): Record<string, Section> =>
   isPlainObject(value)
     ? Object.fromEntries(
@@ -62,6 +65,27 @@ export const isMonitoringClassAccepted = (monitoringClass: MonitoringClass) =>
       condition.type === MonitoringConditionType.Accepted &&
       condition.status === 'True'
   );
+
+// Whether any change to an entry of the class restarts the pods of the
+// provider's Instances, or of any provider's when none is given.
+export const restartsPods = (
+  monitoringClass: MonitoringClass,
+  provider?: string
+) =>
+  (monitoringClass.status?.providers ?? []).some(
+    (entry) =>
+      (!provider || entry.name === provider) &&
+      entry.disruption === 'RollingRestart'
+  );
+
+export const getMonitoringClassName = (monitoringClass: MonitoringClass) =>
+  monitoringClass.metadata?.name ?? '';
+
+export const getMonitoringClassTitle = (monitoringClass: MonitoringClass) =>
+  monitoringClass.spec.displayName || getMonitoringClassName(monitoringClass);
+
+export const isSecretBackedAuthMode = (mode: string) =>
+  !SECRETLESS_AUTH_MODES.includes(mode);
 
 // The generated CRD types keep uiSchema opaque, so each form is narrowed here.
 export const getMonitoringClassUiSchema = (
@@ -85,14 +109,11 @@ export const toMonitoringSectionForm = (
   section: Section,
   formMode: FormMode = FormMode.New
 ): MonitoringSectionForm => {
-  const { sections } = preprocessSchema({
-    [sectionKey]: { sections: { [sectionKey]: section } },
-  })[sectionKey];
-  const modeSections = applyModeOverrides(sections, formMode);
+  const sections = preprocessSection(sectionKey, section, formMode);
   return {
     sectionKey,
-    sections: modeSections,
-    schema: { [sectionKey]: { sections: modeSections } },
+    sections,
+    schema: { [sectionKey]: { sections } },
   };
 };
 
@@ -115,3 +136,15 @@ export const postprocessSectionForm = (
     schema: form.schema,
     selectedTopology: form.sectionKey,
   });
+
+// The class's credentials form for the mode or, when it ships none, one masked
+// input per credential key the mode declares.
+export const getCredentialsSection = (
+  monitoringClass: MonitoringClass,
+  mode: string
+): Section | undefined =>
+  getAuthModeCredentialsSection(
+    monitoringClass.spec.authModes,
+    getMonitoringClassUiSchema(monitoringClass).credentials,
+    mode
+  );

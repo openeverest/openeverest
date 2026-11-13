@@ -71,9 +71,9 @@ import {
 } from './database-form-body/steps/backup-step';
 import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
+import { MONITORING_DESTINATIONS_FIELD } from 'components/monitoring-destinations-picker';
 import {
   MonitoringStep,
-  MONITORING_DESTINATIONS_FIELD,
   useMonitoringStep,
 } from './database-form-body/steps/monitoring-step';
 import { Messages as MonitoringStepMessages } from './database-form-body/steps/monitoring-step/monitoring-step.messages';
@@ -215,7 +215,7 @@ export const DatabasePage = () => {
   const hasBackupStep = backupClasses.length > 0;
 
   // ── Page-level defaults (merges schema defaults + wizard-specific ones)
-  const { defaultValues, dbClusterRequestStatus } =
+  const { defaultValues, dbClusterRequestStatus, dbClusterData } =
     useDatabasePageDefaultValues(
       mode,
       uiSchema,
@@ -370,6 +370,7 @@ export const DatabasePage = () => {
     namespace: selectedNamespace || namespaces[0],
     formMode: mode,
     widgetRegistry,
+    originalData: mode === FormMode.Restore ? dbClusterData : undefined,
   });
 
   // Navigation

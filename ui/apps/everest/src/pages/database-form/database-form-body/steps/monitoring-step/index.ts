@@ -13,11 +13,4 @@
 // limitations under the License.
 
 export { MonitoringStep } from './monitoring-step';
-export { MONITORING_DESTINATIONS_FIELD } from './monitoring-step.constants';
-export {
-  buildMonitoringParametersSchema,
-  finalizeMonitoringEntries,
-  parseMonitoringDestinations,
-} from './monitoring-step.utils';
-export { useMonitoringInstanceForms } from './hooks/use-monitoring-instance-forms';
 export { useMonitoringStep } from './hooks/use-monitoring-step';

@@ -22,19 +22,31 @@
 //   - openeverest.io/provider: a key of the Provider's spec.secrets;
 //   - openeverest.io/monitoring-class: an authentication mode of the
 //     MonitoringClass.
+//
+// The one exception is the definition core owns, ca-bundle: a CA bundle is
+// not a credential of any Provider or class, so it carries
+// openeverest.io/definition: ca-bundle and no source label. It holds its
+// certificates under ca.crt.
+//
+// Labels that name a definition this way make a Secret labelled (Labelled):
+// the HTTP API shows every labelled Secret, whoever wrote it. Writable
+// decides which of them the HTTP API may change.
 package secretdefinition
 
 import (
 	"context"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/common"
@@ -50,6 +62,9 @@ const (
 	// KindMonitoringClass is a MonitoringClass; the definition is one of its
 	// authentication modes.
 	KindMonitoringClass Kind = "MonitoringClass"
+	// KindCore is OpenEverest itself, for the definitions no Provider or class
+	// owns. A Secret of a core definition carries no source label.
+	KindCore Kind = "Core"
 )
 
 var (
@@ -86,14 +101,15 @@ type Getter interface {
 type Ref struct {
 	// Kind is the kind of the source.
 	Kind Kind
-	// Source is the name of the Provider or MonitoringClass.
+	// Source is the name of the Provider or MonitoringClass; empty for a core
+	// definition.
 	Source string
 	// Definition is the definition within the source.
 	Definition string
 }
 
 // RefFromLabels returns the definition the labels name. It fails unless they
-// name exactly one source and a definition.
+// name exactly one source and a definition, or a core definition and no source.
 func RefFromLabels(labels map[string]string) (Ref, error) {
 	var refs []Ref
 	for _, s := range sourceLabels() {
@@ -108,9 +124,12 @@ func RefFromLabels(labels map[string]string) (Ref, error) {
 		return Ref{}, fmt.Errorf("%w: label the Secret with one of %s, and with %s",
 			ErrInvalidLabels, sourceLabelNames(), common.OpenEverestDefinitionLabel,
 		)
+	case len(refs) == 0 && definition == common.OpenEverestCABundleDefinition:
+		return Ref{Kind: KindCore, Definition: definition}, nil
 	case len(refs) == 0:
-		return Ref{}, fmt.Errorf("%w: %s needs one of %s",
-			ErrInvalidLabels, common.OpenEverestDefinitionLabel, sourceLabelNames(),
+		return Ref{}, fmt.Errorf("%w: %s %q needs one of %s; only %q needs none",
+			ErrInvalidLabels, common.OpenEverestDefinitionLabel, definition, sourceLabelNames(),
+			common.OpenEverestCABundleDefinition,
 		)
 	case len(refs) > 1:
 		return Ref{}, fmt.Errorf("%w: set only one of %s", ErrInvalidLabels, sourceLabelNames())
@@ -142,9 +161,45 @@ func Validate(ctx context.Context, g Getter, secret *corev1.Secret) error {
 		return validateProviderSecret(ctx, g, ref, secret)
 	case KindMonitoringClass:
 		return validateMonitoringClassSecret(ctx, g, ref, secret)
+	case KindCore:
+		return validateCABundleSecret(secret)
 	default:
 		return fmt.Errorf("%w: unknown source kind %q", ErrInvalidLabels, ref.Kind)
 	}
+}
+
+// validateCABundleSecret checks that the Secret holds its certificates under
+// the key every reference to a labelled bundle reads, ca.crt, and that every
+// key holds PEM CA certificates and nothing else: a private key pasted along
+// with its certificate would otherwise be stored as public trust material.
+func validateCABundleSecret(secret *corev1.Secret) error {
+	if t := secretType(secret.Type); t != corev1.SecretTypeOpaque {
+		return fmt.Errorf("%w: a CA bundle must be of type %q, not %q", ErrInvalidSecret, corev1.SecretTypeOpaque, t)
+	}
+
+	data := secretData(secret)
+	if _, found := data[common.OpenEverestCABundleKey]; !found {
+		return fmt.Errorf("%w: missing key %q; a CA bundle holds its certificates under it",
+			ErrInvalidSecret, common.OpenEverestCABundleKey,
+		)
+	}
+	for _, key := range slices.Sorted(maps.Keys(data)) {
+		for rest := data[key]; ; {
+			var block *pem.Block
+			if block, rest = pem.Decode(rest); block == nil {
+				break
+			}
+			if block.Type != "CERTIFICATE" {
+				return fmt.Errorf("%w: key %q holds a %q PEM block; a CA bundle holds only certificates",
+					ErrInvalidSecret, key, block.Type,
+				)
+			}
+		}
+		if _, err := commonv1alpha1.ParseCABundle(data[key]); err != nil {
+			return fmt.Errorf("%w: key %q: %w", ErrInvalidSecret, key, err)
+		}
+	}
+	return nil
 }
 
 func validateProviderSecret(ctx context.Context, g Getter, ref Ref, secret *corev1.Secret) error {

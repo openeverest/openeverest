@@ -833,7 +833,9 @@ func (r *ProviderReconciler) cascadeDeleteChildren(
 }
 
 // reconcileConnectionSecret creates or updates the connection details Secret
-// and sets the ConnectionDetailsReady condition on the Instance status.
+// and sets the ConnectionDetailsReady condition on the Instance status. The
+// Secret's "provider" entry is always the Provider name, whatever the provider
+// reported.
 func (r *ProviderReconciler) reconcileConnectionSecret(
 	ctx context.Context,
 	in *v1alpha1.Instance,
@@ -849,6 +851,9 @@ func (r *ProviderReconciler) reconcileConnectionSecret(
 		return nil
 	}
 
+	details := status.ConnectionDetails
+	details.Provider = r.provider.Name()
+
 	secretName := in.Name + controller.ConnectionSecretSuffix
 
 	secret := &corev1.Secret{
@@ -862,12 +867,12 @@ func (r *ProviderReconciler) reconcileConnectionSecret(
 		},
 	}
 
-	if err := controllerutil.SetControllerReference(in, secret, r.manager.GetScheme()); err != nil {
+	if err := controllerutil.SetControllerReference(in, secret, r.Scheme()); err != nil {
 		return fmt.Errorf("failed to set owner reference on connection secret: %w", err)
 	}
 
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
-		secret.Data = status.ConnectionDetails.ToSecretData()
+		secret.Data = details.ToSecretData()
 		return nil
 	})
 	if err != nil {
