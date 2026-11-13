@@ -42,8 +42,10 @@ import (
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	backupcontroller "github.com/openeverest/openeverest/v2/internal/controller/backup"
 	plugincontroller "github.com/openeverest/openeverest/v2/internal/controller/extension"
+	"github.com/openeverest/openeverest/v2/internal/controller/lifecycleevents"
 	monitoringcontroller "github.com/openeverest/openeverest/v2/internal/controller/monitoring"
 	"github.com/openeverest/openeverest/v2/internal/controller/secretusage"
+	"github.com/openeverest/openeverest/v2/pkg/events"
 )
 
 var (
@@ -283,6 +285,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := setupLifecycleEvents(mgr); err != nil {
+		setupLog.Error(err, "Failed to set up lifecycle events")
+		os.Exit(1)
+	}
+
 	// No admission webhook is registered, but the webhook server keeps serving
 	// behind its Service and certificate for the webhooks to come.
 	// GetWebhookServer adds it to the manager only once, so registering a
@@ -307,4 +314,16 @@ func main() {
 		setupLog.Error(err, "Failed to run manager")
 		os.Exit(1)
 	}
+}
+
+func setupLifecycleEvents(mgr ctrl.Manager) error {
+	reportingInstance, err := os.Hostname()
+	if err != nil {
+		return err
+	}
+	emitter := events.NewEmitter(mgr.GetClient(), reportingInstance)
+	return mgr.Add(lifecycleevents.NewRecorder(
+		mgr.GetCache(), mgr.GetScheme(), emitter, lifecycleevents.DefaultKinds(),
+		ctrl.Log.WithName("lifecycle-events"),
+	))
 }

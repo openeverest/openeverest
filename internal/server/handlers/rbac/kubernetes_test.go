@@ -79,6 +79,7 @@ func TestRBAC_Kubernetes(t *testing.T) {
 					{"bob", "config-maps", "*", "*/*/*"},
 					{"bob", "secrets", "*", "*/*/*"},
 					{"bob", "plugins", "*", "*/*"},
+					{"bob", "events", "read", "*/*/*"},
 				},
 			},
 			{

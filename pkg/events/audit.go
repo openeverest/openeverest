@@ -16,8 +16,8 @@ package events
 
 // Annotation keys used to stamp the originating actor onto user-mutated
 // resources. The API server writes these on every Create/Update/Delete so
-// the kube watch tombstone delivered to the event normalizer can be
-// attributed back to the user who triggered the change.
+// the lifecycle events the controller records for the change can be
+// attributed back to the user who triggered it.
 const (
 	// AnnotationActorType is "user", "system", "plugin", or "".
 	AnnotationActorType = "openeverest.io/last-actor-type"
@@ -26,9 +26,26 @@ const (
 	AnnotationActorID = "openeverest.io/last-actor-id"
 )
 
-// ActorFromAnnotations reconstructs an Actor from the annotation map carried
-// by a Kubernetes resource. Returns the zero Actor when the annotations are
-// absent, which the event encoder drops thanks to the `omitempty` JSON tag.
+// Actor describes who or what triggered an event. Both fields are omitted when empty,
+// so an unattributed event has no actor rather than one that looks populated.
+type Actor struct {
+	Type string `json:"type,omitempty"`
+	ID   string `json:"id,omitempty"`
+}
+
+// IsZero reports whether the actor is unknown.
+func (a Actor) IsZero() bool {
+	return a.Type == "" && a.ID == ""
+}
+
+// ControllerActor identifies changes made by the OpenEverest controllers, such as phase
+// transitions.
+//
+//nolint:gochecknoglobals // immutable value
+var ControllerActor = Actor{Type: ActorTypeSystem, ID: "controller"}
+
+// ActorFromAnnotations reconstructs an Actor from the annotation map carried by a
+// Kubernetes resource. Returns the zero Actor when the annotations are absent.
 func ActorFromAnnotations(annotations map[string]string) Actor {
 	if annotations == nil {
 		return Actor{}
@@ -38,8 +55,3 @@ func ActorFromAnnotations(annotations map[string]string) Actor {
 		ID:   annotations[AnnotationActorID],
 	}
 }
-
-// systemActor identifies controller-driven state transitions (e.g. a backup
-// reaching the Completed phase). Used by the normalizer for events that are
-// emitted in response to status changes rather than user API calls.
-var systemActor = Actor{Type: "system", ID: "controller"}
