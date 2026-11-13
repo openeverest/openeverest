@@ -6,6 +6,12 @@ The schema goes through 5 stages: **Preprocess → (Build-Zod ‖ Defaults ‖ R
 Key principle — **path metadata is computed once** in preprocess and reused by all stages
 (no repeated tree traversal).
 
+A section usually comes from a schema (a topology's `uiSchema`, a class's `destination` /
+`credentials` form). For a class that ships a parameters schema but no form,
+**`sectionFromOpenApiSchema`** (`utils/openapi-section/`) synthesizes one: string properties
+become `text` fields and string maps `array` fields, the rest is reported as skipped. The
+synthesized section then goes through the same 5 stages.
+
 ```mermaid
 flowchart TD
   PRE["1. Preprocess"] --> ZOD["2. Build-Zod"]
@@ -306,6 +312,7 @@ components:
 | Section edit merge         | `utils/postprocess/merge-section-edit.ts`                  |
 | Array fields (rows ↔ map) | `utils/array-field/`                                       |
 | Array field render         | `array-field/array-field.tsx`                              |
+| OpenAPI schema → Section   | `utils/openapi-section/`                                   |
 | Topology scope             | `utils/topology-scope/topology-scope.ts`                   |
 | Object path                | `utils/object-path/object-path.ts`                         |
 | API provider registry      | `api-providers/registry.ts`                                |
@@ -320,4 +327,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-09
+- Last updated: 2026-11-11

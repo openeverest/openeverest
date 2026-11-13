@@ -12,14 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {
-  fromOpenApiParameterFormValues,
-  getOpenApiParameterFields,
-  OpenApiParameterFields,
-  toOpenApiParameterFormValues,
-} from 'components/openapi-parameters-fields';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { isPlainObject } from 'components/ui-generator/utils/object-path';
+import { sectionFromOpenApiSchema } from 'components/ui-generator/utils/openapi-section';
 import {
   CredentialsSecretWrite,
   SaveMonitoringDestinationRequest,
@@ -58,15 +53,13 @@ import {
   SecretNamespacePermissions,
 } from './monitoring-destination-modal.types';
 
-const NO_PARAMETER_FIELDS: OpenApiParameterFields = { fields: [], skipped: [] };
-
 export const getDestinationClassForms = (
   monitoringClass: MonitoringClass | undefined,
   authMode: string,
   formMode: FormMode
 ): DestinationClassForms => {
   if (!monitoringClass) {
-    return { parameterFields: NO_PARAMETER_FIELDS };
+    return { skippedParameters: [] };
   }
   const { destination } = getMonitoringClassUiSchema(monitoringClass);
   const credentials =
@@ -74,15 +67,25 @@ export const getDestinationClassForms = (
       ? getCredentialsSection(monitoringClass, authMode)
       : undefined;
 
+  // A class without a destination form gets one generated from its
+  // destinationParametersSchema.
+  const generated = destination
+    ? undefined
+    : sectionFromOpenApiSchema(
+        monitoringClass.spec.destinationParametersSchema?.openAPIV3Schema,
+        'parameters'
+      );
+  const destinationSection = destination ?? generated?.section;
+
   return {
     destination:
-      destination &&
-      toMonitoringSectionForm(DESTINATION_SECTION_KEY, destination, formMode),
-    parameterFields: destination
-      ? NO_PARAMETER_FIELDS
-      : getOpenApiParameterFields(
-          monitoringClass.spec.destinationParametersSchema?.openAPIV3Schema
-        ),
+      destinationSection &&
+      toMonitoringSectionForm(
+        DESTINATION_SECTION_KEY,
+        destinationSection,
+        formMode
+      ),
+    skippedParameters: generated?.skippedProperties ?? [],
     // New credentials are always typed in full, also when editing.
     credentials:
       credentials &&
@@ -98,7 +101,7 @@ export const getNewDestinationClassDefaults = (
   monitoringClass: MonitoringClass | undefined
 ): Pick<
   MonitoringDestinationFormValues,
-  'authMode' | 'spec' | 'fallbackParameters' | 'credentials'
+  'authMode' | 'spec' | 'credentials'
 > => {
   const authModes = monitoringClass?.spec.authModes ?? [];
   const authMode = authModes.length === 1 ? authModes[0].name : '';
@@ -110,10 +113,6 @@ export const getNewDestinationClassDefaults = (
   return {
     authMode,
     spec: forms.destination ? getSectionFormDefaults(forms.destination) : {},
-    fallbackParameters: toOpenApiParameterFormValues(
-      undefined,
-      forms.parameterFields
-    ),
     credentials: forms.credentials
       ? getSectionFormDefaults(forms.credentials)
       : {},
@@ -202,7 +201,6 @@ export const getFormDefaults = ({
     existingSecretName: '',
     credentials: {},
     spec: {},
-    fallbackParameters: {},
     insecureSkipVerify: false,
     caSecretName: '',
     caSecretKey: '',
@@ -247,10 +245,6 @@ export const getFormDefaults = ({
           parameters: isPlainObject(parameters) ? parameters : {},
         })
       : {},
-    fallbackParameters: toOpenApiParameterFormValues(
-      parameters,
-      forms.parameterFields
-    ),
     insecureSkipVerify: !!original.spec.tls?.insecureSkipVerify,
     caSecretName: ca?.name ?? '',
     caSecretKey: ca?.key ?? '',
@@ -262,29 +256,15 @@ const toParameters = (
   forms: DestinationClassForms,
   original: MonitoringDestination | undefined
 ): Record<string, unknown> => {
-  if (forms.destination) {
-    const { parameters } = postprocessSectionForm(
-      values.spec,
-      forms.destination
-    );
-    return isPlainObject(parameters) ? parameters : {};
+  // Without a form nothing is editable, so the saved parameters are kept.
+  if (!forms.destination) {
+    const current: unknown = original?.spec.parameters;
+    return isPlainObject(current) ? current : {};
   }
-  // Parameters the generated form can't edit are kept as they are.
-  const current: unknown = original?.spec.parameters;
-  const kept = isPlainObject(current)
-    ? Object.fromEntries(
-        Object.entries(current).filter(([key]) =>
-          forms.parameterFields.skipped.includes(key)
-        )
-      )
-    : {};
-  return {
-    ...kept,
-    ...fromOpenApiParameterFormValues(
-      values.fallbackParameters,
-      forms.parameterFields
-    ),
-  };
+  // Saved parameters the form doesn't own ride along in the form values
+  // (getSectionFormValues keeps them), so they survive the save too.
+  const { parameters } = postprocessSectionForm(values.spec, forms.destination);
+  return isPlainObject(parameters) ? parameters : {};
 };
 
 const toTls = ({

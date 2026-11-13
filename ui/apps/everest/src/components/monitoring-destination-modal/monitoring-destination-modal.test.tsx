@@ -135,6 +135,31 @@ Reflect.set(pmm.spec, 'uiSchema', {
   },
 });
 
+// No uiSchema: the destination form is generated from the parameters schema.
+const prometheus: MonitoringClass = {
+  metadata: { name: 'prometheus' },
+  spec: {
+    controllerName: 'openeverest.io/monitoring-prometheus',
+    displayName: 'Prometheus',
+    authModes: [{ name: 'Anonymous' }],
+    destinationParametersSchema: {
+      openAPIV3Schema: {
+        type: 'object',
+        required: ['interval'],
+        properties: {
+          interval: { type: 'string', description: 'Scrape interval' },
+          podMonitorLabels: {
+            type: 'object',
+            additionalProperties: { type: 'string' },
+          },
+          relabelings: { type: 'array' },
+        },
+      },
+    },
+  },
+  status: pmm.status,
+};
+
 const renderModal = (target?: MonitoringDestinationTarget) => {
   const onClose = vi.fn();
   render(
@@ -142,7 +167,7 @@ const renderModal = (target?: MonitoringDestinationTarget) => {
       <TestWrapper>
         <MonitoringDestinationModal
           target={target}
-          classes={[pmm]}
+          classes={[pmm, prometheus]}
           namespaces={['team-a']}
           onClose={onClose}
         />
@@ -424,5 +449,56 @@ describe('MonitoringDestinationModal', () => {
     expect(
       await screen.findByTestId('monitoring-destination-restart')
     ).toHaveTextContent('the 2 instances that send to this destination');
+  });
+
+  it('generates the destination form from the parameters schema', async () => {
+    const onClose = renderModal();
+    fireEvent.change(screen.getByTestId('text-input-name'), {
+      target: { value: 'prom' },
+    });
+    fireEvent.mouseDown(
+      within(screen.getByTestId('select-class-name-button')).getByRole(
+        'combobox'
+      )
+    );
+    fireEvent.click(screen.getByRole('option', { name: 'Prometheus' }));
+
+    expect(
+      await screen.findByText(
+        'Not editable here: relabelings. Set them through the API.'
+      )
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/interval/), {
+      target: { value: '30s' },
+    });
+    fireEvent.click(
+      screen.getByTestId('spec.parameters.podMonitorLabels-add')
+    );
+    fireEvent.change(screen.getByRole('textbox', { name: 'Key 1' }), {
+      target: { value: 'release' },
+    });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Value 1' }), {
+      target: { value: 'kube-prom' },
+    });
+    await submit();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(createSecretFn).not.toHaveBeenCalled();
+    expect(createMonitoringDestinationFn).toHaveBeenCalledWith(
+      'main',
+      'team-a',
+      {
+        metadata: { name: 'prom' },
+        spec: {
+          classRef: { name: 'prometheus' },
+          authentication: { mode: 'Anonymous' },
+          parameters: {
+            interval: '30s',
+            podMonitorLabels: { release: 'kube-prom' },
+          },
+        },
+      }
+    );
   });
 });

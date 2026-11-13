@@ -41,7 +41,6 @@ export const RestartNotice = ({
   const { dirtyFields } = useFormState<MonitoringDestinationFormValues>({
     name: [
       DestinationFormFields.spec,
-      DestinationFormFields.fallbackParameters,
       DestinationFormFields.authMode,
       DestinationFormFields.existingSecretName,
       DestinationFormFields.credentials,
@@ -54,7 +53,6 @@ export const RestartNotice = ({
   const count = getAttachedInstancesCount(destination, readableInstances);
   const changesReachPods =
     !!dirtyFields.spec ||
-    !!dirtyFields.fallbackParameters ||
     !!dirtyFields.authMode ||
     !!dirtyFields.existingSecretName ||
     !!dirtyFields.credentials;

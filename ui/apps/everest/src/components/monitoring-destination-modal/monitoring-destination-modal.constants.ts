@@ -27,11 +27,9 @@ export enum DestinationFormFields {
   // Root of the class credentials form: the Secret's keys.
   credentials = 'credentials',
   // Root of the class destination form, whose paths are relative to the
-  // destination spec (e.g. parameters.url).
+  // destination spec (e.g. parameters.url). A class without a destination
+  // form gets one generated from its destinationParametersSchema.
   spec = 'spec',
-  // Root of the form generated from destinationParametersSchema when the
-  // class ships no destination form.
-  fallbackParameters = 'fallbackParameters',
   insecureSkipVerify = 'insecureSkipVerify',
   caSecretName = 'caSecretName',
   caSecretKey = 'caSecretKey',

@@ -28,6 +28,8 @@ export const Messages = {
   authMode: 'Authentication',
   required: 'Required',
   credentials: 'Credentials',
+  skippedParameters: (names: string[]) =>
+    `Not editable here: ${names.join(', ')}. Set them through the API.`,
   credentialsSource: {
     [CredentialsSource.Keep]: (secret: string) => `Keep ${secret}`,
     [CredentialsSource.Update]: () => 'Enter new credentials',

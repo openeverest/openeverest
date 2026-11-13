@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { OpenApiParametersFields } from 'components/openapi-parameters-fields';
+import { Typography } from '@mui/material';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { DestinationFormFields } from '../monitoring-destination-modal.constants';
+import { Messages } from '../monitoring-destination-modal.messages';
 import { DestinationClassForms } from '../monitoring-destination-modal.types';
 
 interface ParametersFieldsProps {
@@ -27,21 +28,24 @@ interface ParametersFieldsProps {
 // The class's destination form or, when it ships none, a form generated from
 // its destinationParametersSchema.
 export const ParametersFields = ({
-  forms: { destination, parameterFields },
+  forms: { destination, skippedParameters },
   namespace,
   formMode,
-}: ParametersFieldsProps) =>
-  destination ? (
-    <UIGenerator
-      sectionKey={destination.sectionKey}
-      sections={destination.sections}
-      root={DestinationFormFields.spec}
-      namespace={namespace}
-      formMode={formMode}
-    />
-  ) : (
-    <OpenApiParametersFields
-      name={DestinationFormFields.fallbackParameters}
-      parameterFields={parameterFields}
-    />
-  );
+}: ParametersFieldsProps) => (
+  <>
+    {destination && (
+      <UIGenerator
+        sectionKey={destination.sectionKey}
+        sections={destination.sections}
+        root={DestinationFormFields.spec}
+        namespace={namespace}
+        formMode={formMode}
+      />
+    )}
+    {skippedParameters.length > 0 && (
+      <Typography variant="helperText" color="text.secondary" sx={{ mt: 2 }}>
+        {Messages.skippedParameters(skippedParameters)}
+      </Typography>
+    )}
+  </>
+);

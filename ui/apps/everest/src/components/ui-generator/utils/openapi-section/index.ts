@@ -12,10 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export const Messages = {
-  required: (field: string) => `${field} is required`,
-  keyRequired: 'Enter a key',
-  duplicateKey: (key: string) => `${key} is set more than once`,
-  skipped: (names: string[]) =>
-    `Not editable here: ${names.join(', ')}. Set them through the API.`,
-};
+export { sectionFromOpenApiSchema } from './openapi-section';
+export type { OpenApiSection } from './openapi-section';

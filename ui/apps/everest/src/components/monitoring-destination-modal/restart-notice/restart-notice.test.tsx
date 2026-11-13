@@ -55,7 +55,6 @@ const Form = ({ children }: { children: ReactNode }) => {
   const methods = useForm({
     defaultValues: {
       spec: { parameters: { url: 'https://pmm' } },
-      fallbackParameters: {},
       credentials: { token: '' },
       insecureSkipVerify: false,
     },
