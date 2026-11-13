@@ -1984,6 +1984,26 @@ export interface components {
                         /** @description Parameters are validated against the class's instanceParametersSchema. */
                         parameters?: Record<string, never>;
                     }[];
+                    /**
+                     * @description Sources configures the monitoring sources the Instance runs whether or
+                     *     not a destination needs them.
+                     */
+                    sources?: {
+                        /** @description Metrics configures the Instance's OpenMetrics endpoints. */
+                        metrics?: {
+                            /**
+                             * @description Policy says when the provider runs the exporters and turns on the
+                             *     optional metrics endpoints of the Instance's components. OnDemand runs
+                             *     them while a destination's class needs metrics. Always runs them
+                             *     without a destination, for scrapers that OpenEverest does not
+                             *     configure. The serving endpoints are listed in
+                             *     status.monitoring.sources.metrics.
+                             * @default OnDemand
+                             * @enum {string}
+                             */
+                            policy?: "OnDemand" | "Always";
+                        };
+                    };
                 };
                 /**
                  * @description Parameters contains structured parameters that apply to the Instance
@@ -3447,6 +3467,26 @@ export interface components {
                         /** @description Parameters are validated against the class's instanceParametersSchema. */
                         parameters?: Record<string, never>;
                     }[];
+                    /**
+                     * @description Sources configures the monitoring sources the Instance runs whether or
+                     *     not a destination needs them.
+                     */
+                    sources?: {
+                        /** @description Metrics configures the Instance's OpenMetrics endpoints. */
+                        metrics?: {
+                            /**
+                             * @description Policy says when the provider runs the exporters and turns on the
+                             *     optional metrics endpoints of the Instance's components. OnDemand runs
+                             *     them while a destination's class needs metrics. Always runs them
+                             *     without a destination, for scrapers that OpenEverest does not
+                             *     configure. The serving endpoints are listed in
+                             *     status.monitoring.sources.metrics.
+                             * @default OnDemand
+                             * @enum {string}
+                             */
+                            policy?: "OnDemand" | "Always";
+                        };
+                    };
                 };
                 /**
                  * @description Parameters contains structured parameters that apply to the Instance
@@ -5148,6 +5188,26 @@ export interface components {
                         /** @description Parameters are validated against the class's instanceParametersSchema. */
                         parameters?: Record<string, never>;
                     }[];
+                    /**
+                     * @description Sources configures the monitoring sources the Instance runs whether or
+                     *     not a destination needs them.
+                     */
+                    sources?: {
+                        /** @description Metrics configures the Instance's OpenMetrics endpoints. */
+                        metrics?: {
+                            /**
+                             * @description Policy says when the provider runs the exporters and turns on the
+                             *     optional metrics endpoints of the Instance's components. OnDemand runs
+                             *     them while a destination's class needs metrics. Always runs them
+                             *     without a destination, for scrapers that OpenEverest does not
+                             *     configure. The serving endpoints are listed in
+                             *     status.monitoring.sources.metrics.
+                             * @default OnDemand
+                             * @enum {string}
+                             */
+                            policy?: "OnDemand" | "Always";
+                        };
+                    };
                 };
                 /**
                  * @description Parameters contains structured parameters that apply to the Instance
