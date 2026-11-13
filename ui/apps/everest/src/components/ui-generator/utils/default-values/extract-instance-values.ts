@@ -18,11 +18,11 @@ import {
   FieldType,
   FormMode,
   Section,
-  isArrayComponent,
+  isMapComponent,
   isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { UI_TYPE_DEFAULT_VALUE } from 'components/ui-generator/constants';
-import { objectToRows } from '../array-field';
+import { objectToRows } from '../map-field';
 import { stripBadgeFromValue } from '../badge-to-api/badge-to-api';
 import { generateFieldId } from '../component-renderer/generate-field-id';
 import { getComponentSourcePath } from '../preprocess/normalized-component';
@@ -90,7 +90,7 @@ const extractFlat = (
     if (sourcePath) {
       const instanceValue = getByPath(instance, sourcePath);
       if (instanceValue !== undefined) {
-        if (isArrayComponent(component)) {
+        if (isMapComponent(component)) {
           result[fieldId] = objectToRows(instanceValue);
         } else if (component.uiType === FieldType.Quantity) {
           result[fieldId] = readQuantity(

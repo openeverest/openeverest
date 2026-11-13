@@ -15,18 +15,18 @@
 import {
   Component,
   FieldType,
-  isArrayComponent,
+  isMapComponent,
 } from 'components/ui-generator/ui-generator.types';
-import { objectToRows } from '../array-field';
+import { objectToRows } from '../map-field';
 
 // A Secret is namespaced, so a cluster-wide schema can't name a default one.
-// An array's default is written in the API shape; the form keeps rows.
+// A map's default is written in the API shape; the form keeps rows.
 export const getSchemaDefault = (component: Component): unknown => {
   if (component.uiType === FieldType.Secret || !('fieldParams' in component)) {
     return undefined;
   }
   const defaultValue = component.fieldParams?.defaultValue;
-  return isArrayComponent(component) && defaultValue !== undefined
+  return isMapComponent(component) && defaultValue !== undefined
     ? objectToRows(defaultValue)
     : defaultValue;
 };

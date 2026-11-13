@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type {
-  Component,
-  ComponentGroup,
-  CommonValidation,
-  FormMode,
-  ModeAwareValidation,
-  Section,
+import {
+  type Component,
+  type ComponentGroup,
+  type CommonValidation,
+  type FormMode,
+  type ModeAwareValidation,
+  type Section,
+  isMapComponent,
 } from '../../ui-generator.types';
 
 const stripCelFromValidation = (
@@ -45,23 +46,7 @@ const stripCelFromValidation = (
   return result;
 };
 
-const applyModeToComponent = (
-  item: Component | ComponentGroup,
-  mode: FormMode
-): Component | ComponentGroup => {
-  if (
-    (item.uiType === 'group' || item.uiType === 'hidden') &&
-    'components' in item
-  ) {
-    const group = item as ComponentGroup;
-    return {
-      ...group,
-      components: applyModeToComponents(group.components, mode),
-    };
-  }
-
-  const component = item as Component;
-
+const applyModeToField = (component: Component, mode: FormMode): Component => {
   // 1. Apply component-level mode overrides (uiType)
   const componentOverrides = component.modes?.[mode];
   if (componentOverrides?.uiType === 'hidden') {
@@ -90,6 +75,32 @@ const applyModeToComponent = (
   }
 
   return component;
+};
+
+const applyModeToGroup = (
+  group: ComponentGroup,
+  mode: FormMode
+): ComponentGroup => ({
+  ...group,
+  components: applyModeToComponents(group.components, mode),
+});
+
+const applyModeToComponent = (
+  item: Component | ComponentGroup,
+  mode: FormMode
+): Component | ComponentGroup => {
+  if (
+    (item.uiType === 'group' || item.uiType === 'hidden') &&
+    'components' in item
+  ) {
+    return applyModeToGroup(item as ComponentGroup, mode);
+  }
+
+  const component = applyModeToField(item as Component, mode);
+  // A map's row fields take their own fieldParams modes.
+  return isMapComponent(component) && component._row
+    ? { ...component, _row: applyModeToGroup(component._row, mode) }
+    : component;
 };
 
 const applyModeToComponents = (

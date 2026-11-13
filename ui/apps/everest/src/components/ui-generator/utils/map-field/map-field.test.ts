@@ -15,13 +15,14 @@
 import { describe, expect, it } from 'vitest';
 import { parse } from 'yaml';
 import {
-  type ArrayComponent,
+  type KeyValueWidget,
+  type MapComponent,
   type Section,
   type TopologyUISchemas,
-  ArrayItemType,
-  ArrayOutputType,
   FieldType,
   FormMode,
+  TemplateWidgetType,
+  WIDGET_UI_TYPE,
 } from 'components/ui-generator/ui-generator.types';
 import { getDefaultValues } from '../default-values';
 import { extractInstanceValues } from '../default-values/extract-instance-values';
@@ -29,39 +30,46 @@ import { deepMerge } from '../object-path';
 import { postprocessSchemaData } from '../postprocess/postprocess-schema';
 import { mergeSectionEdit } from '../postprocess/merge-section-edit';
 import { preprocessSchema } from '../preprocess/preprocess-schema';
-import { buildArrayFieldSchema } from './array-field-schema';
-import { Messages } from './array-field.messages';
+import { buildShapeFromComponents } from '../schema-builder/build-shape-from-components';
+import { Messages } from './map-field.messages';
 
 const PATH = 'spec.proxy.annotations';
 
+const KEY_VALUE: KeyValueWidget = {
+  uiType: WIDGET_UI_TYPE,
+  widgetType: TemplateWidgetType.KeyValue,
+};
+
 const annotations = (
   overrides: Partial<
-    Pick<ArrayComponent, 'fieldParams' | 'itemTemplate' | 'validation'>
+    Pick<MapComponent, 'fieldParams' | 'itemTemplate' | 'validation'>
   > = {}
-): ArrayComponent => ({
-  uiType: FieldType.Array,
-  outputType: ArrayOutputType.Object,
+): MapComponent => ({
+  uiType: FieldType.Map,
   path: PATH,
   fieldParams: { label: 'Annotations' },
-  itemTemplate: { uiType: ArrayItemType.KeyValue },
+  itemTemplate: KEY_VALUE,
   ...overrides,
 });
 
-const sectionsWith = (component: ArrayComponent): Record<string, Section> => ({
+const sectionsWith = (component: MapComponent): Record<string, Section> => ({
   advanced: { components: { annotations: component } },
 });
 
-const schemaWith = (component: ArrayComponent) => ({
+const schemaWith = (component: MapComponent) => ({
   replicaSet: { sections: sectionsWith(component) },
 });
 
-const issuesOf = (component: ArrayComponent, rows: unknown) =>
+// The map's schema as the form gets it: rows checked against the expanded
+// row's own text fields.
+const issuesOf = (component: MapComponent, rows: unknown) =>
   (
-    buildArrayFieldSchema(component, component.validation).safeParse(rows).error
-      ?.issues ?? []
+    buildShapeFromComponents({ annotations: component }).schemaShape[
+      PATH
+    ].safeParse(rows).error?.issues ?? []
   ).map(({ path, message }) => ({ path, message }));
 
-describe('array field rows validation', () => {
+describe('map field rows validation', () => {
   it('reports a key set twice on the repeated row, since a map keeps one', () => {
     expect(
       issuesOf(annotations(), [
@@ -83,7 +91,7 @@ describe('array field rows validation', () => {
   it('applies text validation to the key and value', () => {
     const component = annotations({
       itemTemplate: {
-        uiType: ArrayItemType.KeyValue,
+        ...KEY_VALUE,
         validation: {
           key: { regex: { pattern: '^[a-z.]+$', message: 'Lowercase only' } },
           value: { max: 3 },
@@ -95,6 +103,27 @@ describe('array field rows validation', () => {
       { path: [0, 'key'], message: 'Lowercase only' },
       { path: [0, 'value'], message: expect.any(String) },
     ]);
+  });
+
+  it('writes rows as their fields transform them, finding duplicates after it', () => {
+    const component = annotations({
+      itemTemplate: {
+        ...KEY_VALUE,
+        validation: { key: { trim: true, toLowerCase: true } },
+      },
+    });
+    const schema = buildShapeFromComponents({ annotations: component })
+      .schemaShape[PATH];
+
+    expect(schema.parse([{ key: ' Team ', value: 'db' }])).toEqual([
+      { key: 'team', value: 'db' },
+    ]);
+    expect(
+      issuesOf(component, [
+        { key: 'team', value: 'a' },
+        { key: ' Team', value: 'b' },
+      ])
+    ).toEqual([{ path: [1, 'key'], message: Messages.duplicateKey('team') }]);
   });
 
   it('counts only filled rows against required and maxItems', () => {
@@ -114,7 +143,7 @@ describe('array field rows validation', () => {
   });
 });
 
-describe('array field through the pipeline', () => {
+describe('map field through the pipeline', () => {
   it('starts the form from the default map as rows', () => {
     const component = annotations({
       fieldParams: { defaultValue: { 'aws/type': 'nlb' } },
@@ -182,16 +211,7 @@ describe('array field through the pipeline', () => {
     expect(edit([])).toEqual({});
   });
 
-  it('sends an entry with an empty value, which a map still holds, to every path', () => {
-    const component: ArrayComponent = {
-      uiType: FieldType.Array,
-      outputType: ArrayOutputType.Object,
-      path: [PATH, 'spec.engine.annotations'],
-      fieldParams: { label: 'Annotations' },
-      itemTemplate: { uiType: ArrayItemType.KeyValue },
-    };
-    const infra = { 'node-role.kubernetes.io/infra': '' };
-
+  it('sends an entry with an empty value, which a map still holds', () => {
     expect(
       postprocessSchemaData(
         {
@@ -203,10 +223,10 @@ describe('array field through the pipeline', () => {
             },
           },
         },
-        { schema: schemaWith(component), selectedTopology: 'replicaSet' }
+        { schema: schemaWith(annotations()), selectedTopology: 'replicaSet' }
       )
     ).toEqual({
-      spec: { proxy: { annotations: infra }, engine: { annotations: infra } },
+      spec: { proxy: { annotations: { 'node-role.kubernetes.io/infra': '' } } },
     });
   });
 
@@ -245,19 +265,22 @@ describe('array field through the pipeline', () => {
   });
 });
 
-describe('array field in a shape this version does not support', () => {
-  // As a newer provider could ship it: a list, which this version can't edit.
-  const listSchema: TopologyUISchemas = parse(`
+describe('map field in a shape this version does not support', () => {
+  // As a newer provider could ship it: a map of objects, whose rows this
+  // version can't render yet.
+  const usersSchema: TopologyUISchemas = parse(`
     replicaSet:
       sections:
         advanced:
           components:
-            databases:
-              uiType: array
-              outputType: array
-              path: spec.backup.databases
-              fieldParams: { label: Databases }
-              itemTemplate: { uiType: text }
+            users:
+              uiType: map
+              path: spec.users
+              fieldParams: { label: Users }
+              itemTemplate:
+                uiType: group
+                components:
+                  role: { uiType: text, path: value.role, fieldParams: { label: Role } }
             replicas:
               uiType: number
               path: spec.replicas
@@ -265,15 +288,15 @@ describe('array field in a shape this version does not support', () => {
   `);
 
   it.each([
-    ['preprocessed', preprocessSchema(listSchema)],
-    ['raw, as forms that skip preprocess get it', listSchema],
+    ['preprocessed', preprocessSchema(usersSchema)],
+    ['raw, as forms that skip preprocess get it', usersSchema],
   ])('is left alone when %s', (_, schema) => {
     const options = { schema, selectedTopology: 'replicaSet' };
     expect(
       postprocessSchemaData(getDefaultValues(schema, 'replicaSet'), options)
     ).toEqual({});
 
-    const saved = { backup: { databases: ['db1', 'db2'] }, replicas: 3 };
+    const saved = { users: { alice: { role: 'admin' } }, replicas: 3 };
     const { sections } = schema.replicaSet;
     const formData = extractInstanceValues(
       sections,
@@ -289,6 +312,6 @@ describe('array field in a shape this version does not support', () => {
         sectionKey: 'advanced',
         topology: 'replicaSet',
       })
-    ).toEqual({ backup: { databases: ['db1', 'db2'] }, replicas: 5 });
+    ).toEqual({ users: { alice: { role: 'admin' } }, replicas: 5 });
   });
 });

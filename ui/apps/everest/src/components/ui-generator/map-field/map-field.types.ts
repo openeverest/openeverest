@@ -12,16 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export {
-  formatArrayFieldValue,
-  getArrayFieldPaths,
-  getArrayFieldTargetPaths,
-  objectToRows,
-  rowsToObject,
-  writeArrayFieldsInApiShape,
-} from './array-field';
-export { buildArrayFieldSchema } from './array-field-schema';
-export {
-  type IgnoredArrayField,
-  resolveArrayFields,
-} from './resolve-array-fields';
+import type { ReactNode } from 'react';
+import type { ComponentGroup, MapComponent } from '../ui-generator.types';
+
+export interface MapFieldProps {
+  item: MapComponent;
+  name: string;
+  // Renders one row's fields; `root` is the row's form path, e.g. `labels.2`.
+  children: (row: ComponentGroup, root: string) => ReactNode;
+}
+
+export interface RowState {
+  disabled: boolean;
+  // The row was just added, so its first field takes the focus.
+  focus: boolean;
+}

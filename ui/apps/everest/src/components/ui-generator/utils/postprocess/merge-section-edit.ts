@@ -26,7 +26,7 @@ import { getInactiveToggleablePaths } from '../toggleable/toggleable';
 import { walkLeafComponents } from '../schema-walker';
 import { getComponentSourcePath } from '../preprocess/normalized-component';
 import { getWidgetTargetPaths } from '../widget-targets';
-import { getArrayFieldPaths } from '../array-field';
+import { getMapFieldPaths } from '../map-field';
 
 const collectWidgetPaths = (section: Section | undefined): string[] => {
   const paths: string[] = [];
@@ -52,7 +52,7 @@ export interface MergeSectionEditParams {
 
 // Applies one section's form values to a saved spec for a full update. The
 // merge keeps saved values, so a switched-off group's paths are deleted
-// explicitly (with parents left empty), and widget and array values are
+// explicitly (with parents left empty), and widget and map values are
 // replaced whole, so a removed entry doesn't survive the merge.
 export const mergeSectionEdit = ({
   spec,
@@ -86,7 +86,7 @@ export const mergeSectionEdit = ({
 
   [
     ...collectWidgetPaths(sections[sectionKey]),
-    ...getArrayFieldPaths(sections[sectionKey]?.components ?? {}),
+    ...getMapFieldPaths(sections[sectionKey]?.components ?? {}),
   ].forEach((path) => {
     const value = getByPath(processed, path);
     if (value === undefined) {

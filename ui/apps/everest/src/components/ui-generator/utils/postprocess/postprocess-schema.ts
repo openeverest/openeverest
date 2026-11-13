@@ -38,10 +38,10 @@ import {
   getInactiveToggleablePaths,
 } from '../toggleable/toggleable';
 import {
-  getArrayFieldPaths,
-  getArrayFieldTargetPaths,
-  writeArrayFieldsInApiShape,
-} from '../array-field';
+  getMapFieldPaths,
+  getMapFieldTargetPaths,
+  writeMapFieldsInApiShape,
+} from '../map-field';
 
 export type PostprocessInput = Record<string, unknown>;
 
@@ -141,7 +141,7 @@ export const applyMultiPathMappings = (
 };
 
 // Drops empty field values and the objects they leave empty. A value at one of
-// `wholeValuePaths` belongs to a field that owns it whole, like an array's map,
+// `wholeValuePaths` belongs to a field that owns it whole, like a map field,
 // where an empty string is still an entry, so it is kept as is.
 export const removeEmptyFieldValues = (
   input: PostprocessInput,
@@ -238,7 +238,7 @@ export const postprocessSchemaData = (
       : undefined;
   const inApiShape = deepClone(scoped);
   Object.values(sections ?? {}).forEach(({ components }) =>
-    writeArrayFieldsInApiShape(inApiShape, getArrayFieldPaths(components))
+    writeMapFieldsInApiShape(inApiShape, getMapFieldPaths(components))
   );
 
   const mapped = applyMultiPathMappings(inApiShape, allMappings);
@@ -275,7 +275,7 @@ export const postprocessSchemaData = (
   return removeEmptyFieldValues(
     withoutInactive,
     Object.values(sections ?? {}).flatMap(({ components }) =>
-      getArrayFieldTargetPaths(components)
+      getMapFieldTargetPaths(components)
     )
   );
 };

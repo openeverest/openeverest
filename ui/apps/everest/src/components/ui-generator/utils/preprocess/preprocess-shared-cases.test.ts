@@ -63,7 +63,7 @@ const CEL_RULE = 'toggleable-cel-unguarded';
 const toUiOutcome = ({ rule, topology, group, field }: SharedIssue): string => {
   if (rule === CEL_RULE) return `cel ${topology}:${group}:${field}`;
   if (rule.startsWith('toggleable-')) return `bordered ${topology}:${group}`;
-  if (rule.startsWith('array-')) return `dropped ${topology}:${field}`;
+  if (rule.startsWith('map-')) return `dropped ${topology}:${field}`;
   throw new Error(`No UI outcome to compare rule ${rule} with; add it here.`);
 };
 
@@ -128,7 +128,7 @@ describe('uiSchema rules shared with the Go validator', () => {
         ({ group, field }) => outcomes.push(`cel ${topology}:${group}:${field}`)
       );
       const rendered = new Set(collectFieldKeys(processedSections));
-      collectFieldKeys(sections, ({ uiType }) => uiType === FieldType.Array)
+      collectFieldKeys(sections, ({ uiType }) => uiType === FieldType.Map)
         .filter((key) => !rendered.has(key))
         .forEach((key) => outcomes.push(`dropped ${topology}:${key}`));
     });

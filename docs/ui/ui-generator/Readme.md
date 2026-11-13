@@ -17,7 +17,7 @@
   - [FieldParams-level modes](#fieldparams-level-modes)
   - [Validation-level modes](#validation-level-modes)
 - Field Types
-  - [Array Field](components/array-field.md)
+  - [Map Field](components/map-field.md) (Tech Preview)
   - [Number Field](components/number-field.md)
   - [Quantity Field](components/quantity-field.md)
   - [Secret Field](components/secret-field.md)
@@ -204,8 +204,9 @@ resources:
 
 #### Widget (Host-Rendered Component)
 
-A **Widget** is a component the application renders itself (`uiType: widget` + `widgetType`),
-for UI that plain fields can't describe. See [Widgets](widgets.md) for the supported widget types.
+A **Widget** (`uiType: widget` + `widgetType`) is a component the application renders itself, for
+UI that plain fields can't describe, or a template that stands for a piece of schema (`keyValue`, a
+map row). See [Widgets](widgets.md) for the supported widget types.
 
 ## Mode-Aware Overrides
 
@@ -304,8 +305,8 @@ Settings shows a destination's address only when the `destination` form writes `
 
 No absolute paths and no array segments (`[]`): an empty `[]` has no index to bind to, and
 an absolute path hard-codes the resource shape so the section can't be reused elsewhere.
-To edit a map, use an [array field](components/array-field.md); binding into an array is not
-supported yet — see [Known Limitations](known-limitations.md#arrays).
+To edit a map, use a [map field](components/map-field.md); binding into an array is not
+supported yet — see [Known Limitations](known-limitations.md#maps-and-lists).
 
 ### Components Order
 

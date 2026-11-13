@@ -1,13 +1,15 @@
 # Widgets
 
-A **widget** is a component the application renders itself, for UI that plain fields can't
-describe (for example, a per-component pod scheduling editor). It is the extension point for
-components, the way `groupType` is for groups.
+A **widget** is a named component, the extension point for components the way `groupType` is for
+groups. Most are rendered by the application itself, for UI that plain fields can't describe (for
+example, a per-component pod scheduling editor). A [template widget](#template-widgets) instead
+stands for a piece of schema written with plain fields.
 
 ## Table of Contents
 
 - [Usage](#usage)
 - [Pod Scheduling Policy](#pod-scheduling-policy)
+- [Template Widgets](#template-widgets)
 
 Related: [Groups](groups.md), [Number Field](components/number-field.md), [Select Field](components/select-field.md), [Text Field](components/text-field.md), [Toggle Field](components/toggle-field.md)
 
@@ -58,3 +60,13 @@ podSchedulingPolicy:
       uiType: widget
       widgetType: podSchedulingPolicy
 ```
+
+## Template Widgets
+
+A template widget stands for a piece of schema: preprocess expands it into ordinary components
+before anything else runs, so validation, rendering and the payload treat them like any other
+field. The params you set on the widget are applied to the components it stands for.
+
+| `widgetType` | Stands for                                          | Used as                                              |
+| ------------ | --------------------------------------------------- | ---------------------------------------------------- |
+| `keyValue`   | A `line` group of a text `key` and a text `value`   | A [map field](components/map-field.md)'s `itemTemplate` |

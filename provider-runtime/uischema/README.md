@@ -1,8 +1,8 @@
 # uischema
 
-`Validate(Input{UISchema: ...})` checks a provider UI schema (`Provider.spec.uiSchema`: topology name → `{sections: {<key>: {components: ...}}}`) and returns the array fields and toggleable groups the UI will not render as the author declared them, and the CEL rules that fail while such a group is switched off. `provider-sdk generate` rejects a schema with any issue.
+`Validate(Input{UISchema: ...})` checks a provider UI schema (`Provider.spec.uiSchema`: topology name → `{sections: {<key>: {components: ...}}}`) and returns the map fields and toggleable groups the UI will not render as the author declared them, and the CEL rules that fail while such a group is switched off. `provider-sdk generate` rejects a schema with any issue.
 
-The UI applies the same rules at runtime, in `preprocessSchema` (`ui/apps/everest/src/components/ui-generator/utils/preprocess/`): first `resolveArrayFields` (`utils/array-field/`), then `resolveToggleable` (`utils/toggleable/toggleable.ts`), and `findUnguardedCelReferences` as a dev-time warning. Every file in [testdata/](testdata) is a shared set of cases both implementations are tested against: `validate_test.go` here and `utils/preprocess/preprocess-shared-cases.test.ts` in the UI. CI runs both suites when a file there changes.
+The UI applies the same rules at runtime, in `preprocessSchema` (`ui/apps/everest/src/components/ui-generator/utils/preprocess/`): first `resolveMapFields` (`utils/map-field/`), then `resolveToggleable` (`utils/toggleable/toggleable.ts`), and `findUnguardedCelReferences` as a dev-time warning. Every file in [testdata/](testdata) is a shared set of cases both implementations are tested against: `validate_test.go` here and `utils/preprocess/preprocess-shared-cases.test.ts` in the UI. CI runs both suites when a file there changes.
 
 ## Definitions
 
@@ -16,7 +16,7 @@ Rules are evaluated per topology `T`.
   - otherwise → `∅`
 
   Not covered: a marker widget (`uiType: widget` without `path`, e.g. `podSchedulingPolicy`) writes paths the UI resolves from the Provider at runtime, so `Validate` sees `∅` for it. A toggleable holding only such widgets is reported as `toggleable-no-fields`, and overlaps through widget paths are not detected.
-- **Fields(C)**, all fields under a components map `C`, found by walking every container recursively. For the group and CEL rules it leaves out the array fields an [array rule](#array-rules) drops: the UI doesn't render them, so they write nothing.
+- **Fields(C)**, all fields under a components map `C`, found by walking every container recursively. For the group and CEL rules it leaves out the map fields a [map rule](#map-rules) drops: the UI doesn't render them, so they write nothing.
 - **P(g)**, the paths of group `g`: the multiset `⋃ paths(f)` over `f ∈ Fields(g.components)`.
 - **usage_T(p)**: the number of fields `f` in all sections of `T` with `p ∈ paths(f)`.
 - **own_g(p)**: the number of fields `f ∈ Fields(g.components)` with `p ∈ paths(f)`.
@@ -24,25 +24,25 @@ Rules are evaluated per topology `T`.
 - **Key path.** The section key followed by the group keys, joined with `.`, for example `advanced.monitoring`. A field's key path ends with its own key, for example `advanced.labels`.
 - **Overlap.** Paths `p` and `q` overlap when `p = q`, or one starts with the other followed by `.`: `spec.labels` overlaps `spec.labels` and `spec.labels.team`, but not `spec.labelsMode`.
 
-## Array rules
+## Map rules
 
-They run first, on every field `a` with `uiType = array`:
+They run first, on every field `m` with `uiType = map`:
 
 | # | Rule | Condition |
 |---|------|-----------|
-| 1 | `array-unsupported` | `a.outputType ≠ object` or `a.itemTemplate.uiType ≠ keyValue` |
-| 2 | `array-overlap` | another field `f` (any field but `a` that rule 1 didn't match, in any section of `T`) has a path in `paths(f)` that overlaps a path in `paths(a)` |
+| 1 | `map-unsupported` | `m.itemTemplate` is not `{uiType: widget, widgetType: keyValue}` |
+| 2 | `map-multi-path` | `paths(m)` has more than one path |
+| 3 | `map-overlap` | another field `f` (any field but `m` that rules 1–2 didn't match, in any section of `T`) has a path in `paths(f)` that overlaps a path in `paths(m)` |
 | — | *(rendered)* | none of the above |
 
-**Effect.** The UI drops every array field that matched a rule, like an unknown `uiType`: it is neither rendered nor sent, and an edit keeps its saved value.
+**Effect.** The UI drops every map field that matched a rule, like an unknown `uiType`: it is neither rendered nor sent, and an edit keeps its saved value.
 
-**Why.** Only a string map edited as key/value rows is implemented (rule 1); a list, a map of objects or an array without `outputType` would otherwise be read and written as a map. An array field writes its whole value, so a field writing its path, a path inside it or a path it sits in would clash with it (rule 2).
+**Why.** Only rows from the `keyValue` template widget are implemented (rule 1). An edit reads a map from its first path and would leave the others drifting (rule 2). A map field writes its whole value, so a field writing its path, a path inside it or a path it sits in would clash with it (rule 3).
 
 **Consequences:**
 
-- Two array fields that overlap both match rule 2, whatever their order.
-- A field matching rule 1 writes nothing, so it never makes another array field overlap.
-- A multi-path array field overlaps through any of its paths.
+- Two map fields that overlap both match rule 3, whatever their order.
+- A field matching rule 1 or 2 writes nothing, so it never makes another map field overlap.
 
 ## Group rules
 
@@ -99,16 +99,16 @@ Notes:
 
 ## Output
 
-- One `Issue{Rule, Topology, Group, Field, Message}` per array field that matched an array rule (`Group` is empty, `Field` is the key path of the array field), per group that matched a group rule (`Field` is empty), and per (field, group) pair for `toggleable-cel-unguarded` (`Field` is the key path of the field carrying the CEL rule).
+- One `Issue{Rule, Topology, Group, Field, Message}` per map field that matched a map rule (`Group` is empty, `Field` is the key path of the map field), per group that matched a group rule (`Field` is empty), and per (field, group) pair for `toggleable-cel-unguarded` (`Field` is the key path of the field carrying the CEL rule).
 - Issues are sorted by topology, then group key path, then field key path.
 - `Message` is informational. Tests compare only `rule`, `topology`, `group` and `field`.
 
 ## Adding a case
 
-Add an entry to `cases` in the file of the rule's family, e.g. `testdata/array.yaml` or `testdata/toggleable.yaml`:
+Add an entry to `cases` in the file of the rule's family, e.g. `testdata/map.yaml` or `testdata/toggleable.yaml`:
 
 - `name`: a sentence describing the case;
 - `uiSchema`: the input schema;
-- `issues`: the expected list of `{rule, topology}` plus `group` for a group rule, `field` for an array rule, and both for `toggleable-cel-unguarded`, in the order above. Use `[]` when the schema is valid.
+- `issues`: the expected list of `{rule, topology}` plus `group` for a group rule, `field` for a map rule, and both for `toggleable-cel-unguarded`, in the order above. Use `[]` when the schema is valid.
 
 Both suites run every file in `testdata/`. A new rule family needs its UI outcome in `toUiOutcome` of `preprocess-shared-cases.test.ts`: the UI only shows what a rule does to the schema, not which rule it was.

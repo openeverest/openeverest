@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// An array field keeps rows in the form and writes its API shape (a map for
-// outputType object). Every stage that crosses that boundary goes through here.
+// A map field keeps rows ({ key, value }) in the form and writes the map to the
+// API. Every stage that crosses that boundary goes through here.
 
-import type { KeyValuePair } from '@percona/ui-lib';
 import {
   type Component,
   type ComponentGroup,
-  isArrayComponent,
+  isMapComponent,
 } from '../../ui-generator.types';
 import {
   deleteByPath,
@@ -32,17 +31,18 @@ import {
   getComponentTargetPaths,
 } from '../preprocess/normalized-component';
 import { walkLeafComponents } from '../schema-walker';
+import type { MapRow } from './map-field.types';
 
-export const isKeyValuePair = (value: unknown): value is KeyValuePair =>
+export const isMapRow = (value: unknown): value is MapRow =>
   isPlainObject(value) &&
   typeof value.key === 'string' &&
   typeof value.value === 'string';
 
 // A row added but never filled is dropped, not reported.
-export const isEmptyRow = ({ key, value }: KeyValuePair): boolean =>
+export const isEmptyRow = ({ key, value }: MapRow): boolean =>
   key === '' && value === '';
 
-export const objectToRows = (value: unknown): KeyValuePair[] =>
+export const objectToRows = (value: unknown): MapRow[] =>
   isPlainObject(value)
     ? Object.entries(value).map(([key, entryValue]) => ({
         key,
@@ -54,14 +54,14 @@ export const rowsToObject = (
   rows: unknown
 ): Record<string, string> | undefined => {
   const entries = (Array.isArray(rows) ? rows : [])
-    .filter(isKeyValuePair)
+    .filter(isMapRow)
     .filter(({ key }) => key !== '')
     .map(({ key, value }) => [key, value]);
   return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 };
 
 // Reads both the form's rows and the saved map; undefined when there is none.
-export const formatArrayFieldValue = (value: unknown): string | undefined => {
+export const formatMapFieldValue = (value: unknown): string | undefined => {
   const map = Array.isArray(value) ? rowsToObject(value) : value;
   if (!isPlainObject(map) || Object.keys(map).length === 0) return undefined;
   return Object.entries(map)
@@ -69,12 +69,12 @@ export const formatArrayFieldValue = (value: unknown): string | undefined => {
     .join(', ');
 };
 
-export const getArrayFieldPaths = (
+export const getMapFieldPaths = (
   components: Record<string, Component | ComponentGroup>
 ): string[] => {
   const paths: string[] = [];
   walkLeafComponents(components, ({ component }) => {
-    const path = isArrayComponent(component)
+    const path = isMapComponent(component)
       ? getComponentSourcePath(component)
       : undefined;
     if (path) paths.push(path);
@@ -82,24 +82,24 @@ export const getArrayFieldPaths = (
   return paths;
 };
 
-// Every API path an array field writes its map to: its own and, for a
-// multi-path field, the paths the map is copied to.
-export const getArrayFieldTargetPaths = (
+// Every API path a map field writes, the one the form reads included.
+// Preprocess drops a map with several paths, so after it there is one each.
+export const getMapFieldTargetPaths = (
   components: Record<string, Component | ComponentGroup>
 ): string[] => {
   const paths: string[] = [];
   walkLeafComponents(components, ({ component }) => {
-    if (isArrayComponent(component)) {
+    if (isMapComponent(component)) {
       paths.push(...getComponentTargetPaths(component));
     }
   });
   return paths;
 };
 
-// Mutates `values`: an array with no filled row leaves its path unset. A value
+// Mutates `values`: a map with no filled row leaves its path unset. A value
 // that isn't rows, like the saved map of a field the form mode hides, is
 // already in the API shape and is left as is.
-export const writeArrayFieldsInApiShape = (
+export const writeMapFieldsInApiShape = (
   values: Record<string, unknown>,
   paths: string[]
 ): void =>

@@ -18,13 +18,13 @@ import {
   ComponentGroup,
   FieldType,
   FormMode,
-  isArrayComponent,
+  isMapComponent,
   isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { ZOD_SCHEMA_MAP } from 'components/ui-generator/constants';
 import { generateFieldId } from '../component-renderer/generate-field-id';
 import { getComponentSourcePath } from '../preprocess/normalized-component';
-import { buildArrayFieldSchema } from '../array-field';
+import { buildMapFieldSchema, getMapRow } from '../map-field';
 import { applyValidationFromSchema } from './apply-from-schema';
 import { resolveValidationForMode } from '../validation/resolve-validation-for-mode';
 import {
@@ -104,13 +104,18 @@ export const buildShapeFromComponents = (
 
     let fieldSchema: z.ZodTypeAny;
 
-    if (component.uiType === FieldType.Array) {
-      // Rows are validated even without rules: a map can't hold a key twice. A
+    if (component.uiType === FieldType.Map) {
+      // Rows are validated even without rules: a map can't hold a key twice.
+      // Each row against its own fields' rules, built here like any field's. A
       // shape this version doesn't implement isn't validated, so its value
       // passes through like an unknown uiType's.
-      fieldSchema = isArrayComponent(component)
-        ? buildArrayFieldSchema(
-            component,
+      fieldSchema = isMapComponent(component)
+        ? buildMapFieldSchema(
+            buildShapeFromComponents(
+              getMapRow(component).components,
+              '',
+              formMode
+            ).schemaShape,
             resolveValidationForMode(component.validation, formMode)
           )
         : z.any().optional();

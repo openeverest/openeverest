@@ -12,14 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { pluralize } from '@percona/utils';
-
-export const Messages = {
-  keyRequired: 'Enter a key',
-  duplicateKey: (key: string) => `${key} is set more than once`,
-  required: 'Add at least one entry',
-  minItems: (count: number) =>
-    `Add at least ${pluralize(count, 'entry', 'entries')}`,
-  maxItems: (count: number) =>
-    `Add at most ${pluralize(count, 'entry', 'entries')}`,
-};
+// One row of a map field in the form; the map in the API is keyed by `key`.
+export interface MapRow {
+  key: string;
+  value: string;
+}

@@ -18,7 +18,7 @@ import {
   FieldType,
   type Component,
   type ComponentGroup,
-  isArrayComponent,
+  isMapComponent,
 } from 'components/ui-generator/ui-generator.types';
 import UIComponent from 'components/ui-generator/ui-component/ui-component';
 import UIGroup from 'components/ui-generator/ui-group/ui-group';
@@ -31,7 +31,7 @@ import {
 } from 'components/ui-generator/api-providers';
 import { ComponentErrorBoundary } from 'components/ui-generator/component-error-boundary';
 import { SecretField } from 'components/ui-generator/secret-field';
-import { ArrayField } from 'components/ui-generator/array-field';
+import { MapField } from 'components/ui-generator/map-field';
 import { joinPath } from '../object-path';
 
 export type RenderComponentProps = {
@@ -70,12 +70,16 @@ export const renderComponent = ({
     <ComponentErrorBoundary key={fieldName} componentName={name}>
       <SecretField item={item} name={fieldName} />
     </ComponentErrorBoundary>
-  ) : item.uiType === FieldType.Array ? (
+  ) : item.uiType === FieldType.Map ? (
     // A shape this version doesn't implement renders nothing, like an unknown
     // uiType (preprocess drops it; this covers forms that skip preprocess).
-    isArrayComponent(item) && (
+    isMapComponent(item) && (
       <ComponentErrorBoundary key={fieldName} componentName={name}>
-        <ArrayField item={item} name={fieldName} />
+        <MapField item={item} name={fieldName}>
+          {(row, rowRoot) =>
+            renderComponent({ item: row, name: `${name}.row`, root: rowRoot })
+          }
+        </MapField>
       </ComponentErrorBoundary>
     )
   ) : hasDataSource(item as Component) ? (

@@ -20,6 +20,7 @@ import {
   GroupType,
   SelectFieldParams,
   TopologyUISchemas,
+  isMapComponent,
 } from '../../ui-generator.types';
 import { Provider } from 'shared-types/api.types';
 import { resolveSelectOptions } from '../../ui-component/utils/select-component-handler';
@@ -35,15 +36,25 @@ import {
 import { findUnguardedCelReferences } from '../toggleable/find-unguarded-cel-references';
 import { withWidgetTargets } from '../widget-targets';
 import { widgetTargetResolvers } from '../../widget-target-resolvers';
-import { type IgnoredArrayField, resolveArrayFields } from '../array-field';
+import {
+  type IgnoredMapField,
+  expandKeyValueWidget,
+  resolveMapFields,
+} from '../map-field';
 
-const describeIgnoredArray = ({
+const describeIgnoredMap = ({
   reason,
   overlappingPath,
-}: IgnoredArrayField): string =>
-  reason === 'overlap'
-    ? `overlaps the path "${overlappingPath}" of another field, while an array must own its value alone`
-    : 'has a shape this version does not support (only outputType "object" with itemTemplate "keyValue")';
+}: IgnoredMapField): string => {
+  switch (reason) {
+    case 'overlap':
+      return `overlaps the path "${overlappingPath}" of another field, while a map must own its value alone`;
+    case 'multi-path':
+      return 'has several paths, while an edit reads only the first one';
+    default:
+      return 'has an itemTemplate this version does not support (only uiType "widget" with widgetType "keyValue")';
+  }
+};
 
 const describeDegrade = (
   resolution: ToggleableResolution
@@ -110,6 +121,14 @@ const preprocessComponent = (
     );
   }
   const normalizedComponent = withNormalizedPathMeta(component);
+
+  // A keyValue item template stands for its row; expand it once here.
+  if (isMapComponent(normalizedComponent)) {
+    return {
+      ...normalizedComponent,
+      _row: expandKeyValueWidget(normalizedComponent.itemTemplate),
+    };
+  }
 
   if (
     !!providerObject &&
@@ -194,18 +213,18 @@ export const preprocessSchema = (
           topology: topologyKey,
         })
       );
-      const { sections: withArrays, ignored } = resolveArrayFields(withTargets);
+      const { sections: withMaps, ignored } = resolveMapFields(withTargets);
       if (import.meta.env.DEV) {
         ignored.forEach((field) =>
           // eslint-disable-next-line no-console
           console.warn(
-            `[UISchema] Array field "${field.keyPath}" ${describeIgnoredArray(field)}; it is not rendered.`
+            `[UISchema] Map field "${field.keyPath}" ${describeIgnoredMap(field)}; it is not rendered.`
           )
         );
       }
-      const scope = createToggleableScope(withArrays);
+      const scope = createToggleableScope(withMaps);
       const sections = Object.fromEntries(
-        Object.entries(withArrays).map(([sectionKey, section]) => [
+        Object.entries(withMaps).map(([sectionKey, section]) => [
           sectionKey,
           {
             ...section,

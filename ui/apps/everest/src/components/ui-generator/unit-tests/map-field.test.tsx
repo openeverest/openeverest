@@ -19,13 +19,19 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { TestWrapper } from 'utils/test';
 import { UIGenerator } from '../ui-generator';
 import {
-  ArrayItemType,
-  ArrayOutputType,
   FieldType,
+  type KeyValueWidget,
+  TemplateWidgetType,
   TopologyUISchemas,
+  WIDGET_UI_TYPE,
 } from '../ui-generator.types';
 import { buildZodSchema } from '../utils/schema-builder';
 import { getDefaultValues } from '../utils/default-values';
+
+const KEY_VALUE: KeyValueWidget = {
+  uiType: WIDGET_UI_TYPE,
+  widgetType: TemplateWidgetType.KeyValue,
+};
 
 const schema: TopologyUISchemas = {
   replicaSet: {
@@ -33,15 +39,14 @@ const schema: TopologyUISchemas = {
       advanced: {
         components: {
           annotations: {
-            uiType: FieldType.Array,
-            outputType: ArrayOutputType.Object,
+            uiType: FieldType.Map,
             path: 'spec.proxy.annotations',
             fieldParams: {
               label: 'Annotations',
               addButtonLabel: 'Add annotation',
               defaultValue: { team: 'db' },
             },
-            itemTemplate: { uiType: ArrayItemType.KeyValue },
+            itemTemplate: KEY_VALUE,
           },
         },
       },
@@ -49,22 +54,21 @@ const schema: TopologyUISchemas = {
   },
 };
 
-// A list with rules on the count, so the list itself gets an error.
+// A map with rules on the count, so the map itself gets an error.
 const validatedSchema: TopologyUISchemas = {
   replicaSet: {
     sections: {
       advanced: {
         components: {
           annotations: {
-            uiType: FieldType.Array,
-            outputType: ArrayOutputType.Object,
+            uiType: FieldType.Map,
             path: 'spec.proxy.annotations',
             fieldParams: {
               label: 'Annotations',
               helperText: 'Added to the Service',
             },
             validation: { required: true, maxItems: 1 },
-            itemTemplate: { uiType: ArrayItemType.KeyValue },
+            itemTemplate: KEY_VALUE,
           },
         },
       },
@@ -94,7 +98,7 @@ const type = async (name: string, value: string) =>
     });
   });
 
-describe('UIGenerator - array field', () => {
+describe('UIGenerator - map field', () => {
   it('flags a key set twice until either row changes it', async () => {
     render(
       <TestWrapper>
@@ -125,7 +129,29 @@ describe('UIGenerator - array field', () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows the list's own error in place of the helper text", async () => {
+  it('leaves the focus alone when a row is removed after adding one', async () => {
+    render(
+      <TestWrapper>
+        <FormWrapper>
+          <UIGenerator
+            sections={schema.replicaSet.sections}
+            sectionKey="advanced"
+          />
+        </FormWrapper>
+      </TestWrapper>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add annotation' }));
+    expect(screen.getByRole('textbox', { name: 'Key 2' })).toHaveFocus();
+
+    // The added row moves up to row 1 and remounts there.
+    fireEvent.click(screen.getByRole('button', { name: 'Remove 1' }));
+    expect(
+      await screen.findByRole('textbox', { name: 'Key 1' })
+    ).not.toHaveFocus();
+  });
+
+  it("shows the map's own error in place of the helper text", async () => {
     render(
       <TestWrapper>
         <FormWrapper uiSchema={validatedSchema}>
@@ -152,7 +178,7 @@ describe('UIGenerator - array field', () => {
       screen.queryByText('Add at least one entry')
     ).not.toBeInTheDocument();
 
-    // A count error wins over a row error: re-validating the list replaces
+    // A count error wins over a row error: re-validating the map replaces
     // its whole error subtree, and removing a row fixes both anyway.
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
     await type('Key 2', 'team');
@@ -161,5 +187,82 @@ describe('UIGenerator - array field', () => {
     expect(
       screen.queryByText('team is set more than once')
     ).not.toBeInTheDocument();
+  });
+
+  it('renders a row as text fields that take any text param', () => {
+    const envSchema: TopologyUISchemas = {
+      replicaSet: {
+        sections: {
+          advanced: {
+            components: {
+              env: {
+                uiType: FieldType.Map,
+                path: 'spec.env',
+                fieldParams: { label: 'Env', defaultValue: { TOKEN: 's3' } },
+                itemTemplate: {
+                  ...KEY_VALUE,
+                  fieldParams: { value: { type: 'password' } },
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    render(
+      <TestWrapper>
+        <FormWrapper uiSchema={envSchema}>
+          <UIGenerator
+            sections={envSchema.replicaSet.sections}
+            sectionKey="advanced"
+          />
+        </FormWrapper>
+      </TestWrapper>
+    );
+
+    expect(screen.getByLabelText('Value 1')).toHaveAttribute(
+      'type',
+      'password'
+    );
+  });
+
+  it('disables the rows and buttons of a disabled map', () => {
+    const disabledSchema: TopologyUISchemas = {
+      replicaSet: {
+        sections: {
+          advanced: {
+            components: {
+              annotations: {
+                uiType: FieldType.Map,
+                path: 'spec.proxy.annotations',
+                fieldParams: {
+                  label: 'Annotations',
+                  defaultValue: { team: 'db' },
+                  disabled: true,
+                },
+                itemTemplate: KEY_VALUE,
+              },
+            },
+          },
+        },
+      },
+    };
+
+    render(
+      <TestWrapper>
+        <FormWrapper uiSchema={disabledSchema}>
+          <UIGenerator
+            sections={disabledSchema.replicaSet.sections}
+            sectionKey="advanced"
+          />
+        </FormWrapper>
+      </TestWrapper>
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Key 1' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: 'Value 1' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Remove 1' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
   });
 });

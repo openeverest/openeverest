@@ -19,7 +19,7 @@ import type {
 } from 'components/ui-generator/ui-generator.types';
 import {
   FieldType,
-  isArrayComponent,
+  isMapComponent,
   isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import type {
@@ -30,7 +30,7 @@ import {
   getByPath,
   formatDisplayValue,
 } from 'components/ui-generator/utils/object-path';
-import { formatArrayFieldValue } from 'components/ui-generator/utils/array-field';
+import { formatMapFieldValue } from 'components/ui-generator/utils/map-field';
 import {
   getComponentSourcePath,
   getComponentTargetPaths,
@@ -78,8 +78,8 @@ const formatFieldDisplayValue = (
   component: Component,
   rawValue: unknown
 ): string => {
-  if (isArrayComponent(component)) {
-    return formatArrayFieldValue(rawValue) ?? formatDisplayValue(undefined);
+  if (isMapComponent(component)) {
+    return formatMapFieldValue(rawValue) ?? formatDisplayValue(undefined);
   }
   if (component.uiType === FieldType.Quantity) {
     return (

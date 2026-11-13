@@ -15,10 +15,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   type Section,
-  ArrayItemType,
-  ArrayOutputType,
   FieldType,
   FormMode,
+  TemplateWidgetType,
+  WIDGET_UI_TYPE,
 } from '../../ui-generator.types';
 import {
   getSectionFormValues,
@@ -34,11 +34,13 @@ const section: Section = {
       fieldParams: { label: 'Interval', defaultValue: '30s' },
     },
     labels: {
-      uiType: FieldType.Array,
-      outputType: ArrayOutputType.Object,
+      uiType: FieldType.Map,
       path: 'parameters.podMonitorLabels',
       fieldParams: { label: 'PodMonitor labels' },
-      itemTemplate: { uiType: ArrayItemType.KeyValue },
+      itemTemplate: {
+        uiType: WIDGET_UI_TYPE,
+        widgetType: TemplateWidgetType.KeyValue,
+      },
     },
   },
 };

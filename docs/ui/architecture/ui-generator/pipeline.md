@@ -30,11 +30,16 @@ flowchart TD
   - **`dataSource` validation** — for a component with `dataSource: { provider }`, warns (dev-time) if
     the provider is not registered. Options are not resolved here — they are loaded at runtime by
     `DataSourceField` and prefetched by `DataSourcePrefetcher`.
-  - **`resolveArrayFields`** (`utils/array-field/resolve-array-fields.ts`) — runs first, over the
-    whole topology, and drops (dev warning) an `array` field in a shape `isArrayComponent` doesn't
-    accept, or one whose path another field writes, sits in or writes inside: an array writes its
-    whole value. A dropped field is ignored like an unknown `uiType` — not rendered or sent, and an
-    edit keeps its saved value — so the toggleable rules below don't see it.
+  - **`resolveMapFields`** (`utils/map-field/resolve-map-fields.ts`) — runs first, over the whole
+    topology, and drops (dev warning) a `map` field whose item template `isMapComponent` doesn't
+    accept, one with several paths (an edit reads only the first), or one whose path another field
+    writes, sits in or writes inside: a map writes its whole value. A dropped field is ignored like
+    an unknown `uiType` — not rendered or sent, and an edit keeps its saved value — so the
+    toggleable rules below don't see it.
+  - **`expandKeyValueWidget`** (`utils/map-field/key-value-widget.ts`) — expands a map's
+    `keyValue` item template into `_row`: a `line` group of a text `key` and a text `value`, with the
+    widget's params and rules over theirs. `applyModeOverrides` reaches into `_row` too. A form that
+    skips preprocess gets the same row from `getMapRow`.
   - **`resolveToggleable`** (`utils/toggleable/toggleable.ts`) — sets
     `_toggleable: { switchName, childPaths }` on a `toggleable` group. The switch is
     named after the group's key path (`toggleable-switches.advanced~monitoring`), so form modes
@@ -44,7 +49,7 @@ flowchart TD
   - **`findUnguardedCelReferences`** (`utils/toggleable/find-unguarded-cel-references.ts`) —
     warns (dev-time) when a CEL rule outside a working toggleable reads one of its paths without
     `has()` on that exact path: while the group is off the path is absent and the rule fails.
-  - The Go validator `provider-runtime/uischema` applies the same array and toggleable rules to
+  - The Go validator `provider-runtime/uischema` applies the same map and toggleable rules to
     provider schemas, and `provider-sdk generate` rejects a schema that breaks one. Every file in
     `provider-runtime/uischema/testdata/` is a case set both are tested against
     (`utils/preprocess/preprocess-shared-cases.test.ts` here), so a rule changes on both sides.
@@ -71,10 +76,11 @@ flowchart TD
   - **`buildShapeFromComponents`** — `ZOD_SCHEMA_MAP[uiType]` (base zod type) +
     `applyValidationFromSchema` (min/max/regex/required/…) + CEL expression collection. A field
     without `validation` is optional, like a validated field without `required: true`.
-    An `array` field gets `buildArrayFieldSchema` (`utils/array-field/`) even without
-    `validation`: it validates the rows the form keeps — `text` rules on each key and value, a
-    unique key, a key in every filled row, and `required` / `minItems` / `maxItems` on filled
-    rows. Empty rows pass.
+    A `map` field gets `buildMapFieldSchema` (`utils/map-field/`) even without `validation`: it
+    validates the rows the form keeps against the row's own fields (their shape built by this same
+    `buildShapeFromComponents`), plus a unique key, a key in every filled row, and `required` /
+    `minItems` / `maxItems` on filled rows. Empty rows pass. Its output is each filled row as its
+    fields parse it (e.g. a trimmed key), and duplicates are found on that key.
   - **`convertToNestedSchema`** — flat fields → nested `z.object`. A parent object is optional when
     all of its fields are, so edit mode accepts an instance that lacks it (e.g. no
     `spec.components.engine.parameters` when Engine configuration is unset).
@@ -95,9 +101,9 @@ flowchart TD
 
 - Collects initial values from `fieldParams.defaultValue` (create). A `secret` field never takes
   one: a Secret is namespaced, while the schema is cluster-wide (`getSchemaDefault`).
-- **Array fields** keep rows (`[{ key, value }]`) in the form, while the schema's `defaultValue`
+- **Map fields** keep rows (`[{ key, value }]`) in the form, while the schema's `defaultValue`
   and the instance hold the API shape (a map). `getSchemaDefault` and `extractInstanceValues`
-  convert it with `objectToRows` (`utils/array-field/`); `writeArrayFieldsInApiShape` converts
+  convert it with `objectToRows` (`utils/map-field/`); `writeMapFieldsInApiShape` converts
   back in postprocess. Zod transforms can't do it: the create wizard runs the generated schema in
   a `superRefine`, so its output never reaches submit.
 - **Topology switch** (create wizard, no preset) — `useDatabaseFormSync` drops the previous
@@ -129,8 +135,10 @@ flowchart TD
 - **`renderComponent({ item, name, root })`** — recursive traversal:
   - `group` / `hidden` → recurse into nested `components`;
   - leaf → `generateFieldId(item, name)` joined with `root` (form field name) →
-    - `secret` → `SecretField`; `array` → `ArrayField` (ui-lib `KeyValueArray`, which shows the
-      list's own error and re-validates all rows when a key changes);
+    - `secret` → `SecretField`; `map` → `MapField`: `useFieldArray` rows, each rendered by
+      `renderComponent` from the row group under `root` `<path>.<index>` (so row fields are
+      ordinary fields, named `Key 2` etc. via `_renderOverrides`), with add / remove buttons, the
+      map's own error, and re-validation of all rows when a key changes;
     - has `dataSource` → `<ComponentErrorBoundary><DataSourceField><UIComponent/></DataSourceField></ComponentErrorBoundary>`
       (the wrapper loads options through `api-providers/registry` and sets a default via `useEffect`);
     - otherwise → `<ComponentErrorBoundary><UIComponent/></ComponentErrorBoundary>`.
@@ -206,7 +214,7 @@ Read-only and disabled fields keep their value.
     topologies' paths, walking all sections regardless of `sectionsOrder` (leftovers from a topology
     switch, e.g. `spec.components.mixCoord` after switching Milvus cluster → standalone). Paths shared with the selected topology, or nested under/over one of its paths, are
     kept; values no topology binds (`dbName`, `backup`, …) are untouched.
-  - **`writeArrayFieldsInApiShape`** — an `array` field's rows → its map at the source path;
+  - **`writeMapFieldsInApiShape`** — a `map` field's rows → its map at the source path;
     empty rows are dropped, and no filled row leaves the path unset. Runs before multi-path, so
     targets get the map. A value that isn't rows, like a saved map a form loaded as it is, is left
     untouched.
@@ -219,8 +227,8 @@ Read-only and disabled fields keep their value.
   - **`getInactiveToggleablePaths`** — returns the `childPaths` of switched-off toggleable groups;
     they are deleted together with the form-only `toggleable-switches` key.
   - **`removeEmptyFieldValues`** — strip `undefined` / `null` / `""`, and the objects that leaves
-    empty. It doesn't look inside an array field's map (`getArrayFieldTargetPaths`, every path the
-    map is written to): there an empty string is an entry, like a label with an empty value.
+    empty. It doesn't look inside a map field's value (`getMapFieldTargetPaths`): there an empty
+    string is an entry, like a label with an empty value.
 
 **Principle:** the mapping source is the same `_normalized` computed in preprocess.
 
@@ -238,7 +246,7 @@ flowchart TD
   ZOD_EDIT --> FORM["FormDialog + UIGenerator"]
   VALUES --> FORM
   FORM --> SUBMIT["submit"]
-  SUBMIT --> MERGE["mergeSectionEdit(editSections):<br/>postprocessSchemaData → deepMerge into spec<br/>→ delete switched-off toggleable paths<br/>(and parents left empty)<br/>→ replace widget and array values whole"]
+  SUBMIT --> MERGE["mergeSectionEdit(editSections):<br/>postprocessSchemaData → deepMerge into spec<br/>→ delete switched-off toggleable paths<br/>(and parents left empty)<br/>→ replace widget and map values whole"]
   MERGE --> UPDATE["useUpdateDbInstanceWithConflictRetry"]
 ```
 
@@ -252,7 +260,7 @@ CEL's `original` is built from the same read as the form (`extractInstanceValues
 
 The update replaces the whole instance and `deepMerge` keeps keys missing from the form, so
 `mergeSectionEdit` deletes the paths of switched-off toggleable groups explicitly, with parents
-left empty. Widget and array values are written whole for the same reason: a map entry removed
+left empty. Widget and map values are written whole for the same reason: a map entry removed
 in the form would otherwise survive the merge. The merge gets the same mode-applied sections the
 form was read and rendered with: a field the edit mode hides isn't in the form, so it is neither
 replaced nor deleted.
@@ -267,10 +275,10 @@ destination, credentials and Instance entry forms), goes through the same stages
   (`preprocessSection`) and keeps both shapes the stages take: `{ sectionKey, sections, schema }`.
 - **`getSectionFormDefaults`** — create defaults (`getDefaultValues`).
 - **`getSectionFormValues(form, saved)`** — edit values: saved values over the defaults, then the
-  fields the schema owns in the form's shape (`extractInstanceValues`, e.g. an array's map → rows).
+  fields the schema owns in the form's shape (`extractInstanceValues`, e.g. a map → rows).
   Saved keys the schema doesn't own are kept, so a save doesn't drop them. The destination modal
   reads with it; the Instance's monitoring entries editor still loads saved entries as they are
-  (see [Known Limitations](../../ui-generator/known-limitations.md#arrays)).
+  (see [Known Limitations](../../ui-generator/known-limitations.md#maps-and-lists)).
 - **`getSectionFormZodSchema`** — `buildSectionZodSchema` for the section.
 - **`postprocessSectionForm`** — `postprocessSchemaData` for the section.
 
@@ -334,8 +342,8 @@ components:
 | Toggleable validation      | `utils/schema-builder/apply-toggleable-validation.ts`      |
 | Section edit merge         | `utils/postprocess/merge-section-edit.ts`                  |
 | Section forms              | `utils/section-form/section-form.ts`                       |
-| Array fields (rows ↔ map) | `utils/array-field/`                                       |
-| Array field render         | `array-field/array-field.tsx`                              |
+| Map fields (rows ↔ map)   | `utils/map-field/`                                         |
+| Map field render           | `map-field/map-field.tsx`                                  |
 | Topology scope             | `utils/topology-scope/topology-scope.ts`                   |
 | Object path                | `utils/object-path/object-path.ts`                         |
 | API provider registry      | `api-providers/registry.ts`                                |

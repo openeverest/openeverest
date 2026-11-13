@@ -12,4 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export { ArrayField } from './array-field';
+export {
+  formatMapFieldValue,
+  getMapFieldPaths,
+  getMapFieldTargetPaths,
+  objectToRows,
+  rowsToObject,
+  writeMapFieldsInApiShape,
+} from './map-field';
+export { buildMapFieldSchema } from './map-field-schema';
+export { expandKeyValueWidget, getMapRow } from './key-value-widget';
+export { type IgnoredMapField, resolveMapFields } from './resolve-map-fields';
+export type { MapRow } from './map-field.types';

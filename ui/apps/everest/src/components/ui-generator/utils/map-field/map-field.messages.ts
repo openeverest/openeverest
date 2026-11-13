@@ -12,9 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { ArrayComponent } from '../ui-generator.types';
+import { pluralize } from '@percona/utils';
 
-export interface ArrayFieldProps {
-  item: ArrayComponent;
-  name: string;
-}
+export const Messages = {
+  key: 'Key',
+  value: 'Value',
+  keyRequired: 'Enter a key',
+  duplicateKey: (key: string) => `${key} is set more than once`,
+  required: 'Add at least one entry',
+  minItems: (count: number) =>
+    `Add at least ${pluralize(count, 'entry', 'entries')}`,
+  maxItems: (count: number) =>
+    `Add at most ${pluralize(count, 'entry', 'entries')}`,
+};
