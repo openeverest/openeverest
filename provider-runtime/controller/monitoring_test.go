@@ -155,11 +155,42 @@ func TestRequiredSources(t *testing.T) {
 	tests := []struct {
 		name             string
 		entries          []string
+		metricsPolicy    v1alpha1.MonitoringSourcePolicy
 		rendered         []string
 		objs             []client.Object
 		wantMetrics      Requirement
 		wantIntegrations map[string]Requirement
 	}{
+		{
+			name:             "the Always metrics policy without entries",
+			metricsPolicy:    v1alpha1.MonitoringSourcePolicyAlways,
+			wantMetrics:      Required,
+			wantIntegrations: map[string]Requirement{"pmm": NotRequired},
+		},
+		{
+			name:             "the Always metrics policy wins over an unresolved entry",
+			entries:          []string{"pending"},
+			metricsPolicy:    v1alpha1.MonitoringSourcePolicyAlways,
+			wantMetrics:      Required,
+			wantIntegrations: map[string]Requirement{"pmm": Unresolved},
+		},
+		{
+			name:          "the Always metrics policy with a class that does not require metrics",
+			entries:       []string{"logs"},
+			metricsPolicy: v1alpha1.MonitoringSourcePolicyAlways,
+			objs: []client.Object{
+				monitoringBinding("logs", em, "logs", metav1.ConditionTrue),
+				extensionManagedClass("logs", false),
+			},
+			wantMetrics:      Required,
+			wantIntegrations: map[string]Requirement{"pmm": NotRequired},
+		},
+		{
+			name:             "the OnDemand metrics policy without entries",
+			metricsPolicy:    v1alpha1.MonitoringSourcePolicyOnDemand,
+			wantMetrics:      NotRequired,
+			wantIntegrations: map[string]Requirement{"pmm": NotRequired},
+		},
 		{
 			name:    "a not Accepted ExtensionManaged binding whose class requires metrics",
 			entries: []string{"prometheus"},
@@ -285,7 +316,16 @@ func TestRequiredSources(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			c := monitoringTestContext(t, monitoredInstance(tc.entries...), tc.objs...)
+			in := monitoredInstance(tc.entries...)
+			if tc.metricsPolicy != "" {
+				if in.Spec.Monitoring == nil {
+					in.Spec.Monitoring = &v1alpha1.InstanceMonitoringSpec{}
+				}
+				in.Spec.Monitoring.Sources = &v1alpha1.InstanceMonitoringSources{
+					Metrics: &v1alpha1.InstanceMetricsSource{Policy: tc.metricsPolicy},
+				}
+			}
+			c := monitoringTestContext(t, in, tc.objs...)
 			c.SetMonitoringIntegrations(tc.rendered...)
 
 			got, err := c.RequiredSources()

@@ -42,6 +42,7 @@ func Run(ctx context.Context, v Validator, in controller.ValidationInput) contro
 	errs := checkSchemas(ctx, in.Instance, spec)
 	catalogErrs, warnings := checkCatalog(in.Instance, spec)
 	errs = append(errs, catalogErrs...)
+	warnings = append(warnings, checkMonitoring(in.Instance, spec)...)
 	if len(errs) > 0 {
 		return controller.ValidationResult{Errors: errs, Warnings: warnings}
 	}
