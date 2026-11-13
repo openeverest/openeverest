@@ -214,11 +214,42 @@ describe('preprocessSchema', () => {
       );
     });
 
+    it('falls back to the first option without a warning when the provider declares no default', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const noDefault: Provider = { spec: { versions } };
+
+      expect(defaultOf(versionPicker(), noDefault)).toBe('8.0');
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('matches the provider default against option values, not the field it names', () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const byEngine: Provider = {
+        spec: {
+          versions: [
+            { name: '8.0', components: { engine: '8.0.1-1' } },
+            { name: '8.4', components: { engine: '8.4.1-1' } },
+          ],
+          defaultVersion: '8.4',
+        },
+      };
+      const schema = versionPicker({
+        optionsPathConfig: {
+          labelPath: 'name',
+          valuePath: 'components.engine',
+          defaultValuePath: 'spec.defaultVersion',
+        },
+      });
+
+      expect(defaultOf(schema, byEngine)).toBe('8.0.1-1');
+    });
+
     it('ignores the provider default outside create, so restore keeps the first-option fallback', () => {
       expect(defaultOf(versionPicker(), provider, FormMode.Restore)).toBe(
         '8.0'
       );
       expect(defaultOf(versionPicker(), provider, FormMode.Edit)).toBe('8.0');
+      expect(defaultOf(versionPicker(), provider, FormMode.Import)).toBe('8.0');
     });
   });
 });

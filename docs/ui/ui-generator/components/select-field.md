@@ -180,7 +180,7 @@ In this example, the `self` keyword refers to the current field's value. The val
 
 - **Optional fields** (default): Default value is empty string (`''`). Form is valid even when no selection is made. When combined with `displayEmpty: true`, a "None" option is automatically added to allow clearing the selection.
 - **Required fields**: User must select a value from the options. Empty string is not allowed. Form validation fails until a value is selected with error message "Field is required".
-- **Default values**: If no `defaultValue` is specified, the field starts with an empty selection. The `defaultValue` must match one of the option values; invalid default values will cause form validation to fail.
+- **Default values**: With static `options`, if no `defaultValue` is specified, the field starts with an empty selection. The `defaultValue` must match one of the option values; invalid default values will cause form validation to fail.
 - **Default for `optionsPath` selects**: On create, the pre-selected option is the schema's `defaultValue` if set, otherwise the option named by `optionsPathConfig.defaultValuePath`, otherwise the first option. A `defaultValuePath` that names a value outside the options falls back to the first option (with a warning in dev builds). Edit shows the instance's value and restore/import follow the source, so the provider default is not applied there.
 - **Empty options**: If the `options` array is empty, the select displays a "No options" message and validates as optional string.
 - **Auto-injected empty option**: When a field is optional AND `displayEmpty: true`, an empty option (value: `""`, label: "None") is automatically added to the beginning of the options list, unless you've already provided one.
