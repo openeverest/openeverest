@@ -75,6 +75,7 @@ const tokens = {
 
 const rejectedTokens = new Set<string>([tokens.expiredSso]);
 const requests: Array<{ url?: string; token: string | null }> = [];
+const exchangedTokens: string[] = [];
 const navigations: string[] = [];
 let beforeRejecting: (() => void) | null = null;
 
@@ -105,6 +106,7 @@ const fakeServer: AxiosAdapter = async (config) => {
   };
 
   if (config.url === '/session/sso') {
+    exchangedTokens.push(JSON.parse(config.data).token);
     return respond(200, { token: tokens.renewedSso });
   }
   if (!token || rejectedTokens.has(token)) {
@@ -138,11 +140,13 @@ describe('AuthProvider session renewal', () => {
     rejectedTokens.clear();
     rejectedTokens.add(tokens.expiredSso);
     requests.length = 0;
+    exchangedTokens.length = 0;
     navigations.length = 0;
     beforeRejecting = null;
     fakeOidc.userManager.signinSilent.mockReset();
     fakeOidc.userManager.signinSilent.mockResolvedValue({
       access_token: 'idp-access-token',
+      id_token: 'idp-id-token',
     });
     api.defaults.adapter = fakeServer;
     vi.stubGlobal('location', {
@@ -160,6 +164,7 @@ describe('AuthProvider session renewal', () => {
     await renderOnSsoInstance(tokens.expiredSso);
 
     expect(localStorage.getItem('everestToken')).toBe(tokens.renewedSso);
+    expect(exchangedTokens).toEqual(['idp-id-token']);
     expect(initializeAuthorizerFetchLoop).toHaveBeenLastCalledWith('idp-user');
   });
 

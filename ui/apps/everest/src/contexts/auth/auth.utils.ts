@@ -41,8 +41,8 @@ export const SSO_LOGIN_ERROR_KEY = 'ssoLoginError';
 const SSO_RENEW_LOCK_NAME = 'everest-sso-renew';
 const MIN_REUSABLE_TOKEN_VALIDITY_MS = 60_000;
 
-export const exchangeAndStoreSsoToken = async (idpAccessToken: string) => {
-  const everestToken = await exchangeSsoToken(idpAccessToken);
+export const exchangeAndStoreSsoToken = async (idpIdToken: string) => {
+  const everestToken = await exchangeSsoToken(idpIdToken);
   localStorage.setItem('everestToken', everestToken);
   return everestToken;
 };

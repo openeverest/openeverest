@@ -82,7 +82,8 @@ type EverestServer struct {
 	ssoAttemptsStore *RateLimiterMemoryStore
 	handler          handlers.Handler
 	oidcProvider     *oidc.ProviderConfig
-	oidcKeyFunc      jwt.Keyfunc
+	// ssoTokenVerifier validates the ID tokens exchanged for Everest JWTs; nil when OIDC is not configured.
+	ssoTokenVerifier *oidc.IDTokenVerifier
 }
 
 func getOIDCProviderConfig(ctx context.Context, kubeClient kubernetes.KubernetesConnector) (*oidc.ProviderConfig, error) {
@@ -104,8 +105,24 @@ func getOIDCProviderConfig(ctx context.Context, kubeClient kubernetes.Kubernetes
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to create OIDC provider config"))
 	}
+	oidcProvider.ClientID = oidcConfig.ClientID
 
 	return &oidcProvider, nil
+}
+
+// newSSOTokenVerifier returns nil, disabling only the SSO token exchange, when OIDC is not
+// configured or its settings are invalid. Password login must keep working while an
+// administrator fixes the OIDC settings.
+func newSSOTokenVerifier(ctx context.Context, l *zap.SugaredLogger, provider *oidc.ProviderConfig) *oidc.IDTokenVerifier {
+	if provider == nil {
+		return nil
+	}
+	verifier, err := provider.NewIDTokenVerifier(ctx)
+	if err != nil {
+		l.Errorf("SSO is disabled because the OIDC settings are invalid: %v", err)
+		return nil
+	}
+	return verifier
 }
 
 // NewEverestServer creates and configures everest API.
@@ -170,6 +187,7 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 		attemptsStore:    store,
 		ssoAttemptsStore: ssoStore,
 		oidcProvider:     oidcProvider,
+		ssoTokenVerifier: newSSOTokenVerifier(ctx, l, oidcProvider),
 	}
 	e.echo.HTTPErrorHandler = e.errorHandlerChain()
 
@@ -272,7 +290,7 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	}))
 
 	// Setup and use JWT middleware.
-	jwtMW, err := e.jwtMiddleWare(ctx)
+	jwtMW, err := e.jwtMiddleWare()
 	if err != nil {
 		return err
 	}
@@ -364,44 +382,25 @@ func newHandlerChain(hs ...handlers.Handler) handlers.Handler { //nolint:ireturn
 	return hs[0]
 }
 
-func (e *EverestServer) newJWTKeyFunc(ctx context.Context) (jwt.Keyfunc, error) {
-	if e.oidcProvider != nil {
-		fn, err := e.oidcProvider.NewKeyFunc(ctx)
-		if err != nil {
-			return nil, errors.Join(err, errors.New("failed to get OIDC key function"))
-		}
-		// Also used by the SSO token exchange to verify provider-signed JWTs.
-		e.oidcKeyFunc = fn
+// everestJWTKeyFunc accepts only Everest-signed JWTs. Tokens issued by the OIDC provider are
+// never accepted as API credentials: they must be exchanged first (see CreateSSOSession),
+// which checks that the provider issued them to the Everest client.
+func (e *EverestServer) everestJWTKeyFunc(token *jwt.Token) (any, error) {
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, errors.New("failed to get claims from token")
 	}
-
-	return func(token *jwt.Token) (any, error) {
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			return nil, errors.New("failed to get claims from token")
-		}
-		issuer, err := claims.GetIssuer()
-		if err != nil {
-			return "", errors.Join(err, errors.New("failed to get issuer from claims"))
-		}
-
-		if issuer == session.SessionManagerClaimsIssuer {
-			return e.sessionMgr.KeyFunc()(token)
-		}
-		// XXX: currently we use OIDC only, but once we have multiple protocols supported,
-		// we should have a way to select which KeyFunc to use.
-		if e.oidcKeyFunc != nil {
-			return e.oidcKeyFunc(token)
-		}
-		return nil, errors.New("no key found for token")
-	}, nil
+	issuer, err := claims.GetIssuer()
+	if err != nil {
+		return nil, errors.Join(err, errors.New("failed to get issuer from claims"))
+	}
+	if issuer != session.SessionManagerClaimsIssuer {
+		return nil, fmt.Errorf("tokens issued by %q are not accepted", issuer)
+	}
+	return e.sessionMgr.KeyFunc()(token)
 }
 
-func (e *EverestServer) jwtMiddleWare(ctx context.Context) (echo.MiddlewareFunc, error) {
-	keyFunc, err := e.newJWTKeyFunc(ctx)
-	if err != nil {
-		return nil, err
-	}
-
+func (e *EverestServer) jwtMiddleWare() (echo.MiddlewareFunc, error) {
 	skipper, err := newSkipperFunc()
 	if err != nil {
 		return nil, err
@@ -411,7 +410,7 @@ func (e *EverestServer) jwtMiddleWare(ctx context.Context) (echo.MiddlewareFunc,
 	return echojwt.WithConfig(echojwt.Config{
 		Skipper:     skipper,
 		TokenLookup: tokenLookup,
-		KeyFunc:     keyFunc,
+		KeyFunc:     e.everestJWTKeyFunc,
 		ContextKey:  common.UserCtxKey,
 		SuccessHandler: func(c echo.Context) {
 			// The user key exists only in the echo.Context object.

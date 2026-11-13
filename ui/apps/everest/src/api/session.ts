@@ -32,14 +32,14 @@ export const deleteSession = (everestToken: string | null) =>
     skipAuthRefresh: true,
   });
 
-// Exchanges an IdP access token (JWT or opaque) for an Everest JWT. The endpoint is rate limited
+// Exchanges an IdP ID token for an Everest JWT. The endpoint is rate limited
 // per IP, so a throttled (429) attempt is retried with jittered backoff.
-export const exchangeSsoToken = async (idpAccessToken: string) => {
+export const exchangeSsoToken = async (idpIdToken: string) => {
   for (let attempt = 0; ; attempt++) {
     try {
       const response = await api.post<{ token: string }>(
         '/session/sso',
-        { token: idpAccessToken },
+        { token: idpIdToken },
         { skipAuthRefresh: true }
       );
       return response.data.token;
