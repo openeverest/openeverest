@@ -97,6 +97,13 @@ func (h *k8sHandler) DeleteInstance(ctx context.Context, cluster, namespace, nam
 	if params != nil && params.DeletionPolicy != nil {
 		policy := corev1alpha1.InstanceDeletionPolicy(*params.DeletionPolicy)
 		if instance.Spec.DeletionPolicy != policy {
+			if !instance.GetDeletionTimestamp().IsZero() {
+				return echo.NewHTTPError(
+					http.StatusConflict,
+					fmt.Sprintf("cannot change deletion policy to %q: instance %q is already terminating with policy %q (changing policy after deletion starts is not supported)",
+						policy, name, instance.Spec.DeletionPolicy),
+				)
+			}
 			instance.Spec.DeletionPolicy = policy
 			policyChanged = true
 		}
