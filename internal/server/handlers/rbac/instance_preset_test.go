@@ -675,6 +675,8 @@ func TestRBAC_InstancePresetReferences(t *testing.T) {
 			},
 		},
 	}
+	fromPITRNoInstance := fromPITR.DeepCopy()
+	fromPITRNoInstance.PointInTime.Source.InstanceRef = nil
 	const (
 		readProvider = "p, role:test, providers, read, prod/mysql"
 		readClass    = "p, role:test, backup-classes, read, prod/pbm"
@@ -811,6 +813,14 @@ func TestRBAC_InstancePresetReferences(t *testing.T) {
 				},
 				wantErr: true,
 			},
+			{
+				name:   "data source PITR without a source instance",
+				policy: []string{readProvider, readStorage1, "p, role:test, backups, read, prod/ns1/*", "p, role:test, instances, read-connection, prod/ns1/*"},
+				spec: corev1alpha1.InstanceSpec{
+					DataSource: fromPITRNoInstance,
+				},
+				wantErr: true,
+			},
 		}
 		for _, tc := range createCases {
 			t.Run(tc.name, func(t *testing.T) {
@@ -823,6 +833,14 @@ func TestRBAC_InstancePresetReferences(t *testing.T) {
 				require.NoError(t, err)
 			})
 		}
+
+		t.Run("preset named like its source still needs read-connection", func(t *testing.T) {
+			t.Parallel()
+			preset := presetWith(corev1alpha1.InstanceSpec{DataSource: fromBackup})
+			preset.Name = "source-db"
+			_, err := newHandler(t, readProvider, readBackup).CreateInstancePreset(testUserContext(rbac.User{Subject: "bob"}), "prod", preset)
+			require.ErrorIs(t, err, ErrInsufficientPermissions)
+		})
 	})
 
 	t.Run("UpdateInstancePreset", func(t *testing.T) {

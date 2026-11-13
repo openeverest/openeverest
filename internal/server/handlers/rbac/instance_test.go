@@ -1604,7 +1604,7 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 	})
 
 	// A preset-only caller inherits the preset's vetted references, but not
-	// a user secret they supply.
+	// a user secret they supply, nor a cluster preset's unvetted data source.
 	t.Run("CreateInstance from preset", func(t *testing.T) {
 		t.Parallel()
 		presetSpec := corev1alpha1.InstanceSpec{
@@ -1614,12 +1614,19 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 		for _, tc := range []struct {
 			desc     string
 			secret   *apicommon.SecretRef
+			source   *backupv1alpha1.DataSource
 			policy   []string
 			wantDeny bool
 		}{
 			{desc: "pinned storage needs no grant"},
 			{desc: "user secret still checked", secret: &apicommon.SecretRef{Name: "creds"}, wantDeny: true},
 			{desc: "readable user secret", secret: &apicommon.SecretRef{Name: "creds"}, policy: []string{"p, role:deployer, secrets, read, prod/ns1/creds"}},
+			{desc: "data source still checked", source: fromBackup, wantDeny: true},
+			{desc: "data source without read-connection on the source", source: fromBackup, policy: []string{"p, role:deployer, backups, read, prod/ns1/source-db"}, wantDeny: true},
+			{desc: "readable data source", source: fromBackup, policy: []string{
+				"p, role:deployer, backups, read, prod/ns1/source-db",
+				"p, role:deployer, instances, read-connection, prod/ns1/source-db",
+			}},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -1638,10 +1645,18 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 
 				spec := *presetSpec.DeepCopy()
 				spec.UserSecretRef = tc.secret
+				spec.DataSource = tc.source
 				preset := &corev1alpha1.ClusterInstancePreset{Spec: corev1alpha1.ClusterInstancePresetSpec{InstanceSpec: spec}}
 				next := &handlers.MockHandler{}
 				next.On("GetClusterInstancePreset", mock.Anything, mock.Anything, mock.Anything).Return(preset, nil)
 				next.On("CreateInstance", mock.Anything, mock.Anything, mock.Anything).Return(stored(), nil)
+				next.On("GetBackup", mock.Anything, mock.Anything, mock.Anything, "backup-1").Return(&backupv1alpha1.Backup{
+					ObjectMeta: metav1.ObjectMeta{Name: "backup-1", Namespace: "ns1"},
+					Spec: backupv1alpha1.BackupSpec{Origin: backupv1alpha1.BackupOrigin{
+						Type:        backupv1alpha1.BackupOriginTypeInstance,
+						InstanceRef: &apicommon.ObjectRef{Name: "source-db"},
+					}},
+				}, nil)
 				h := &rbacHandler{next: next, log: zap.NewNop().Sugar(), enforcer: enf, userGetter: testUserGetter}
 
 				instance := &corev1alpha1.Instance{

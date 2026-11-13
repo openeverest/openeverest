@@ -83,6 +83,8 @@ func (h *rbacHandler) DeleteRestore(ctx context.Context, cluster, namespace, nam
 // to, so a backup reference is resolved through GetBackup, which also collapses
 // a missing backup into ErrInsufficientPermissions. A PITR source with no
 // instanceRef recovers target's own stream, as StreamSource defaults it.
+// Seeding target from another instance also needs read-connection on it.
+// Presets pass an empty target, so their PITR source must name an instance.
 func (h *rbacHandler) ensureDataSourceReadable(ctx context.Context, cluster, namespace, target string, dataSource backupv1alpha1.DataSource) error {
 	if dataSource.Backup != nil {
 		backup, err := h.GetBackup(ctx, cluster, namespace, dataSource.Backup.BackupRef.Name)
@@ -122,6 +124,10 @@ func (h *rbacHandler) ensureDataSourceReadable(ctx context.Context, cluster, nam
 // ensureUserSecretReadable. Restoring an instance from its own backups needs
 // no extra permission.
 func (h *rbacHandler) ensureSourceConnectionReadable(ctx context.Context, cluster, namespace, target, source string) error {
+	// An empty source names no instance, but a namespace-wide grant would match it.
+	if source == "" {
+		return ErrInsufficientPermissions
+	}
 	if source == target {
 		return nil
 	}

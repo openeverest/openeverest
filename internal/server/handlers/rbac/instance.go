@@ -274,6 +274,8 @@ func (h *rbacHandler) ensureMatchesInstancePreset(ctx context.Context, cluster s
 
 // ensureMatchesClusterInstancePreset checks if an instance spec matches its referenced cluster instance preset.
 // Returns an error if the instance has been customized beyond the preset values.
+// Cluster presets aren't written through the API, so nothing has checked their
+// data source; the caller must be able to read it.
 func (h *rbacHandler) ensureMatchesClusterInstancePreset(ctx context.Context, cluster string, instance *corev1alpha1.Instance, presetName string) error {
 	preset, err := h.next.GetClusterInstancePreset(ctx, cluster, presetName)
 	if err != nil {
@@ -285,6 +287,9 @@ func (h *rbacHandler) ensureMatchesClusterInstancePreset(ctx context.Context, cl
 		return ErrInsufficientPermissions
 	}
 
+	if dataSource := instance.Spec.DataSource; dataSource != nil {
+		return h.ensureDataSourceReadable(ctx, cluster, instance.GetNamespace(), instance.GetName(), *dataSource)
+	}
 	return nil
 }
 
@@ -292,7 +297,7 @@ func (h *rbacHandler) ensureMatchesClusterInstancePreset(ctx context.Context, cl
 // On update, current is the stored instance spec and only references the request adds or changes are checked,
 // so losing a grant on an untouched reference doesn't lock the caller out of editing unrelated fields.
 // requireBackupAndRestoreCreate also checks backups:create and restores:create on the instance.
-// Presets pass false: there is no instance yet, and instances:deploy implies both.
+// Presets pass an empty name and false: there is no instance yet, and instances:deploy implies both.
 func (h *rbacHandler) ensureInstanceReferencesAuthorized(
 	ctx context.Context,
 	cluster, namespace, name string,
