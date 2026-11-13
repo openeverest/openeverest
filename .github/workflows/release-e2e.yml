@@ -2,8 +2,9 @@
 # Release e2e test lane.
 #
 # These tests stand up a full kind cluster (core Everest + the PXC provider +
-# MinIO + PMM) and drive the UI against real databases, so they are slow and
-# heavy — hence they run on a schedule and on demand, NOT on every push.
+# the PMM monitoring class + MinIO + a PMM 3 server) and drive the UI against
+# real databases, so they are slow and heavy — hence they run on a schedule
+# and on demand, NOT on every push.
 #
 # Triggers:
 #   * schedule            — nightly regression run.
@@ -32,6 +33,11 @@ on:
         type: string
         required: false
         default: "main"
+      monitoring_pmm_ref:
+        description: "Branch / tag / SHA of the PMM monitoring class repo"
+        type: string
+        required: false
+        default: "main"
       project:
         description: "Playwright release project to run"
         type: string
@@ -56,6 +62,8 @@ env:
   # PXC provider repository checked out alongside openeverest. Adjust the owner
   # if the provider lives elsewhere; set PROVIDER_REPO_TOKEN if it is private.
   PROVIDER_REPO: openeverest/provider-percona-xtradb-cluster
+  # PMM monitoring class, built and installed like the PXC provider.
+  MONITORING_PMM_REPO: openeverest/monitoring-pmm
 
 jobs:
   release-e2e:
@@ -77,6 +85,7 @@ jobs:
       # deploy-pxc-provider defaults PXC_PROVIDER_DIR to ../provider-…; on CI we
       # check the provider out under the workspace and point at it explicitly.
       PXC_PROVIDER_DIR: ${{ github.workspace }}/provider-percona-xtradb-cluster
+      MONITORING_PMM_DIR: ${{ github.workspace }}/monitoring-pmm
     steps:
       - name: Check out openeverest
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -93,6 +102,13 @@ jobs:
           path: provider-percona-xtradb-cluster
           # Uncomment if the provider repo is private:
           # token: ${{ secrets.PROVIDER_REPO_TOKEN }}
+
+      - name: Check out the PMM monitoring class
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          repository: ${{ env.MONITORING_PMM_REPO }}
+          ref: ${{ github.event.inputs.monitoring_pmm_ref || 'main' }}
+          path: monitoring-pmm
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -135,6 +151,9 @@ jobs:
       - name: Deploy the PXC provider
         run: make deploy-pxc-provider
 
+      - name: Deploy the PMM monitoring class
+        run: make deploy-monitoring-pmm
+
       - name: Prepare test environment (MinIO, PMM, DB namespace)
         working-directory: ui/apps/everest/.e2e
         run: make ci-init
@@ -158,6 +177,9 @@ jobs:
           kubectl -n everest get events --sort-by=.lastTimestamp | tail -50 || true
           kubectl -n provider-system logs deploy/provider-percona-xtradb-cluster --tail=200 || true
           kubectl -n provider-system logs deploy/provider-percona-xtradb-cluster-operator --tail=200 || true
+          # Monitoring: class acceptance, destination probes and bindings.
+          kubectl get monitoringclasses,monitoringdestinations,monitoringbindings -A -o wide || true
+          kubectl -n openeverest-system logs deploy/monitoring-pmm --tail=200 || true
           # The 200-line tails above only cover teardown; keep full logs in the artifact.
           DIAG=ui/apps/everest/.e2e/cluster-diagnostics
           mkdir -p "$DIAG"
@@ -167,6 +189,8 @@ jobs:
           kubectl get events -A --sort-by=.lastTimestamp > "$DIAG/events.txt" 2>&1 || true
           kubectl -n provider-system logs deploy/provider-percona-xtradb-cluster > "$DIAG/provider.log" 2>&1 || true
           kubectl -n provider-system logs deploy/provider-percona-xtradb-cluster-operator > "$DIAG/pxc-operator.log" 2>&1 || true
+          kubectl get monitoringclasses,monitoringdestinations,monitoringbindings -A -o yaml > "$DIAG/monitoring.yaml" 2>&1 || true
+          kubectl -n openeverest-system logs deploy/monitoring-pmm > "$DIAG/monitoring-pmm.log" 2>&1 || true
 
       - name: Upload Playwright report
         if: ${{ always() && steps.e2e.outcome != 'skipped' }}

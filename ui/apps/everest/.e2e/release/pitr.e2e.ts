@@ -29,6 +29,7 @@ import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 import { getClusterDetailedInfo } from '@e2e/utils/storage-class';
 import {
   moveForward,
+  passMonitoringStep,
   submitWizard,
   populateBasicInformation,
   populateResources,
@@ -333,6 +334,7 @@ test.describe.serial(
           ''
         );
         await moveForward(page);
+        await passMonitoringStep(page);
       });
 
       await test.step('Populate resources', async () => {
@@ -366,11 +368,6 @@ test.describe.serial(
 
         await moveForward(page);
       });
-
-      // TODO(monitoring): the PXC provider dropped the wizard Monitoring step and
-      // spec.components.monitoring in favour of MonitoringDestination
-      // (openeverest/provider-percona-xtradb-cluster#46). Restore monitoring
-      // coverage here once core and the UI support MonitoringDestination.
 
       await test.step('Populate advanced db config', async () => {
         if (db === 'pxc') {
