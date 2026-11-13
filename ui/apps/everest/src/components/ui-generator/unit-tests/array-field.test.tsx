@@ -49,11 +49,40 @@ const schema: TopologyUISchemas = {
   },
 };
 
-const FormWrapper = ({ children }: { children: ReactNode }) => {
+// A list with rules on the count, so the list itself gets an error.
+const validatedSchema: TopologyUISchemas = {
+  replicaSet: {
+    sections: {
+      advanced: {
+        components: {
+          annotations: {
+            uiType: FieldType.Array,
+            outputType: ArrayOutputType.Object,
+            path: 'spec.proxy.annotations',
+            fieldParams: {
+              label: 'Annotations',
+              helperText: 'Added to the Service',
+            },
+            validation: { required: true, maxItems: 1 },
+            itemTemplate: { uiType: ArrayItemType.KeyValue },
+          },
+        },
+      },
+    },
+  },
+};
+
+const FormWrapper = ({
+  children,
+  uiSchema = schema,
+}: {
+  children: ReactNode;
+  uiSchema?: TopologyUISchemas;
+}) => {
   const methods = useForm({
-    resolver: zodResolver(buildZodSchema(schema, 'replicaSet').schema),
+    resolver: zodResolver(buildZodSchema(uiSchema, 'replicaSet').schema),
     mode: 'onChange',
-    defaultValues: getDefaultValues(schema, 'replicaSet'),
+    defaultValues: getDefaultValues(uiSchema, 'replicaSet'),
   });
   return <FormProvider {...methods}>{children}</FormProvider>;
 };
@@ -91,6 +120,46 @@ describe('UIGenerator - array field', () => {
     // The error sits on row 2, so clearing it needs both rows re-validated.
     await type('Key 1', 'tier');
 
+    expect(
+      screen.queryByText('team is set more than once')
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the list's own error in place of the helper text", async () => {
+    render(
+      <TestWrapper>
+        <FormWrapper uiSchema={validatedSchema}>
+          <UIGenerator
+            sections={validatedSchema.replicaSet.sections}
+            sectionKey="advanced"
+          />
+        </FormWrapper>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Added to the Service')).toBeInTheDocument();
+
+    // An added row left empty counts as no entry, so required fires.
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    expect(
+      await screen.findByText('Add at least one entry')
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Added to the Service')).not.toBeInTheDocument();
+
+    await type('Key 1', 'team');
+    expect(await screen.findByText('Added to the Service')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Add at least one entry')
+    ).not.toBeInTheDocument();
+
+    // A count error wins over a row error: re-validating the list replaces
+    // its whole error subtree, and removing a row fixes both anyway.
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    await type('Key 2', 'team');
+
+    expect(
+      await screen.findByText('Add at most 1 entry')
+    ).toBeInTheDocument();
     expect(
       screen.queryByText('team is set more than once')
     ).not.toBeInTheDocument();

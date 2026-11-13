@@ -44,7 +44,11 @@ export const KeyValueArray = ({
   const [focusNewRow, setFocusNewRow] = useState(false);
   const rows: unknown = useWatch({ control, name });
   const keys = JSON.stringify(
-    (Array.isArray(rows) ? rows : []).map((row) => row?.key)
+    (Array.isArray(rows) ? rows : []).map((row: unknown) =>
+      typeof row === 'object' && row !== null && 'key' in row
+        ? row.key
+        : undefined
+    )
   );
   const validatedKeys = useRef(keys);
 

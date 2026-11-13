@@ -66,9 +66,13 @@ export const renderComponent = ({
       );
     })
   ) : item.uiType === FieldType.Secret ? (
-    <SecretField item={item} name={fieldName} />
+    <ComponentErrorBoundary key={fieldName} componentName={name}>
+      <SecretField item={item} name={fieldName} />
+    </ComponentErrorBoundary>
   ) : item.uiType === FieldType.Array ? (
-    <ArrayField item={item} name={fieldName} />
+    <ComponentErrorBoundary key={fieldName} componentName={name}>
+      <ArrayField item={item} name={fieldName} />
+    </ComponentErrorBoundary>
   ) : hasDataSource(item as Component) ? (
     <ComponentErrorBoundary key={fieldName} componentName={name}>
       <DataSourceField item={item as ComponentWithDataSource} name={fieldName}>
