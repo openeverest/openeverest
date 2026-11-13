@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -32,6 +31,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 	"golang.org/x/time/rate"
 
 	"github.com/percona/everest/pkg/oidc"
@@ -47,9 +47,22 @@ func newSSOTestContext(t *testing.T, body string) (echo.Context, *httptest.Respo
 	return e.NewContext(req, rec), rec
 }
 
-// The happy path (200) is covered by session.TestCreateSSO plus the e2e flow, because minting
-// the Everest JWT needs a signing key that is only loaded from a fixed on-disk path. These cases
-// pin the request-validation guards, which are the security-relevant branches of the handler.
+func newTestSSOVerifier(t *testing.T) *oidc.IDTokenVerifier {
+	t.Helper()
+	idpKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	verifier, err := oidc.NewIDTokenVerifier(
+		func(*jwt.Token) (any, error) { return idpKey.Public(), nil },
+		"everest", "https://idp.example.com",
+	)
+	require.NoError(t, err)
+	return verifier
+}
+
+// The happy path (200) is covered by session.TestCreateSSO, oidc.TestIDTokenVerifier and the e2e
+// flow, because minting the Everest JWT needs a signing key that is only loaded from a fixed
+// on-disk path. These cases pin the request-validation guards, which are the security-relevant
+// branches of the handler.
 func TestCreateSSOSession(t *testing.T) {
 	t.Parallel()
 
@@ -69,7 +82,7 @@ func TestCreateSSOSession(t *testing.T) {
 		srv := &EverestServer{
 			l:                zap.NewNop().Sugar(),
 			ssoAttemptsStore: attemptsStore,
-			oidcProvider:     &oidc.ProviderConfig{UserInfoURL: "http://127.0.0.1:0/userinfo"},
+			ssoTokenVerifier: newTestSSOVerifier(t),
 		}
 		ctx, rec := newSSOTestContext(t, `{"token":""}`)
 		require.NoError(t, srv.CreateSSOSession(ctx))
@@ -77,17 +90,13 @@ func TestCreateSSOSession(t *testing.T) {
 		assert.Contains(t, rec.Body.String(), "'token' is required")
 	})
 
-	t.Run("userinfo rejects token -> 401", func(t *testing.T) {
+	// Access tokens, opaque or JWT, don't prove which application they were issued to.
+	t.Run("opaque token -> 401", func(t *testing.T) {
 		t.Parallel()
-		idp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusUnauthorized)
-		}))
-		defer idp.Close()
-
 		srv := &EverestServer{
 			l:                zap.NewNop().Sugar(),
 			ssoAttemptsStore: attemptsStore,
-			oidcProvider:     &oidc.ProviderConfig{UserInfoURL: idp.URL},
+			ssoTokenVerifier: newTestSSOVerifier(t),
 		}
 		ctx, rec := newSSOTestContext(t, `{"token":"opaque-but-invalid"}`)
 		require.NoError(t, srv.CreateSSOSession(ctx))
@@ -97,18 +106,13 @@ func TestCreateSSOSession(t *testing.T) {
 
 	t.Run("failed exchange does not penalize password logins", func(t *testing.T) {
 		t.Parallel()
-		idp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusUnauthorized)
-		}))
-		defer idp.Close()
-
 		passwordStore := NewRateLimiterMemoryStoreWithConfig(RateLimiterMemoryStoreConfig{Rate: rate.Limit(10)})
 		ssoStore := NewRateLimiterMemoryStoreWithConfig(RateLimiterMemoryStoreConfig{Rate: rate.Limit(10)})
 		srv := &EverestServer{
 			l:                zap.NewNop().Sugar(),
 			attemptsStore:    passwordStore,
 			ssoAttemptsStore: ssoStore,
-			oidcProvider:     &oidc.ProviderConfig{UserInfoURL: idp.URL},
+			ssoTokenVerifier: newTestSSOVerifier(t),
 		}
 		ctx, _ := newSSOTestContext(t, `{"token":"opaque-but-invalid"}`)
 		ip := ctx.RealIP()
@@ -123,80 +127,45 @@ func TestCreateSSOSession(t *testing.T) {
 	})
 }
 
-func TestResolveSSOIdentity(t *testing.T) {
+func TestNewSSOTokenVerifier(t *testing.T) {
 	t.Parallel()
 
-	idpKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	require.NoError(t, err)
-	var keyFunc jwt.Keyfunc = func(*jwt.Token) (any, error) { return idpKey.Public(), nil }
-
-	newIDP := func(t *testing.T, status int) (*httptest.Server, *atomic.Int32) {
-		t.Helper()
-		var calls atomic.Int32
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			calls.Add(1)
-			w.WriteHeader(status)
-			_, _ = w.Write([]byte(`{"sub":"from-userinfo","groups":["g-userinfo"]}`))
-		}))
-		t.Cleanup(srv.Close)
-		return srv, &calls
-	}
-	signedJWT := func(t *testing.T, key *rsa.PrivateKey) string {
-		t.Helper()
-		s, err := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
-			"sub":    "from-jwt",
-			"exp":    time.Now().Add(time.Hour).Unix(),
-			"groups": []string{"g-jwt"},
-		}).SignedString(key)
-		require.NoError(t, err)
-		return s
+	provider := func(clientID string) *oidc.ProviderConfig {
+		return &oidc.ProviderConfig{
+			Issuer:   "https://idp.example.com",
+			JWKSURL:  "https://idp.example.com/jwks",
+			ClientID: clientID,
+		}
 	}
 
-	// Entra ID: the UserInfo endpoint rejects tokens minted for a custom API audience.
-	t.Run("verifiable JWT is accepted without calling UserInfo", func(t *testing.T) {
+	t.Run("OIDC not configured disables SSO", func(t *testing.T) {
 		t.Parallel()
-		idp, calls := newIDP(t, http.StatusUnauthorized)
-		srv := &EverestServer{
-			l:            zap.NewNop().Sugar(),
-			oidcProvider: &oidc.ProviderConfig{UserInfoURL: idp.URL},
-			oidcKeyFunc:  keyFunc,
-		}
-		info, err := srv.resolveSSOIdentity(context.Background(), signedJWT(t, idpKey))
-		require.NoError(t, err)
-		assert.Equal(t, "from-jwt", info.Subject)
-		assert.Equal(t, oidc.StringList{"g-jwt"}, info.Groups)
-		assert.Zero(t, calls.Load())
+		assert.Nil(t, newSSOTokenVerifier(t.Context(), zap.NewNop().Sugar(), nil))
 	})
 
-	t.Run("opaque token is validated by UserInfo", func(t *testing.T) {
+	t.Run("invalid OIDC settings disable SSO instead of failing the server", func(t *testing.T) {
 		t.Parallel()
-		idp, calls := newIDP(t, http.StatusOK)
-		srv := &EverestServer{
-			l:            zap.NewNop().Sugar(),
-			oidcProvider: &oidc.ProviderConfig{UserInfoURL: idp.URL},
-			oidcKeyFunc:  keyFunc,
-		}
-		info, err := srv.resolveSSOIdentity(context.Background(), "opaque-random-string")
-		require.NoError(t, err)
-		assert.Equal(t, "from-userinfo", info.Subject)
-		assert.Equal(t, oidc.StringList{"g-userinfo"}, info.Groups)
-		assert.Equal(t, int32(1), calls.Load())
+		core, logs := observer.New(zap.ErrorLevel)
+		assert.Nil(t, newSSOTokenVerifier(t.Context(), zap.New(core).Sugar(), provider("")))
+		assert.Equal(t, 1, logs.FilterMessageSnippet("SSO is disabled").Len())
 	})
 
-	t.Run("unverifiable JWT is left to UserInfo to reject", func(t *testing.T) {
+	t.Run("valid OIDC settings enable SSO", func(t *testing.T) {
 		t.Parallel()
-		otherKey, err := rsa.GenerateKey(rand.Reader, 2048)
-		require.NoError(t, err)
-		idp, calls := newIDP(t, http.StatusUnauthorized)
-		srv := &EverestServer{
-			l:            zap.NewNop().Sugar(),
-			oidcProvider: &oidc.ProviderConfig{UserInfoURL: idp.URL},
-			oidcKeyFunc:  keyFunc,
-		}
-		_, err = srv.resolveSSOIdentity(context.Background(), signedJWT(t, otherKey))
-		require.Error(t, err)
-		assert.Equal(t, int32(1), calls.Load())
+		assert.NotNil(t, newSSOTokenVerifier(t.Context(), zap.NewNop().Sugar(), provider("everest")))
 	})
+}
+
+func TestEverestJWTKeyFuncRejectsForeignIssuers(t *testing.T) {
+	t.Parallel()
+
+	// No session manager: a foreign token must be rejected before any key lookup.
+	srv := &EverestServer{}
+	for _, iss := range []string{"https://idp.example.com", ""} {
+		token := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{"iss": iss, "sub": "alice"})
+		_, err := srv.everestJWTKeyFunc(token)
+		require.Error(t, err, "issuer %q", iss)
+	}
 }
 
 // TestPathRateLimiterIsolation pins that SSO renewals have their own budget: exhausting the

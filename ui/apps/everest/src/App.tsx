@@ -119,8 +119,8 @@ const App = () => {
                   // that as the single owner of the OIDC state
                   onSignIn: async (user) => {
                     try {
-                      if (user?.access_token) {
-                        await exchangeAndStoreSsoToken(user.access_token);
+                      if (user?.id_token) {
+                        await exchangeAndStoreSsoToken(user.id_token);
                       }
                       window.location.href = '/';
                     } catch (error) {
