@@ -51,7 +51,11 @@ components:
         type: object
         properties:
           configuration: {type: string}
-          cacheSizeGB: {type: integer, minimum: 1}
+          cacheSizeGB:
+            type: integer
+            minimum: 1
+            x-kubernetes-validations:
+            - {rule: "self <= 64", message: "must be at most 64"}
   proxy:
     type: mongod
   configServer:
@@ -201,6 +205,23 @@ func TestRun(t *testing.T) {
 				"spec.components[engine].parameters.cacheSizeGB: Invalid value: 0: " +
 					"cacheSizeGB in body should be greater than or equal to 1",
 			},
+		},
+		{
+			name: "integer parameter within its CEL rule",
+			instance: replicaSet(func(in *v1alpha1.Instance) {
+				engine := in.Spec.Components["engine"]
+				engine.Parameters = raw(`{"cacheSizeGB":2}`)
+				in.Spec.Components["engine"] = engine
+			}),
+		},
+		{
+			name: "integer parameter breaking its CEL rule",
+			instance: replicaSet(func(in *v1alpha1.Instance) {
+				engine := in.Spec.Components["engine"]
+				engine.Parameters = raw(`{"cacheSizeGB":65}`)
+				in.Spec.Components["engine"] = engine
+			}),
+			want: []string{"spec.components[engine].parameters.cacheSizeGB: Invalid value: 65: must be at most 64"},
 		},
 		{
 			name: "parameters where none are declared",
