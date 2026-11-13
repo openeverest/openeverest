@@ -16,7 +16,6 @@ package validation
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"maps"
 	"slices"
@@ -28,6 +27,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/schema/pruning"
 	apiextensionsvalidation "k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	"k8s.io/apimachinery/pkg/runtime"
+	utiljson "k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	celconfig "k8s.io/apiserver/pkg/apis/cel"
 
@@ -80,8 +80,10 @@ func checkParameters(
 	if err != nil {
 		return field.ErrorList{field.InternalError(path, err)}
 	}
+	// Decoded as the API server does: whole numbers become int64, which CEL
+	// rules on integer fields require (float64 fails them as invalid data).
 	var value any
-	if err := json.Unmarshal(data, &value); err != nil {
+	if err := utiljson.Unmarshal(data, &value); err != nil {
 		return field.ErrorList{field.Invalid(path, string(data), err.Error())}
 	}
 	if value == nil {
