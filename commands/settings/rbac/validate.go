@@ -18,7 +18,9 @@
 package rbac
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -53,10 +55,37 @@ func init() {
 	settingsRBACValidateCmd.Flags().StringVar(&rbacValidatePolicyFilePath, cli.FlagRBACPolicyFile, "", "Path to the policy file to use, otherwise use policy from Everest deployment.")
 }
 
+// ValidateResult represents the result of an RBAC policy validation check.
+type ValidateResult struct {
+	Valid bool   `json:"valid"`
+	Error string `json:"error,omitempty"`
+}
+
+func renderValidate(w io.Writer, err error, pretty bool) {
+	if !pretty {
+		res := ValidateResult{Valid: err == nil}
+		if err != nil {
+			res.Error = err.Error()
+		}
+		_ = json.NewEncoder(w).Encode(res) //nolint:errchkjson
+		return
+	}
+	if err != nil {
+		_, _ = fmt.Fprint(w, output.Failure("Invalid"))
+		msg := err.Error()
+		msg = strings.Join(strings.Split(msg, "\n"), " - ")
+		_, _ = fmt.Fprintln(w, msg)
+		return
+	}
+	_, _ = fmt.Fprint(w, output.Success("Valid"))
+}
+
 func settingsRBACValidatePreRun(cmd *cobra.Command, _ []string) {
 	// Copy global flags to config
-	rbacValidatePretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
-	rbacValidateKubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
+	rbacValidatePretty = !isFlagChanged(cmd, cli.FlagVerbose) && !isFlagChanged(cmd, cli.FlagJSON)
+	if f := cmd.Flag(cli.FlagKubeconfig); f != nil {
+		rbacValidateKubeconfigPath = f.Value.String()
+	}
 }
 
 func settingsRBACValidateRun(cmd *cobra.Command, _ []string) {
@@ -72,26 +101,22 @@ func settingsRBACValidateRun(cmd *cobra.Command, _ []string) {
 
 		ns, err := helm.DiscoverOpenEverestNamespace(rbacValidateKubeconfigPath)
 		if err != nil {
-			logger.GetLogger().Error(err)
+			output.PrintError(err, logger.GetLogger(), rbacValidatePretty)
 			os.Exit(1)
 		}
 		client, err := kubernetes.New(rbacValidateKubeconfigPath, l, ns)
 		if err != nil {
-			logger.GetLogger().Error(err)
+			output.PrintError(err, logger.GetLogger(), rbacValidatePretty)
 			os.Exit(1)
 		}
 		k = client
 	}
 
 	err := rbac.ValidatePolicy(cmd.Context(), k, rbacValidatePolicyFilePath)
+	renderValidate(os.Stdout, err, rbacValidatePretty)
 	if err != nil {
-		_, _ = fmt.Fprint(os.Stdout, output.Failure("Invalid"))
-		msg := err.Error()
-		msg = strings.Join(strings.Split(msg, "\n"), " - ")
-		_, _ = fmt.Fprintln(os.Stdout, msg)
 		os.Exit(1)
 	}
-	_, _ = fmt.Fprintln(os.Stdout, output.Success("Valid"))
 }
 
 // GetSettingsRBACValidateCmd returns the command to validate RBAC policies.
