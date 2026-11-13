@@ -27,6 +27,7 @@ import (
 	"io/fs"
 	"net/http"
 	"path"
+	"regexp"
 	"slices"
 	"strings"
 	"text/template"
@@ -48,6 +49,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/cmd/config"
+	"github.com/openeverest/openeverest/v2/internal/secretdefinition"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	k8shandler "github.com/openeverest/openeverest/v2/internal/server/handlers/k8s"
@@ -83,9 +85,13 @@ type EverestServer struct {
 	sessionMgr    *session.Manager
 	tokenRegistry *tokenregistry.Registry
 	attemptsStore *RateLimiterMemoryStore
-	handler       handlers.Handler
-	oidcProvider  *oidc.ProviderConfig
-	eventHub      *events.Hub
+	// ssoAttemptsStore is separate so SSO renewals neither consume nor penalize password logins.
+	ssoAttemptsStore *RateLimiterMemoryStore
+	handler          handlers.Handler
+	oidcProvider     *oidc.ProviderConfig
+	// ssoTokenVerifier validates the ID tokens exchanged for Everest JWTs; nil when OIDC is not configured.
+	ssoTokenVerifier *oidc.IDTokenVerifier
+	eventHub         *events.Hub
 }
 
 var errFailedToReadRequestBody = errors.New("failed to read request body")
@@ -109,8 +115,24 @@ func getOIDCProviderConfig(ctx context.Context, kubeClient kubernetes.Kubernetes
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to create OIDC provider config"))
 	}
+	oidcProvider.ClientID = oidcConfig.ClientID
 
 	return &oidcProvider, nil
+}
+
+// newSSOTokenVerifier returns nil, disabling only the SSO token exchange, when OIDC is not
+// configured or its settings are invalid. Password login must keep working while an
+// administrator fixes the OIDC settings.
+func newSSOTokenVerifier(ctx context.Context, l *zap.SugaredLogger, provider *oidc.ProviderConfig) *oidc.IDTokenVerifier {
+	if provider == nil {
+		return nil
+	}
+	verifier, err := provider.NewIDTokenVerifier(ctx)
+	if err != nil {
+		l.Errorf("SSO is disabled because the OIDC settings are invalid: %v", err)
+		return nil
+	}
+	return verifier
 }
 
 // NewEverestServer creates and configures everest API.
@@ -142,7 +164,8 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 		},
 	}))
 	echoServer.Use(echomiddleware.RateLimiter(echomiddleware.NewRateLimiterMemoryStore(rate.Limit(c.APIRequestsRateLimit))))
-	store := newPasswordGrantLimiter(c.LoginRateLimit)
+	store := newGrantRateLimiter(c.LoginRateLimit)
+	ssoStore := newGrantRateLimiter(c.SSOTokenExchangeRateLimit)
 
 	sessionManagerClient, err := createSessionManagerClient(ctx, l, kubeConnector.Namespace())
 	if err != nil {
@@ -167,16 +190,18 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 	}
 
 	e := &EverestServer{
-		config:        c,
-		l:             l,
-		echo:          echoServer,
-		kubeConnector: kubeConnector,
-		kubeStreamer:  kubeStreamer,
-		sessionMgr:    sessMgr,
-		tokenRegistry: tokenRegistry,
-		attemptsStore: store,
-		oidcProvider:  oidcProvider,
-		eventHub:      events.NewHub(l, kubeConnector, events.NewRingBuffer(c.EventBufferMaxEvents, c.EventBufferMaxAge)),
+		config:           c,
+		l:                l,
+		echo:             echoServer,
+		kubeConnector:    kubeConnector,
+		kubeStreamer:     kubeStreamer,
+		sessionMgr:       sessMgr,
+		tokenRegistry:    tokenRegistry,
+		attemptsStore:    store,
+		ssoAttemptsStore: ssoStore,
+		oidcProvider:     oidcProvider,
+		ssoTokenVerifier: newSSOTokenVerifier(ctx, l, oidcProvider),
+		eventHub:         events.NewHub(l, kubeConnector, events.NewRingBuffer(c.EventBufferMaxEvents, c.EventBufferMaxAge)),
 	}
 	e.echo.HTTPErrorHandler = e.errorHandlerChain()
 
@@ -295,7 +320,7 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	}))
 
 	// Setup and use JWT middleware.
-	jwtMW, err := e.jwtMiddleWare(ctx)
+	jwtMW, err := e.jwtMiddleWare()
 	if err != nil {
 		return err
 	}
@@ -307,7 +332,11 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	}
 	apiGroup.Use(blocklistMW)
 
+	// After authentication, so an unauthenticated request gets 401 whatever its dryRun parameter.
+	apiGroup.Use(dryRun(swagger, basePath)) //nolint:contextcheck // the middleware uses the per-request context by design
+
 	apiGroup.Use(e.checkOperatorUpgradeState)
+	apiGroup.Use(kubernetesWarnings)
 	api.RegisterHandlers(apiGroup, e)
 
 	// Setup plugin proxy routes (outside OpenAPI validation).
@@ -419,44 +448,25 @@ func newHandlerChain(hs ...handlers.Handler) handlers.Handler { //nolint:ireturn
 	return hs[0]
 }
 
-func (e *EverestServer) newJWTKeyFunc(ctx context.Context) (jwt.Keyfunc, error) {
-	var oidcKeyFn jwt.Keyfunc
-	if e.oidcProvider != nil {
-		fn, err := e.oidcProvider.NewKeyFunc(ctx)
-		if err != nil {
-			return nil, errors.Join(err, errors.New("failed to get OIDC key function"))
-		}
-		oidcKeyFn = fn
+// everestJWTKeyFunc accepts only Everest-signed JWTs. Tokens issued by the OIDC provider are
+// never accepted as API credentials: they must be exchanged first (see handleTokenExchangeGrant),
+// which checks that the provider issued them to the Everest client.
+func (e *EverestServer) everestJWTKeyFunc(token *jwt.Token) (any, error) {
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, errors.New("failed to get claims from token")
 	}
-
-	return func(token *jwt.Token) (any, error) {
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			return nil, errors.New("failed to get claims from token")
-		}
-		issuer, err := claims.GetIssuer()
-		if err != nil {
-			return "", errors.Join(err, errors.New("failed to get issuer from claims"))
-		}
-
-		if issuer == session.SessionManagerClaimsIssuer {
-			return e.sessionMgr.KeyFunc()(token)
-		}
-		// XXX: currently we use OIDC only, but once we have multiple protocols supported,
-		// we should have a way to select which KeyFunc to use.
-		if oidcKeyFn != nil {
-			return oidcKeyFn(token)
-		}
-		return nil, errors.New("no key found for token")
-	}, nil
+	issuer, err := claims.GetIssuer()
+	if err != nil {
+		return nil, errors.Join(err, errors.New("failed to get issuer from claims"))
+	}
+	if issuer != session.SessionManagerClaimsIssuer {
+		return nil, fmt.Errorf("tokens issued by %q are not accepted", issuer)
+	}
+	return e.sessionMgr.KeyFunc()(token)
 }
 
-func (e *EverestServer) jwtMiddleWare(ctx context.Context) (echo.MiddlewareFunc, error) {
-	keyFunc, err := e.newJWTKeyFunc(ctx)
-	if err != nil {
-		return nil, err
-	}
-
+func (e *EverestServer) jwtMiddleWare() (echo.MiddlewareFunc, error) {
 	skipper, err := newSkipperFunc()
 	if err != nil {
 		return nil, err
@@ -466,7 +476,7 @@ func (e *EverestServer) jwtMiddleWare(ctx context.Context) (echo.MiddlewareFunc,
 	return echojwt.WithConfig(echojwt.Config{
 		Skipper:     skipper,
 		TokenLookup: tokenLookup,
-		KeyFunc:     keyFunc,
+		KeyFunc:     e.everestJWTKeyFunc,
 		ContextKey:  common.UserCtxKey,
 		SuccessHandler: func(c echo.Context) {
 			// The user key exists only in the echo.Context object.
@@ -573,7 +583,7 @@ func (e *EverestServer) getBodyFromContext(ctx echo.Context, into any) error {
 	return nil
 }
 
-func newPasswordGrantLimiter(limit int) *RateLimiterMemoryStore {
+func newGrantRateLimiter(limit int) *RateLimiterMemoryStore {
 	return NewRateLimiterMemoryStoreWithConfig(RateLimiterMemoryStoreConfig{
 		Rate: rate.Limit(limit),
 	})
@@ -588,8 +598,20 @@ func (e *EverestServer) errorHandlerChain() echo.HTTPErrorHandler {
 func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 	return func(err error, c echo.Context) {
 		echoErrTarget := &echo.HTTPError{}
+		inUseMessage, inUse := inUseDenialMessage(err)
+		notWritable, managedElsewhere := secretManagedElsewhere(err)
 		switch {
 		case errors.As(err, &echoErrTarget):
+		case inUse:
+			err = &echo.HTTPError{
+				Code:    http.StatusConflict,
+				Message: apiErrorBody{Message: inUseMessage, Reason: reasonInUse},
+			}
+		case managedElsewhere:
+			err = &echo.HTTPError{
+				Code:    http.StatusConflict,
+				Message: notWritable,
+			}
 		case k8serrors.IsNotFound(err):
 			statusError := &k8serrors.StatusError{}
 			if errors.As(err, &statusError) {
@@ -598,13 +620,24 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 					Message: trimWebhookErrorText(statusError.Status().Message),
 				}
 			}
-		case k8serrors.IsForbidden(err),
-			k8serrors.IsInvalid(err):
+		case k8serrors.IsForbidden(err):
 			statusError := &k8serrors.StatusError{}
 			if errors.As(err, &statusError) {
 				err = &echo.HTTPError{
 					Code:    int(statusError.Status().Code),
 					Message: trimStrictDecodingError(trimWebhookErrorText(statusError.Status().Message)),
+				}
+			}
+		case k8serrors.IsInvalid(err):
+			statusError := &k8serrors.StatusError{}
+			if errors.As(err, &statusError) {
+				err = &echo.HTTPError{
+					Code: int(statusError.Status().Code),
+					Message: apiErrorBody{
+						Message: trimStrictDecodingError(trimWebhookErrorText(statusError.Status().Message)),
+						Reason:  string(metav1.StatusReasonInvalid),
+						Causes:  invalidCauses(statusError.Status().Details),
+					},
 				}
 			}
 		case k8serrors.IsAlreadyExists(err):
@@ -670,9 +703,22 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 // form `message`, so clients can map a failure to a specific input instead
 // of only showing a generic notification.
 type apiErrorBody struct {
-	Message string `json:"message"`
-	Reason  string `json:"reason,omitempty"`
-	Field   string `json:"field,omitempty"`
+	Message string               `json:"message"`
+	Reason  string               `json:"reason,omitempty"`
+	Field   string               `json:"field,omitempty"`
+	Causes  []metav1.StatusCause `json:"causes,omitempty"`
+}
+
+func invalidCauses(details *metav1.StatusDetails) []metav1.StatusCause {
+	if details == nil {
+		return nil
+	}
+	causes := make([]metav1.StatusCause, 0, len(details.Causes))
+	for _, c := range details.Causes {
+		c.Message = trimStrictDecodingError(c.Message)
+		causes = append(causes, c)
+	}
+	return causes
 }
 
 // conflictField maps a Kubernetes Conflict message to the object field whose
@@ -704,11 +750,64 @@ func trimStrictDecodingError(fullText string) string {
 	return fullText
 }
 
+// admissionDenial matches what the API server writes before the message of
+// an admission webhook or ValidatingAdmissionPolicy that denied a request,
+// including the resource and name it puts first when the denial is Forbidden.
+var admissionDenial = regexp.MustCompile(
+	`^(?:\S+ "[^"]*" is forbidden: )?(?:admission webhook "[^"]*" denied the request|ValidatingAdmissionPolicy '[^']*'(?: with binding '[^']*')? denied request): `,
+)
+
+// trimWebhookErrorText keeps only the message an admission webhook or policy
+// gave for denying a request.
 func trimWebhookErrorText(fullText string) string {
-	monitoringWebhookPrefix := `admission webhook "vmonitoringconfig-v1alpha1.everest.percona.com" denied the request: `
-	loadBalancerConfigWebhookPrefix := `admission webhook "vloadbalancerconfig-v1alpha1.everest.percona.com" denied the request: `
-	dbcWebhookPrefix := `admission webhook "vdatabasecluster-v1alpha1.everest.percona.com" denied the request: `
-	return strings.TrimPrefix(strings.TrimPrefix(strings.TrimPrefix(fullText, loadBalancerConfigWebhookPrefix), monitoringWebhookPrefix), dbcWebhookPrefix)
+	return admissionDenial.ReplaceAllString(fullText, "")
+}
+
+// reasonInUse is the reason of the 409 answering a deletion refused because
+// the object is still in use.
+const reasonInUse = "InUse"
+
+// inUsePolicy matches the name of a ValidatingAdmissionPolicy that refuses
+// deleting an object still in use: <resource>-in-use.<group>, whatever
+// prefix kustomize's namePrefix adds.
+var inUsePolicy = regexp.MustCompile(`ValidatingAdmissionPolicy '[^']*-in-use\.[^']*openeverest\.io'`)
+
+// inUseDenialMessage reports whether err is the denial of an in-use policy
+// and returns its message. A policy can only deny as Forbidden, which the
+// API also answers when the caller lacks a permission; an object in use is a
+// conflict with its current state the caller can resolve, hence a 409.
+func inUseDenialMessage(err error) (string, bool) {
+	statusError := &k8serrors.StatusError{}
+	if !errors.As(err, &statusError) || statusError.ErrStatus.Reason != metav1.StatusReasonForbidden ||
+		!inUsePolicy.MatchString(statusError.ErrStatus.Message) {
+		return "", false
+	}
+	return trimWebhookErrorText(statusError.ErrStatus.Message), true
+}
+
+const (
+	// reasonManagedByController is the reason of the 409 answering a change
+	// to a Secret that a controller owns.
+	reasonManagedByController = "ManagedByController"
+	// reasonManagedOutside is the reason of the 409 answering a change to a
+	// Secret that was not created through the API.
+	reasonManagedOutside = "ManagedOutside"
+)
+
+// secretManagedElsewhere reports whether err refuses a write to a Secret
+// that something other than the API manages, and returns the body answering
+// it. Like a stale resourceVersion, it is a conflict with the Secret's
+// current state, so it is a 409; the reason tells them apart.
+func secretManagedElsewhere(err error) (apiErrorBody, bool) {
+	var byController *secretdefinition.ManagedByControllerError
+	switch {
+	case errors.As(err, &byController):
+		return apiErrorBody{Message: err.Error(), Reason: reasonManagedByController}, true
+	case errors.Is(err, secretdefinition.ErrManagedOutside):
+		return apiErrorBody{Message: err.Error(), Reason: reasonManagedOutside}, true
+	default:
+		return apiErrorBody{}, false
+	}
 }
 
 // createSessionManagerClient creates a k8s client for a session manager.

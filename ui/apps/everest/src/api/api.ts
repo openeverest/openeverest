@@ -17,7 +17,7 @@
 
 import axios, { AxiosError } from 'axios';
 import { enqueueSnackbar } from 'notistack';
-import { getAuthToken, refreshSession } from './session-token';
+import { getAuthToken, renewSession } from './session-token';
 
 const BASE_URL = '/v1/';
 const DEFAULT_ERROR_MESSAGE = 'Something went wrong';
@@ -63,7 +63,10 @@ export const addApiErrorInterceptor = () => {
               return Promise.reject(error);
             }
             if (originalRequest && !originalRequest.retriedAfterRefresh) {
-              const newToken = await refreshSession();
+              const rejectedToken = String(
+                originalRequest.headers['Authorization'] ?? ''
+              ).replace(/^Bearer /, '');
+              const newToken = await renewSession(rejectedToken);
               if (newToken) {
                 originalRequest.retriedAfterRefresh = true;
                 originalRequest.headers['Authorization'] = `Bearer ${newToken}`;

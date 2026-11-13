@@ -16,7 +16,7 @@ import { ClusterInstancePreset } from 'shared-types/api.types';
 import { CLUSTER_INSTANCE_PRESET_ANNOTATION } from './preset-selection.constants';
 
 interface BuildPresetCreateArgsInput {
-  resolvedPreset: ClusterInstancePreset;
+  selectedPreset: ClusterInstancePreset;
   provider: string;
   dbName: string;
   k8sNamespace: string;
@@ -34,12 +34,12 @@ interface PresetCreateArgs {
 }
 
 // Builds the create-instance arguments for a one-click preset deploy: the
-// resolved preset spec is sent verbatim (never rebuilt from the wizard fields)
+// selected preset spec is sent verbatim (never rebuilt from the wizard fields)
 // and the originating preset is recorded in an annotation. Only request-address
 // fields ride alongside the spec; they are stripped before submit by
 // buildCreateInstanceSpec, so no wizard-only value leaks into the Instance spec.
 export const buildPresetCreateArgs = ({
-  resolvedPreset,
+  selectedPreset,
   provider,
   dbName,
   k8sNamespace,
@@ -49,7 +49,7 @@ export const buildPresetCreateArgs = ({
     provider,
     dbName,
     k8sNamespace,
-    spec: resolvedPreset.spec,
+    spec: selectedPreset.spec,
   },
   annotations: { [CLUSTER_INSTANCE_PRESET_ANNOTATION]: presetName },
 });

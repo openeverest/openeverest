@@ -70,10 +70,10 @@ export const StorageLocations = lazy(() =>
   )
 );
 
-export const MonitoringEndpoints = lazy(() =>
-  import('pages/settings/monitoring-endpoints/monitoring-endpoints').then(
+export const MonitoringDestinations = lazy(() =>
+  import('pages/settings/monitoring-destinations/monitoring-destinations').then(
     (module) => ({
-      default: module.MonitoringEndpoints,
+      default: module.MonitoringDestinations,
     })
   )
 );

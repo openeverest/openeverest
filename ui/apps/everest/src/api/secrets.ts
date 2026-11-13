@@ -13,7 +13,12 @@
 // limitations under the License.
 
 import { api } from 'api/api';
-import { Secret, SecretList, SecretListFilter } from 'shared-types/api.types';
+import {
+  Secret,
+  SecretDataPatch,
+  SecretList,
+  SecretListFilter,
+} from 'shared-types/api.types';
 
 export const getSecretsFn = async (
   cluster: string,
@@ -37,6 +42,39 @@ export const createSecretFn = async (
     secret,
     // A taken name is shown on the form's name field.
     { disableNotifications: (e) => e.status === 409 }
+  );
+  return response.data;
+};
+
+// Metadata only: the API never returns Secret data.
+export const getSecretFn = async (
+  cluster: string,
+  namespace: string,
+  name: string,
+  disableNotifications = false
+): Promise<Secret> => {
+  const response = await api.get<Secret>(
+    `clusters/${cluster}/namespaces/${namespace}/secrets/${name}`,
+    { disableNotifications }
+  );
+  return response.data;
+};
+
+// Sets the keys in stringData and keeps the others. A stale resourceVersion is
+// refused with 409, which the caller reports.
+export const patchSecretFn = async (
+  cluster: string,
+  namespace: string,
+  name: string,
+  patch: SecretDataPatch
+): Promise<Secret> => {
+  const response = await api.patch<Secret>(
+    `clusters/${cluster}/namespaces/${namespace}/secrets/${name}`,
+    patch,
+    {
+      headers: { 'Content-Type': 'application/merge-patch+json' },
+      disableNotifications: (e) => e.status === 409,
+    }
   );
   return response.data;
 };

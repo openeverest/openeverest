@@ -1,0 +1,109 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: monitoringdestination-selectable-fields
+spec:
+  # The class and Secret references are CRD selectableFields, so kubectl finds
+  # the destinations of a class or of a Secret. Neither the classes nor the
+  # Secrets need exist for that.
+  steps:
+  - name: destinations
+    try:
+    - apply:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: pmm-credentials
+          spec:
+            classRef:
+              name: selectable-fields-pmm
+            authentication:
+              mode: BasicAuth
+              credentialsSecretRef:
+                name: shared
+    - apply:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: pmm-ca
+          spec:
+            classRef:
+              name: selectable-fields-pmm
+            tls:
+              ca:
+                secretKeyRef:
+                  name: shared
+                  key: ca.crt
+    - apply:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: prometheus
+          spec:
+            classRef:
+              name: selectable-fields-prometheus
+            authentication:
+              mode: BasicAuth
+              credentialsSecretRef:
+                name: prometheus-credentials
+            tls:
+              ca:
+                secretKeyRef:
+                  name: corp-ca
+                  key: ca.crt
+    - apply:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: anonymous
+          spec:
+            classRef:
+              name: selectable-fields-prometheus
+
+  - name: field-selectors-find-the-referrers
+    try:
+    - script:
+        content: kubectl get monitoringdestinations -n $NAMESPACE --field-selector spec.classRef.name=selectable-fields-pmm -o jsonpath='{.items[*].metadata.name}'
+        check:
+          ($error): ~
+          ($stdout): pmm-ca pmm-credentials
+    - script:
+        content: kubectl get monitoringdestinations -n $NAMESPACE --field-selector spec.authentication.credentialsSecretRef.name=shared -o jsonpath='{.items[*].metadata.name}'
+        check:
+          ($error): ~
+          ($stdout): pmm-credentials
+    - script:
+        content: kubectl get monitoringdestinations -n $NAMESPACE --field-selector spec.tls.ca.secretKeyRef.name=shared -o jsonpath='{.items[*].metadata.name}'
+        check:
+          ($error): ~
+          ($stdout): pmm-ca
+    - script:
+        content: kubectl get mdest -n $NAMESPACE --field-selector spec.classRef.name=selectable-fields-prometheus,spec.tls.ca.secretKeyRef.name=corp-ca -o jsonpath='{.items[*].metadata.name}'
+        check:
+          ($error): ~
+          ($stdout): prometheus
+    - script:
+        content: kubectl get monitoringdestinations -n $NAMESPACE --field-selector spec.authentication.credentialsSecretRef.name=unused -o jsonpath='{.items[*].metadata.name}'
+        check:
+          ($error): ~
+          ($stdout): ''
+
+  - name: wide-output-shows-the-secrets
+    try:
+    - script:
+        content: kubectl get monitoringdestination prometheus -n $NAMESPACE -o wide
+        check:
+          ($error): ~
+          (contains($stdout, 'CREDENTIALS')): true
+          (contains($stdout, 'prometheus-credentials')): true
+          (contains($stdout, 'corp-ca')): true
+    - script:
+        content: kubectl get monitoringdestination prometheus -n $NAMESPACE
+        check:
+          ($error): ~
+          (contains($stdout, 'CREDENTIALS')): false

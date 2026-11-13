@@ -62,7 +62,12 @@ export const mergeSectionEdit = ({
   const processed = postprocessSchemaData(
     formData,
     topology
-      ? { schema: { [topology]: { sections } }, selectedTopology: topology }
+      ? {
+          schema: { [topology]: { sections } },
+          selectedTopology: topology,
+          // Align with form paths (`spec.*`): keep stored quantities untouched.
+          originalData: { spec },
+        }
       : undefined
   );
   const updates = processed.spec;

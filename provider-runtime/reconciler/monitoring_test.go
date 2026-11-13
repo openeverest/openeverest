@@ -138,10 +138,18 @@ func newMonReconcilerWith(t *testing.T, p providerAdapter, funcs interceptor.Fun
 	require.NoError(t, v1alpha1.AddToScheme(s))
 	require.NoError(t, monitoringv1alpha1.AddToScheme(s))
 	kubeSystem := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "kube-system", UID: types.UID(monTestClusterID)}}
+	// The fake client writes resourceVersion into the objects it is seeded
+	// with, and parallel subtests share fixtures, so it gets copies.
+	seed := make([]client.Object, 0, len(objs)+1)
+	for _, obj := range objs {
+		copied, ok := obj.DeepCopyObject().(client.Object)
+		require.True(t, ok, "copy %T", obj)
+		seed = append(seed, copied)
+	}
 	c := interceptor.NewClient(fake.NewClientBuilder().
 		WithScheme(s).
 		WithTypeConverters(monTypeConverter(t), managedfields.NewDeducedTypeConverter()).
-		WithObjects(append(objs, kubeSystem)...).
+		WithObjects(append(seed, kubeSystem)...).
 		WithStatusSubresource(&v1alpha1.Instance{}, &monitoringv1alpha1.MonitoringBinding{}).
 		WithIndex(&monitoringv1alpha1.MonitoringDestination{}, indexDestinationSecrets, destinationSecrets).
 		Build(), funcs,
@@ -165,6 +173,12 @@ func monProviderObject() *v1alpha1.Provider {
 	return &v1alpha1.Provider{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-provider"},
 		Spec: v1alpha1.ProviderSpec{
+			ComponentTypes: map[string]v1alpha1.ComponentType{
+				"mysql":       {Kind: "mysql"},
+				"haproxy":     {Kind: "haproxy"},
+				"mysqlrouter": {Kind: "mysqlrouter"},
+				"xtrabackup":  {Kind: "xtrabackup"},
+			},
 			Components: map[string]v1alpha1.Component{
 				"engine":      {Type: "mysql"},
 				"proxy":       {Type: "haproxy"},
@@ -173,9 +187,9 @@ func monProviderObject() *v1alpha1.Provider {
 			},
 			Monitoring: &v1alpha1.ProviderMonitoring{
 				ComponentTypes: map[string]v1alpha1.MonitoringComponentType{
-					"mysql":       {Kind: "mysql", Metrics: v1alpha1.MetricsSourceExporter},
-					"haproxy":     {Kind: "haproxy", Metrics: v1alpha1.MetricsSourceNative},
-					"mysqlrouter": {Kind: "mysqlrouter", Metrics: v1alpha1.MetricsSourceNone},
+					"mysql":       {Metrics: v1alpha1.MetricsSourceExporter},
+					"haproxy":     {Metrics: v1alpha1.MetricsSourceNative},
+					"mysqlrouter": {Metrics: v1alpha1.MetricsSourceNone},
 				},
 			},
 		},
@@ -235,6 +249,7 @@ func pmmClass() *monitoringv1alpha1.MonitoringClass {
 	return &monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "pmm"},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
+			ControllerName:  "openeverest.io/monitoring-pmm",
 			ProviderManaged: &monitoringv1alpha1.ProviderManagedFulfilment{Integration: "pmm"},
 		},
 	}
@@ -249,6 +264,59 @@ func monCondition(condType string, status metav1.ConditionStatus, reason, messag
 
 func accepted() metav1.Condition {
 	return monCondition(monitoringv1alpha1.MonitoringBindingConditionAccepted, metav1.ConditionTrue, monitoringv1alpha1.ReasonAccepted, "")
+}
+
+// readyDestination returns the destination "<entry>-dest" of class entry,
+// probed for its current generation with the given Ready reason.
+func readyDestination(entry string, reason monitoringv1alpha1.ReadyReason) *monitoringv1alpha1.MonitoringDestination {
+	return &monitoringv1alpha1.MonitoringDestination{
+		ObjectMeta: metav1.ObjectMeta{Name: entry + "-dest", Namespace: "team-a", Generation: 1},
+		Spec:       monitoringv1alpha1.MonitoringDestinationSpec{ClassRef: common.ObjectRef{Name: entry}},
+		Status: monitoringv1alpha1.MonitoringDestinationStatus{Conditions: []metav1.Condition{{
+			Type: monitoringv1alpha1.MonitoringDestinationConditionReady, Status: reason.Status(), Reason: string(reason),
+			Message: "probe of https://" + entry + ".example.com", ObservedGeneration: 1, LastTransitionTime: metav1.Now(),
+		}}},
+	}
+}
+
+// entryCond is a status.monitoring.destinations[] condition without its
+// generation and timestamp.
+type entryCond struct {
+	Type    string
+	Status  metav1.ConditionStatus
+	Reason  string
+	Message string
+}
+
+func configuredCond(status metav1.ConditionStatus, reason, message string) entryCond {
+	return entryCond{Type: v1alpha1.MonitoringEntryConditionConfigured, Status: status, Reason: reason, Message: message}
+}
+
+func readyCond(status metav1.ConditionStatus, reason, message string) entryCond {
+	return entryCond{Type: v1alpha1.MonitoringEntryConditionReady, Status: status, Reason: reason, Message: message}
+}
+
+// entryView is a status.monitoring.destinations[] entry without condition
+// generations and timestamps.
+type entryView struct {
+	Name       string
+	Mode       v1alpha1.MonitoringExecutionMode
+	Conditions []entryCond
+}
+
+func viewEntries(st *v1alpha1.InstanceMonitoringStatus) []entryView {
+	if st == nil {
+		return nil
+	}
+	views := make([]entryView, 0, len(st.Destinations))
+	for _, d := range st.Destinations {
+		v := entryView{Name: d.Name, Mode: d.Mode}
+		for _, c := range d.Conditions {
+			v.Conditions = append(v.Conditions, entryCond{Type: c.Type, Status: c.Status, Reason: c.Reason, Message: c.Message})
+		}
+		views = append(views, v)
+	}
+	return views
 }
 
 // reconcileMonitoringOf runs reconcileMonitoring as Reconcile does after a
@@ -283,29 +351,42 @@ func TestReconcileMonitoring_ProviderWithoutContract(t *testing.T) {
 		require.NotNil(t, got.Status.Monitoring)
 		assert.Nil(t, got.Status.Monitoring.Sources)
 		msg := "provider test-provider does not implement the monitoring contract"
-		assert.Equal(t, []v1alpha1.InstanceMonitoringDestinationStatus{
-			{Name: "pmm", Configured: metav1.ConditionFalse, Reason: "IntegrationUnsupported", Message: msg},
-			{Name: "prometheus", Configured: metav1.ConditionFalse, Reason: "IntegrationUnsupported", Message: msg},
-		}, got.Status.Monitoring.Destinations,
+		unsupported := []entryCond{
+			configuredCond(metav1.ConditionFalse, "IntegrationUnsupported", msg),
+			readyCond(metav1.ConditionFalse, "NotConfigured", msg),
+		}
+		assert.Equal(t, []entryView{
+			{Name: "pmm", Conditions: unsupported},
+			{Name: "prometheus", Conditions: unsupported},
+		}, viewEntries(got.Status.Monitoring),
 		)
 		c := meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionMonitoringConfigured)
 		require.NotNil(t, c)
 		assert.Equal(t, metav1.ConditionFalse, c.Status)
 		assert.Equal(t, v1alpha1.ReasonMonitoringIntegrationUnsupported, c.Reason)
 		assert.Equal(t, "pmm: IntegrationUnsupported; prometheus: IntegrationUnsupported", c.Message)
+		ready := meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionMonitoringReady)
+		require.NotNil(t, ready)
+		assert.Equal(t, metav1.ConditionFalse, ready.Status)
+		assert.Equal(t, v1alpha1.ReasonMonitoringIntegrationUnsupported, ready.Reason)
+		assert.Equal(t, "pmm: NotConfigured; prometheus: NotConfigured", ready.Message)
 	})
 
 	t.Run("no entries clears the status", func(t *testing.T) {
 		t.Parallel()
 		in := monInstance()
 		in.Status.Monitoring = &v1alpha1.InstanceMonitoringStatus{Destinations: []v1alpha1.InstanceMonitoringDestinationStatus{{Name: "pmm"}}}
-		in.Status.Conditions = []metav1.Condition{{Type: v1alpha1.ConditionMonitoringConfigured, Status: metav1.ConditionFalse}}
+		in.Status.Conditions = []metav1.Condition{
+			{Type: v1alpha1.ConditionMonitoringConfigured, Status: metav1.ConditionFalse},
+			{Type: v1alpha1.ConditionMonitoringReady, Status: metav1.ConditionFalse},
+		}
 		r := newMonReconciler(t, &readyTestProvider{}, monProviderObject(), in)
 
 		got := reconcileMonitoringOf(t, r, in, nil)
 
 		assert.Nil(t, got.Status.Monitoring)
 		assert.Nil(t, meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionMonitoringConfigured))
+		assert.Nil(t, meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionMonitoringReady))
 	})
 }
 
@@ -340,13 +421,17 @@ func TestReconcileMonitoring_NoEntries(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			in := monInstance()
-			in.Status.Conditions = []metav1.Condition{{Type: v1alpha1.ConditionMonitoringConfigured, Status: metav1.ConditionTrue}}
+			in.Status.Conditions = []metav1.Condition{
+				{Type: v1alpha1.ConditionMonitoringConfigured, Status: metav1.ConditionTrue},
+				{Type: v1alpha1.ConditionMonitoringReady, Status: metav1.ConditionTrue},
+			}
 			r := newMonReconciler(t, &monProvider{sources: tc.sources}, monProviderObject(), in)
 
 			got := reconcileMonitoringOf(t, r, in, nil)
 
 			assert.Equal(t, tc.want, got.Status.Monitoring)
 			assert.Nil(t, meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionMonitoringConfigured))
+			assert.Nil(t, meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionMonitoringReady))
 		})
 	}
 }
@@ -436,11 +521,13 @@ func TestReconcileMonitoring_BindingsUnreadable(t *testing.T) {
 
 	got := reconcileMonitoringOf(t, r, in, nil)
 
-	c := meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionMonitoringConfigured)
-	require.NotNil(t, c)
-	assert.Equal(t, metav1.ConditionUnknown, c.Status)
-	assert.Equal(t, v1alpha1.ReasonMonitoringPending, c.Reason)
-	assert.Equal(t, `list monitoring bindings for instance "orders": injected`, c.Message)
+	for _, condType := range []string{v1alpha1.ConditionMonitoringConfigured, v1alpha1.ConditionMonitoringReady} {
+		c := meta.FindStatusCondition(got.Status.Conditions, condType)
+		require.NotNil(t, c, condType)
+		assert.Equal(t, metav1.ConditionUnknown, c.Status, condType)
+		assert.Equal(t, v1alpha1.ReasonMonitoringPending, c.Reason, condType)
+		assert.Equal(t, `list monitoring bindings for instance "orders": injected`, c.Message, condType)
+	}
 }
 
 func TestReconcileMonitoring_ConfiguredWriteFails(t *testing.T) {
@@ -457,11 +544,14 @@ func TestReconcileMonitoring_ConfiguredWriteFails(t *testing.T) {
 	got := reconcileMonitoringOf(t, r, in, nil)
 
 	require.NotNil(t, got.Status.Monitoring)
-	assert.Equal(t, []v1alpha1.InstanceMonitoringDestinationStatus{{
-		Name: "pmm", Mode: v1alpha1.MonitoringExecutionModeProviderManaged, Configured: metav1.ConditionUnknown, Reason: "Pending",
-		Message: "failed to write the Configured condition: apply status of MonitoringBinding team-a/" +
-			monitoring.BindingName("orders", "pmm") + ": injected",
-	}}, got.Status.Monitoring.Destinations,
+	assert.Equal(t, []entryView{{
+		Name: "pmm", Mode: v1alpha1.MonitoringExecutionModeProviderManaged, Conditions: []entryCond{
+			configuredCond(metav1.ConditionUnknown, "Pending", "failed to write the Configured condition: apply status of MonitoringBinding team-a/"+
+				monitoring.BindingName("orders", "pmm")+": injected",
+			),
+			readyCond(metav1.ConditionUnknown, "Pending", "Waiting for the binding to be Configured"),
+		},
+	}}, viewEntries(got.Status.Monitoring),
 	)
 	c := meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionMonitoringConfigured)
 	require.NotNil(t, c)
@@ -479,24 +569,53 @@ func TestReconcileMonitoring_RollUp(t *testing.T) {
 	configured := func(status metav1.ConditionStatus, reason string) metav1.Condition {
 		return monCondition(monitoringv1alpha1.MonitoringBindingConditionConfigured, status, reason, "")
 	}
+	type rollUpWant struct {
+		status  metav1.ConditionStatus
+		reason  string
+		message string
+	}
+	healthy := []client.Object{readyDestination("pmm", monitoringv1alpha1.ReasonReady), readyDestination("prometheus", monitoringv1alpha1.ReasonReady)}
 	tests := []struct {
-		name        string
-		entries     []string
-		bindings    []client.Object
-		wantStatus  metav1.ConditionStatus
-		wantReason  string
-		wantMessage string
+		name         string
+		entries      []string
+		bindings     []client.Object
+		destinations []client.Object
+		configured   rollUpWant
+		ready        rollUpWant
 	}{
 		{
-			name:    "every destination configured",
+			name:    "every destination configured and ready",
 			entries: []string{"pmm", "prometheus"},
 			bindings: []client.Object{
 				monBinding("pmm", pm, accepted()),
 				monBinding("prometheus", em, accepted(), configured(metav1.ConditionTrue, "Configured")),
 			},
-			wantStatus:  metav1.ConditionTrue,
-			wantReason:  v1alpha1.ReasonMonitoringConfigured,
-			wantMessage: "All monitoring destinations are configured",
+			destinations: healthy,
+			configured:   rollUpWant{metav1.ConditionTrue, v1alpha1.ReasonMonitoringConfigured, "All monitoring destinations are configured"},
+			ready:        rollUpWant{metav1.ConditionTrue, v1alpha1.ReasonMonitoringReady, "All monitoring destinations are ready"},
+		},
+		{
+			name:    "configured, but a destination rejects the credentials",
+			entries: []string{"pmm", "prometheus"},
+			bindings: []client.Object{
+				monBinding("pmm", pm, accepted()),
+				monBinding("prometheus", em, accepted(), configured(metav1.ConditionTrue, "Configured")),
+			},
+			destinations: []client.Object{
+				readyDestination("pmm", monitoringv1alpha1.ReasonUnauthorized), readyDestination("prometheus", monitoringv1alpha1.ReasonReady),
+			},
+			configured: rollUpWant{metav1.ConditionTrue, v1alpha1.ReasonMonitoringConfigured, "All monitoring destinations are configured"},
+			ready:      rollUpWant{metav1.ConditionFalse, v1alpha1.ReasonMonitoringNotReady, "pmm: DestinationNotReady"},
+		},
+		{
+			name:    "a destination not probed yet",
+			entries: []string{"pmm"},
+			bindings: []client.Object{
+				monBinding("pmm", pm, accepted()),
+			},
+			destinations: []client.Object{pmmDestination()},
+			configured:   rollUpWant{metav1.ConditionTrue, v1alpha1.ReasonMonitoringConfigured, "All monitoring destinations are configured"},
+			ready:        rollUpWant{metav1.ConditionUnknown, v1alpha1.ReasonMonitoringPending, "pmm: Pending"},
 		},
 		{
 			name:    "a class controller has not reported yet",
@@ -505,17 +624,17 @@ func TestReconcileMonitoring_RollUp(t *testing.T) {
 				monBinding("pmm", pm, accepted()),
 				monBinding("prometheus", em, accepted(), configured(metav1.ConditionUnknown, "Pending")),
 			},
-			wantStatus:  metav1.ConditionUnknown,
-			wantReason:  v1alpha1.ReasonMonitoringPending,
-			wantMessage: "prometheus: Pending",
+			destinations: healthy,
+			configured:   rollUpWant{metav1.ConditionUnknown, v1alpha1.ReasonMonitoringPending, "prometheus: Pending"},
+			ready:        rollUpWant{metav1.ConditionUnknown, v1alpha1.ReasonMonitoringPending, "prometheus: Pending"},
 		},
 		{
-			name:        "a binding not created yet",
-			entries:     []string{"pmm", "prometheus"},
-			bindings:    []client.Object{monBinding("pmm", pm, accepted())},
-			wantStatus:  metav1.ConditionUnknown,
-			wantReason:  v1alpha1.ReasonMonitoringPending,
-			wantMessage: "prometheus: Pending",
+			name:         "a binding not created yet",
+			entries:      []string{"pmm", "prometheus"},
+			bindings:     []client.Object{monBinding("pmm", pm, accepted())},
+			destinations: healthy,
+			configured:   rollUpWant{metav1.ConditionUnknown, v1alpha1.ReasonMonitoringPending, "prometheus: Pending"},
+			ready:        rollUpWant{metav1.ConditionUnknown, v1alpha1.ReasonMonitoringPending, "prometheus: Pending"},
 		},
 		{
 			name:    "a failure outweighs a pending entry",
@@ -523,24 +642,28 @@ func TestReconcileMonitoring_RollUp(t *testing.T) {
 			bindings: []client.Object{monBinding("prometheus", em, monCondition(
 				monitoringv1alpha1.MonitoringBindingConditionAccepted, metav1.ConditionFalse, monitoringv1alpha1.ReasonClassNotAccepted, "class prometheus is not claimed",
 			))},
-			wantStatus:  metav1.ConditionFalse,
-			wantReason:  v1alpha1.ReasonMonitoringNotConfigured,
-			wantMessage: "pmm: Pending; prometheus: ClassNotAccepted",
+			destinations: healthy,
+			configured:   rollUpWant{metav1.ConditionFalse, v1alpha1.ReasonMonitoringNotConfigured, "pmm: Pending; prometheus: ClassNotAccepted"},
+			ready:        rollUpWant{metav1.ConditionFalse, v1alpha1.ReasonMonitoringNotReady, "pmm: Pending; prometheus: NotAccepted"},
 		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			in := monInstance(tc.entries...)
-			r := newMonReconciler(t, &monProvider{}, append(tc.bindings, monProviderObject(), in, pmmDestination(), pmmClass())...)
+			objs := append(slices.Clone(tc.bindings), tc.destinations...)
+			r := newMonReconciler(t, &monProvider{}, append(objs, monProviderObject(), in, pmmClass())...)
 
 			got := reconcileMonitoringOf(t, r, in, nil)
 
-			c := meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionMonitoringConfigured)
-			require.NotNil(t, c)
-			assert.Equal(t, tc.wantStatus, c.Status)
-			assert.Equal(t, tc.wantReason, c.Reason)
-			assert.Equal(t, tc.wantMessage, c.Message)
+			for condType, want := range map[string]rollUpWant{
+				v1alpha1.ConditionMonitoringConfigured: tc.configured,
+				v1alpha1.ConditionMonitoringReady:      tc.ready,
+			} {
+				c := meta.FindStatusCondition(got.Status.Conditions, condType)
+				require.NotNil(t, c, condType)
+				assert.Equal(t, want, rollUpWant{c.Status, c.Reason, c.Message}, condType)
+			}
 			require.NotNil(t, got.Status.Monitoring)
 			assert.Len(t, got.Status.Monitoring.Destinations, len(tc.entries))
 		})
@@ -582,44 +705,70 @@ func TestReconcileMonitoring_DestinationStatus(t *testing.T) {
 		destinationDeleted bool
 		classDeleted       bool
 		stage              func(*controller.Context)
-		// entry is the Instance's view; configured is the binding's
-		// Configured condition afterwards, nil when it must be absent.
+		// destination is the destination's Ready reason, Ready when empty.
+		destination monitoringv1alpha1.ReadyReason
+		// entry and ready are the Instance's view; configured is the
+		// binding's Configured condition afterwards, nil when it must be
+		// absent.
 		entry      want
+		ready      want
 		configured *want
 	}{
 		{
 			name:    "not accepted yet",
 			binding: monBinding("pmm", pm),
 			entry:   want{metav1.ConditionUnknown, "Pending", "waiting for the binding to be accepted"},
+			ready:   want{metav1.ConditionUnknown, "Pending", "Waiting for the binding to be Accepted"},
 		},
 		{
 			name:    "accepted for an older generation",
 			binding: monBinding("pmm", pm, staleAccepted),
 			entry:   want{metav1.ConditionUnknown, "Pending", "waiting for the binding to be accepted"},
+			ready:   want{metav1.ConditionUnknown, "Pending", "Waiting for the binding to be Accepted"},
 		},
 		{
 			name:       "ProviderManaged not accepted, nothing rendered before",
 			binding:    monBinding("pmm", pm, notAccepted),
 			entry:      want{metav1.ConditionFalse, "DestinationNotFound", "MonitoringDestination pmm-dest not found"},
+			ready:      want{metav1.ConditionFalse, "NotAccepted", "Binding is not Accepted (DestinationNotFound)"},
 			configured: &want{metav1.ConditionFalse, "NotAccepted", "Binding is not Accepted (DestinationNotFound); nothing is rendered"},
 		},
 		{
 			name:       "ProviderManaged not accepted after being configured",
 			binding:    monBinding("pmm", pm, notAccepted, configured(metav1.ConditionTrue, "Configured", "")),
 			entry:      want{metav1.ConditionFalse, "DestinationNotFound", "MonitoringDestination pmm-dest not found"},
+			ready:      want{metav1.ConditionFalse, "NotAccepted", "Binding is not Accepted (DestinationNotFound)"},
 			configured: &want{metav1.ConditionUnknown, "Retained", "Binding is no longer Accepted (DestinationNotFound); keeping the live rendering"},
 		},
 		{
 			name:       "ProviderManaged still not accepted while retained",
 			binding:    monBinding("pmm", pm, notAccepted, configured(metav1.ConditionUnknown, "Retained", "")),
 			entry:      want{metav1.ConditionFalse, "DestinationNotFound", "MonitoringDestination pmm-dest not found"},
+			ready:      want{metav1.ConditionFalse, "NotAccepted", "Binding is not Accepted (DestinationNotFound)"},
 			configured: &want{metav1.ConditionUnknown, "Retained", "Binding is no longer Accepted (DestinationNotFound); keeping the live rendering"},
 		},
 		{
 			name:       "ProviderManaged rendered by Sync",
 			binding:    monBinding("pmm", pm, accepted()),
 			entry:      want{metav1.ConditionTrue, "Configured", "Rendered by provider test-provider"},
+			ready:      want{metav1.ConditionTrue, "Ready", `Configured, and MonitoringDestination "pmm-dest" is Ready`},
 			configured: &want{metav1.ConditionTrue, "Configured", "Rendered by provider test-provider"},
+		},
+		{
+			name:        "ProviderManaged rendered, but the destination rejects the credentials",
+			binding:     monBinding("pmm", pm, accepted()),
+			destination: monitoringv1alpha1.ReasonUnauthorized,
+			entry:       want{metav1.ConditionTrue, "Configured", "Rendered by provider test-provider"},
+			ready:       want{metav1.ConditionFalse, "DestinationNotReady", `MonitoringDestination "pmm-dest" is not Ready (Unauthorized)`},
+			configured:  &want{metav1.ConditionTrue, "Configured", "Rendered by provider test-provider"},
+		},
+		{
+			name:        "ProviderManaged rendered, the destination not probed yet",
+			binding:     monBinding("pmm", pm, accepted()),
+			destination: monitoringv1alpha1.ReasonReadyPending,
+			entry:       want{metav1.ConditionTrue, "Configured", "Rendered by provider test-provider"},
+			ready:       want{metav1.ConditionUnknown, "Pending", `Waiting for MonitoringDestination "pmm-dest" to report Ready`},
+			configured:  &want{metav1.ConditionTrue, "Configured", "Rendered by provider test-provider"},
 		},
 		{
 			name:    "ProviderManaged with a staged failure",
@@ -628,6 +777,7 @@ func TestReconcileMonitoring_DestinationStatus(t *testing.T) {
 				c.SetMonitoringBindingResult(monitoring.BindingName("orders", "pmm"), monitoringv1alpha1.ReasonRenderFailed, "destination has no url")
 			},
 			entry:      want{metav1.ConditionFalse, "RenderFailed", "destination has no url"},
+			ready:      want{metav1.ConditionFalse, "NotConfigured", "Binding is not Configured (RenderFailed)"},
 			configured: &want{metav1.ConditionFalse, "RenderFailed", "destination has no url"},
 		},
 		{
@@ -635,6 +785,7 @@ func TestReconcileMonitoring_DestinationStatus(t *testing.T) {
 			binding:            monBinding("pmm", pm, accepted(), configured(metav1.ConditionTrue, "Configured", "Rendered by provider test-provider")),
 			destinationDeleted: true,
 			entry:              want{metav1.ConditionUnknown, "Pending", "waiting for the destination and class to be resolved"},
+			ready:              want{metav1.ConditionUnknown, "Pending", "Waiting for the binding to be Configured"},
 			configured:         &want{metav1.ConditionTrue, "Configured", "Rendered by provider test-provider"},
 		},
 		{
@@ -642,6 +793,7 @@ func TestReconcileMonitoring_DestinationStatus(t *testing.T) {
 			binding:      monBinding("pmm", pm, accepted(), configured(metav1.ConditionTrue, "Configured", "Rendered by provider test-provider")),
 			classDeleted: true,
 			entry:        want{metav1.ConditionUnknown, "Pending", "waiting for the destination and class to be resolved"},
+			ready:        want{metav1.ConditionUnknown, "Pending", "Waiting for the binding to be Configured"},
 			configured:   &want{metav1.ConditionTrue, "Configured", "Rendered by provider test-provider"},
 		},
 		{
@@ -649,6 +801,7 @@ func TestReconcileMonitoring_DestinationStatus(t *testing.T) {
 			binding:    monBinding("pmm", pm, accepted()),
 			provider:   &vmagentProvider{},
 			entry:      want{metav1.ConditionFalse, "RenderFailed", "provider test-provider does not render integration pmm"},
+			ready:      want{metav1.ConditionFalse, "NotConfigured", "Binding is not Configured (RenderFailed)"},
 			configured: &want{metav1.ConditionFalse, "RenderFailed", "provider test-provider does not render integration pmm"},
 		},
 		{
@@ -659,29 +812,34 @@ func TestReconcileMonitoring_DestinationStatus(t *testing.T) {
 				c.SetMonitoringBindingResult(monitoring.BindingName("orders", "pmm"), monitoringv1alpha1.ReasonConfigured, "rendered")
 			},
 			entry:      want{metav1.ConditionFalse, "RenderFailed", "provider test-provider does not render integration pmm"},
+			ready:      want{metav1.ConditionFalse, "NotConfigured", "Binding is not Configured (RenderFailed)"},
 			configured: &want{metav1.ConditionFalse, "RenderFailed", "provider test-provider does not render integration pmm"},
 		},
 		{
 			name:       "ExtensionManaged configured by its class controller",
 			binding:    monBinding("pmm", em, accepted(), configured(metav1.ConditionTrue, "Configured", "PodMonitor orders-pmm created")),
 			entry:      want{metav1.ConditionTrue, "Configured", "PodMonitor orders-pmm created"},
+			ready:      want{metav1.ConditionTrue, "Ready", `Configured, and MonitoringDestination "pmm-dest" is Ready`},
 			configured: &want{metav1.ConditionTrue, "Configured", "PodMonitor orders-pmm created"},
 		},
 		{
 			name:       "ExtensionManaged reported for an older generation",
 			binding:    reportedForGeneration2(),
 			entry:      want{metav1.ConditionUnknown, "Pending", "waiting for the class controller"},
+			ready:      want{metav1.ConditionUnknown, "Pending", "Waiting for the binding to be Configured"},
 			configured: &want{metav1.ConditionTrue, "Configured", "PodMonitor orders-pmm created"},
 		},
 		{
 			name:    "ExtensionManaged without a report from its class controller",
 			binding: monBinding("pmm", em, accepted()),
 			entry:   want{metav1.ConditionUnknown, "Pending", "waiting for the class controller"},
+			ready:   want{metav1.ConditionUnknown, "Pending", "Waiting for the binding to be Configured"},
 		},
 		{
 			name:    "ExtensionManaged not accepted",
 			binding: monBinding("pmm", em, notAccepted),
 			entry:   want{metav1.ConditionFalse, "DestinationNotFound", "MonitoringDestination pmm-dest not found"},
+			ready:   want{metav1.ConditionFalse, "NotAccepted", "Binding is not Accepted (DestinationNotFound)"},
 		},
 	}
 	for _, tc := range tests {
@@ -690,7 +848,11 @@ func TestReconcileMonitoring_DestinationStatus(t *testing.T) {
 			in := monInstance("pmm")
 			objs := []client.Object{tc.binding, monProviderObject(), in}
 			if !tc.destinationDeleted {
-				objs = append(objs, pmmDestination())
+				reason := tc.destination
+				if reason == "" {
+					reason = monitoringv1alpha1.ReasonReady
+				}
+				objs = append(objs, readyDestination("pmm", reason))
 			}
 			if !tc.classDeleted {
 				objs = append(objs, pmmClass())
@@ -704,10 +866,12 @@ func TestReconcileMonitoring_DestinationStatus(t *testing.T) {
 			got := reconcileMonitoringOf(t, r, in, tc.stage)
 
 			require.NotNil(t, got.Status.Monitoring)
-			assert.Equal(t, []v1alpha1.InstanceMonitoringDestinationStatus{{
-				Name: "pmm", Mode: tc.binding.Spec.ExecutionMode,
-				Configured: tc.entry.status, Reason: tc.entry.reason, Message: tc.entry.message,
-			}}, got.Status.Monitoring.Destinations,
+			assert.Equal(t, []entryView{{
+				Name: "pmm", Mode: tc.binding.Spec.ExecutionMode, Conditions: []entryCond{
+					configuredCond(tc.entry.status, tc.entry.reason, tc.entry.message),
+					readyCond(tc.ready.status, tc.ready.reason, tc.ready.message),
+				},
+			}}, viewEntries(got.Status.Monitoring),
 			)
 
 			c := storedConfigured(t, r, "pmm")
@@ -775,9 +939,16 @@ func TestValidateSources(t *testing.T) {
 			wantCredentials: credentials,
 		},
 		{
-			name:            "kind comes from the declared component type",
+			name:            "empty kind is set to the declared kind of the component type",
 			credentials:     credentials,
-			metrics:         []v1alpha1.MetricsEndpoint{with(func(ep *v1alpha1.MetricsEndpoint) { ep.Kind = "postgresql" })},
+			metrics:         []v1alpha1.MetricsEndpoint{with(func(ep *v1alpha1.MetricsEndpoint) { ep.Kind = "" })},
+			want:            []v1alpha1.MetricsEndpoint{valid},
+			wantCredentials: credentials,
+		},
+		{
+			name:            "kind other than the declared kind of the component type",
+			credentials:     credentials,
+			metrics:         []v1alpha1.MetricsEndpoint{valid, with(func(ep *v1alpha1.MetricsEndpoint) { ep.Kind = "postgresql" })},
 			want:            []v1alpha1.MetricsEndpoint{valid},
 			wantCredentials: credentials,
 		},
@@ -908,7 +1079,7 @@ func TestReconcile_PublishesMonitoringStatus(t *testing.T) {
 		sources:           &v1alpha1.MonitoringSources{Metrics: []v1alpha1.MetricsEndpoint{engine}},
 	}
 	in := monInstance("pmm")
-	r := newMonReconciler(t, p, monProviderObject(), in, pmmDestination(), pmmClass(),
+	r := newMonReconciler(t, p, monProviderObject(), in, readyDestination("pmm", monitoringv1alpha1.ReasonReady), pmmClass(),
 		monBinding("pmm", v1alpha1.MonitoringExecutionModeProviderManaged, accepted()),
 	)
 
@@ -919,15 +1090,60 @@ func TestReconcile_PublishesMonitoringStatus(t *testing.T) {
 	require.NotNil(t, got.Status.Monitoring.Sources)
 	assert.Equal(t, []v1alpha1.MetricsEndpoint{engine}, got.Status.Monitoring.Sources.Metrics)
 	assert.Equal(t, monTestClusterID, got.Status.Monitoring.Sources.Identity.ClusterID)
-	assert.Equal(t, []v1alpha1.InstanceMonitoringDestinationStatus{{
-		Name: "pmm", Mode: v1alpha1.MonitoringExecutionModeProviderManaged, Configured: metav1.ConditionTrue,
-		Reason: "Configured", Message: "Rendered by provider test-provider",
-	}}, got.Status.Monitoring.Destinations,
+	assert.Equal(t, []entryView{{
+		Name: "pmm", Mode: v1alpha1.MonitoringExecutionModeProviderManaged, Conditions: []entryCond{
+			configuredCond(metav1.ConditionTrue, "Configured", "Rendered by provider test-provider"),
+			readyCond(metav1.ConditionTrue, "Ready", `Configured, and MonitoringDestination "pmm-dest" is Ready`),
+		},
+	}}, viewEntries(got.Status.Monitoring),
 	)
+	for _, c := range got.Status.Monitoring.Destinations[0].Conditions {
+		assert.Equal(t, got.Generation, c.ObservedGeneration, c.Type)
+		assert.False(t, c.LastTransitionTime.IsZero(), c.Type)
+	}
 	assert.True(t, meta.IsStatusConditionTrue(got.Status.Conditions, v1alpha1.ConditionMonitoringConfigured))
+	assert.True(t, meta.IsStatusConditionTrue(got.Status.Conditions, v1alpha1.ConditionMonitoringReady))
 	c := storedConfigured(t, r, "pmm")
 	require.NotNil(t, c)
 	assert.Equal(t, metav1.ConditionTrue, c.Status)
+
+	again, err := reconcileAndGet(t, r)
+	require.NoError(t, err)
+	require.NotNil(t, again.Status.Monitoring)
+	assert.Equal(t, got.Status.Monitoring.Destinations, again.Status.Monitoring.Destinations,
+		"an unchanged entry keeps its lastTransitionTimes",
+	)
+}
+
+func TestReconcile_PublishesTheDeclaredKinds(t *testing.T) {
+	t.Parallel()
+	endpoint := func(component, kind string) v1alpha1.MetricsEndpoint {
+		return v1alpha1.MetricsEndpoint{
+			Component: component, Kind: kind, Port: intstr.FromString("metrics"),
+			PodSelector: map[string]string{controller.InstanceLabel: "orders"},
+		}
+	}
+	p := &monProvider{
+		readyTestProvider: readyTestProvider{status: controller.Ready()},
+		sources: &v1alpha1.MonitoringSources{Metrics: []v1alpha1.MetricsEndpoint{
+			endpoint("engine", ""),
+			endpoint("proxy", "haproxy"),
+			endpoint("proxy", "mysql"),
+		}},
+	}
+	in := monInstance("pmm")
+	r := newMonReconciler(t, p, monProviderObject(), in, pmmDestination(), pmmClass(),
+		monBinding("pmm", v1alpha1.MonitoringExecutionModeProviderManaged, accepted()),
+	)
+
+	got, err := reconcileAndGet(t, r)
+	require.NoError(t, err)
+
+	require.NotNil(t, got.Status.Monitoring)
+	require.NotNil(t, got.Status.Monitoring.Sources)
+	assert.Equal(t, []v1alpha1.MetricsEndpoint{endpoint("engine", "mysql"), endpoint("proxy", "haproxy")},
+		got.Status.Monitoring.Sources.Metrics,
+	)
 }
 
 func TestReconcile_RequiredSourcesIncludeRenderedIntegrations(t *testing.T) {
@@ -944,6 +1160,7 @@ func TestReconcile_RequiredSourcesIncludeRenderedIntegrations(t *testing.T) {
 	require.NoError(t, p.err)
 	assert.Equal(t, controller.RequiredSources{
 		Metrics:      controller.NotRequired,
+		Connections:  controller.NotRequired,
 		Integrations: map[string]controller.Requirement{"pmm": controller.Required},
 	}, p.got, "pmm comes from MonitoringIntegrations: the Provider object declares no integration",
 	)
@@ -1044,12 +1261,16 @@ func TestMonitoringDestinationWatch(t *testing.T) {
 	}
 	statusChanged := old.DeepCopy()
 	statusChanged.ResourceVersion = "11"
-	statusChanged.Status.Conditions = []metav1.Condition{{
-		Type: monitoringv1alpha1.MonitoringDestinationConditionReady, Status: metav1.ConditionTrue, Reason: "Ready",
+	statusChanged.Status.AttachedInstances = 2
+	readinessChanged := old.DeepCopy()
+	readinessChanged.ResourceVersion = "11"
+	readinessChanged.Status.Conditions = []metav1.Condition{{
+		Type: monitoringv1alpha1.MonitoringDestinationConditionReady, Status: metav1.ConditionFalse, Reason: "Unauthorized", ObservedGeneration: 1,
 	}}
 	specChanged := old.DeepCopy()
 	specChanged.ResourceVersion, specChanged.Generation = "11", 2
 	statusUpdate := event.UpdateEvent{ObjectOld: old, ObjectNew: statusChanged}
+	readinessUpdate := event.UpdateEvent{ObjectOld: old, ObjectNew: readinessChanged}
 	specUpdate := event.UpdateEvent{ObjectOld: old, ObjectNew: specChanged}
 
 	tests := []struct {
@@ -1070,6 +1291,7 @@ func TestMonitoringDestinationWatch(t *testing.T) {
 			)
 
 			assert.Equal(t, tt.wantOnStatus, r.destinationChanged().Update(statusUpdate), "status-only update")
+			assert.True(t, r.destinationChanged().Update(readinessUpdate), "readiness update")
 			assert.True(t, r.destinationChanged().Update(specUpdate), "spec update")
 			assert.Equal(t, []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: "team-a", Name: "orders"}}},
 				r.instancesForDestination(t.Context(), statusChanged), "only Instances with a binding to the destination",

@@ -378,7 +378,9 @@ type upgradeCheckingProvider struct {
 	issues []UpgradeIssue
 }
 
-func (p *upgradeCheckingProvider) Validate(*Context) error         { return nil }
+func (p *upgradeCheckingProvider) Validate(ValidationInput) ValidationResult {
+	return ValidationResult{}
+}
 func (p *upgradeCheckingProvider) Sync(*Context) error             { return nil }
 func (p *upgradeCheckingProvider) Status(*Context) (Status, error) { return Status{}, nil }
 func (p *upgradeCheckingProvider) Cleanup(*Context) error          { return nil }
@@ -391,10 +393,10 @@ type plainProvider struct {
 	BaseProvider
 }
 
-func (p *plainProvider) Validate(*Context) error         { return nil }
-func (p *plainProvider) Sync(*Context) error             { return nil }
-func (p *plainProvider) Status(*Context) (Status, error) { return Status{}, nil }
-func (p *plainProvider) Cleanup(*Context) error          { return nil }
+func (p *plainProvider) Validate(ValidationInput) ValidationResult { return ValidationResult{} }
+func (p *plainProvider) Sync(*Context) error                       { return nil }
+func (p *plainProvider) Status(*Context) (Status, error)           { return Status{}, nil }
+func (p *plainProvider) Cleanup(*Context) error                    { return nil }
 
 func TestRunUpgradePreflight(t *testing.T) {
 	t.Parallel()

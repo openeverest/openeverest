@@ -49,6 +49,7 @@ import { DbWizardFormFields } from 'consts';
 import {
   BASE_STEP_ID,
   BACKUP_STEP_ID,
+  MONITORING_STEP_ID,
 } from './database-form-body/steps/constants';
 import {
   useFormEngine,
@@ -70,6 +71,12 @@ import {
 } from './database-form-body/steps/backup-step';
 import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
+import { MONITORING_DESTINATIONS_FIELD } from 'components/monitoring-destinations-picker';
+import {
+  MonitoringStep,
+  useMonitoringStep,
+} from './database-form-body/steps/monitoring-step';
+import { Messages as MonitoringStepMessages } from './database-form-body/steps/monitoring-step/monitoring-step.messages';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { PluginFormSections } from './plugin-form-sections';
 import { useSubmitPluginInstanceConfig } from 'hooks/api/plugins/useSubmitPluginInstanceConfig';
@@ -208,7 +215,7 @@ export const DatabasePage = () => {
   const hasBackupStep = backupClasses.length > 0;
 
   // ── Page-level defaults (merges schema defaults + wizard-specific ones)
-  const { defaultValues, dbClusterRequestStatus } =
+  const { defaultValues, dbClusterRequestStatus, dbClusterData } =
     useDatabasePageDefaultValues(
       mode,
       uiSchema,
@@ -292,9 +299,17 @@ export const DatabasePage = () => {
   const presetSelection = usePresetSelection(
     clusterName,
     typeof selectedProvider === 'string' ? selectedProvider : undefined,
-    selectedNamespace || namespaces[0],
     typeof selectedPreset === 'string' ? selectedPreset : ''
   );
+
+  // ── Monitoring step (shown when a class is compatible with the provider)
+  const monitoringStep = useMonitoringStep(
+    typeof selectedNamespace === 'string' ? selectedNamespace : '',
+    typeof selectedProvider === 'string'
+      ? selectedProvider
+      : (providerObject?.metadata?.name ?? '')
+  );
+  const { hasMonitoringStep } = monitoringStep;
 
   // Single owner of programmatic form writes: populate from the picked preset
   // (and revert on clear) and merge topology defaults on a manual switch.
@@ -305,10 +320,9 @@ export const DatabasePage = () => {
     defaultTopology,
     selectedTopology,
     preset: {
-      resolvedPreset: presetSelection.resolvedPreset,
+      selectedPreset: presetSelection.selectedPreset,
       presetName: presetSelection.presetName,
       presetSelected: presetSelection.presetSelected,
-      namespace: selectedNamespace || namespaces[0],
     },
     reset,
     getValues,
@@ -337,8 +351,16 @@ export const DatabasePage = () => {
         fields: [BACKUP_SCHEDULES_FIELD],
       });
     }
+    if (hasMonitoringStep) {
+      steps.push({
+        id: MONITORING_STEP_ID,
+        label: MonitoringStepMessages.title,
+        component: MonitoringStep,
+        fields: [MONITORING_DESTINATIONS_FIELD],
+      });
+    }
     return steps;
-  }, [hasBackupStep]);
+  }, [hasBackupStep, hasMonitoringStep]);
 
   const engine = useFormEngine({
     uiSchema,
@@ -348,6 +370,7 @@ export const DatabasePage = () => {
     namespace: selectedNamespace || namespaces[0],
     formMode: mode,
     widgetRegistry,
+    originalData: mode === FormMode.Restore ? dbClusterData : undefined,
   });
 
   // Navigation
@@ -377,7 +400,8 @@ export const DatabasePage = () => {
   // Validation
   const validationSchema = useDbValidationSchema(
     dbInstancesList,
-    engine.zodSchema
+    engine.zodSchema,
+    monitoringStep.parametersSchema
   ) as unknown as ZodType<DbWizardType>;
 
   useEffect(() => {
@@ -428,16 +452,16 @@ export const DatabasePage = () => {
   );
 
   const onSubmit: SubmitHandler<DbWizardType> = (data) => {
-    // Preset mode: create straight from the resolved preset spec (one-click),
+    // Preset mode: create straight from the selected preset spec (one-click),
     // bypassing the wizard's field-by-field spec build. Never fall through to a
-    // manual create while a preset is picked but not yet resolved.
+    // manual create while a preset is picked but its spec is not yet loaded.
     if (mode === FormMode.New && presetSelection.presetSelected) {
-      if (!presetSelection.resolvedPreset) {
+      if (!presetSelection.selectedPreset) {
         return;
       }
       createInstance(
         buildPresetCreateArgs({
-          resolvedPreset: presetSelection.resolvedPreset,
+          selectedPreset: presetSelection.selectedPreset,
           provider:
             typeof selectedProvider === 'string' ? selectedProvider : '',
           dbName: data.dbName,
@@ -475,6 +499,8 @@ export const DatabasePage = () => {
         Reflect.deleteProperty(formData, 'backup');
       }
     }
+
+    monitoringStep.writeEntries(formData);
 
     latestDataRef.current = postProcessedData;
 
@@ -563,14 +589,18 @@ export const DatabasePage = () => {
         sectionsOrder: engine.sectionsOrder,
         providerObject,
         hasBackupStep,
+        hasMonitoringStep,
       }}
     >
       <Stack direction={isDesktop ? 'row' : 'column'}>
         <FormProvider {...methods}>
           <PresetSelectionContext.Provider value={presetSelection}>
+            {/* A selected preset owns the values: its spec is sent verbatim, so
+                auto-selected options would only mislead the preview. */}
             <DataSourcePrefetcher
               sections={engine.sections}
               namespace={selectedNamespace || namespaces[0]}
+              autoSelect={!presetSelection.presetSelected}
             />
             {/* Restore fixes the namespace, and a selected preset owns the values. */}
             {mode === FormMode.New && !presetSelection.presetSelected && (

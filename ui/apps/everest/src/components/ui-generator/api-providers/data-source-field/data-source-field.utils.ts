@@ -14,8 +14,63 @@
 
 import type { Component } from '../../ui-generator.types';
 import type { ComponentWithDataSource } from './data-source-field.types';
+import { Messages } from './data-source-field.messages';
 
 type OptionValue = { value: string };
+type SelectOption = { label: string; value: string };
+
+// Edit keeps a stored value that is missing from the options; listing it lets
+// the select show what the spec holds instead of rendering empty. Until the
+// options are known, the value is listed as-is rather than marked unavailable.
+export const withStoredValueOption = (
+  options: SelectOption[],
+  storedValue: unknown,
+  optionsResolved: boolean
+): SelectOption[] => {
+  if (typeof storedValue !== 'string' || storedValue === '') return options;
+  if (options.some((option) => option.value === storedValue)) return options;
+
+  return [
+    ...options,
+    {
+      label: optionsResolved
+        ? Messages.unavailableOption(storedValue)
+        : storedValue,
+      value: storedValue,
+    },
+  ];
+};
+
+interface StoredValueHintInput {
+  currentValue: unknown;
+  storedValue: unknown;
+  options: OptionValue[];
+  isLocked: boolean;
+  unsetValueHint?: string;
+}
+
+// Explains a value edit keeps as-is. Why a stored value is missing from the
+// options is unknown (deleted, or hidden by RBAC), so the hint doesn't say.
+export const getStoredValueHint = ({
+  currentValue,
+  storedValue,
+  options,
+  isLocked,
+  unsetValueHint,
+}: StoredValueHintInput): string | undefined => {
+  if (
+    currentValue === undefined ||
+    currentValue === null ||
+    currentValue === ''
+  )
+    return unsetValueHint;
+  if (currentValue !== storedValue) return undefined;
+  if (options.some((option) => option.value === currentValue)) return undefined;
+
+  return isLocked
+    ? Messages.unavailableLockedValueHint
+    : Messages.unavailableValueHint;
+};
 
 export const getReconciledDataSourceValue = (
   current: unknown,

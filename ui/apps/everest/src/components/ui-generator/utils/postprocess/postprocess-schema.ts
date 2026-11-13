@@ -29,6 +29,10 @@ import {
   applyBadgesToFormData,
 } from '../badge-to-api/badge-to-api';
 import {
+  extractQuantityMappings,
+  applyQuantitiesToFormData,
+} from '../quantity';
+import {
   TOGGLEABLE_SWITCHES_KEY,
   getInactiveToggleablePaths,
 } from '../toggleable/toggleable';
@@ -45,6 +49,9 @@ export type PostprocessOptions = {
   schema?: TopologyUISchemas;
   selectedTopology?: string;
   multiPathMappings?: MultiPathMapping[];
+  // Instance / restore source at the same paths as form data. Used so an
+  // untouched quantity field is written back as stored (e.g. "10240Mi").
+  originalData?: Record<string, unknown>;
 };
 
 const normalizeRuntimePathArray = (paths: unknown): string[] => {
@@ -216,11 +223,23 @@ export const postprocessSchemaData = (
       ? coerceSchemaNumbers(mapped, options.schema, options.selectedTopology)
       : mapped;
 
+  // Quantity paths must become strings before badge append; they are never
+  // coerced to JSON numbers (that is what broke fractional CPU).
+  const quantityMappings =
+    options?.schema && options.selectedTopology
+      ? extractQuantityMappings(options.schema, options.selectedTopology)
+      : [];
+  const withQuantities = applyQuantitiesToFormData(
+    coerced,
+    quantityMappings,
+    options?.originalData
+  );
+
   const badgeMappings =
     options?.schema && options.selectedTopology
       ? extractBadgeMappings(options.schema, options.selectedTopology)
       : [];
-  const withBadges = applyBadgesToFormData(coerced, badgeMappings);
+  const withBadges = applyBadgesToFormData(withQuantities, badgeMappings);
 
   const sections =
     options?.schema && options.selectedTopology

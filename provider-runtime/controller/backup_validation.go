@@ -19,8 +19,8 @@ import (
 	"fmt"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
-	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/provider-runtime/internal/backupclass"
 )
 
 // LimitsExceededReason is the reason string used on BackupConfigError and
@@ -125,45 +125,9 @@ const (
 // ConfigureBackup() implementations, typically by calling
 // Context.BackupClassLimits() and adding extra rules on top.
 func ValidateInstanceBackupAgainstClass(in *corev1alpha1.Instance, bc *backupv1alpha1.BackupClass) error {
-	if in == nil || in.Spec.Backup == nil || !in.Spec.Backup.Enabled {
-		return nil
+	if errs := backupclass.LimitErrors(in, bc); len(errs) > 0 {
+		return fmt.Errorf("%w: %w", ErrBackupClassLimitsExceeded, errs.ToAggregate())
 	}
-	if bc == nil || bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
-		return nil
-	}
-	if bc.Spec.ProviderManaged == nil || bc.Spec.ProviderManaged.Limits == nil {
-		return nil
-	}
-	limits := bc.Spec.ProviderManaged.Limits
-	storages := in.Spec.Backup.Storages
-
-	if limits.MaxStorages != nil && int32(len(storages)) > *limits.MaxStorages {
-		return fmt.Errorf("%w: spec.backup.storages has %d entries, BackupClass %q allows at most %d",
-			ErrBackupClassLimitsExceeded, len(storages), bc.Name, *limits.MaxStorages)
-	}
-
-	if limits.MaxPITREnabledStorages != nil {
-		var pitrCount int32
-		for _, s := range storages {
-			if s.PITR != nil && s.PITR.Enabled {
-				pitrCount++
-			}
-		}
-		if pitrCount > *limits.MaxPITREnabledStorages {
-			return fmt.Errorf("%w: %d storages have PITR enabled, BackupClass %q allows at most %d",
-				ErrBackupClassLimitsExceeded, pitrCount, bc.Name, *limits.MaxPITREnabledStorages)
-		}
-	}
-
-	if limits.MaxSchedulesPerStorage != nil {
-		for _, s := range storages {
-			if int32(len(s.Schedules)) > *limits.MaxSchedulesPerStorage {
-				return fmt.Errorf("%w: storage %q has %d schedules, BackupClass %q allows at most %d per storage",
-					ErrBackupClassLimitsExceeded, s.StorageRef.Name, len(s.Schedules), bc.Name, *limits.MaxSchedulesPerStorage)
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -181,25 +145,8 @@ func ValidateInstanceBackupAgainstClass(in *corev1alpha1.Instance, bc *backupv1a
 // rejected, mirroring ParametersSchema.Validate's behavior for backup and
 // restore parameters.
 func ValidateInstanceBackupPITRParameters(in *corev1alpha1.Instance, bc *backupv1alpha1.BackupClass) error {
-	if in == nil || in.Spec.Backup == nil || !in.Spec.Backup.Enabled {
-		return nil
-	}
-	if bc == nil || bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
-		return nil
-	}
-
-	var schema *apicommon.ParametersSchema
-	if bc.Spec.ProviderManaged != nil {
-		schema = bc.Spec.ProviderManaged.PITRParametersSchema
-	}
-
-	for _, s := range in.Spec.Backup.Storages {
-		if s.PITR == nil || s.PITR.Parameters == nil || len(s.PITR.Parameters.Raw) == 0 {
-			continue
-		}
-		if err := schema.Validate(s.PITR.Parameters); err != nil {
-			return fmt.Errorf("%w: storage %q: %s", ErrPITRConfigInvalid, s.StorageRef.Name, err.Error())
-		}
+	if errs := backupclass.PITRErrors(in, bc); len(errs) > 0 {
+		return fmt.Errorf("%w: %w", ErrPITRConfigInvalid, errs.ToAggregate())
 	}
 	return nil
 }
@@ -265,8 +212,7 @@ func ValidateBackupImportSupported(bc *backupv1alpha1.BackupClass) error {
 // Restore are acceptable for the given BackupClass:
 //   - When the resolved class is ProviderManaged, PITR may only be requested
 //     if the class advertises .spec.providerManaged.supportsPITR.
-//   - Job-mode classes have no PITR capability declaration; they are not
-//     gated here.
+//   - Classes of any other execution mode are not gated here.
 //
 // A nil class or a Restore that is not requesting point-in-time recovery
 // passes. The CRD's CEL rule already requires date when recoveryTarget is

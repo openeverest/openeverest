@@ -75,7 +75,6 @@ const (
 	ResourceBackups                = "backups"
 	ResourceBackupImports          = "backup-imports"
 	ResourceRestores               = "restores"
-	ResourceMonitoringConfigs      = "monitoring-configs"
 	ResourceConfigMaps             = "config-maps"
 	ResourceSecrets                = "secrets"
 
@@ -115,7 +114,6 @@ var ClusterNamespacedResources = []string{
 	ResourceBackupImports,
 	ResourceRestores,
 	ResourceBackupStorages,
-	ResourceMonitoringConfigs,
 	ResourceConfigMaps,
 	ResourceSecrets,
 	ResourceMonitoringDestinations,
@@ -161,10 +159,17 @@ const (
 	ActionRead   = "read"
 	ActionUpdate = "update"
 	ActionDelete = "delete"
-	// ActionUse is the verb granted to users for consuming a plugin via the
-	// /v1/plugins/{name}/* proxy. It is separate from CRUD so admins can
-	// install plugins (create) without automatically granting broad read
-	// access to every user.
+	// ActionUse grants consuming something rather than managing it. It has
+	// two meanings:
+	//   - on plugins, consuming a plugin via the /v1/plugins/{name}/* proxy.
+	//     It is separate from CRUD so admins can install plugins (create)
+	//     without automatically granting broad read access to every user.
+	//   - on secrets, using a Secret's contents through an object that
+	//     references it: creating an object that names the Secret, such as a
+	//     MonitoringDestination, or changing the spec of one that does, since
+	//     the object sends the contents to, or trusts them for, the endpoint
+	//     its spec names. ActionRead does not imply it: read only shows a
+	//     Secret's metadata.
 	ActionUse = "use"
 	// ActionDeploy allows creating instances with custom values that deviate
 	// from preset specifications. Users without this permission can only create
@@ -346,8 +351,12 @@ func GetUser(ctx context.Context) (User, error) {
 		return User{}, errors.Join(err, errors.New("failed to get issuer from claims"))
 	}
 
+	// Built-in tokens carry sub="<user>:<capability>". SSO tokens carry the raw OIDC subject,
+	// which may itself contain colons and must not be truncated into another identity.
 	if issuer == session.SessionManagerClaimsIssuer {
-		subject = strings.Split(subject, ":")[0]
+		if _, isSSO := claims[session.OIDCIssuerClaim].(string); !isSSO {
+			subject = strings.Split(subject, ":")[0]
+		}
 	}
 
 	groups := getScopeValues(claims, []string{"groups"})

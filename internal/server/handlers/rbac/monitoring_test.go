@@ -24,10 +24,12 @@ import (
 	"go.uber.org/zap"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/plugintoken"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
@@ -259,7 +261,7 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 				t.Parallel()
 
 				h, _ := newHandler(t, tc.policy)
-				list, err := h.ListMonitoringDestinations(ctx, "prod", "ns1", "")
+				list, err := h.ListMonitoringDestinations(ctx, "prod", "ns1", nil)
 				require.NoError(t, err)
 
 				names := make([]string, 0, len(list.Items))
@@ -269,6 +271,19 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 				assert.ElementsMatch(t, tc.want, names)
 			})
 		}
+	})
+
+	t.Run("ListMonitoringDestinations passes the filters on and filters the result", func(t *testing.T) {
+		t.Parallel()
+
+		h, next := newHandler(t, newPolicy("p, role:test, monitoring-destinations, read, prod/ns1/pmm-prod", "g, bob, role:test"))
+		params := &api.ListMonitoringDestinationsParams{Class: new("pmm"), Secret: new("pmm-credentials")}
+		list, err := h.ListMonitoringDestinations(ctx, "prod", "ns1", params)
+		require.NoError(t, err)
+
+		require.Len(t, list.Items, 1)
+		assert.Equal(t, "pmm-prod", list.Items[0].Name)
+		next.AssertCalled(t, "ListMonitoringDestinations", mock.Anything, "prod", "ns1", params)
 	})
 
 	t.Run("GetMonitoringDestination", func(t *testing.T) {
@@ -369,61 +384,257 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 		next.AssertNotCalled(t, "DeleteMonitoringDestination", mock.Anything, mock.Anything, mock.Anything, "prometheus")
 	})
 
-	t.Run("referencing a credentials Secret needs read on it", func(t *testing.T) {
+	t.Run("CreateMonitoringDestination needs use on every Secret it references", func(t *testing.T) {
 		t.Parallel()
 
-		h, next := newHandler(t, newPolicy(
-			"p, role:test, monitoring-destinations, *, prod/*/*",
-			"p, role:test, monitoring-classes, read, prod/pmm",
-			"p, role:test, secrets, read, prod/ns1/pmm-prod-credentials",
-			"g, bob, role:test",
-		))
-		withSecret := func(namespace, secret string) *monitoringv1alpha1.MonitoringDestination {
-			d := destination(namespace, "pmm-prod")
-			d.Spec.Authentication = common.Authentication{Mode: "ServiceAccountToken", CredentialsSecretRef: &common.SecretRef{Name: secret}}
+		withSecrets := func(credentials, ca string) *monitoringv1alpha1.MonitoringDestination {
+			d := destination("ns1", "pmm-prod")
+			if credentials != "" {
+				d.Spec.Authentication = common.Authentication{Mode: "ServiceAccountToken", CredentialsSecretRef: &common.SecretRef{Name: credentials}}
+			}
+			if ca != "" {
+				d.Spec.TLS = &common.TLSConfig{CA: &common.CABundleSource{SecretKeyRef: &common.SecretKeyRef{Name: ca, Key: "ca.crt"}}}
+			}
 			return d
 		}
+		testCases := []struct {
+			desc      string
+			namespace string
+			body      *monitoringv1alpha1.MonitoringDestination
+			grants    []string
+			wantErr   error
+		}{
+			{desc: "no Secret", body: withSecrets("", "")},
+			{
+				desc:   "use on the credentials",
+				body:   withSecrets("pmm-prod-credentials", ""),
+				grants: []string{"p, role:test, secrets, use, prod/ns1/pmm-prod-credentials"},
+			},
+			{
+				desc:    "read on the credentials is not enough",
+				body:    withSecrets("pmm-prod-credentials", ""),
+				grants:  []string{"p, role:test, secrets, read, prod/ns1/pmm-prod-credentials"},
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "use on another Secret",
+				body:    withSecrets("db1-root", ""),
+				grants:  []string{"p, role:test, secrets, use, prod/ns1/pmm-prod-credentials"},
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:      "use in another namespace than the path's",
+				namespace: "ns2",
+				body:      withSecrets("pmm-prod-credentials", ""),
+				grants:    []string{"p, role:test, secrets, use, prod/ns1/pmm-prod-credentials"},
+				wantErr:   ErrInsufficientPermissions,
+			},
+			{
+				desc: "use on the credentials and the CA",
+				body: withSecrets("pmm-prod-credentials", "corp-ca"),
+				grants: []string{
+					"p, role:test, secrets, use, prod/ns1/pmm-prod-credentials",
+					"p, role:test, secrets, use, prod/ns1/corp-ca",
+				},
+			},
+			{
+				desc: "read on the CA is not enough",
+				body: withSecrets("pmm-prod-credentials", "corp-ca"),
+				grants: []string{
+					"p, role:test, secrets, use, prod/ns1/pmm-prod-credentials",
+					"p, role:test, secrets, read, prod/ns1/corp-ca",
+				},
+				wantErr: ErrInsufficientPermissions,
+			},
+		}
 
-		_, err := h.CreateMonitoringDestination(ctx, "prod", "ns1", withSecret("ns2", "pmm-prod-credentials"))
-		require.NoError(t, err)
-		next.AssertCalled(t, "CreateMonitoringDestination", mock.Anything, "prod", "ns1", withSecret("ns2", "pmm-prod-credentials"))
-		_, err = h.UpdateMonitoringDestination(ctx, "prod", "ns1", "pmm-prod", withSecret("ns1", "pmm-prod-credentials"))
-		require.NoError(t, err)
-		next.AssertCalled(t, "UpdateMonitoringDestination", mock.Anything, "prod", "ns1", "pmm-prod", withSecret("ns1", "pmm-prod-credentials"))
+		for _, tc := range testCases {
+			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
 
-		_, err = h.CreateMonitoringDestination(ctx, "prod", "ns1", withSecret("ns1", "db1-root"))
-		require.ErrorIs(t, err, ErrInsufficientPermissions)
-		_, err = h.UpdateMonitoringDestination(ctx, "prod", "ns1", "pmm-prod", withSecret("ns1", "db1-root"))
-		require.ErrorIs(t, err, ErrInsufficientPermissions)
-		_, err = h.CreateMonitoringDestination(ctx, "prod", "ns2", withSecret("ns1", "pmm-prod-credentials"))
-		require.ErrorIs(t, err, ErrInsufficientPermissions, "the Secret is looked up in the path namespace")
-		assert.Len(t, next.Calls, 2)
+				namespace := tc.namespace
+				if namespace == "" {
+					namespace = "ns1"
+				}
+				policy := []string{
+					"p, role:test, monitoring-destinations, *, prod/*/*",
+					"p, role:test, monitoring-classes, read, prod/pmm",
+					"g, bob, role:test",
+				}
+				h, next := newHandler(t, newPolicy(append(policy, tc.grants...)...))
+
+				_, err := h.CreateMonitoringDestination(ctx, "prod", namespace, tc.body)
+				if tc.wantErr != nil {
+					require.ErrorIs(t, err, tc.wantErr)
+					assert.Empty(t, next.Calls)
+					return
+				}
+				require.NoError(t, err)
+				next.AssertCalled(t, "CreateMonitoringDestination", mock.Anything, "prod", namespace, tc.body)
+			})
+		}
 	})
 
-	t.Run("referencing a CA Secret needs read on it", func(t *testing.T) {
+	t.Run("UpdateMonitoringDestination needs use on every Secret when spec changes", func(t *testing.T) {
+		t.Parallel()
+
+		stored := func() *monitoringv1alpha1.MonitoringDestination {
+			d := destination("ns1", "pmm-prod")
+			d.ResourceVersion = "7"
+			d.Spec.Authentication = common.Authentication{Mode: "ServiceAccountToken", CredentialsSecretRef: &common.SecretRef{Name: "pmm-prod-credentials"}}
+			d.Spec.TLS = &common.TLSConfig{CA: &common.CABundleSource{SecretKeyRef: &common.SecretKeyRef{Name: "corp-ca", Key: "ca.crt"}}}
+			d.Spec.Parameters = &runtime.RawExtension{Raw: []byte(`{"url":"https://pmm.example.com","interval":"60s"}`)}
+			return d
+		}
+		const (
+			useCredentials  = "p, role:test, secrets, use, prod/ns1/pmm-prod-credentials" //nolint:gosec // test usage only
+			useCA           = "p, role:test, secrets, use, prod/ns1/corp-ca"
+			readCredentials = "p, role:test, secrets, read, prod/ns1/pmm-prod-credentials" //nolint:gosec // test usage only
+			readCA          = "p, role:test, secrets, read, prod/ns1/corp-ca"
+		)
+		otherURL := func(d *monitoringv1alpha1.MonitoringDestination) {
+			d.Spec.Parameters = &runtime.RawExtension{Raw: []byte(`{"url":"https://collector.attacker.example","interval":"60s"}`)}
+		}
+		otherCA := func(d *monitoringv1alpha1.MonitoringDestination) {
+			d.Spec.TLS.CA.SecretKeyRef.Name = "other-ca"
+		}
+
+		testCases := []struct {
+			desc   string
+			update func(d *monitoringv1alpha1.MonitoringDestination)
+			grants []string
+			// wantResourceVersion is the version the write is made against.
+			wantResourceVersion string
+			wantErr             error
+		}{
+			{
+				desc: "labels and annotations only need no use",
+				update: func(d *monitoringv1alpha1.MonitoringDestination) {
+					d.Labels = map[string]string{"team": "dba"}
+					d.Annotations = map[string]string{"example.com/default": "true"}
+				},
+				wantResourceVersion: "7",
+			},
+			{
+				desc: "the same parameters, encoded differently, need no use",
+				update: func(d *monitoringv1alpha1.MonitoringDestination) {
+					d.Spec.Parameters = &runtime.RawExtension{Raw: []byte(`{ "interval": "60s", "url": "https://pmm.example.com" }`)}
+				},
+				wantResourceVersion: "7",
+			},
+			{
+				desc:                "an unchanged spec keeps the caller's resourceVersion",
+				update:              func(d *monitoringv1alpha1.MonitoringDestination) { d.ResourceVersion = "5" },
+				wantResourceVersion: "5",
+			},
+			{
+				desc:    "parameters with read on both Secrets",
+				update:  otherURL,
+				grants:  []string{readCredentials, readCA},
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "parameters without use on the CA",
+				update:  otherURL,
+				grants:  []string{useCredentials, readCA},
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "parameters without use on the credentials",
+				update:  otherURL,
+				grants:  []string{readCredentials, useCA},
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:   "parameters with use on both Secrets",
+				update: otherURL,
+				grants: []string{useCredentials, useCA},
+			},
+			{
+				desc:    "another CA without use on it",
+				update:  otherCA,
+				grants:  []string{useCredentials, useCA, "p, role:test, secrets, read, prod/ns1/other-ca"},
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:   "another CA with use on it, not on the one it replaces",
+				update: otherCA,
+				grants: []string{useCredentials, "p, role:test, secrets, use, prod/ns1/other-ca"},
+			},
+			{
+				desc: "dropping every Secret needs no use",
+				update: func(d *monitoringv1alpha1.MonitoringDestination) {
+					d.Spec.Authentication = common.Authentication{Mode: "Anonymous"}
+					d.Spec.TLS = nil
+				},
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+
+				policy := []string{
+					"p, role:test, monitoring-destinations, update, prod/ns1/pmm-prod",
+					"p, role:test, monitoring-classes, read, prod/pmm",
+					"g, bob, role:test",
+				}
+				enf, err := rbac.NewEnforcer(ctx, newConfigMapMock(newPolicy(append(policy, tc.grants...)...)), zap.NewNop().Sugar())
+				require.NoError(t, err)
+				next := &handlers.MockHandler{}
+				next.On("GetMonitoringDestination", mock.Anything, "prod", "ns1", "pmm-prod").Return(stored(), nil)
+				next.On("UpdateMonitoringDestination", mock.Anything, "prod", "ns1", "pmm-prod", mock.Anything).Return(stored(), nil)
+				h := &rbacHandler{next: next, log: zap.NewNop().Sugar(), enforcer: enf, userGetter: testUserGetter}
+
+				body := stored()
+				body.ResourceVersion = ""
+				tc.update(body)
+				_, err = h.UpdateMonitoringDestination(ctx, "prod", "ns1", "pmm-prod", body)
+				if tc.wantErr != nil {
+					require.ErrorIs(t, err, tc.wantErr)
+					next.AssertNotCalled(t, "UpdateMonitoringDestination", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+					return
+				}
+				require.NoError(t, err)
+				next.AssertCalled(t, "UpdateMonitoringDestination", mock.Anything, "prod", "ns1", "pmm-prod", body)
+				assert.Equal(t, tc.wantResourceVersion, body.ResourceVersion)
+			})
+		}
+	})
+
+	t.Run("UpdateMonitoringDestination enforces update before reading the stored destination", func(t *testing.T) {
 		t.Parallel()
 
 		h, next := newHandler(t, newPolicy(
-			"p, role:test, monitoring-destinations, *, prod/*/*",
+			"p, role:test, monitoring-destinations, read, prod/ns1/*",
 			"p, role:test, monitoring-classes, read, prod/pmm",
-			"p, role:test, secrets, read, prod/ns1/pmm-prod-credentials",
-			"p, role:test, secrets, read, prod/ns1/corp-ca",
+			"p, role:test, secrets, use, prod/ns1/*",
 			"g, bob, role:test",
 		))
-		withCA := func(ca string) *monitoringv1alpha1.MonitoringDestination {
-			d := destination("ns1", "pmm-prod")
-			d.Spec.Authentication = common.Authentication{Mode: "ServiceAccountToken", CredentialsSecretRef: &common.SecretRef{Name: "pmm-prod-credentials"}}
-			d.Spec.TLS = &common.TLSConfig{CA: &common.CABundleSource{SecretKeyRef: &common.SecretKeyRef{Name: ca, Key: "ca.crt"}}}
-			return d
-		}
 
-		_, err := h.CreateMonitoringDestination(ctx, "prod", "ns1", withCA("corp-ca"))
+		_, err := h.UpdateMonitoringDestination(ctx, "prod", "ns1", "pmm-prod", destination("ns1", "pmm-prod"))
+		require.ErrorIs(t, err, ErrInsufficientPermissions)
+		assert.Empty(t, next.Calls)
+	})
+
+	t.Run("UpdateMonitoringDestination of a missing destination", func(t *testing.T) {
+		t.Parallel()
+
+		policy := newPolicy(
+			"p, role:test, monitoring-destinations, update, prod/ns1/*",
+			"p, role:test, monitoring-classes, read, prod/pmm",
+			"g, bob, role:test",
+		)
+		enf, err := rbac.NewEnforcer(ctx, newConfigMapMock(policy), zap.NewNop().Sugar())
 		require.NoError(t, err)
-		_, err = h.CreateMonitoringDestination(ctx, "prod", "ns1", withCA("db1-root"))
-		require.ErrorIs(t, err, ErrInsufficientPermissions)
-		_, err = h.UpdateMonitoringDestination(ctx, "prod", "ns1", "pmm-prod", withCA("db1-root"))
-		require.ErrorIs(t, err, ErrInsufficientPermissions)
-		assert.Len(t, next.Calls, 1)
+		notFound := k8serrors.NewNotFound(schema.GroupResource{Group: "monitoring.openeverest.io", Resource: "monitoringdestinations"}, "pmm-prod")
+		next := &handlers.MockHandler{}
+		next.On("GetMonitoringDestination", mock.Anything, "prod", "ns1", "pmm-prod").Return(nil, notFound)
+		h := &rbacHandler{next: next, log: zap.NewNop().Sugar(), enforcer: enf, userGetter: testUserGetter}
+
+		_, err = h.UpdateMonitoringDestination(ctx, "prod", "ns1", "pmm-prod", destination("ns1", "pmm-prod"))
+		require.True(t, k8serrors.IsNotFound(err), "got %v", err)
+		next.AssertNotCalled(t, "UpdateMonitoringDestination", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 	})
 
 	t.Run("referencing a class needs read on it", func(t *testing.T) {
@@ -476,7 +687,7 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 		h, _ := newHandler(t, newPolicy("g, "+plugin+", role:admin"))
 		pluginCtx := testUserContext(rbac.User{Subject: plugin})
 
-		list, err := h.ListMonitoringDestinations(pluginCtx, "prod", "ns1", "")
+		list, err := h.ListMonitoringDestinations(pluginCtx, "prod", "ns1", nil)
 		require.NoError(t, err)
 		assert.Len(t, list.Items, 2)
 
@@ -486,6 +697,68 @@ func TestRBAC_MonitoringDestinations(t *testing.T) {
 		require.ErrorIs(t, err, ErrInsufficientPermissions)
 		require.ErrorIs(t, h.DeleteMonitoringDestination(pluginCtx, "prod", "ns1", "pmm-prod"), ErrInsufficientPermissions)
 	})
+}
+
+func TestSameSpec(t *testing.T) {
+	t.Parallel()
+
+	withParameters := func(parameters string) monitoringv1alpha1.MonitoringDestinationSpec {
+		return monitoringv1alpha1.MonitoringDestinationSpec{
+			ClassRef:       common.ObjectRef{Name: "pmm"},
+			Authentication: common.Authentication{Mode: "ServiceAccountToken", CredentialsSecretRef: &common.SecretRef{Name: "pmm-prod-credentials"}},
+			Parameters:     &runtime.RawExtension{Raw: []byte(parameters)},
+		}
+	}
+	testCases := []struct {
+		desc    string
+		stored  monitoringv1alpha1.MonitoringDestinationSpec
+		updated monitoringv1alpha1.MonitoringDestinationSpec
+		want    bool
+	}{
+		{
+			desc:    "identical",
+			stored:  withParameters(`{"url":"https://pmm.example.com"}`),
+			updated: withParameters(`{"url":"https://pmm.example.com"}`),
+			want:    true,
+		},
+		{
+			desc:    "parameters in another key order and spacing",
+			stored:  withParameters(`{"interval":"60s","url":"https://pmm.example.com"}`),
+			updated: withParameters(`{ "url": "https://pmm.example.com", "interval": "60s" }`),
+			want:    true,
+		},
+		{
+			desc:    "a changed parameter",
+			stored:  withParameters(`{"url":"https://pmm.example.com"}`),
+			updated: withParameters(`{"url":"https://collector.attacker.example"}`),
+		},
+		{
+			desc:    "integers beyond float64 precision are compared exactly",
+			stored:  withParameters(`{"limit":9007199254740993}`),
+			updated: withParameters(`{"limit":9007199254740992}`),
+		},
+		{
+			desc:    "parameters that fail to encode count as changed",
+			stored:  withParameters(`{"url":"https://pmm.example.com"}`),
+			updated: withParameters(`{"url":`),
+		},
+		{
+			desc:   "another Secret",
+			stored: withParameters(`{}`),
+			updated: func() monitoringv1alpha1.MonitoringDestinationSpec {
+				s := withParameters(`{}`)
+				s.Authentication.CredentialsSecretRef.Name = "db1-root"
+				return s
+			}(),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, sameSpec(tc.stored, tc.updated))
+		})
+	}
 }
 
 func TestRBAC_MonitoringClasses(t *testing.T) {

@@ -107,22 +107,29 @@ func uiPaths(spec *corev1alpha1.ProviderSpec, topology string) ([]string, error)
 }
 
 func collectPaths(node any, out *[]string) {
+	walkFields(node, func(path string, _ map[string]any) {
+		*out = append(*out, path)
+	})
+}
+
+// walkFields calls visit for every node that binds a form control to a single
+// Instance path.
+func walkFields(node any, visit func(path string, field map[string]any)) {
 	const pathKey = "path"
 
 	switch t := node.(type) {
 	case map[string]any:
+		if path, ok := t[pathKey].(string); ok {
+			visit(path, t)
+		}
 		for key, value := range t {
-			if key == pathKey {
-				if s, ok := value.(string); ok {
-					*out = append(*out, s)
-				}
-				continue
+			if key != pathKey {
+				walkFields(value, visit)
 			}
-			collectPaths(value, out)
 		}
 	case []any:
 		for _, value := range t {
-			collectPaths(value, out)
+			walkFields(value, visit)
 		}
 	}
 }

@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
@@ -34,8 +35,8 @@ func (h *rbacHandler) CreateSecret(ctx context.Context, cluster, namespace strin
 }
 
 // ListSecrets returns secrets filtered by RBAC permissions.
-func (h *rbacHandler) ListSecrets(ctx context.Context, cluster, namespace, provider, definition string) (*corev1.SecretList, error) {
-	list, err := h.next.ListSecrets(ctx, cluster, namespace, provider, definition)
+func (h *rbacHandler) ListSecrets(ctx context.Context, cluster, namespace string, filter handlers.SecretFilter) (*corev1.SecretList, error) {
+	list, err := h.next.ListSecrets(ctx, cluster, namespace, filter)
 	if err != nil {
 		return nil, fmt.Errorf("ListSecrets failed: %w", err)
 	}
@@ -60,6 +61,15 @@ func (h *rbacHandler) GetSecret(ctx context.Context, cluster, namespace, name st
 		return nil, err
 	}
 	return h.next.GetSecret(ctx, cluster, namespace, name)
+}
+
+// PatchSecret applies a merge patch to the data of a secret, gated by RBAC.
+func (h *rbacHandler) PatchSecret(ctx context.Context, cluster, namespace, name string, patch []byte) (*corev1.Secret, error) {
+	object := rbac.ClusterNamespacedObjectName(cluster, namespace, name)
+	if err := h.enforce(ctx, rbac.ResourceSecrets, rbac.ActionUpdate, object); err != nil {
+		return nil, err
+	}
+	return h.next.PatchSecret(ctx, cluster, namespace, name, patch)
 }
 
 // DeleteSecret deletes a secret, gated by RBAC.

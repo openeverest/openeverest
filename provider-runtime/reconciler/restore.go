@@ -36,7 +36,7 @@ const restoreRuntimeFinalizer = "everest.percona.com/restore-runtime-finalizer"
 
 // restoreRuntimeReconciler dispatches Restore CRs to the provider's
 // BackupProvider implementation. Restores whose resolved BackupClass uses
-// executionMode "Job" or whose Instance belongs to a different provider are
+// another execution mode or whose Instance belongs to a different provider are
 // skipped, mirroring the backup reconciler's behavior.
 type restoreRuntimeReconciler struct {
 	client       client.Client
