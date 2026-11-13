@@ -14,6 +14,7 @@
 
 import react from '@vitejs/plugin-react-swc';
 import * as path from 'path';
+import { searchForWorkspaceRoot } from 'vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
 import { playwright } from '@vitest/browser-playwright';
@@ -24,6 +25,20 @@ export default defineConfig({
   plugins: [tsconfigPaths({ root: '.' }), react()],
   optimizeDeps: {
     include: ['@testing-library/jest-dom/matchers'],
+  },
+  server: {
+    // A request a component makes to the API falls through to index.html
+    // here. Left on, Vite would then load the whole app behind it, find
+    // dependencies no test uses and reload the tests that are running.
+    preTransformRequests: false,
+    fs: {
+      allow: [
+        searchForWorkspaceRoot(process.cwd()),
+        // The status fixtures shared with the Go implementation live outside
+        // the UI workspace.
+        path.resolve(__dirname, '../../../pkg/instancestatus/testdata'),
+      ],
+    },
   },
   test: {
     name: 'browser',

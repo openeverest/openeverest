@@ -449,12 +449,7 @@ function getNextScheduleMinute(incrementMinutes: number): string {
 
         await test.step(`Delete primary database cluster`, async () => {
           await deleteDbCluster(page, clusterName);
-          await waitForStatus(
-            page,
-            clusterName,
-            db === 'pxc' ? 'Terminating' : 'Deleting',
-            15000
-          );
+          await waitForStatus(page, clusterName, 'Deleting', 15000);
           await waitForDelete(page, clusterName, 240000);
         });
 
@@ -588,12 +583,7 @@ function getNextScheduleMinute(incrementMinutes: number): string {
         page,
       }) => {
         await deleteDbCluster(page, restoredClusterName);
-        await waitForStatus(
-          page,
-          restoredClusterName,
-          db === 'pxc' ? 'Terminating' : 'Deleting',
-          15000
-        );
+        await waitForStatus(page, restoredClusterName, 'Deleting', 15000);
         await waitForDelete(page, restoredClusterName, 240000);
       });
     }

@@ -23,6 +23,19 @@ import {
 } from '../db-instances';
 import { GetDbInstancesPayload, Instance } from 'shared-types/api.types';
 
+// Until the next fetch says so, show the Instance as being deleted. The UI
+// tells that from the deletion timestamp, as it does once the API reports it.
+const markInstanceDeleting = <T extends Pick<Instance, 'metadata'>>(
+  instance: T
+): T => ({
+  ...instance,
+  metadata: {
+    ...instance.metadata,
+    deletionTimestamp:
+      instance.metadata?.deletionTimestamp ?? new Date().toISOString(),
+  },
+});
+
 export const useDbInstanceActions = (dbInstance: Instance) => {
   const clusterName = 'main';
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
@@ -136,24 +149,11 @@ export const useDbInstanceActions = (dbInstance: Instance) => {
 
               return {
                 ...oldData,
-                items: oldData.items?.map((item) => {
-                  if (item.metadata?.name === variables.dbInstanceName) {
-                    return {
-                      ...item,
-                      status: {
-                        ...item.status,
-                        // TODO v2 check should be deleted or not
-                        // conditions: item.status?.conditions || [],
-                        // crVersion: item.status?.crVersion || '',
-                        // hostname: item.status?.hostname || '',
-                        // port: item.status?.port || 0,
-                        phase: 'Terminating',
-                      },
-                    };
-                  }
-
-                  return item;
-                }),
+                items: oldData.items?.map((item) =>
+                  item.metadata?.name === variables.dbInstanceName
+                    ? markInstanceDeleting(item)
+                    : item
+                ),
               };
             }
           );
@@ -163,21 +163,7 @@ export const useDbInstanceActions = (dbInstance: Instance) => {
               variables.dbInstanceName,
               clusterName
             ),
-            (oldData) =>
-              oldData
-                ? {
-                    ...oldData,
-                    status: {
-                      ...oldData.status,
-                      phase: 'Terminating',
-                      // TODO v2 check should be deleted or not
-                      // conditions: oldData.status?.conditions || [],
-                      // hostname: oldData.status?.hostname || '',
-                      // port: oldData.status?.port || 0,
-                      // crVersion: oldData.status?.crVersion || '',
-                    },
-                  }
-                : undefined
+            (oldData) => (oldData ? markInstanceDeleting(oldData) : undefined)
           );
           if (onSuccess) {
             onSuccess();

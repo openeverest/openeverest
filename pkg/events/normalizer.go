@@ -24,6 +24,7 @@ import (
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/instancestatus"
 )
 
 // NormalizeBackup converts a kube watch event on a Backup.
@@ -189,7 +190,7 @@ func NormalizeInstance(we watch.Event) []Event {
 			OccurredAt:      now,
 			Namespace:       ns,
 			Resource:        ref,
-			NewState:        StateSnapshot{Phase: string(obj.Status.Phase)},
+			NewState:        instanceState(obj, now),
 			Actor:           actor,
 		})
 	case watch.Deleted:
@@ -199,11 +200,21 @@ func NormalizeInstance(we watch.Event) []Event {
 			OccurredAt:      now,
 			Namespace:       ns,
 			Resource:        ref,
-			PrevState:       StateSnapshot{Phase: string(obj.Status.Phase)},
+			PrevState:       instanceState(obj, now),
 			Actor:           actor,
 		})
 	}
 	return out
+}
+
+// instanceState is the snapshot of an Instance: its phase, and the status
+// word a person would have seen for it at that moment, read the way every
+// client reads it.
+func instanceState(obj *corev1alpha1.Instance, now time.Time) StateSnapshot {
+	return StateSnapshot{
+		Phase:  string(obj.Status.Phase),
+		Status: instancestatus.Describe(instancestatus.FromInstance(obj), now).Reason,
+	}
 }
 
 func isBackupComplete(state string) bool {

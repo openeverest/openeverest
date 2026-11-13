@@ -73,9 +73,16 @@ type ResourceRef struct {
 	Version string `json:"version,omitempty"`
 }
 
-// StateSnapshot captures the phase of a resource at a point in time.
+// StateSnapshot captures the state of a resource at a point in time.
 type StateSnapshot struct {
+	// Phase is the resource's phase or state. An Instance's phase says only
+	// where it is in its life: Pending, Provisioned or Terminating.
 	Phase string `json:"phase,omitempty"`
+	// Status is the status word of an Instance, the one kubectl, everestctl
+	// and the UI show for it: "Ready", "Upgrading", "CrashLoopBackOff". It
+	// is what tells a healthy Instance from a broken one, which the phase
+	// does not. Other resources leave it empty.
+	Status string `json:"status,omitempty"`
 }
 
 // Actor describes who or what triggered the event. Both fields use

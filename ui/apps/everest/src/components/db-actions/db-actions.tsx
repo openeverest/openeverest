@@ -45,6 +45,7 @@ import { useCanRestore } from 'hooks/api/restores/useCanRestore';
 import { useCanCreateClusterFromBackup } from 'hooks/api/restores/useCanCreateClusterFromBackup';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { BackupStatus } from 'shared-types/backups.types';
+import { isInstanceDeleting } from 'utils/instance-status';
 import { getInstanceMonitoringDestinationNames } from 'utils/monitoring-destinations';
 
 export const DbActions = ({
@@ -91,9 +92,9 @@ export const DbActions = ({
   // const redirectURL = `/databases/${namespace}/${dbInstanceName}/overview`;
 
   // const navigate = useNavigate();
-  // TODO needs a final enum
-  // const actionsBlocked = shouldDbActionsBeBlocked(dbInstance.status?.phase as DbInstanceStatus || '');
-  const actionsBlocked = dbInstance?.status?.phase === 'Terminating';
+  // Restoring is not held back while the database is down: that is when a
+  // restore is most often needed.
+  const actionsBlocked = isInstanceDeleting(dbInstance);
   const hasSchedules = !!dbInstance.spec?.backup?.storages?.some(
     (storage) => !!storage.schedules?.length
   );

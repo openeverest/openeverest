@@ -1,0 +1,1724 @@
+{
+  "description": [
+    "Shared fixtures for the function that turns an Instance's status into what a person sees:",
+    "a tone, a status word and whether the database is available.",
+    "The Go implementation (everestctl) and the TypeScript one (the UI) both run every case.",
+    "'kstatus' is what kstatus-based tools (Flux, Helm 4) make of the same object,",
+    "and 'wait' is the outcome of everestctl's --wait."
+  ],
+  "labels": {
+    "Ready": "Ready",
+    "Suspended": "Stopped",
+    "Creating": "Creating",
+    "ApplyingChanges": "Applying changes",
+    "Deleting": "Deleting",
+    "Restoring": "Restoring",
+    "Upgrading": "Upgrading",
+    "StorageResizing": "Resizing storage",
+    "Scaling": "Scaling",
+    "ValidationFailed": "Invalid configuration",
+    "AwaitingApproval": "Awaiting approval",
+    "RetriesExhausted": "Maintenance failed",
+    "ProviderNotFound": "Provider not found",
+    "UserSecretNotFound": "Secret not found",
+    "InvalidReference": "Invalid reference",
+    "Unschedulable": "Pods can't be scheduled",
+    "CrashLoopBackOff": "Crash loop",
+    "ImagePullBackOff": "Image can't be pulled",
+    "CreateContainerConfigError": "Container can't be created",
+    "NotReady": "Pods starting",
+    "ReconcileError": "Provider error",
+    "EngineError": "Engine error",
+    "ProgressDeadlineExceeded": "Not progressing",
+    "BackupStorageNotFound": "Backup storage not found",
+    "BackupClassNotFound": "Backup class not found",
+    "BackupStorageCredentialsNotFound": "Backup credentials not found",
+    "NotPickedUp": "Not picked up by provider"
+  },
+  "cases": [
+    {
+      "name": "never-reconciled-fresh",
+      "about": "Applied seconds ago; no provider has written status yet, so only the CRD default is there.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 1,
+          "creationTimestamp": "2026-03-01T11:59:30Z"
+        },
+        "status": {
+          "observedGeneration": -1
+        }
+      },
+      "want": {
+        "tone": "progress",
+        "reason": "Creating",
+        "label": "Creating",
+        "available": "Unknown",
+        "sentence": "Creating",
+        "since": null,
+        "kstatus": "InProgress",
+        "wait": "pending"
+      }
+    },
+    {
+      "name": "never-reconciled-old",
+      "about": "Still nothing but the CRD default after more than five minutes: nobody is reconciling it.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 1,
+          "creationTimestamp": "2026-03-01T11:54:00Z"
+        },
+        "status": {
+          "observedGeneration": -1
+        }
+      },
+      "want": {
+        "tone": "unknown",
+        "reason": "NotPickedUp",
+        "label": "Not picked up by provider",
+        "available": "Unknown",
+        "sentence": "Not picked up by provider",
+        "since": null,
+        "kstatus": "InProgress",
+        "wait": "pending"
+      }
+    },
+    {
+      "name": "creating",
+      "about": "Being brought up for the first time.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 1,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 1,
+          "phase": "Pending",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "False",
+              "reason": "NotCreated",
+              "message": "The database has not been available yet",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:58:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "Creating",
+              "message": "Waiting for the replica set to initialise",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:58:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "True",
+              "reason": "Creating",
+              "message": "Waiting for the replica set to initialise",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:58:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:58:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:58:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "progress",
+        "reason": "Creating",
+        "label": "Creating",
+        "available": "No",
+        "sentence": "Creating",
+        "since": "2026-03-01T11:58:00Z",
+        "kstatus": "InProgress",
+        "wait": "pending"
+      }
+    },
+    {
+      "name": "seeding-from-backup",
+      "about": "A new Instance whose data is being loaded from a backup. The operation supplies the word and the since time.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 1,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 1,
+          "phase": "Pending",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "False",
+              "reason": "LoadingData",
+              "message": "Data is being loaded from backup nightly-0412",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:19:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "Restoring",
+              "message": "Restoring from backup nightly-0412",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:19:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "True",
+              "reason": "Restoring",
+              "message": "Restoring from backup nightly-0412",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:19:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:19:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:19:00Z"
+            },
+            {
+              "type": "DataSourceReady",
+              "status": "Unknown",
+              "reason": "Restoring",
+              "message": "Restore is running",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:20:00Z"
+            },
+            {
+              "type": "Restoring",
+              "status": "True",
+              "reason": "Seeding",
+              "message": "Restoring from backup nightly-0412",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:20:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "progress",
+        "reason": "Restoring",
+        "label": "Restoring",
+        "available": "No",
+        "sentence": "Restoring",
+        "since": "2026-03-01T11:20:00Z",
+        "kstatus": "InProgress",
+        "wait": "pending"
+      }
+    },
+    {
+      "name": "rejected-spec",
+      "about": "The provider rejected the spec. Only a person can fix that, so it is stalled at once.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 1,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 1,
+          "phase": "Pending",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "False",
+              "reason": "NotCreated",
+              "message": "The database has not been available yet",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:57:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "ValidationFailed",
+              "message": "spec.components.engine.replicas: must be odd",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:57:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "False",
+              "reason": "ValidationFailed",
+              "message": "",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:57:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "True",
+              "reason": "ValidationFailed",
+              "message": "spec.components.engine.replicas: must be odd",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:57:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "True",
+              "reason": "ValidationFailed",
+              "message": "spec.components.engine.replicas: must be odd",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:57:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "error",
+        "reason": "ValidationFailed",
+        "label": "Invalid configuration",
+        "available": "No",
+        "sentence": "Invalid configuration",
+        "since": "2026-03-01T11:57:00Z",
+        "kstatus": "Failed",
+        "wait": "failed"
+      }
+    },
+    {
+      "name": "secret-missing-early",
+      "about": "A referent is missing. It may still arrive, so the Instance warns and keeps waiting.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 1,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 1,
+          "phase": "Pending",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "False",
+              "reason": "NotCreated",
+              "message": "The database has not been available yet",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:56:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "UserSecretNotFound",
+              "message": "secret app-users named by spec.userSecretRef not found in demo",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:56:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "True",
+              "reason": "UserSecretNotFound",
+              "message": "secret app-users named by spec.userSecretRef not found in demo",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:56:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:56:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "True",
+              "reason": "UserSecretNotFound",
+              "message": "secret app-users named by spec.userSecretRef not found in demo",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:56:00Z"
+            },
+            {
+              "type": "ReferencesResolved",
+              "status": "False",
+              "reason": "UserSecretNotFound",
+              "message": "secret app-users named by spec.userSecretRef not found in demo",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:56:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "attention",
+        "reason": "UserSecretNotFound",
+        "label": "Secret not found",
+        "available": "No",
+        "sentence": "Secret not found",
+        "since": "2026-03-01T11:56:00Z",
+        "kstatus": "InProgress",
+        "wait": "pending"
+      }
+    },
+    {
+      "name": "secret-missing-stalled",
+      "about": "The same problem has outlasted its deadline.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 1,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 1,
+          "phase": "Pending",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "False",
+              "reason": "NotCreated",
+              "message": "The database has not been available yet",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:48:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "UserSecretNotFound",
+              "message": "secret app-users named by spec.userSecretRef not found in demo",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:48:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "False",
+              "reason": "UserSecretNotFound",
+              "message": "",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:58:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "True",
+              "reason": "UserSecretNotFound",
+              "message": "secret app-users named by spec.userSecretRef not found in demo",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:58:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "True",
+              "reason": "UserSecretNotFound",
+              "message": "secret app-users named by spec.userSecretRef not found in demo",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:48:00Z"
+            },
+            {
+              "type": "ReferencesResolved",
+              "status": "False",
+              "reason": "UserSecretNotFound",
+              "message": "secret app-users named by spec.userSecretRef not found in demo",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:48:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "error",
+        "reason": "UserSecretNotFound",
+        "label": "Secret not found",
+        "available": "No",
+        "sentence": "Secret not found",
+        "since": "2026-03-01T11:58:00Z",
+        "kstatus": "Failed",
+        "wait": "failed"
+      }
+    },
+    {
+      "name": "unschedulable",
+      "about": "Pods fit no node, for example while a cluster autoscaler adds one.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 1,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 1,
+          "phase": "Pending",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "False",
+              "reason": "NotCreated",
+              "message": "The database has not been available yet",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:55:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "Unschedulable",
+              "message": "engine: 0/3 nodes are available: 3 Insufficient memory",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:55:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "True",
+              "reason": "Unschedulable",
+              "message": "",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:55:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:55:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "True",
+              "reason": "Unschedulable",
+              "message": "engine: 0/3 nodes are available: 3 Insufficient memory",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:56:00Z"
+            },
+            {
+              "type": "PodsScheduled",
+              "status": "False",
+              "reason": "Unschedulable",
+              "message": "engine: 0/3 nodes are available: 3 Insufficient memory",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:56:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "attention",
+        "reason": "Unschedulable",
+        "label": "Pods can't be scheduled",
+        "available": "No",
+        "sentence": "Pods can't be scheduled",
+        "since": "2026-03-01T11:56:00Z",
+        "kstatus": "InProgress",
+        "wait": "pending"
+      }
+    },
+    {
+      "name": "healthy",
+      "about": "Converged and serving.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 3,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 3,
+          "phase": "Provisioned",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "True",
+              "reason": "Available",
+              "message": "",
+              "observedGeneration": 3,
+              "lastTransitionTime": "2026-01-30T12:00:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "True",
+              "reason": "Ready",
+              "message": "The instance is ready",
+              "observedGeneration": 3,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 3,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 3,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 3,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "ok",
+        "reason": "Ready",
+        "label": "Ready",
+        "available": "Yes",
+        "sentence": "Up · Ready",
+        "since": "2026-02-26T12:00:00Z",
+        "kstatus": "Current",
+        "wait": "succeeded"
+      }
+    },
+    {
+      "name": "spec-edited-not-observed",
+      "about": "The spec was just edited. The status still describes the old generation, so it must not read as ready.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 4,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 3,
+          "phase": "Provisioned",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "True",
+              "reason": "Available",
+              "message": "",
+              "observedGeneration": 3,
+              "lastTransitionTime": "2026-01-30T12:00:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "True",
+              "reason": "Ready",
+              "message": "The instance is ready",
+              "observedGeneration": 3,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 3,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 3,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 3,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "progress",
+        "reason": "ApplyingChanges",
+        "label": "Applying changes",
+        "available": "Yes",
+        "sentence": "Up · Applying changes",
+        "since": null,
+        "kstatus": "InProgress",
+        "wait": "pending"
+      }
+    },
+    {
+      "name": "fix-pushed-to-stalled",
+      "about": "A fix was pushed to an Instance stalled on a rejected spec. The stall belongs to the old generation.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 2,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 1,
+          "phase": "Pending",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "False",
+              "reason": "NotCreated",
+              "message": "The database has not been available yet",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:30:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "ValidationFailed",
+              "message": "spec.components.engine.replicas: must be odd",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:30:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "False",
+              "reason": "ValidationFailed",
+              "message": "",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:30:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "True",
+              "reason": "ValidationFailed",
+              "message": "spec.components.engine.replicas: must be odd",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:30:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "True",
+              "reason": "ValidationFailed",
+              "message": "spec.components.engine.replicas: must be odd",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:30:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "progress",
+        "reason": "Creating",
+        "label": "Creating",
+        "available": "No",
+        "sentence": "Creating",
+        "since": null,
+        "kstatus": "InProgress",
+        "wait": "pending"
+      }
+    },
+    {
+      "name": "rolling-upgrade",
+      "about": "A rolling version upgrade of a highly available cluster: clients stay connected.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 5,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 5,
+          "phase": "Provisioned",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "True",
+              "reason": "Available",
+              "message": "",
+              "observedGeneration": 5,
+              "lastTransitionTime": "2026-01-30T12:00:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "Upgrading",
+              "message": "Rolling out version 8.0.12 (1 of 3 pods updated)",
+              "observedGeneration": 5,
+              "lastTransitionTime": "2026-03-01T11:56:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "True",
+              "reason": "Upgrading",
+              "message": "Rolling out version 8.0.12 (1 of 3 pods updated)",
+              "observedGeneration": 5,
+              "lastTransitionTime": "2026-03-01T11:56:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 5,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 5,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "PodsReady",
+              "status": "Unknown",
+              "reason": "NotReady",
+              "message": "engine: 1 pod is not ready",
+              "observedGeneration": 5,
+              "lastTransitionTime": "2026-03-01T11:59:00Z"
+            },
+            {
+              "type": "Upgrading",
+              "status": "True",
+              "reason": "MinorVersionRolling",
+              "message": "Rolling out version 8.0.12 (1 of 3 pods updated)",
+              "observedGeneration": 5,
+              "lastTransitionTime": "2026-03-01T11:56:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "progress",
+        "reason": "Upgrading",
+        "label": "Upgrading",
+        "available": "Yes",
+        "sentence": "Up · Upgrading",
+        "since": "2026-03-01T11:56:00Z",
+        "kstatus": "InProgress",
+        "wait": "pending"
+      }
+    },
+    {
+      "name": "change-availability-unknown",
+      "about": "A change is rolling out on a provider that cannot tell whether clients can connect. It must not claim an outage.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 2,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 2,
+          "phase": "Provisioned",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "Unknown",
+              "reason": "NotReported",
+              "message": "The provider does not report availability while converging",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:58:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "ApplyingChanges",
+              "message": "Waiting for pods to roll",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:58:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "True",
+              "reason": "ApplyingChanges",
+              "message": "Waiting for pods to roll",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:58:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "progress",
+        "reason": "ApplyingChanges",
+        "label": "Applying changes",
+        "available": "Unknown",
+        "sentence": "Applying changes",
+        "since": "2026-03-01T11:58:00Z",
+        "kstatus": "InProgress",
+        "wait": "pending"
+      }
+    },
+    {
+      "name": "backup-storage-missing-early",
+      "about": "Up, but its backup storage was deleted. A warning first.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 2,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 2,
+          "phase": "Provisioned",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "True",
+              "reason": "Available",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-01-30T12:00:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "BackupStorageNotFound",
+              "message": "backup storage s3-main not found in demo",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:57:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "True",
+              "reason": "BackupStorageNotFound",
+              "message": "backup storage s3-main not found in demo",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:57:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "True",
+              "reason": "BackupStorageNotFound",
+              "message": "backup storage s3-main not found in demo",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:57:00Z"
+            },
+            {
+              "type": "BackupConfigured",
+              "status": "False",
+              "reason": "BackupStorageNotFound",
+              "message": "backup storage s3-main not found in demo",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:57:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "attention",
+        "reason": "BackupStorageNotFound",
+        "label": "Backup storage not found",
+        "available": "Yes",
+        "sentence": "Up · Backup storage not found",
+        "since": "2026-03-01T11:57:00Z",
+        "kstatus": "InProgress",
+        "wait": "pending"
+      }
+    },
+    {
+      "name": "backup-storage-missing-stalled",
+      "about": "Still missing after the deadline. The database is up; the tone says act, the other cell says it is up.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 2,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 2,
+          "phase": "Provisioned",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "True",
+              "reason": "Available",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-01-30T12:00:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "BackupStorageNotFound",
+              "message": "backup storage s3-main not found in demo",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:49:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "False",
+              "reason": "BackupStorageNotFound",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:59:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "True",
+              "reason": "BackupStorageNotFound",
+              "message": "backup storage s3-main not found in demo",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:59:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "True",
+              "reason": "BackupStorageNotFound",
+              "message": "backup storage s3-main not found in demo",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:49:00Z"
+            },
+            {
+              "type": "BackupConfigured",
+              "status": "False",
+              "reason": "BackupStorageNotFound",
+              "message": "backup storage s3-main not found in demo",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:49:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "error",
+        "reason": "BackupStorageNotFound",
+        "label": "Backup storage not found",
+        "available": "Yes",
+        "sentence": "Up · Backup storage not found",
+        "since": "2026-03-01T11:59:00Z",
+        "kstatus": "Failed",
+        "wait": "failed"
+      }
+    },
+    {
+      "name": "crash-loop-one-replica",
+      "about": "One replica is crash-looping while the primary serves.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 2,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 2,
+          "phase": "Provisioned",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "True",
+              "reason": "Available",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-01-30T12:00:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "CrashLoopBackOff",
+              "message": "engine: container mongod last exited with Error (exit code 14)",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:54:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "True",
+              "reason": "CrashLoopBackOff",
+              "message": "engine: container mongod last exited with Error (exit code 14)",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:54:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "True",
+              "reason": "CrashLoopBackOff",
+              "message": "engine: container mongod last exited with Error (exit code 14)",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:55:00Z"
+            },
+            {
+              "type": "PodsReady",
+              "status": "False",
+              "reason": "CrashLoopBackOff",
+              "message": "engine: container mongod last exited with Error (exit code 14)",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:55:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "attention",
+        "reason": "CrashLoopBackOff",
+        "label": "Crash loop",
+        "available": "Yes",
+        "sentence": "Up · Crash loop",
+        "since": "2026-03-01T11:55:00Z",
+        "kstatus": "InProgress",
+        "wait": "pending"
+      }
+    },
+    {
+      "name": "crash-loop-all-replicas-stalled",
+      "about": "Every replica is crash-looping and the deadline has passed.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 2,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 2,
+          "phase": "Provisioned",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "False",
+              "reason": "NotAvailable",
+              "message": "No replica set member is primary",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:41:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "CrashLoopBackOff",
+              "message": "engine: container mongod last exited with Error (exit code 14)",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:41:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "False",
+              "reason": "CrashLoopBackOff",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:52:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "True",
+              "reason": "CrashLoopBackOff",
+              "message": "engine: container mongod last exited with Error (exit code 14)",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:52:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "True",
+              "reason": "CrashLoopBackOff",
+              "message": "engine: container mongod last exited with Error (exit code 14)",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:42:00Z"
+            },
+            {
+              "type": "PodsReady",
+              "status": "False",
+              "reason": "CrashLoopBackOff",
+              "message": "engine: container mongod last exited with Error (exit code 14)",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:42:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "error",
+        "reason": "CrashLoopBackOff",
+        "label": "Crash loop",
+        "available": "No",
+        "sentence": "Down · Crash loop",
+        "since": "2026-03-01T11:52:00Z",
+        "kstatus": "Failed",
+        "wait": "failed"
+      }
+    },
+    {
+      "name": "in-place-restore",
+      "about": "A restore into a database that was running: down for now, and someone asked for it.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 2,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 2,
+          "phase": "Provisioned",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "False",
+              "reason": "NotAvailable",
+              "message": "Data is being restored",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:35:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "Restoring",
+              "message": "Restore nightly-0412 is running",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:35:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "True",
+              "reason": "Restoring",
+              "message": "Restore nightly-0412 is running",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:35:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "Restoring",
+              "status": "True",
+              "reason": "Restoring",
+              "message": "Restore nightly-0412 is running",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:35:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "progress",
+        "reason": "Restoring",
+        "label": "Restoring",
+        "available": "No",
+        "sentence": "Down · Restoring",
+        "since": "2026-03-01T11:35:00Z",
+        "kstatus": "InProgress",
+        "wait": "pending"
+      }
+    },
+    {
+      "name": "engine-started-resize",
+      "about": "The engine started a storage resize on an unchanged spec. Ready stays True and carries the operation as its word.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 2,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 2,
+          "phase": "Provisioned",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "True",
+              "reason": "Available",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-01-20T12:00:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "True",
+              "reason": "StorageResizing",
+              "message": "Expanding volumes to 50Gi",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-01-20T12:00:00Z"
+            },
+            {
+              "type": "StorageResizing",
+              "status": "True",
+              "reason": "ExpansionTriggered",
+              "message": "Expanding volumes to 50Gi",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:54:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "ok",
+        "reason": "StorageResizing",
+        "label": "Resizing storage",
+        "available": "Yes",
+        "sentence": "Up · Resizing storage",
+        "since": "2026-03-01T11:54:00Z",
+        "kstatus": "Current",
+        "wait": "succeeded"
+      }
+    },
+    {
+      "name": "progress-deadline-exceeded",
+      "about": "Converging for too long with no named operation.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 1,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 1,
+          "phase": "Pending",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "False",
+              "reason": "NotCreated",
+              "message": "The database has not been available yet",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:25:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "ProgressDeadlineExceeded",
+              "message": "No progress for 30m0s: waiting for the replica set to initialise",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:25:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "False",
+              "reason": "ProgressDeadlineExceeded",
+              "message": "",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:55:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "True",
+              "reason": "ProgressDeadlineExceeded",
+              "message": "No progress for 30m0s: waiting for the replica set to initialise",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:55:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "True",
+              "reason": "ProgressDeadlineExceeded",
+              "message": "No progress for 30m0s: waiting for the replica set to initialise",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:55:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "error",
+        "reason": "ProgressDeadlineExceeded",
+        "label": "Not progressing",
+        "available": "No",
+        "sentence": "Not progressing",
+        "since": "2026-03-01T11:55:00Z",
+        "kstatus": "Failed",
+        "wait": "failed"
+      }
+    },
+    {
+      "name": "reason-the-client-has-never-seen",
+      "about": "A provider-specific reason no client knows. It gets a readable label and the right tone anyway.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 2,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 2,
+          "phase": "Provisioned",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "True",
+              "reason": "Available",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-01-30T12:00:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "RebalancingShards",
+              "message": "Moving chunks to the new shard",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:51:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "True",
+              "reason": "RebalancingShards",
+              "message": "Moving chunks to the new shard",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:51:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "progress",
+        "reason": "RebalancingShards",
+        "label": "Rebalancing shards",
+        "available": "Yes",
+        "sentence": "Up · Rebalancing shards",
+        "since": "2026-03-01T11:51:00Z",
+        "kstatus": "InProgress",
+        "wait": "pending"
+      }
+    },
+    {
+      "name": "stopped",
+      "about": "Stopped because the spec asks for it: converged, and not available.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 2,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 2,
+          "phase": "Provisioned",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "False",
+              "reason": "Suspended",
+              "message": "Compute is scaled to zero",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T07:00:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "True",
+              "reason": "Suspended",
+              "message": "The instance is stopped",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T07:00:00Z"
+            },
+            {
+              "type": "Suspended",
+              "status": "True",
+              "reason": "Suspended",
+              "message": "Compute is scaled to zero",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T07:00:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "stopped",
+        "reason": "Suspended",
+        "label": "Stopped",
+        "available": "No",
+        "sentence": "Stopped",
+        "since": "2026-03-01T07:00:00Z",
+        "kstatus": "Current",
+        "wait": "succeeded"
+      }
+    },
+    {
+      "name": "deleting",
+      "about": "Deletion was requested.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 2,
+          "creationTimestamp": "2026-01-20T12:00:00Z",
+          "deletionTimestamp": "2026-03-01T11:59:00Z"
+        },
+        "status": {
+          "observedGeneration": 2,
+          "phase": "Terminating",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "Unknown",
+              "reason": "Deleting",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:59:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "Deleting",
+              "message": "The instance is being deleted",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:59:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "True",
+              "reason": "Deleting",
+              "message": "The instance is being deleted",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:59:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "deleting",
+        "reason": "Deleting",
+        "label": "Deleting",
+        "available": "Unknown",
+        "sentence": "Deleting",
+        "since": "2026-03-01T11:59:00Z",
+        "kstatus": "Terminating",
+        "wait": "failed"
+      }
+    },
+    {
+      "name": "deleting-waiting-for-children",
+      "about": "Deletion is waiting for something, and says what.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 2,
+          "creationTimestamp": "2026-01-20T12:00:00Z",
+          "deletionTimestamp": "2026-03-01T11:53:00Z"
+        },
+        "status": {
+          "observedGeneration": 2,
+          "phase": "Terminating",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "Unknown",
+              "reason": "Deleting",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:53:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "False",
+              "reason": "WaitingForBackups",
+              "message": "Waiting for 2 backups to be deleted",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:53:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "True",
+              "reason": "WaitingForBackups",
+              "message": "Waiting for 2 backups to be deleted",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-03-01T11:53:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "deleting",
+        "reason": "WaitingForBackups",
+        "label": "Waiting for backups",
+        "available": "Unknown",
+        "sentence": "Deleting · Waiting for backups",
+        "since": "2026-03-01T11:53:00Z",
+        "kstatus": "Terminating",
+        "wait": "failed"
+      }
+    }
+  ]
+}

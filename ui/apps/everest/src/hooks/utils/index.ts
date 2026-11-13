@@ -17,3 +17,4 @@ export * from './useDeleteModal';
 export * from './useDevMode';
 export * from './useLocalStorage';
 export * from './useUpdateEntityWithConflictRetry';
+export * from './useNow';

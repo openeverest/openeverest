@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Instance, PhaseType } from 'shared-types/api.types';
-import { DB_INSTANCE_UNKNOWN_PHASE } from 'shared-types/instance.types';
+import { Instance } from 'shared-types/api.types';
 import { convertDbInstancesPayloadToTableFormat } from './DbClusterView.utils';
-import { InstanceTableElement } from './dbClusterView.types';
 import { DbInstanceForNamespaceResult } from 'hooks/api/db-instances';
+import { getFixtureInstance } from 'utils/tests/instance-status-fixtures';
+
+const NOW = new Date('2026-03-01T12:00:00Z');
 
 const makeInstance = (
-  _name: string,
   provider: string,
-  phase: PhaseType,
-  topologyType: string
+  topologyType: string,
+  status?: Instance['status']
 ): Instance => ({
   apiVersion: 'core.openeverest.io/v1alpha1',
   kind: 'Instance',
@@ -31,9 +31,7 @@ const makeInstance = (
     providerRef: { name: provider },
     topology: { type: topologyType },
   },
-  status: {
-    phase,
-  },
+  status,
 });
 
 const makeResult = (
@@ -52,20 +50,19 @@ const makeResult = (
 
 describe('convertDbInstancesPayloadToTableFormat', () => {
   it('returns empty array when no results', () => {
-    expect(convertDbInstancesPayloadToTableFormat([])).toEqual([]);
+    expect(convertDbInstancesPayloadToTableFormat([], NOW)).toEqual([]);
   });
 
   it('converts a single namespace with one instance', () => {
-    const instance = makeInstance('pg-1', 'aws', 'Ready', 'ha');
+    const instance = makeInstance('aws', 'ha');
     const data = [makeResult('ns-1', [instance])];
 
-    const result = convertDbInstancesPayloadToTableFormat(data);
+    const result = convertDbInstancesPayloadToTableFormat(data, NOW);
 
     expect(result).toHaveLength(1);
-    expect(result[0]).toEqual<InstanceTableElement>({
+    expect(result[0]).toMatchObject({
       namespace: 'ns-1',
       instanceName: '',
-      phase: 'Ready',
       provider: 'aws',
       topologyType: 'ha',
       raw: instance,
@@ -73,11 +70,11 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
   });
 
   it('converts multiple namespaces', () => {
-    const i1 = makeInstance('pg-1', 'aws', 'Ready', 'ha');
-    const i2 = makeInstance('mongo-1', 'gcp', 'Provisioning', 'standalone');
+    const i1 = makeInstance('aws', 'ha');
+    const i2 = makeInstance('gcp', 'standalone');
     const data = [makeResult('ns-1', [i1]), makeResult('ns-2', [i2])];
 
-    const result = convertDbInstancesPayloadToTableFormat(data);
+    const result = convertDbInstancesPayloadToTableFormat(data, NOW);
 
     expect(result).toHaveLength(2);
     expect(result[0].namespace).toBe('ns-1');
@@ -86,24 +83,70 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
   });
 
   it('skips namespaces where query is not successful', () => {
-    const instance = makeInstance('pg-1', 'aws', 'Ready', 'ha');
+    const instance = makeInstance('aws', 'ha');
     const data = [makeResult('ns-1', [instance], false)];
 
-    const result = convertDbInstancesPayloadToTableFormat(data);
+    const result = convertDbInstancesPayloadToTableFormat(data, NOW);
     expect(result).toHaveLength(0);
   });
 
-  it('defaults phase to unknown when status is undefined', () => {
-    const instance: Instance = {
-      apiVersion: 'core.openeverest.io/v1alpha1',
-      kind: 'Instance',
-      metadata: {},
-      spec: { providerRef: { name: 'aws' } },
-    };
-    const data = [makeResult('ns-1', [instance])];
+  it('shows an instance without a status as being created', () => {
+    const data = [makeResult('ns-1', [makeInstance('aws', 'ha')])];
 
-    const result = convertDbInstancesPayloadToTableFormat(data);
-    expect(result[0].phase).toBe(DB_INSTANCE_UNKNOWN_PHASE);
+    const result = convertDbInstancesPayloadToTableFormat(data, NOW);
+
+    expect(result[0].status).toMatchObject({
+      tone: 'progress',
+      label: 'Creating',
+      available: 'Unknown',
+    });
+    expect(result[0].notices).toEqual([]);
+  });
+
+  it('reads the status and availability of each row from its conditions', () => {
+    const data = [
+      makeResult('ns-1', [
+        getFixtureInstance('crash-loop-all-replicas-stalled'),
+        getFixtureInstance('rolling-upgrade'),
+      ]),
+    ];
+
+    const result = convertDbInstancesPayloadToTableFormat(data, NOW);
+
+    expect(result.map(({ status }) => status)).toMatchObject([
+      { tone: 'error', label: 'Crash loop', available: 'No' },
+      { tone: 'progress', label: 'Upgrading', available: 'Yes' },
+    ]);
+  });
+
+  it('flags a notice beside the status without changing it', () => {
+    const healthy = getFixtureInstance('healthy');
+    const instance: Instance = {
+      ...healthy,
+      status: {
+        ...healthy.status,
+        conditions: [
+          ...(healthy.status?.conditions ?? []),
+          {
+            type: 'MaintenancePending',
+            status: 'True',
+            reason: 'AwaitingApproval',
+            message: '1 action awaits approval',
+            lastTransitionTime: '2026-03-01T11:00:00Z',
+          },
+        ],
+      },
+    };
+
+    const [row] = convertDbInstancesPayloadToTableFormat(
+      [makeResult('ns-1', [instance])],
+      NOW
+    );
+
+    expect(row.status).toMatchObject({ tone: 'ok', label: 'Ready' });
+    expect(row.notices.map(({ title }) => title)).toEqual([
+      'Maintenance pending',
+    ]);
   });
 
   it('defaults provider to empty string when not set', () => {
@@ -115,7 +158,7 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
     };
     const data = [makeResult('ns-1', [instance])];
 
-    const result = convertDbInstancesPayloadToTableFormat(data);
+    const result = convertDbInstancesPayloadToTableFormat(data, NOW);
     expect(result[0].provider).toBe('');
   });
 });

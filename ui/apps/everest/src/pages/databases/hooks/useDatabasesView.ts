@@ -18,6 +18,7 @@ import { useProviders } from 'hooks/api/providers/useProviders';
 import { useInstancesForNamespaces } from 'hooks/api/db-instances/useDbInstanceList';
 import { useNamespacePermissionsForResource } from 'hooks/rbac';
 import { useExtensionCatalog } from 'hooks/api/extension-catalog';
+import { useNow } from 'hooks/utils/useNow';
 import { convertDbInstancesPayloadToTableFormat } from '../DbClusterView.utils';
 import { InstanceTableElement } from '../dbClusterView.types';
 
@@ -65,9 +66,12 @@ export const useDatabasesView = (): DatabasesView => {
     (result) => result.queryResult.isFetchedAfterMount
   );
 
+  // The status of a row depends on the time too: an Instance its provider
+  // leaves alone for long enough reads differently without changing.
+  const now = useNow();
   const rows = useMemo(
-    () => convertDbInstancesPayloadToTableFormat(instancesResults),
-    [instancesResults]
+    () => convertDbInstancesPayloadToTableFormat(instancesResults, now),
+    [instancesResults, now]
   );
 
   const hasCreatePermission = canCreate.length > 0;

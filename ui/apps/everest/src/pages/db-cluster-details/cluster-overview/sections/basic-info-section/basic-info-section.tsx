@@ -40,10 +40,6 @@ const BasicInfoSection = ({
       label="Topology"
       content={instance.spec?.topology?.type ?? 'default'}
     />
-    <OverviewSectionRow
-      label={Messages.fields.status}
-      content={instance.status?.phase}
-    />
   </OverviewSection>
 );
 

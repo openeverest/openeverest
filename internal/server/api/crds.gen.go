@@ -632,43 +632,19 @@ func (e InstanceStatusPendingMaintenanceSeverity) Valid() bool {
 
 // Defines values for InstanceStatusPhase.
 const (
-	InstanceStatusPhaseFailed       InstanceStatusPhase = "Failed"
-	InstanceStatusPhaseInitializing InstanceStatusPhase = "Initializing"
-	InstanceStatusPhasePending      InstanceStatusPhase = "Pending"
-	InstanceStatusPhaseProvisioning InstanceStatusPhase = "Provisioning"
-	InstanceStatusPhaseReady        InstanceStatusPhase = "Ready"
-	InstanceStatusPhaseRestoring    InstanceStatusPhase = "Restoring"
-	InstanceStatusPhaseResuming     InstanceStatusPhase = "Resuming"
-	InstanceStatusPhaseSuspended    InstanceStatusPhase = "Suspended"
-	InstanceStatusPhaseSuspending   InstanceStatusPhase = "Suspending"
-	InstanceStatusPhaseTerminating  InstanceStatusPhase = "Terminating"
-	InstanceStatusPhaseUpdating     InstanceStatusPhase = "Updating"
+	InstanceStatusPhasePending     InstanceStatusPhase = "Pending"
+	InstanceStatusPhaseProvisioned InstanceStatusPhase = "Provisioned"
+	InstanceStatusPhaseTerminating InstanceStatusPhase = "Terminating"
 )
 
 // Valid indicates whether the value is a known member of the InstanceStatusPhase enum.
 func (e InstanceStatusPhase) Valid() bool {
 	switch e {
-	case InstanceStatusPhaseFailed:
-		return true
-	case InstanceStatusPhaseInitializing:
-		return true
 	case InstanceStatusPhasePending:
 		return true
-	case InstanceStatusPhaseProvisioning:
-		return true
-	case InstanceStatusPhaseReady:
-		return true
-	case InstanceStatusPhaseRestoring:
-		return true
-	case InstanceStatusPhaseResuming:
-		return true
-	case InstanceStatusPhaseSuspended:
-		return true
-	case InstanceStatusPhaseSuspending:
+	case InstanceStatusPhaseProvisioned:
 		return true
 	case InstanceStatusPhaseTerminating:
-		return true
-	case InstanceStatusPhaseUpdating:
 		return true
 	default:
 		return false
@@ -4332,9 +4308,6 @@ type Instance struct {
 			Name string `json:"name"`
 		} `json:"connectionSecretRef,omitempty"`
 
-		// Message Message is a custom user-facing message describing the current state of the instance.
-		Message *string `json:"message,omitempty"`
-
 		// Monitoring Monitoring is what the Instance exposes to monitoring (sources) and
 		// one read-only summary per spec.monitoring.destinations[] entry.
 		// Written only by provider-runtime.
@@ -4532,7 +4505,8 @@ type Instance struct {
 
 		// ObservedGeneration ObservedGeneration is the metadata.generation the provider-runtime last
 		// reconciled. Status describes an older spec while it is lower than
-		// metadata.generation.
+		// metadata.generation. It defaults to -1, so an Instance no provider has
+		// reconciled reads as in progress, never as current.
 		ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 		// PendingMaintenance PendingMaintenance lists the disruptive actions currently held awaiting
@@ -4553,7 +4527,9 @@ type Instance struct {
 			Severity InstanceStatusPendingMaintenanceSeverity `json:"severity"`
 		} `json:"pendingMaintenance,omitempty"`
 
-		// Phase Phase of the database cluster.
+		// Phase Phase is where the Instance is in its life: Pending until the database
+		// is first available, Provisioned afterwards, Terminating once deletion
+		// is requested. Read the conditions for everything else.
 		Phase *InstanceStatusPhase `json:"phase,omitempty"`
 
 		// Version Version is the effective version bundle that is currently applied to this
@@ -4684,7 +4660,9 @@ type InstanceStatusMonitoringSourcesMetricsScheme string
 // InstanceStatusPendingMaintenanceSeverity Severity is the action's observable database impact.
 type InstanceStatusPendingMaintenanceSeverity string
 
-// InstanceStatusPhase Phase of the database cluster.
+// InstanceStatusPhase Phase is where the Instance is in its life: Pending until the database
+// is first available, Provisioned afterwards, Terminating once deletion
+// is requested. Read the conditions for everything else.
 type InstanceStatusPhase string
 
 // InstanceConnectionDetails ConnectionDetails holds the typed connection details for a database instance. These are written by the provider-runtime reconciler to a Kubernetes Secret and later read back by the API server to serve the connection endpoint. They follow the Service Binding well-known keys where applicable.

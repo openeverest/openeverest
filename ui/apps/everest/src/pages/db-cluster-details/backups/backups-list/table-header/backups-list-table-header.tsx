@@ -13,10 +13,10 @@
 // limitations under the License.
 
 import { useContext, useState } from 'react';
-import { Box, MenuItem } from '@mui/material';
+import { Box, MenuItem, Typography } from '@mui/material';
 import { MenuButton } from '@percona/ui-lib';
 import { ScheduleModalContext } from '../../backups.context';
-import { DbInstancePhaseStatus } from 'shared-types/instance.types';
+import { canBackUpNow, isInstanceDeleting } from 'utils/instance-status';
 import ScheduledBackupsList from './scheduled-backups-list';
 import { StoragesList } from '../../storages-list';
 import { ExpandableSectionToggle } from 'components/expandable-section-toggle';
@@ -50,7 +50,10 @@ const BackupListTableHeader = ({
     (activeClass?.spec?.providerManaged?.supportsPITR ?? false) &&
     storagesNumber > 0;
 
-  const restoring = instance.status?.phase === DbInstancePhaseStatus.Restoring;
+  const deleting = isInstanceDeleting(instance);
+  // A schedule is a change to the database, so it only needs the database to
+  // stay. A backup taken now needs something to read from.
+  const backupPossible = canBackUpNow(instance);
 
   // TODO: v2 — schedule limit checking, uncomment when ready
   // const { data: backupClasses = [] } = useBackupClassesList(clusterName);
@@ -130,16 +133,23 @@ const BackupListTableHeader = ({
           <MenuButton
             matchAnchorWidth
             buttonProps={{
-              disabled: restoring,
+              disabled: deleting,
             }}
             buttonText="Create backup"
             children={(handleClose) => [
               <MenuItem
                 key="now"
                 data-testid="now-menu-item"
+                disabled={!backupPossible}
                 onClick={() => handleNowClick(handleClose)}
+                sx={{ gap: 1 }}
               >
                 {Messages.now}
+                {!backupPossible && (
+                  <Typography variant="caption">
+                    {Messages.notAvailable}
+                  </Typography>
+                )}
               </MenuItem>,
               <MenuItem
                 key="schedule"

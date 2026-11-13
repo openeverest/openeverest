@@ -14,6 +14,7 @@
 
 export const Messages = {
   now: 'Now',
+  notAvailable: 'The database is not available',
   schedule: 'Schedule',
   deleteModal: {
     header: 'Delete schedule',

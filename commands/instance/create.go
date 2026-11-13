@@ -87,9 +87,9 @@ to override any Instance spec field using dot-notation paths rooted at the spec
   # Block until the instance is ready (Ctrl-C only stops waiting; the instance keeps provisioning)
   everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb --wait
 
-  # Bounded wait for CI, then grab the phase
+  # Bounded wait for CI, then check that clients can connect
   everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb \
-    --wait --timeout 15m --json | jq '.status.phase'`,
+    --wait --timeout 15m --json | jq -r '.status.conditions[] | select(.type == "Available") | .status'`,
 		PreRun: createPreRun,
 		Run:    createRun,
 	}
@@ -110,7 +110,7 @@ func init() {
 	createCmd.Flags().StringVar(&createOpts.Context, cli.FlagInstanceContext, "", "Context to use (default: current context)")
 	createCmd.Flags().StringVarP(&createOpts.ValuesFile, cli.FlagInstanceFile, "f", "", "Path to a YAML file with component overrides (--set takes precedence)")
 	createCmd.Flags().StringArrayVar(&createOpts.Set, cli.FlagInstanceSet, nil, "Set a spec field: --set components.engine.replicas=3 or --set backup.enabled=true (repeatable)")
-	createCmd.Flags().BoolVar(&createOpts.Wait, cli.FlagInstanceWait, false, "Block until the instance reaches the Ready phase; exit non-zero if it fails or times out")
+	createCmd.Flags().BoolVar(&createOpts.Wait, cli.FlagInstanceWait, false, "Block until the instance is ready; exit non-zero if it will not become ready without intervention, is deleted, or the wait times out")
 	createCmd.Flags().DurationVar(&createOpts.Timeout, cli.FlagInstanceTimeout, 10*time.Minute, "Maximum time to wait (only valid with --wait); must be positive")
 	createCmd.Flags().StringVar(&createOpts.DryRun, cli.FlagInstanceDryRun, instancecli.DryRunNone,
 		`"client" prints the instance without sending it; "server" has the server validate it, without creating it`,

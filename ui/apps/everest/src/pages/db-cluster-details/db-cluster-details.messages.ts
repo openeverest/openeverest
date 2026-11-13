@@ -39,8 +39,7 @@ export const Messages = {
   // components: 'Components',
   // logs: 'Logs',
   dbActions: 'Actions',
-  restoringDb:
-    'We are recovering your database. Do not perform any actions on the database until recovery is complete.',
+  since: (elapsed: string) => `since ${elapsed}`,
   // pitrError: `PITR can experience issues resulting from gaps, which may occur due to reasons such as disabling and then enabling PITR or technical issues like data loss.
   //   To ensure proper functioning of PITR, you need to take an additional full backup.
   //   `,

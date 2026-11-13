@@ -42,6 +42,6 @@ export interface MonitoringOverview {
 export interface MonitoringCardProps {
   instance: Instance;
   namespace: string;
-  // Changes are allowed in the Instance's current phase.
+  // Changes are allowed: the Instance is not being deleted.
   editable: boolean;
 }

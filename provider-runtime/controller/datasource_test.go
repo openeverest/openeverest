@@ -85,10 +85,11 @@ func TestReconcileDataSource(t *testing.T) {
 		expected   DataSourceStatus
 	}{
 		{
-			name: "waits for a missing source until seeded",
+			name: "waits for a missing source until seeded, and says it cannot go on",
 			expected: DataSourceStatus{
 				Done:    false,
 				State:   DataSourceStateWaiting,
+				Blocked: true,
 				Reason:  v1alpha1.ReasonDataSourceSourceBackupNotFound,
 				Message: `source Backup "deleted-with-its-instance" not found in namespace "ns"`,
 			},
@@ -114,6 +115,44 @@ func TestReconcileDataSource(t *testing.T) {
 			restores := &backupv1alpha1.RestoreList{}
 			require.NoError(t, c.Client().List(context.Background(), restores))
 			assert.Empty(t, restores.Items)
+		})
+	}
+}
+
+// A source Backup that is not finished may still finish, so seeding is in
+// progress. One that failed or is being deleted never will: seeding cannot
+// go on.
+func TestReconcileDataSource_SourceBackupNotSucceeded(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		state       backupv1alpha1.BackupState
+		wantBlocked bool
+	}{
+		{state: "", wantBlocked: false},
+		{state: backupv1alpha1.BackupStatePending, wantBlocked: false},
+		{state: backupv1alpha1.BackupStateRunning, wantBlocked: false},
+		{state: backupv1alpha1.BackupStateError, wantBlocked: false},
+		{state: backupv1alpha1.BackupStateFailed, wantBlocked: true},
+		{state: backupv1alpha1.BackupStateDeleting, wantBlocked: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(string(tc.state), func(t *testing.T) {
+			t.Parallel()
+
+			c := newDataSourceTestContext(t, seedingInstance())
+			require.NoError(t, c.Client().Create(context.Background(), &backupv1alpha1.Backup{
+				ObjectMeta: metav1.ObjectMeta{Name: "deleted-with-its-instance", Namespace: "ns"},
+				Status:     backupv1alpha1.BackupStatus{State: tc.state},
+			}))
+
+			got, err := c.ReconcileDataSource()
+
+			require.NoError(t, err)
+			assert.Equal(t, DataSourceStateWaiting, got.State)
+			assert.Equal(t, v1alpha1.ReasonDataSourceSourceBackupNotSucceeded, got.Reason)
+			assert.Equal(t, tc.wantBlocked, got.Blocked)
 		})
 	}
 }

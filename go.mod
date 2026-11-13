@@ -30,7 +30,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/oapi-codegen/echo-middleware v1.1.0
 	github.com/oapi-codegen/runtime v1.7.0
-	github.com/openeverest/helm-charts/charts/everest v0.0.0-20261112120507-319f563c1ecc
+	github.com/openeverest/helm-charts/charts/everest v0.0.0-20261112183713-3f6136757fbb
 	github.com/operator-framework/api v0.45.0
 	github.com/percona/everest-operator v0.6.0-dev1.0.20260429065444-70caa52c384a
 	github.com/rodaine/table v1.4.0
@@ -56,6 +56,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20260721132016-d427ff9ee9ad
 	k8s.io/kubectl v0.37.1
 	k8s.io/utils v0.0.0-20260626114624-be93311217bd
+	sigs.k8s.io/cli-utils v0.37.2
 	sigs.k8s.io/controller-runtime v0.25.1
 	sigs.k8s.io/controller-tools v0.23.0
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730

@@ -24,6 +24,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -47,6 +48,83 @@ func instFromJSON(t *testing.T, body string) *client.Instance {
 
 // ---- instanceCondition ------------------------------------------------------
 
+// conditionJSON is one status condition, observed for generation 1.
+func conditionJSON(conditionType, status, reason, message string) string {
+	return fmt.Sprintf(
+		`{"type":%q,"status":%q,"reason":%q,"message":%q,"observedGeneration":1,"lastTransitionTime":"2026-01-01T00:00:00Z"}`,
+		conditionType, status, reason, message,
+	)
+}
+
+// statusJSON is the status of an Instance whose generation 1 was observed.
+func statusJSON(phase string, conditions ...string) string {
+	return fmt.Sprintf(`{"observedGeneration":1,"phase":%q,"conditions":[%s]}`, phase, strings.Join(conditions, ","))
+}
+
+// creatingStatus is the status of an Instance that is being brought up.
+func creatingStatus() string {
+	return statusJSON(
+		"Pending",
+		conditionJSON("Available", "False", "NotCreated", "The database has not been available yet"),
+		conditionJSON("Ready", "False", "Creating", "Waiting for the replica set to initialise"),
+		conditionJSON("Reconciling", "True", "Creating", "Waiting for the replica set to initialise"),
+		conditionJSON("Stalled", "False", "NoProblems", ""),
+		conditionJSON("NeedsAttention", "False", "NoProblems", ""),
+	)
+}
+
+// readyStatus is the status of an Instance that has converged.
+func readyStatus() string {
+	return statusJSON(
+		"Provisioned",
+		conditionJSON("Available", "True", "Available", ""),
+		conditionJSON("Ready", "True", "Ready", "The instance is ready"),
+		conditionJSON("Reconciling", "False", "NoProblems", ""),
+		conditionJSON("Stalled", "False", "NoProblems", ""),
+		conditionJSON("NeedsAttention", "False", "NoProblems", ""),
+	)
+}
+
+// stalledStatus is the status of an Instance whose spec the provider rejected.
+func stalledStatus() string {
+	return statusJSON(
+		"Pending",
+		conditionJSON("Available", "False", "NotCreated", "The database has not been available yet"),
+		conditionJSON("Ready", "False", "ValidationFailed", "replicas must be odd"),
+		conditionJSON("Reconciling", "False", "ValidationFailed", ""),
+		conditionJSON("Stalled", "True", "ValidationFailed", "replicas must be odd"),
+		conditionJSON("NeedsAttention", "True", "ValidationFailed", "replicas must be odd"),
+	)
+}
+
+// missingSecretStatus is the status of an Instance waiting for a Secret that
+// may still arrive.
+func missingSecretStatus() string {
+	return statusJSON(
+		"Pending",
+		conditionJSON("Ready", "False", "UserSecretNotFound", "secret s not found"),
+		conditionJSON("Reconciling", "True", "UserSecretNotFound", "secret s not found"),
+		conditionJSON("Stalled", "False", "NoProblems", ""),
+		conditionJSON("NeedsAttention", "True", "UserSecretNotFound", "secret s not found"),
+	)
+}
+
+// stoppedStatus is the status of an Instance stopped because its spec asks
+// for it.
+func stoppedStatus() string {
+	return statusJSON(
+		"Provisioned",
+		conditionJSON("Available", "False", "Suspended", "Compute is scaled to zero"),
+		conditionJSON("Ready", "True", "Suspended", "The instance is stopped"),
+		conditionJSON("Suspended", "True", "Suspended", "Compute is scaled to zero"),
+	)
+}
+
+// instanceJSON is an Instance at the given generation with the given status.
+func instanceJSON(generation int, status string) string {
+	return fmt.Sprintf(`{"metadata":{"name":"my-db","generation":%d},"status":%s}`, generation, status)
+}
+
 func TestInstanceCondition(t *testing.T) {
 	t.Parallel()
 
@@ -54,73 +132,68 @@ func TestInstanceCondition(t *testing.T) {
 		name        string
 		body        string
 		wantOutcome wait.Outcome
-		wantMsgHas  string
+		wantMsg     string
 	}{
 		{
 			name:        "ready is success",
-			body:        `{"status":{"phase":"Ready"}}`,
+			body:        instanceJSON(1, readyStatus()),
 			wantOutcome: wait.Succeeded,
-			wantMsgHas:  "Ready",
+			wantMsg:     "Up · Ready",
 		},
 		{
-			name:        "failed is terminal failure with message",
-			body:        `{"status":{"phase":"Failed","message":"engine crashloop"}}`,
+			name:        "being created keeps waiting",
+			body:        instanceJSON(1, creatingStatus()),
+			wantOutcome: wait.Pending,
+			wantMsg:     "Creating",
+		},
+		{
+			name:        "not reconciled yet keeps waiting",
+			body:        `{"metadata":{"name":"my-db","generation":1},"status":{"observedGeneration":-1}}`,
+			wantOutcome: wait.Pending,
+			wantMsg:     "Creating",
+		},
+		{
+			name:        "missing status keeps waiting",
+			body:        `{"metadata":{"name":"my-db"}}`,
+			wantOutcome: wait.Pending,
+			wantMsg:     "Creating",
+		},
+		{
+			name:        "stalled is a failure that says why",
+			body:        instanceJSON(1, stalledStatus()),
 			wantOutcome: wait.Failed,
-			wantMsgHas:  "engine crashloop",
+			wantMsg:     "instance will not become ready without intervention: Invalid configuration: replicas must be odd",
 		},
 		{
-			name:        "failed without message still fails",
-			body:        `{"status":{"phase":"Failed"}}`,
+			name:        "a stall on an older spec keeps waiting: a fix may have been pushed",
+			body:        instanceJSON(2, stalledStatus()),
+			wantOutcome: wait.Pending,
+			wantMsg:     "Creating",
+		},
+		{
+			name:        "ready for an older spec keeps waiting",
+			body:        instanceJSON(2, readyStatus()),
+			wantOutcome: wait.Pending,
+			wantMsg:     "Up · Applying changes",
+		},
+		{
+			name:        "a problem that may still clear keeps waiting",
+			body:        instanceJSON(1, missingSecretStatus()),
+			wantOutcome: wait.Pending,
+			wantMsg:     "Secret not found",
+		},
+		{
+			name:        "stopped on purpose has converged",
+			body:        instanceJSON(1, stoppedStatus()),
+			wantOutcome: wait.Succeeded,
+			wantMsg:     "Stopped",
+		},
+		{
+			name: "being deleted is a failure",
+			body: `{"metadata":{"name":"my-db","generation":2,"deletionTimestamp":"2026-01-01T00:00:00Z"},` +
+				`"status":` + readyStatus() + `}`,
 			wantOutcome: wait.Failed,
-			wantMsgHas:  "Failed phase",
-		},
-		{
-			name:        "terminating is failure",
-			body:        `{"status":{"phase":"Terminating"}}`,
-			wantOutcome: wait.Failed,
-			wantMsgHas:  "being deleted",
-		},
-		{
-			name:        "provisioning keeps waiting",
-			body:        `{"status":{"phase":"Provisioning"}}`,
-			wantOutcome: wait.Pending,
-			wantMsgHas:  "Provisioning",
-		},
-		{
-			name:        "suspended is treated as pending, not failure",
-			body:        `{"status":{"phase":"Suspended"}}`,
-			wantOutcome: wait.Pending,
-			wantMsgHas:  "Suspended",
-		},
-		{
-			name:        "missing status is pending",
-			body:        `{"metadata":{"name":"x"}}`,
-			wantOutcome: wait.Pending,
-			wantMsgHas:  "-",
-		},
-		{
-			name: "rejected spec is terminal failure",
-			body: `{"metadata":{"generation":2},"status":{"phase":"Pending","conditions":[` +
-				`{"type":"Ready","status":"False","reason":"ValidationFailed","message":"replicas must be odd",` +
-				`"observedGeneration":2,"lastTransitionTime":"2026-01-01T00:00:00Z"}]}}`,
-			wantOutcome: wait.Failed,
-			wantMsgHas:  "ValidationFailed: replicas must be odd",
-		},
-		{
-			name: "rejection of an older generation keeps waiting",
-			body: `{"metadata":{"generation":3},"status":{"phase":"Pending","conditions":[` +
-				`{"type":"Ready","status":"False","reason":"ValidationFailed","message":"replicas must be odd",` +
-				`"observedGeneration":2,"lastTransitionTime":"2026-01-01T00:00:00Z"}]}}`,
-			wantOutcome: wait.Pending,
-			wantMsgHas:  "Pending",
-		},
-		{
-			name: "missing user secret keeps waiting",
-			body: `{"metadata":{"generation":1},"status":{"phase":"Pending","conditions":[` +
-				`{"type":"Ready","status":"False","reason":"UserSecretNotFound","message":"secret s not found",` +
-				`"observedGeneration":1,"lastTransitionTime":"2026-01-01T00:00:00Z"}]}}`,
-			wantOutcome: wait.Pending,
-			wantMsgHas:  "Pending",
+			wantMsg:     "instance is being deleted",
 		},
 	}
 
@@ -129,7 +202,7 @@ func TestInstanceCondition(t *testing.T) {
 			t.Parallel()
 			outcome, msg := instanceCondition(instFromJSON(t, tc.body))
 			assert.Equal(t, tc.wantOutcome, outcome)
-			assert.Contains(t, msg, tc.wantMsgHas)
+			assert.Equal(t, tc.wantMsg, msg)
 		})
 	}
 }
@@ -137,20 +210,21 @@ func TestInstanceCondition(t *testing.T) {
 func TestProgressMessage_WithComponents(t *testing.T) {
 	t.Parallel()
 
-	inst := instFromJSON(t, `{"status":{"phase":"Provisioning","components":[
+	inst := instFromJSON(t, `{"metadata":{"generation":1},"status":{"observedGeneration":1,"phase":"Pending","components":[
 		{"name":"engine","readyReplicas":2,"replicas":3},
 		{"name":"proxy","readyReplicas":1,"replicas":1}
 	]}}`)
 	_, msg := instanceCondition(inst)
-	assert.Equal(t, "Provisioning (engine 2/3 ready, proxy 1/1 ready)", msg)
+	assert.Equal(t, "Creating (engine 2/3 ready, proxy 1/1 ready)", msg)
 }
 
 // ---- Run --wait integration -------------------------------------------------
 
-// waitServer serves the provider fetch, POST create, and GET polls. getPhases
-// are returned in order on successive GETs (last repeats); getStatus != 200
-// makes GETs return that status instead (e.g. 404).
-func waitServer(t *testing.T, getStatus int, getPhases ...string) *httptest.Server {
+// waitServer serves the provider fetch, POST create, and GET polls. The
+// Instance statuses in getStatuses are returned in order on successive GETs
+// (last repeats); getStatus != 200 makes GETs return that status instead
+// (e.g. 404).
+func waitServer(t *testing.T, getStatus int, getStatuses ...string) *httptest.Server {
 	t.Helper()
 	var gets atomic.Int32
 	mux := http.NewServeMux()
@@ -162,7 +236,7 @@ func waitServer(t *testing.T, getStatus int, getPhases ...string) *httptest.Serv
 		if r.Method == http.MethodPost {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
-			_, _ = w.Write([]byte(`{"metadata":{"name":"my-db"},"status":{"phase":"Pending"}}`))
+			_, _ = w.Write([]byte(createdInstance))
 			return
 		}
 		if getStatus != http.StatusOK {
@@ -170,15 +244,19 @@ func waitServer(t *testing.T, getStatus int, getPhases ...string) *httptest.Serv
 			return
 		}
 		i := int(gets.Add(1)) - 1
-		if i >= len(getPhases) {
-			i = len(getPhases) - 1
+		if i >= len(getStatuses) {
+			i = len(getStatuses) - 1
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(fmt.Appendf(nil, `{"metadata":{"name":"my-db"},"status":{"phase":%q}}`, getPhases[i]))
+		_, _ = w.Write([]byte(instanceJSON(1, getStatuses[i])))
 	})
 	return httptest.NewServer(mux)
 }
+
+// createdInstance is what the API returns for an Instance it has just
+// created: no provider has reconciled it, so its status is the API default.
+const createdInstance = `{"metadata":{"name":"my-db","generation":1},"status":{"observedGeneration":-1}}`
 
 func runWaitCreate(t *testing.T, srv *httptest.Server, cfg Config, timeout time.Duration) error {
 	t.Helper()
@@ -200,29 +278,36 @@ func TestRunWait(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		getStatus int      // status returned by GET polls; non-200 short-circuits phases
-		getPhases []string // phases returned in order (last repeats)
-		timeout   time.Duration
-		wantErr   func(t *testing.T, err error)
+		name        string
+		getStatus   int      // status returned by GET polls; non-200 short-circuits statuses
+		getStatuses []string // Instance statuses returned in order (last repeats)
+		timeout     time.Duration
+		wantErr     func(t *testing.T, err error)
 	}{
 		{
-			name:      "succeeds when ready",
-			getStatus: http.StatusOK,
-			getPhases: []string{"Ready"},
-			timeout:   time.Minute,
-			wantErr:   func(t *testing.T, err error) { t.Helper(); assert.NoError(t, err) },
+			name:        "succeeds when ready",
+			getStatus:   http.StatusOK,
+			getStatuses: []string{readyStatus()},
+			timeout:     time.Minute,
+			wantErr:     func(t *testing.T, err error) { t.Helper(); assert.NoError(t, err) },
 		},
 		{
-			name:      "failed phase returns FailedError",
-			getStatus: http.StatusOK,
-			getPhases: []string{"Failed"},
-			timeout:   time.Minute,
+			name:        "succeeds once it becomes ready",
+			getStatus:   http.StatusOK,
+			getStatuses: []string{`{"observedGeneration":-1}`, creatingStatus(), readyStatus()},
+			timeout:     time.Minute,
+			wantErr:     func(t *testing.T, err error) { t.Helper(); assert.NoError(t, err) },
+		},
+		{
+			name:        "stalled returns FailedError",
+			getStatus:   http.StatusOK,
+			getStatuses: []string{creatingStatus(), stalledStatus()},
+			timeout:     time.Minute,
 			wantErr: func(t *testing.T, err error) {
 				t.Helper()
 				var fe *wait.FailedError
 				require.ErrorAs(t, err, &fe)
-				assert.Contains(t, fe.Error(), "Failed phase")
+				assert.Contains(t, fe.Error(), "Invalid configuration: replicas must be odd")
 			},
 		},
 		{
@@ -250,18 +335,18 @@ func TestRunWait(t *testing.T) {
 			},
 		},
 		{
-			name:      "times out when never terminal",
-			getStatus: http.StatusOK,
-			getPhases: []string{"Provisioning"},
-			timeout:   40 * time.Millisecond,
-			wantErr:   func(t *testing.T, err error) { t.Helper(); require.ErrorIs(t, err, wait.ErrTimeout) },
+			name:        "times out when never terminal",
+			getStatus:   http.StatusOK,
+			getStatuses: []string{creatingStatus()},
+			timeout:     40 * time.Millisecond,
+			wantErr:     func(t *testing.T, err error) { t.Helper(); require.ErrorIs(t, err, wait.ErrTimeout) },
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			srv := waitServer(t, tc.getStatus, tc.getPhases...)
+			srv := waitServer(t, tc.getStatus, tc.getStatuses...)
 			defer srv.Close()
 			tc.wantErr(t, runWaitCreate(t, srv, Config{Pretty: true}, tc.timeout))
 		})
@@ -283,7 +368,7 @@ func TestRunWait_RetriesTransientFetchError(t *testing.T) {
 		if r.Method == http.MethodPost {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
-			_, _ = w.Write([]byte(`{"metadata":{"name":"my-db"},"status":{"phase":"Pending"}}`))
+			_, _ = w.Write([]byte(createdInstance))
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -292,7 +377,7 @@ func TestRunWait_RetriesTransientFetchError(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"metadata":{"name":"my-db"},"status":{"phase":"Ready"}}`))
+		_, _ = w.Write([]byte(instanceJSON(1, readyStatus())))
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -352,7 +437,7 @@ func captureStdout(t *testing.T, fn func()) string {
 //
 //nolint:paralleltest // mutates global os.Stdout; must run serially
 func TestRun_JSONEmitsCreatedInstanceWithoutWait(t *testing.T) {
-	srv := waitServer(t, http.StatusOK, "Pending")
+	srv := waitServer(t, http.StatusOK, creatingStatus())
 	defer srv.Close()
 
 	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
@@ -388,8 +473,11 @@ func TestDeleteCondition_NilInstance_Succeeds(t *testing.T) {
 
 func TestDeleteCondition_StillPresent_IsPending(t *testing.T) {
 	t.Parallel()
-	inst := instFromJSON(t, `{"status":{"phase":"Terminating"}}`)
+	inst := instFromJSON(t, `{"metadata":{"generation":1,"deletionTimestamp":"2026-01-01T00:00:00Z"},`+
+		`"status":{"observedGeneration":1,"phase":"Terminating","conditions":[`+
+		conditionJSON("Ready", "False", "WaitingForBackups", "Waiting for 2 backups to be deleted")+`],`+
+		`"components":[{"name":"engine","readyReplicas":0,"replicas":3}]}}`)
 	outcome, msg := deleteCondition(inst)
 	assert.Equal(t, wait.Pending, outcome)
-	assert.Contains(t, msg, "Terminating")
+	assert.Equal(t, "Deleting · Waiting for backups (engine 0/3 ready)", msg)
 }

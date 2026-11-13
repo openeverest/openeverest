@@ -50,6 +50,7 @@ export const mockInstance = {
     name: DB_NAME,
     namespace: DB_NAMESPACE,
     creationTimestamp: '2025-10-01T00:00:00Z',
+    generation: 1,
   },
   spec: {
     provider: PROVIDER_NAME,
@@ -87,24 +88,34 @@ export const mockInstance = {
     },
   },
   status: {
-    phase: 'Ready',
+    phase: 'Provisioned',
+    observedGeneration: 1,
     components: [
-      {
-        pods: [{ name: `${DB_NAME}-0` }],
-        ready: 3,
-        state: 'Ready',
-        total: 3,
-      },
+      { name: 'engine', replicas: 3, readyReplicas: 3 },
+      { name: 'configServer', replicas: 3, readyReplicas: 3 },
+      { name: 'proxy', replicas: 3, readyReplicas: 3 },
     ],
+    // A converged, available database with every check passing.
     conditions: [
-      {
-        lastTransitionTime: '2025-10-01T00:05:00Z',
-        message: 'Instance is ready',
-        reason: 'Ready',
-        status: 'True',
-        type: 'Ready',
-      },
-    ],
+      ['Available', 'True', 'Available', ''],
+      ['Ready', 'True', 'Ready', 'The instance is ready'],
+      ['Reconciling', 'False', 'NoProblems', ''],
+      ['Stalled', 'False', 'NoProblems', ''],
+      ['NeedsAttention', 'False', 'NoProblems', ''],
+      ['ReferencesResolved', 'True', 'Resolved', ''],
+      ['Synced', 'True', 'Synced', ''],
+      ['PodsScheduled', 'True', 'Scheduled', ''],
+      ['PodsReady', 'True', 'Ready', ''],
+      ['EngineHealthy', 'True', 'Healthy', ''],
+      ['ConnectionDetailsReady', 'True', 'Published', ''],
+    ].map(([type, status, reason, message]) => ({
+      type,
+      status,
+      reason,
+      message,
+      lastTransitionTime: '2025-10-01T00:05:00Z',
+      observedGeneration: 1,
+    })),
     connectionSecretRef: { name: `${DB_NAME}-connection` },
   },
 };
