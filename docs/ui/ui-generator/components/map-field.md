@@ -29,13 +29,17 @@ adds and removes. Each row is a key and a value; the field writes `{ key: value,
   - `fieldParams` (optional): `key` and `value`, each with the params of a
     [text field](text-field.md), e.g. `placeholder`, `label`, `helperText` or `type: password`,
     except `defaultValue` (a new row starts empty; the map's own `defaultValue` sets the initial
-    entries) and `badge` / `badgeToApi`
+    entries) and `badge` / `badgeToApi`. The UI ignores those three, and `provider-sdk generate`
+    rejects them (rule `map-ignored-option`)
   - `validation` (optional): `key` and `value`, each with the rules of a
-    [text field](text-field.md), except `celExpressions`
+    [text field](text-field.md), except `celExpressions`, which the UI ignores and
+    `provider-sdk generate` rejects (rule `map-ignored-option`)
 - `fieldParams`: Configuration object with the following properties:
   - `label`: Display label, shown above the rows
   - `addButtonLabel`: Text of the button that adds a row (default: `Add`)
-  - `defaultValue`: Initial entries, written in the API shape, e.g. `{ team: db }`
+  - `defaultValue`: Initial entries, written in the API shape, e.g. `{ team: db }`. Only a map of
+    strings: the UI ignores anything else and `provider-sdk generate` rejects it (rule
+    `map-invalid-default`)
   - `helperText`: Help text displayed below the rows
   - `disabled`: Whether the field is disabled (default: `false`)
   - `modes`: Per-mode overrides, see [FieldParams-level modes](../Readme.md#fieldparams-level-modes)
@@ -75,7 +79,16 @@ Rules for the map as a whole:
 - `minItems`: At least this many entries
 - `maxItems`: At most this many entries
 
-Only filled rows count. `regex` and `celExpressions` aren't supported on the map yet.
+`minItems` and `maxItems` are whole numbers of 0 or more, and `minItems` can't be above
+`maxItems` in any form mode, or no map would pass: `provider-sdk generate` rejects that (rule
+`map-invalid-limits`). Only filled rows count. `regex` and `celExpressions` aren't supported on
+the map yet: the UI ignores them and `provider-sdk generate` rejects them (rule
+`map-ignored-option`).
+
+A count error shows under the rows in place of the helper text and says what to do, e.g.
+`Remove 1 entry (at most 2 allowed)`. It doesn't hide the rows' own errors, which stay under
+their inputs. The map is checked again as the user types, whenever a key changes or a row fills
+or empties.
 
 These rules always apply, without being set:
 
@@ -139,7 +152,9 @@ podMonitorLabels:
 - **Edit**: the saved map is replaced as a whole, so a removed entry is removed from the instance.
 - **Order**: entries keep the order of the rows. The API doesn't keep a map's order, so on edit
   they come back in the order the API returns.
-- **Preview and overview**: entries are shown as `key = value`, separated by commas.
+- **Preview and overview**: one entry per line, as `key = value`, since a value may itself hold
+  commas or `=`. A row field with `type: password` is shown masked. The overview shows the first
+  three entries and the rest on *Show more*.
 - **New row**: starts empty, and its key input gets the focus.
 - **Screen readers**: a row's inputs are named by their label, or `Key` / `Value`, and the row
   number, e.g. `Key 2`.

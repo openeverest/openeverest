@@ -26,7 +26,7 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import { getDefaultValues } from '../default-values';
 import { extractInstanceValues } from '../default-values/extract-instance-values';
-import { deepMerge } from '../object-path';
+import { deepMerge, getByPath } from '../object-path';
 import { postprocessSchemaData } from '../postprocess/postprocess-schema';
 import { mergeSectionEdit } from '../postprocess/merge-section-edit';
 import { preprocessSchema } from '../preprocess/preprocess-schema';
@@ -131,7 +131,7 @@ describe('map field rows validation', () => {
       issuesOf(annotations({ validation: { required: true } }), [
         { key: '', value: '' },
       ])
-    ).toEqual([{ path: [], message: Messages.required }]);
+    ).toEqual([{ path: ['root'], message: Messages.required }]);
 
     expect(
       issuesOf(annotations({ validation: { maxItems: 1 } }), [
@@ -139,7 +139,19 @@ describe('map field rows validation', () => {
         { key: '', value: '' },
         { key: 'b', value: '2' },
       ])
-    ).toEqual([{ path: [], message: Messages.maxItems(1) }]);
+    ).toEqual([{ path: ['root'], message: Messages.maxItems(1, 1) }]);
+  });
+
+  it("puts the count issue beside the rows' issues, not over them", () => {
+    expect(
+      issuesOf(annotations({ validation: { maxItems: 1 } }), [
+        { key: 'a', value: '1' },
+        { key: 'a', value: '2' },
+      ])
+    ).toEqual([
+      { path: [1, 'key'], message: Messages.duplicateKey('a') },
+      { path: ['root'], message: Messages.maxItems(1, 1) },
+    ]);
   });
 });
 
@@ -154,6 +166,26 @@ describe('map field through the pipeline', () => {
     ).toMatchObject({
       proxy: { annotations: [{ key: 'aws/type', value: 'nlb' }] },
     });
+  });
+
+  it('starts empty from a default that is not a map of strings', () => {
+    // As a provider's YAML may hold it: read as rows, the 3 would be written
+    // back as the string "3".
+    const schema: TopologyUISchemas = parse(`
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              annotations:
+                uiType: map
+                path: ${PATH}
+                fieldParams: { label: Annotations, defaultValue: { replicas: 3 } }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+    `);
+
+    expect(
+      getByPath(getDefaultValues(schema, 'replicaSet'), PATH)
+    ).toBeUndefined();
   });
 
   it('reads a saved map into rows for edit', () => {

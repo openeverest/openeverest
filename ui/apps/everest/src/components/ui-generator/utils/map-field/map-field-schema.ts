@@ -24,13 +24,17 @@ const getCountIssue = (
   const { required, minItems, maxItems } = validation ?? {};
   if (required && filledRows === 0) return Messages.required;
   if (minItems !== undefined && filledRows < minItems) {
-    return Messages.minItems(minItems);
+    return Messages.minItems(minItems, minItems - filledRows);
   }
   if (maxItems !== undefined && filledRows > maxItems) {
-    return Messages.maxItems(maxItems);
+    return Messages.maxItems(maxItems, filledRows - maxItems);
   }
   return undefined;
 };
+
+// RHF keeps an array's own error under `root`, beside its rows' errors. An
+// issue on the map's path itself would replace them all.
+const MAP_ROOT_ERROR_PATH = ['root'];
 
 // Validates the rows the form keeps, each against `rowShape`: the rules of the
 // row's own fields, built like any section's. The issues land on the row's
@@ -87,7 +91,11 @@ export const buildMapFieldSchema = (
 
       const countIssue = getCountIssue(filledRows, validation);
       if (countIssue) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: countIssue });
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: MAP_ROOT_ERROR_PATH,
+          message: countIssue,
+        });
       }
     })
     .transform((rows) =>

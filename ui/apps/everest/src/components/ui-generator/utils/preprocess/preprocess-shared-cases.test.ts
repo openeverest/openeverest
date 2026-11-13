@@ -25,7 +25,9 @@ import {
 import { walkLeafComponents } from '../schema-walker';
 import { getToggleableMeta } from '../toggleable/toggleable';
 import { findUnguardedCelReferences } from '../toggleable/find-unguarded-cel-references';
+import { lintMapFields } from '../map-field';
 import { preprocessSchema } from './preprocess-schema';
+import { stripEngineKeys } from './strip-engine-keys';
 
 // The Go validator (provider-runtime/uischema) runs every file too, so both
 // apply the same rules.
@@ -58,9 +60,19 @@ const cases: SharedCase[] = Object.entries(sharedCaseFiles).flatMap(
 );
 
 const CEL_RULE = 'toggleable-cel-unguarded';
+// Rules the UI renders past, ignoring part of the schema; it reports them by
+// name as dev-time warnings.
+const LINT_RULES = new Set([
+  'map-ignored-option',
+  'map-invalid-default',
+  'map-invalid-limits',
+  'template-widget-misplaced',
+  'reserved-key',
+]);
 
 // The UI only shows the outcome of a rule, not which rule it was.
 const toUiOutcome = ({ rule, topology, group, field }: SharedIssue): string => {
+  if (LINT_RULES.has(rule)) return `lint ${rule} ${topology}:${field}`;
   if (rule === CEL_RULE) return `cel ${topology}:${group}:${field}`;
   if (rule.startsWith('toggleable-')) return `bordered ${topology}:${group}`;
   if (rule.startsWith('map-')) return `dropped ${topology}:${field}`;
@@ -126,6 +138,14 @@ describe('uiSchema rules shared with the Go validator', () => {
       });
       findUnguardedCelReferences(processedSections).forEach(
         ({ group, field }) => outcomes.push(`cel ${topology}:${group}:${field}`)
+      );
+      new Set(
+        stripEngineKeys(sections).stripped.map(({ keyPath }) => keyPath)
+      ).forEach((keyPath) =>
+        outcomes.push(`lint reserved-key ${topology}:${keyPath}`)
+      );
+      lintMapFields(processedSections).forEach(({ rule, keyPath }) =>
+        outcomes.push(`lint ${rule} ${topology}:${keyPath}`)
       );
       const rendered = new Set(collectFieldKeys(processedSections));
       collectFieldKeys(sections, ({ uiType }) => uiType === FieldType.Map)

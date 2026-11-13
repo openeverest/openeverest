@@ -313,8 +313,8 @@ describe('SectionEditModal toggleable group', () => {
   });
 });
 
-describe('SectionEditModal array field', () => {
-  it('keeps the saved map of an array field the edit mode hides', async () => {
+describe('SectionEditModal map field', () => {
+  it('keeps the saved map of a map field the edit mode hides', async () => {
     mutate.mockClear();
     const { sections } = preprocessSchema({
       replicaSet: {

@@ -16,22 +16,26 @@ import { useEffect, useRef } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { isPlainObject } from 'components/ui-generator/utils/object-path';
 
-// A key's error can depend on other rows (a duplicate), so a change to any key
-// re-validates the whole map.
-export const useRevalidateRowKeys = (name: string) => {
+// What the map's own rules read from each row: its key, and whether the row
+// counts as filled.
+const toRowSignature = (row: unknown) =>
+  isPlainObject(row) ? [row.key, row.key !== '' || row.value !== ''] : null;
+
+// Some issues span rows: a duplicate key, the entry count, a value without a
+// key. Typing in one row validates only that row's input, so the whole map is
+// re-validated whenever a key changes or a row fills or empties.
+export const useRevalidateMap = (name: string) => {
   const { control, trigger } = useFormContext();
   const rows: unknown = useWatch({ control, name });
-  const keys = JSON.stringify(
-    (Array.isArray(rows) ? rows : []).map((row: unknown) =>
-      isPlainObject(row) ? row.key : undefined
-    )
+  const signature = JSON.stringify(
+    (Array.isArray(rows) ? rows : []).map(toRowSignature)
   );
-  const validatedKeys = useRef(keys);
+  const validatedSignature = useRef(signature);
 
   useEffect(() => {
-    if (validatedKeys.current !== keys) {
-      validatedKeys.current = keys;
+    if (validatedSignature.current !== signature) {
+      validatedSignature.current = signature;
       trigger(name);
     }
-  }, [keys, name, trigger]);
+  }, [signature, name, trigger]);
 };

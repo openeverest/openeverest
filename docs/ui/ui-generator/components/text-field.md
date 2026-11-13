@@ -58,7 +58,7 @@ A flexible single-line or multi-line text input field. Suitable for names, descr
 - **Required fields**: User must provide a non-empty value. Format/length validators are combined with the required constraint.
 - **Transforms** (`trim`, `toLowerCase`, `toUpperCase`): Applied before form submission. The UI shows the original typed value; the submitted data contains the transformed value.
 - **Multiline fields**: Setting `multiline: true` renders a `<textarea>`. Use `rows` for a fixed height, or `minRows`/`maxRows` for an auto-growing textarea.
-- **`type: "password"`**: Input is masked. Combined with `min`/`max` validation it provides a password strength constraint.
+- **`type: "password"`**: Input is masked, and so is the value in the creation preview and the instance overview. Combined with `min`/`max` validation it provides a password strength constraint.
 
 ## Examples:
 

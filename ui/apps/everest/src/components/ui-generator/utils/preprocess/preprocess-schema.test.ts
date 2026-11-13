@@ -19,6 +19,8 @@ import {
   FieldType,
   FormMode,
   TopologyUISchemas,
+  WIDGET_UI_TYPE,
+  WidgetType,
 } from '../../ui-generator.types';
 import { extractInstanceValues } from '../default-values/extract-instance-values';
 import { preprocessSchema } from './preprocess-schema';
@@ -130,5 +132,37 @@ describe('preprocessSchema', () => {
 
     expect(values).toHaveProperty('spec.replicas', 3);
     expect(values).not.toHaveProperty('spec.userSecretRef.name', 'users');
+  });
+
+  it("drops the engine's keys a schema sets, which no stage would overwrite", () => {
+    const schema: TopologyUISchemas = {
+      single: {
+        sections: {
+          advanced: {
+            components: {
+              affinity: {
+                // No resolver sets this widget's targets, so the schema's
+                // would stand: the widget would write the Secret reference.
+                uiType: WIDGET_UI_TYPE,
+                widgetType: WidgetType.Affinity,
+                _widgetTargets: [{ key: 'engine', path: 'spec.secret' }],
+              },
+              url: {
+                uiType: FieldType.Text,
+                path: 'spec.monitoring.url',
+                fieldParams: { label: 'URL' },
+                _renderOverrides: { disabled: true },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const { affinity, url } =
+      preprocessSchema(schema).single.sections.advanced.components;
+
+    expect(affinity).not.toHaveProperty('_widgetTargets');
+    expect(url).not.toHaveProperty('_renderOverrides');
   });
 });

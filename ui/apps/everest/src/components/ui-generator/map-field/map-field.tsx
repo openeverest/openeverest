@@ -27,7 +27,7 @@ import { useUiGeneratorContext } from '../ui-generator-context';
 import { Messages } from './map-field.messages';
 import { MapFieldProps } from './map-field.types';
 import { toRowAtIndex } from './map-field.utils';
-import { useRevalidateRowKeys } from './use-revalidate-row-keys';
+import { useRevalidateMap } from './use-revalidate-map';
 
 // Edits a map as rows. Each row is the item template's fields, drawn by the UI
 // Generator like any other field, so every param and rule of theirs applies.
@@ -44,7 +44,7 @@ export const MapField = ({
   const { errors } = useFormState({ control, name });
   const { fields, append, remove } = useFieldArray({ control, name });
   const [focusNewRow, setFocusNewRow] = useState(false);
-  useRevalidateRowKeys(name);
+  useRevalidateMap(name);
 
   // autoFocus acts once, as the new row mounts. Dropping the flag right after
   // keeps a row that remounts later (indexes shift on a remove) from taking

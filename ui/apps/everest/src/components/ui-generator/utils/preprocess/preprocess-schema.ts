@@ -39,8 +39,10 @@ import { widgetTargetResolvers } from '../../widget-target-resolvers';
 import {
   type IgnoredMapField,
   expandKeyValueWidget,
+  lintMapFields,
   resolveMapFields,
 } from '../map-field';
+import { stripEngineKeys } from './strip-engine-keys';
 
 const describeIgnoredMap = ({
   reason,
@@ -207,7 +209,10 @@ export const preprocessSchema = (
         return [topologyKey, topology];
       }
 
-      const withTargets = withWidgetTargets(topology.sections, (widget) =>
+      const { sections: declared, stripped } = stripEngineKeys(
+        topology.sections
+      );
+      const withTargets = withWidgetTargets(declared, (widget) =>
         widgetTargetResolvers[widget.widgetType]?.({
           providerObject,
           topology: topologyKey,
@@ -215,11 +220,21 @@ export const preprocessSchema = (
       );
       const { sections: withMaps, ignored } = resolveMapFields(withTargets);
       if (import.meta.env.DEV) {
+        stripped.forEach(({ keyPath, key }) =>
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[UISchema] "${keyPath}" sets "${key}", a key reserved for the engine; it is ignored.`
+          )
+        );
         ignored.forEach((field) =>
           // eslint-disable-next-line no-console
           console.warn(
             `[UISchema] Map field "${field.keyPath}" ${describeIgnoredMap(field)}; it is not rendered.`
           )
+        );
+        lintMapFields(withMaps).forEach(({ keyPath, message }) =>
+          // eslint-disable-next-line no-console
+          console.warn(`[UISchema] Field "${keyPath}" ${message}.`)
         );
       }
       const scope = createToggleableScope(withMaps);

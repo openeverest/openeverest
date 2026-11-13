@@ -12,15 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { useEffect, useRef, useState } from 'react';
-import {
-  get,
-  useFieldArray,
-  useFormContext,
-  useFormState,
-  useWatch,
-} from 'react-hook-form';
-import { FormHelperText, IconButton, Stack } from '@mui/material';
+import { useFieldArray, useFormContext } from 'react-hook-form';
+import { IconButton, Stack } from '@mui/material';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import ActionableLabeledContent from '../../../actionable-labeled-content';
 import TextInput from '../text';
@@ -34,48 +27,17 @@ export const KeyValueArray = ({
   label,
   keyPlaceholder = Messages.key,
   valuePlaceholder = Messages.value,
-  addButtonText = Messages.add,
-  disabled,
-  helperText,
 }: KeyValueArrayProps) => {
-  const { control, trigger } = useFormContext();
-  const { errors } = useFormState({ control, name });
+  const { control } = useFormContext();
   const { fields, append, remove } = useFieldArray({ control, name });
-  const [focusNewRow, setFocusNewRow] = useState(false);
-  const rows: unknown = useWatch({ control, name });
-  const keys = JSON.stringify(
-    (Array.isArray(rows) ? rows : []).map((row: unknown) =>
-      typeof row === 'object' && row !== null && 'key' in row
-        ? row.key
-        : undefined
-    )
-  );
-  const validatedKeys = useRef(keys);
-
-  // A key's error can depend on other rows (e.g. a duplicate), so a change to
-  // any key re-validates them all.
-  useEffect(() => {
-    if (validatedKeys.current !== keys) {
-      validatedKeys.current = keys;
-      trigger(name);
-    }
-  }, [keys, name, trigger]);
-
-  const arrayError = get(errors, name);
-  const errorMessage: string | undefined =
-    arrayError?.root?.message ?? arrayError?.message;
 
   return (
     <ActionableLabeledContent
       label={label}
       actionButtonProps={{
         dataTestId: `${name}-add`,
-        buttonText: addButtonText,
-        disabled,
-        onClick: () => {
-          append({ key: '', value: '' }, { shouldFocus: false });
-          setFocusNewRow(true);
-        },
+        buttonText: Messages.add,
+        onClick: () => append({ key: '', value: '' }),
       }}
     >
       {fields.map((field, index) => (
@@ -84,9 +46,6 @@ export const KeyValueArray = ({
             name={`${name}.${index}.key`}
             textFieldProps={{
               placeholder: keyPlaceholder,
-              disabled,
-              // Only a row just added mounts with focus.
-              autoFocus: focusNewRow && index === fields.length - 1,
               inputProps: { 'aria-label': `${Messages.key} ${index + 1}` },
               sx: PAIR_INPUT_SX,
             }}
@@ -95,14 +54,12 @@ export const KeyValueArray = ({
             name={`${name}.${index}.value`}
             textFieldProps={{
               placeholder: valuePlaceholder,
-              disabled,
               inputProps: { 'aria-label': `${Messages.value} ${index + 1}` },
               sx: PAIR_INPUT_SX,
             }}
           />
           <IconButton
             aria-label={`${Messages.remove} ${index + 1}`}
-            disabled={disabled}
             onClick={() => remove(index)}
             sx={{ mt: 1 }}
           >
@@ -110,11 +67,6 @@ export const KeyValueArray = ({
           </IconButton>
         </Stack>
       ))}
-      {(errorMessage || helperText) && (
-        <FormHelperText error={!!errorMessage}>
-          {errorMessage ?? helperText}
-        </FormHelperText>
-      )}
     </ActionableLabeledContent>
   );
 };

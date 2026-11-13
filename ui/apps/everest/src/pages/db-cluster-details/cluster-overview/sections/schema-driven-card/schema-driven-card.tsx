@@ -13,8 +13,14 @@
 // limitations under the License.
 
 import { Stack } from '@mui/material';
-import { DatabaseIcon, EditIconButton, OverviewCard } from '@percona/ui-lib';
+import {
+  DatabaseIcon,
+  EditIconButton,
+  ExpandableClampedText,
+  OverviewCard,
+} from '@percona/ui-lib';
 import type { SchemaDrivenCardProps } from './schema-driven-card.types';
+import { MULTILINE_VALUE_LINES } from './schema-driven-card.constants';
 import { segmentCardFields } from './schema-driven-card.utils';
 import OverviewSectionRow from '../../overview-section-row';
 import OverviewSection from '../../overview-section';
@@ -73,13 +79,28 @@ const SchemaDrivenCard = ({
               dataTestId={index === 0 ? card.key : `${card.key}-${index}`}
               loading={loading}
             >
-              {segment.fields.map((field) => (
-                <OverviewSectionRow
-                  key={`${card.key}:${field.path}`}
-                  label={field.label}
-                  content={field.value}
-                />
-              ))}
+              {segment.fields.map((field) =>
+                field.multiline ? (
+                  <OverviewSectionRow
+                    key={`${card.key}:${field.path}`}
+                    label={field.label}
+                    labelProps={{ sx: { alignSelf: 'flex-start' } }}
+                    content={
+                      <ExpandableClampedText
+                        value={field.value}
+                        lineClamp={MULTILINE_VALUE_LINES}
+                        textTypographyProps={{ variant: 'body2' }}
+                      />
+                    }
+                  />
+                ) : (
+                  <OverviewSectionRow
+                    key={`${card.key}:${field.path}`}
+                    label={field.label}
+                    content={field.value}
+                  />
+                )
+              )}
             </OverviewSection>
           ) : null
         )

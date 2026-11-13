@@ -19,7 +19,16 @@ import {
   FieldType,
   GroupType,
 } from '../../ui-generator.types';
+import { IGNORED_ROW_FIELD_PARAMS } from './map-field.constants';
 import { Messages } from './map-field.messages';
+
+// Drops what a row's field can't act on: params it has no use for, and CEL,
+// which a row can't evaluate yet.
+const without = <T extends object>(options: T, ignored: string[]): T => {
+  const copy = { ...options };
+  ignored.forEach((option) => Reflect.deleteProperty(copy, option));
+  return copy;
+};
 
 // The row a keyValue widget stands for: a text `key` and a text `value` side
 // by side, with the widget's params and rules over theirs.
@@ -33,14 +42,24 @@ export const expandKeyValueWidget = ({
     key: {
       uiType: FieldType.Text,
       path: 'key',
-      fieldParams: { placeholder: Messages.key, ...fieldParams?.key },
-      ...(validation?.key && { validation: validation.key }),
+      fieldParams: {
+        placeholder: Messages.key,
+        ...without(fieldParams?.key ?? {}, IGNORED_ROW_FIELD_PARAMS),
+      },
+      ...(validation?.key && {
+        validation: without(validation.key, ['celExpressions']),
+      }),
     },
     value: {
       uiType: FieldType.Text,
       path: 'value',
-      fieldParams: { placeholder: Messages.value, ...fieldParams?.value },
-      ...(validation?.value && { validation: validation.value }),
+      fieldParams: {
+        placeholder: Messages.value,
+        ...without(fieldParams?.value ?? {}, IGNORED_ROW_FIELD_PARAMS),
+      },
+      ...(validation?.value && {
+        validation: without(validation.value, ['celExpressions']),
+      }),
     },
   },
 });

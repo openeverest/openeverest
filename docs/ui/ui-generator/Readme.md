@@ -132,6 +132,10 @@ basicInfo:
 - **Key**: A unique identifier for the component (used for internal references)
 - **Value**: Either a single field or a group of nested fields or groups.
 
+Keys starting with `_` (e.g. `_row`, `_toggleable`) are reserved for the engine, which derives
+them while reading the schema. A component that sets one has it ignored, and
+`provider-sdk generate` rejects the schema (rule `reserved-key`).
+
 ### Component vs ComponentGroup
 
 #### Component (Single Field)

@@ -23,6 +23,11 @@ flowchart TD
 **Input:** raw `TopologyUISchemas` + `Provider` object. **Output:** normalized sections.
 
 - **`preprocessSchema(schema, provider, formMode?)`** — for each component:
+  - **`stripEngineKeys`** (`strip-engine-keys.ts`) — runs before anything reads the schema and
+    drops (dev warning) every key starting with `_` from a component: those are the engine's own
+    (`_normalized`, `_row`, `_toggleable`, `_widgetTargets`, `_renderOverrides`), and a later stage
+    would take a schema-set one for the engine's, e.g. a widget's `_widgetTargets`, which no
+    resolver overwrites when the widget has none.
   - **`withNormalizedPathMeta`** → `_normalized.sourcePath` / `targetPaths` (parses `path` — a string
     or an array for multi-path). This is the only place paths are parsed.
   - **`resolveSelectOptions`** — `optionsPath` → static `options[]` (reads the array from the Provider
@@ -36,9 +41,15 @@ flowchart TD
     writes, sits in or writes inside: a map writes its whole value. A dropped field is ignored like
     an unknown `uiType` — not rendered or sent, and an edit keeps its saved value — so the
     toggleable rules below don't see it.
+  - **`lintMapFields`** (`utils/map-field/lint-map-fields.ts`) — warns (dev-time) about what a
+    rendered map field ignores or can't use: `regex` / CEL on the map, CEL or a default / badge on
+    a row's field, a `defaultValue` that isn't a map of strings (`getSchemaDefault` ignores it),
+    limits no map meets; and about a template widget used outside an `itemTemplate`, which renders
+    nothing.
   - **`expandKeyValueWidget`** (`utils/map-field/key-value-widget.ts`) — expands a map's
     `keyValue` item template into `_row`: a `line` group of a text `key` and a text `value`, with the
-    widget's params and rules over theirs. `applyModeOverrides` reaches into `_row` too. A form that
+    widget's params and rules over theirs, minus what a row can't act on (`defaultValue`, `badge`,
+    `badgeToApi`, `celExpressions`). `applyModeOverrides` reaches into `_row` too. A form that
     skips preprocess gets the same row from `getMapRow`.
   - **`resolveToggleable`** (`utils/toggleable/toggleable.ts`) — sets
     `_toggleable: { switchName, childPaths }` on a `toggleable` group. The switch is
@@ -49,8 +60,8 @@ flowchart TD
   - **`findUnguardedCelReferences`** (`utils/toggleable/find-unguarded-cel-references.ts`) —
     warns (dev-time) when a CEL rule outside a working toggleable reads one of its paths without
     `has()` on that exact path: while the group is off the path is absent and the rule fails.
-  - The Go validator `provider-runtime/uischema` applies the same map and toggleable rules to
-    provider schemas, and `provider-sdk generate` rejects a schema that breaks one. Every file in
+  - The Go validator `provider-runtime/uischema` applies the same map, toggleable, lint and
+    reserved-key rules to provider schemas, and `provider-sdk generate` rejects a schema that breaks one. Every file in
     `provider-runtime/uischema/testdata/` is a case set both are tested against
     (`utils/preprocess/preprocess-shared-cases.test.ts` here), so a rule changes on both sides.
 - **`applyModeOverrides(sections, formMode)`** (`apply-mode-overrides.ts`) — applies `modes` overrides
@@ -79,8 +90,10 @@ flowchart TD
     A `map` field gets `buildMapFieldSchema` (`utils/map-field/`) even without `validation`: it
     validates the rows the form keeps against the row's own fields (their shape built by this same
     `buildShapeFromComponents`), plus a unique key, a key in every filled row, and `required` /
-    `minItems` / `maxItems` on filled rows. Empty rows pass. Its output is each filled row as its
-    fields parse it (e.g. a trimmed key), and duplicates are found on that key.
+    `minItems` / `maxItems` on filled rows. Empty rows pass. A count issue goes to the map's
+    `root`, where RHF keeps an array's own error, so it sits beside the rows' issues instead of
+    replacing them. Its output is each filled row as its fields parse it (e.g. a trimmed key), and
+    duplicates are found on that key.
   - **`convertToNestedSchema`** — flat fields → nested `z.object`. A parent object is optional when
     all of its fields are, so edit mode accepts an instance that lacks it (e.g. no
     `spec.components.engine.parameters` when Engine configuration is unset).
@@ -138,7 +151,9 @@ flowchart TD
     - `secret` → `SecretField`; `map` → `MapField`: `useFieldArray` rows, each rendered by
       `renderComponent` from the row group under `root` `<path>.<index>` (so row fields are
       ordinary fields, named `Key 2` etc. via `_renderOverrides`), with add / remove buttons, the
-      map's own error, and re-validation of all rows when a key changes;
+      map's own error (`root`), and re-validation of the whole map (`useRevalidateMap`) when a key
+      changes or a row fills or empties, since a duplicate, the count and a value without a key
+      span rows;
     - has `dataSource` → `<ComponentErrorBoundary><DataSourceField><UIComponent/></DataSourceField></ComponentErrorBoundary>`
       (the wrapper loads options through `api-providers/registry` and sets a default via `useEffect`);
     - otherwise → `<ComponentErrorBoundary><UIComponent/></ComponentErrorBoundary>`.

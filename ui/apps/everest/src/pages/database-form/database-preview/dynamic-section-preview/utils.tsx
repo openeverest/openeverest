@@ -24,7 +24,8 @@ import {
   isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { getValueByPath } from 'components/ui-generator/ui-component/utils/get-value-by-path';
-import { formatMapFieldValue } from 'components/ui-generator/utils/map-field';
+import { maskPasswordValue } from 'components/ui-generator/utils/display-value';
+import { formatMapFieldEntries } from 'components/ui-generator/utils/map-field';
 import { formatQuantity } from 'components/ui-generator/utils/quantity';
 import {
   getToggleableMeta,
@@ -114,7 +115,8 @@ export const renderComponent = (
   if (value === null || value === undefined) {
     displayValue = '-';
   } else if (isMapComponent(leafComponent)) {
-    displayValue = formatMapFieldValue(value) ?? '-';
+    displayValue =
+      formatMapFieldEntries(value, leafComponent).join('\n') || '-';
   } else if (typeof value === 'boolean') {
     displayValue = value ? Messages.enabled : Messages.disabled;
   } else if (typeof value === 'object' && !Array.isArray(value)) {
@@ -127,14 +129,16 @@ export const renderComponent = (
         leafComponent.fieldParams.unitLabel
       ) ?? '-';
   } else {
-    displayValue = String(value);
+    displayValue = maskPasswordValue(leafComponent, String(value));
   }
 
   const uniqueKey = `${parentPrefix || ''}:${primaryPath || componentKey}`;
 
+  // A map lists one entry per line.
   const isMultilineText =
-    leafComponent.uiType === FieldType.Text &&
-    !!leafComponent.fieldParams?.multiline;
+    isMapComponent(leafComponent) ||
+    (leafComponent.uiType === FieldType.Text &&
+      !!leafComponent.fieldParams?.multiline);
 
   if (isMultilineText && displayValue !== '-') {
     return (

@@ -1,0 +1,51 @@
+# Shared contract for the keys a schema can't set.
+# Go: provider-runtime/uischema (Validate) reports `issues`.
+# UI: preprocessSchema drops every key starting with "_" from a component
+#     before reading the schema (stripEngineKeys), as the engine sets those
+#     itself, and warns at dev time.
+cases:
+  - name: a field may not set the engine's keys
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+                _row: { uiType: group, components: {} }
+                _normalized: { sourcePath: spec.other }
+    issues:
+      - { rule: reserved-key, topology: replicaSet, field: advanced.labels }
+
+  - name: a group may not mark itself toggleable, nor a nested field set its widget targets
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              monitoring:
+                uiType: group
+                _toggleable: { switchName: on, childPaths: [] }
+                components:
+                  scheduling:
+                    uiType: widget
+                    widgetType: podSchedulingPolicy
+                    _widgetTargets: [{ key: engine, path: spec.secret }]
+    issues:
+      - { rule: reserved-key, topology: replicaSet, field: advanced.monitoring }
+      - { rule: reserved-key, topology: replicaSet, field: advanced.monitoring.scheduling }
+
+  - name: an underscore elsewhere is the schema's own
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              max_connections:
+                uiType: number
+                path: spec.engine.config.max_connections
+                fieldParams: { label: Max connections }
+    issues: []

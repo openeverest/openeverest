@@ -30,7 +30,11 @@ import {
   getByPath,
   formatDisplayValue,
 } from 'components/ui-generator/utils/object-path';
-import { formatMapFieldValue } from 'components/ui-generator/utils/map-field';
+import {
+  isPasswordField,
+  maskPasswordValue,
+} from 'components/ui-generator/utils/display-value';
+import { formatMapFieldEntries } from 'components/ui-generator/utils/map-field';
 import {
   getComponentSourcePath,
   getComponentTargetPaths,
@@ -51,6 +55,8 @@ export type SectionField = {
   label: string;
   path: string;
   value: string;
+  // The value holds one line per item, e.g. a map's entries.
+  multiline?: boolean;
   // When set, the field renders its own read-only widget summary full-width
   // instead of the scalar `value` row.
   summary?: {
@@ -79,7 +85,13 @@ const formatFieldDisplayValue = (
   rawValue: unknown
 ): string => {
   if (isMapComponent(component)) {
-    return formatMapFieldValue(rawValue) ?? formatDisplayValue(undefined);
+    const entries = formatMapFieldEntries(rawValue, component);
+    return entries.length > 0
+      ? entries.join('\n')
+      : formatDisplayValue(undefined);
+  }
+  if (isPasswordField(component) && typeof rawValue === 'string') {
+    return maskPasswordValue(component, rawValue);
   }
   if (component.uiType === FieldType.Quantity) {
     return (
@@ -165,6 +177,7 @@ export const collectSectionFields = (
       label: component.fieldParams?.label ?? key,
       path,
       value: formatFieldDisplayValue(component, getByPath(instance, path)),
+      ...(isMapComponent(component) && { multiline: true }),
     });
   }
 

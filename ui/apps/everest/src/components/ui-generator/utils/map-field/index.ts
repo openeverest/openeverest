@@ -13,9 +13,10 @@
 // limitations under the License.
 
 export {
-  formatMapFieldValue,
+  formatMapFieldEntries,
   getMapFieldPaths,
   getMapFieldTargetPaths,
+  isStringMap,
   objectToRows,
   rowsToObject,
   writeMapFieldsInApiShape,
@@ -23,4 +24,5 @@ export {
 export { buildMapFieldSchema } from './map-field-schema';
 export { expandKeyValueWidget, getMapRow } from './key-value-widget';
 export { type IgnoredMapField, resolveMapFields } from './resolve-map-fields';
+export { type MapLintIssue, lintMapFields } from './lint-map-fields';
 export type { MapRow } from './map-field.types';

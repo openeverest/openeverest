@@ -88,7 +88,12 @@ flowchart TD
 - **`itemTemplate`** is what a row is. Today the `keyValue` template widget, which preprocess
   expands into `_row`: a `line` group of a text `key` and a text `value`, with the widget's
   `fieldParams` / `validation` for each over theirs. The row renders through the UI Generator, so
-  a text field's params (but `defaultValue` and badges) and rules apply, transforms included.
+  a text field's params and rules apply, transforms included, but for `defaultValue`, badges and
+  CEL, which expansion drops.
+- **Ignored options are reported**: what a rendered map can't use (`regex` / CEL on the map, CEL
+  or a default / badge on a row's field, a `defaultValue` that isn't a map of strings, limits no
+  map meets) is ignored at runtime with a dev warning (`lintMapFields`), and the Go validator
+  reports `map-ignored-option` / `map-invalid-default` / `map-invalid-limits`.
 - **Unique keys** are implied by the map and can't be switched off.
 - **Other shapes are ignored**: preprocess drops a map whose item template it doesn't implement,
   with several paths, or that doesn't own its path, like an unknown `uiType`; the Go validator
@@ -276,9 +281,16 @@ classDiagram
 - **`select` / `hidden`** — common rules only.
 - **`secret`** — `text` rules; the value is the Secret's name.
 - **`quantity`** — same numeric rules as `number`; bounds and CEL see the number in `unit`.
-- **`map`** — rules on the count of filled rows; `required` means at least one. CEL waits for
-  `self` support. `minItems` / `maxItems` vs JSON Schema's `minProperties` / `maxProperties` is an
-  open question.
+- **`map`** — rules on the count of filled rows; `required` means at least one. A count issue
+  sits at the map's `root`, beside its rows' issues. CEL waits for `self` support. `minItems` /
+  `maxItems` vs JSON Schema's `minProperties` / `maxProperties` is an open question.
+
+## Reserved Keys
+
+A key starting with `_` on a component is the engine's: preprocess derives `_normalized`, `_row`,
+`_toggleable` and `_widgetTargets`, and `MapField` sets `_renderOverrides` on the row fields it
+renders. `stripEngineKeys` drops any such key a schema sets before anything reads it, and the Go
+validator reports it (`reserved-key`).
 
 ## Cross-Cutting Concepts
 

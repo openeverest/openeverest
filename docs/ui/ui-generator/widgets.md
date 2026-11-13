@@ -70,3 +70,6 @@ field. The params you set on the widget are applied to the components it stands 
 | `widgetType` | Stands for                                          | Used as                                              |
 | ------------ | --------------------------------------------------- | ---------------------------------------------------- |
 | `keyValue`   | A `line` group of a text `key` and a text `value`   | A [map field](components/map-field.md)'s `itemTemplate` |
+
+A template widget used anywhere but where the table says renders nothing, and
+`provider-sdk generate` rejects it (rule `template-widget-misplaced`).

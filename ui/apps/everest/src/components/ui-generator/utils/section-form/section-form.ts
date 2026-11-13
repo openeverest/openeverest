@@ -39,8 +39,9 @@ export const getSectionFormDefaults = (
   form: SectionForm
 ): Record<string, unknown> => getDefaultValues(form.schema, form.sectionKey);
 
-// Saved values over the defaults, in the form's shape (an array's map becomes
-// rows). Values the schema doesn't own are kept, so a save doesn't drop them.
+// Saved values over the defaults, in the form's shape (a map field's map
+// becomes rows). Values the schema doesn't own are kept, so a save doesn't drop
+// them.
 export const getSectionFormValues = (
   form: SectionForm,
   saved: Record<string, unknown>

@@ -1,0 +1,225 @@
+# Shared contract for what a rendered map field ignores or can't use.
+# Go: provider-runtime/uischema (Validate) reports `issues`.
+# UI: preprocessSchema renders the field anyway and ignores the part it can't
+#     use; lintMapFields reports the same rules, as a dev-time warning.
+cases:
+  - name: a map with the options it supports has no issue
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams:
+                  label: Labels
+                  defaultValue: { team: db }
+                  modes: { edit: { defaultValue: {} } }
+                validation:
+                  required: true
+                  minItems: 1
+                  maxItems: 5
+                  modes: { edit: { maxItems: 10 } }
+                itemTemplate:
+                  uiType: widget
+                  widgetType: keyValue
+                  fieldParams:
+                    key: { placeholder: team }
+                    value: { type: password }
+                  validation:
+                    key: { regex: { pattern: '^[a-z]+$', message: Lowercase } }
+                    value: { max: 63 }
+    issues: []
+
+  - name: regex and CEL on the map are ignored, in a mode branch too
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                validation:
+                  regex: { pattern: '^a', message: A }
+                  modes:
+                    edit:
+                      celExpressions: [{ celExpr: 'size(spec.labels) > 0', message: Set one }]
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+    issues:
+      - { rule: map-ignored-option, topology: replicaSet, field: advanced.labels }
+
+  - name: CEL, a default and a badge on a row's field are ignored
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                itemTemplate:
+                  uiType: widget
+                  widgetType: keyValue
+                  fieldParams:
+                    value: { defaultValue: db, badge: Gi }
+                  validation:
+                    key:
+                      celExpressions: [{ celExpr: "self != ''", message: Set }]
+    issues:
+      - { rule: map-ignored-option, topology: replicaSet, field: advanced.labels }
+
+  - name: a default that is not a map of strings is ignored
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              weights:
+                uiType: map
+                path: spec.weights
+                fieldParams:
+                  label: Weights
+                  defaultValue: { primary: 3 }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+    issues:
+      - { rule: map-invalid-default, topology: replicaSet, field: advanced.weights }
+
+  - name: a mode's default that is not a map of strings is ignored too
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams:
+                  label: Labels
+                  modes: { new: { defaultValue: [team] } }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+    issues:
+      - { rule: map-invalid-default, topology: replicaSet, field: advanced.labels }
+
+  - name: minItems above maxItems lets no map pass
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                validation: { minItems: 3, maxItems: 2 }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+    issues:
+      - { rule: map-invalid-limits, topology: replicaSet, field: advanced.labels }
+
+  - name: a limit must be a whole number of 0 or more
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                validation: { maxItems: 1.5 }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+              tags:
+                uiType: map
+                path: spec.tags
+                fieldParams: { label: Tags }
+                validation: { minItems: -1 }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+    issues:
+      - { rule: map-invalid-limits, topology: replicaSet, field: advanced.labels }
+      - { rule: map-invalid-limits, topology: replicaSet, field: advanced.tags }
+
+  - name: a mode branch takes the shared limits, so they can clash with its own
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                validation:
+                  maxItems: 1
+                  modes: { edit: { minItems: 2 } }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+    issues:
+      - { rule: map-invalid-limits, topology: replicaSet, field: advanced.labels }
+
+  - name: a mode branch that doesn't inherit the shared limits doesn't clash with them
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams: { label: Labels }
+                validation:
+                  maxItems: 1
+                  modes: { edit: { inheritShared: false, minItems: 2 } }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+    issues: []
+
+  - name: every finding on one map is reported, in a fixed order
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              labels:
+                uiType: map
+                path: spec.labels
+                fieldParams:
+                  label: Labels
+                  defaultValue: team
+                validation: { regex: { pattern: '^a' }, minItems: 2, maxItems: 1 }
+                itemTemplate: { uiType: widget, widgetType: keyValue }
+    issues:
+      - { rule: map-ignored-option, topology: replicaSet, field: advanced.labels }
+      - { rule: map-invalid-default, topology: replicaSet, field: advanced.labels }
+      - { rule: map-invalid-limits, topology: replicaSet, field: advanced.labels }
+
+  - name: a map the UI drops isn't linted
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              users:
+                uiType: map
+                path: spec.users
+                fieldParams: { label: Users, defaultValue: { admin: 1 } }
+                validation: { regex: { pattern: '^a' } }
+                itemTemplate: { uiType: group, components: {} }
+    issues:
+      - { rule: map-unsupported, topology: replicaSet, field: advanced.users }
+
+  - name: a template widget outside an itemTemplate renders nothing
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              settings:
+                uiType: group
+                components:
+                  row:
+                    uiType: widget
+                    widgetType: keyValue
+                    path: spec.labels
+    issues:
+      - { rule: template-widget-misplaced, topology: replicaSet, field: advanced.settings.row }

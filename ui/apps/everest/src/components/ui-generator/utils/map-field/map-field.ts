@@ -18,8 +18,10 @@
 import {
   type Component,
   type ComponentGroup,
+  type MapComponent,
   isMapComponent,
 } from '../../ui-generator.types';
+import { maskPasswordValue } from '../display-value';
 import {
   deleteByPath,
   getByPath,
@@ -31,12 +33,18 @@ import {
   getComponentTargetPaths,
 } from '../preprocess/normalized-component';
 import { walkLeafComponents } from '../schema-walker';
+import { getMapRow } from './key-value-widget';
 import type { MapRow } from './map-field.types';
 
 export const isMapRow = (value: unknown): value is MapRow =>
   isPlainObject(value) &&
   typeof value.key === 'string' &&
   typeof value.value === 'string';
+
+// The value a map field edits; anything else is left as it is.
+export const isStringMap = (value: unknown): value is Record<string, string> =>
+  isPlainObject(value) &&
+  Object.values(value).every((entry) => typeof entry === 'string');
 
 // A row added but never filled is dropped, not reported.
 export const isEmptyRow = ({ key, value }: MapRow): boolean =>
@@ -60,13 +68,28 @@ export const rowsToObject = (
   return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 };
 
-// Reads both the form's rows and the saved map; undefined when there is none.
-export const formatMapFieldValue = (value: unknown): string | undefined => {
+// A saved map may hold what its field can't write, e.g. a number set with
+// kubectl; it is still shown as stored.
+const toDisplayText = (value: unknown): string =>
+  typeof value === 'string' ? value : JSON.stringify(value);
+
+// Read-only views (preview, overview) show a map one entry per line: a value
+// may itself hold commas or `=`, like AWS tags (`Env=dev,Team=db`). A row
+// field typed as a password is masked, as in its input. Reads both the form's
+// rows and the saved map; empty when there is no entry.
+export const formatMapFieldEntries = (
+  value: unknown,
+  component: MapComponent
+): string[] => {
   const map = Array.isArray(value) ? rowsToObject(value) : value;
-  if (!isPlainObject(map) || Object.keys(map).length === 0) return undefined;
-  return Object.entries(map)
-    .map(([key, entryValue]) => `${key} = ${String(entryValue)}`)
-    .join(', ');
+  if (!isPlainObject(map)) return [];
+  const { key: keyField, value: valueField } = getMapRow(component).components;
+  const show = (field: Component | ComponentGroup | undefined, text: string) =>
+    field ? maskPasswordValue(field, text) : text;
+  return Object.entries(map).map(
+    ([key, entryValue]) =>
+      `${show(keyField, key)} = ${show(valueField, toDisplayText(entryValue))}`
+  );
 };
 
 export const getMapFieldPaths = (

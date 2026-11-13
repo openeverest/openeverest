@@ -48,22 +48,3 @@ export const Basic: Story = {
     label: 'Labels',
   },
 };
-
-export const Configured: Story = {
-  args: {
-    name: 'annotations',
-    label: 'Load balancer annotations',
-    addButtonText: 'Add annotation',
-    keyPlaceholder: 'service.beta.kubernetes.io/…',
-    valuePlaceholder: 'nlb',
-    helperText: 'Added to the proxy Service',
-  },
-};
-
-export const Disabled: Story = {
-  args: {
-    name: 'labels',
-    label: 'Labels',
-    disabled: true,
-  },
-};

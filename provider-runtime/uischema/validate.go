@@ -15,10 +15,11 @@
 // Package uischema checks provider UI schemas (the `uiSchema` rendered by the
 // UI generator) against the rules documented in docs/ui/ui-generator.
 //
-// The UI applies the same rules at runtime (ui-generator utils/map-field and
-// utils/toggleable, both run by preprocessSchema); testdata/*.yaml is the
-// shared contract both implementations are tested against (see
-// preprocess-shared-cases.test.ts in the UI), so keep them in sync.
+// The UI applies the same rules at runtime (ui-generator utils/map-field,
+// utils/toggleable and utils/preprocess, all run by preprocessSchema);
+// testdata/*.yaml is the shared contract both implementations are tested
+// against (see preprocess-shared-cases.test.ts in the UI), so keep them in
+// sync.
 package uischema
 
 import (
@@ -36,14 +37,19 @@ type Rule string
 
 // Rules checked by Validate; see README.md for their exact conditions.
 const (
-	RuleMapUnsupported         Rule = "map-unsupported"
-	RuleMapMultiPath           Rule = "map-multi-path"
-	RuleMapOverlap             Rule = "map-overlap"
-	RuleToggleableUnsafeKey    Rule = "toggleable-unsafe-key"
-	RuleToggleableNoFields     Rule = "toggleable-no-fields"
-	RuleToggleableNested       Rule = "toggleable-nested"
-	RuleToggleableOverlap      Rule = "toggleable-overlap"
-	RuleToggleableCELUnguarded Rule = "toggleable-cel-unguarded"
+	RuleMapUnsupported          Rule = "map-unsupported"
+	RuleMapMultiPath            Rule = "map-multi-path"
+	RuleMapOverlap              Rule = "map-overlap"
+	RuleMapIgnoredOption        Rule = "map-ignored-option"
+	RuleMapInvalidDefault       Rule = "map-invalid-default"
+	RuleMapInvalidLimits        Rule = "map-invalid-limits"
+	RuleTemplateWidgetMisplaced Rule = "template-widget-misplaced"
+	RuleReservedKey             Rule = "reserved-key"
+	RuleToggleableUnsafeKey     Rule = "toggleable-unsafe-key"
+	RuleToggleableNoFields      Rule = "toggleable-no-fields"
+	RuleToggleableNested        Rule = "toggleable-nested"
+	RuleToggleableOverlap       Rule = "toggleable-overlap"
+	RuleToggleableCELUnguarded  Rule = "toggleable-cel-unguarded"
 )
 
 // Issue is a single problem found in a UI schema.
@@ -53,9 +59,9 @@ type Issue struct {
 	// Group is the dotted key path of the toggleable group: section key followed
 	// by group keys, e.g. "advanced.monitoring". Empty for map rules.
 	Group string
-	// Field is the dotted key path of the field a map rule is about, or of
-	// the field whose CEL rule reads the group; empty for rules about the group
-	// itself.
+	// Field is the dotted key path of the field a map rule is about, of the
+	// component setting a reserved key, or of the field whose CEL rule reads
+	// the group; empty for rules about the group itself.
 	Field   string
 	Message string
 }
@@ -98,7 +104,9 @@ func Validate(in Input) []Issue {
 		// toggleable rules see them as writing nothing.
 		mapIssues, droppedMaps := validateMaps(topology, sections)
 		issues = append(issues, mapIssues...)
+		issues = append(issues, lintFields(topology, sections, droppedMaps)...)
 		issues = append(issues, validateToggleables(topology, sections, droppedMaps)...)
+		issues = append(issues, validateReservedKeys(topology, sections)...)
 	}
 	slices.SortStableFunc(issues, func(a, b Issue) int {
 		return cmp.Or(

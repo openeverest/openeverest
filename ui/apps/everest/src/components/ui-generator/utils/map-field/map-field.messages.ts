@@ -20,8 +20,9 @@ export const Messages = {
   keyRequired: 'Enter a key',
   duplicateKey: (key: string) => `${key} is set more than once`,
   required: 'Add at least one entry',
-  minItems: (count: number) =>
-    `Add at least ${pluralize(count, 'entry', 'entries')}`,
-  maxItems: (count: number) =>
-    `Add at most ${pluralize(count, 'entry', 'entries')}`,
+  // Each says what to do, then the rule, since the user may be past it.
+  minItems: (min: number, missing: number) =>
+    `Add ${pluralize(missing, 'more entry', 'more entries')} (at least ${min} required)`,
+  maxItems: (max: number, extra: number) =>
+    `Remove ${pluralize(extra, 'entry', 'entries')} (at most ${max} allowed)`,
 };

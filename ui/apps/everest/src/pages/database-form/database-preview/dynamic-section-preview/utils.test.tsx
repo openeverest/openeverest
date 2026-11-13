@@ -20,6 +20,7 @@ import {
   ComponentGroup,
   FieldType,
   GroupType,
+  TemplateWidgetType,
   WIDGET_UI_TYPE,
   WidgetType,
 } from 'components/ui-generator/ui-generator.types';
@@ -192,6 +193,62 @@ describe('renderComponent - string values are shown correctly in preview', () =>
     );
 
     expect(screen.getByText('Version: 8.0.41')).toBeInTheDocument();
+  });
+
+  it('masks a password value', () => {
+    const component: Component = {
+      uiType: FieldType.Text,
+      path: 'spec.token',
+      fieldParams: { label: 'Token', type: 'password' },
+    };
+
+    render(
+      <TestWrapper>
+        <>
+          {renderComponent('token', component, { spec: { token: 's3cr3t' } })}
+        </>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Token: ***************')).toBeInTheDocument();
+    expect(screen.queryByText(/s3cr3t/)).not.toBeInTheDocument();
+  });
+});
+
+describe('renderComponent - map field', () => {
+  const env: Component = {
+    uiType: FieldType.Map,
+    path: 'spec.env',
+    fieldParams: { label: 'Environment' },
+    itemTemplate: {
+      uiType: WIDGET_UI_TYPE,
+      widgetType: TemplateWidgetType.KeyValue,
+      fieldParams: { value: { type: 'password' } },
+    },
+  };
+
+  it('lists the rows one per line, values masked like their inputs', () => {
+    render(
+      <TestWrapper>
+        <>
+          {renderComponent('env', env, {
+            spec: {
+              env: [
+                { key: 'API_KEY', value: 'secret' },
+                { key: '', value: '' },
+                { key: 'TAGS', value: 'a,b' },
+              ],
+            },
+          })}
+        </>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Environment:')).toBeInTheDocument();
+    expect(
+      screen.getAllByTestId('preview-truncated-field')[0].textContent
+    ).toContain('API_KEY = ***************\nTAGS = ***************');
+    expect(screen.queryByText(/secret/)).not.toBeInTheDocument();
   });
 });
 

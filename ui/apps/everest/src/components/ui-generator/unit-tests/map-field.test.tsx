@@ -178,15 +178,36 @@ describe('UIGenerator - map field', () => {
       screen.queryByText('Add at least one entry')
     ).not.toBeInTheDocument();
 
-    // A count error wins over a row error: re-validating the map replaces
-    // its whole error subtree, and removing a row fixes both anyway.
+    // A count error and a row error show together: fixing the duplicate
+    // doesn't need the count fixed first.
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
     await type('Key 2', 'team');
 
-    expect(await screen.findByText('Add at most 1 entry')).toBeInTheDocument();
     expect(
-      screen.queryByText('team is set more than once')
-    ).not.toBeInTheDocument();
+      await screen.findByText('Remove 1 entry (at most 1 allowed)')
+    ).toBeInTheDocument();
+    expect(screen.getByText('team is set more than once')).toBeInTheDocument();
+  });
+
+  it('flags a value without a key as soon as the value is typed', async () => {
+    render(
+      <TestWrapper>
+        <FormWrapper>
+          <UIGenerator
+            sections={schema.replicaSet.sections}
+            sectionKey="advanced"
+          />
+        </FormWrapper>
+      </TestWrapper>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add annotation' }));
+    // Let the validation the new row started settle, as it would before a
+    // user types.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    await type('Value 2', 'orphan');
+
+    expect(await screen.findByText('Enter a key')).toBeInTheDocument();
   });
 
   it('renders a row as text fields that take any text param', () => {
