@@ -476,9 +476,10 @@ uiSchema:
             uiType: number
             path: "spec.sharding.shards"
             fieldParams:
-              required: true
               label: "Nº of shards"
               defaultValue: 1
+            validation:
+              required: true
           numberOfnodes:
             path: "spec.components.engine.replicas"
             uiType: number
@@ -526,10 +527,10 @@ uiSchema:
                   defaultValue: 25
                   badge: "Gi"
                   badgeToApi: true
-                  validation:
-                    min: 1
-                    int: true
-                    required: true
+                validation:
+                  min: 1
+                  int: true
+                  required: true
           numberOfRouters:
             path: "spec.components.proxy.replicas"
             uiType: number
