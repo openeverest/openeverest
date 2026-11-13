@@ -152,9 +152,9 @@ podMonitorLabels:
 - **Edit**: the saved map is replaced as a whole, so a removed entry is removed from the instance.
 - **Order**: entries keep the order of the rows. The API doesn't keep a map's order, so on edit
   they come back in the order the API returns.
-- **Preview and overview**: one entry per line, as `key = value`, since a value may itself hold
-  commas or `=`. A row field with `type: password` is shown masked. The overview shows the first
-  three entries and the rest on *Show more*.
+- **Preview and overview**: an entry-count chip, e.g. *3 entries*. It opens a key/value table in a
+  dialog, where each row can be copied as `key=value`. A row field with `type: password` is shown
+  masked, in the table too.
 - **New row**: starts empty, and its key input gets the focus.
 - **Screen readers**: a row's inputs are named by their label, or `Key` / `Value`, and the row
   number, e.g. `Key 2`.

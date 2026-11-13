@@ -227,7 +227,7 @@ describe('renderComponent - map field', () => {
     },
   };
 
-  it('lists the rows one per line, values masked like their inputs', () => {
+  it('sums the rows up in a chip; the dialog masks values like their inputs', () => {
     render(
       <TestWrapper>
         <>
@@ -245,10 +245,23 @@ describe('renderComponent - map field', () => {
     );
 
     expect(screen.getByText('Environment:')).toBeInTheDocument();
-    expect(
-      screen.getAllByTestId('preview-truncated-field')[0].textContent
-    ).toContain('API_KEY = ***************\nTAGS = ***************');
+    const toggle = screen.getByTestId('preview-map-field-toggle');
+    expect(toggle).toHaveTextContent('2 entries');
+
+    fireEvent.click(toggle);
+    expect(screen.getByText('API_KEY')).toBeInTheDocument();
+    expect(screen.getAllByText('***************')).toHaveLength(2);
     expect(screen.queryByText(/secret/)).not.toBeInTheDocument();
+  });
+
+  it('shows a dash for a map with no entries', () => {
+    render(
+      <TestWrapper>
+        <>{renderComponent('env', env, { spec: { env: [] } })}</>
+      </TestWrapper>
+    );
+
+    expect(screen.getByText('Environment: -')).toBeInTheDocument();
   });
 });
 

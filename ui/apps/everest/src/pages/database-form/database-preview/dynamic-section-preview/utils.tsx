@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { Stack, Typography } from '@mui/material';
-import { ExpandableClampedText } from '@percona/ui-lib';
+import { ExpandableClampedText, KeyValueSummary } from '@percona/ui-lib';
 import { PreviewContentText } from '../preview-section';
 import { orderComponents } from 'components/ui-generator/utils/component-renderer';
 import {
@@ -25,7 +25,7 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import { getValueByPath } from 'components/ui-generator/ui-component/utils/get-value-by-path';
 import { maskPasswordValue } from 'components/ui-generator/utils/display-value';
-import { formatMapFieldEntries } from 'components/ui-generator/utils/map-field';
+import { getMapFieldDisplayRows } from 'components/ui-generator/utils/map-field';
 import { formatQuantity } from 'components/ui-generator/utils/quantity';
 import {
   getToggleableMeta,
@@ -110,13 +110,41 @@ export const renderComponent = (
     : undefined;
   const label = leafComponent.fieldParams?.label || componentKey;
 
+  const uniqueKey = `${parentPrefix || ''}:${primaryPath || componentKey}`;
+
+  if (isMapComponent(leafComponent)) {
+    const mapEntries =
+      value === null || value === undefined
+        ? []
+        : getMapFieldDisplayRows(value, leafComponent);
+    if (mapEntries.length === 0) {
+      return <PreviewContentText key={uniqueKey} text={`${label}: -`} />;
+    }
+    return (
+      <Stack
+        key={uniqueKey}
+        direction="row"
+        spacing={0.5}
+        alignItems="center"
+        data-testid="preview-map-field"
+        sx={{ width: '100%' }}
+      >
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+          {label}:
+        </Typography>
+        <KeyValueSummary
+          entries={mapEntries}
+          label={label}
+          dataTestId="preview-map-field"
+        />
+      </Stack>
+    );
+  }
+
   let displayValue: string = '-';
 
   if (value === null || value === undefined) {
     displayValue = '-';
-  } else if (isMapComponent(leafComponent)) {
-    displayValue =
-      formatMapFieldEntries(value, leafComponent).join('\n') || '-';
   } else if (typeof value === 'boolean') {
     displayValue = value ? Messages.enabled : Messages.disabled;
   } else if (typeof value === 'object' && !Array.isArray(value)) {
@@ -132,13 +160,9 @@ export const renderComponent = (
     displayValue = maskPasswordValue(leafComponent, String(value));
   }
 
-  const uniqueKey = `${parentPrefix || ''}:${primaryPath || componentKey}`;
-
-  // A map lists one entry per line.
   const isMultilineText =
-    isMapComponent(leafComponent) ||
-    (leafComponent.uiType === FieldType.Text &&
-      !!leafComponent.fieldParams?.multiline);
+    leafComponent.uiType === FieldType.Text &&
+    !!leafComponent.fieldParams?.multiline;
 
   if (isMultilineText && displayValue !== '-') {
     return (

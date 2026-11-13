@@ -262,14 +262,17 @@ describe('collectSectionFields', () => {
       },
     }).replicaSet.sections;
 
-    it('lists a map one entry per line, since a value may hold commas', () => {
+    it('hands a map over as entry pairs, since a value may hold commas', () => {
       const [tags] = collectSectionFields(advanced.components, {
         spec: { tags: { 'aws-tags': 'Env=dev,Team=db', team: 'db' } },
       });
 
       expect(tags).toMatchObject({
-        value: 'aws-tags = Env=dev,Team=db\nteam = db',
-        multiline: true,
+        value: '',
+        mapEntries: [
+          { key: 'aws-tags', value: 'Env=dev,Team=db' },
+          { key: 'team', value: 'db' },
+        ],
       });
     });
 
@@ -278,7 +281,9 @@ describe('collectSectionFields', () => {
         spec: { env: { API_KEY: 'secret' }, token: 's3cr3t' },
       });
 
-      expect(env.value).toBe('API_KEY = ***************');
+      expect(env.mapEntries).toEqual([
+        { key: 'API_KEY', value: '***************' },
+      ]);
       expect(token.value).toBe('***************');
     });
 

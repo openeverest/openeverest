@@ -13,7 +13,7 @@
 // limitations under the License.
 
 export {
-  formatMapFieldEntries,
+  getMapFieldDisplayRows,
   getMapFieldPaths,
   getMapFieldTargetPaths,
   isStringMap,

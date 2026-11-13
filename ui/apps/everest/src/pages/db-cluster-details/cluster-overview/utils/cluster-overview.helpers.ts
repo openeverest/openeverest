@@ -34,7 +34,8 @@ import {
   isPasswordField,
   maskPasswordValue,
 } from 'components/ui-generator/utils/display-value';
-import { formatMapFieldEntries } from 'components/ui-generator/utils/map-field';
+import { getMapFieldDisplayRows } from 'components/ui-generator/utils/map-field';
+import type { MapRow } from 'components/ui-generator/utils/map-field';
 import {
   getComponentSourcePath,
   getComponentTargetPaths,
@@ -55,8 +56,8 @@ export type SectionField = {
   label: string;
   path: string;
   value: string;
-  // The value holds one line per item, e.g. a map's entries.
-  multiline?: boolean;
+  // A map's entries; the card shows them as a count chip opening a table.
+  mapEntries?: MapRow[];
   // When set, the field renders its own read-only widget summary full-width
   // instead of the scalar `value` row.
   summary?: {
@@ -84,12 +85,6 @@ const formatFieldDisplayValue = (
   component: Component,
   rawValue: unknown
 ): string => {
-  if (isMapComponent(component)) {
-    const entries = formatMapFieldEntries(rawValue, component);
-    return entries.length > 0
-      ? entries.join('\n')
-      : formatDisplayValue(undefined);
-  }
   if (isPasswordField(component) && typeof rawValue === 'string') {
     return maskPasswordValue(component, rawValue);
   }
@@ -173,11 +168,24 @@ export const collectSectionFields = (
     const path = paths[0];
     if (!path) continue;
 
+    if (isMapComponent(component)) {
+      const mapEntries = getMapFieldDisplayRows(
+        getByPath(instance, path),
+        component
+      );
+      fields.push({
+        label: component.fieldParams?.label ?? key,
+        path,
+        value: mapEntries.length > 0 ? '' : formatDisplayValue(undefined),
+        ...(mapEntries.length > 0 && { mapEntries }),
+      });
+      continue;
+    }
+
     fields.push({
       label: component.fieldParams?.label ?? key,
       path,
       value: formatFieldDisplayValue(component, getByPath(instance, path)),
-      ...(isMapComponent(component) && { multiline: true }),
     });
   }
 

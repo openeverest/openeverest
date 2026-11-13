@@ -16,11 +16,10 @@ import { Stack } from '@mui/material';
 import {
   DatabaseIcon,
   EditIconButton,
-  ExpandableClampedText,
+  KeyValueSummary,
   OverviewCard,
 } from '@percona/ui-lib';
 import type { SchemaDrivenCardProps } from './schema-driven-card.types';
-import { MULTILINE_VALUE_LINES } from './schema-driven-card.constants';
 import { segmentCardFields } from './schema-driven-card.utils';
 import OverviewSectionRow from '../../overview-section-row';
 import OverviewSection from '../../overview-section';
@@ -80,16 +79,15 @@ const SchemaDrivenCard = ({
               loading={loading}
             >
               {segment.fields.map((field) =>
-                field.multiline ? (
+                field.mapEntries ? (
                   <OverviewSectionRow
                     key={`${card.key}:${field.path}`}
                     label={field.label}
-                    labelProps={{ sx: { alignSelf: 'flex-start' } }}
                     content={
-                      <ExpandableClampedText
-                        value={field.value}
-                        lineClamp={MULTILINE_VALUE_LINES}
-                        textTypographyProps={{ variant: 'body2' }}
+                      <KeyValueSummary
+                        entries={field.mapEntries}
+                        label={field.label}
+                        dataTestId={`${card.key}-${field.path}`}
                       />
                     }
                   />

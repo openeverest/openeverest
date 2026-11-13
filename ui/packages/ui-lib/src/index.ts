@@ -104,6 +104,9 @@ export { default as CodeCopyBlock } from './code-copy-block';
 export * from './expandable-clamped-text';
 export { default as ExpandableClampedText } from './expandable-clamped-text';
 
+export * from './key-value-summary';
+export { default as KeyValueSummary } from './key-value-summary';
+
 export * from './masonry-columns';
 
 export * from './show-more-dialog';

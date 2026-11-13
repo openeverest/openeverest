@@ -73,23 +73,23 @@ export const rowsToObject = (
 const toDisplayText = (value: unknown): string =>
   typeof value === 'string' ? value : JSON.stringify(value);
 
-// Read-only views (preview, overview) show a map one entry per line: a value
-// may itself hold commas or `=`, like AWS tags (`Env=dev,Team=db`). A row
-// field typed as a password is masked, as in its input. Reads both the form's
-// rows and the saved map; empty when there is no entry.
-export const formatMapFieldEntries = (
+// Read-only views (preview, overview) show a map's entries in a key/value
+// table behind an entry-count chip. A row field typed as a password is
+// masked, as in its input. Reads both the form's rows and the saved map;
+// empty when there is no entry.
+export const getMapFieldDisplayRows = (
   value: unknown,
   component: MapComponent
-): string[] => {
+): MapRow[] => {
   const map = Array.isArray(value) ? rowsToObject(value) : value;
   if (!isPlainObject(map)) return [];
   const { key: keyField, value: valueField } = getMapRow(component).components;
   const show = (field: Component | ComponentGroup | undefined, text: string) =>
     field ? maskPasswordValue(field, text) : text;
-  return Object.entries(map).map(
-    ([key, entryValue]) =>
-      `${show(keyField, key)} = ${show(valueField, toDisplayText(entryValue))}`
-  );
+  return Object.entries(map).map(([key, entryValue]) => ({
+    key: show(keyField, key),
+    value: show(valueField, toDisplayText(entryValue)),
+  }));
 };
 
 export const getMapFieldPaths = (

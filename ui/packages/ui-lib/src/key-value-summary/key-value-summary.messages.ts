@@ -12,5 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Enough to show a few entries of a map; the rest unfold on "Show more".
-export const MULTILINE_VALUE_LINES = 3;
+export const Messages = {
+  entryCount: (count: number) => (count === 1 ? '1 entry' : `${count} entries`),
+  copyEntry: (key: string) => `Copy ${key}`,
+  key: 'Key',
+  value: 'Value',
+  close: 'Close',
+};
