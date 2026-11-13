@@ -328,8 +328,12 @@ export type Component = FieldComponent | ArrayComponent | WidgetComponent;
 export const isWidgetComponent = (item: Component): item is WidgetComponent =>
   item.uiType === WIDGET_UI_TYPE;
 
+// Only the array shapes this version implements. Preprocess drops any other
+// `uiType: array`, so the stages leave it alone like an unknown uiType.
 export const isArrayComponent = (item: Component): item is ArrayComponent =>
-  item.uiType === FieldType.Array;
+  item.uiType === FieldType.Array &&
+  item.outputType === ArrayOutputType.Object &&
+  item.itemTemplate?.uiType === ArrayItemType.KeyValue;
 
 // Narrows an opaque API payload (e.g. a CRD's uiSchema) to a section.
 export const isSection = (value: unknown): value is Section =>

@@ -8,7 +8,8 @@ documented in the main [Readme](./Readme.md).
 `uiType: array` supports one shape: a string map edited as key/value rows, see
 [Array Field](components/array-field.md). Not supported yet:
 
-- **Other shapes:** lists of strings or of objects, and items other than `keyValue`.
+- **Other shapes:** lists of strings or of objects, and items other than `keyValue`. A field in
+  such a shape isn't rendered or sent, and an edit keeps its saved value.
 - **CEL:** `celExpressions` on the list, or on a row's key or value. `regex` on the list.
 - **Backup class parameter forms** (backup schedules, on-demand backups, PITR): they don't write
   rows in the API shape. Use array fields in Instance and monitoring class schemas.

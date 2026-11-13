@@ -35,6 +35,15 @@ import {
 import { findUnguardedCelReferences } from '../toggleable/find-unguarded-cel-references';
 import { withWidgetTargets } from '../widget-targets';
 import { widgetTargetResolvers } from '../../widget-target-resolvers';
+import { type IgnoredArrayField, resolveArrayFields } from '../array-field';
+
+const describeIgnoredArray = ({
+  reason,
+  overlappingPath,
+}: IgnoredArrayField): string =>
+  reason === 'overlap'
+    ? `overlaps the path "${overlappingPath}" of another field, while an array must own its value alone`
+    : 'has a shape this version does not support (only outputType "object" with itemTemplate "keyValue")';
 
 const describeDegrade = (
   resolution: ToggleableResolution
@@ -185,9 +194,18 @@ export const preprocessSchema = (
           topology: topologyKey,
         })
       );
-      const scope = createToggleableScope(withTargets);
+      const { sections: withArrays, ignored } = resolveArrayFields(withTargets);
+      if (import.meta.env.DEV) {
+        ignored.forEach((field) =>
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[UISchema] Array field "${field.keyPath}" ${describeIgnoredArray(field)}; it is not rendered.`
+          )
+        );
+      }
+      const scope = createToggleableScope(withArrays);
       const sections = Object.fromEntries(
-        Object.entries(withTargets).map(([sectionKey, section]) => [
+        Object.entries(withArrays).map(([sectionKey, section]) => [
           sectionKey,
           {
             ...section,

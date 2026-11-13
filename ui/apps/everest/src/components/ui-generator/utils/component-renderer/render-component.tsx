@@ -18,6 +18,7 @@ import {
   FieldType,
   type Component,
   type ComponentGroup,
+  isArrayComponent,
 } from 'components/ui-generator/ui-generator.types';
 import UIComponent from 'components/ui-generator/ui-component/ui-component';
 import UIGroup from 'components/ui-generator/ui-group/ui-group';
@@ -70,9 +71,13 @@ export const renderComponent = ({
       <SecretField item={item} name={fieldName} />
     </ComponentErrorBoundary>
   ) : item.uiType === FieldType.Array ? (
-    <ComponentErrorBoundary key={fieldName} componentName={name}>
-      <ArrayField item={item} name={fieldName} />
-    </ComponentErrorBoundary>
+    // A shape this version doesn't implement renders nothing, like an unknown
+    // uiType (preprocess drops it; this covers forms that skip preprocess).
+    isArrayComponent(item) && (
+      <ComponentErrorBoundary key={fieldName} componentName={name}>
+        <ArrayField item={item} name={fieldName} />
+      </ComponentErrorBoundary>
+    )
   ) : hasDataSource(item as Component) ? (
     <ComponentErrorBoundary key={fieldName} componentName={name}>
       <DataSourceField item={item as ComponentWithDataSource} name={fieldName}>

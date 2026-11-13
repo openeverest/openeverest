@@ -27,7 +27,10 @@ import {
   isPlainObject,
   setByPath,
 } from '../object-path';
-import { getComponentSourcePath } from '../preprocess/normalized-component';
+import {
+  getComponentSourcePath,
+  getComponentTargetPaths,
+} from '../preprocess/normalized-component';
 import { walkLeafComponents } from '../schema-walker';
 
 export const isKeyValuePair = (value: unknown): value is KeyValuePair =>
@@ -75,6 +78,20 @@ export const getArrayFieldPaths = (
       ? getComponentSourcePath(component)
       : undefined;
     if (path) paths.push(path);
+  });
+  return paths;
+};
+
+// Every API path an array field writes its map to: its own and, for a
+// multi-path field, the paths the map is copied to.
+export const getArrayFieldTargetPaths = (
+  components: Record<string, Component | ComponentGroup>
+): string[] => {
+  const paths: string[] = [];
+  walkLeafComponents(components, ({ component }) => {
+    if (isArrayComponent(component)) {
+      paths.push(...getComponentTargetPaths(component));
+    }
   });
   return paths;
 };

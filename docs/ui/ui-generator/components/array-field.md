@@ -13,7 +13,8 @@ A list of rows the user adds and removes. Each row is an item rendered from `ite
 field writes all rows to its `path` in the API shape set by `outputType`.
 
 Supported today: `outputType: object` with `itemTemplate.uiType: keyValue`, a string map such as
-labels or annotations. Other combinations, like a list of strings or of objects, are planned.
+labels or annotations. Other combinations, like a list of strings or of objects, are planned; until
+then such a field isn't rendered (see [Behavior](#behavior)).
 
 ## Properties:
 
@@ -103,13 +104,18 @@ podMonitorLabels:
 ## Behavior:
 
 - **Empty rows**: a row with neither key nor value is dropped on save, not reported.
-- **Empty values**: an entry whose value is empty isn't sent, like any empty field. Set
-  `itemTemplate.validation.value.required` if an entry needs a value.
+- **Empty values**: an entry whose value is empty is sent with it, e.g. a label `infra: ""`: a map
+  still holds the key. Set `itemTemplate.validation.value.required` if an entry needs a value.
 - **No entries**: nothing is written on create. On edit, the saved map is removed.
 - **Edit**: the saved map is replaced as a whole, so a removed entry is removed from the instance.
 - **Order**: entries keep the order of the rows. The API doesn't keep a map's order, so on edit
   they come back in the order the API returns.
 - **Preview and overview**: entries are shown as `key = value`, separated by commas.
 - **New row**: the key input gets the focus.
+- **Not rendered**: a field in a shape other than `outputType: object` with `itemTemplate.uiType:
+  keyValue`, or one whose path another field also writes, writes inside or sits in (the array
+  writes its whole value). It is ignored like an unknown `uiType`: not shown, not sent, and an edit
+  keeps the saved value. `provider-sdk generate` rejects such a schema (rules `array-unsupported`
+  and `array-overlap`).
 
 Where the field works is listed in [Known Limitations](../known-limitations.md#arrays).

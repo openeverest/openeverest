@@ -20,6 +20,7 @@ import {
   setByPath,
   deleteByPath,
   isEmptyFieldValue,
+  joinPath,
 } from '../object-path';
 import { walkTopologyComponents } from '../schema-walker';
 import { dropOtherTopologyValues } from '../topology-scope';
@@ -36,7 +37,11 @@ import {
   TOGGLEABLE_SWITCHES_KEY,
   getInactiveToggleablePaths,
 } from '../toggleable/toggleable';
-import { getArrayFieldPaths, writeArrayFieldsInApiShape } from '../array-field';
+import {
+  getArrayFieldPaths,
+  getArrayFieldTargetPaths,
+  writeArrayFieldsInApiShape,
+} from '../array-field';
 
 export type PostprocessInput = Record<string, unknown>;
 
@@ -135,14 +140,24 @@ export const applyMultiPathMappings = (
   return result;
 };
 
+// Drops empty field values and the objects they leave empty. A value at one of
+// `wholeValuePaths` belongs to a field that owns it whole, like an array's map,
+// where an empty string is still an entry, so it is kept as is.
 export const removeEmptyFieldValues = (
-  input: PostprocessInput
+  input: PostprocessInput,
+  wholeValuePaths: string[] = []
 ): PostprocessInput => {
   const result = deepClone(input);
+  const wholeValues = new Set(wholeValuePaths);
 
-  const prune = (obj: Record<string, unknown>) => {
+  const prune = (obj: Record<string, unknown>, parentPath?: string) => {
     Object.keys(obj).forEach((key) => {
+      const path = joinPath(parentPath, key);
       const value = obj[key];
+
+      if (wholeValues.has(path)) {
+        return;
+      }
 
       if (isEmptyFieldValue(value)) {
         delete obj[key];
@@ -153,7 +168,7 @@ export const removeEmptyFieldValues = (
         return;
       }
 
-      prune(value);
+      prune(value, path);
 
       if (Object.keys(value).length === 0) {
         delete obj[key];
@@ -257,5 +272,10 @@ export const postprocessSchemaData = (
   );
   deleteByPath(withoutInactive, TOGGLEABLE_SWITCHES_KEY);
 
-  return removeEmptyFieldValues(withoutInactive);
+  return removeEmptyFieldValues(
+    withoutInactive,
+    Object.values(sections ?? {}).flatMap(({ components }) =>
+      getArrayFieldTargetPaths(components)
+    )
+  );
 };

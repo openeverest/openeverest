@@ -85,6 +85,9 @@ flowchart TD
   the other combinations are planned in [#1959](https://github.com/openeverest/openeverest/issues/1959).
 - **`keyValue`** is a preset of two `text` fields: their params and rules are `text`'s.
 - **Unique keys** are implied by `outputType: object` and can't be switched off.
+- **Other shapes are ignored**: preprocess drops an array in a shape it doesn't implement, or one
+  that doesn't own its paths, like an unknown `uiType`; the Go validator reports
+  `array-unsupported` / `array-overlap`.
 
 ## Level 2 — Widget (host-rendered leaf)
 

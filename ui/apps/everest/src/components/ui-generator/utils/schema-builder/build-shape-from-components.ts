@@ -16,6 +16,7 @@ import { z } from 'zod';
 import {
   Component,
   ComponentGroup,
+  FieldType,
   FormMode,
   isArrayComponent,
   isWidgetComponent,
@@ -103,12 +104,16 @@ export const buildShapeFromComponents = (
 
     let fieldSchema: z.ZodTypeAny;
 
-    if (isArrayComponent(component)) {
-      // Rows are validated even without rules: a map can't hold a key twice.
-      fieldSchema = buildArrayFieldSchema(
-        component,
-        resolveValidationForMode(component.validation, formMode)
-      );
+    if (component.uiType === FieldType.Array) {
+      // Rows are validated even without rules: a map can't hold a key twice. A
+      // shape this version doesn't implement isn't validated, so its value
+      // passes through like an unknown uiType's.
+      fieldSchema = isArrayComponent(component)
+        ? buildArrayFieldSchema(
+            component,
+            resolveValidationForMode(component.validation, formMode)
+          )
+        : z.any().optional();
     } else if (resolvedValidation) {
       // Create a component with resolved (flat) validation for the downstream pipeline
       const resolvedComponent = {

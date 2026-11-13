@@ -27,7 +27,9 @@ export const UI_TYPE_DEFAULT_VALUE: Partial<Record<FieldType, unknown>> = {
   [FieldType.Toggle]: false,
   [FieldType.Hidden]: undefined,
   [FieldType.Secret]: '',
-  [FieldType.Array]: [],
+  // Rows start empty either way; a shape this version doesn't implement must
+  // not send an empty list in place of the value it can't edit.
+  [FieldType.Array]: undefined,
 };
 
 export const componentGroupMap: Record<

@@ -15,8 +15,13 @@
 export {
   formatArrayFieldValue,
   getArrayFieldPaths,
+  getArrayFieldTargetPaths,
   objectToRows,
   rowsToObject,
   writeArrayFieldsInApiShape,
 } from './array-field';
 export { buildArrayFieldSchema } from './array-field-schema';
+export {
+  type IgnoredArrayField,
+  resolveArrayFields,
+} from './resolve-array-fields';

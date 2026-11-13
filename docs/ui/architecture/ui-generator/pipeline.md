@@ -30,6 +30,11 @@ flowchart TD
   - **`dataSource` validation** — for a component with `dataSource: { provider }`, warns (dev-time) if
     the provider is not registered. Options are not resolved here — they are loaded at runtime by
     `DataSourceField` and prefetched by `DataSourcePrefetcher`.
+  - **`resolveArrayFields`** (`utils/array-field/resolve-array-fields.ts`) — runs first, over the
+    whole topology, and drops (dev warning) an `array` field in a shape `isArrayComponent` doesn't
+    accept, or one whose path another field writes, sits in or writes inside: an array writes its
+    whole value. A dropped field is ignored like an unknown `uiType` — not rendered or sent, and an
+    edit keeps its saved value — so the toggleable rules below don't see it.
   - **`resolveToggleable`** (`utils/toggleable/toggleable.ts`) — sets
     `_toggleable: { switchName, childPaths }` on a `toggleable` group. The switch is
     named after the group's key path (`toggleable-switches.advanced~monitoring`), so form modes
@@ -39,8 +44,10 @@ flowchart TD
   - **`findUnguardedCelReferences`** (`utils/toggleable/find-unguarded-cel-references.ts`) —
     warns (dev-time) when a CEL rule outside a working toggleable reads one of its paths without
     `has()` on that exact path: while the group is off the path is absent and the rule fails.
-  - The Go validator `provider-runtime/uischema` applies the same toggleable rules to provider schemas;
-    `provider-runtime/uischema/testdata/toggleable.yaml` is the case set both are tested against.
+  - The Go validator `provider-runtime/uischema` applies the same array and toggleable rules to
+    provider schemas, and `provider-sdk generate` rejects a schema that breaks one. Every file in
+    `provider-runtime/uischema/testdata/` is a case set both are tested against
+    (`utils/preprocess/preprocess-shared-cases.test.ts` here), so a rule changes on both sides.
 - **`applyModeOverrides(sections, formMode)`** (`apply-mode-overrides.ts`) — applies `modes` overrides
   for the current `FormMode`. `preprocessSchema` runs it last when given a `formMode`: the create
   wizard (`useSchema`) passes its mode, so defaults, validation, render and postprocess all see the
@@ -210,7 +217,9 @@ Read-only and disabled fields keep their value.
     `quantity` fields (they use `unit`, not `badge` / `badgeToApi`).
   - **`getInactiveToggleablePaths`** — returns the `childPaths` of switched-off toggleable groups;
     they are deleted together with the form-only `toggleable-switches` key.
-  - **`removeEmptyFieldValues`** — strip `undefined` / `null` / `""`.
+  - **`removeEmptyFieldValues`** — strip `undefined` / `null` / `""`, and the objects that leaves
+    empty. It doesn't look inside an array field's map (`getArrayFieldTargetPaths`, every path the
+    map is written to): there an empty string is an entry, like a label with an empty value.
 
 **Principle:** the mapping source is the same `_normalized` computed in preprocess.
 
@@ -320,4 +329,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-09
+- Last updated: 2026-11-13

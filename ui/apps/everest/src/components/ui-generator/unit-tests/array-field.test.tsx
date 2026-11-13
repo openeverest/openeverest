@@ -157,9 +157,7 @@ describe('UIGenerator - array field', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
     await type('Key 2', 'team');
 
-    expect(
-      await screen.findByText('Add at most 1 entry')
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Add at most 1 entry')).toBeInTheDocument();
     expect(
       screen.queryByText('team is set more than once')
     ).not.toBeInTheDocument();

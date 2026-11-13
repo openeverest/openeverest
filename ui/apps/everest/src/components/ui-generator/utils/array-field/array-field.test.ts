@@ -13,9 +13,11 @@
 // limitations under the License.
 
 import { describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
 import {
   type ArrayComponent,
   type Section,
+  type TopologyUISchemas,
   ArrayItemType,
   ArrayOutputType,
   FieldType,
@@ -23,8 +25,10 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import { getDefaultValues } from '../default-values';
 import { extractInstanceValues } from '../default-values/extract-instance-values';
+import { deepMerge } from '../object-path';
 import { postprocessSchemaData } from '../postprocess/postprocess-schema';
 import { mergeSectionEdit } from '../postprocess/merge-section-edit';
+import { preprocessSchema } from '../preprocess/preprocess-schema';
 import { buildArrayFieldSchema } from './array-field-schema';
 import { Messages } from './array-field.messages';
 
@@ -176,5 +180,104 @@ describe('array field through the pipeline', () => {
       proxy: { annotations: { team: 'db' } },
     });
     expect(edit([])).toEqual({});
+  });
+
+  it('sends an entry with an empty value, which a map still holds, to every path', () => {
+    const component: ArrayComponent = {
+      uiType: FieldType.Array,
+      outputType: ArrayOutputType.Object,
+      path: [PATH, 'spec.engine.annotations'],
+      fieldParams: { label: 'Annotations' },
+      itemTemplate: { uiType: ArrayItemType.KeyValue },
+    };
+    const infra = { 'node-role.kubernetes.io/infra': '' };
+
+    expect(
+      postprocessSchemaData(
+        {
+          spec: {
+            proxy: {
+              annotations: [
+                { key: 'node-role.kubernetes.io/infra', value: '' },
+              ],
+            },
+          },
+        },
+        { schema: schemaWith(component), selectedTopology: 'replicaSet' }
+      )
+    ).toEqual({
+      spec: { proxy: { annotations: infra }, engine: { annotations: infra } },
+    });
+  });
+
+  it('keeps a saved entry with an empty value through an edit', () => {
+    const saved = {
+      proxy: {
+        annotations: { 'node-role.kubernetes.io/infra': '', team: 'db' },
+      },
+    };
+    const sections = sectionsWith(annotations());
+
+    expect(
+      mergeSectionEdit({
+        spec: saved,
+        formData: extractInstanceValues(
+          sections,
+          { spec: saved },
+          FormMode.Edit
+        ),
+        sections,
+        sectionKey: 'advanced',
+        topology: 'replicaSet',
+      })
+    ).toEqual(saved);
+  });
+});
+
+describe('array field in a shape this version does not support', () => {
+  // As a newer provider could ship it: a list, which this version can't edit.
+  const listSchema: TopologyUISchemas = parse(`
+    replicaSet:
+      sections:
+        advanced:
+          components:
+            databases:
+              uiType: array
+              outputType: array
+              path: spec.backup.databases
+              fieldParams: { label: Databases }
+              itemTemplate: { uiType: text }
+            replicas:
+              uiType: number
+              path: spec.replicas
+              fieldParams: { label: Replicas }
+  `);
+
+  it.each([
+    ['preprocessed', preprocessSchema(listSchema)],
+    ['raw, as forms that skip preprocess get it', listSchema],
+  ])('is left alone when %s', (_, schema) => {
+    const options = { schema, selectedTopology: 'replicaSet' };
+    expect(
+      postprocessSchemaData(getDefaultValues(schema, 'replicaSet'), options)
+    ).toEqual({});
+
+    const saved = { backup: { databases: ['db1', 'db2'] }, replicas: 3 };
+    const { sections } = schema.replicaSet;
+    const formData = extractInstanceValues(
+      sections,
+      { spec: saved },
+      FormMode.Edit
+    );
+
+    expect(
+      mergeSectionEdit({
+        spec: saved,
+        formData: deepMerge(formData, { spec: { replicas: 5 } }),
+        sections,
+        sectionKey: 'advanced',
+        topology: 'replicaSet',
+      })
+    ).toEqual({ backup: { databases: ['db1', 'db2'] }, replicas: 5 });
   });
 });
