@@ -408,6 +408,30 @@ k3d-upload-pxc-provider-image:
 kind-upload-pxc-provider-image:
 	kind load docker-image --name $(KIND_CLUSTER_NAME) $(PXC_PROVIDER_IMG)
 
+MONITORING_PMM_DIR ?= ../monitoring-pmm
+MONITORING_PMM_IMG ?= ghcr.io/openeverest/monitoring-pmm-dev:latest
+MONITORING_PMM_NAMESPACE ?= openeverest-system
+.PHONY: deploy-monitoring-pmm
+deploy-monitoring-pmm: ## Build + Helm-install the PMM monitoring class into the test cluster (needs the monitoring-pmm repo checked out at MONITORING_PMM_DIR).
+	$(info Building and Helm-installing the PMM monitoring class from $(MONITORING_PMM_DIR))
+	$(MAKE) -C "$(MONITORING_PMM_DIR)" docker-build IMG=$(MONITORING_PMM_IMG)
+	$(MAKE) $(CLUSTER_PROVIDER)-upload-monitoring-pmm-image
+	$(HELM) upgrade --install monitoring-pmm "$(MONITORING_PMM_DIR)/charts/monitoring-pmm" \
+		--create-namespace \
+		--namespace $(MONITORING_PMM_NAMESPACE) \
+		--set image.repository=$(firstword $(subst :, ,$(MONITORING_PMM_IMG))) \
+		--set image.tag=$(lastword $(subst :, ,$(MONITORING_PMM_IMG))) \
+		--set image.pullPolicy=Never \
+		--wait --timeout 5m
+
+.PHONY: k3d-upload-monitoring-pmm-image
+k3d-upload-monitoring-pmm-image:
+	k3d image import -c everest-server-test $(MONITORING_PMM_IMG)
+
+.PHONY: kind-upload-monitoring-pmm-image
+kind-upload-monitoring-pmm-image:
+	kind load docker-image --name $(KIND_CLUSTER_NAME) $(MONITORING_PMM_IMG)
+
 .PHONY: expose
 expose:
 	kubectl patch svc -n everest-system everest --type=merge \

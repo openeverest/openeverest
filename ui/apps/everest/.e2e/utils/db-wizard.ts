@@ -194,6 +194,28 @@ export const moveBack = async (page: Page) => {
   await page.waitForLoadState('load', { timeout: TIMEOUTS.ThirtySeconds });
 };
 
+// The wizard has a Monitoring step only when a monitoring class supports the
+// provider. Selects the given destinations on it and moves on; without
+// destinations to select, it is a no-op on any other step.
+export const passMonitoringStep = async (
+  page: Page,
+  destinations: string[] = []
+) => {
+  if (
+    destinations.length === 0 &&
+    (await getWizardStepTitle(page)) !== 'Monitoring'
+  ) {
+    return;
+  }
+  await expect(page.getByTestId('step-header')).toHaveText('Monitoring');
+  for (const destination of destinations) {
+    const card = page.getByRole('button', { name: destination });
+    await card.click();
+    await expect(card).toHaveAttribute('aria-pressed', 'true');
+  }
+  await moveForward(page);
+};
+
 export const goToStep = async (
   page: Page,
   step:
@@ -310,7 +332,8 @@ export const populateBasicInformation = async (
 ) => {
   if (namespace) {
     await page.getByTestId('k8s-namespace-autocomplete').click();
-    await page.getByRole('option', { name: namespace }).click();
+    // Exact, or 'everest' would also match 'openeverest-system'.
+    await page.getByRole('option', { name: namespace, exact: true }).click();
     await expect(page.getByTestId('text-input-k8s-namespace')).toHaveValue(
       namespace
     );

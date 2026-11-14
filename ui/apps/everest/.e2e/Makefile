@@ -28,7 +28,8 @@ deploy-seaweedfs:
 	$(info Installing SeaweedFS instance to the test cluster)
 	kubectl apply -f $(SEAWEEDFS_RESOURCE)
 
-PMM_HELM_CHART_VER=1.3.21
+# PMM 3 (3.10.0): the pmm MonitoringClass supports PMM 3 servers only.
+PMM_HELM_CHART_VER=1.10.0
 HELM=go tool -modfile=$(REPO_ROOT)/go.mod helm
 .PHONY: deploy-monitoring
 deploy-monitoring:     ## Deploy monitoring instances to K3D test cluster.
