@@ -57,6 +57,22 @@ For each report, one maintainer acts as the **coordinator**. The coordinator:
 
 We keep reports confidential until a fix is released. We aim to disclose within **90 days** of the report. If a fix needs more time, we agree on a new date with the reporter. If a vulnerability is already public or actively exploited, we may disclose earlier.
 
+## Verifying Releases
+
+Container images carry signed SLSA provenance and SBOM attestations. `everestctl` binaries ship with a cosign signature bundle (`<binary>.sigstore.json`) and SLSA provenance (`everestctl.intoto.jsonl`).
+
+```sh
+# Binary signature
+cosign verify-blob everestctl-linux-amd64 \
+  --bundle everestctl-linux-amd64.sigstore.json \
+  --certificate-identity-regexp '^https://github.com/openeverest/openeverest/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+# Binary or image provenance
+gh attestation verify everestctl-linux-amd64 --repo openeverest/openeverest
+gh attestation verify oci://ghcr.io/openeverest/openeverest:<version> --repo openeverest/openeverest
+```
+
 ## Credit
 
 We credit reporters in the advisory unless they ask to stay anonymous.
