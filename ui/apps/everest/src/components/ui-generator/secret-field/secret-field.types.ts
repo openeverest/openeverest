@@ -14,7 +14,10 @@
 
 import type { Component, FieldType, Section } from '../ui-generator.types';
 
-export type SecretComponent = Extract<Component, { uiType: FieldType.Secret }>;
+export type SecretComponent = Extract<
+  Component,
+  { uiType: (typeof FieldType)['Secret'] }
+>;
 
 export interface SecretFieldProps {
   item: SecretComponent;

@@ -40,7 +40,7 @@ const quantityField = (
   fieldParams: {
     unit?: Extract<
       Component,
-      { uiType: FieldType.Quantity }
+      { uiType: (typeof FieldType)['Quantity'] }
     >['fieldParams']['unit'];
     unitLabel?: string;
   } = {}

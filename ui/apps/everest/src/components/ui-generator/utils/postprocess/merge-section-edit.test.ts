@@ -16,8 +16,8 @@ import { describe, expect, it } from 'vitest';
 import {
   FieldType,
   GroupType,
+  InternalWidgetType,
   WIDGET_UI_TYPE,
-  WidgetType,
 } from 'components/ui-generator/ui-generator.types';
 import { TOGGLEABLE_SWITCHES_KEY } from '../toggleable/toggleable';
 import { preprocessSchema } from '../preprocess/preprocess-schema';
@@ -129,7 +129,7 @@ describe('mergeSectionEdit', () => {
         components: {
           affinity: {
             uiType: WIDGET_UI_TYPE,
-            widgetType: WidgetType.Affinity,
+            widgetType: InternalWidgetType.Affinity,
             path: 'spec.affinity',
           },
         },

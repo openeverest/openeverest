@@ -48,7 +48,10 @@ const createTestSchema = (
   fieldParams: Record<string, unknown> = {},
   validation?: Record<string, unknown>
 ): TopologyUISchemas => {
-  const testSelect: Extract<Component, { uiType: FieldType.Select }> = {
+  const testSelect: Extract<
+    Component,
+    { uiType: (typeof FieldType)['Select'] }
+  > = {
     uiType: FieldType.Select,
     path: 'spec.testSelect',
     fieldParams: {

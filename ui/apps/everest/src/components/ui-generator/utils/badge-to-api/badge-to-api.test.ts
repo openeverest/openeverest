@@ -83,7 +83,10 @@ describe('extractBadgeMappings', () => {
   it('skips quantity fields even when badgeToApi is left over from a migration', () => {
     // Simulate a YAML leftover: typed schemas forbid badge on quantity, but
     // runtime YAML can still carry them after a number → quantity migration.
-    const memoryField: Extract<Component, { uiType: FieldType.Quantity }> = {
+    const memoryField: Extract<
+      Component,
+      { uiType: (typeof FieldType)['Quantity'] }
+    > = {
       uiType: FieldType.Quantity,
       path: 'spec.memory',
       fieldParams: {

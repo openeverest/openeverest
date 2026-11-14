@@ -14,7 +14,7 @@
 
 import { Provider } from 'shared-types/api.types';
 import { resolveAffinityTargets } from 'utils/pod-scheduling-policy';
-import { WidgetTarget, WidgetType } from './ui-generator.types';
+import { AnyWidgetType, WidgetTarget, WidgetType } from './ui-generator.types';
 
 export interface WidgetTargetContext {
   providerObject?: Provider;
@@ -23,8 +23,10 @@ export interface WidgetTargetContext {
 
 // Marker widgets whose written API paths depend on the provider; resolved once
 // in preprocess so every stage (toggleable, payload, overview) sees them.
+// Keyed by AnyWidgetType so lookups from WidgetComponent are safe; only public
+// markers register resolvers today.
 export const widgetTargetResolvers: Partial<
-  Record<WidgetType, (context: WidgetTargetContext) => WidgetTarget[]>
+  Record<AnyWidgetType, (context: WidgetTargetContext) => WidgetTarget[]>
 > = {
   [WidgetType.PodSchedulingPolicy]: ({ providerObject, topology }) =>
     resolveAffinityTargets(providerObject, topology),

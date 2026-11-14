@@ -30,7 +30,10 @@ import {
 } from './secret-field.utils';
 import { SecretFieldProps } from './secret-field.types';
 
-type SelectComponent = Extract<Component, { uiType: FieldType.Select }>;
+type SelectComponent = Extract<
+  Component,
+  { uiType: (typeof FieldType)['Select'] }
+>;
 
 export const SecretField = ({ item, name }: SecretFieldProps) => {
   const { providerObject, namespace, formMode, generator } =

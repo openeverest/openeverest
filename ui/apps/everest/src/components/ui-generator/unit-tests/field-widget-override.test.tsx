@@ -17,6 +17,7 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { UIGenerator } from '../ui-generator';
 import {
+  InternalWidgetType,
   TopologyUISchemas,
   WidgetComponent,
   WidgetRegistry,
@@ -34,7 +35,7 @@ vi.mock('../utils/schema-builder/cel-validation', () => ({
 
 const affinity: WidgetComponent = {
   uiType: WIDGET_UI_TYPE,
-  widgetType: WidgetType.Affinity,
+  widgetType: InternalWidgetType.Affinity,
   path: 'spec.affinity',
 };
 
@@ -70,7 +71,7 @@ describe('UI generator field-widget override', () => {
       return <div data-testid="rule-widget">{name}</div>;
     }
     const widgetRegistry: WidgetRegistry = {
-      [WidgetType.Affinity]: RuleWidget,
+      [InternalWidgetType.Affinity]: RuleWidget,
     };
 
     render(
@@ -88,7 +89,7 @@ describe('UI generator field-widget override', () => {
     );
     expect(receivedProps).toHaveLength(1);
     expect(receivedProps[0].name).toBe('spec.affinity');
-    expect(receivedProps[0].item.widgetType).toBe(WidgetType.Affinity);
+    expect(receivedProps[0].item.widgetType).toBe(InternalWidgetType.Affinity);
   });
 
   it('renders nothing for the field when no widget is registered for its widgetType', () => {

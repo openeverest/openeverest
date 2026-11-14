@@ -18,9 +18,9 @@ import { useFormContext, useWatch } from 'react-hook-form';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
 import { useUiGeneratorContext } from 'components/ui-generator/ui-generator-context';
 import {
+  InternalWidgetType,
   WidgetRegistry,
   WidgetRenderer,
-  WidgetType,
 } from 'components/ui-generator/ui-generator.types';
 import { AffinityRuleEditor } from './affinity';
 import { buildAffinitySections } from './build-scheduling-sections';
@@ -30,7 +30,7 @@ import { SchedulingComponentContext } from './scheduling-component-context';
 import { Messages } from './pod-scheduling-policy-section.messages';
 
 const widgetRegistry: WidgetRegistry = {
-  [WidgetType.Affinity]: AffinityRuleEditor,
+  [InternalWidgetType.Affinity]: AffinityRuleEditor,
 };
 
 // Renders the podSchedulingPolicy marker: one affinity editor per component the
