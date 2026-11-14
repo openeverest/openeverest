@@ -126,7 +126,9 @@ func (u *Upgrade) upgradeCustomResourceDefinitions(ctx context.Context) error {
 	}); err != nil {
 		return fmt.Errorf("could not initialize Helm installer: %w", err)
 	}
-	return installer.Install(ctx)
+	// The release is created by the first upgrade that runs this step, so on every
+	// subsequent upgrade it already exists at the previous version.
+	return installer.InstallOrUpgrade(ctx, helm.UpgradeOptions{})
 }
 
 // legacyUpgradeCRDs upgrades the CRDs for any version below 1.9.0.

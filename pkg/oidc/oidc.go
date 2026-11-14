@@ -35,22 +35,28 @@ import (
 //
 //nolint:tagliatelle
 type ProviderConfig struct {
-	OriginalIssuer string   `json:"OriginalIssuer"`
-	Issuer         string   `json:"issuer"`
-	AuthURL        string   `json:"authorization_endpoint"`
-	TokenURL       string   `json:"token_endpoint"`
-	DeviceAuthURL  string   `json:"device_authorization_endpoint"`
-	JWKSURL        string   `json:"jwks_uri"`
-	UserInfoURL    string   `json:"userinfo_endpoint"`
-	Algorithms     []string `json:"id_token_signing_alg_values_supported"`
+	OriginalIssuer string `json:"OriginalIssuer"`
+	// ClientID is the Everest client registered with the provider. It comes from the Everest
+	// settings, not from the provider's well-known configuration.
+	ClientID      string   `json:"-"`
+	Issuer        string   `json:"issuer"`
+	AuthURL       string   `json:"authorization_endpoint"`
+	TokenURL      string   `json:"token_endpoint"`
+	DeviceAuthURL string   `json:"device_authorization_endpoint"`
+	JWKSURL       string   `json:"jwks_uri"`
+	UserInfoURL   string   `json:"userinfo_endpoint"`
+	Algorithms    []string `json:"id_token_signing_alg_values_supported"`
 }
 
 const (
 	// WellKnownPath is the path to the well-known OIDC configuration.
 	WellKnownPath = "/.well-known/openid-configuration"
 
-	// defaultHTTPClientTimeout bounds OIDC well-known config fetches.
+	// defaultHTTPClientTimeout bounds OIDC well-known config and JWKS fetches.
 	defaultHTTPClientTimeout = 30 * time.Second
+
+	// maxWellKnownResponseSize caps the well-known config response body.
+	maxWellKnownResponseSize = 10 * 1024 * 1024
 )
 
 // ErrUnexpectedSatusCode is returned when HTTP 200 is not returned.
@@ -74,7 +80,7 @@ func NewProviderConfig(ctx context.Context, issuer string) (ProviderConfig, erro
 	}
 	defer resp.Body.Close() //nolint:errcheck
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxWellKnownResponseSize))
 	if err != nil {
 		return ProviderConfig{}, fmt.Errorf("unable to read response body: %w", err)
 	}
@@ -95,6 +101,17 @@ func NewProviderConfig(ctx context.Context, issuer string) (ProviderConfig, erro
 	return result, nil
 }
 
+// NewIDTokenVerifier returns a verifier for ID tokens that this provider issued to ClientID.
+// Both the issuer advertised by the provider and the one configured in Everest are accepted,
+// because they differ for some providers (e.g. Microsoft Entra ID).
+func (c *ProviderConfig) NewIDTokenVerifier(ctx context.Context) (*IDTokenVerifier, error) {
+	keyFunc, err := c.NewKeyFunc(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return NewIDTokenVerifier(keyFunc, c.ClientID, c.Issuer, c.OriginalIssuer)
+}
+
 // NewKeyFunc returns a new function for getting the public JWK keys
 // from the OIDC provider at the given issuer URL.
 func (c *ProviderConfig) NewKeyFunc(ctx context.Context) (jwt.Keyfunc, error) {
@@ -103,7 +120,7 @@ func (c *ProviderConfig) NewKeyFunc(ctx context.Context) (jwt.Keyfunc, error) {
 	}
 
 	keyCache := jwk.NewCache(ctx)
-	if err := keyCache.Register(c.JWKSURL); err != nil {
+	if err := keyCache.Register(c.JWKSURL, jwk.WithHTTPClient(&http.Client{Timeout: defaultHTTPClientTimeout})); err != nil {
 		return nil, errors.Join(err, errors.New("failed to register jwk cache"))
 	}
 

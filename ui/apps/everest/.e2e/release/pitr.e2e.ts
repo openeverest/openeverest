@@ -125,7 +125,7 @@ function getBackupStorage(): string {
   } else {
     backupStorage = 'bucket-1';
     console.log(
-      `AWS credentials missing or EVEREST_BUCKETS_NAMESPACES_MAP does not include ["everest-testing","everest-ui"], so using MinIO bucket ${backupStorage}`
+      `AWS credentials missing or EVEREST_BUCKETS_NAMESPACES_MAP does not include ["everest-testing","everest-ui"], so using SeaweedFS bucket ${backupStorage}`
     );
   }
 

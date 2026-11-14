@@ -56,6 +56,9 @@ type EverestConfig struct {
 	APIRequestsRateLimit int `default:"100" envconfig:"API_REQUESTS_RATE_LIMIT"`
 	// CreateSessionRateLimit allowed amount of API requests per second to the /session method
 	CreateSessionRateLimit int `default:"1" envconfig:"CREATE_SESSION_RATE_LIMIT"`
+	// CreateSSOSessionRateLimit allowed amount of API requests per second per client IP to the /session/sso method.
+	// It is looser than CreateSessionRateLimit: every open tab renews its SSO session, and users behind one NAT share an IP.
+	CreateSSOSessionRateLimit int `default:"10" envconfig:"CREATE_SSO_SESSION_RATE_LIMIT"`
 	// VersionServiceURL contains the URL of the version service.
 	VersionServiceURL string `default:"https://check.percona.com" envconfig:"VERSION_SERVICE_URL"`
 	// TLSCertsPath contains the path to the directory with the TLS certificates.

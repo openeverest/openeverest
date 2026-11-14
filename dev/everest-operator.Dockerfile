@@ -1,4 +1,4 @@
-FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b AS dev
+FROM alpine:3.24@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6 AS dev
 WORKDIR /home/everest
 RUN adduser -D everest
 USER 1000:1000
@@ -6,8 +6,8 @@ COPY ./bin/manager  ./manager
 ENTRYPOINT ["./manager"]
 
 # Build the Delve debuger
-FROM golang:1.26-alpine@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS delve
-RUN go install github.com/go-delve/delve/cmd/dlv@v1.25.2
+FROM golang:1.27-alpine@sha256:8a5910f31396cd4d89662f56c68b3ae31d374308270a1c3bd96672ee5ed43414 AS delve
+RUN go install github.com/go-delve/delve/cmd/dlv@v1.27.2
 RUN chmod +x /go/bin/dlv
 
 # Build the image with debuger

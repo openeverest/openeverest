@@ -26,7 +26,9 @@ import {
   removeApiErrorInterceptor,
   addApiAuthInterceptor,
   removeApiAuthInterceptor,
+  setTokenRefresher,
 } from 'api/api';
+import { createSession, deleteSession } from 'api/session';
 import { enqueueSnackbar } from 'notistack';
 import AuthContext from './auth.context';
 import { EVEREST_JWT_ISSUER } from 'consts';
@@ -41,7 +43,15 @@ import {
   initializeAuthorizerFetchLoop,
   stopAuthorizerFetchLoop,
 } from 'utils/rbac';
-import { logAuthError, isRunningInIframe } from './auth.utils';
+import {
+  logAuthError,
+  isRunningInIframe,
+  exchangeAndStoreSsoToken,
+  getUsernameFromSub,
+  isSsoSessionToken,
+  withSsoRenewLock,
+  isReusableToken,
+} from './auth.utils';
 
 const Provider = ({
   oidcConfig,
@@ -87,8 +97,7 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     } else {
       const { username, password } = manualAuthArgs!;
       try {
-        const response = await api.post('/session', { username, password });
-        const token = response.data.token; // Assuming the response structure has a token field
+        const token = await createSession(username, password);
         localStorage.setItem('everestToken', token);
         setLoggedInStatus(username);
       } catch (error) {
@@ -113,8 +122,7 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
   };
 
   const logout = async () => {
-    const token = localStorage.getItem('everestToken');
-    await api.delete('/session', { headers: { token: token } });
+    await deleteSession(localStorage.getItem('everestToken'));
     if (isSsoEnabled) {
       await userManager.clearStaleState();
       await setLogoutStatus();
@@ -149,28 +157,56 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     stopAuthorizerFetchLoop();
   }, [userManager]);
 
-  const silentlyRenewToken = useCallback(async () => {
-    try {
-      const newLoggedUser = await userManager.signinSilent();
-      if (newLoggedUser && newLoggedUser.access_token) {
-        localStorage.setItem('everestToken', newLoggedUser.access_token);
-      } else {
-        setLogoutStatus();
+  // Renews the Everest JWT from a still-valid IdP session, returning the new token
+  // or null if renewal is no longer possible. Also used by the 401 handler (see api.ts).
+  const refreshEverestToken = useCallback(async (): Promise<string | null> => {
+    const tokenBeforeLock = localStorage.getItem('everestToken');
+    return withSsoRenewLock(async () => {
+      // Another tab may have renewed while this one waited for the lock.
+      const currentToken = localStorage.getItem('everestToken');
+      if (currentToken !== tokenBeforeLock && isReusableToken(currentToken)) {
+        return currentToken;
       }
-    } catch (error) {
-      logAuthError('silent token renewal failed', error);
+      try {
+        const newLoggedUser = await userManager.signinSilent();
+        if (newLoggedUser?.id_token) {
+          return await exchangeAndStoreSsoToken(newLoggedUser.id_token);
+        }
+        return null;
+      } catch (error) {
+        logAuthError('silent token renewal failed', error);
+        return null;
+      }
+    });
+  }, [userManager]);
+
+  const silentlyRenewToken = useCallback(async () => {
+    const everestToken = await refreshEverestToken();
+    if (!everestToken) {
       setLogoutStatus();
     }
-  }, [userManager]);
+  }, [refreshEverestToken, setLogoutStatus]);
+
+  // 401 handler: renew only the current SSO session; never switch a built-in session to the IdP identity or revive a logout.
+  const renewAfterUnauthorized = useCallback(
+    async (rejectedToken: string | null) => {
+      const storedToken = localStorage.getItem('everestToken');
+      if (!storedToken) {
+        return null;
+      }
+      if (storedToken !== rejectedToken) {
+        return storedToken;
+      }
+      return isSsoSessionToken(storedToken) ? refreshEverestToken() : null;
+    },
+    [refreshEverestToken]
+  );
 
   useEffect(() => {
     if (isSsoEnabled) {
-      userManager.events.addUserLoaded((user) => {
-        localStorage.setItem('everestToken', user.access_token || '');
-        const decoded = jwtDecode(user.access_token || '');
-        setLoggedInStatus(decoded.sub || '');
-      });
-
+      // The token exchange has a single owner per path — onSignIn (login, see App.tsx) and
+      // silentlyRenewToken (renew). addUserLoaded must NOT exchange too, or every login/renew
+      // hits the IdP's rate-limited UserInfo endpoint twice and the two calls race.
       userManager.events.addAccessTokenExpiring(() => {
         silentlyRenewToken();
       });
@@ -190,6 +226,15 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
   }, [isSsoEnabled, silentlyRenewToken, userManager]);
 
   useEffect(() => {
+    if (!isSsoEnabled) {
+      return;
+    }
+    // Let the 401 handler renew the short-lived Everest JWT instead of logging out.
+    setTokenRefresher(renewAfterUnauthorized);
+    return () => setTokenRefresher(null);
+  }, [isSsoEnabled, renewAfterUnauthorized]);
+
+  useEffect(() => {
     if (isRunningInIframe()) {
       // This is running in the iframe, so we are renewing the token silently
       return;
@@ -199,6 +244,15 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
       return;
     }
 
+    const renewOnLoad = async () => {
+      const everestToken = await refreshEverestToken();
+      if (everestToken) {
+        setLoggedInStatus(getUsernameFromSub(jwtDecode(everestToken).sub));
+      } else {
+        setLogoutStatus();
+      }
+    };
+
     const authRoutine = async (token: string) => {
       try {
         const decoded = jwtDecode(token);
@@ -206,16 +260,17 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
         const exp = decoded.exp;
         if (iss === EVEREST_JWT_ISSUER) {
           const isTokenValid = await checkAuth(token);
-          const username =
-            decoded.sub?.substring(0, decoded.sub.indexOf(':')) || '';
           if (isTokenValid) {
-            setLoggedInStatus(username);
+            setLoggedInStatus(getUsernameFromSub(decoded.sub));
+          } else if (isSsoEnabled && isSsoSessionToken(token)) {
+            // Everest SSO JWTs expire independently of the IdP session (see jwtSSOExpiry).
+            await renewOnLoad();
           } else {
             setLogoutStatus();
           }
         } else {
           if (isAfter(new Date(), new Date((exp || 0) * 1000))) {
-            silentlyRenewToken();
+            await renewOnLoad();
             return;
           }
 
@@ -240,7 +295,7 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     }
 
     authRoutine(savedToken);
-  }, [authStatus, silentlyRenewToken, userManager]);
+  }, [authStatus, refreshEverestToken, userManager]);
 
   return (
     <AuthContext.Provider

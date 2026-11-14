@@ -39,7 +39,7 @@
     "@tanstack/react-query-devtools": "^5.24.0",
     "axios": "^1.15.1",
     "@xyflow/react": "^12.3.6",
-    "casbin.js": "^0.5.1",
+    "casbin.js": "^1.2.0",
     "cron-parser": "^4.9.0",
     "cron-time-generator": "^2.0.1",
     "css-mediaquery": "^0.1.2",

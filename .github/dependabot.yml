@@ -12,7 +12,162 @@
 version: 2
 updates:
   # ============================================================================
-  # v1: main branch (stable)
+  # v1: v1.x branch (stable)
+  # ============================================================================
+
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "go"
+    target-branch: "v1.x"
+    groups:
+      go-v1:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
+  - package-ecosystem: "gomod"
+    directory: "/tools"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "go"
+    target-branch: "v1.x"
+    groups:
+      go-tools-v1:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "docker"
+    target-branch: "v1.x"
+    groups:
+      docker-v1:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+  - package-ecosystem: "docker"
+    directory: "/dev"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "docker"
+    target-branch: "v1.x"
+    groups:
+      docker-dev-v1:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+  # GitHub Actions bumps warrant closer review than the rest: CI does not
+  # exercise the release workflows, so a breaking change there is only caught by
+  # reading release notes. Grouped so a single review covers the weekly batch,
+  # with a longer cooldown so freshly-yanked releases never reach us.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github_actions"
+    target-branch: "v1.x"
+    groups:
+      # github/codeql-action/init, /autobuild and /analyze are separate
+      # dependencies to Dependabot, so it opens a PR per sub-action. Merging
+      # them independently desynchronises the versions, and CodeQL then fails
+      # every analysis with "Loaded a configuration file for version X, but
+      # running version Y". Grouping keeps them atomic. No update-types filter,
+      # so majors group too — that is when a mismatch is guaranteed to break.
+      codeql-action-v1:
+        patterns:
+          - "github/codeql-action*"
+      github-actions-v1:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 7
+  - package-ecosystem: "npm"
+    directory: "/api-tests"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "javascript"
+    target-branch: "v1.x"
+    groups:
+      api-tests-v1:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
+  - package-ecosystem: "npm"
+    directory: "/ui"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "javascript"
+    target-branch: "v1.x"
+    groups:
+      ui-v1:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
+  - package-ecosystem: "npm"
+    directory: "/cli-tests"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "javascript"
+    target-branch: "v1.x"
+    groups:
+      cli-tests-v1:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
+
+  # ============================================================================
+  # v2: main branch (current major version)
   # ============================================================================
 
   - package-ecosystem: "gomod"
@@ -81,10 +236,6 @@ updates:
         update-types:
           - "minor"
           - "patch"
-  # GitHub Actions bumps warrant closer review than the rest: CI does not
-  # exercise the release workflows, so a breaking change there is only caught by
-  # reading release notes. Grouped so a single review covers the weekly batch,
-  # with a longer cooldown so freshly-yanked releases never reach us.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -157,157 +308,6 @@ updates:
     target-branch: "main"
     groups:
       cli-tests:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-    cooldown:
-      default-days: 3
-      semver-major-days: 14
-
-  # ============================================================================
-  # v2: release-2.0 branch (next major version)
-  # ============================================================================
-
-  - package-ecosystem: "gomod"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "dependencies"
-      - "go"
-    target-branch: "release-2.0"
-    groups:
-      go-v2:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-    cooldown:
-      default-days: 3
-      semver-major-days: 14
-  - package-ecosystem: "gomod"
-    directory: "/tools"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "dependencies"
-      - "go"
-    target-branch: "release-2.0"
-    groups:
-      go-tools-v2:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-    cooldown:
-      default-days: 3
-      semver-major-days: 14
-  - package-ecosystem: "docker"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "dependencies"
-      - "docker"
-    target-branch: "release-2.0"
-    groups:
-      docker-v2:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-  - package-ecosystem: "docker"
-    directory: "/dev"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "dependencies"
-      - "docker"
-    target-branch: "release-2.0"
-    groups:
-      docker-dev-v2:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "dependencies"
-      - "github_actions"
-    target-branch: "release-2.0"
-    groups:
-      # github/codeql-action/init, /autobuild and /analyze are separate
-      # dependencies to Dependabot, so it opens a PR per sub-action. Merging
-      # them independently desynchronises the versions, and CodeQL then fails
-      # every analysis with "Loaded a configuration file for version X, but
-      # running version Y". Grouping keeps them atomic. No update-types filter,
-      # so majors group too — that is when a mismatch is guaranteed to break.
-      codeql-action:
-        patterns:
-          - "github/codeql-action*"
-      github-actions-v2:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-    cooldown:
-      default-days: 7
-  - package-ecosystem: "npm"
-    directory: "/api-tests"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "dependencies"
-      - "javascript"
-    target-branch: "release-2.0"
-    groups:
-      api-tests-v2:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-    cooldown:
-      default-days: 3
-      semver-major-days: 14
-  - package-ecosystem: "npm"
-    directory: "/ui"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "dependencies"
-      - "javascript"
-    target-branch: "release-2.0"
-    groups:
-      ui-v2:
-        patterns:
-          - "*"
-        update-types:
-          - "minor"
-          - "patch"
-    cooldown:
-      default-days: 3
-      semver-major-days: 14
-  - package-ecosystem: "npm"
-    directory: "/cli-tests"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "dependencies"
-      - "javascript"
-    target-branch: "release-2.0"
-    groups:
-      cli-tests-v2:
         patterns:
           - "*"
         update-types:

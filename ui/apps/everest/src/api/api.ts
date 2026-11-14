@@ -27,11 +27,50 @@ export const api = axios.create({
   baseURL: BASE_URL,
 });
 
+// Returns a fresh Everest token, or null if the session can no longer be renewed.
+type TokenRefresher = (rejectedToken: string | null) => Promise<string | null>;
+
+let tokenRefresher: TokenRefresher | null = null;
+let refreshPromise: Promise<string | null> | null = null;
+
+// Registered by the auth provider on SSO-enabled instances; the refresher decides per session whether to renew.
+export const setTokenRefresher = (fn: TokenRefresher | null) => {
+  tokenRefresher = fn;
+};
+
+// Single-flight: concurrent 401s share one renewal so the IdP's UserInfo endpoint is hit once.
+const refreshAuthToken = (
+  rejectedToken: string | null
+): Promise<string | null> => {
+  if (!tokenRefresher) {
+    return Promise.resolve(null);
+  }
+  if (!refreshPromise) {
+    refreshPromise = tokenRefresher(rejectedToken).finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+};
+
+const getBearerToken = (authorizationHeader: unknown) =>
+  typeof authorizationHeader === 'string'
+    ? authorizationHeader.replace(/^Bearer /, '')
+    : null;
+
+const isAuthError = (
+  error: AxiosError<{ message?: string }>,
+  message: string
+) =>
+  error.response?.status === 401 ||
+  (error.response?.status === 400 &&
+    message.includes(MISSING_MALFORMED_JWT_MESSAGE));
+
 export const addApiErrorInterceptor = () => {
   if (errorInterceptor === null) {
     errorInterceptor = api.interceptors.response.use(
       (response) => response,
-      (error: AxiosError<{ message?: string }>) => {
+      async (error: AxiosError<{ message?: string }>) => {
         if (
           error.response &&
           error.response.status >= 400 &&
@@ -45,11 +84,25 @@ export const addApiErrorInterceptor = () => {
             notificationsDisabled = notificationsDisabled(error);
           }
 
-          if (
-            error.response.status === 401 ||
-            (error.response.status === 400 &&
-              message.includes(MISSING_MALFORMED_JWT_MESSAGE))
-          ) {
+          if (isAuthError(error, message)) {
+            const config = error.config;
+            // Try a one-time silent renew + replay before giving up, so a valid IdP
+            // session isn't logged out when the short-lived Everest JWT lapses.
+            if (
+              config &&
+              !config.authRefreshAttempted &&
+              !config.skipAuthRefresh &&
+              tokenRefresher
+            ) {
+              const newToken = await refreshAuthToken(
+                getBearerToken(config.headers['Authorization'])
+              );
+              if (newToken) {
+                config.authRefreshAttempted = true;
+                config.headers['Authorization'] = `Bearer ${newToken}`;
+                return api(config);
+              }
+            }
             location.href = '/logout';
             return;
           }

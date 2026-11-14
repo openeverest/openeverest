@@ -60,6 +60,15 @@ import (
 	"github.com/percona/everest/public"
 )
 
+// Timeouts for the plain-HTTP and TLS listeners. WriteTimeout is deliberately left unset:
+// GetDatabaseClusterComponentLogs streams a long-lived response that a server-wide write
+// deadline would cut off.
+const (
+	httpReadHeaderTimeout = 5 * time.Second
+	httpReadTimeout       = 60 * time.Second
+	httpIdleTimeout       = 120 * time.Second
+)
+
 // EverestServer represents the server struct.
 type EverestServer struct {
 	config        *config.EverestConfig
@@ -69,8 +78,12 @@ type EverestServer struct {
 	kubeStreamer  clientgo.Interface
 	sessionMgr    *session.Manager
 	attemptsStore *RateLimiterMemoryStore
-	handler       handlers.Handler
-	oidcProvider  *oidc.ProviderConfig
+	// ssoAttemptsStore is separate so SSO renewals neither consume nor penalize password logins.
+	ssoAttemptsStore *RateLimiterMemoryStore
+	handler          handlers.Handler
+	oidcProvider     *oidc.ProviderConfig
+	// ssoTokenVerifier validates the ID tokens exchanged for Everest JWTs; nil when OIDC is not configured.
+	ssoTokenVerifier *oidc.IDTokenVerifier
 }
 
 func getOIDCProviderConfig(ctx context.Context, kubeClient kubernetes.KubernetesConnector) (*oidc.ProviderConfig, error) {
@@ -92,8 +105,24 @@ func getOIDCProviderConfig(ctx context.Context, kubeClient kubernetes.Kubernetes
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to create OIDC provider config"))
 	}
+	oidcProvider.ClientID = oidcConfig.ClientID
 
 	return &oidcProvider, nil
+}
+
+// newSSOTokenVerifier returns nil, disabling only the SSO token exchange, when OIDC is not
+// configured or its settings are invalid. Password login must keep working while an
+// administrator fixes the OIDC settings.
+func newSSOTokenVerifier(ctx context.Context, l *zap.SugaredLogger, provider *oidc.ProviderConfig) *oidc.IDTokenVerifier {
+	if provider == nil {
+		return nil
+	}
+	verifier, err := provider.NewIDTokenVerifier(ctx)
+	if err != nil {
+		l.Errorf("SSO is disabled because the OIDC settings are invalid: %v", err)
+		return nil
+	}
+	return verifier
 }
 
 // NewEverestServer creates and configures everest API.
@@ -111,9 +140,25 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 	}
 
 	echoServer := echo.New()
+	// Pre() so it also wraps the Pre() middlewares; the bare HTTPError keeps the
+	// panic text out of the response body.
+	echoServer.Pre(echomiddleware.RecoverWithConfig(echomiddleware.RecoverConfig{
+		LogErrorFunc: func(c echo.Context, err error, stack []byte) error {
+			l.Errorw(
+				"panic recovered while serving request",
+				"error", err,
+				"method", c.Request().Method,
+				"uri", c.Request().RequestURI,
+				"stack", string(stack),
+			)
+			return echo.NewHTTPError(http.StatusInternalServerError)
+		},
+	}))
 	echoServer.Use(echomiddleware.RateLimiter(echomiddleware.NewRateLimiterMemoryStore(rate.Limit(c.APIRequestsRateLimit))))
-	middleware, store := sessionRateLimiter(c.CreateSessionRateLimit)
+	middleware, store := pathRateLimiter("/v1/session", c.CreateSessionRateLimit)
 	echoServer.Use(middleware)
+	ssoMiddleware, ssoStore := pathRateLimiter("/v1/session/sso", c.CreateSSOSessionRateLimit)
+	echoServer.Use(ssoMiddleware)
 
 	sessionManagerClient, err := createSessionManagerClient(ctx, l)
 	if err != nil {
@@ -133,14 +178,16 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 	}
 
 	e := &EverestServer{
-		config:        c,
-		l:             l,
-		echo:          echoServer,
-		kubeConnector: kubeConnector,
-		kubeStreamer:  kubeStreamer,
-		sessionMgr:    sessMgr,
-		attemptsStore: store,
-		oidcProvider:  oidcProvider,
+		config:           c,
+		l:                l,
+		echo:             echoServer,
+		kubeConnector:    kubeConnector,
+		kubeStreamer:     kubeStreamer,
+		sessionMgr:       sessMgr,
+		attemptsStore:    store,
+		ssoAttemptsStore: ssoStore,
+		oidcProvider:     oidcProvider,
+		ssoTokenVerifier: newSSOTokenVerifier(ctx, l, oidcProvider),
 	}
 	e.echo.HTTPErrorHandler = e.errorHandlerChain()
 
@@ -187,6 +234,10 @@ func (t *Template) Render(w io.Writer, name string, data any, _ echo.Context) er
 
 // initHTTPServer configures http server for the current EverestServer instance.
 func (e *EverestServer) initHTTPServer(ctx context.Context) error {
+	e.echo.Server.ReadHeaderTimeout = httpReadHeaderTimeout
+	e.echo.Server.ReadTimeout = httpReadTimeout
+	e.echo.Server.IdleTimeout = httpIdleTimeout
+
 	// Serve the index.html file.
 	indexFS := echo.MustSubFS(public.Index, "dist")
 	e.echo.Renderer = &Template{
@@ -239,7 +290,7 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	}))
 
 	// Setup and use JWT middleware.
-	jwtMW, err := e.jwtMiddleWare(ctx)
+	jwtMW, err := e.jwtMiddleWare()
 	if err != nil {
 		return err
 	}
@@ -308,7 +359,8 @@ func (e *EverestServer) setupHandlers(
 	if err != nil {
 		return errors.Join(err, errors.New("could not create rbac handler"))
 	}
-	e.setHandlers(valH, rbacH, k8sH)
+	// RBAC runs first: the validation handler dials request-supplied endpoints with request-supplied credentials.
+	e.setHandlers(rbacH, valH, k8sH)
 	return nil
 }
 
@@ -330,44 +382,25 @@ func newHandlerChain(hs ...handlers.Handler) handlers.Handler { //nolint:ireturn
 	return hs[0]
 }
 
-func (e *EverestServer) newJWTKeyFunc(ctx context.Context) (jwt.Keyfunc, error) {
-	var oidcKeyFn jwt.Keyfunc
-	if e.oidcProvider != nil {
-		fn, err := e.oidcProvider.NewKeyFunc(ctx)
-		if err != nil {
-			return nil, errors.Join(err, errors.New("failed to get OIDC key function"))
-		}
-		oidcKeyFn = fn
+// everestJWTKeyFunc accepts only Everest-signed JWTs. Tokens issued by the OIDC provider are
+// never accepted as API credentials: they must be exchanged first (see CreateSSOSession),
+// which checks that the provider issued them to the Everest client.
+func (e *EverestServer) everestJWTKeyFunc(token *jwt.Token) (any, error) {
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, errors.New("failed to get claims from token")
 	}
-
-	return func(token *jwt.Token) (any, error) {
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			return nil, errors.New("failed to get claims from token")
-		}
-		issuer, err := claims.GetIssuer()
-		if err != nil {
-			return "", errors.Join(err, errors.New("failed to get issuer from claims"))
-		}
-
-		if issuer == session.SessionManagerClaimsIssuer {
-			return e.sessionMgr.KeyFunc()(token)
-		}
-		// XXX: currently we use OIDC only, but once we have multiple protocols supported,
-		// we should have a way to select which KeyFunc to use.
-		if oidcKeyFn != nil {
-			return oidcKeyFn(token)
-		}
-		return nil, errors.New("no key found for token")
-	}, nil
+	issuer, err := claims.GetIssuer()
+	if err != nil {
+		return nil, errors.Join(err, errors.New("failed to get issuer from claims"))
+	}
+	if issuer != session.SessionManagerClaimsIssuer {
+		return nil, fmt.Errorf("tokens issued by %q are not accepted", issuer)
+	}
+	return e.sessionMgr.KeyFunc()(token)
 }
 
-func (e *EverestServer) jwtMiddleWare(ctx context.Context) (echo.MiddlewareFunc, error) {
-	keyFunc, err := e.newJWTKeyFunc(ctx)
-	if err != nil {
-		return nil, err
-	}
-
+func (e *EverestServer) jwtMiddleWare() (echo.MiddlewareFunc, error) {
 	skipper, err := newSkipperFunc()
 	if err != nil {
 		return nil, err
@@ -377,7 +410,7 @@ func (e *EverestServer) jwtMiddleWare(ctx context.Context) (echo.MiddlewareFunc,
 	return echojwt.WithConfig(echojwt.Config{
 		Skipper:     skipper,
 		TokenLookup: tokenLookup,
-		KeyFunc:     keyFunc,
+		KeyFunc:     e.everestJWTKeyFunc,
 		ContextKey:  common.UserCtxKey,
 		SuccessHandler: func(c echo.Context) {
 			// The user key exists only in the echo.Context object.
@@ -436,15 +469,21 @@ func (e *EverestServer) startHTTPS(ctx context.Context, addr string) error {
 		}
 	}()
 
-	e.echo.TLSServer = &http.Server{
+	e.echo.TLSServer = e.newTLSServer(addr, watcher)
+	return e.echo.StartServer(e.echo.TLSServer)
+}
+
+func (e *EverestServer) newTLSServer(addr string, watcher *certwatcher.CertWatcher) *http.Server {
+	return &http.Server{
 		Addr:              addr,
-		ReadHeaderTimeout: 5 * time.Second,
+		ReadHeaderTimeout: httpReadHeaderTimeout,
+		ReadTimeout:       httpReadTimeout,
+		IdleTimeout:       httpIdleTimeout,
 		TLSConfig: &tls.Config{
 			// server periodically calls GetCertificate and reloads the certificate.
 			GetCertificate: watcher.GetCertificate,
 		},
 	}
-	return e.echo.StartServer(e.echo.TLSServer)
 }
 
 func (e *EverestServer) getBodyFromContext(ctx echo.Context, into any) error {
@@ -461,12 +500,13 @@ func (e *EverestServer) getBodyFromContext(ctx echo.Context, into any) error {
 	return nil
 }
 
-func sessionRateLimiter(limit int) (echo.MiddlewareFunc, *RateLimiterMemoryStore) {
-	allButSession := func(c echo.Context) bool {
-		return c.Request().URL.Path != "/v1/session"
-	}
+// pathRateLimiter limits requests to a single path per client IP. The returned store is also
+// used by the handler to back off a client after failed attempts.
+func pathRateLimiter(path string, limit int) (echo.MiddlewareFunc, *RateLimiterMemoryStore) {
 	config := echomiddleware.DefaultRateLimiterConfig
-	config.Skipper = allButSession
+	config.Skipper = func(c echo.Context) bool {
+		return c.Request().URL.Path != path
+	}
 	store := NewRateLimiterMemoryStoreWithConfig(RateLimiterMemoryStoreConfig{
 		Rate: rate.Limit(limit),
 	})

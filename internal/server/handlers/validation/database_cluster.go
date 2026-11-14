@@ -658,7 +658,7 @@ func validateDBEngineVersionUpgrade(engineType everestv1alpha1.EngineType, newVe
 	}
 
 	// Check semver validity.
-	if !semver.IsValid(newVersion) {
+	if !semver.IsValid(newVersion) || !semver.IsValid(oldVersion) {
 		return errInvalidVersion
 	}
 

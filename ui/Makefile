@@ -9,7 +9,7 @@ test:
 	pnpm test
 
 build:
-	EVEREST_OUT_DIR=$(EVEREST_OUT_DIR) pnpm build
+	EVEREST_OUT_DIR="$(EVEREST_OUT_DIR)" pnpm build
 
 lint:
 	pnpm lint

@@ -12,7 +12,7 @@ Build and runtime logs can be easily accessed using tilt's web UI.
 
 ## Prerequisites
 
-1. Install [Go](https://go.dev/dl/) (version 1.26 or later)
+1. Install [Go](https://go.dev/dl/) (version 1.27 or later)
 
 2. Install [Docker](https://docs.docker.com/engine/install/)
 
@@ -104,7 +104,7 @@ Copy file dev/config.yaml.example to dev/config.yaml and:
 3. (Optional) If you want to test a specific version of a given DB operator you can set the following environment variables in .env file or in the terminal:
 ```sh
 export PXC_OPERATOR_VERSION=1.19.0
-export PSMDB_OPERATOR_VERSION=1.22.0
+export PSMDB_OPERATOR_VERSION=1.23.0
 export PG_OPERATOR_VERSION=2.8.2
 ```
 

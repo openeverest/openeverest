@@ -15,7 +15,7 @@ jobs:
       contents: read
       packages: write
     if: contains(github.event.pull_request.labels.*.name, 'feature-build')
-    uses: ./.github/workflows/feature-build.yaml
+    uses: ./.github/workflows/feature-build-v1.yaml
     with:
       vs_branch: ${{ github.event.pull_request.head.ref }}
       helm_branch: ${{ github.event.pull_request.head.ref }}
