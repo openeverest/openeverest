@@ -83,10 +83,18 @@ func (h *rbacHandler) DeleteRestore(ctx context.Context, cluster, namespace, nam
 // to, so a backup reference is resolved through GetBackup, which also collapses
 // a missing backup into ErrInsufficientPermissions. A PITR source with no
 // instanceRef recovers target's own stream, as StreamSource defaults it.
+// Seeding target from another instance also needs read-connection on it.
+// Presets pass an empty target, so their PITR source must name an instance.
 func (h *rbacHandler) ensureDataSourceReadable(ctx context.Context, cluster, namespace, target string, dataSource backupv1alpha1.DataSource) error {
 	if dataSource.Backup != nil {
-		if _, err := h.GetBackup(ctx, cluster, namespace, dataSource.Backup.BackupRef.Name); err != nil {
+		backup, err := h.GetBackup(ctx, cluster, namespace, dataSource.Backup.BackupRef.Name)
+		if err != nil {
 			return err
+		}
+		if ref := backup.Spec.Origin.InstanceRef; ref != nil {
+			if err := h.ensureSourceConnectionReadable(ctx, cluster, namespace, target, ref.Name); err != nil {
+				return err
+			}
 		}
 	}
 	if pitr := dataSource.PointInTime; pitr != nil {
@@ -102,6 +110,27 @@ func (h *rbacHandler) ensureDataSourceReadable(ctx context.Context, cluster, nam
 		if err := h.enforce(ctx, rbac.ResourceBackups, rbac.ActionRead, backupsObject); err != nil {
 			return err
 		}
+		if err := h.ensureSourceConnectionReadable(ctx, cluster, namespace, target, sourceInstance); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+// ensureSourceConnectionReadable checks the caller may read the connection
+// details of source when target is seeded from a different instance. The
+// source's data and DB users end up in target, and some providers copy its
+// users secret too, so this follows the same reasoning as
+// ensureUserSecretReadable. Restoring an instance from its own backups needs
+// no extra permission.
+func (h *rbacHandler) ensureSourceConnectionReadable(ctx context.Context, cluster, namespace, target, source string) error {
+	// An empty source names no instance, but a namespace-wide grant would match it.
+	if source == "" {
+		return ErrInsufficientPermissions
+	}
+	if source == target {
+		return nil
+	}
+	object := rbac.ClusterNamespacedObjectName(cluster, namespace, source)
+	return h.enforce(ctx, rbac.ResourceInstances, rbac.ActionReadConnection, object)
 }

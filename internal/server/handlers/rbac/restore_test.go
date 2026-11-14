@@ -217,11 +217,17 @@ func TestRBAC_Restore(t *testing.T) {
 			restore.Spec.DataSource.PointInTime.Source.InstanceRef = nil
 			return restore
 		}
+		fromOwnBackup := func() *backupv1alpha1.Restore {
+			restore := fromBackup()
+			restore.Spec.DataSource.Backup.BackupRef.Name = "own-backup"
+			return restore
+		}
 		const (
 			createRestore = "p, role:test, restores, create, prod/ns1/instance-1"
 			readTarget    = "p, role:test, backups, read, prod/ns1/instance-1"
 			readSource    = "p, role:test, backups, read, prod/ns1/source-db"
 			readStorage   = "p, role:test, backup-storages, read, prod/ns1/s3"
+			connectSource = "p, role:test, instances, read-connection, prod/ns1/source-db"
 		)
 
 		for _, tc := range []struct {
@@ -230,9 +236,13 @@ func TestRBAC_Restore(t *testing.T) {
 			policy   []string
 			wantDeny bool
 		}{
-			{desc: "backup readable", restore: fromBackup(), policy: []string{createRestore, readSource}},
+			{desc: "backup readable", restore: fromBackup(), policy: []string{createRestore, readSource, connectSource}},
 			{desc: "backup not readable", restore: fromBackup(), policy: []string{createRestore}, wantDeny: true},
-			{desc: "pitr source readable", restore: fromPITR(), policy: []string{createRestore, readSource, readStorage}},
+			// Restoring from another instance's data needs read-connection on it.
+			{desc: "backup of another instance without read-connection", restore: fromBackup(), policy: []string{createRestore, readSource}, wantDeny: true},
+			{desc: "own backup needs no read-connection", restore: fromOwnBackup(), policy: []string{createRestore, readTarget}},
+			{desc: "pitr source readable", restore: fromPITR(), policy: []string{createRestore, readSource, readStorage, connectSource}},
+			{desc: "pitr of another instance without read-connection", restore: fromPITR(), policy: []string{createRestore, readSource, readStorage}, wantDeny: true},
 			{desc: "pitr storage not readable", restore: fromPITR(), policy: []string{createRestore, readSource}, wantDeny: true},
 			// An omitted source instanceRef recovers the target's own stream.
 			{desc: "in-place pitr readable via the target", restore: inPlacePITR(), policy: []string{createRestore, readTarget, readStorage}},
@@ -248,6 +258,16 @@ func TestRBAC_Restore(t *testing.T) {
 						Spec: backupv1alpha1.BackupSpec{Origin: backupv1alpha1.BackupOrigin{
 							Type:        backupv1alpha1.BackupOriginTypeInstance,
 							InstanceRef: &objectref.ObjectRef{Name: "source-db"},
+						}},
+					},
+					nil,
+				)
+				next.On("GetBackup", mock.Anything, mock.Anything, mock.Anything, "own-backup").Return(
+					&backupv1alpha1.Backup{
+						ObjectMeta: metav1.ObjectMeta{Name: "own-backup", Namespace: "ns1"},
+						Spec: backupv1alpha1.BackupSpec{Origin: backupv1alpha1.BackupOrigin{
+							Type:        backupv1alpha1.BackupOriginTypeInstance,
+							InstanceRef: &objectref.ObjectRef{Name: "instance-1"},
 						}},
 					},
 					nil,

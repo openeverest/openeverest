@@ -82,7 +82,7 @@ func (h *rbacHandler) ensureInstancePresetReferencesAuthorized(ctx context.Conte
 	if err := h.enforceReadMonitoringDestinations(ctx, cluster, preset.GetNamespace(), preset.Spec.Monitoring, currentMonitoring); err != nil {
 		return err
 	}
-	return h.ensureInstanceReferencesAuthorized(ctx, cluster, preset.GetNamespace(), preset.GetName(), currentSpec, preset.Spec.InstanceSpec, false)
+	return h.ensureInstanceReferencesAuthorized(ctx, cluster, preset.GetNamespace(), "", currentSpec, preset.Spec.InstanceSpec, false)
 }
 
 // UpdateInstancePreset updates a namespace-scoped instance preset, gated by RBAC.

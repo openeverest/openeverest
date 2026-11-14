@@ -1386,7 +1386,7 @@ func TestRBAC_Instance(t *testing.T) {
 func TestRBAC_InstanceReferences(t *testing.T) {
 	t.Parallel()
 
-	const basePolicy = "p, role:test, instances, *, prod/ns1/*\ng, bob, role:test"
+	const basePolicy = "p, role:test, instances, *, prod/ns1/db1\ng, bob, role:test"
 
 	withStorages := func(storages ...corev1alpha1.InstanceBackupStorage) *corev1alpha1.InstanceBackupSpec {
 		return &corev1alpha1.InstanceBackupSpec{ClassRef: apicommon.ObjectRef{Name: "pbm"}, Storages: storages}
@@ -1444,6 +1444,7 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 		createBackups = "p, role:test, backups, create, prod/ns1/db1"
 		createRestore = "p, role:test, restores, create, prod/ns1/db1"
 		readSource    = "p, role:test, backups, read, prod/ns1/source-db"
+		connectSource = "p, role:test, instances, read-connection, prod/ns1/source-db"
 	)
 
 	createCases := []struct {
@@ -1459,7 +1460,8 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 		{desc: "backup class not readable", spec: corev1alpha1.InstanceSpec{Backup: withStorages(storage("s1"))}, policy: []string{readProvider, readS1}, wantDeny: true},
 		{desc: "schedules with backups create", spec: corev1alpha1.InstanceSpec{Backup: withStorages(scheduled("s1"))}, policy: []string{readProvider, readClass, readS1, createBackups}},
 		{desc: "schedules without backups create", spec: corev1alpha1.InstanceSpec{Backup: withStorages(scheduled("s1"))}, policy: []string{readProvider, readClass, readS1}, wantDeny: true},
-		{desc: "data source readable", spec: corev1alpha1.InstanceSpec{DataSource: fromBackup}, policy: []string{readProvider, createRestore, readSource}},
+		{desc: "data source readable", spec: corev1alpha1.InstanceSpec{DataSource: fromBackup}, policy: []string{readProvider, createRestore, readSource, connectSource}},
+		{desc: "data source from another instance without read-connection", spec: corev1alpha1.InstanceSpec{DataSource: fromBackup}, policy: []string{readProvider, createRestore, readSource}, wantDeny: true},
 		{desc: "data source without restores create", spec: corev1alpha1.InstanceSpec{DataSource: fromBackup}, policy: []string{readProvider, readSource}, wantDeny: true},
 		{desc: "data source backup not readable", spec: corev1alpha1.InstanceSpec{DataSource: fromBackup}, policy: []string{readProvider, createRestore}, wantDeny: true},
 	}
@@ -1503,6 +1505,12 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 		{desc: "removing schedules needs no backups create", mutate: func(i *corev1alpha1.Instance) {
 			i.Spec.Backup.Storages[0].Schedules = nil
 		}},
+		{desc: "adding a data source from another instance without read-connection", mutate: func(i *corev1alpha1.Instance) {
+			i.Spec.DataSource = fromBackup
+		}, policy: []string{createRestore, readSource}, wantDeny: true},
+		{desc: "adding a data source from another instance with read-connection", mutate: func(i *corev1alpha1.Instance) {
+			i.Spec.DataSource = fromBackup
+		}, policy: []string{createRestore, readSource, connectSource}},
 	}
 	for _, tc := range updateCases {
 		t.Run("UpdateInstance/"+tc.desc, func(t *testing.T) {
@@ -1596,7 +1604,7 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 	})
 
 	// A preset-only caller inherits the preset's vetted references, but not
-	// a user secret they supply.
+	// a user secret they supply, nor a cluster preset's unvetted data source.
 	t.Run("CreateInstance from preset", func(t *testing.T) {
 		t.Parallel()
 		presetSpec := corev1alpha1.InstanceSpec{
@@ -1606,12 +1614,19 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 		for _, tc := range []struct {
 			desc     string
 			secret   *apicommon.SecretRef
+			source   *backupv1alpha1.DataSource
 			policy   []string
 			wantDeny bool
 		}{
 			{desc: "pinned storage needs no grant"},
 			{desc: "user secret still checked", secret: &apicommon.SecretRef{Name: "creds"}, wantDeny: true},
 			{desc: "readable user secret", secret: &apicommon.SecretRef{Name: "creds"}, policy: []string{"p, role:deployer, secrets, read, prod/ns1/creds"}},
+			{desc: "data source still checked", source: fromBackup, wantDeny: true},
+			{desc: "data source without read-connection on the source", source: fromBackup, policy: []string{"p, role:deployer, backups, read, prod/ns1/source-db"}, wantDeny: true},
+			{desc: "readable data source", source: fromBackup, policy: []string{
+				"p, role:deployer, backups, read, prod/ns1/source-db",
+				"p, role:deployer, instances, read-connection, prod/ns1/source-db",
+			}},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -1630,10 +1645,18 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 
 				spec := *presetSpec.DeepCopy()
 				spec.UserSecretRef = tc.secret
+				spec.DataSource = tc.source
 				preset := &corev1alpha1.ClusterInstancePreset{Spec: corev1alpha1.ClusterInstancePresetSpec{InstanceSpec: spec}}
 				next := &handlers.MockHandler{}
 				next.On("GetClusterInstancePreset", mock.Anything, mock.Anything, mock.Anything).Return(preset, nil)
 				next.On("CreateInstance", mock.Anything, mock.Anything, mock.Anything).Return(stored(), nil)
+				next.On("GetBackup", mock.Anything, mock.Anything, mock.Anything, "backup-1").Return(&backupv1alpha1.Backup{
+					ObjectMeta: metav1.ObjectMeta{Name: "backup-1", Namespace: "ns1"},
+					Spec: backupv1alpha1.BackupSpec{Origin: backupv1alpha1.BackupOrigin{
+						Type:        backupv1alpha1.BackupOriginTypeInstance,
+						InstanceRef: &apicommon.ObjectRef{Name: "source-db"},
+					}},
+				}, nil)
 				h := &rbacHandler{next: next, log: zap.NewNop().Sugar(), enforcer: enf, userGetter: testUserGetter}
 
 				instance := &corev1alpha1.Instance{
