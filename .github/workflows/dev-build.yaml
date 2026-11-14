@@ -8,9 +8,6 @@ on:
 
 env:
   NODE_OPTIONS: "--max_old_space_size=4096"
-  GONOPROXY: 'github.com/percona'
-  GONOSUMDB: 'github.com/percona'
-  GOPRIVATE: 'github.com/percona'
   REGISTRY: ghcr.io
 
 permissions:
