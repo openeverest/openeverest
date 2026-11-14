@@ -28,6 +28,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	toolscache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -794,17 +795,27 @@ func (r *ProviderReconciler) handleDeletion(
 // Each child Backup's own .spec.deletionPolicy controls whether the
 // underlying data in the BackupStorage is purged or retained — this function
 // only triggers Delete on the CR itself and never overrides that decision.
+//
+// CRs claimed by an earlier Instance with the same name are skipped: they
+// were kept when that Instance was deleted with the Orphan policy.
 func (r *ProviderReconciler) cascadeDeleteChildren(
 	ctx context.Context,
 	inCtx *controller.Context,
 	logger interface{ Info(string, ...interface{}) },
 ) (int, error) {
+	uid := inCtx.Instance().UID
+	remaining := 0
+
 	backups, err := inCtx.BackupsForInstance()
 	if err != nil {
 		return 0, fmt.Errorf("list backups for cascade delete: %w", err)
 	}
 	for i := range backups {
 		b := &backups[i]
+		if claimedByOtherInstance(b, uid) {
+			continue
+		}
+		remaining++
 		if !b.GetDeletionTimestamp().IsZero() {
 			continue
 		}
@@ -820,6 +831,10 @@ func (r *ProviderReconciler) cascadeDeleteChildren(
 	}
 	for i := range restores {
 		rs := &restores[i]
+		if claimedByOtherInstance(rs, uid) {
+			continue
+		}
+		remaining++
 		if !rs.GetDeletionTimestamp().IsZero() {
 			continue
 		}
@@ -829,7 +844,25 @@ func (r *ProviderReconciler) cascadeDeleteChildren(
 		logger.Info("Cascade delete: issued Delete on Restore", "name", rs.Name)
 	}
 
-	return len(backups) + len(restores), nil
+	return remaining, nil
+}
+
+// claimInstanceUID records on obj the UID of the Instance it is claimed for.
+func claimInstanceUID(obj client.Object, in *v1alpha1.Instance) {
+	labels := obj.GetLabels()
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels[controller.InstanceUIDLabel] = string(in.UID)
+	obj.SetLabels(labels)
+}
+
+// claimedByOtherInstance reports whether obj was claimed for an Instance
+// other than the one with this UID. CRs claimed before the label existed
+// carry none and are treated as this Instance's.
+func claimedByOtherInstance(obj client.Object, uid types.UID) bool {
+	claimed, ok := obj.GetLabels()[controller.InstanceUIDLabel]
+	return ok && claimed != string(uid)
 }
 
 // reconcileConnectionSecret creates or updates the connection details Secret
