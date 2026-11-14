@@ -24,7 +24,6 @@ import (
 	"slices"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	"github.com/google/go-cmp/cmp"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
@@ -83,11 +82,11 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 		return nil, fmt.Errorf("enforce create permission failed: %w", err)
 	}
 
-	// If user does not have deploy permission, reject.
-	// instances:deploy implies backups:create and restores:create on the new
-	// instance for the schedules, PITR and data source the preset pins: they are
-	// keyed on the instance, which does not exist when the preset is written.
-	if err = h.enforce(ctx, rbac.ResourceInstances, rbac.ActionDeploy, object); err != nil {
+	// Without create, the instance must be an exact copy of a preset.
+	// instances:create-from-preset implies backups:create and restores:create on
+	// the new instance for the schedules, PITR and data source the preset pins:
+	// they are keyed on the instance, which does not exist when the preset is written.
+	if err = h.enforce(ctx, rbac.ResourceInstances, rbac.ActionCreateFromPreset, object); err != nil {
 		return nil, err
 	}
 
@@ -111,7 +110,7 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 			return nil, err
 		}
 
-		// User has deploy permission, check instance matches preset exactly
+		// Reading the preset comes first, so only users who may see it learn how the instance differs from it.
 		if err = h.ensureMatchesInstancePreset(ctx, cluster, instance, instancePreset); err != nil {
 			return nil, err
 		}
@@ -122,7 +121,6 @@ func (h *rbacHandler) CreateInstance(ctx context.Context, cluster string, instan
 			return nil, err
 		}
 
-		// User has deploy permission, check instance matches preset exactly
 		if err = h.ensureMatchesClusterInstancePreset(ctx, cluster, instance, clusterInstancePreset); err != nil {
 			return nil, err
 		}
@@ -256,43 +254,36 @@ func (h *rbacHandler) enforceReadMonitoringDestinations(ctx context.Context, clu
 	return nil
 }
 
-// ensureMatchesInstancePreset checks if an instance spec matches its referenced instance preset.
-// Returns an error if the instance has been customized beyond the preset values.
+// ensureMatchesInstancePreset checks the instance is an exact copy of the instance preset it names.
 func (h *rbacHandler) ensureMatchesInstancePreset(ctx context.Context, cluster string, instance *corev1alpha1.Instance, presetName string) error {
 	preset, err := h.next.GetInstancePreset(ctx, cluster, instance.GetNamespace(), presetName)
 	if err != nil {
 		return fmt.Errorf("failed to get preset %s: %w", presetName, err)
 	}
-
-	if diff := cmp.Diff(preset.Spec.InstanceSpec, instance.Spec); diff != "" {
-		h.log.Warnf("Instance spec customization detected for preset %s: %s", presetName, diff)
-		return ErrInsufficientPermissions
-	}
-
-	return nil
+	return h.logMismatch(presetMismatch(instance, preset.Spec.InstanceSpec, "InstancePreset", presetName, common.InstancePresetAnnotation))
 }
 
-// ensureMatchesClusterInstancePreset checks if an instance spec matches its referenced cluster instance preset.
-// Returns an error if the instance has been customized beyond the preset values.
+// ensureMatchesClusterInstancePreset checks the instance is an exact copy of the cluster instance preset it names.
 func (h *rbacHandler) ensureMatchesClusterInstancePreset(ctx context.Context, cluster string, instance *corev1alpha1.Instance, presetName string) error {
 	preset, err := h.next.GetClusterInstancePreset(ctx, cluster, presetName)
 	if err != nil {
 		return fmt.Errorf("failed to get cluster preset %s: %w", presetName, err)
 	}
+	return h.logMismatch(presetMismatch(instance, preset.Spec.InstanceSpec, "ClusterInstancePreset", presetName, common.ClusterInstancePresetAnnotation))
+}
 
-	if diff := cmp.Diff(preset.Spec.InstanceSpec, instance.Spec); diff != "" {
-		h.log.Warnf("Instance spec customization detected for preset %s: %s", presetName, diff)
-		return ErrInsufficientPermissions
+func (h *rbacHandler) logMismatch(err error) error {
+	if err != nil {
+		h.log.Warnf("Permission denied: %s", err)
 	}
-
-	return nil
+	return err
 }
 
 // ensureInstanceReferencesAuthorized checks the caller may use every resource the instance spec points at.
 // On update, current is the stored instance spec and only references the request adds or changes are checked,
 // so losing a grant on an untouched reference doesn't lock the caller out of editing unrelated fields.
 // requireBackupAndRestoreCreate also checks backups:create and restores:create on the instance.
-// Presets pass false: there is no instance yet, and instances:deploy implies both.
+// Presets pass false: there is no instance yet, and instances:create-from-preset implies both.
 func (h *rbacHandler) ensureInstanceReferencesAuthorized(
 	ctx context.Context,
 	cluster, namespace, name string,

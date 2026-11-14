@@ -598,6 +598,7 @@ func (e *EverestServer) errorHandlerChain() echo.HTTPErrorHandler {
 func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 	return func(err error, c echo.Context) {
 		echoErrTarget := &echo.HTTPError{}
+		presetMismatch := &rbachandler.PresetMismatchError{}
 		inUseMessage, inUse := inUseDenialMessage(err)
 		notWritable, managedElsewhere := secretManagedElsewhere(err)
 		switch {
@@ -670,6 +671,16 @@ func everestErrorHandler(next echo.HTTPErrorHandler) echo.HTTPErrorHandler {
 					Message: message,
 					Reason:  string(metav1.StatusReasonConflict),
 					Field:   conflictField(message),
+				},
+			}
+		// Before the plain 403 it also is, so the user can tell the two apart.
+		case errors.As(err, &presetMismatch):
+			err = &echo.HTTPError{
+				Code: http.StatusForbidden,
+				Message: apiErrorBody{
+					Message: presetMismatch.Error(),
+					Reason:  reasonPresetMismatch,
+					Causes:  presetMismatch.Causes(),
 				},
 			}
 		case errors.Is(err, rbachandler.ErrInsufficientPermissions):
@@ -766,6 +777,10 @@ func trimWebhookErrorText(fullText string) string {
 // reasonInUse is the reason of the 409 answering a deletion refused because
 // the object is still in use.
 const reasonInUse = "InUse"
+
+// reasonPresetMismatch is the reason of the 403 answering an instance created
+// with instances:create-from-preset that is not an exact copy of its preset.
+const reasonPresetMismatch = "PresetMismatch"
 
 // inUsePolicy matches the name of a ValidatingAdmissionPolicy that refuses
 // deleting an object still in use: <resource>-in-use.<group>, whatever

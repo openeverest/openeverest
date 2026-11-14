@@ -473,6 +473,9 @@ export interface paths {
          * Create instance
          * @description This API creates a new database instance in the specified namespace and cluster.
          *     Every monitoring destination listed in `spec.monitoring.destinations` requires `read` on it; otherwise the request fails with 403.
+         *
+         *     `instances:create` allows any instance. Without it, `instances:create-from-preset` allows an instance only as an exact copy of the preset named by its `openeverest.io/instance-preset` or `openeverest.io/cluster-instance-preset` annotation, which also requires `read` on the preset: the preset's `spec`, and no metadata besides `name`, `generateName`, `namespace` and that annotation.
+         *     Any other difference fails with 403 and reason `PresetMismatch`, with a cause naming every field that differs; a 403 for a missing permission has no reason.
          */
         post: operations["createInstance"];
         delete?: never;
@@ -1140,7 +1143,7 @@ export interface components {
             /** @description Every field that failed validation, on a 422. */
             causes?: components["schemas"]["APIErrorCause"][];
         };
-        /** @description One field that failed validation. */
+        /** @description One field that failed validation, or that the request may not set. */
         APIErrorCause: {
             /**
              * @description Machine-readable kind of failure.
@@ -1157,6 +1160,20 @@ export interface components {
              * @example spec.components[hidden].replicas
              */
             field?: string;
+        };
+        /**
+         * @description A 403. One answering a missing permission has only a `message`.
+         *     One answering a request the caller's permission covers only within limits has a `reason` and a cause for every field outside them:
+         *     `PresetMismatch` when `instances:create-from-preset` creates an instance that is not an exact copy of its preset.
+         */
+        ForbiddenError: components["schemas"]["Error"] & {
+            /**
+             * @description Machine-readable reason for the error; absent for a missing permission.
+             * @example PresetMismatch
+             */
+            reason?: string;
+            /** @description Every field outside what the permission allows. */
+            causes?: components["schemas"]["APIErrorCause"][];
         };
         /** @description A list of labelled Secrets (metadata only). */
         SecretList: {
@@ -8806,13 +8823,13 @@ export interface operations {
                     "application/json": components["schemas"]["Instance"];
                 };
             };
-            /** @description Forbidden */
+            /** @description A permission is missing, or the instance is not an exact copy of its preset (reason `PresetMismatch`) */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/json": components["schemas"]["ForbiddenError"];
                 };
             };
             /** @description Namespace not found */

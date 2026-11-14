@@ -171,10 +171,12 @@ const (
 	//     its spec names. ActionRead does not imply it: read only shows a
 	//     Secret's metadata.
 	ActionUse = "use"
-	// ActionDeploy allows creating instances with custom values that deviate
-	// from preset specifications. Users without this permission can only create
-	// instances that exactly match their referenced presets.
-	ActionDeploy = "deploy"
+	// ActionCreateFromPreset, on instances, allows creating an instance only as
+	// an exact copy of the preset it names: the preset's spec, and no metadata
+	// besides its name, namespace and the annotation naming the preset.
+	// ActionCreate is strictly stronger: it allows any instance, presets with
+	// changes included.
+	ActionCreateFromPreset = "create-from-preset"
 	// ActionReadConnection gates reading an instance's connection credentials.
 	// ActionRead does not imply it; only an explicit grant or ActionAll does.
 	ActionReadConnection = "read-connection"
@@ -188,7 +190,7 @@ const (
 // SupportedActions is the list of all RBAC actions supported by Everest.
 //
 //nolint:gochecknoglobals // immutable lookup table
-var SupportedActions = []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionUse, ActionDeploy, ActionReadConnection, ActionAll}
+var SupportedActions = []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionUse, ActionCreateFromPreset, ActionReadConnection, ActionAll}
 
 // User represents an authenticated subject and its groups for RBAC checks.
 type User struct {
