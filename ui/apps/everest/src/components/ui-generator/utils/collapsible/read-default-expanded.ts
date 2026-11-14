@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { GroupWrapperProps } from 'components/ui-generator/ui-generator.types';
-
-export type AccordionWrapperProps = Pick<
-  GroupWrapperProps,
-  'children' | 'label'
->;
+// Omit → true so schemas that only set groupType (incl. deprecated accordion)
+// keep the previous always-open first paint.
+export const readDefaultExpanded = (
+  groupParams?: Record<string, unknown>
+): boolean => {
+  const value = groupParams?.defaultExpanded;
+  return value !== false;
+};

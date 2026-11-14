@@ -78,8 +78,10 @@ export enum WidgetType {
 export const WIDGET_UI_TYPE = 'widget' as const;
 
 export enum GroupType {
+  // Deprecated alias of Collapsible — still accepted in schemas.
   Accordion = 'accordion',
   Bordered = 'bordered',
+  Collapsible = 'collapsible',
   Line = 'line',
   Toggleable = 'toggleable',
 }
@@ -308,7 +310,7 @@ export type ComponentGroup = {
   label?: string;
   description?: string;
   groupType?: GroupType;
-  //TODO check groupParams is work
+  // Per-groupType settings (e.g. collapsible `defaultExpanded`).
   groupParams?: Record<string, unknown>;
   components: { [key: string]: Component | ComponentGroup };
   componentsOrder?: string[];
@@ -327,6 +329,9 @@ export interface GroupWrapperProps {
   children: ReactNode;
   label?: string;
   description?: string;
+  groupParams?: Record<string, unknown>;
+  // Form field names of descendant leaves (collapsible error scanning).
+  fieldNames?: string[];
   // Set only for an active toggleable group.
   toggleable?: ToggleableMeta;
 }

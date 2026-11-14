@@ -25,7 +25,7 @@
   - [Toggle Field](components/toggle-field.md)
 - [Groups](groups.md)
   - [Line Group](groups.md#line-group)
-  - [Accordion Group](groups.md#accordion-group)
+  - [Collapsible Group](groups.md#collapsible-group)
   - [Bordered Group](groups.md#bordered-group)
   - [Toggleable Group](groups.md#toggleable-group)
 - [Widgets](widgets.md)
@@ -174,7 +174,7 @@ The label and description display format may look different for different groups
 
 - **`components`**: Nested components (can include other groups)
 - **`componentsOrder`** (optional): Order of nested components
-- **`groupParams`** (optional): Reserved for group-specific settings; no group type reads it yet, so it currently has no effect.
+- **`groupParams`** (optional): Group-specific settings. Collapsible groups read `defaultExpanded` (boolean; omit to start expanded). Other group types ignore it today.
 
 Example:
 

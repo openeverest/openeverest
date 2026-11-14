@@ -5,7 +5,7 @@ Groups allow you to organize multiple fields together with different layout opti
 ## Table of Contents
 
 - [Line Group](#line-group)
-- [Accordion Group](#accordion-group)
+- [Collapsible Group](#collapsible-group)
 - [Bordered Group](#bordered-group)
 - [Toggleable Group](#toggleable-group)
 
@@ -33,22 +33,29 @@ resourceGroup:
 
 //TODO visual example
 
-## Accordion Group
+## Collapsible Group
 
-Displays components in a collapsible accordion panel.
+A bordered card whose body folds open and shut. Visual only: collapsing does **not** disable fields, skip validation, or remove values from the API payload (unlike [toggleable](#toggleable-group)).
+
+- Looks like a [bordered](#bordered-group) card, with a chevron to expand/collapse.
+- `label` and `description` are optional. The chevron is always shown.
+- `groupParams.defaultExpanded` (optional, default `true`) controls the initial open state.
+- If a child field is invalid while the group is collapsed, an error icon appears in the heading.
 
 ```yaml
 advancedSettings:
   uiType: group
-  groupType: accordion
+  groupType: collapsible
   label: Advanced Settings
   description: Optional advanced configuration
+  groupParams:
+    defaultExpanded: false
   components:
     setting1: { ... }
     setting2: { ... }
 ```
 
-//TODO visual example
+`groupType: accordion` is a deprecated alias of `collapsible` and behaves the same way.
 
 ## Bordered Group
 

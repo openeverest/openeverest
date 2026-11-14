@@ -19,6 +19,8 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import React from 'react';
 import { componentGroupMap } from '../constants';
+import { useUiGeneratorContext } from '../ui-generator-context';
+import { collectGroupFieldNames } from '../utils/collapsible/collect-group-field-names';
 import { getToggleableMeta } from '../utils/toggleable/toggleable';
 
 export type UIGroupProps = {
@@ -27,13 +29,23 @@ export type UIGroupProps = {
   item?: ComponentGroup;
 };
 
+const isCollapsibleGroup = (groupType?: GroupType): boolean =>
+  groupType === GroupType.Collapsible || groupType === GroupType.Accordion;
+
 const UIGroup = ({ groupType, children, item }: UIGroupProps) => {
   const Component = groupType ? componentGroupMap[groupType] : undefined;
+  const { root } = useUiGeneratorContext();
+  const fieldNames =
+    item && isCollapsibleGroup(groupType)
+      ? collectGroupFieldNames(item, root)
+      : undefined;
 
   return Component ? (
     <Component
       label={item?.label}
       description={item?.description}
+      groupParams={item?.groupParams}
+      fieldNames={fieldNames}
       toggleable={item && getToggleableMeta(item)}
     >
       {children}
