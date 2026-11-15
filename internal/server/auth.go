@@ -194,6 +194,8 @@ func (e *EverestServer) handleTokenExchangeGrant(ctx echo.Context, params api.Au
 	if err != nil {
 		e.l.Debugf("SSO token exchange failed: %v", err)
 		e.ssoAttemptsStore.IncreaseTimeout(ctx.RealIP())
+		// The token failed verification, so none of its claims can be trusted as the subject.
+		e.publishAuthEvent(events.UserLoginFailed, "", ctx.RealIP(), err.Error())
 		return ctx.JSON(http.StatusUnauthorized, api.Error{
 			Message: new("Invalid OIDC token"),
 		})
@@ -206,6 +208,7 @@ func (e *EverestServer) handleTokenExchangeGrant(ctx echo.Context, params api.Au
 	}
 
 	e.ssoAttemptsStore.CleanupVisitor(ctx.RealIP())
+	e.publishAuthEvent(events.UserLogin, identity.Subject, ctx.RealIP(), "")
 
 	return ctx.JSON(http.StatusOK, api.AuthTokenResponse{
 		AccessToken: accessToken,

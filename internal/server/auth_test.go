@@ -33,6 +33,7 @@ import (
 	"go.uber.org/zap"
 
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	"github.com/openeverest/openeverest/v2/pkg/events"
 	"github.com/openeverest/openeverest/v2/pkg/oidc"
 )
 
@@ -223,6 +224,57 @@ func TestTokenExchangeGrant(t *testing.T) {
 		ctx, rec = newTokenRequestContext(t, exchangeBody)
 		require.NoError(t, srv.CreateAuthToken(ctx))
 		assert.Equal(t, http.StatusTooManyRequests, rec.Code)
+	})
+
+	t.Run("invalid ID token publishes user.login-failed without a subject", func(t *testing.T) {
+		t.Parallel()
+		hub := events.NewHub(zap.NewNop().Sugar(), nil, events.NewRingBuffer(10, time.Minute))
+		sub, ok := hub.Subscribe([]events.Type{events.UserLogin, events.UserLoginFailed}, nil, nil)
+		require.True(t, ok)
+		t.Cleanup(sub.Cancel)
+		srv := &EverestServer{
+			l:                zap.NewNop().Sugar(),
+			ssoAttemptsStore: newGrantTestStore(time.Now()),
+			ssoTokenVerifier: newTestSSOVerifier(t),
+			eventHub:         hub,
+		}
+		ctx, rec := newTokenRequestContext(t, exchangeBody)
+		require.NoError(t, srv.CreateAuthToken(ctx))
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+
+		select {
+		case evt := <-sub.Ch:
+			assert.Equal(t, events.UserLoginFailed, evt.Type)
+			assert.Empty(t, evt.Actor.ID)
+			assert.Empty(t, evt.Resource.Name)
+			assert.Equal(t, "ip="+ctx.RealIP(), evt.PrevState.Phase)
+			assert.NotEmpty(t, evt.NewState.Phase)
+		case <-time.After(time.Second):
+			t.Fatal("no user.login-failed event published")
+		}
+	})
+
+	t.Run("rejected requests publish no event", func(t *testing.T) {
+		t.Parallel()
+		hub := events.NewHub(zap.NewNop().Sugar(), nil, events.NewRingBuffer(10, time.Minute))
+		sub, ok := hub.Subscribe([]events.Type{events.UserLogin, events.UserLoginFailed}, nil, nil)
+		require.True(t, ok)
+		t.Cleanup(sub.Cancel)
+		srv := &EverestServer{
+			l:                zap.NewNop().Sugar(),
+			ssoAttemptsStore: newGrantTestStore(time.Now()),
+			ssoTokenVerifier: newTestSSOVerifier(t),
+			eventHub:         hub,
+		}
+		ctx, rec := newTokenRequestContext(t, `{"grant_type":"urn:ietf:params:oauth:grant-type:token-exchange","subject_token":"x"}`)
+		require.NoError(t, srv.CreateAuthToken(ctx))
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+
+		select {
+		case evt := <-sub.Ch:
+			t.Fatalf("unexpected %s event", evt.Type)
+		case <-time.After(100 * time.Millisecond):
+		}
 	})
 
 	t.Run("failed exchange does not penalize password logins", func(t *testing.T) {
