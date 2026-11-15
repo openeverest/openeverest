@@ -146,7 +146,6 @@ charts:        ## Install Helm dependency charts for Everest CLI.
 	$(HELM) repo update
 
 ##@ Build
-export GOPRIVATE = github.com/percona,github.com/percona-platform,github.com/Percona-Lab
 # GOOS and GOARCH default to the host but may be overridden from the
 # environment (e.g. GOARCH=arm64 make release) for cross-compilation.
 export GOOS ?= $(shell go env GOHOSTOS)

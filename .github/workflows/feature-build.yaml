@@ -39,9 +39,6 @@ permissions:
   packages: read
 
 env:
-  GONOPROXY: 'github.com/percona'
-  GONOSUMDB: 'github.com/percona'
-  GOPRIVATE: 'github.com/percona'
   GOCACHE: '/mnt/go_cache'
   GOMODCACHE: '/mnt/go_mod_cache'
   REGISTRY: ghcr.io

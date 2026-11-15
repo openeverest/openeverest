@@ -50,9 +50,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GONOPROXY: "github.com/percona"
-  GONOSUMDB: "github.com/percona"
-  GOPRIVATE: "github.com/percona"
   # PXC provider repository checked out alongside openeverest. Adjust the owner
   # if the provider lives elsewhere; set PROVIDER_REPO_TOKEN if it is private.
   PROVIDER_REPO: openeverest/provider-percona-xtradb-cluster
