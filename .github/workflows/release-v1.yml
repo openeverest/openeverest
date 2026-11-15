@@ -654,7 +654,7 @@ jobs:
         uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
 
       # Keyless signatures and provenance attached to the release, so users can verify
-      # binaries with cosign or slsa-verifier (and OpenSSF Scorecard detects them).
+      # binaries with cosign or `gh attestation verify` (and OpenSSF Scorecard detects them).
       - name: CLI - sign binaries
         if: matrix.arch == 'amd64'
         env:
