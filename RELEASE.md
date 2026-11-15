@@ -11,14 +11,18 @@ OpenEverest follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PAT
 | Major | `2.0.0` | Breaking changes to APIs, CRDs or upgrade paths. |
 | Minor | `1.17.0` | New features, backwards compatible. |
 | Patch | `1.17.1` | Bug and security fixes only. |
+| Dev build | `2.0.0-dev.4` | Snapshot of ongoing development. Not supported for production. |
+| Alpha | `2.0.0-alpha1` | Early preview of a major release. Features and APIs may still change. Not supported for production. |
+| Beta | `2.0.0-beta1` | Feature-complete preview of a major release, for wider testing. Not supported for production. |
 | Release candidate | `1.17.0-rc1` | Candidate build for testing before a release. |
-| Dev build | `2.0.0-dev.4` | Preview of unreleased work. Not supported for production. |
+
+A major release usually goes through dev builds, then alphas, betas and release candidates before GA. Pre-release versions are published as GitHub pre-releases.
 
 ## Release Lines
 
 | Line | Branch | Status |
 | ---- | ------ | ------ |
-| v2 | `main` | Active development. Dev builds until v2.0 GA. |
+| v2 | `main` | Active development. Dev, alpha and beta builds, then release candidates, until v2.0 GA. |
 | v1 | `v1.x` | Receives features until v2.0 GA. After v2.0 GA: bug and security fixes only, for **6 months**, then end of life. |
 
 Each minor release gets a `release-X.Y` branch, which receives patch releases. Security fixes are provided for the versions listed in [SECURITY.md](SECURITY.md#supported-versions).
@@ -27,7 +31,11 @@ Each minor release gets a `release-X.Y` branch, which receives patch releases. S
 
 There is no fixed schedule. Minor releases ship when their features are ready, roughly monthly in practice. Patch releases ship as needed. Security fixes follow the timelines in [SECURITY.md](SECURITY.md#response-process).
 
-Planned work is tracked on the [public roadmap](https://github.com/orgs/openeverest/projects/1).
+## Planning and Tracking
+
+- Long-term direction is on the [public roadmap](https://github.com/orgs/openeverest/projects/1).
+- Day-to-day development is tracked on the [OpenEverest Development](https://github.com/orgs/openeverest/projects/3) project board.
+- Every release, including pre-releases, has a [milestone](https://github.com/openeverest/openeverest/milestones) named after its version, for example `v2.0.0-alpha1`. Issues and pull requests planned for a release are assigned to its milestone, so anyone can see what lands in it. Work that misses a release moves to the next milestone, and the milestone is closed when the release is published.
 
 ## Roles
 
@@ -37,15 +45,16 @@ Planned work is tracked on the [public roadmap](https://github.com/orgs/openever
 ## Core Release Steps
 
 1. **Prepare.** Make sure CI on the source branch is green, including the nightly [release e2e](.github/workflows/release-e2e.yml) run. Patches are merged to `main` or `v1.x` first and cherry-picked to the `release-X.Y` branch.
-2. **Release candidate.** Run the release workflow with version `X.Y.Z-rcN`:
+   Check that all issues and pull requests in the release [milestone](https://github.com/openeverest/openeverest/milestones) are done or moved to a later milestone.
+2. **Pre-release.** Run the release workflow with the pre-release version, such as `X.Y.Z-rcN` or, for a major release, `X.0.0-alphaN` / `X.0.0-betaN`:
    - v2: [Release](.github/workflows/release.yml) from `main`;
    - v1: **Release v1** from the `v1.x` branch.
 
    The workflow creates or updates the `release-X.Y` branch and the tag, builds multi-arch images, and pushes them to GHCR with provenance and SBOM attestations. For v1, it also builds signed `everestctl` binaries and creates a draft GitHub release.
-3. **Test.** Validate the RC (e2e and upgrade from the previous release). Fix issues and cut a new RC if needed.
+3. **Test.** Validate the pre-release (e2e and upgrade from the previous release). Fix issues and cut a new pre-release if needed.
 4. **Release.** Run the same workflow with version `X.Y.Z`.
 5. **Helm chart.** Run [Everest Chart Release](https://github.com/openeverest/helm-charts/actions/workflows/release.yaml) in `openeverest/helm-charts` with the same version.
-6. **Publish.** Write release notes using the [release notes format](https://github.com/openeverest/specs/blob/main/specs/004-release-notes-format.md), publish the GitHub release, and update the [documentation](https://github.com/openeverest/everest-doc). Publishing the release triggers the [Homebrew tap](https://github.com/openeverest/homebrew-tap) update.
+6. **Publish.** Write release notes using the [release notes format](https://github.com/openeverest/specs/blob/main/specs/004-release-notes-format.md), publish the GitHub release, and close the milestone. Publish the [documentation](https://github.com/openeverest/docs) by tagging the docs repository with the same version (see its [README](https://github.com/openeverest/docs#releasing-docs)). Publishing the release triggers the [Homebrew tap](https://github.com/openeverest/homebrew-tap) update.
 7. **Announce** in [#openeverest-users](https://cloud-native.slack.com/archives/C09RRGZL2UX) on CNCF Slack.
 
 ## Providers, Plugins and Other Components
