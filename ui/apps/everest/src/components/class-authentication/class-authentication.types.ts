@@ -39,6 +39,13 @@ export interface SavedAuthentication {
   credentialsSecretRef?: { name: string };
 }
 
+// The parts of an object's spec that name Secrets: its credentials and its
+// CA bundle.
+export interface SecretNamingSpec {
+  authentication?: SavedAuthentication;
+  tls?: { ca?: { secretKeyRef?: { name: string } } };
+}
+
 // The namespaces the user may create, read and update Secrets in.
 export interface SecretNamespacePermissions {
   canCreate: string[];

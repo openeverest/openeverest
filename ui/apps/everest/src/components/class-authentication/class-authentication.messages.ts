@@ -46,6 +46,8 @@ export const Messages = {
     `A Secret named ${secret} already exists. Pick it under "${EXISTING_SECRET_OPTION}", or enter another Credentials Secret name.`,
   secretTaken: (secret: string, className: string) =>
     `A Secret named ${secret} already exists and doesn't hold credentials for this ${className} and authentication mode. Enter another Credentials Secret name.`,
+  secretUseRequired: (secrets: string[], namespace: string) =>
+    `Saving these settings needs permission to use ${secrets.length === 1 ? 'Secret' : 'Secrets'} ${secrets.join(', ')} in the ${namespace} namespace, which you don't have.`,
   secretChangedMeanwhile: (secret: string) =>
     `Secret ${secret} changed while saving. Save again to store the new credentials.`,
 };

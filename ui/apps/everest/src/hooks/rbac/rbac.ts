@@ -190,6 +190,17 @@ export const useNamespacePermissionsForResource = (
   };
 };
 
+// Checks an action on an object known only when the check runs, such as a
+// Secret a submitted form names.
+export const useRBACCheck = () => {
+  const cluster = useClusterName();
+  return useCallback(
+    (action: RBACAction, resource: RBACResource, specificResource: string) =>
+      can(action, resource, toRBACObject(resource, specificResource, cluster)),
+    [cluster]
+  );
+};
+
 export const useRBACPermissionRoute = (
   permissions: Array<{
     action: RBACAction;

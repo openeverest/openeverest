@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { isPlainObject } from 'components/ui-generator/utils/object-path';
 import {
   getSectionFormDefaults,
   postprocessSectionForm,
@@ -38,6 +39,7 @@ import {
   CredentialsSource,
   SavedAuthentication,
   SecretNamespacePermissions,
+  SecretNamingSpec,
 } from './class-authentication.types';
 
 // The form the user types the mode's credentials in. New credentials are
@@ -216,4 +218,55 @@ export const getCredentialsSecretErrorMessage = (
   return error.reusable
     ? Messages.secretExists(error.secretName)
     : Messages.secretTaken(error.secretName, nouns.class);
+};
+
+const toCanonicalJson = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(toCanonicalJson);
+  }
+  if (!isPlainObject(value)) {
+    return value;
+  }
+  return Object.fromEntries(
+    Object.keys(value)
+      .sort()
+      .map((key) => [key, toCanonicalJson(value[key])])
+  );
+};
+
+// As the server compares a stored and an updated spec: as JSON documents.
+const isSameDocument = (a: unknown, b: unknown) =>
+  JSON.stringify(toCanonicalJson(a)) === JSON.stringify(toCanonicalJson(b));
+
+// Why the save can't go ahead, when it needs use on Secrets the user may not
+// use: the server requires it on every Secret an object names when the
+// object is created or its spec changes, Secret by Secret, as checked here.
+// Run before anything is written, so a refused save leaves no Secret changed.
+export const getSecretUseProblem = async ({
+  spec,
+  savedSpec,
+  namespace,
+  canUseSecret,
+}: {
+  spec: SecretNamingSpec;
+  savedSpec: SecretNamingSpec | undefined;
+  namespace: string;
+  canUseSecret: (name: string) => Promise<boolean>;
+}): Promise<string | undefined> => {
+  const names = [
+    ...new Set(
+      [
+        spec.authentication?.credentialsSecretRef?.name,
+        spec.tls?.ca?.secretKeyRef?.name,
+      ].filter((name): name is string => !!name)
+    ),
+  ];
+  if (names.length === 0 || (savedSpec && isSameDocument(spec, savedSpec))) {
+    return undefined;
+  }
+  const usable = await Promise.all(names.map(canUseSecret));
+  const denied = names.filter((_, index) => !usable[index]);
+  return denied.length > 0
+    ? Messages.secretUseRequired(denied, namespace)
+    : undefined;
 };

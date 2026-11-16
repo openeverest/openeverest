@@ -17,10 +17,12 @@ import {
   SavedAuthentication,
   SecretNamespacePermissions,
 } from './class-authentication.types';
+import { Messages } from './class-authentication.messages';
 import {
   getCredentialsSource,
   getCredentialsSources,
   getKeptCredentialsSecretName,
+  getSecretUseProblem,
 } from './class-authentication.utils';
 
 const saved: SavedAuthentication = {
@@ -132,5 +134,61 @@ describe('getKeptCredentialsSecretName', () => {
     expect(
       getKeptCredentialsSecretName('BasicAuth', undefined)
     ).toBeUndefined();
+  });
+});
+
+describe('getSecretUseProblem', () => {
+  const savedSpec = {
+    classRef: { name: 'prometheus' },
+    authentication: saved,
+    parameters: { interval: '30s' },
+  };
+  const changedSpec = {
+    ...savedSpec,
+    tls: { ca: { secretKeyRef: { name: 'corp-ca', key: 'ca.crt' } } },
+  };
+  const reorderedSpec = {
+    parameters: { interval: '30s' },
+    authentication: saved,
+    classRef: { name: 'prometheus' },
+  };
+  const secretlessSpec = { authentication: { mode: 'Anonymous' } };
+  // The Secrets the user may use, one by one as per-Secret grants give them.
+  const problemOf = (
+    spec: object,
+    previous: object | undefined,
+    usable: string[] = []
+  ) =>
+    getSecretUseProblem({
+      spec,
+      savedSpec: previous,
+      namespace: 'team-a',
+      canUseSecret: async (name) => usable.includes(name),
+    });
+
+  it('names the Secrets a new object would name that the user may not use', async () => {
+    expect(await problemOf(changedSpec, undefined)).toBe(
+      Messages.secretUseRequired(['prom-basic', 'corp-ca'], 'team-a')
+    );
+    expect(await problemOf(changedSpec, undefined, ['prom-basic'])).toBe(
+      Messages.secretUseRequired(['corp-ca'], 'team-a')
+    );
+    expect(
+      await problemOf(changedSpec, undefined, ['prom-basic', 'corp-ca'])
+    ).toBeUndefined();
+  });
+
+  it('needs use on the named Secrets when an edit changes the spec', async () => {
+    expect(await problemOf(changedSpec, savedSpec, ['corp-ca'])).toBe(
+      Messages.secretUseRequired(['prom-basic'], 'team-a')
+    );
+  });
+
+  it('needs no use to save the spec as it was, written in another order', async () => {
+    expect(await problemOf(reorderedSpec, savedSpec)).toBeUndefined();
+  });
+
+  it('needs no use for a spec that names no Secret', async () => {
+    expect(await problemOf(secretlessSpec, undefined)).toBeUndefined();
   });
 });
