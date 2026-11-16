@@ -53,12 +53,25 @@ vi.mock('api/backupStorage', () => ({
 vi.mock('api/backupStorageClasses', () => ({
   getBackupStorageClassesFn: vi.fn(),
 }));
-const rbacMocks = vi.hoisted(() => ({
-  // Checks secrets:use on one Secret, as per-Secret grants allow it.
-  check: vi.fn<
-    (action: string, resource: string, object: string) => Promise<boolean>
-  >(async () => true),
-}));
+const rbacMocks = vi.hoisted(() => {
+  const granted = {
+    canRead: true,
+    canCreate: true,
+    canUpdate: true,
+    canDelete: true,
+    isPermissionsLoading: false,
+  };
+  return {
+    // Checks secrets:use on one Secret, as per-Secret grants allow it.
+    check: vi.fn<
+      (action: string, resource: string, object: string) => Promise<boolean>
+    >(async () => true),
+    granted,
+    // As on the first render, before the user's policy is read.
+    notKnownYet: { ...granted, canRead: false, isPermissionsLoading: true },
+    permissions: granted,
+  };
+});
 vi.mock('hooks/rbac', async (importOriginal) => {
   const namespacePermissions = {
     canCreate: ['team-a'],
@@ -67,17 +80,10 @@ vi.mock('hooks/rbac', async (importOriginal) => {
     canDelete: ['team-a'],
     isPermissionsLoading: false,
   };
-  const permissions = {
-    canRead: true,
-    canCreate: true,
-    canUpdate: true,
-    canDelete: true,
-    isPermissionsLoading: false,
-  };
   return {
     ...(await importOriginal<typeof import('hooks/rbac')>()),
     useNamespacePermissionsForResource: () => namespacePermissions,
-    useRBACPermissions: () => permissions,
+    useRBACPermissions: () => rbacMocks.permissions,
     useRBACCheck: () => rbacMocks.check,
   };
 });
@@ -230,19 +236,25 @@ const PROD_TARGET: BackupStorageTarget = {
   name: 's3-prod',
 };
 
+const modal = (
+  queryClient: QueryClient,
+  onClose: () => void,
+  target?: BackupStorageTarget
+) => (
+  <QueryClientProvider client={queryClient}>
+    <TestWrapper>
+      <BackupStorageModal
+        target={target}
+        namespace="team-a"
+        onClose={onClose}
+      />
+    </TestWrapper>
+  </QueryClientProvider>
+);
+
 const renderModal = (target?: BackupStorageTarget) => {
   const onClose = vi.fn();
-  render(
-    <QueryClientProvider client={new QueryClient()}>
-      <TestWrapper>
-        <BackupStorageModal
-          target={target}
-          namespace="team-a"
-          onClose={onClose}
-        />
-      </TestWrapper>
-    </QueryClientProvider>
-  );
+  render(modal(new QueryClient(), onClose, target));
   return onClose;
 };
 
@@ -287,6 +299,7 @@ const changeRegionAndSave = async () => {
 
 describe('BackupStorageModal', () => {
   beforeEach(() => {
+    rbacMocks.permissions = rbacMocks.granted;
     rbacMocks.check.mockReset().mockResolvedValue(true);
     vi.mocked(getBackupStorageClassesFn).mockReset().mockResolvedValue([s3]);
     vi.mocked(getBackupStorageFn).mockReset().mockResolvedValue(storedS3());
@@ -380,6 +393,26 @@ describe('BackupStorageModal', () => {
       });
     }
   );
+
+  it("shows the form once, after the user's permissions and the types are known", async () => {
+    rbacMocks.permissions = rbacMocks.notKnownYet;
+    const queryClient = new QueryClient();
+    const { rerender } = render(modal(queryClient, vi.fn()));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    rbacMocks.permissions = rbacMocks.granted;
+    rerender(modal(queryClient, vi.fn()));
+
+    fireEvent.mouseDown(
+      within(await screen.findByTestId('select-class-name-button')).getByRole(
+        'combobox'
+      )
+    );
+    expect(
+      screen.getByRole('option', { name: 'S3-compatible object storage' })
+    ).toBeInTheDocument();
+  });
 
   it('keeps the location and the parameters its form lacks on an edit', async () => {
     const onClose = renderModal(PROD_TARGET);

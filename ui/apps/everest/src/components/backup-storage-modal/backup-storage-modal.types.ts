@@ -64,7 +64,9 @@ export interface BackupStorageFormProps
   onChangedMeanwhile: () => void;
 }
 
-// The namespaces the user may add storages in.
 export interface BackupStoragePermissions {
+  // The namespaces the user may add storages in.
   createNamespaces: string[];
+  // Not known yet: the namespaces are none until it is.
+  isLoading: boolean;
 }

@@ -21,10 +21,13 @@ import { BackupStoragePermissions } from '../backup-storage-modal.types';
 // Adding a storage needs its class, so a user who can't read storage classes
 // adds none. Secret permissions are checked by the form.
 export const useBackupStoragePermissions = (): BackupStoragePermissions => {
-  const { canCreate } = useNamespacePermissionsForResource('backup-storages');
-  const { canRead: canReadClasses } = useRBACPermissions(
-    'backup-storage-classes'
-  );
+  const { canCreate, isPermissionsLoading: isCreateLoading } =
+    useNamespacePermissionsForResource('backup-storages');
+  const { canRead: canReadClasses, isPermissionsLoading: isClassesLoading } =
+    useRBACPermissions('backup-storage-classes');
 
-  return { createNamespaces: canReadClasses ? canCreate : [] };
+  return {
+    createNamespaces: canReadClasses ? canCreate : [],
+    isLoading: isCreateLoading || isClassesLoading,
+  };
 };

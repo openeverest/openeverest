@@ -32,7 +32,8 @@ export const BackupStorageModal = ({
   const [changedMeanwhile, setChangedMeanwhile] = useState(false);
   const { data: classes = NO_CLASSES, isLoading: classesLoading } =
     useBackupStorageClasses();
-  const { createNamespaces } = useBackupStoragePermissions();
+  const { createNamespaces, isLoading: permissionsLoading } =
+    useBackupStoragePermissions();
   const {
     data: original,
     refetch,
@@ -50,7 +51,9 @@ export const BackupStorageModal = ({
     }
   }, [isError, original, onClose]);
 
-  if (classesLoading || (target && !original)) {
+  // The classes are read once the user's permissions are known. A form shown
+  // before that would be replaced as soon as they are.
+  if (permissionsLoading || classesLoading || (target && !original)) {
     return null;
   }
 
