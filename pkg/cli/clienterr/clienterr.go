@@ -32,3 +32,11 @@ func Message(candidates ...*client.Error) (string, bool) {
 	}
 	return "", false
 }
+
+// FromAPIError lets an APIError body, such as resp.JSON422, be passed to Message.
+func FromAPIError(e *client.APIError) *client.Error {
+	if e == nil {
+		return nil
+	}
+	return &client.Error{Message: e.Message}
+}

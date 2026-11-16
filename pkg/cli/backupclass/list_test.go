@@ -82,7 +82,7 @@ func TestBackupClassList_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	items := []testBackupClass{
-		newTestBackupClass("pg-job-backup", "Job", "postgresql"),
+		newTestBackupClass("pg-backup", "ProviderManaged", "percona-postgresql"),
 		newTestBackupClass("psmdb-managed-backup", "ProviderManaged", "percona-server-mongodb"),
 	}
 
@@ -158,7 +158,7 @@ func TestBackupClassList_NoActiveContext(t *testing.T) {
 func TestBackupClassList_JSONOutput(t *testing.T) {
 	t.Parallel()
 
-	items := []testBackupClass{newTestBackupClass("pg-job-backup", "Job", "postgresql")}
+	items := []testBackupClass{newTestBackupClass("pg-backup", "ProviderManaged", "percona-postgresql")}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

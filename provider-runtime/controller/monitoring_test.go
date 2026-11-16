@@ -50,7 +50,16 @@ func monitoringTestContext(t *testing.T, in *v1alpha1.Instance, objs ...client.O
 			Integrations: map[string]v1alpha1.MonitoringIntegration{"pmm": {}},
 		}},
 	}
-	c := fake.NewClientBuilder().WithScheme(s).WithObjects(append(objs, provider)...).Build()
+	// The fake client stamps the objects it is seeded with, and parallel
+	// subtests may share them: seed copies.
+	seeded := make([]client.Object, 0, len(objs)+1)
+	for _, o := range objs {
+		obj, ok := o.DeepCopyObject().(client.Object)
+		require.True(t, ok, "%T is not a client.Object", o)
+		seeded = append(seeded, obj)
+	}
+	seeded = append(seeded, provider)
+	c := fake.NewClientBuilder().WithScheme(s).WithObjects(seeded...).Build()
 	return NewContext(t.Context(), c, in, "test-provider")
 }
 
@@ -114,6 +123,7 @@ func pmmClass() *monitoringv1alpha1.MonitoringClass {
 	return &monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "pmm"},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
+			ControllerName:  "openeverest.io/monitoring-pmm",
 			ProviderManaged: &monitoringv1alpha1.ProviderManagedFulfilment{Integration: "pmm"},
 		},
 	}
@@ -123,6 +133,7 @@ func extensionManagedClass(name string, metrics bool) *monitoringv1alpha1.Monito
 	return &monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
+			ControllerName: "openeverest.io/monitoring-" + name,
 			ExtensionManaged: &monitoringv1alpha1.ExtensionManagedFulfilment{
 				Requires: monitoringv1alpha1.SourceRequirements{Metrics: metrics},
 			},
@@ -279,7 +290,8 @@ func TestRequiredSources(t *testing.T) {
 
 			got, err := c.RequiredSources()
 			require.NoError(t, err)
-			assert.Equal(t, RequiredSources{Metrics: tc.wantMetrics, Integrations: tc.wantIntegrations}, got)
+			assert.Equal(t, tc.wantMetrics, got.Metrics)
+			assert.Equal(t, tc.wantIntegrations, got.Integrations)
 		})
 	}
 }

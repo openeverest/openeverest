@@ -54,9 +54,8 @@ spec:
                   Backup configures the backup feature for this Instance. When enabled,
                   the provider's reconciler is given the resolved BackupClass and storage
                   list so it can configure the engine accordingly (sidecars, agent
-                  configuration, etc.). Required for ProviderManaged BackupClasses; Job
-                  classes do not need an entry here because they read directly from
-                  individual Backup CRs.
+                  configuration, etc.). Required to back up the Instance with its
+                  ProviderManaged BackupClass.
                 properties:
                   classRef:
                     description: |-

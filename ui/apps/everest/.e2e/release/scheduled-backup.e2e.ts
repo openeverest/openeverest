@@ -39,6 +39,7 @@ import {
   waitForStatus,
   waitForDelete,
   findRowAndClickActions,
+  confirmDeletion,
 } from '@e2e/utils/table';
 import { clickCreateSchedule } from '@e2e/pr/db-cluster-details/utils';
 import { prepareTestDB, dropTestDB, queryTestDB } from '@e2e/utils/db-cmd-line';
@@ -340,7 +341,7 @@ function getNextScheduleMinute(incrementMinutes: number): string {
         await gotoDbClusterRestores(page, clusterName);
         await findRowAndClickActions(page, `${db}-${size}-schbkp-`, 'Delete');
         await expect(page.getByLabel('Delete restore')).toBeVisible();
-        await page.getByTestId('confirm-dialog-delete').click();
+        await confirmDeletion(page, 'confirm-dialog-delete');
         await waitForDelete(page, `${db}-${size}-schbkp-`, 15000);
       });
 
@@ -356,7 +357,7 @@ function getNextScheduleMinute(incrementMinutes: number): string {
 
           await findRowAndClickActions(page, firstBackup, 'Delete');
           await expect(page.getByLabel('Delete backup')).toBeVisible();
-          await page.getByTestId('form-dialog-delete').click();
+          await confirmDeletion(page, 'form-dialog-delete');
           await waitForDelete(page, firstBackup, 30000);
         });
 
@@ -369,7 +370,7 @@ function getNextScheduleMinute(incrementMinutes: number): string {
 
           await findRowAndClickActions(page, secondBackup, 'Delete');
           await expect(page.getByLabel('Delete backup')).toBeVisible();
-          await page.getByTestId('form-dialog-delete').click();
+          await confirmDeletion(page, 'form-dialog-delete');
           await waitForDelete(page, secondBackup, 30000);
         });
       });

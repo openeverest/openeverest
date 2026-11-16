@@ -56,10 +56,9 @@ A `dataSource` field is still a regular `select` — the only difference is that
 
 ## Available Providers
 
-| Key                 | Returns                                     | Scoped to         | Empty State Fallback           |
-| ------------------- | ------------------------------------------- | ----------------- | ------------------------------ |
-| `monitoringConfigs` | MonitoringConfig resource names             | cluster/namespace | ActionableAlert + create modal |
-| `storageClasses`    | StorageClass names available on the cluster | cluster           | None (not user-creatable)      |
+| Key              | Returns                                     | Scoped to | Empty State Fallback      |
+| ---------------- | ------------------------------------------- | --------- | ------------------------- |
+| `storageClasses` | StorageClass names available on the cluster | cluster   | None (not user-creatable) |
 
 ## Field Behavior
 
@@ -77,14 +76,14 @@ Once the options have loaded, edit mode also explains such a value in the helper
 - **Unavailable stored value** (still selected): the UI only knows the value isn't among the options — it may have been deleted or hidden by RBAC — so the text doesn't claim a cause. It says the value is kept, and offers picking another one only when the field isn't `disabled`/`readOnly`.
 - **Empty value**: what "unset" means depends on the resource, so the registry entry provides it via `unsetValueHint` (e.g. `storageClasses`: the cluster's default storage class applies). Without it, no hint is shown.
 
-When a provider registers an `emptyStateFallback`, `DataSourceField` renders the fallback component **instead of** the select field whenever options are empty. The select is not shown at all — the fallback completely replaces it. This is used for resources that can be user-created (e.g. monitoring endpoints). Providers for non-creatable resources (e.g. StorageClasses) register `emptyStateFallback: null`, in which case the select is rendered normally with a "No options available" helper text.
+When a provider registers an `emptyStateFallback`, `DataSourceField` renders the fallback component **instead of** the select field whenever options are empty. The select is not shown at all — the fallback completely replaces it. This is meant for resources the user can create from the form (none of the built-in providers needs it today). Providers for non-creatable resources (e.g. StorageClasses) register `emptyStateFallback: null`, in which case the select is rendered normally with a "No options available" helper text.
 
 Once the user creates a resource in the fallback, the fallback calls `onCreated(value)` after the refetched options include it, and `DataSourceField` selects that value and marks the form dirty. This is the user's explicit choice, not auto-selection, so it works in every mode, `edit` included.
 
 ## Adding a New Provider in https://github.com/openeverest/openeverest
 
 1. Create a `useXxxOptions` hook in `hooks/api/<resource>/` that accepts `ProviderParams` and returns `ProviderOptions`.
-2. If the resource can be user-created, create a fallback component in `api-providers/fallbacks/` (see `monitoring-empty-fallback.tsx` for the pattern). After creating the resource, await the options refetch and call `onCreated(value)` so the field selects it.
+2. If the resource can be user-created, create a fallback component in `api-providers/fallbacks/` that offers creating it (e.g. an `ActionableAlert` opening a create modal) and export it from `api-providers/fallbacks/index.ts`. After creating the resource, await the options refetch and call `onCreated(value)` so the field selects it.
 3. Register it in `api-providers/providers.ts`:
 
    ```ts

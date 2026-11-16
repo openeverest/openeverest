@@ -45,7 +45,7 @@ describe('useCanCreateClusterFromBackup', () => {
       if (resource === 'backups') {
         return { canCreate: permissions.canCreateBackups ?? false };
       }
-      if (resource === 'monitoring-configs') {
+      if (resource === 'monitoring-destinations') {
         return { canRead: permissions.canReadMonitoring ?? false };
       }
       return { canCreate: false, canRead: false };
@@ -137,7 +137,7 @@ describe('useCanCreateClusterFromBackup', () => {
     expect(result.current).toBe(false);
   });
 
-  it('requires monitoring read permission when monitoring is enabled', () => {
+  it('requires read on the monitoring destinations the source uses', () => {
     mockUseCanRestore.mockReturnValue(true);
     setPermissions({
       canCreateClusters: true,
@@ -146,10 +146,14 @@ describe('useCanCreateClusterFromBackup', () => {
 
     const { result } = renderHook(() =>
       useCanCreateClusterFromBackup('ns-a', 'inst-a', {
-        monitoringEnabled: true,
+        monitoringDestinations: ['pmm', 'prometheus'],
       })
     );
 
+    expect(mockUseRBACPermissions).toHaveBeenCalledWith(
+      'monitoring-destinations',
+      ['ns-a/pmm', 'ns-a/prometheus']
+    );
     expect(result.current).toBe(false);
   });
 
@@ -164,7 +168,7 @@ describe('useCanCreateClusterFromBackup', () => {
     const { result } = renderHook(() =>
       useCanCreateClusterFromBackup('ns-a', 'inst-a', {
         hasSchedules: true,
-        monitoringEnabled: true,
+        monitoringDestinations: ['pmm'],
       })
     );
 

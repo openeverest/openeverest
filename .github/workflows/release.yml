@@ -12,9 +12,6 @@ permissions:
   packages: read
 
 env:
-  GONOPROXY: 'github.com/percona'
-  GONOSUMDB: 'github.com/percona'
-  GOPRIVATE: 'github.com/percona'
   GOCACHE: '/mnt/go_cache'
   GOMODCACHE: '/mnt/go_mod_cache'
   REGISTRY: ghcr.io
@@ -69,10 +66,10 @@ jobs:
               echo "The tag is already present in github. Please create a different RC/Release"
               exit 1
             fi
-            git config --global user.email "everest-ci@percona.com"
-            git config --global user.name "Everest RC CI triggered by ${{ github.actor }}"
+            git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git config --global user.name "github-actions[bot]"
 
-            git commit -a -m "update version tag"
+            git commit -a -m "update version tag" -m "Triggered by ${{ github.actor }}"
             git push origin $BRANCH_NAME
 
             git tag $GH_TAG

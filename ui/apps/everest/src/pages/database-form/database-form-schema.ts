@@ -96,23 +96,29 @@ const basicInfoSchema = (dbInstances: DbInstanceName[]) =>
 
 export const getDBWizardSchema = (
   dbInstances: DbInstanceName[],
-  openApiValidationSchema?: z.ZodTypeAny
+  openApiValidationSchema?: z.ZodTypeAny,
+  // Validates fields the static steps render from other schemas, e.g. the
+  // monitoring entries' parameters.
+  stepsValidationSchema?: z.ZodTypeAny
 ) => {
   let combinedSchema: z.ZodTypeAny = basicInfoSchema(dbInstances);
 
-  if (openApiValidationSchema) {
+  [openApiValidationSchema, stepsValidationSchema].forEach((schema) => {
+    if (!schema) {
+      return;
+    }
     // Using superRefine instead of .and() / ZodIntersection to avoid
     // "Intersection results could not be merged" errors caused by transforms
     // inside the openApiValidationSchema (e.g. z.coerce.number()) producing
     // a different type than the passthrough base schema, which makes Zod's
     // deep-merge step fail with invalid_intersection_types.
     combinedSchema = combinedSchema.superRefine((data, ctx) => {
-      const result = openApiValidationSchema.safeParse(data);
+      const result = schema.safeParse(data);
       if (!result.success) {
         result.error.issues.forEach((issue) => ctx.addIssue(issue));
       }
     });
-  }
+  });
 
   return combinedSchema;
 };

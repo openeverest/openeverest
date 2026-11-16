@@ -162,6 +162,96 @@ describe('SectionEditModal CEL validation', () => {
     });
     expect(saveButton).toBeDisabled();
   });
+
+  it('compares quantity fields with original in the same unit so Save stays enabled', async () => {
+    mutate.mockClear();
+
+    const sections: Record<string, Section> = {
+      resources: {
+        label: 'Resources',
+        components: {
+          cpu: {
+            uiType: FieldType.Quantity,
+            path: 'spec.components.engine.resources.cpu',
+            fieldParams: { label: 'CPU', unitLabel: 'cores' },
+            validation: { required: true, min: 0.1 },
+          },
+          size: {
+            uiType: FieldType.Quantity,
+            path: 'spec.components.engine.storage.size',
+            fieldParams: { label: 'Disk', unit: 'Gi' },
+            validation: {
+              required: true,
+              min: 1,
+              modes: {
+                [FormMode.Edit]: {
+                  celExpressions: [
+                    {
+                      celExpr:
+                        'spec.components.engine.storage.size >= original.spec.components.engine.storage.size',
+                      message: 'Disk size cannot be decreased',
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    const instance = {
+      metadata: { name: 'test-db', namespace: 'ns' },
+      spec: {
+        topology: { type: 'replicaSet' },
+        components: {
+          engine: {
+            resources: { cpu: '500m' },
+            storage: { size: '10240Mi' },
+          },
+        },
+      },
+    } as unknown as Instance;
+
+    render(
+      <TestWrapper>
+        <SectionEditModal
+          sectionKey="resources"
+          sections={sections}
+          instance={instance}
+          provider={{ spec: {} } as Provider}
+          namespace="ns"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+        />
+      </TestWrapper>
+    );
+
+    const cpuInput = screen.getByLabelText('CPU');
+    const saveButton = screen.getByTestId('form-dialog-save');
+
+    fireEvent.change(cpuInput, { target: { value: '1' } });
+
+    await waitFor(() => {
+      expect(saveButton).toBeEnabled();
+    });
+    expect(screen.queryByText(/CEL expression error/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Disk size cannot be decreased')
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(saveButton);
+
+    await waitFor(() => expect(mutate).toHaveBeenCalled());
+    expect(mutate.mock.calls[0][0].spec).toMatchObject({
+      components: {
+        engine: {
+          resources: { cpu: '1' },
+          storage: { size: '10240Mi' },
+        },
+      },
+    });
+  });
 });
 
 describe('SectionEditModal toggleable group', () => {

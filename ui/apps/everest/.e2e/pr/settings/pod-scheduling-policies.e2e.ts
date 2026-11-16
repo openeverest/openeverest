@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -475,7 +476,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
 
           // check that policy is not set
           await expect(
-            page.getByTestId('pod-scheduling policy-overview-section-row')
+            page.getByTestId('pod-scheduling-policy-overview-section-row')
           ).toHaveText('Pod scheduling policyDisabled');
         });
 
@@ -514,7 +515,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
 
           // check that policy is assigned
           await expect(
-            page.getByTestId('pod-scheduling policy-overview-section-row')
+            page.getByTestId('pod-scheduling-policy-overview-section-row')
           ).toHaveText(`Pod scheduling policy${customPGPolicyName}`);
         });
 
@@ -529,7 +530,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
 
           // check that policy is not set
           await expect(
-            page.getByTestId('pod-scheduling policy-overview-section-row')
+            page.getByTestId('pod-scheduling-policy-overview-section-row')
           ).toHaveText('Pod scheduling policyDisabled');
         });
       } finally {
@@ -787,7 +788,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
 
           // check that policy is not set
           await expect(
-            page.getByTestId('pod-scheduling policy-overview-section-row')
+            page.getByTestId('pod-scheduling-policy-overview-section-row')
           ).toHaveText('Pod scheduling policyDisabled');
         });
 
@@ -826,7 +827,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
 
           // check that policy is assigned
           await expect(
-            page.getByTestId('pod-scheduling policy-overview-section-row')
+            page.getByTestId('pod-scheduling-policy-overview-section-row')
           ).toHaveText(`Pod scheduling policy${customPSMDBPolicyName}`);
         });
 
@@ -841,7 +842,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
 
           // check that policy is not set
           await expect(
-            page.getByTestId('pod-scheduling policy-overview-section-row')
+            page.getByTestId('pod-scheduling-policy-overview-section-row')
           ).toHaveText('Pod scheduling policyDisabled');
         });
       } finally {
@@ -1049,7 +1050,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
 
           // check that policy is not set
           await expect(
-            page.getByTestId('pod-scheduling policy-overview-section-row')
+            page.getByTestId('pod-scheduling-policy-overview-section-row')
           ).toHaveText('Pod scheduling policyDisabled');
         });
 
@@ -1088,7 +1089,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
 
           // check that policy is assigned
           await expect(
-            page.getByTestId('pod-scheduling policy-overview-section-row')
+            page.getByTestId('pod-scheduling-policy-overview-section-row')
           ).toHaveText(`Pod scheduling policy${customPXCPolicyName}`);
         });
 
@@ -1103,7 +1104,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
 
           // check that policy is not set
           await expect(
-            page.getByTestId('pod-scheduling policy-overview-section-row')
+            page.getByTestId('pod-scheduling-policy-overview-section-row')
           ).toHaveText('Pod scheduling policyDisabled');
         });
       } finally {

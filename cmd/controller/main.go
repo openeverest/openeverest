@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package main is the entry point for the Everest controller manager.
+// Package main is the entry point for the Everest controller manager, and
+// for its uninstall-check subcommand.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"os"
 
-	vmv1beta1 "github.com/VictoriaMetrics/operator/api/operator/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -42,7 +43,7 @@ import (
 	backupcontroller "github.com/openeverest/openeverest/v2/internal/controller/backup"
 	plugincontroller "github.com/openeverest/openeverest/v2/internal/controller/extension"
 	monitoringcontroller "github.com/openeverest/openeverest/v2/internal/controller/monitoring"
-	webhookmonitoringv1alpha1 "github.com/openeverest/openeverest/v2/internal/webhook/monitoring/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/controller/secretusage"
 )
 
 var (
@@ -57,12 +58,15 @@ func init() {
 	utilruntime.Must(extensionsv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(backupv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(vmv1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
 // nolint:gocyclo
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == uninstallCheckCommand {
+		os.Exit(runUninstallCheck(os.Args[2:], os.Stdout, os.Stderr))
+	}
+
 	var metricsAddr string
 	var metricsCertPath, metricsCertName, metricsCertKey string
 	var webhookCertPath, webhookCertName, webhookCertKey string
@@ -70,7 +74,7 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
-	var monitoringNamespace string
+	var secretProtection bool
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -89,8 +93,11 @@ func main() {
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	flag.StringVar(&monitoringNamespace, "monitoring-namespace", os.Getenv("MONITORING_NAMESPACE"),
-		"The namespace where the VMAgent and monitoring resources are managed.")
+	flag.String("monitoring-namespace", "", "Deprecated and ignored; still accepted because the Helm chart passes it.")
+	flag.BoolVar(&secretProtection, secretProtectionFlag, true,
+		"Hold the openeverest.io/in-use-protection finalizer and usage counts on the Secrets objects use, so the "+
+			"secret-in-use admission policy refuses deleting them. With --secret-protection=false the controller removes "+
+			"them from every Secret at start instead.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -222,19 +229,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&monitoringcontroller.MonitoringConfigReconciler{
-		Client:              mgr.GetClient(),
-		Scheme:              mgr.GetScheme(),
-		MonitoringNamespace: monitoringNamespace,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create controller", "controller", "MonitoringConfig")
+	if err := monitoringcontroller.SetupIndexes(context.Background(), mgr); err != nil {
+		setupLog.Error(err, "Failed to register monitoring indexes")
 		os.Exit(1)
 	}
 
 	if err := (&monitoringcontroller.DestinationReconciler{
-		Client: mgr.GetClient(),
+		Client:    mgr.GetClient(),
+		APIReader: mgr.GetAPIReader(),
+		Recorder:  mgr.GetEventRecorder("openeverest-monitoringdestination"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "MonitoringDestination")
+		os.Exit(1)
+	}
+
+	// One registry entry per kind that references Secrets; BackupStorage
+	// joins with its own.
+	if err := setupSecretProtection(mgr, secretProtection, []secretusage.Referrer{
+		monitoringcontroller.SecretReferrer(),
+	}); err != nil {
+		setupLog.Error(err, "Failed to set up Secret protection", "enabled", secretProtection)
 		os.Exit(1)
 	}
 
@@ -269,13 +283,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	// nolint:goconst
+	// No admission webhook is registered, but the webhook server keeps serving
+	// behind its Service and certificate for the webhooks to come.
+	// GetWebhookServer adds it to the manager only once, so registering a
+	// webhook later does not start a second server.
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookmonitoringv1alpha1.SetupMonitoringConfigWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "Failed to create webhook", "webhook", "MonitoringConfig")
-			os.Exit(1)
-		}
+		mgr.GetWebhookServer()
 	}
+
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

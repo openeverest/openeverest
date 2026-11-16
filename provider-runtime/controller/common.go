@@ -485,7 +485,9 @@ type ConnectionDetails struct {
 	// Type is the type of database (e.g., mongodb, postgresql, mysql)
 	// +optional
 	Type string `json:"type,omitempty"`
-	// Provider is the provider that manages this instance
+	// Provider is the name of the Provider that manages this instance, as in
+	// the Instance's spec.providerRef.name. The provider-runtime reconciler
+	// writes it; a value set by the provider is replaced.
 	// +optional
 	Provider string `json:"provider,omitempty"`
 	// Host is the hostname or IP address to connect to
@@ -609,11 +611,15 @@ func Ready() Status {
 // Providers should populate the well-known fields so the API server can expose
 // them generically without any provider-specific logic.
 //
+// Providers need not set Provider: the reconciler writes the Secret's
+// "provider" entry as the Provider name (the Instance's spec.providerRef.name),
+// replacing any value set in Provider or AdditionalProperties, so the entry
+// names the Provider the same way for every provider.
+//
 // Example:
 //
 //	return controller.ReadyWithConnectionDetails(controller.ConnectionDetails{
 //		Type:     "mongodb",
-//		Provider: "percona-server-mongodb",
 //		Host:     host,
 //		Port:     "27017",
 //		Username: user,
@@ -801,9 +807,9 @@ func (c *Context) BackupClassForInstance() (*backupv1alpha1.BackupClass, error) 
 }
 
 // BackupClassLimits returns the limits declared by the BackupClass referenced
-// by the Instance, or nil when the class is Job-mode, has no limits set, or
-// the Instance has no backup configuration. The returned pointer aliases the
-// BackupClass; callers must not mutate it.
+// by the Instance, or nil when the class is not ProviderManaged, has no limits
+// set, or the Instance has no backup configuration. The returned pointer
+// aliases the BackupClass; callers must not mutate it.
 func (c *Context) BackupClassLimits() (*backupv1alpha1.BackupClassLimits, error) {
 	bc, err := c.BackupClassForInstance()
 	if err != nil || bc == nil {
@@ -1394,12 +1400,11 @@ func hasInstanceStorage(b *v1alpha1.InstanceBackupSpec, name string) bool {
 //
 // Example usage in a watch handler:
 //
-//	func enqueueMonitoringConfig(providerName string) func(ctx context.Context, obj client.Object) []reconcile.Request {
+//	func enqueueForSecret(providerName string) func(ctx context.Context, obj client.Object) []reconcile.Request {
 //	    return func(ctx context.Context, obj client.Object) []reconcile.Request {
-//	        mc := obj.(*monitoringv1alpha1.MonitoringConfig)
 //	        requests, err := controller.RequestsForInstancesMatching(ctx, client, providerName,
-//	            client.InNamespace(mc.GetNamespace()),
-//	            client.MatchingFields{monitoringConfigPath: mc.GetName()},
+//	            client.InNamespace(obj.GetNamespace()),
+//	            client.MatchingFields{secretRefPath: obj.GetName()},
 //	        )
 //	        if err != nil {
 //	            return []reconcile.Request{}
@@ -1436,9 +1441,9 @@ func RequestsForInstancesMatching(ctx context.Context, c client.Client, provider
 // the creator on spec.origin.external and mirrored to status here. The state is
 // set to Succeeded when those timestamps are present.
 //
-// Both Job-mode and ProviderManaged backups share this reconciliation of backup
-// status; there is no engine specific logic to validate an external backup to
-// set the state.
+// Every execution mode shares this reconciliation of backup status; there
+// is no engine specific logic to validate an external backup to set the
+// state.
 func ReconcileExternalBackupStatus(backup *backupv1alpha1.Backup) {
 	external := backup.Spec.Origin.External
 	if external == nil {

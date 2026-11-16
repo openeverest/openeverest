@@ -14,13 +14,13 @@
 
 import { Provider, Secret } from 'shared-types/api.types';
 import { generateShortUID } from 'utils/generateShortUID';
+import { toSecretStringData } from 'utils/secrets';
 import {
   FormMode,
   Section,
   TopologyUISchemas,
 } from 'components/ui-generator/ui-generator.types';
-import { preprocessSchema } from 'components/ui-generator/utils/preprocess/preprocess-schema';
-import { applyModeOverrides } from 'components/ui-generator/utils/preprocess/apply-mode-overrides';
+import { preprocessSection } from 'components/ui-generator/utils/preprocess/preprocess-section';
 import {
   MAX_SECRET_NAME_LENGTH,
   SECRET_DEFINITION_LABEL,
@@ -38,22 +38,20 @@ export const generateSecretName = (definition: string): string => {
   return `${prefix}-${suffix}`;
 };
 
-// The pipeline stages take a topology, so the definition's one section is wrapped as one.
 export const toSecretSchema = (
   section: Section,
   providerObject: Provider,
   formMode: FormMode
-): TopologyUISchemas => {
-  const { sections } = preprocessSchema(
-    { [SECRET_SECTION_KEY]: { sections: { [SECRET_SECTION_KEY]: section } } },
-    providerObject
-  )[SECRET_SECTION_KEY];
-  return {
-    [SECRET_SECTION_KEY]: {
-      sections: applyModeOverrides(sections, formMode),
-    },
-  };
-};
+): TopologyUISchemas => ({
+  [SECRET_SECTION_KEY]: {
+    sections: preprocessSection(
+      SECRET_SECTION_KEY,
+      section,
+      formMode,
+      providerObject
+    ),
+  },
+});
 
 export const buildSecretPayload = ({
   name,
@@ -73,11 +71,5 @@ export const buildSecretPayload = ({
       [SECRET_DEFINITION_LABEL]: definition,
     },
   },
-  // Secret data is text; number and toggle fields are sent as their JSON form.
-  stringData: Object.fromEntries(
-    Object.entries(values).map(([key, value]) => [
-      key,
-      typeof value === 'string' ? value : JSON.stringify(value),
-    ])
-  ),
+  stringData: toSecretStringData(values),
 });

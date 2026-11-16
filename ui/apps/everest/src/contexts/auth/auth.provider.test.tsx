@@ -21,6 +21,7 @@ const mockUserManager = {
   events: {
     addUserLoaded: vi.fn(),
     addAccessTokenExpiring: vi.fn(),
+    removeAccessTokenExpiring: vi.fn(),
   },
   signinSilentCallback: vi.fn(),
   signinSilent: vi.fn(),
@@ -60,6 +61,7 @@ vi.mock('api/session-token', () => ({
     mockGetAccessTokenExpiry(...args),
   clearAccessToken: vi.fn(),
   refreshSession: (...args: unknown[]) => mockRefreshSession(...args),
+  setSsoTokenRefresher: vi.fn(),
 }));
 
 // Mock notistack
@@ -189,6 +191,50 @@ describe('AuthProvider — proactive refresh timer', () => {
     expect(mockEnqueueSnackbar).toHaveBeenCalledWith(
       'Your session has expired. Please sign in again.',
       { variant: 'info' }
+    );
+  });
+});
+
+describe('AuthProvider — SSO renewal', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetAccessToken.mockReturnValue(null);
+    mockRefreshSession.mockResolvedValue(null);
+  });
+
+  it('exchanges the IdP ID token, not the access token', async () => {
+    const { api } = await import('api/api');
+    const { setSsoTokenRefresher } = await import('api/session-token');
+    vi.mocked(api.post).mockResolvedValue({
+      data: { access_token: 'everest-jwt' },
+    });
+    mockUserManager.signinSilent.mockResolvedValue({
+      access_token: 'idp-access-token',
+      id_token: 'idp-id-token',
+    });
+
+    render(
+      <Provider oidcConfig={{ authority: 'https://idp', clientId: 'everest' }}>
+        <div />
+      </Provider>
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const refresher = vi
+      .mocked(setSsoTokenRefresher)
+      .mock.calls.map(([fn]) => fn)
+      .find((fn) => fn !== null);
+    expect(refresher).toBeDefined();
+
+    await expect(refresher?.()).resolves.toBe('everest-jwt');
+    expect(api.post).toHaveBeenCalledWith(
+      '/auth/token',
+      expect.objectContaining({
+        subject_token: 'idp-id-token',
+        subject_token_type: 'urn:ietf:params:oauth:token-type:id_token',
+      })
     );
   });
 });

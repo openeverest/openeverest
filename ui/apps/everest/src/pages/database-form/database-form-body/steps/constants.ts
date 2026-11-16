@@ -14,3 +14,4 @@
 
 export const BASE_STEP_ID = 'base';
 export const BACKUP_STEP_ID = 'backups';
+export const MONITORING_STEP_ID = 'monitoring';

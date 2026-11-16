@@ -12,13 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { useMemo } from 'react';
 import { useRBACAction, useRBACPermissions } from 'hooks/rbac';
 import { useCanRestore } from './useCanRestore';
 
 interface CanCreateClusterFromBackupOptions {
   hasSchedules?: boolean;
-  monitoringEnabled?: boolean;
+  // Destinations the source sends monitoring data to; the clone lists them
+  // too, which needs read on each.
+  monitoringDestinations?: string[];
 }
+
+const NO_DESTINATIONS: string[] = [];
 
 // A user may clone an instance into a new database (restore-to-new-DB) when they
 // can restore the source, read its connection details and create instances in
@@ -29,7 +34,18 @@ export const useCanCreateClusterFromBackup = (
   instanceName: string,
   options: CanCreateClusterFromBackupOptions = {}
 ) => {
-  const { hasSchedules = false, monitoringEnabled = false } = options;
+  const { hasSchedules = false, monitoringDestinations = NO_DESTINATIONS } =
+    options;
+  // Keyed by the names so a new array with the same destinations keeps the
+  // permission check stable.
+  const destinationsKey = monitoringDestinations.join(',');
+  const destinationObjects = useMemo(
+    () =>
+      destinationsKey
+        ? destinationsKey.split(',').map((name) => `${namespace}/${name}`)
+        : NO_DESTINATIONS,
+    [namespace, destinationsKey]
+  );
   const canRestore = useCanRestore(namespace, instanceName);
   // The provider copies the source's users secret into the clone, so cloning
   // reveals the source credentials.
@@ -47,8 +63,8 @@ export const useCanCreateClusterFromBackup = (
     `${namespace}/${instanceName}`
   );
   const { canRead: canReadMonitoring } = useRBACPermissions(
-    'monitoring-configs',
-    `${namespace}/${instanceName}`
+    'monitoring-destinations',
+    destinationObjects
   );
 
   let canCreateClusterFromBackup =
@@ -56,7 +72,7 @@ export const useCanCreateClusterFromBackup = (
   if (hasSchedules) {
     canCreateClusterFromBackup = canCreateClusterFromBackup && canCreateBackups;
   }
-  if (monitoringEnabled) {
+  if (destinationObjects.length > 0) {
     canCreateClusterFromBackup =
       canCreateClusterFromBackup && canReadMonitoring;
   }

@@ -22,26 +22,10 @@ gen-types: ## Generate TypeScript types from the OpenAPI spec (api/openapi/http-
 	pnpm install
 	pnpm generate-types
 
-CI_INIT_DEPS := deploy-monitoring init create-test-users
-CI_INIT_DEPS += deploy-seaweedfs create-test-manifests wait-monitoring
+CI_INIT_DEPS := init create-test-users
+CI_INIT_DEPS += deploy-seaweedfs create-test-manifests
 .PHONY: ci-init
 ci-init: $(CI_INIT_DEPS) 	## Prepare environment for running tests.
-
-PMM_HELM_CHART_VER=1.4.13
-HELM=go tool -modfile=$(TEST_ROOT)/../go.mod helm
-.PHONY: deploy-monitoring
-deploy-monitoring:   ## Start deploying PMM to the test cluster; wait-monitoring blocks on readiness.
-	$(info Deploying PMM instances to test cluster)
-	$(HELM) repo add percona https://percona.github.io/percona-helm-charts/
-	$(HELM) install pmm --set secret.pmm_password='admin',service.type=ClusterIP percona/pmm --version $(PMM_HELM_CHART_VER) -n everest-monitoring
-
-.PHONY: wait-monitoring
-wait-monitoring:   ## Wait for PMM readiness and port-forward it to localhost.
-	# PMM 3 starts slowly; deploy-monitoring runs first so the boot overlaps the rest of ci-init.
-	kubectl rollout status statefulset/pmm -n everest-monitoring --timeout=15m
-	$(info Port-forwarding PMM instances to localhost)
-	kubectl port-forward -n everest-monitoring svc/monitoring-service 8090:443 &
-	kubectl port-forward -n everest-monitoring svc/monitoring-service 8091:443 &
 
 EVERESTCTL=$(TEST_ROOT)/../bin/everestctl
 .PHONY: create-test-users
@@ -107,11 +91,6 @@ FLAGS =
 test:               ## Run all tests.
 	@{ \
   	set -xe ;\
-	export PMM1_IP=$$(kubectl get -n everest-monitoring svc/monitoring-service -o json --request-timeout=2m | jq -r '.spec.clusterIP')  ;\
-	if [ -z "$${PMM1_IP}" ]; then echo "Cannot get PMM1_IP" ; exit 1 ; fi ;\
-	export PMM2_IP=$${PMM1_IP} ;\
-	export PMM_1_LOCAL_URL="https://admin:admin@localhost:8090" ;\
-	export PMM_2_LOCAL_URL="https://admin:admin@localhost:8091" ;\
 	export CI_USER="everest_ci" ;\
 	export CI_PASSWORD="password" ;\
 	export TEST_USER="test" ;\

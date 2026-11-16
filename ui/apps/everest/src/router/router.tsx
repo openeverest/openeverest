@@ -35,7 +35,7 @@ import {
   LoginCallbackLoader,
   Logout,
   // Logs,
-  MonitoringEndpoints,
+  MonitoringDestinations,
   NamespaceDetails,
   Namespaces,
   NoMatch,
@@ -137,8 +137,8 @@ const router = createBrowserRouter([
             element: withSuspense(<StorageLocations />),
           },
           {
-            path: SettingsTabs.monitoringEndpoints,
-            element: withSuspense(<MonitoringEndpoints />),
+            path: SettingsTabs.monitoringDestinations,
+            element: withSuspense(<MonitoringDestinations />),
           },
           {
             path: SettingsTabs.namespaces,

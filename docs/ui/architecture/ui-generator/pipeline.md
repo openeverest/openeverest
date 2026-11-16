@@ -26,7 +26,10 @@ flowchart TD
   - **`withNormalizedPathMeta`** → `_normalized.sourcePath` / `targetPaths` (parses `path` — a string
     or an array for multi-path). This is the only place paths are parsed.
   - **`resolveSelectOptions`** — `optionsPath` → static `options[]` (reads the array from the Provider
-    by path, maps `labelPath` / `valuePath`).
+    by path, maps `labelPath` / `valuePath`). The `defaultValue` is then the schema's own
+    `defaultValue`, else (create only) the option named by `optionsPathConfig.defaultValuePath`
+    (e.g. the Provider's `spec.defaultVersion`), else the first option. A `defaultValuePath` that
+    resolves to a value outside the options falls back to the first option with a dev-time warning.
   - **`dataSource` validation** — for a component with `dataSource: { provider }`, warns (dev-time) if
     the provider is not registered. Options are not resolved here — they are loaded at runtime by
     `DataSourceField` and prefetched by `DataSourcePrefetcher`.
@@ -97,7 +100,8 @@ flowchart TD
 - **`extractInstanceValues`** — reads values from the instance (by `sourcePath`). In edit it uses
   **only** the instance, so edit doesn't inject defaults; in restore and for a preset it falls back
   to schema defaults. A field hidden in the mode has no `sourcePath`, so restore doesn't copy its
-  value from the source.
+  value from the source. A `quantity` field is read through `readQuantity` into a number in
+  `unit` (or cores / bytes when `unit` is omitted).
 - **Toggleable switches** — `false` on create; when values come from an instance or preset, on
   if any of the group's `childPaths` has a value.
 
@@ -124,7 +128,8 @@ flowchart TD
 - **`UIGroup`** — picks the wrapper by `groupType`. `ToggleableWrapper` mounts the body only
   while the switch is on; turning it on focuses the first field without validating untouched ones.
 - **`UIComponent`** — maps `uiType` to a concrete input (`@percona/ui-lib`: SelectInput / TextInput /
-  SwitchInput …).
+  SwitchInput …). `quantity` reuses the number TextInput; the adornment is `unitLabel ?? unit`,
+  and omitting `step` applies HTML `step="any"`.
 
 **Principle:** every component is isolated by `ComponentErrorBoundary` — a single failing field doesn't break the form.
 
@@ -135,7 +140,7 @@ flowchart TD
 ```mermaid
 flowchart TD
   REG["1. Registry<br/>api-providers/registry.ts<br/>register(key, entry)<br/>useProviderOptions(key, params)"]
-  PROVIDERS["2. Provider registrations<br/>api-providers/providers.ts<br/>monitoringConfigs<br/>storageClasses"]
+  PROVIDERS["2. Provider registrations<br/>api-providers/providers.ts<br/>storageClasses"]
   RUNTIME["3. Runtime"]
   PREFETCH["DataSourcePrefetcher<br/>prefetches options per provider<br/>sets defaults on form mount"]
   FIELD["DataSourceField<br/>wraps one select<br/>patches fieldParams.options<br/>handles loading/error/empty states"]
@@ -193,7 +198,11 @@ Read-only and disabled fields keep their value.
     switch, e.g. `spec.components.mixCoord` after switching Milvus cluster → standalone). Paths shared with the selected topology, or nested under/over one of its paths, are
     kept; values no topology binds (`dbName`, `backup`, …) are untouched.
   - **`extractMultiPathMappings` / `applyMultiPathMappings`** — one value → all `targetPaths`.
-  - **`extractBadgeMappings` / `applyBadgesToFormData`** — unit suffix (`8` → `8Gi`).
+  - **`extractQuantityMappings` / `applyQuantitiesToFormData`** — number in `unit` → quantity
+    string (`10` → `"10Gi"`). When `originalData` is set and the form number still equals the
+    stored quantity, the stored string is kept (`"10240Mi"` stays). Runs before badges.
+  - **`extractBadgeMappings` / `applyBadgesToFormData`** — unit suffix (`8` → `8Gi`). Skips
+    `quantity` fields (they use `unit`, not `badge` / `badgeToApi`).
   - **`getInactiveToggleablePaths`** — returns the `childPaths` of switched-off toggleable groups;
     they are deleted together with the form-only `toggleable-switches` key.
   - **`removeEmptyFieldValues`** — strip `undefined` / `null` / `""`.
@@ -207,8 +216,10 @@ flowchart TD
   OVERVIEW["Overview page"] --> EDITABLE["isSectionEditable(section, Edit)"]
   EDITABLE --> MODAL["SectionEditModal"]
   MODAL --> MODE["applyModeOverrides(sections, Edit)"]
-  MODE --> ZOD_EDIT["buildSectionZodSchema(sectionKey, editSections,<br/>{ formMode: Edit, originalData: instance })"]
   MODE --> VALUES["extractInstanceValues(editSections, instance)"]
+  VALUES --> ORIGINAL["originalDataForCel =<br/>stripBadges(deepMerge(instance, defaultValues))"]
+  ORIGINAL --> ZOD_EDIT["buildSectionZodSchema(…, { originalData })"]
+  MODE --> ZOD_EDIT
   ZOD_EDIT --> FORM["FormDialog + UIGenerator"]
   VALUES --> FORM
   FORM --> SUBMIT["submit"]
@@ -219,6 +230,10 @@ flowchart TD
 The edit modal reuses the same `UIGenerator` but validates only the target section via
 `buildSectionZodSchema`; other fields pass through `.passthrough()`, while CEL dependencies are
 collected from all sections.
+
+CEL's `original` is built from the same read as the form (`extractInstanceValues`), so a
+`quantity` disk rule like `size >= original.size` compares numbers (`10 >= 10`), not
+`10 >= "10240Mi"`. Legacy `badgeToApi` fields are still stripped on top.
 
 The update replaces the whole instance and `deepMerge` keeps keys missing from the form, so
 `mergeSectionEdit` deletes the paths of switched-off toggleable groups explicitly, with parents
@@ -274,6 +289,7 @@ components:
 | CEL validation             | `utils/schema-builder/cel-validation/`                     |
 | Defaults                   | `utils/default-values/`                                    |
 | Instance values            | `utils/default-values/extract-instance-values.ts`          |
+| Quantity codec             | `utils/quantity/`                                          |
 | Section editability        | `utils/section-editable/is-section-editable.ts`            |
 | Renderer                   | `utils/component-renderer/render-component.tsx`            |
 | UI component mapper        | `ui-component/`                                            |
@@ -290,7 +306,6 @@ components:
 | DataSourcePrefetcher       | `api-providers/data-source-prefetcher.tsx`                 |
 | SecretNamespaceSync        | `secret-field/secret-namespace-sync.tsx`                   |
 | Error boundary             | `component-error-boundary/component-error-boundary.tsx`    |
-| Monitoring options hook    | `hooks/api/monitoring/useMonitoringConfigsOptions.ts`      |
 | Storage classes hook       | `hooks/api/kubernetesClusters/useStorageClassesOptions.ts` |
 
 ## Metadata

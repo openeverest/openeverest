@@ -23,9 +23,11 @@ import { useDatabaseFormContext } from '../database-form-context.tsx';
 import DynamicSectionPreview from './dynamic-section-preview/dynamic-section-preview.tsx';
 import { PreviewSectionOne } from './sections/base-step.tsx';
 import { PreviewBackupSection } from './sections/backup-section.tsx';
+import { PreviewMonitoringSection } from './sections/monitoring-section.tsx';
 import {
   BASE_STEP_ID,
   BACKUP_STEP_ID,
+  MONITORING_STEP_ID,
 } from '../database-form-body/steps/constants.ts';
 import { getSectionStepId } from 'components/ui-generator/utils/section-step-id.ts';
 
@@ -38,7 +40,8 @@ export const DatabasePreview = ({
   ...stackProps
 }: DatabasePreviewProps) => {
   const { getValues } = useFormContext<DbWizardType>();
-  const { sections, sectionsOrder, hasBackupStep } = useDatabaseFormContext();
+  const { sections, sectionsOrder, hasBackupStep, hasMonitoringStep } =
+    useDatabaseFormContext();
 
   // Trigger a re-render when any form value changes so the preview stays in sync
   useWatch();
@@ -63,6 +66,15 @@ export const DatabasePreview = ({
             stepId: BACKUP_STEP_ID,
             title: 'Backups',
             content: <PreviewBackupSection {...values} />,
+          },
+        ]
+      : []),
+    ...(hasMonitoringStep
+      ? [
+          {
+            stepId: MONITORING_STEP_ID,
+            title: Messages.monitoring,
+            content: <PreviewMonitoringSection {...values} />,
           },
         ]
       : []),

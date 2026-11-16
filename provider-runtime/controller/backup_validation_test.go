@@ -72,6 +72,9 @@ func mkClass(limits *backupv1alpha1.BackupClassLimits) *backupv1alpha1.BackupCla
 	}
 }
 
+// otherMode is an execution mode the provider runtime does not execute.
+const otherMode = backupv1alpha1.BackupExecutionMode("Other")
+
 func TestValidateInstanceBackupAgainstClass(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -92,9 +95,9 @@ func TestValidateInstanceBackupAgainstClass(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "job-mode class is ignored",
+			name:    "class of another execution mode is ignored",
 			in:      mkInstance(mkStorage("a", false, 0), mkStorage("b", false, 0)),
-			bc:      &backupv1alpha1.BackupClass{Spec: backupv1alpha1.BackupClassSpec{ExecutionMode: backupv1alpha1.BackupExecutionModeJob}},
+			bc:      &backupv1alpha1.BackupClass{Spec: backupv1alpha1.BackupClassSpec{ExecutionMode: otherMode}},
 			wantErr: false,
 		},
 		{
@@ -217,9 +220,9 @@ func TestValidateInstanceBackupPITRParameters(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "job-mode class is ignored",
+			name:    "class of another execution mode is ignored",
 			in:      mkInstance(withPITRParameters(mkStorage("a", true, 0), `{"bogus": true}`)),
-			bc:      &backupv1alpha1.BackupClass{Spec: backupv1alpha1.BackupClassSpec{ExecutionMode: backupv1alpha1.BackupExecutionModeJob}},
+			bc:      &backupv1alpha1.BackupClass{Spec: backupv1alpha1.BackupClassSpec{ExecutionMode: otherMode}},
 			wantErr: false,
 		},
 		{
@@ -371,8 +374,8 @@ func TestValidateRestorePITR(t *testing.T) {
 			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{SupportsPITR: false},
 		},
 	}
-	jobMode := &backupv1alpha1.BackupClass{
-		Spec: backupv1alpha1.BackupClassSpec{ExecutionMode: backupv1alpha1.BackupExecutionModeJob},
+	otherModeClass := &backupv1alpha1.BackupClass{
+		Spec: backupv1alpha1.BackupClassSpec{ExecutionMode: otherMode},
 	}
 
 	tests := []struct {
@@ -425,9 +428,9 @@ func TestValidateRestorePITR(t *testing.T) {
 			wantUnsupErr: true,
 		},
 		{
-			name:    "job-mode class is not gated",
+			name:    "class of another execution mode is not gated",
 			restore: mkPITRRestore(&backupv1alpha1.DataSourcePointInTime{RecoveryTarget: backupv1alpha1.RecoveryTargetLatest}),
-			bc:      jobMode,
+			bc:      otherModeClass,
 			wantErr: false,
 		},
 		{

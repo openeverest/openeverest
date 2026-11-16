@@ -18,6 +18,8 @@ resources:
 - ../crd
 - ../rbac
 - ../manager
+# Admission policies (ValidatingAdmissionPolicy) run in the API server; they need no webhook.
+- ../policy
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
 # crd/kustomization.yaml
 - ../webhook

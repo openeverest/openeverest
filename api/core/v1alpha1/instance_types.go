@@ -64,9 +64,8 @@ type InstanceSpec struct {
 	// Backup configures the backup feature for this Instance. When enabled,
 	// the provider's reconciler is given the resolved BackupClass and storage
 	// list so it can configure the engine accordingly (sidecars, agent
-	// configuration, etc.). Required for ProviderManaged BackupClasses; Job
-	// classes do not need an entry here because they read directly from
-	// individual Backup CRs.
+	// configuration, etc.). Required to back up the Instance with its
+	// ProviderManaged BackupClass.
 	// +optional
 	Backup *InstanceBackupSpec `json:"backup,omitempty"`
 
@@ -768,6 +767,15 @@ const (
 	// has no destinations.
 	ConditionMonitoringConfigured = "MonitoringConfigured"
 
+	// ConditionMonitoringReady aggregates the Ready condition of
+	// status.monitoring.destinations[] the same way MonitoringConfigured
+	// aggregates Configured: False if any entry is Ready=False, else Unknown
+	// if any is Unknown, else True. It goes False when a destination is not
+	// Ready even though every entry is Configured. It never claims data
+	// flows and does not affect the Instance's Ready. Absent when
+	// spec.monitoring has no destinations.
+	ConditionMonitoringReady = "MonitoringReady"
+
 	// ConditionDataSourceReady indicates the outcome of seeding an Instance
 	// from .spec.dataSource. The condition is set only when the Instance has
 	// a DataSource configured. Status=True means the source data has been
@@ -819,6 +827,11 @@ const (
 	// ReasonValidationFailed indicates the provider rejected the spec. The
 	// message carries the provider's error.
 	ReasonValidationFailed = "ValidationFailed"
+
+	// ReasonInvalidReference indicates an object the Instance names exists but
+	// its contents don't fit the Instance, such as a user Secret missing a key
+	// the provider needs. The provider is not called.
+	ReasonInvalidReference = "InvalidReference"
 )
 
 // Reasons for the PodsScheduled condition.
@@ -909,6 +922,17 @@ const (
 	// ReasonMonitoringIntegrationUnsupported indicates the provider
 	// implements no monitoring interface, so no destination can be served.
 	ReasonMonitoringIntegrationUnsupported = "MonitoringIntegrationUnsupported"
+)
+
+// Reasons for the MonitoringReady condition, besides ReasonMonitoringPending
+// and ReasonMonitoringIntegrationUnsupported.
+const (
+	// ReasonMonitoringReady indicates every destination is Ready.
+	ReasonMonitoringReady = "MonitoringReady"
+
+	// ReasonMonitoringNotReady indicates at least one destination is not
+	// Ready.
+	ReasonMonitoringNotReady = "MonitoringNotReady"
 )
 
 // Reasons for the DataSourceReady condition.

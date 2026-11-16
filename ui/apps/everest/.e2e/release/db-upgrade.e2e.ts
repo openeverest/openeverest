@@ -34,6 +34,7 @@ import {
   waitForStatus,
   waitForDelete,
   findRowAndClickActions,
+  confirmDeletion,
 } from '@e2e/utils/table';
 import { clickOnDemandBackup } from '@e2e/pr/db-cluster-details/utils';
 import {
@@ -417,7 +418,7 @@ test.describe.configure({ retries: 0 });
               'Delete'
             );
             await expect(page.getByLabel('Delete backup')).toBeVisible();
-            await page.getByTestId('form-dialog-delete').click();
+            await confirmDeletion(page, 'form-dialog-delete');
             await waitForDelete(page, baseBackupName + `-${i}`, 30000);
           }
         }

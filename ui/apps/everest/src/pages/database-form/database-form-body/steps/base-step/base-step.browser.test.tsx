@@ -71,6 +71,7 @@ const contextValue = {
   sectionsOrder: [],
   providerObject: undefined,
   hasBackupStep: false,
+  hasMonitoringStep: false,
 };
 
 const presetSelectionValue: PresetSelectionContextType = {

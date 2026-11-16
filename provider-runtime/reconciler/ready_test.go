@@ -15,7 +15,6 @@
 package reconciler
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -24,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -117,9 +117,9 @@ func TestSetReadyCondition(t *testing.T) {
 }
 
 type readyTestProvider struct {
-	validateErr error
-	status      controller.Status
-	calls       int
+	validateErrs field.ErrorList
+	status       controller.Status
+	calls        int
 }
 
 func (p *readyTestProvider) Name() string                       { return "test-provider" }
@@ -127,9 +127,9 @@ func (p *readyTestProvider) Types() func(*runtime.Scheme) error { return nil }
 func (p *readyTestProvider) Sync(*controller.Context) error     { return nil }
 func (p *readyTestProvider) Cleanup(*controller.Context) error  { return nil }
 
-func (p *readyTestProvider) Validate(*controller.Context) error {
+func (p *readyTestProvider) Validate(controller.ValidationInput) controller.ValidationResult {
 	p.calls++
-	return p.validateErr
+	return controller.ValidationResult{Errors: p.validateErrs}
 }
 
 func (p *readyTestProvider) Status(*controller.Context) (controller.Status, error) {
@@ -224,7 +224,8 @@ func TestReconcile_UserSecretNotFound(t *testing.T) {
 
 func TestReconcile_ValidationFailedKeepsPhase(t *testing.T) {
 	t.Parallel()
-	p := &readyTestProvider{validateErr: errors.New("engine replicas must be odd")}
+	replicas := field.NewPath("spec", "components").Key("engine").Child("replicas")
+	p := &readyTestProvider{validateErrs: field.ErrorList{field.Invalid(replicas, 2, "must be odd")}}
 	provider := &v1alpha1.Provider{ObjectMeta: metav1.ObjectMeta{Name: "test-provider"}}
 	in := readyTestInstance(func(in *v1alpha1.Instance) {
 		in.Status.Phase = v1alpha1.InstancePhaseReady
@@ -232,9 +233,9 @@ func TestReconcile_ValidationFailedKeepsPhase(t *testing.T) {
 	r := newReadyTestReconciler(p, provider, in)
 
 	got, err := reconcileAndGet(t, r)
-	require.Error(t, err)
+	require.NoError(t, err, "a rejected spec is not retried with backoff")
 	c := requireReady(t, got, metav1.ConditionFalse, v1alpha1.ReasonValidationFailed)
-	assert.Equal(t, "engine replicas must be odd", c.Message)
+	assert.Equal(t, "spec.components[engine].replicas: Invalid value: 2: must be odd", c.Message)
 	assert.Equal(t, v1alpha1.InstancePhaseReady, got.Status.Phase, "a rejected spec must not move the phase to Failed")
 }
 

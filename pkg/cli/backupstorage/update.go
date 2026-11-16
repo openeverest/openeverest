@@ -83,7 +83,7 @@ func (u *Updater) Run(ctx context.Context, opts UpdateOptions, cfgPath string) e
 	case http.StatusNotFound:
 		return fmt.Errorf("backup storage %q not found in namespace %q", opts.Name, opts.Namespace)
 	default:
-		if msg, ok := clienterr.Message(resp.JSON400, resp.JSON415, resp.JSONDefault); ok {
+		if msg, ok := clienterr.Message(resp.JSON400, resp.JSON415, clienterr.FromAPIError(resp.JSON422), resp.JSONDefault); ok {
 			return fmt.Errorf("server error: %s", msg)
 		}
 		return fmt.Errorf("unexpected response updating backup storage %q: %s", opts.Name, resp.Status())

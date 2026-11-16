@@ -16,7 +16,9 @@ package uninstall
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -27,6 +29,7 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/cli/helm"
 	"github.com/openeverest/openeverest/v2/pkg/cli/steps"
 	"github.com/openeverest/openeverest/v2/pkg/common"
+	inuseuninstall "github.com/openeverest/openeverest/v2/pkg/inuse/uninstall"
 )
 
 func (u *Uninstall) newStepUninstallHelmChart() steps.Step {
@@ -36,6 +39,58 @@ func (u *Uninstall) newStepUninstallHelmChart() steps.Step {
 			return u.uninstallHelmChart(ctx)
 		},
 	}
+}
+
+// newStepWaitForInUseRelease waits until core protects no object with an
+// in-use finalizer any more, so that uninstalling it leaves nothing that
+// cannot be deleted. The database namespaces are gone by now, and core,
+// still running, releases what they used. It fails at once when no object
+// held is being deleted, since waiting would release nothing, and after
+// checkTimeout otherwise, either way with the objects held and what to do.
+// It only reads.
+func (u *Uninstall) newStepWaitForInUseRelease() steps.Step {
+	return steps.Step{
+		Desc: "Waiting for OpenEverest to release in-use objects",
+		F: func(ctx context.Context) error {
+			r, err := u.newCheckReader()
+			if err != nil {
+				return fmt.Errorf("failed to create Kubernetes client: %w", err)
+			}
+			return u.waitForInUseRelease(ctx, r)
+		},
+	}
+}
+
+func (u *Uninstall) waitForInUseRelease(ctx context.Context, r ctrlclient.Reader) error {
+	var held *inuseuninstall.HeldError
+	err := wait.PollUntilContextTimeout(ctx, u.checkInterval, u.checkTimeout, true, func(ctx context.Context) (bool, error) {
+		err := inuseuninstall.Check(ctx, r)
+		if err == nil {
+			return true, nil
+		}
+		var ok bool
+		if held, ok = errors.AsType[*inuseuninstall.HeldError](err); !ok {
+			return false, err
+		}
+		if !held.AnyDeleting() {
+			return false, held
+		}
+		u.l.Infof("Waiting for OpenEverest to release %s", countHeld(held))
+		return false, nil
+	})
+	if held != nil && wait.Interrupted(err) {
+		return held
+	}
+	return err
+}
+
+// countHeld counts the objects held per kind, e.g. "2 MonitoringDestination(s), 1 Secret(s)".
+func countHeld(held *inuseuninstall.HeldError) string {
+	counts := make([]string, 0, len(held.Held))
+	for _, h := range held.Held {
+		counts = append(counts, fmt.Sprintf("%d %s(s)", len(h.Objects), h.Kind))
+	}
+	return strings.Join(counts, ", ")
 }
 
 func (u *Uninstall) newStepDeleteNamespace(ns string) steps.Step {

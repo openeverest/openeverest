@@ -11,11 +11,6 @@ on:
 permissions:
   contents: read
 
-env:
-  GONOPROXY: 'github.com/percona'
-  GONOSUMDB: 'github.com/percona'
-  GOPRIVATE: 'github.com/percona'
-
 jobs:
   integration_tests:
     strategy:

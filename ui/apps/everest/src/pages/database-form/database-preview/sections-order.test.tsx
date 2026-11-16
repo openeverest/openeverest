@@ -76,6 +76,7 @@ describe('DatabasePreview - Sections Order', () => {
               sectionsOrder,
               providerObject: undefined,
               hasBackupStep: false,
+              hasMonitoringStep: false,
             }}
           >
             <DatabasePreview stepsWithErrors={[]} activeStepId="base" />
@@ -139,6 +140,7 @@ describe('DatabasePreview - Sections Order', () => {
               sectionsOrder,
               providerObject: undefined,
               hasBackupStep: false,
+              hasMonitoringStep: false,
             }}
           >
             <DatabasePreview stepsWithErrors={[]} activeStepId="base" />
@@ -184,6 +186,7 @@ describe('DatabasePreview - Sections Order', () => {
               sectionsOrder: undefined,
               providerObject: undefined,
               hasBackupStep: false,
+              hasMonitoringStep: false,
             }}
           >
             <DatabasePreview stepsWithErrors={[]} activeStepId="base" />

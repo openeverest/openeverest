@@ -53,7 +53,11 @@ server applies:
 
   # Preview a change before applying it
   everestctl instance update --name my-mongo --namespace everest \
-    --set components.engine.storage.size=100Gi --dry-run
+    --set components.engine.storage.size=100Gi --dry-run=client
+
+  # Have the server validate a change, admission checks included, without applying it
+  everestctl instance update --name my-mongo --namespace everest \
+    --set components.engine.storage.size=100Gi --dry-run=server
 
   # Grow storage and enable backups in one go
   everestctl instance update --name my-mongo --namespace everest \
@@ -80,7 +84,9 @@ func init() {
 	updateCmd.Flags().StringVar(&updateOpts.Context, cli.FlagInstanceContext, "", "Context to use (default: current context)")
 	updateCmd.Flags().StringVarP(&updateOpts.ValuesFile, cli.FlagInstanceFile, "f", "", "Path to a YAML file with spec overrides (--set takes precedence)")
 	updateCmd.Flags().StringArrayVar(&updateOpts.Set, cli.FlagInstanceSet, nil, "Set a spec field: --set components.engine.replicas=3 or --set backup.enabled=true (repeatable)")
-	updateCmd.Flags().BoolVar(&updateOpts.DryRun, cli.FlagInstanceDryRun, false, "Print the fields the patch would change, without writing or validating")
+	updateCmd.Flags().StringVar(&updateOpts.DryRun, cli.FlagInstanceDryRun, instancecli.DryRunNone,
+		`"client" prints the fields the patch would change without sending it; "server" also has the server validate it, without persisting it`,
+	)
 
 	_ = updateCmd.MarkFlagRequired(cli.FlagInstanceName)
 	_ = updateCmd.MarkFlagRequired(cli.FlagInstanceNamespace)

@@ -70,8 +70,8 @@ func (h *rbacHandler) CreateInstancePreset(ctx context.Context, cluster string, 
 // On update, current is the stored preset and only added or changed references are checked.
 //
 // backups:create and restores:create are not checked: they are keyed on an
-// instance that does not exist until someone deploys from the preset, and
-// instances:deploy implies them.
+// instance that does not exist until someone creates one from the preset, and
+// instances:create-from-preset implies them.
 func (h *rbacHandler) ensureInstancePresetReferencesAuthorized(ctx context.Context, cluster string, current, preset *corev1alpha1.InstancePreset) error {
 	var currentSpec *corev1alpha1.InstanceSpec
 	var currentMonitoring *corev1alpha1.InstanceMonitoringSpec

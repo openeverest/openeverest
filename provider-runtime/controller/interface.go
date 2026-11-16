@@ -21,6 +21,7 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -38,8 +39,10 @@ type ProviderInterface interface {
 	// Types returns the scheme builder for registering provider-specific CRDs.
 	Types() func(*runtime.Scheme) error
 
-	// Validate checks if the Instance spec is valid.
-	Validate(c *Context) error
+	// Validate checks the Instance alone, without reading the cluster. The
+	// runtime calls it before every Sync, once the Instance matches the
+	// topologies, components, versions and schemas its Provider declares.
+	Validate(in ValidationInput) ValidationResult
 
 	// Sync ensures all required resources exist and are configured.
 	Sync(c *Context) error
@@ -49,6 +52,38 @@ type ProviderInterface interface {
 
 	// Cleanup handles deletion (called when deletion timestamp is set).
 	Cleanup(c *Context) error
+}
+
+// ValidationInput is everything Validate may read.
+type ValidationInput struct {
+	// Instance is the Instance as written by the user, before the runtime
+	// resolves its version bundle.
+	Instance *corev1alpha1.Instance
+	// Old is the previous Instance on an update at admission, and nil
+	// otherwise, so rules about transitions return nothing when it is nil.
+	Old *corev1alpha1.Instance
+	// Provider is the Provider the Instance names.
+	Provider *corev1alpha1.Provider
+}
+
+// ValidationResult is what Validate returns. Errors carry Instance field
+// paths, for example spec.components[configServer].replicas.
+type ValidationResult struct {
+	Errors   field.ErrorList
+	Warnings []string
+}
+
+// ReferenceValidator is an optional interface for rules about the contents of
+// other objects, such as the keys of the user Secret or the origin of the
+// source Backup. The runtime calls ValidateReferences after Validate passes and
+// before Sync. Whether a referent exists is checked by the runtime, not here.
+//
+// Errors carry the path of the Instance field that names the object, for
+// example spec.userSecretRef.name, and are reported with reason
+// InvalidReference. err is for a check that could not run, such as a failed
+// read; it is retried with backoff.
+type ReferenceValidator interface {
+	ValidateReferences(c *Context) (errs field.ErrorList, err error)
 }
 
 // =============================================================================
@@ -384,8 +419,17 @@ type UpgradeProvider interface {
 // =============================================================================
 
 // MonitoringSourcesProvider is an optional interface a provider implements to
-// publish what an Instance exposes to monitoring (credentials and OpenMetrics
-// endpoints), which ExtensionManaged MonitoringClasses consume.
+// publish what an Instance exposes to monitoring (credentials, OpenMetrics
+// endpoints and native-protocol connection endpoints), which ExtensionManaged
+// MonitoringClasses consume.
+//
+// A provider whose component types declare connection: Supported publishes,
+// while RequiredSources().Connections asks for it, one connection endpoint
+// per serving component and an Instance-owned Secret with the read-only
+// monitoring user under the CredentialProfileMonitor profile. It also renders
+// Context.MonitoringPodAnnotations(component) into each component's pod
+// template on every Sync, for classes whose agents discover databases
+// through pod annotations.
 //
 // When a provider implements MonitoringSourcesProvider or
 // MonitoringIntegrationsProvider the runtime:
@@ -407,10 +451,13 @@ type MonitoringSourcesProvider interface {
 	// The runtime drops duplicate credential profiles and credentials whose
 	// Secret is not controlled by the Instance; it drops endpoints of
 	// component types the Provider does not declare or declares with
-	// metrics None, endpoints whose pod selector lacks the Instance label,
-	// endpoints with a scheme other than http or https and endpoints naming
-	// a credential profile missing from credentials, and keeps at most 32.
-	// It sets each endpoint's kind from its declared component type and
+	// metrics None (connection None for connection endpoints), endpoints
+	// whose pod selector lacks the Instance label, metrics endpoints with a
+	// scheme other than http or https and endpoints naming a credential
+	// profile missing from credentials, and keeps at most 32 of each.
+	// Endpoints of a component type without a kind, or whose kind differs
+	// from the type's declared kind (Provider.spec.componentTypes.<type>.kind),
+	// are dropped too; an empty kind is set to the declared one. The runtime
 	// overwrites identity. Returning nil clears the published sources; an
 	// error keeps the previous ones.
 	MonitoringSources(c *Context) (*corev1alpha1.MonitoringSources, error)

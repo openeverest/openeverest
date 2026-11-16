@@ -80,6 +80,10 @@ to override any Instance spec field using dot-notation paths rooted at the spec
   everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb \
     --version 8.0.12 --topology sharded
 
+  # Print the instance that would be sent, or have the server validate it without creating it
+  everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb --dry-run=client
+  everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb --dry-run=server
+
   # Block until the instance is ready (Ctrl-C only stops waiting; the instance keeps provisioning)
   everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb --wait
 
@@ -108,6 +112,9 @@ func init() {
 	createCmd.Flags().StringArrayVar(&createOpts.Set, cli.FlagInstanceSet, nil, "Set a spec field: --set components.engine.replicas=3 or --set backup.enabled=true (repeatable)")
 	createCmd.Flags().BoolVar(&createOpts.Wait, cli.FlagInstanceWait, false, "Block until the instance reaches the Ready phase; exit non-zero if it fails or times out")
 	createCmd.Flags().DurationVar(&createOpts.Timeout, cli.FlagInstanceTimeout, 10*time.Minute, "Maximum time to wait (only valid with --wait); must be positive")
+	createCmd.Flags().StringVar(&createOpts.DryRun, cli.FlagInstanceDryRun, instancecli.DryRunNone,
+		`"client" prints the instance without sending it; "server" has the server validate it, without creating it`,
+	)
 
 	_ = createCmd.MarkFlagRequired(cli.FlagInstanceName)
 	_ = createCmd.MarkFlagRequired(cli.FlagInstanceNamespace)

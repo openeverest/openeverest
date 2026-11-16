@@ -89,9 +89,9 @@ func (r *ProviderReconciler) block(ctx context.Context, in *v1alpha1.Instance, b
 
 // missingReferent returns a blocker when the Provider or the user Secret the
 // Instance names does not exist.
-func (r *ProviderReconciler) missingReferent(ctx context.Context, in *v1alpha1.Instance) (blocker, error) {
+func missingReferent(ctx context.Context, c client.Reader, in *v1alpha1.Instance) (blocker, error) {
 	providerName := in.Spec.ProviderRef.Name
-	if err := r.Get(ctx, client.ObjectKey{Name: providerName}, &v1alpha1.Provider{}); err != nil {
+	if err := c.Get(ctx, client.ObjectKey{Name: providerName}, &v1alpha1.Provider{}); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return blocker{}, fmt.Errorf("get provider %s: %w", providerName, err)
 		}
@@ -104,7 +104,7 @@ func (r *ProviderReconciler) missingReferent(ctx context.Context, in *v1alpha1.I
 	if ref := in.Spec.UserSecretRef; ref != nil {
 		secret := &metav1.PartialObjectMetadata{}
 		secret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
-		if err := r.Get(ctx, client.ObjectKey{Namespace: in.Namespace, Name: ref.Name}, secret); err != nil {
+		if err := c.Get(ctx, client.ObjectKey{Namespace: in.Namespace, Name: ref.Name}, secret); err != nil {
 			if !apierrors.IsNotFound(err) {
 				return blocker{}, fmt.Errorf("get secret %s: %w", ref.Name, err)
 			}

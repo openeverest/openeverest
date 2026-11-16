@@ -43,7 +43,7 @@ const (
 
 // backupRuntimeReconciler dispatches Backup CRs whose resolved BackupClass uses
 // executionMode "ProviderManaged" to the provider's BackupProvider implementation.
-// Backups whose class uses executionMode "Job" or whose Instance is owned by a
+// Backups whose class uses another execution mode or whose Instance is owned by a
 // different provider are skipped (returning nil) so multiple provider runtimes
 // can coexist in the same namespace without trampling each other.
 type backupRuntimeReconciler struct {

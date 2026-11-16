@@ -34,7 +34,84 @@ import (
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	configmapadapter "github.com/openeverest/openeverest/v2/pkg/rbac/configmap-adapter"
+	"github.com/openeverest/openeverest/v2/pkg/session"
 )
+
+// TestSSOGroupPolicy pins that a policy granted only to an IdP group still applies to an SSO
+// user, whose Everest-issued token carries the IdP groups in its "groups" claim.
+func TestSSOGroupPolicy(t *testing.T) {
+	t.Parallel()
+
+	enf, err := NewIOReaderEnforcer(strings.NewReader(
+		"p, role:dev, instances, read, */*\n" +
+			"g, everest-devs, role:dev\n",
+	))
+	require.NoError(t, err)
+
+	// Claims as produced by session.Manager.CreateSSO and decoded by the JWT middleware.
+	token := &jwt.Token{Claims: jwt.MapClaims{
+		"iss":         session.SessionManagerClaimsIssuer,
+		"sub":         "oidc-subject",
+		"oidc_issuer": "https://idp.example.com",
+		"groups":      []any{"everest-devs"},
+	}}
+	ctx := context.WithValue(context.Background(), common.UserCtxKey, token) //nolint:staticcheck // mirrors how the JWT middleware stores the token
+
+	user, err := GetUser(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "oidc-subject", user.Subject)
+	assert.Equal(t, []string{"everest-devs"}, user.Groups)
+
+	ok, err := enf.Enforce(user.Subject, "instances", "read", "ns/db")
+	require.NoError(t, err)
+	assert.False(t, ok, "the subject itself has no policy")
+
+	ok, err = enf.Enforce(user.Groups[0], "instances", "read", "ns/db")
+	require.NoError(t, err)
+	assert.True(t, ok, "the group policy must apply")
+}
+
+// TestGetUserSubject pins that only built-in tokens have their "<user>:<capability>" subject
+// trimmed: an SSO subject containing colons (e.g. Keycloak federated "f:<id>:alice", or a
+// user-chosen "admin:x") must not collapse into a different identity such as "admin".
+func TestGetUserSubject(t *testing.T) {
+	t.Parallel()
+
+	testcases := []struct {
+		name     string
+		claims   jwt.MapClaims
+		expected string
+	}{
+		{
+			name:     "built-in user",
+			claims:   jwt.MapClaims{"iss": session.SessionManagerClaimsIssuer, "sub": "admin:login"},
+			expected: "admin",
+		},
+		{
+			name: "SSO user with colons in subject",
+			claims: jwt.MapClaims{
+				"iss":                   session.SessionManagerClaimsIssuer,
+				"sub":                   "admin:x",
+				session.OIDCIssuerClaim: "https://idp.example.com",
+			},
+			expected: "admin:x",
+		},
+		{
+			name:     "IdP-issued token",
+			claims:   jwt.MapClaims{"iss": "https://idp.example.com", "sub": "f:1:alice"},
+			expected: "f:1:alice",
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.WithValue(context.Background(), common.UserCtxKey, &jwt.Token{Claims: tc.claims}) //nolint:staticcheck // mirrors how the JWT middleware stores the token
+			user, err := GetUser(ctx)
+			require.NoError(t, err)
+			assert.Equal(t, tc.expected, user.Subject)
+		})
+	}
+}
 
 func TestGetScopeValues(t *testing.T) {
 	t.Parallel()
@@ -167,7 +244,6 @@ func TestLoadAdminPolicy(t *testing.T) {
 		enf.assertAllowed("admin-user", ResourceBackups, ActionRead, "prod/default/backup-1")
 		enf.assertAllowed("admin-user", ResourceRestores, ActionCreate, "staging/ns2/restore-1")
 		enf.assertAllowed("admin-user", ResourceBackupStorages, ActionUpdate, "prod/default/my-storage")
-		enf.assertAllowed("admin-user", ResourceMonitoringConfigs, ActionDelete, "prod/ns1/mc-1")
 	})
 
 	t.Run("admin cannot access cluster-namespaced resources via v1 format", func(t *testing.T) {
@@ -181,6 +257,11 @@ func TestLoadAdminPolicy(t *testing.T) {
 		for _, action := range []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete} {
 			enf.assertAllowed("admin-user", ResourceMonitoringDestinations, action, "prod/ns1/pmm-prod")
 		}
+	})
+
+	t.Run("admin uses Secrets", func(t *testing.T) {
+		t.Parallel()
+		enf.assertAllowed("admin-user", ResourceSecrets, ActionUse, "prod/ns1/pmm-prod-credentials")
 	})
 
 	t.Run("admin only reads monitoring classes and bindings", func(t *testing.T) {
@@ -237,6 +318,19 @@ func TestEnforceWithSpecificPolicies(t *testing.T) {
 		enf := newTestEnforcer(t, policy)
 		enf.assertAllowed("bob", ResourceClusters, ActionRead, "prod")
 		enf.assertDenied("bob", ResourceClusters, ActionRead, "staging")
+	})
+
+	t.Run("read on a Secret does not grant use", func(t *testing.T) {
+		t.Parallel()
+		lines := []string{
+			"p, role:dev, secrets, read, prod/ns1/*",
+			"p, role:dev, secrets, use, prod/ns1/pmm-prod-credentials",
+			"g, bob, role:dev",
+		}
+		enf := newTestEnforcer(t, strings.Join(lines, "\n"))
+		enf.assertAllowed("bob", ResourceSecrets, ActionUse, "prod/ns1/pmm-prod-credentials")
+		enf.assertAllowed("bob", ResourceSecrets, ActionRead, "prod/ns1/db1-root")
+		enf.assertDenied("bob", ResourceSecrets, ActionUse, "prod/ns1/db1-root")
 	})
 
 	t.Run("action-specific permissions", func(t *testing.T) {

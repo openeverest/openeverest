@@ -32,23 +32,30 @@ import (
 )
 
 const (
-	testFieldOwner = "openeverest.io/monitoring-test"
-	testClassName  = "prometheus"
+	testFieldOwner     = "openeverest.io/monitoring-test"
+	testControllerName = "openeverest.io/monitoring-prometheus"
+	testClassName      = "prometheus"
+	otherController    = "openeverest.io/monitoring-pmm"
 )
 
-func newClass(name string) *monitoringv1alpha1.MonitoringClass {
+func newClass(name, controllerName string) *monitoringv1alpha1.MonitoringClass {
 	return &monitoringv1alpha1.MonitoringClass{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Generation: 1},
 		Spec: monitoringv1alpha1.MonitoringClassSpec{
+			ControllerName:   controllerName,
 			ExtensionManaged: &monitoringv1alpha1.ExtensionManagedFulfilment{},
 		},
 	}
 }
 
+func testController(c client.Client) monitoring.ClassController {
+	return monitoring.ClassController{Client: c, FieldOwner: testFieldOwner, ControllerName: testControllerName}
+}
+
 func TestClaimKeepsCoreCompatibilityMatrix(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
-	c := newFakeClient(t, newClass(testClassName), newClass("pmm"))
+	c := newFakeClient(t, newClass(testClassName, testControllerName), newClass("pmm", otherController))
 
 	ours := &monitoringv1alpha1.MonitoringClass{}
 	require.NoError(t, c.Get(ctx, client.ObjectKey{Name: testClassName}, ours))
@@ -56,13 +63,14 @@ func TestClaimKeepsCoreCompatibilityMatrix(t *testing.T) {
 		"providers": []any{map[string]any{"name": "percona-server-mongodb", "mode": "ExtensionManaged"}},
 	}))
 
-	require.NoError(t, monitoring.ClassController{Client: c, FieldOwner: testFieldOwner, ClassName: testClassName}.Claim(ctx))
+	require.NoError(t, testController(c).Claim(ctx))
 
 	require.NoError(t, c.Get(ctx, client.ObjectKey{Name: testClassName}, ours))
 	accepted := meta.FindStatusCondition(ours.Status.Conditions, monitoringv1alpha1.MonitoringClassConditionAccepted)
 	require.NotNil(t, accepted)
 	assert.Equal(t, metav1.ConditionTrue, accepted.Status)
 	assert.Equal(t, monitoringv1alpha1.ReasonAccepted, accepted.Reason)
+	assert.Equal(t, "claimed by "+testControllerName, accepted.Message)
 	wantProviders := []monitoringv1alpha1.ProviderCompatibility{
 		{Name: "percona-server-mongodb", Mode: corev1alpha1.MonitoringExecutionModeExtensionManaged},
 	}
@@ -80,15 +88,33 @@ func TestClaimKeepsCoreCompatibilityMatrix(t *testing.T) {
 	assert.Empty(t, other.Status.Conditions)
 }
 
+func TestClaimClaimsEveryClassOfTheController(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	c := newFakeClient(t,
+		newClass("prometheus-eu", testControllerName),
+		newClass("prometheus-us", testControllerName),
+		newClass("pmm", otherController),
+	)
+
+	require.NoError(t, testController(c).Claim(ctx))
+
+	for name, want := range map[string]bool{"prometheus-eu": true, "prometheus-us": true, "pmm": false} {
+		class := &monitoringv1alpha1.MonitoringClass{}
+		require.NoError(t, c.Get(ctx, client.ObjectKey{Name: name}, class))
+		assert.Equal(t, want, monitoring.ClassIsAccepted(class), name)
+	}
+}
+
 func TestClaimWithoutServedClass(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
-	c := newFakeClient(t, newClass("pmm"))
+	c := newFakeClient(t, newClass(testClassName, otherController))
 
-	require.NoError(t, monitoring.ClassController{Client: c, FieldOwner: testFieldOwner, ClassName: testClassName}.Claim(ctx))
+	require.NoError(t, testController(c).Claim(ctx))
 
 	other := &monitoringv1alpha1.MonitoringClass{}
-	require.NoError(t, c.Get(ctx, client.ObjectKey{Name: "pmm"}, other))
+	require.NoError(t, c.Get(ctx, client.ObjectKey{Name: testClassName}, other))
 	assert.Empty(t, other.Status.Conditions)
 }
 
@@ -96,24 +122,24 @@ func TestClaimClass(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name         string
-		class        string
-		wantAccepted bool
+		name           string
+		controllerName string
+		wantAccepted   bool
 	}{
-		{name: "served class", class: testClassName, wantAccepted: true},
-		{name: "another class", class: "pmm", wantAccepted: false},
+		{name: "served class", controllerName: testControllerName, wantAccepted: true},
+		{name: "class of another controller", controllerName: otherController, wantAccepted: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			ctx := t.Context()
-			c := newFakeClient(t, newClass(tt.class))
+			c := newFakeClient(t, newClass(testClassName, tt.controllerName))
 			class := &monitoringv1alpha1.MonitoringClass{}
-			require.NoError(t, c.Get(ctx, client.ObjectKey{Name: tt.class}, class))
+			require.NoError(t, c.Get(ctx, client.ObjectKey{Name: testClassName}, class))
 
-			require.NoError(t, monitoring.ClassController{Client: c, FieldOwner: testFieldOwner, ClassName: testClassName}.ClaimClass(ctx, class))
+			require.NoError(t, testController(c).ClaimClass(ctx, class))
 
-			require.NoError(t, c.Get(ctx, client.ObjectKey{Name: tt.class}, class))
+			require.NoError(t, c.Get(ctx, client.ObjectKey{Name: testClassName}, class))
 			accepted := meta.FindStatusCondition(class.Status.Conditions, monitoringv1alpha1.MonitoringClassConditionAccepted)
 			if !tt.wantAccepted {
 				assert.Nil(t, accepted)
@@ -131,16 +157,74 @@ func TestOwnsClass(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
+		name       string
+		controller string
+		class      string
+		want       bool
+	}{
+		{name: "same controller", controller: testControllerName, class: testControllerName, want: true},
+		{name: "another controller", controller: testControllerName, class: otherController, want: false},
+		{name: "controller without a name", controller: "", class: "", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			cc := monitoring.ClassController{ControllerName: tt.controller}
+			assert.Equal(t, tt.want, cc.OwnsClass(newClass(testClassName, tt.class)))
+		})
+	}
+}
+
+func TestOwnsClassNamed(t *testing.T) {
+	t.Parallel()
+	c := newFakeClient(t, newClass(testClassName, testControllerName), newClass("pmm", otherController))
+
+	tests := []struct {
 		class string
 		want  bool
 	}{
 		{class: testClassName, want: true},
 		{class: "pmm", want: false},
+		{class: "missing", want: false},
+		{class: "", want: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.class, func(t *testing.T) {
 			t.Parallel()
-			assert.Equal(t, tt.want, monitoring.ClassController{ClassName: testClassName}.OwnsClass(newClass(tt.class)))
+			got, err := testController(c).OwnsClassNamed(t.Context(), tt.class)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestOwnsBinding(t *testing.T) {
+	t.Parallel()
+	c := newFakeClient(t, newClass(testClassName, testControllerName), newClass("pmm", otherController))
+
+	tests := []struct {
+		name  string
+		mode  corev1alpha1.MonitoringExecutionMode
+		class string
+		want  bool
+	}{
+		{name: "ExtensionManaged binding of a served class", mode: corev1alpha1.MonitoringExecutionModeExtensionManaged, class: testClassName, want: true},
+		{name: "ProviderManaged binding of a served class", mode: corev1alpha1.MonitoringExecutionModeProviderManaged, class: testClassName, want: false},
+		{name: "mode not resolved yet", class: testClassName, want: false},
+		{name: "class of another controller", mode: corev1alpha1.MonitoringExecutionModeExtensionManaged, class: "pmm", want: false},
+		{name: "class not resolved yet", mode: corev1alpha1.MonitoringExecutionModeExtensionManaged, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			b := newBinding()
+			b.Spec.ExecutionMode = tt.mode
+			if tt.class != "" {
+				b.Labels = map[string]string{monitoringv1alpha1.BindingClassLabel: tt.class}
+			}
+			got, err := testController(c).OwnsBinding(t.Context(), b)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -153,7 +237,7 @@ func TestSetDestinationReadyKeepsServerVersionAndAccepted(t *testing.T) {
 		Spec:       monitoringv1alpha1.MonitoringDestinationSpec{ClassRef: common.ObjectRef{Name: "pmm"}},
 	})
 	key := client.ObjectKey{Namespace: testNamespace, Name: "pmm-prod"}
-	ext := monitoring.ClassController{Client: c, FieldOwner: testFieldOwner, ClassName: "pmm"}
+	ext := monitoring.ClassController{Client: c, FieldOwner: testFieldOwner, ControllerName: otherController}
 
 	dst := &monitoringv1alpha1.MonitoringDestination{}
 	require.NoError(t, c.Get(ctx, key, dst))
@@ -173,6 +257,34 @@ func TestSetDestinationReadyKeepsServerVersionAndAccepted(t *testing.T) {
 	assert.Equal(t, metav1.ConditionFalse, ready.Status)
 	assert.Equal(t, "Unreachable", ready.Reason)
 	assert.True(t, meta.IsStatusConditionTrue(dst.Status.Conditions, monitoringv1alpha1.MonitoringDestinationConditionAccepted))
+}
+
+func TestSetConfiguredWithPodMetadata(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	c := newFakeClient(t, newBinding())
+	key := client.ObjectKey{Namespace: testNamespace, Name: newBinding().Name}
+	ext := monitoring.ClassController{Client: c, FieldOwner: testFieldOwner, ControllerName: "openeverest.io/monitoring-coroot"}
+	requested := []monitoringv1alpha1.ComponentPodMetadata{{
+		Component:   "engine",
+		Annotations: map[string]string{"coroot.com/mongodb-scrape": "true"},
+	}}
+
+	b := &monitoringv1alpha1.MonitoringBinding{}
+	require.NoError(t, c.Get(ctx, key, b))
+	require.NoError(t, ext.SetConfiguredWithPodMetadata(ctx, b, monitoringv1alpha1.ReasonConfigured, "annotations requested", requested))
+
+	require.NoError(t, c.Get(ctx, key, b))
+	assert.Equal(t, requested, b.Status.PodMetadata)
+	assert.True(t, meta.IsStatusConditionTrue(b.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionConfigured))
+
+	require.NoError(t, ext.SetConfiguredWithPodMetadata(ctx, b, monitoringv1alpha1.ReasonRenderFailed, "no connections", nil))
+
+	require.NoError(t, c.Get(ctx, key, b))
+	assert.Empty(t, b.Status.PodMetadata)
+	configured := meta.FindStatusCondition(b.Status.Conditions, monitoringv1alpha1.MonitoringBindingConditionConfigured)
+	require.NotNil(t, configured)
+	assert.Equal(t, string(monitoringv1alpha1.ReasonRenderFailed), configured.Reason)
 }
 
 func TestOwnedBy(t *testing.T) {
@@ -214,6 +326,33 @@ func TestBindingPredicate(t *testing.T) {
 		{name: "not a binding", obj: &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{monitoringv1alpha1.BindingClassLabel: "prometheus"}}}, want: false},
 	}
 	p := monitoring.BindingPredicate("prometheus", "victoriametrics")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tt.want, p.Create(event.CreateEvent{Object: tt.obj}))
+		})
+	}
+}
+
+func TestExtensionManagedBindingPredicate(t *testing.T) {
+	t.Parallel()
+
+	binding := func(mode corev1alpha1.MonitoringExecutionMode) *monitoringv1alpha1.MonitoringBinding {
+		b := newBinding()
+		b.Spec.ExecutionMode = mode
+		return b
+	}
+	tests := []struct {
+		name string
+		obj  client.Object
+		want bool
+	}{
+		{name: "ExtensionManaged binding", obj: binding(corev1alpha1.MonitoringExecutionModeExtensionManaged), want: true},
+		{name: "ProviderManaged binding", obj: binding(corev1alpha1.MonitoringExecutionModeProviderManaged), want: false},
+		{name: "mode not resolved yet", obj: binding(""), want: false},
+		{name: "not a binding", obj: &corev1.ConfigMap{}, want: false},
+	}
+	p := monitoring.ExtensionManagedBindingPredicate()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
