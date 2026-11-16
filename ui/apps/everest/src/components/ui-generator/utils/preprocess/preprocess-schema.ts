@@ -58,7 +58,8 @@ const preprocessComponent = (
   item: Component | ComponentGroup,
   keyPath: string[],
   scope: ToggleableScope,
-  providerObject?: Provider
+  providerObject?: Provider,
+  formMode?: FormMode
 ): Component | ComponentGroup => {
   if (
     (item.uiType === 'group' || item.uiType === 'hidden') &&
@@ -72,11 +73,12 @@ const preprocessComponent = (
         `[UISchema] Toggleable group "${keyPath.join('.')}" ${warning}; rendering it as bordered.`
       );
     }
-        const preprocessedComponents = preprocessComponents(
+    const preprocessedComponents = preprocessComponents(
       item.components,
       keyPath,
       resolution.childScope,
-      providerObject
+      providerObject,
+      formMode
     );
 
     const keys = item.componentsOrder ?? Object.keys(item.components);
@@ -163,12 +165,19 @@ const preprocessComponents = (
   components: { [key: string]: Component | ComponentGroup },
   parentKeyPath: string[],
   scope: ToggleableScope,
-  providerObject?: Provider
+  providerObject?: Provider,
+  formMode?: FormMode
 ): { [key: string]: Component | ComponentGroup } => {
   return Object.fromEntries(
     Object.entries(components).map(([key, item]) => [
       key,
-      preprocessComponent(item, [...parentKeyPath, key], scope, providerObject),
+      preprocessComponent(
+        item,
+        [...parentKeyPath, key],
+        scope,
+        providerObject,
+        formMode
+      ),
     ])
   );
 };
@@ -205,7 +214,8 @@ export const preprocessSchema = (
               section.components,
               [sectionKey],
               scope,
-              providerObject
+              providerObject,
+              formMode
             ),
           },
         ])
