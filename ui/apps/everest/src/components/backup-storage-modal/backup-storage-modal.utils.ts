@@ -271,7 +271,7 @@ export const buildSaveRequest = ({
 
   return {
     namespace: values.namespace,
-    isEdit: !!original,
+    savedSpec: original?.spec,
     credentialsSecret,
     storage: {
       ...(original && { apiVersion: original.apiVersion, kind: original.kind }),
