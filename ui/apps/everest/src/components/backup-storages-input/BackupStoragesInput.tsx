@@ -29,6 +29,7 @@ import {
   BackupStoragesInputProps,
   ScheduleWithStorage,
 } from './backup-storages-input.types';
+import { useUnchangedList } from './useUnchangedList';
 
 const BackupStoragesInput = ({
   name = 'storageLocation',
@@ -72,13 +73,12 @@ const BackupStoragesInput = ({
     backupClass ? { backupClass } : undefined,
     { refetchInterval: (query) => getStoragesPollInterval(query.state.data) }
   );
-  const backupStorages = withoutDeletedStorages(
-    namespaceStorages,
-    new Set(instanceStorageNames)
+  const backupStorages = useUnchangedList(
+    withoutDeletedStorages(namespaceStorages, new Set(instanceStorageNames))
   );
 
   const {
-    storagesToShow,
+    storagesToShow: availableStorages,
     activeStoragesCount,
     shouldDisable,
     inUseNames,
@@ -90,6 +90,10 @@ const BackupStoragesInput = ({
     maxSchedulesPerStorage,
     instanceStorageNames,
   });
+  // The first valid storage is filled in when the list changes. With a new
+  // list on each render, it would be filled back into a field the user just
+  // cleared.
+  const storagesToShow = useUnchangedList(availableStorages);
 
   const isDisabled = shouldDisable || autoFillProps?.disabled;
 
