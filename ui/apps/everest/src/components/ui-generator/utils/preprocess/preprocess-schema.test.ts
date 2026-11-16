@@ -195,6 +195,31 @@ describe('preprocessSchema', () => {
       expect(defaultOf(versionPicker({ defaultValue: '8.0' }))).toBe('8.0');
     });
 
+    it('ignores a schema defaultValue that is not an option, with a warning, and uses the provider default', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      expect(defaultOf(versionPicker({ defaultValue: '7.0' }))).toBe('8.4');
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('"base.version" sets defaultValue "7.0"')
+      );
+    });
+
+    it('ignores an unquoted (numeric) schema defaultValue, which equals no option', () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const noDefault: Provider = { spec: { versions } };
+
+      expect(defaultOf(versionPicker({ defaultValue: 8.4 }), noDefault)).toBe(
+        '8.0'
+      );
+    });
+
+    it('keeps an empty schema defaultValue as an explicitly empty selection', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      expect(defaultOf(versionPicker({ defaultValue: '' }))).toBe('');
+      expect(warn).not.toHaveBeenCalled();
+    });
+
     it('falls back to the first option when defaultValuePath is absent', () => {
       const schema = versionPicker({
         optionsPathConfig: { labelPath: 'name', valuePath: 'name' },

@@ -1,8 +1,8 @@
 # uischema
 
-`Validate(Input{UISchema: ...})` checks a provider UI schema (`Provider.spec.uiSchema`: topology name → `{sections: {<key>: {components: ...}}}`) and returns the toggleable groups the UI will not render as the author declared them, and the CEL rules that fail while such a group is switched off.
+`Validate(Input{UISchema: ...})` checks a provider UI schema (`Provider.spec.uiSchema`: topology name → `{sections: {<key>: {components: ...}}}`) and returns the toggleable groups the UI will not render as the author declared them, and the CEL rules that fail while such a group is switched off. Given the Provider as well (`Input.Provider`), it also returns the select defaults the UI will never pre-select (see [Select default rules](#select-default-rules)).
 
-The UI applies the same rules at runtime in `ui/apps/everest/src/components/ui-generator/utils/toggleable/`: `resolveToggleable` (in `toggleable.ts`, called by `preprocessSchema`) and `findUnguardedCelReferences` (a dev-time warning). [testdata/toggleable.yaml](testdata/toggleable.yaml) is the shared set of cases both implementations are tested against: `validate_test.go` here and `toggleable-shared-cases.test.ts` in the same UI folder. CI runs both suites when the file changes.
+The UI applies the same rules at runtime in `ui/apps/everest/src/components/ui-generator/utils/toggleable/`: `resolveToggleable` (in `toggleable.ts`, called by `preprocessSchema`) and `findUnguardedCelReferences` (a dev-time warning). [testdata/toggleable.yaml](testdata/toggleable.yaml) is the shared set of cases both implementations are tested against: `validate_test.go` here and `toggleable-shared-cases.test.ts` in the same UI folder. The select default rules follow the same pattern with [testdata/select-defaults.yaml](testdata/select-defaults.yaml) and `select-default-shared-cases.test.ts` in the UI's `utils/preprocess/`. CI runs both suites when a file in `testdata/` changes.
 
 ## Definitions
 
@@ -76,9 +76,36 @@ Notes:
 - Groups that matched a group rule never switch off, so they are not checked.
 - This rule does not change rendering. The group still works; only the CEL rule is wrong.
 
+## Select default rules
+
+Checked only when `Input.Provider` is set (the Provider object, `{spec: {...}}`). They apply to a field `f` with `uiType = select` whose `fieldParams` has a non-empty `optionsPath` and an `optionsPathConfig`. Selects with static `options` are not checked.
+
+Definitions:
+
+- **get(o, p)**: the value at the dot-separated path `p` in `o`, walking nested maps only (lists are not indexed). Nothing when `p` is empty or leaves the maps.
+- **str(v)**: `v` as the UI prints it: a string as is, a number without a trailing `.0`, nothing as `""`.
+- **O(f)**, the option values of `f`: when `get(Provider, optionsPath)` is a list, `str(get(item, valuePath))` for each of its items; otherwise `∅`.
+
+When `O(f) ≠ ∅`:
+
+| Rule | Condition |
+|------|-----------|
+| `select-default-not-an-option` | `fieldParams.defaultValue` is set, is not `""`, is not a list, and is not a string in `O(f)` |
+| `select-provider-default-not-an-option` | `d = str(get(Provider, optionsPathConfig.defaultValuePath))` is not `""` and `d ∉ O(f)` |
+
+**Effect.** The UI pre-selects the schema `defaultValue`, else (on create) the Provider default, else the first option. A default that matched a rule is skipped in that order, so the form opens with another version than the author meant.
+
+Notes:
+
+- `defaultValue` is compared as a string, like the UI does. An unquoted `8.4` is a number in YAML and equals no option; quote it.
+- An empty `defaultValue` is an explicitly empty selection, and a list is the default of a `multiple` select. Neither is checked.
+- A `defaultValue` next to `defaultValuePath` is not an error: the schema value wins on purpose.
+- `select-provider-default-not-an-option` is typically a `valuePath` that points at another field than the one the default names (`valuePath: components.engine` with `spec.defaultVersion` naming `versions[].name`).
+- Not covered: `fieldParams.modes.<mode>.defaultValue`, and an `optionsPath` that resolves to no options.
+
 ## Output
 
-- One `Issue{Rule, Topology, Group, Field, Message}` per group that matched a group rule (`Field` is empty), and per (field, group) pair for `toggleable-cel-unguarded` (`Field` is the key path of the field carrying the CEL rule).
+- One `Issue{Rule, Topology, Group, Field, Message}` per group that matched a group rule (`Field` is empty), per (field, group) pair for `toggleable-cel-unguarded` (`Field` is the key path of the field carrying the CEL rule), and per select default that matched a select rule (`Group` is empty, `Field` is the key path of the select).
 - Issues are sorted by topology, then group key path, then field key path.
 - `Message` is informational. Tests compare only `rule`, `topology`, `group` and `field`.
 
@@ -89,3 +116,5 @@ Add an entry to `cases` in `testdata/toggleable.yaml`:
 - `name`: a sentence describing the case;
 - `uiSchema`: the input schema;
 - `issues`: the expected list of `{rule, topology, group}`, plus `field` for `toggleable-cel-unguarded`. Use `[]` when the schema is valid.
+
+For a select default rule, add it to `testdata/select-defaults.yaml` with a `provider` next to `uiSchema`; `issues` entries are `{rule, topology, field}`.
