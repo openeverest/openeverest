@@ -32,6 +32,11 @@ if os.path.exists(local_env_file):
     print ('Loading local .env file={0}'.format(local_env_file))
     dotenv(fn=local_env_file)
 
+k8s_context = os.getenv('K8S_CONTEXT', '')
+if k8s_context:
+    print('Using Kubernetes context: {0}'.format(k8s_context))
+    allow_k8s_contexts(k8s_context)
+
 cache_dir='{0}/.cache'.format(config.main_dir)
 local('mkdir -p "{0}"'.format(cache_dir), quiet=True)
 
@@ -69,10 +74,6 @@ everest_backend_build_env = os.getenv('EVEREST_BACKEND_BUILD_ENV', go_default_bu
 print('Using Everest server backend build ENV vars: {0}'.format(everest_backend_build_env))
 
 # External resources set up
-k8s_context = os.getenv('K8S_CONTEXT', '')
-if k8s_context:
-    print('Using Kubernetes context: {0}'.format(k8s_context))
-    allow_k8s_contexts(k8s_context)
 
 docker_registry_url = os.getenv('DOCKER_REGISTRY_URL', '')
 if docker_registry_url:
