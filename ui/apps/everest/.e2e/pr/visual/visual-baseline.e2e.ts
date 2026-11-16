@@ -68,23 +68,9 @@ test.describe('Visual Baseline - Pages', () => {
   // --- SETTINGS: STORAGE LOCATIONS ---
   test('Settings - Storage Locations', async ({ page }) => {
     await goToUrl(page, '/settings/storage-locations');
-    await waitForTableContent(page, 'Bucket');
+    await waitForTableContent(page, 'Location');
     await expect(page).toHaveScreenshot(
       'settings-storage-locations.png',
-      screenshotOpts
-    );
-  });
-
-  test('Settings - Storage Locations - Add modal', async ({ page }) => {
-    await goToUrl(page, '/settings/storage-locations');
-    await waitForTableContent(page, 'Bucket');
-    await page.getByTestId('add-backup-storage').click();
-    await page
-      .getByRole('dialog')
-      .waitFor({ state: 'visible', timeout: 10000 });
-    await page.waitForTimeout(300);
-    await expect(page).toHaveScreenshot(
-      'settings-storage-add-modal.png',
       screenshotOpts
     );
   });

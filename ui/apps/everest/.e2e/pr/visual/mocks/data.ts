@@ -281,29 +281,90 @@ export const mockMonitoringBindings = {
 };
 
 // BackupStorageList = { items: BackupStorage[] } (see src/api/backupStorage.ts).
-// Lifted verbatim from the proven inline fixture.
+// One storage core accepted and one it rejected, so the table and the pickers
+// show both states.
+const acceptedCondition = (status: 'True' | 'False', reason: string) => ({
+  type: 'Accepted',
+  status,
+  reason,
+  message: status === 'True' ? '' : 'secret "s3-staging-credentials" not found',
+  lastTransitionTime: '2026-07-01T00:00:00Z',
+  observedGeneration: 1,
+});
 export const mockBackupStorages = {
-  apiVersion: 'storage.openeverest.io/v1alpha1',
+  apiVersion: 'backup.openeverest.io/v1alpha1',
   kind: 'BackupStorageList',
   items: [
     {
-      apiVersion: 'storage.openeverest.io/v1alpha1',
+      apiVersion: 'backup.openeverest.io/v1alpha1',
       kind: 'BackupStorage',
-      metadata: { name: 's3-prod-backups', namespace: 'default' },
+      metadata: {
+        name: 's3-prod-backups',
+        namespace: 'default',
+        generation: 1,
+      },
       spec: {
-        type: 's3',
-        s3: {
-          bucket: 'everest-backups-prod',
+        backupStorageClassRef: { name: 's3' },
+        location: { objectStore: { bucket: 'everest-backups-prod' } },
+        parameters: {
           region: 'us-east-1',
-          credentialsSecretRef: {
-            name: 'backup-storage-s3-prod-credentials',
-          },
           endpointURL: 'https://s3.amazonaws.com',
-          verifyTLS: true,
-          forcePathStyle: false,
+        },
+        authentication: {
+          mode: 'AccessKey',
+          credentialsSecretRef: { name: 'backup-storage-s3-prod-credentials' },
         },
       },
-      status: {},
+      status: { conditions: [acceptedCondition('True', 'Accepted')] },
+    },
+    {
+      apiVersion: 'backup.openeverest.io/v1alpha1',
+      kind: 'BackupStorage',
+      metadata: { name: 's3-staging', namespace: 'default', generation: 1 },
+      spec: {
+        backupStorageClassRef: { name: 's3' },
+        location: {
+          objectStore: { bucket: 'everest-backups-staging', prefix: 'team-a' },
+        },
+        parameters: {
+          region: 'eu-west-1',
+          endpointURL: 'https://minio.example.com',
+          forcePathStyle: true,
+          implementation: 'minio',
+        },
+        authentication: {
+          mode: 'AccessKey',
+          credentialsSecretRef: { name: 's3-staging-credentials' },
+        },
+        tls: { insecureSkipVerify: true },
+      },
+      status: {
+        conditions: [acceptedCondition('False', 'CredentialsNotFound')],
+      },
+    },
+  ],
+};
+
+// BackupStorageClassList (see src/api/backupStorageClasses.ts).
+export const mockBackupStorageClasses = {
+  apiVersion: 'backup.openeverest.io/v1alpha1',
+  kind: 'BackupStorageClassList',
+  items: [
+    {
+      apiVersion: 'backup.openeverest.io/v1alpha1',
+      kind: 'BackupStorageClass',
+      metadata: { name: 's3' },
+      spec: {
+        displayName: 'S3-compatible object storage',
+        authModes: [
+          {
+            name: 'AccessKey',
+            credentials: {
+              required: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'],
+            },
+          },
+        ],
+      },
     },
   ],
 };

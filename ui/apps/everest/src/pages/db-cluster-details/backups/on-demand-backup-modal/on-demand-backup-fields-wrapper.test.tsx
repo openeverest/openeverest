@@ -22,6 +22,7 @@ import { BackupFields } from './on-demand-backup-modal.types';
 import { Instance } from 'shared-types/api.types';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { ScheduleWizardMode } from 'shared-types/wizard.types';
+import { BackupStorageCRD } from 'shared-types/backupStorages.types';
 
 const mockBackupClasses = [
   {
@@ -54,12 +55,47 @@ vi.mock('hooks/api/backup-classes/useBackupClasses.ts', () => ({
   useBackupClassUiSchema: () => ({ sections: undefined, uiSchema: undefined }),
 }));
 
-vi.mock('hooks/api/backup-storages/useBackupStorages', () => ({
-  useBackupStoragesByNamespace: () => ({
-    data: [{ name: 'storage-a' }, { name: 'storage-b' }, { name: 'storage-c' }],
+// The namespace's storages, and those each backup class can write to;
+// storage-other is one no class here can write to.
+const mocks = vi.hoisted(() => {
+  const storage = (name: string): BackupStorageCRD => ({
+    metadata: { name },
+    spec: {
+      backupStorageClassRef: { name: 's3' },
+      authentication: { mode: 'AccessKey' },
+      location: { objectStore: { bucket: name } },
+    },
+    status: {
+      conditions: [
+        {
+          type: 'Accepted',
+          status: 'True',
+          reason: 'Accepted',
+          message: '',
+          lastTransitionTime: '',
+        },
+      ],
+    },
+  });
+  const list = (names: string[]) => ({
+    data: names.map(storage),
     isFetching: false,
     isLoading: false,
-  }),
+    isSuccess: true,
+  });
+  const lists: Record<string, ReturnType<typeof list>> = {
+    namespace: list(['storage-a', 'storage-b', 'storage-c', 'storage-other']),
+    'class-limited': list(['storage-a']),
+    'class-generous': list(['storage-a', 'storage-b', 'storage-c']),
+  };
+  return { lists };
+});
+
+vi.mock('hooks/api/backup-storages/useBackupStorages', () => ({
+  useBackupStoragesByNamespace: (
+    _namespace: string,
+    filter?: { backupClass?: string }
+  ) => mocks.lists[filter?.backupClass ?? 'namespace'],
 }));
 
 vi.mock('hooks/api/useClusterName.ts', () => ({
