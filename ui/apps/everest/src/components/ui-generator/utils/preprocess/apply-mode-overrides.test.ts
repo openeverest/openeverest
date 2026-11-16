@@ -20,6 +20,9 @@ import {
   Component,
   ComponentGroup,
   FormMode,
+  WIDGET_UI_TYPE,
+  WidgetType,
+  isWidgetComponent,
 } from '../../ui-generator.types';
 
 const makeComponent = (overrides: Partial<Component> = {}): Component =>
@@ -340,9 +343,9 @@ describe('applyModeOverrides', () => {
     const innerResult = outerResult.components.resources as ComponentGroup;
     expect(outerResult.disabled).toBe(true);
     expect(innerResult.disabled).toBe(true);
-    expect((innerResult.components.cpu as Component).fieldParams?.disabled).toBe(
-      true
-    );
+    expect(
+      (innerResult.components.cpu as Component).fieldParams?.disabled
+    ).toBe(true);
   });
 
   it('group disabled wins over a child fieldParams.modes disabled: false', () => {
@@ -383,7 +386,30 @@ describe('applyModeOverrides', () => {
     const g = result.basic.components.group as ComponentGroup;
     expect(g.uiType).toBe('hidden');
     expect(g.disabled).toBeUndefined();
-    expect((g.components.name as Component).fieldParams?.disabled).toBeUndefined();
+    expect(
+      (g.components.name as Component).fieldParams?.disabled
+    ).toBeUndefined();
+  });
+
+  it('cascades disabled onto nested widgets', () => {
+    const group: ComponentGroup = {
+      uiType: 'group',
+      modes: { [FormMode.Edit]: { disabled: true } },
+      components: {
+        policy: {
+          uiType: WIDGET_UI_TYPE,
+          widgetType: WidgetType.PodSchedulingPolicy,
+        },
+      },
+    };
+    const sections: Record<string, Section> = {
+      advanced: { components: { scheduling: group } },
+    };
+
+    const result = applyModeOverrides(sections, FormMode.Edit);
+    const widget = (result.advanced.components.scheduling as ComponentGroup)
+      .components.policy;
+    expect(isWidgetComponent(widget) && widget.disabled).toBe(true);
   });
 
   it('nested group hidden overrides a parent disabled cascade for that subtree', () => {

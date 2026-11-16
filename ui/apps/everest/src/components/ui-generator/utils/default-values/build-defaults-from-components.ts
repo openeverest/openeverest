@@ -41,7 +41,16 @@ export const buildDefaultsFromComponents = (
     const generatedName = basePath ? `${basePath}.${key}` : key;
     const fieldId = generateFieldId(item, generatedName);
 
-    if (item.uiType === 'group' && 'components' in item) {
+    // Mode-hidden containers are omitted from create defaults (restore/edit use
+    // extractInstanceValues, which still walks them for passthrough).
+    if (
+      (item.uiType === 'group' || item.uiType === 'hidden') &&
+      'components' in item
+    ) {
+      if (item.uiType === 'hidden') {
+        return;
+      }
+
       const toggleable = getToggleableMeta(item);
       // Schema defaults are not user intent: a new toggleable section starts off.
       if (toggleable && !buildOnlySchemaDefaults) {

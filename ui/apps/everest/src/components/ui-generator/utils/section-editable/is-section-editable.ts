@@ -30,8 +30,14 @@ const hasEditableComponent = (
     ) {
       const group = item as ComponentGroup;
       const groupOverrides = group.modes?.[mode];
-      // A hidden or disabled group contributes no editable fields.
-      if (groupOverrides?.hidden || groupOverrides?.disabled || group.disabled) {
+      // A hidden or disabled group contributes no editable fields (authored
+      // uiType: hidden, mode-applied hidden, or disabled cascade).
+      if (
+        group.uiType === 'hidden' ||
+        groupOverrides?.hidden ||
+        groupOverrides?.disabled ||
+        group.disabled
+      ) {
         continue;
       }
       if (hasEditableComponent(group.components, mode)) {

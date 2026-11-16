@@ -17,6 +17,7 @@ import { buildSectionZodSchema } from './build-section-zod-schema';
 import type {
   Section,
   Component,
+  ComponentGroup,
 } from 'components/ui-generator/ui-generator.types';
 import { FieldType } from 'components/ui-generator/ui-generator.types';
 
@@ -93,6 +94,34 @@ describe('buildSectionZodSchema', () => {
       other: 123,
     });
     expect(result.success).toBe(true);
+  });
+
+  it('skips a hidden group subtree instead of treating the container as a leaf', () => {
+    const hiddenGroup: ComponentGroup = {
+      uiType: 'hidden',
+      components: {
+        secret: makeTextComponent('spec.secret', {
+          validation: { required: true },
+        }),
+      },
+    };
+    const sections: Record<string, Section> = {
+      advanced: {
+        components: {
+          monitoring: hiddenGroup,
+          name: makeTextComponent('spec.name'),
+        },
+      },
+    };
+
+    const { schema } = buildSectionZodSchema('advanced', sections);
+
+    // Required child inside the hidden group is not validated.
+    expect(schema.safeParse({ spec: { name: 'db' } }).success).toBe(true);
+    // Passthrough keeps hidden-group values when present.
+    expect(
+      schema.safeParse({ spec: { name: 'db', secret: 'kept' } }).success
+    ).toBe(true);
   });
 
   // Edit mode: an instance without spec.components.engine.parameters leaves the

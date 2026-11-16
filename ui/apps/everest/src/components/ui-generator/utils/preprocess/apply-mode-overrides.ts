@@ -52,7 +52,11 @@ const isComponentGroup = (
   (item.uiType === 'group' || item.uiType === 'hidden') && 'components' in item;
 
 const forceFieldDisabled = (component: Component): Component => {
-  if (isWidgetComponent(component) || !component.fieldParams) {
+  if (isWidgetComponent(component)) {
+    return { ...component, disabled: true };
+  }
+
+  if (!component.fieldParams) {
     return component;
   }
 

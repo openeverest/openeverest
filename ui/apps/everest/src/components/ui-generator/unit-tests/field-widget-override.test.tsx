@@ -65,9 +65,9 @@ const FormWrapper = ({ children }: { children: React.ReactNode }) => {
 describe('UI generator field-widget override', () => {
   it('renders a consumer-registered widget for its widgetType, passing the field name and item', () => {
     const receivedProps: WidgetRendererProps[] = [];
-    function RuleWidget({ name, item }: WidgetRendererProps) {
-      receivedProps.push({ name, item });
-      return <div data-testid="rule-widget">{name}</div>;
+    function RuleWidget(props: WidgetRendererProps) {
+      receivedProps.push(props);
+      return <div data-testid="rule-widget">{props.name}</div>;
     }
     const widgetRegistry: WidgetRegistry = {
       [WidgetType.Affinity]: RuleWidget,
@@ -89,6 +89,7 @@ describe('UI generator field-widget override', () => {
     expect(receivedProps).toHaveLength(1);
     expect(receivedProps[0].name).toBe('spec.affinity');
     expect(receivedProps[0].item.widgetType).toBe(WidgetType.Affinity);
+    expect(receivedProps[0].disabled).toBe(false);
   });
 
   it('renders nothing for the field when no widget is registered for its widgetType', () => {

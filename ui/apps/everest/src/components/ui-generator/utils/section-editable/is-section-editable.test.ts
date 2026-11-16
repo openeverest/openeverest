@@ -144,6 +144,15 @@ describe('isSectionEditable', () => {
     expect(isSectionEditable(section, FormMode.Edit)).toBe(false);
   });
 
+  it('returns false when the only group is authored uiType hidden', () => {
+    const group: ComponentGroup = {
+      uiType: 'hidden',
+      components: { name: makeComponent() },
+    };
+    const section: Section = { components: { group } };
+    expect(isSectionEditable(section, FormMode.Edit)).toBe(false);
+  });
+
   it('returns false when the only group is disabled via group.modes', () => {
     const group: ComponentGroup = {
       uiType: 'group',
