@@ -1,0 +1,42 @@
+name: Trigger Homebrew tap update
+
+# Fires when a draft release is published. RCs/pre-releases are filtered out
+# so only GA releases reach the Homebrew tap.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    if: >
+      github.event.release.prerelease == false &&
+      github.event.release.draft == false
+    steps:
+      - name: Validate release tag is GA semver
+        id: version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          # Strip leading "v"; require strict X.Y.Z (no -rc, -beta, etc.)
+          VERSION="${TAG#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Skipping non-GA release: $TAG"
+            exit 0
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch to homebrew-tap
+        if: steps.version.outputs.version != ''
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TOKEN: ${{ secrets.TAP_REPO_TOKEN }}
+        run: |
+          curl -fsSL -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            https://api.github.com/repos/openeverest/homebrew-tap/dispatches \
+            -d "{\"event_type\":\"new-release\",\"client_payload\":{\"version\":\"${VERSION}\"}}"
