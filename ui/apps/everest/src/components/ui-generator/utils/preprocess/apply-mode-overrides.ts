@@ -20,6 +20,7 @@ import type {
   ModeAwareValidation,
   Section,
 } from '../../ui-generator.types';
+import { isWidgetComponent } from '../../ui-generator.types';
 
 const stripCelFromValidation = (
   validation: ModeAwareValidation<CommonValidation>
@@ -45,18 +46,46 @@ const stripCelFromValidation = (
   return result;
 };
 
+const isComponentGroup = (
+  item: Component | ComponentGroup
+): item is ComponentGroup =>
+  (item.uiType === 'group' || item.uiType === 'hidden') && 'components' in item;
+
+const forceFieldDisabled = (component: Component): Component => {
+  if (isWidgetComponent(component) || !component.fieldParams) {
+    return component;
+  }
+
+  // Discriminated Component union can't be rebuilt from a spread without a
+  // cast — same pattern as the fieldParams.modes merge below.
+  return {
+    ...component,
+    fieldParams: { ...component.fieldParams, disabled: true },
+  } as Component;
+};
+
 const applyModeToComponent = (
   item: Component | ComponentGroup,
-  mode: FormMode
+  mode: FormMode,
+  forceDisabled = false
 ): Component | ComponentGroup => {
-  if (
-    (item.uiType === 'group' || item.uiType === 'hidden') &&
-    'components' in item
-  ) {
-    const group = item as ComponentGroup;
+  if (isComponentGroup(item)) {
+    const groupOverrides = item.modes?.[mode];
+
+    // `hidden` wins over `disabled` when both are set for the same mode.
+    if (groupOverrides?.hidden) {
+      return {
+        ...item,
+        uiType: 'hidden',
+        components: applyModeToComponents(item.components, mode, false),
+      };
+    }
+
+    const disabled = !!groupOverrides?.disabled || forceDisabled;
     return {
-      ...group,
-      components: applyModeToComponents(group.components, mode),
+      ...item,
+      ...(disabled ? { disabled: true } : {}),
+      components: applyModeToComponents(item.components, mode, disabled),
     };
   }
 
@@ -77,29 +106,36 @@ const applyModeToComponent = (
     } as Component;
   }
 
-  // 2. Apply fieldParams-level mode overrides (disabled, readOnly)
+  // 2. Apply fieldParams-level mode overrides (disabled, readOnly, …)
   const fieldParamsOverrides = component.fieldParams?.modes?.[mode];
+  let next: Component = component;
   if (fieldParamsOverrides) {
     const { modes: _fpModes, ...restFieldParams } =
       component.fieldParams as Record<string, unknown>;
     void _fpModes;
-    return {
+    next = {
       ...component,
       fieldParams: { ...restFieldParams, ...fieldParamsOverrides },
     } as Component;
   }
 
-  return component;
+  // 3. Parent (or own) group `disabled` wins — children cannot re-enable.
+  if (forceDisabled) {
+    next = forceFieldDisabled(next);
+  }
+
+  return next;
 };
 
 const applyModeToComponents = (
   components: Record<string, Component | ComponentGroup>,
-  mode: FormMode
+  mode: FormMode,
+  forceDisabled = false
 ): Record<string, Component | ComponentGroup> =>
   Object.fromEntries(
     Object.entries(components).map(([key, item]) => [
       key,
-      applyModeToComponent(item, mode),
+      applyModeToComponent(item, mode, forceDisabled),
     ])
   );
 

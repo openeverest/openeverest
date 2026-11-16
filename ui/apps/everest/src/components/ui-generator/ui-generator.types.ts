@@ -40,6 +40,18 @@ export type FieldParamsModeOverrides = Partial<
   >
 >;
 
+// Group-level per-FormMode overrides. Unlike field `modes` (which hide via
+// `uiType: hidden`), groups use explicit `hidden` / `disabled` flags.
+export type GroupModeOverrides = Partial<
+  Record<
+    FormMode,
+    {
+      hidden?: boolean;
+      disabled?: boolean;
+    }
+  >
+>;
+
 export type OpenAPIObjectProperties = {
   label?: string;
 };
@@ -286,6 +298,8 @@ export type ComponentGroup = {
   groupParams?: Record<string, unknown>;
   components: { [key: string]: Component | ComponentGroup };
   componentsOrder?: string[];
+  modes?: GroupModeOverrides;
+  disabled?: boolean;
   _toggleable?: ToggleableMeta;
 };
 
@@ -301,6 +315,8 @@ export interface GroupWrapperProps {
   children: ReactNode;
   label?: string;
   description?: string;
+  // True when group-level modes (or a parent group) disabled this group.
+  disabled?: boolean;
   // Set only for an active toggleable group.
   toggleable?: ToggleableMeta;
 }
