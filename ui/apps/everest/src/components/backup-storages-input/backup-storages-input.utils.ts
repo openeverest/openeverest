@@ -23,6 +23,8 @@ import {
 import { BackupStorageStateMessages } from 'utils/backup-storages.messages';
 import { ScheduleWithStorage } from './backup-storages-input.types';
 
+const PENDING_STORAGES_POLL_INTERVAL_MS = 5000;
+
 // Why backups can't be written to the storage now; none once it is valid.
 export const getBackupStorageUnavailableReason = (
   storage: BackupStorageCRD
@@ -33,6 +35,18 @@ export const getBackupStorageUnavailableReason = (
     : (describeBackupStorageStatus(status) ??
         BackupStorageStateMessages[status.state]);
 };
+
+// Core checks a storage shortly after it is added; until then it is Pending
+// and can't be picked.
+export const getStoragesPollInterval = (
+  storages: BackupStorageCRD[] | undefined
+): number | false =>
+  storages?.some(
+    (storage) =>
+      getBackupStorageStatus(storage).state === BackupStorageState.Pending
+  )
+    ? PENDING_STORAGES_POLL_INTERVAL_MS
+    : false;
 
 // A storage being deleted is offered only where the instance already uses it,
 // so its current choice still shows.

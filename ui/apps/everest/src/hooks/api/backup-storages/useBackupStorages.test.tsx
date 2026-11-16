@@ -16,13 +16,24 @@ import React from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { api } from 'api/api';
-import { BackupStorageCRD } from 'shared-types/backupStorages.types';
+import { SECRETS_QUERY_KEY } from 'hooks/api/secrets';
+import {
+  BackupStorageCRD,
+  BackupStoragePayload,
+} from 'shared-types/backupStorages.types';
 import {
   getBackupStoragesQueryKey,
   useDeleteBackupStorage,
+  useSaveBackupStorage,
 } from './useBackupStorages';
 
-vi.mock('api/api', () => ({ api: { delete: vi.fn() } }));
+vi.mock('api/api', () => ({ api: { delete: vi.fn(), post: vi.fn() } }));
+
+const wrapperFor =
+  (queryClient: QueryClient) =>
+  ({ children }: { children: React.ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
 vi.mock('hooks/api/useClusterName', () => ({ useClusterName: () => 'main' }));
 
 describe('useDeleteBackupStorage', () => {
@@ -38,11 +49,7 @@ describe('useDeleteBackupStorage', () => {
       queryClient.setQueryData<BackupStorageCRD[]>(key, [])
     );
     const { result } = renderHook(() => useDeleteBackupStorage(), {
-      wrapper: ({ children }: { children: React.ReactNode }) => (
-        <QueryClientProvider client={queryClient}>
-          {children}
-        </QueryClientProvider>
-      ),
+      wrapper: wrapperFor(queryClient),
     });
 
     await act(() =>
@@ -57,5 +64,56 @@ describe('useDeleteBackupStorage', () => {
       true
     );
     expect(queryClient.getQueryState(teamBList)?.isInvalidated).toBe(false);
+  });
+});
+
+describe('useSaveBackupStorage', () => {
+  it("refreshes the namespace's storages and Secrets, also when the storage is refused", async () => {
+    vi.mocked(api.post)
+      .mockResolvedValueOnce({ data: {} })
+      .mockRejectedValueOnce(new Error('refused'));
+    vi.mocked(api.delete).mockResolvedValue({});
+    const queryClient = new QueryClient();
+    const storages = getBackupStoragesQueryKey('main', 'team-a');
+    const secrets = [SECRETS_QUERY_KEY, 'main', 'team-a', {}];
+    queryClient.setQueryData<BackupStorageCRD[]>(storages, []);
+    queryClient.setQueryData(secrets, []);
+    const storage: BackupStoragePayload = {
+      metadata: { name: 's3-prod' },
+      spec: {
+        backupStorageClassRef: { name: 's3' },
+        authentication: {
+          mode: 'AccessKey',
+          credentialsSecretRef: { name: 'backup-storage-s3-prod-credentials' },
+        },
+        location: { objectStore: { bucket: 'backups' } },
+      },
+    };
+    const { result } = renderHook(() => useSaveBackupStorage(), {
+      wrapper: wrapperFor(queryClient),
+    });
+
+    await act(() =>
+      result.current
+        .mutateAsync({
+          namespace: 'team-a',
+          isEdit: false,
+          storage,
+          credentialsSecret: {
+            action: 'create',
+            name: 'backup-storage-s3-prod-credentials',
+            labels: {},
+            stringData: {},
+          },
+        })
+        .catch(() => undefined)
+    );
+
+    expect(api.post).toHaveBeenLastCalledWith(
+      'clusters/main/namespaces/team-a/backup-storages',
+      storage
+    );
+    expect(queryClient.getQueryState(storages)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(secrets)?.isInvalidated).toBe(true);
   });
 });

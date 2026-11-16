@@ -25,18 +25,23 @@ import { StorageLocations } from './storage-locations';
 
 const mocks = vi.hoisted(() => ({ deleteStorage: vi.fn() }));
 
-// Delete is granted per storage, not on whole namespaces.
+// Update and delete are granted per storage, not on whole namespaces.
 vi.mock('hooks/rbac', () => {
-  const deletable = new Set([
-    'team-a/s3-prod',
-    'team-a/s3-staging',
-    'team-a/s3-old',
-  ]);
-  const allowed = { canDelete: true };
-  const denied = { canDelete: false };
+  const editable = { canUpdate: true, canDelete: true };
+  const grants: Record<string, object> = {
+    'team-a/s3-prod': editable,
+    'team-a/s3-staging': { canDelete: true },
+    'team-a/s3-old': editable,
+  };
+  const none = {};
+  const classes = { canRead: true };
+  const namespacePermissions = { canCreate: ['team-a'] };
   return {
-    useRBACPermissions: (_resource: string, object: string) =>
-      deletable.has(object) ? allowed : denied,
+    useRBACPermissions: (resource: string, object?: string) =>
+      resource === 'backup-storage-classes'
+        ? classes
+        : (object && grants[object]) || none,
+    useNamespacePermissionsForResource: () => namespacePermissions,
   };
 });
 
@@ -172,7 +177,7 @@ describe('StorageLocations', () => {
     expect(screen.getByText('https://minio.example.com')).toBeInTheDocument();
   });
 
-  it('offers no actions on a storage being deleted or the user may not delete', async () => {
+  it('offers each storage only the actions the user may take on it', async () => {
     renderPage();
 
     expect(
@@ -181,8 +186,23 @@ describe('StorageLocations', () => {
     expect(
       (await getRow('s3-shared')).queryByTestId('row-actions-menu-button')
     ).not.toBeInTheDocument();
-    expect(
+
+    fireEvent.click(
       (await getRow('s3-staging')).getByTestId('row-actions-menu-button')
+    );
+    expect(
+      screen.getByRole('menuitem', { name: /Delete/ })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('menuitem', { name: /Edit/ })
+    ).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole('menu'), { key: 'Escape' });
+
+    fireEvent.click(
+      (await getRow('s3-prod')).getByTestId('row-actions-menu-button')
+    );
+    expect(
+      await screen.findByRole('menuitem', { name: /Edit/ })
     ).toBeInTheDocument();
   });
 

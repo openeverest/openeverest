@@ -19,10 +19,23 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { deleteBackupStorageFn, getBackupStoragesFn } from 'api/backupStorage';
+import {
+  createBackupStorageFn,
+  deleteBackupStorageFn,
+  getBackupStorageFn,
+  getBackupStoragesFn,
+  updateBackupStorageFn,
+} from 'api/backupStorage';
+import {
+  CredentialsSecretWrite,
+  getCredentialsSecretRequests,
+  saveWithCredentialsSecret,
+  SECRETS_QUERY_KEY,
+} from 'hooks/api/secrets';
 import {
   BackupStorageCRD,
   BackupStorageListFilter,
+  BackupStoragePayload,
 } from 'shared-types/backupStorages.types';
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import { useNamespaces } from '../namespaces';
@@ -85,5 +98,57 @@ export const useDeleteBackupStorage = () => {
       queryClient.invalidateQueries({
         queryKey: getBackupStoragesQueryKey(cluster, namespace),
       }),
+  });
+};
+
+export const useBackupStorage = (
+  namespace: string,
+  name: string,
+  options?: PerconaQueryOptions<BackupStorageCRD>
+) => {
+  const cluster = useClusterName();
+  return useQuery<BackupStorageCRD>({
+    // Under the namespace's key, so a write to the namespace refreshes it.
+    queryKey: [BACKUP_STORAGES_QUERY_KEY, cluster, namespace, name],
+    queryFn: () => getBackupStorageFn(cluster, namespace, name),
+    ...options,
+  });
+};
+
+export interface SaveBackupStorageRequest {
+  namespace: string;
+  isEdit: boolean;
+  storage: BackupStoragePayload;
+  credentialsSecret?: CredentialsSecretWrite;
+}
+
+export const useSaveBackupStorage = () => {
+  const cluster = useClusterName();
+  const queryClient = useQueryClient();
+  return useMutation<BackupStorageCRD, unknown, SaveBackupStorageRequest>({
+    mutationFn: ({ namespace, isEdit, storage, credentialsSecret }) =>
+      saveWithCredentialsSecret(
+        {
+          credentialsSecret,
+          save: () =>
+            isEdit
+              ? updateBackupStorageFn(cluster, namespace, storage)
+              : createBackupStorageFn(cluster, namespace, storage),
+        },
+        getCredentialsSecretRequests(cluster, namespace)
+      ),
+    // Don't keep the submitted credentials in the mutation cache.
+    gcTime: 0,
+    // Settled, not only successful: a refused save may still have written
+    // the Secret.
+    onSettled: (_data, _error, { namespace }) =>
+      Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: getBackupStoragesQueryKey(cluster, namespace),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: [SECRETS_QUERY_KEY, cluster, namespace],
+        }),
+      ]),
   });
 };

@@ -13,9 +13,17 @@
 // limitations under the License.
 
 import { Alert, Box, FormGroup, MenuItem } from '@mui/material';
-import { AutoCompleteInput, SelectInput } from '@percona/ui-lib';
+import {
+  ActionableLabeledContent,
+  AutoCompleteInput,
+  SelectInput,
+} from '@percona/ui-lib';
 import { useFormContext } from 'react-hook-form';
 import BackupsActionableAlert from 'components/actionable-alert/backups-actionable-alert';
+import {
+  BackupStorageModal,
+  useAddBackupStorage,
+} from 'components/backup-storage-modal';
 import BackupStoragesInput from 'components/backup-storages-input';
 import { useExtensionCatalog } from 'hooks/api/extension-catalog';
 import { Provider } from 'shared-types/api.types';
@@ -50,6 +58,7 @@ export const ImportSourceFields = ({
 }: ImportSourceFieldsProps) => {
   const { setValue } = useFormContext<DatabaseImportFormValues>();
   const { getProviderMeta } = useExtensionCatalog();
+  const addStorage = useAddBackupStorage(namespace);
   const hasNoStorages =
     !!namespace && !isStoragesLoading && storages.length === 0;
 
@@ -75,14 +84,28 @@ export const ImportSourceFields = ({
         </Box>
       ) : (
         !!namespace && (
-          <BackupStoragesInput
-            name={DatabaseImportFields.storage}
-            namespace={namespace}
-            backupClass={selectedClass?.metadata?.name}
-            schedules={[]}
-          />
+          // The bucket with the backups is often not added to the namespace yet.
+          <ActionableLabeledContent
+            actionButtonProps={
+              addStorage.canAdd
+                ? {
+                    buttonText: Messages.addStorage,
+                    dataTestId: 'add-storage-button',
+                    onClick: addStorage.open,
+                  }
+                : undefined
+            }
+          >
+            <BackupStoragesInput
+              name={DatabaseImportFields.storage}
+              namespace={namespace}
+              backupClass={selectedClass?.metadata?.name}
+              schedules={[]}
+            />
+          </ActionableLabeledContent>
         )
       )}
+      {addStorage.isOpen && <BackupStorageModal {...addStorage.modalProps} />}
       <SelectInput
         name={DatabaseImportFields.backupClassName}
         label={Messages.labels.backupClass}

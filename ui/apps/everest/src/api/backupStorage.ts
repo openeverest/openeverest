@@ -17,6 +17,7 @@ import {
   BackupStorageCRD,
   BackupStorageListCRD,
   BackupStorageListFilter,
+  BackupStoragePayload,
 } from 'shared-types/backupStorages.types';
 import { api } from './api';
 
@@ -33,6 +34,43 @@ export const getBackupStoragesFn = async (
     { params: filter }
   );
   return response.data?.items ?? [];
+};
+
+export const getBackupStorageFn = async (
+  cluster: string,
+  namespace: string,
+  name: string
+) => {
+  const response = await api.get<BackupStorageCRD>(
+    `${storagesPath(cluster, namespace)}/${name}`
+  );
+  return response.data;
+};
+
+export const createBackupStorageFn = async (
+  cluster: string,
+  namespace: string,
+  storage: BackupStoragePayload
+) => {
+  const response = await api.post<BackupStorageCRD>(
+    storagesPath(cluster, namespace),
+    storage
+  );
+  return response.data;
+};
+
+export const updateBackupStorageFn = async (
+  cluster: string,
+  namespace: string,
+  storage: BackupStoragePayload
+) => {
+  const response = await api.put<BackupStorageCRD>(
+    `${storagesPath(cluster, namespace)}/${storage.metadata?.name ?? ''}`,
+    storage,
+    // A storage changed meanwhile is reported on the form.
+    { disableNotifications: (e) => e.status === 409 }
+  );
+  return response.data;
 };
 
 // A storage something still uses stays, Deleting, until nothing does.

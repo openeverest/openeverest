@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { MenuItem } from '@mui/material';
-import { Delete } from '@mui/icons-material';
+import { Delete, Edit } from '@mui/icons-material';
 import TableActionsMenu from 'components/table-actions-menu';
 import { useRBACPermissions } from 'hooks/rbac';
 import { BackupStorageState } from 'shared-types/backupStorages.types';
@@ -22,6 +22,7 @@ import { BackupStorageRow } from '../storage-locations.types';
 
 interface StorageRowActionsProps {
   row: BackupStorageRow;
+  onEdit: (row: BackupStorageRow) => void;
   onDelete: (row: BackupStorageRow) => void;
 }
 
@@ -29,27 +30,40 @@ interface StorageRowActionsProps {
 // storages of a namespace only.
 export const StorageRowActions = ({
   row,
+  onEdit,
   onDelete,
 }: StorageRowActionsProps) => {
-  const { canDelete } = useRBACPermissions(
+  const { canUpdate, canDelete } = useRBACPermissions(
     'backup-storages',
     `${row.namespace}/${row.name}`
   );
-  // Core is already deleting it; nothing left to do.
-  const deletable =
-    canDelete && row.status.state !== BackupStorageState.Deleting;
+  // The edit form is built from the storage's class.
+  const { canRead: canReadClasses } = useRBACPermissions(
+    'backup-storage-classes'
+  );
+  // Core is already deleting it; nothing left to change.
+  if (row.status.state === BackupStorageState.Deleting) {
+    return <TableActionsMenu menuItems={[]} />;
+  }
 
   return (
     <TableActionsMenu
-      menuItems={
-        deletable
+      menuItems={[
+        ...(canUpdate && canReadClasses
+          ? [
+              <MenuItem key="edit" onClick={() => onEdit(row)}>
+                <Edit /> {Messages.edit}
+              </MenuItem>,
+            ]
+          : []),
+        ...(canDelete
           ? [
               <MenuItem key="delete" onClick={() => onDelete(row)}>
                 <Delete /> {Messages.delete}
               </MenuItem>,
             ]
-          : []
-      }
+          : []),
+      ]}
     />
   );
 };

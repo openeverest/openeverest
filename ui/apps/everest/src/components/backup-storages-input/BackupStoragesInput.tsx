@@ -22,6 +22,7 @@ import { Messages } from './backup-storages-input.messages';
 import {
   getAvailableStorages,
   getBackupStorageUnavailableReason,
+  getStoragesPollInterval,
   withoutDeletedStorages,
 } from './backup-storages-input.utils';
 import {
@@ -68,7 +69,8 @@ const BackupStoragesInput = ({
     isSuccess,
   } = useBackupStoragesByNamespace(
     namespace,
-    backupClass ? { backupClass } : undefined
+    backupClass ? { backupClass } : undefined,
+    { refetchInterval: (query) => getStoragesPollInterval(query.state.data) }
   );
   const backupStorages = withoutDeletedStorages(
     namespaceStorages,

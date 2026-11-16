@@ -15,8 +15,43 @@
 import {
   getAvailableStorages,
   GetAvailableStoragesParams,
+  getStoragesPollInterval,
 } from './backup-storages-input.utils';
 import { BackupStorageCRD } from 'shared-types/backupStorages.types';
+
+describe('getStoragesPollInterval', () => {
+  // A storage core hasn't checked yet has no Accepted condition.
+  const storage = (accepted?: 'True' | 'False'): BackupStorageCRD => ({
+    metadata: { name: 's3' },
+    spec: {
+      backupStorageClassRef: { name: 's3' },
+      authentication: { mode: 'AccessKey' },
+      location: { objectStore: { bucket: 'backups' } },
+    },
+    status: {
+      conditions: accepted
+        ? [
+            {
+              type: 'Accepted',
+              status: accepted,
+              reason: '',
+              message: '',
+              lastTransitionTime: '',
+            },
+          ]
+        : [],
+    },
+  });
+
+  it('polls while core has yet to check a storage, and stops once all are checked', () => {
+    expect(getStoragesPollInterval([storage('True'), storage()])).toEqual(
+      expect.any(Number)
+    );
+    expect(getStoragesPollInterval([storage('True'), storage('False')])).toBe(
+      false
+    );
+  });
+});
 
 describe('getAvailableStorages', () => {
   const mkStorage = (name: string) =>
