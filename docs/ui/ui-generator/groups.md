@@ -8,6 +8,7 @@ Groups allow you to organize multiple fields together with different layout opti
 - [Accordion Group](#accordion-group)
 - [Bordered Group](#bordered-group)
 - [Toggleable Group](#toggleable-group)
+- [Group-level modes](#group-level-modes)
 
 Related: [Number Field](components/number-field.md), [Select Field](components/select-field.md), [Text Field](components/text-field.md), [Validation](validation.md)
 
@@ -125,6 +126,27 @@ customConfig:
 
 **Current limitations**
 
-- The switch is always active: it can't be hidden or disabled per form mode yet — [#3080](https://github.com/openeverest/openeverest/issues/3080).
 - Section and group keys are limited to letters, digits, `_` and `-` until [#3221](https://github.com/openeverest/openeverest/issues/3221).
 - Backup, schedule and PITR forms don't support toggleable groups yet; there the group is shown as a bordered group — [#3268](https://github.com/openeverest/openeverest/issues/3268).
+
+## Group-level modes
+
+Hide or lock a whole group per form mode with `modes` on the `ComponentGroup`. Same flags work for
+every `groupType`, including `toggleable` (the switch is disabled when the group is).
+
+See [Group-level modes](Readme.md#group-level-modes) for the full contract and YAML example.
+
+```yaml
+monitoring:
+  uiType: group
+  groupType: toggleable
+  label: Monitoring
+  modes:
+    restore: { hidden: true }
+    edit: { disabled: true }
+  components:
+    endpoint:
+      uiType: select
+      path: spec.monitoring.monitoringConfigName
+  componentsOrder: [endpoint]
+```
