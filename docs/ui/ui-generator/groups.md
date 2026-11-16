@@ -132,7 +132,8 @@ customConfig:
 ## Group-level modes
 
 Hide or lock a whole group per form mode with `modes` on the `ComponentGroup`. Same flags work for
-every `groupType`, including `toggleable` (the switch is disabled when the group is).
+every `groupType`, including `toggleable` (the switch is disabled when the group is). `disabled`
+also locks nested widgets via `WidgetRendererProps.disabled`.
 
 See [Group-level modes](Readme.md#group-level-modes) for the full contract and YAML example.
 

@@ -44,10 +44,11 @@ flowchart TD
 - **`applyModeOverrides(sections, formMode)`** (`apply-mode-overrides.ts`) — applies `modes` overrides
   for the current `FormMode` (component / fieldParams / **group**). Group `hidden` sets
   `uiType: hidden` (subtree not rendered; instance data stays passthrough). Group `disabled` sets
-  `disabled` on the group and cascades `fieldParams.disabled` to every descendant (children cannot
-  re-enable; a toggleable group's switch is disabled too). `preprocessSchema` runs it last when
-  given a `formMode`: the create wizard (`useSchema`) passes its mode, so defaults, validation,
-  render and postprocess all see the same fields. The section edit modal calls it directly.
+  `disabled` on the group and cascades `fieldParams.disabled` to every descendant field and
+  `disabled` on nested widgets (children cannot re-enable; a toggleable group's switch is disabled
+  too). `preprocessSchema` runs it last when given a `formMode`: the create wizard (`useSchema`)
+  passes its mode, so defaults, validation, render and postprocess all see the same fields. The
+  section edit modal calls it directly.
 
 **Principle:** after this stage the tree is ready — nothing parses paths again.
 
@@ -66,7 +67,9 @@ flowchart TD
     (scalars replace, `celExpressions` append, `inheritShared: false` ignores the base).
   - **`buildShapeFromComponents`** — `ZOD_SCHEMA_MAP[uiType]` (base zod type) +
     `applyValidationFromSchema` (min/max/regex/required/…) + CEL expression collection. A field
-    without `validation` is optional, like a validated field without `required: true`.
+    without `validation` is optional, like a validated field without `required: true`. A
+    `uiType: hidden` **group** (from group `modes`) is skipped entirely — children are not
+    validated; values still passthrough via form defaults and zod `.passthrough()`.
   - **`convertToNestedSchema`** — flat fields → nested `z.object`. A parent object is optional when
     all of its fields are, so edit mode accepts an instance that lacks it (e.g. no
     `spec.components.engine.parameters` when Engine configuration is unset).
@@ -294,4 +297,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-06
+- Last updated: 2026-11-16

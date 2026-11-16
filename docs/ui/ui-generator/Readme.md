@@ -270,7 +270,7 @@ flag on every child. Applies to every `groupType` (`plain` / `line`, `bordered`,
 | Flag       | Effect                                                                                                                                      |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `hidden`   | Group and descendants are **not rendered**. Existing instance values are **passthrough** (kept as-is on submit).                            |
-| `disabled` | Group renders **read-only**; `disabled` **cascades** to every descendant field (and the toggleable switch). Children cannot re-enable. |
+| `disabled` | Group renders **read-only**; `disabled` **cascades** to every descendant field, widget, and the toggleable switch. Children cannot re-enable. |
 
 This is **not** the same as turning a `toggleable` group off: an off toggleable **removes** its
 paths from the payload; group `modes` only change visibility / editability and **keep** the data.

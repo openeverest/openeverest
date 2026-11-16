@@ -81,6 +81,8 @@ flowchart TD
 ```
 
 - **Supported props:** `uiType: widget` and `widgetType`.
+- **`disabled?`** — resolved by group-level `modes` cascade (widgets have no `fieldParams`);
+  passed to the host renderer as `WidgetRendererProps.disabled`.
 - **`widgetType`** selects the renderer from the consumer's `WidgetRegistry` (edit) and
   `WidgetSummaryRegistry` (`label` + `View` + `digest` for the overview and wizard preview).
   Unknown types render nothing.
@@ -245,4 +247,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-06
+- Last updated: 2026-11-16
