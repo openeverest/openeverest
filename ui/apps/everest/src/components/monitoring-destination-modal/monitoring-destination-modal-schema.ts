@@ -14,15 +14,13 @@
 
 import { z } from 'zod';
 import { buildOpenApiParametersSchema } from 'components/openapi-parameters-fields';
+import { getSectionFormZodSchema } from 'components/ui-generator/utils/section-form';
 import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
 import { rfc_123_schema } from 'utils/common-validation';
-import {
-  getMonitoringClassName,
-  getSectionFormZodSchema,
-} from 'utils/monitoring-classes';
+import { getMonitoringClassName } from 'utils/monitoring-classes';
 import {
   DestinationFormFields,
   MAX_SECRET_NAME_LENGTH,
@@ -92,7 +90,7 @@ export const buildMonitoringDestinationSchema = ({
       if (forms.destination) {
         validateAt(
           DestinationFormFields.spec,
-          getSectionFormZodSchema(forms.destination, formMode)
+          getSectionFormZodSchema(forms.destination)
         );
       } else {
         validateAt(

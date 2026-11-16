@@ -24,6 +24,11 @@ import {
   isPlainObject,
 } from 'components/ui-generator/utils/object-path';
 import {
+  getSectionFormDefaults,
+  postprocessSectionForm,
+  toSectionForm,
+} from 'components/ui-generator/utils/section-form';
+import {
   CredentialsSecretWrite,
   SaveMonitoringDestinationRequest,
   SecretAlreadyExistsError,
@@ -38,10 +43,7 @@ import {
   getCredentialsSection,
   getMonitoringClassName,
   getMonitoringClassUiSchema,
-  getSectionFormDefaults,
   isSecretBackedAuthMode,
-  postprocessSectionForm,
-  toMonitoringSectionForm,
 } from 'utils/monitoring-classes';
 import {
   getCredentialsSecretName,
@@ -79,7 +81,7 @@ export const getDestinationClassForms = (
   return {
     destination:
       destination &&
-      toMonitoringSectionForm(DESTINATION_SECTION_KEY, destination, formMode),
+      toSectionForm(DESTINATION_SECTION_KEY, destination, formMode),
     parameterFields: destination
       ? NO_PARAMETER_FIELDS
       : getOpenApiParameterFields(
@@ -87,8 +89,7 @@ export const getDestinationClassForms = (
         ),
     // New credentials are always typed in full, also when editing.
     credentials:
-      credentials &&
-      toMonitoringSectionForm(CREDENTIALS_SECTION_KEY, credentials),
+      credentials && toSectionForm(CREDENTIALS_SECTION_KEY, credentials),
   };
 };
 
@@ -266,8 +267,8 @@ const toParameters = (
 ): Record<string, unknown> => {
   if (forms.destination) {
     const { parameters } = postprocessSectionForm(
-      values.spec,
-      forms.destination
+      forms.destination,
+      values.spec
     );
     return isPlainObject(parameters) ? parameters : {};
   }
@@ -311,7 +312,7 @@ const toCredentialsSecretWrite = (
   const stringData = () =>
     toSecretStringData(
       forms.credentials
-        ? postprocessSectionForm(values.credentials, forms.credentials)
+        ? postprocessSectionForm(forms.credentials, values.credentials)
         : {}
     );
   if (source === CredentialsSource.New) {

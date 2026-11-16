@@ -14,11 +14,11 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
+import { getSectionFormDefaults } from 'components/ui-generator/utils/section-form';
 import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
-import { getSectionFormDefaults } from 'utils/monitoring-classes';
 import { DestinationFormFields } from '../monitoring-destination-modal.constants';
 import {
   DestinationClassForms,

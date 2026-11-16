@@ -13,11 +13,11 @@
 // limitations under the License.
 
 import { OpenApiParameterFields } from 'components/openapi-parameters-fields';
+import { SectionForm } from 'components/ui-generator/utils/section-form';
 import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
-import { MonitoringSectionForm } from 'utils/monitoring-classes';
 
 // Where the destination's credentials come from: its current Secret as it is
 // or with new credentials, a new Secret, or an existing one of the class.
@@ -46,10 +46,10 @@ export interface MonitoringDestinationFormValues {
 
 // The forms a class renders for a destination, for the chosen auth mode.
 export interface DestinationClassForms {
-  destination?: MonitoringSectionForm;
+  destination?: SectionForm;
   // Used when the class ships no destination form.
   parameterFields: OpenApiParameterFields;
-  credentials?: MonitoringSectionForm;
+  credentials?: SectionForm;
 }
 
 export interface MonitoringDestinationTarget {
