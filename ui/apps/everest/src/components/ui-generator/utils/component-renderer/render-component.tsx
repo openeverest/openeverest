@@ -46,6 +46,13 @@ export const renderComponent = ({
 }: RenderComponentProps): ReactNode => {
   const fieldId = generateFieldId(item, name);
   const fieldName = joinPath(root, fieldId);
+
+  // A hidden container (authored or from group.modes) drops the whole subtree;
+  // instance values stay in form defaults and pass through on submit.
+  if (item?.uiType === 'hidden' && 'components' in item) {
+    return null;
+  }
+
   const isGroup = item?.uiType === 'group' && 'components' in item;
 
   const children = isGroup ? (
