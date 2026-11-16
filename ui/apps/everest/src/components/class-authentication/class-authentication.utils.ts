@@ -148,16 +148,25 @@ const toCredentialsSecretWrite = ({
         ? postprocessSectionForm(credentialsForm, values.credentials)
         : {}
     );
-  if (source === CredentialsSource.New && contract) {
+  if (!contract) {
+    return undefined;
+  }
+  const labels = getCredentialsSecretLabels(contract, values.authMode);
+  if (source === CredentialsSource.New) {
     return {
       action: 'create',
       name: values.credentialsSecretName || defaultSecretName,
-      labels: getCredentialsSecretLabels(contract, values.authMode),
+      labels,
       stringData: stringData(),
     };
   }
   if (source === CredentialsSource.Update && keptSecretName) {
-    return { action: 'update', name: keptSecretName, stringData: stringData() };
+    return {
+      action: 'update',
+      name: keptSecretName,
+      labels,
+      stringData: stringData(),
+    };
   }
   return undefined;
 };

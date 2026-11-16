@@ -248,6 +248,7 @@ describe('saveMonitoringDestination', () => {
     credentialsSecret: {
       action: 'update' as const,
       name: 'monitoring-destination-pmm-credentials',
+      labels,
       stringData: token,
     },
   };
@@ -258,7 +259,7 @@ describe('saveMonitoringDestination', () => {
     await saveMonitoringDestination(update, requests);
 
     expect(calls).toEqual([
-      'getSecret monitoring-destination-pmm-credentials',
+      'getSecret monitoring-destination-pmm-credentials if-missing',
       `patchSecret monitoring-destination-pmm-credentials ${JSON.stringify({
         metadata: { resourceVersion: '7' },
         stringData: token,
@@ -274,6 +275,46 @@ describe('saveMonitoringDestination', () => {
     await expect(saveMonitoringDestination(update, requests)).rejects.toEqual(
       new SecretChangedMeanwhileError('monitoring-destination-pmm-credentials')
     );
+    expect(requests.updateDestination).not.toHaveBeenCalled();
+  });
+
+  it('creates the Secret to update anew, for its class and mode, when it is gone', async () => {
+    const { calls, requests, fail } = setup();
+    fail('getSecret', httpError(404));
+
+    await saveMonitoringDestination(update, requests);
+
+    expect(calls).toEqual([
+      'getSecret monitoring-destination-pmm-credentials if-missing',
+      `createSecret ${JSON.stringify(
+        credentialsSecret('monitoring-destination-pmm-credentials')
+      )}`,
+      `updateDestination ${JSON.stringify(destination)}`,
+    ]);
+  });
+
+  it('deletes the Secret it created anew when the destination is refused', async () => {
+    const { requests, fail } = setup();
+    fail('getSecret', httpError(404));
+    fail('updateDestination', httpError(409));
+
+    await expect(saveMonitoringDestination(update, requests)).rejects.toEqual(
+      httpError(409)
+    );
+    expect(requests.deleteSecret).toHaveBeenCalledWith(
+      'monitoring-destination-pmm-credentials'
+    );
+  });
+
+  it("writes nothing when the Secret to update can't be read", async () => {
+    const { requests, fail } = setup();
+    fail('getSecret', httpError(403));
+
+    await expect(saveMonitoringDestination(update, requests)).rejects.toEqual(
+      httpError(403)
+    );
+    expect(requests.createSecret).not.toHaveBeenCalled();
+    expect(requests.patchSecret).not.toHaveBeenCalled();
     expect(requests.updateDestination).not.toHaveBeenCalled();
   });
 
