@@ -345,7 +345,9 @@ export const mockBackupStorages = {
   ],
 };
 
-// BackupStorageClassList (see src/api/backupStorageClasses.ts).
+// BackupStorageClassList (see src/api/backupStorageClasses.ts): the s3
+// class core ships (backupstorageclasses/s3/class.yaml), its CEL rules left
+// out.
 export const mockBackupStorageClasses = {
   apiVersion: 'backup.openeverest.io/v1alpha1',
   kind: 'BackupStorageClassList',
@@ -356,6 +358,8 @@ export const mockBackupStorageClasses = {
       metadata: { name: 's3' },
       spec: {
         displayName: 'S3-compatible object storage',
+        description:
+          'Amazon S3 and S3-compatible object stores such as MinIO, Ceph RGW and the GCS interoperability endpoint.',
         authModes: [
           {
             name: 'AccessKey',
@@ -364,6 +368,113 @@ export const mockBackupStorageClasses = {
             },
           },
         ],
+        parametersSchema: {
+          openAPIV3Schema: {
+            type: 'object',
+            required: ['endpointURL', 'region'],
+            properties: {
+              endpointURL: {
+                type: 'string',
+                maxLength: 2048,
+                pattern: '^https?://[^/?#@]+([/?#].*)?$',
+              },
+              forcePathStyle: { type: 'boolean' },
+              implementation: {
+                type: 'string',
+                enum: ['aws', 'minio', 'ceph', 'gcs', 'other'],
+              },
+              region: { type: 'string', minLength: 1, maxLength: 63 },
+            },
+          },
+        },
+        uiSchema: {
+          location: {
+            components: {
+              bucket: {
+                path: 'location.objectStore.bucket',
+                uiType: 'text',
+                fieldParams: { label: 'Bucket', placeholder: 'my-backups' },
+                validation: { required: true },
+              },
+              prefix: {
+                path: 'location.objectStore.prefix',
+                uiType: 'text',
+                fieldParams: {
+                  label: 'Prefix',
+                  helperText: 'Optional path within the bucket',
+                },
+              },
+            },
+            componentsOrder: ['bucket', 'prefix'],
+          },
+          storage: {
+            components: {
+              region: {
+                path: 'parameters.region',
+                uiType: 'text',
+                fieldParams: { label: 'Region', placeholder: 'us-east-1' },
+                validation: { required: true },
+              },
+              endpointURL: {
+                path: 'parameters.endpointURL',
+                uiType: 'text',
+                fieldParams: {
+                  label: 'Endpoint URL',
+                  placeholder: 'https://s3.us-east-1.amazonaws.com',
+                  helperText: 'An http:// URL uses plain HTTP',
+                },
+                validation: { required: true },
+              },
+              implementation: {
+                path: 'parameters.implementation',
+                uiType: 'select',
+                fieldParams: {
+                  label: 'Implementation',
+                  options: [
+                    { label: 'Amazon S3', value: 'aws' },
+                    { label: 'MinIO', value: 'minio' },
+                    { label: 'Ceph RGW', value: 'ceph' },
+                    {
+                      label: 'Google Cloud Storage (S3 interoperability)',
+                      value: 'gcs',
+                    },
+                    { label: 'Other S3-compatible', value: 'other' },
+                  ],
+                },
+              },
+              forcePathStyle: {
+                path: 'parameters.forcePathStyle',
+                uiType: 'toggle',
+                fieldParams: { label: 'Force path-style URLs' },
+              },
+            },
+            componentsOrder: [
+              'region',
+              'endpointURL',
+              'implementation',
+              'forcePathStyle',
+            ],
+          },
+          credentials: {
+            AccessKey: {
+              components: {
+                AWS_ACCESS_KEY_ID: {
+                  path: 'AWS_ACCESS_KEY_ID',
+                  uiType: 'text',
+                  fieldParams: { label: 'Access key ID' },
+                  validation: { required: true },
+                },
+                AWS_SECRET_ACCESS_KEY: {
+                  path: 'AWS_SECRET_ACCESS_KEY',
+                  uiType: 'text',
+                  fieldParams: { label: 'Secret access key', type: 'password' },
+                  validation: { required: true },
+                },
+              },
+              componentsOrder: ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY'],
+            },
+          },
+        },
       },
     },
   ],

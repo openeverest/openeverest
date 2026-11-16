@@ -75,6 +75,24 @@ test.describe('Visual Baseline - Pages', () => {
     );
   });
 
+  test('Settings - Storage Locations - Add modal', async ({ page }) => {
+    await goToUrl(page, '/settings/storage-locations');
+    await page.getByTestId('add-backup-storage').click();
+    const dialog = page.getByRole('dialog');
+    await dialog.waitFor({ state: 'visible', timeout: 10000 });
+    // The type's forms make up most of the dialog.
+    await dialog.getByTestId('select-class-name-button').click();
+    await page
+      .getByRole('option', { name: 'S3-compatible object storage' })
+      .click();
+    await dialog.getByLabel('Access key ID').waitFor();
+    await page.waitForTimeout(300);
+    await expect(page).toHaveScreenshot(
+      'settings-storage-add-modal.png',
+      screenshotOpts
+    );
+  });
+
   // --- SETTINGS: MONITORING DESTINATIONS ---
   test('Settings - Monitoring Destinations', async ({ page }) => {
     await goToUrl(page, '/settings/monitoring-destinations');
