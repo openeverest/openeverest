@@ -14,6 +14,7 @@
 
 import { isSection, Section } from 'components/ui-generator/ui-generator.types';
 import { isPlainObject } from 'components/ui-generator/utils/object-path';
+import { SectionFormContract } from 'components/ui-generator/utils/section-form';
 import {
   MonitoringClass,
   MonitoringConditionType,
@@ -30,6 +31,9 @@ export interface MonitoringClassUiSchema {
 
 // Modes core resolves without a Secret.
 const SECRETLESS_AUTH_MODES = ['Anonymous', 'WorkloadIdentity'];
+
+// Where the destination and entry forms keep the class parameters.
+const PARAMETERS_PATH = 'parameters';
 
 const toSectionMap = (value: unknown): Record<string, Section> =>
   isPlainObject(value)
@@ -97,3 +101,12 @@ export const getCredentialsSection = (
     getMonitoringClassUiSchema(monitoringClass).credentials,
     mode
   );
+
+// The API checks a destination's and an entry's parameters against the
+// class's schema for them.
+export const toParametersContract = (
+  parametersSchema: { openAPIV3Schema?: unknown } | undefined
+): SectionFormContract | undefined =>
+  parametersSchema?.openAPIV3Schema === undefined
+    ? undefined
+    : { path: PARAMETERS_PATH, schema: parametersSchema.openAPIV3Schema };

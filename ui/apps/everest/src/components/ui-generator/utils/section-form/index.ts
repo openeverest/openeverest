@@ -14,8 +14,14 @@
 
 export {
   getSectionFormDefaults,
+  getSectionFormUpdate,
+  getSectionFormValues,
   getSectionFormZodSchema,
   postprocessSectionForm,
   toSectionForm,
 } from './section-form';
-export type { SectionForm } from './section-form.types';
+export type {
+  SectionForm,
+  SectionFormContract,
+  SectionFormOptions,
+} from './section-form.types';

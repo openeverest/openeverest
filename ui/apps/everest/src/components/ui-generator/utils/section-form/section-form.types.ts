@@ -13,6 +13,22 @@
 // limitations under the License.
 
 import { FormMode, Section, TopologyUISchemas } from '../../ui-generator.types';
+import { FieldOverrides } from '../field-overrides';
+
+// The schema the API checks one object of the form against, such as a
+// class's parameters schema for the object at "parameters".
+export interface SectionFormContract {
+  // Where the object sits in the form's values; empty for the whole form.
+  path: string;
+  // OpenAPI v3.
+  schema: unknown;
+}
+
+export interface SectionFormOptions {
+  formMode?: FormMode;
+  overrides?: FieldOverrides;
+  contract?: SectionFormContract;
+}
 
 // A form rendered on its own rather than as a step of a provider topology,
 // such as a class's credentials form, prepared by the same pipeline stages.
@@ -22,4 +38,5 @@ export interface SectionForm {
   sections: Record<string, Section>;
   // The section wrapped as the one-topology schema the stages take.
   schema: TopologyUISchemas;
+  contract?: SectionFormContract;
 }

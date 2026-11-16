@@ -19,12 +19,11 @@ import {
   toOpenApiParameterFormValues,
 } from 'components/openapi-parameters-fields';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
-import {
-  deepMerge,
-  isPlainObject,
-} from 'components/ui-generator/utils/object-path';
+import { isPlainObject } from 'components/ui-generator/utils/object-path';
 import {
   getSectionFormDefaults,
+  getSectionFormUpdate,
+  getSectionFormValues,
   postprocessSectionForm,
   toSectionForm,
 } from 'components/ui-generator/utils/section-form';
@@ -44,6 +43,7 @@ import {
   getMonitoringClassName,
   getMonitoringClassUiSchema,
   isSecretBackedAuthMode,
+  toParametersContract,
 } from 'utils/monitoring-classes';
 import {
   getCredentialsSecretName,
@@ -81,7 +81,12 @@ export const getDestinationClassForms = (
   return {
     destination:
       destination &&
-      toSectionForm(DESTINATION_SECTION_KEY, destination, formMode),
+      toSectionForm(DESTINATION_SECTION_KEY, destination, {
+        formMode,
+        contract: toParametersContract(
+          monitoringClass.spec.destinationParametersSchema
+        ),
+      }),
     parameterFields: destination
       ? NO_PARAMETER_FIELDS
       : getOpenApiParameterFields(
@@ -246,9 +251,7 @@ export const getFormDefaults = ({
       ? getSectionFormDefaults(forms.credentials)
       : {},
     spec: forms.destination
-      ? deepMerge(getSectionFormDefaults(forms.destination), {
-          parameters: isPlainObject(parameters) ? parameters : {},
-        })
+      ? getSectionFormValues(forms.destination, original.spec)
       : {},
     fallbackParameters: toOpenApiParameterFormValues(
       parameters,
@@ -266,9 +269,11 @@ const toParameters = (
   original: MonitoringDestination | undefined
 ): Record<string, unknown> => {
   if (forms.destination) {
-    const { parameters } = postprocessSectionForm(
+    // An edit keeps the parameters the form doesn't own as they were saved.
+    const { parameters } = getSectionFormUpdate(
       forms.destination,
-      values.spec
+      values.spec,
+      original?.spec ?? {}
     );
     return isPlainObject(parameters) ? parameters : {};
   }

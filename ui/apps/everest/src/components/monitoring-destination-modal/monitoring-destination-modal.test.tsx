@@ -37,6 +37,7 @@ import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
+import { Messages as ConstraintMessages } from 'components/ui-generator/utils/openapi-constraints/openapi-constraints.messages';
 import { TestWrapper } from 'utils/test';
 import { MonitoringDestinationModal } from './monitoring-destination-modal';
 import { MonitoringDestinationTarget } from './monitoring-destination-modal.types';
@@ -94,6 +95,15 @@ const pmm: MonitoringClass = {
     authModes: [
       { name: 'ServiceAccountToken', credentials: { required: ['token'] } },
     ],
+    destinationParametersSchema: {
+      openAPIV3Schema: {
+        type: 'object',
+        required: ['url'],
+        properties: {
+          url: { type: 'string', pattern: '^https?://[^/?#@]+/?$' },
+        },
+      },
+    },
   },
   status: {
     conditions: [
@@ -221,6 +231,19 @@ describe('MonitoringDestinationModal', () => {
         },
       }
     );
+  });
+
+  it("refuses a server URL the class's schema refuses, before saving", async () => {
+    renderModal();
+    await fillPmmDestination();
+    fireEvent.change(screen.getByLabelText(/PMM server URL/), {
+      target: { value: 'https://pmm.example.com/graph' },
+    });
+
+    expect(
+      await screen.findByText(ConstraintMessages.pattern)
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('form-dialog-add')).toBeDisabled();
   });
 
   it('points to an existing Secret when the name is taken, and saves with it', async () => {

@@ -74,6 +74,44 @@ Reflect.set(stored.spec, 'parameters', {
   relabelings: [{ action: 'keep' }],
 });
 
+// A destination form that owns the url only.
+const pmm: MonitoringClass = {
+  metadata: { name: 'pmm' },
+  spec: {
+    controllerName: 'openeverest.io/monitoring-pmm',
+    authModes: [
+      { name: 'ServiceAccountToken', credentials: { required: ['token'] } },
+    ],
+  },
+};
+Reflect.set(pmm.spec, 'uiSchema', {
+  destination: {
+    components: {
+      url: {
+        path: 'parameters.url',
+        uiType: 'text',
+        fieldParams: { label: 'PMM server URL' },
+      },
+    },
+  },
+});
+
+const storedPmm: MonitoringDestination = {
+  metadata: { name: 'pmm-prod', namespace: 'team-a', resourceVersion: '7' },
+  spec: {
+    classRef: { name: 'pmm' },
+    authentication: {
+      mode: 'ServiceAccountToken',
+      credentialsSecretRef: { name: 'pmm-credentials' },
+    },
+  },
+};
+Reflect.set(storedPmm.spec, 'parameters', {
+  url: 'https://pmm.example.com',
+  proxy: '',
+  labels: { team: 'a' },
+});
+
 const ALL_SECRET_PERMISSIONS: SecretNamespacePermissions = {
   canCreate: ['team-a'],
   canRead: ['team-a'],
@@ -313,6 +351,29 @@ describe('buildSaveRequest', () => {
         tls: { ca: { secretKeyRef: { name: 'prom-ca', key: 'ca.crt' } } },
         parameters: { interval: '30s', relabelings: [{ action: 'keep' }] },
       },
+    });
+  });
+
+  it("keeps the parameters the class form doesn't own as saved, empty ones too", () => {
+    const defaults = getFormDefaults({
+      original: storedPmm,
+      namespace: 'team-a',
+      classes: [pmm],
+    });
+    const request = buildSaveRequest({
+      values: {
+        ...defaults,
+        spec: { parameters: { url: 'https://pmm2.example.com' } },
+      },
+      monitoringClass: pmm,
+      original: storedPmm,
+      secretPermissions: ALL_SECRET_PERMISSIONS,
+    });
+
+    expect(request.destination.spec.parameters).toEqual({
+      url: 'https://pmm2.example.com',
+      proxy: '',
+      labels: { team: 'a' },
     });
   });
 
