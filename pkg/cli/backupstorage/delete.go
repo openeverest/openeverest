@@ -87,7 +87,7 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 		return err
 	}
 
-	resp, err := c.DeleteBackupStorageWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name)
+	resp, err := c.DeleteBackupStorageWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name, nil)
 	if err != nil {
 		return fmt.Errorf("delete backup storage request failed: %w", err)
 	}

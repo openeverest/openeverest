@@ -78,7 +78,7 @@ func (u *Updater) Run(ctx context.Context, opts UpdateOptions, cfgPath string) e
 	}
 
 	patch := map[string]any{"spec": spec}
-	resp, err := c.PatchBackupStorageWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name, patch)
+	resp, err := c.PatchBackupStorageWithApplicationMergePatchPlusJSONBodyWithResponse(ctx, opts.Cluster, opts.Namespace, opts.Name, nil, patch)
 	if err != nil {
 		return fmt.Errorf("patch backup storage request failed: %w", err)
 	}
