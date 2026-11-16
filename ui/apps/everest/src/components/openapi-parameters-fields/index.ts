@@ -18,5 +18,6 @@ export {
   fromOpenApiParameterFormValues,
   getOpenApiParameterFields,
   toOpenApiParameterFormValues,
+  toOpenApiParametersUpdate,
 } from './openapi-parameters-fields.utils';
 export type { OpenApiParameterFields } from './openapi-parameters-fields.types';

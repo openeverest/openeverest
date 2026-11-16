@@ -13,13 +13,37 @@
 // limitations under the License.
 
 import { SECRET_DEFINITION_LABEL } from 'components/ui-generator/secret-field/secret-create-modal/secret-create-modal.constants';
-import { Section } from 'components/ui-generator/ui-generator.types';
+import { isSection, Section } from 'components/ui-generator/ui-generator.types';
+import { isPlainObject } from 'components/ui-generator/utils/object-path';
+import { SectionFormContract } from 'components/ui-generator/utils/section-form';
 import { SecretListFilter } from 'shared-types/api.types';
 import { getAuthModeCredentialsSection } from 'utils/auth-mode-credentials';
 import { ClassContract } from './class-contract.types';
 
 // Modes core resolves without a Secret.
 const SECRETLESS_AUTH_MODES = ['Anonymous', 'WorkloadIdentity'];
+
+// Where class forms keep the class parameters.
+const PARAMETERS_PATH = 'parameters';
+
+// The forms of an opaque uiSchema map, such as credentials forms by auth
+// mode; an entry that isn't a form is left out.
+export const toSectionMap = (value: unknown): Record<string, Section> =>
+  isPlainObject(value)
+    ? Object.fromEntries(
+        Object.entries(value).filter((entry): entry is [string, Section] =>
+          isSection(entry[1])
+        )
+      )
+    : {};
+
+// The API checks an object's parameters against the class's schema for them.
+export const toParametersContract = (
+  parametersSchema: { openAPIV3Schema?: unknown } | undefined
+): SectionFormContract | undefined =>
+  parametersSchema?.openAPIV3Schema === undefined
+    ? undefined
+    : { path: PARAMETERS_PATH, schema: parametersSchema.openAPIV3Schema };
 
 export const isSecretBackedAuthMode = (mode: string) =>
   !SECRETLESS_AUTH_MODES.includes(mode);

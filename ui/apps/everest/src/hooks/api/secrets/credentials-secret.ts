@@ -13,6 +13,12 @@
 // limitations under the License.
 
 import { isAxiosError } from 'axios';
+import {
+  createSecretFn,
+  deleteSecretFn,
+  getSecretFn,
+  patchSecretFn,
+} from 'api/secrets';
 import { Secret, SecretDataPatch } from 'shared-types/api.types';
 
 export interface CredentialsSecretRequests {
@@ -21,6 +27,17 @@ export interface CredentialsSecretRequests {
   patchSecret: (name: string, patch: SecretDataPatch) => Promise<unknown>;
   deleteSecret: (name: string) => Promise<unknown>;
 }
+
+export const getCredentialsSecretRequests = (
+  cluster: string,
+  namespace: string
+): CredentialsSecretRequests => ({
+  createSecret: (secret) => createSecretFn(cluster, namespace, secret),
+  getSecret: (name, quiet = false) =>
+    getSecretFn(cluster, namespace, name, quiet),
+  patchSecret: (name, patch) => patchSecretFn(cluster, namespace, name, patch),
+  deleteSecret: (name) => deleteSecretFn(cluster, namespace, name),
+});
 
 // create: a new Secret, labelled for the class and mode its credentials
 // belong to; update: new credentials in the object's Secret, for every object

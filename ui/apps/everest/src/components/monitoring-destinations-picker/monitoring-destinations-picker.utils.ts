@@ -34,10 +34,10 @@ import {
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
 import { getDestinationName } from 'utils/monitoring-destinations';
+import { toParametersContract } from 'utils/class-contract';
 import {
   getMonitoringClassName,
   getMonitoringClassUiSchema,
-  toParametersContract,
 } from 'utils/monitoring-classes';
 import {
   MAX_MONITORING_DESTINATIONS,

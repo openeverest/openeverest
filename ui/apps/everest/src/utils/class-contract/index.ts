@@ -17,5 +17,7 @@ export {
   getCredentialsSecretLabels,
   getCredentialsSection,
   isSecretBackedAuthMode,
+  toParametersContract,
+  toSectionMap,
 } from './class-contract';
 export type { ClassContract } from './class-contract.types';

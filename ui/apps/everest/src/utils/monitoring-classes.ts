@@ -14,12 +14,11 @@
 
 import { isSection, Section } from 'components/ui-generator/ui-generator.types';
 import { isPlainObject } from 'components/ui-generator/utils/object-path';
-import { SectionFormContract } from 'components/ui-generator/utils/section-form';
 import {
   MonitoringClass,
   MonitoringConditionType,
 } from 'shared-types/monitoring-destinations.types';
-import { ClassContract } from 'utils/class-contract';
+import { ClassContract, toSectionMap } from 'utils/class-contract';
 
 // The class uiSchema groups its forms by what they fill: the destination's
 // spec, the Secret of each auth mode and an Instance's monitoring entry.
@@ -28,18 +27,6 @@ export interface MonitoringClassUiSchema {
   instance?: Section;
   credentials: Record<string, Section>;
 }
-
-// Where the destination and entry forms keep the class parameters.
-const PARAMETERS_PATH = 'parameters';
-
-const toSectionMap = (value: unknown): Record<string, Section> =>
-  isPlainObject(value)
-    ? Object.fromEntries(
-        Object.entries(value).filter((entry): entry is [string, Section] =>
-          isSection(entry[1])
-        )
-      )
-    : {};
 
 // A class nobody claims (Accepted is not True) cannot serve a destination.
 export const isMonitoringClassAccepted = (monitoringClass: MonitoringClass) =>
@@ -101,12 +88,3 @@ export const toMonitoringClassContract = (
     monitoringClass: getMonitoringClassName(monitoringClass),
   },
 });
-
-// The API checks a destination's and an entry's parameters against the
-// class's schema for them.
-export const toParametersContract = (
-  parametersSchema: { openAPIV3Schema?: unknown } | undefined
-): SectionFormContract | undefined =>
-  parametersSchema?.openAPIV3Schema === undefined
-    ? undefined
-    : { path: PARAMETERS_PATH, schema: parametersSchema.openAPIV3Schema };
