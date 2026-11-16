@@ -13,7 +13,16 @@
 // limitations under the License.
 
 import { z } from 'zod';
+import {
+  authenticationSchemaShape,
+  refineAuthentication,
+  SecretNamespacePermissions,
+} from 'components/class-authentication';
 import { buildOpenApiParametersSchema } from 'components/openapi-parameters-fields';
+import {
+  refineTlsConfig,
+  tlsConfigSchemaShape,
+} from 'components/tls-config-fields';
 import { getSectionFormZodSchema } from 'components/ui-generator/utils/section-form';
 import {
   MonitoringClass,
@@ -21,20 +30,11 @@ import {
 } from 'shared-types/monitoring-destinations.types';
 import { rfc_123_schema } from 'utils/common-validation';
 import { getMonitoringClassName } from 'utils/monitoring-classes';
-import {
-  DestinationFormFields,
-  MAX_SECRET_NAME_LENGTH,
-} from './monitoring-destination-modal.constants';
+import { DestinationFormFields } from './monitoring-destination-modal.constants';
 import { Messages } from './monitoring-destination-modal.messages';
 import {
-  CredentialsSource,
-  SecretNamespacePermissions,
-} from './monitoring-destination-modal.types';
-import {
-  getCredentialsSource,
   getDestinationClassForms,
   getFormMode,
-  takesCredentials,
 } from './monitoring-destination-modal.utils';
 
 const required = z.string().min(1, Messages.required);
@@ -57,28 +57,15 @@ export const buildMonitoringDestinationSchema = ({
       }),
       [DestinationFormFields.namespace]: required,
       [DestinationFormFields.className]: required,
-      [DestinationFormFields.authMode]: required,
-      [DestinationFormFields.credentialsSource]:
-        z.nativeEnum(CredentialsSource),
-      [DestinationFormFields.credentialsSecretName]: z.union([
-        z.literal(''),
-        rfc_123_schema({
-          fieldName: Messages.secretNameFieldName,
-          maxLength: MAX_SECRET_NAME_LENGTH,
-        }),
-      ]),
-      [DestinationFormFields.existingSecretName]: z.string(),
-      [DestinationFormFields.insecureSkipVerify]: z.boolean(),
-      [DestinationFormFields.caSecretName]: z.string(),
-      [DestinationFormFields.caSecretKey]: z.string(),
+      ...authenticationSchemaShape,
+      ...tlsConfigSchemaShape,
     })
     .passthrough()
     .superRefine((values, ctx) => {
-      const formMode = getFormMode(original);
       const forms = getDestinationClassForms(
         classes.find((c) => getMonitoringClassName(c) === values.className),
         values.authMode,
-        formMode
+        getFormMode(original)
       );
       const validateAt = (root: DestinationFormFields, schema: z.ZodTypeAny) =>
         schema
@@ -98,46 +85,10 @@ export const buildMonitoringDestinationSchema = ({
           buildOpenApiParametersSchema(forms.parameterFields)
         );
       }
-      if (forms.credentials) {
-        const source = getCredentialsSource(
-          values,
-          original,
-          secretPermissions
-        );
-        if (!source) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [DestinationFormFields.credentialsSource],
-            message: Messages.noSecretAccess(values.namespace),
-          });
-        } else if (takesCredentials(source)) {
-          validateAt(
-            DestinationFormFields.credentials,
-            getSectionFormZodSchema(forms.credentials)
-          );
-        } else if (
-          source === CredentialsSource.Existing &&
-          !values.existingSecretName
-        ) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: [DestinationFormFields.existingSecretName],
-            message: Messages.required,
-          });
-        }
-      }
-      if (
-        !values.insecureSkipVerify &&
-        !values.caSecretName !== !values.caSecretKey
-      ) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: [
-            values.caSecretName
-              ? DestinationFormFields.caSecretKey
-              : DestinationFormFields.caSecretName,
-          ],
-          message: Messages.caIncomplete,
-        });
-      }
+      refineAuthentication(values, ctx, {
+        credentialsForm: forms.credentials,
+        saved: original?.spec.authentication,
+        permissions: secretPermissions,
+      });
+      refineTlsConfig(values, ctx);
     });

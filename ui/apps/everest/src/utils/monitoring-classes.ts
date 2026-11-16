@@ -19,7 +19,7 @@ import {
   MonitoringClass,
   MonitoringConditionType,
 } from 'shared-types/monitoring-destinations.types';
-import { getAuthModeCredentialsSection } from './auth-mode-credentials';
+import { ClassContract } from 'utils/class-contract';
 
 // The class uiSchema groups its forms by what they fill: the destination's
 // spec, the Secret of each auth mode and an Instance's monitoring entry.
@@ -28,9 +28,6 @@ export interface MonitoringClassUiSchema {
   instance?: Section;
   credentials: Record<string, Section>;
 }
-
-// Modes core resolves without a Secret.
-const SECRETLESS_AUTH_MODES = ['Anonymous', 'WorkloadIdentity'];
 
 // Where the destination and entry forms keep the class parameters.
 const PARAMETERS_PATH = 'parameters';
@@ -70,9 +67,6 @@ export const getMonitoringClassName = (monitoringClass: MonitoringClass) =>
 export const getMonitoringClassTitle = (monitoringClass: MonitoringClass) =>
   monitoringClass.spec.displayName || getMonitoringClassName(monitoringClass);
 
-export const isSecretBackedAuthMode = (mode: string) =>
-  !SECRETLESS_AUTH_MODES.includes(mode);
-
 // The generated CRD types keep uiSchema opaque, so each form is narrowed here.
 export const getMonitoringClassUiSchema = (
   monitoringClass: MonitoringClass
@@ -90,17 +84,23 @@ export const getMonitoringClassUiSchema = (
   };
 };
 
-// The class's credentials form for the mode or, when it ships none, one masked
-// input per credential key the mode declares.
-export const getCredentialsSection = (
-  monitoringClass: MonitoringClass,
-  mode: string
-): Section | undefined =>
-  getAuthModeCredentialsSection(
-    monitoringClass.spec.authModes,
-    getMonitoringClassUiSchema(monitoringClass).credentials,
-    mode
-  );
+// The label the Secrets API ties a destination's credentials Secret to its
+// class by.
+export const MONITORING_CLASS_SECRET_LABEL = 'openeverest.io/monitoring-class';
+
+export const toMonitoringClassContract = (
+  monitoringClass: MonitoringClass
+): ClassContract => ({
+  name: getMonitoringClassName(monitoringClass),
+  title: getMonitoringClassTitle(monitoringClass),
+  description: monitoringClass.spec.description,
+  authModes: monitoringClass.spec.authModes,
+  credentialsForms: getMonitoringClassUiSchema(monitoringClass).credentials,
+  credentialsSecretLabel: MONITORING_CLASS_SECRET_LABEL,
+  credentialsSecretFilter: {
+    monitoringClass: getMonitoringClassName(monitoringClass),
+  },
+});
 
 // The API checks a destination's and an entry's parameters against the
 // class's schema for them.

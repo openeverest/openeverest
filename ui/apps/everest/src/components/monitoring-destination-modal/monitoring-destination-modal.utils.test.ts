@@ -19,13 +19,10 @@ import {
 import {
   CredentialsSource,
   SecretNamespacePermissions,
-} from './monitoring-destination-modal.types';
+} from 'components/class-authentication';
 import {
   buildSaveRequest,
-  getCredentialsSource,
-  getCredentialsSources,
   getFormDefaults,
-  getKeptCredentialsSecretName,
 } from './monitoring-destination-modal.utils';
 
 // No uiSchema: credentials from the auth mode, parameters from the schema.
@@ -117,109 +114,6 @@ const ALL_SECRET_PERMISSIONS: SecretNamespacePermissions = {
   canRead: ['team-a'],
   canUpdate: ['team-a'],
 };
-const only = (
-  ...granted: (keyof SecretNamespacePermissions)[]
-): SecretNamespacePermissions => ({
-  canCreate: granted.includes('canCreate') ? ['team-a'] : [],
-  canRead: granted.includes('canRead') ? ['team-a'] : [],
-  canUpdate: granted.includes('canUpdate') ? ['team-a'] : [],
-});
-
-describe('getCredentialsSources', () => {
-  const { Keep, Update, New, Existing } = CredentialsSource;
-
-  it.each<{
-    name: string;
-    authMode: string;
-    original?: MonitoringDestination;
-    permissions: SecretNamespacePermissions;
-    expected: CredentialsSource[];
-  }>([
-    {
-      name: 'a new destination: new or existing Secret',
-      authMode: 'BasicAuth',
-      permissions: ALL_SECRET_PERMISSIONS,
-      expected: [New, Existing],
-    },
-    {
-      name: 'a new destination without create: existing only',
-      authMode: 'BasicAuth',
-      permissions: only('canRead'),
-      expected: [Existing],
-    },
-    {
-      name: 'a new destination without read: new only',
-      authMode: 'BasicAuth',
-      permissions: only('canCreate'),
-      expected: [New],
-    },
-    {
-      name: 'an edit: keep, update or switch the Secret',
-      authMode: 'BasicAuth',
-      original: stored,
-      permissions: ALL_SECRET_PERMISSIONS,
-      expected: [Keep, Update, Existing],
-    },
-    {
-      name: 'an edit without update: no in-place update',
-      authMode: 'BasicAuth',
-      original: stored,
-      permissions: only('canRead', 'canCreate'),
-      expected: [Keep, Existing],
-    },
-    {
-      name: 'an edit without Secret permissions: keep only',
-      authMode: 'BasicAuth',
-      original: stored,
-      permissions: only(),
-      expected: [Keep],
-    },
-    {
-      name: 'an edit to another mode: its Secret no longer fits',
-      authMode: 'Token',
-      original: stored,
-      permissions: ALL_SECRET_PERMISSIONS,
-      expected: [New, Existing],
-    },
-    {
-      name: 'a mode without a Secret: none',
-      authMode: 'Anonymous',
-      original: stored,
-      permissions: ALL_SECRET_PERMISSIONS,
-      expected: [],
-    },
-  ])('offers $name', ({ authMode, original, permissions, expected }) => {
-    expect(
-      getCredentialsSources(
-        { authMode, namespace: 'team-a' },
-        original,
-        permissions
-      )
-    ).toEqual(expected);
-  });
-
-  it('falls back to the first offered source once the pick no longer applies', () => {
-    expect(
-      getCredentialsSource(
-        { authMode: 'Token', namespace: 'team-a', credentialsSource: Keep },
-        stored,
-        ALL_SECRET_PERMISSIONS
-      )
-    ).toBe(New);
-  });
-});
-
-describe('getKeptCredentialsSecretName', () => {
-  it('keeps the current Secret only for the mode it was made for', () => {
-    expect(getKeptCredentialsSecretName('BasicAuth', stored)).toBe(
-      'prom-basic'
-    );
-    expect(getKeptCredentialsSecretName('Anonymous', stored)).toBeUndefined();
-    expect(
-      getKeptCredentialsSecretName('BasicAuth', undefined)
-    ).toBeUndefined();
-  });
-});
 
 describe('getFormDefaults', () => {
   const pmm: MonitoringClass = {
@@ -279,6 +173,10 @@ describe('buildSaveRequest', () => {
     expect(request.credentialsSecret).toEqual({
       action: 'create',
       name: 'monitoring-destination-prom-credentials',
+      labels: {
+        'openeverest.io/monitoring-class': 'prometheus',
+        'openeverest.io/definition': 'BasicAuth',
+      },
       stringData: { username: 'u', password: 'p' },
     });
     expect(request.destination).toEqual({

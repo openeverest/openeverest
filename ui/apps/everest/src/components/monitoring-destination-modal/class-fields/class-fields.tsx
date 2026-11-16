@@ -12,19 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { MenuItem, Typography } from '@mui/material';
-import { SelectInput } from '@percona/ui-lib';
+import { useMemo } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
+import {
+  AuthModeSelect,
+  CredentialsFields,
+  SecretNamespacePermissions,
+} from 'components/class-authentication';
 import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
-import { CredentialsFields } from '../credentials-fields/credentials-fields';
+import { toMonitoringClassContract } from 'utils/monitoring-classes';
+import { getDefaultCredentialsSecretName } from 'utils/monitoring-destinations';
 import { useDestinationClassForms } from '../hooks/use-destination-class-forms';
 import { DestinationFormFields } from '../monitoring-destination-modal.constants';
 import { Messages } from '../monitoring-destination-modal.messages';
 import { MonitoringDestinationFormValues } from '../monitoring-destination-modal.types';
-import { SecretNamespacePermissions } from '../monitoring-destination-modal.types';
 import { getFormMode } from '../monitoring-destination-modal.utils';
 import { ParametersFields } from '../parameters-fields/parameters-fields';
 
@@ -44,46 +48,38 @@ export const ClassFields = ({
   secretPermissionsLoading,
 }: ClassFieldsProps) => {
   const { control } = useFormContext<MonitoringDestinationFormValues>();
-  const namespace = useWatch({
+  const [name, namespace] = useWatch({
     control,
-    name: DestinationFormFields.namespace,
+    name: [DestinationFormFields.name, DestinationFormFields.namespace],
   });
   const { monitoringClass, forms } = useDestinationClassForms(
     classes,
     original
   );
+  const contract = useMemo(
+    () => monitoringClass && toMonitoringClassContract(monitoringClass),
+    [monitoringClass]
+  );
 
-  if (!monitoringClass) {
+  if (!contract) {
     return null;
   }
 
   return (
     <>
-      {monitoringClass.spec.description && (
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          {monitoringClass.spec.description}
-        </Typography>
-      )}
-      <SelectInput
-        name={DestinationFormFields.authMode}
-        label={Messages.authMode}
-        isRequired
-      >
-        {monitoringClass.spec.authModes.map(({ name }) => (
-          <MenuItem key={name} value={name}>
-            {name}
-          </MenuItem>
-        ))}
-      </SelectInput>
+      <AuthModeSelect contract={contract} />
       <ParametersFields
         forms={forms}
         namespace={namespace}
         formMode={getFormMode(original)}
       />
       <CredentialsFields
+        contract={contract}
         form={forms.credentials}
-        original={original}
+        saved={original?.spec.authentication}
         namespace={namespace}
+        defaultSecretName={getDefaultCredentialsSecretName(name)}
+        nouns={Messages.authenticationNouns}
         secretPermissions={secretPermissions}
         secretPermissionsLoading={secretPermissionsLoading}
       />
