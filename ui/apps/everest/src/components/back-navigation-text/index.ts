@@ -1,1 +1,1 @@
-export { default } from './back-nativation-text';
+export { default } from './back-navigation-text';
