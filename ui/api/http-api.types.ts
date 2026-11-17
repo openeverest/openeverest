@@ -480,8 +480,10 @@ export interface paths {
          *       for.
          *
          *     They are stored as Kubernetes Events, so they are kept for the event TTL of the
-         *     cluster (one hour by default). This retention window is independent of the watch
-         *     cache: a `since` cursor may expire and require a relist before the Events expire.
+         *     cluster: one hour by default, and not adjustable on most managed Kubernetes
+         *     services. A `since` cursor is served from the API server's watch cache, which
+         *     often holds only minutes of history, so it can expire well before the Events do;
+         *     relist when it does.
          *
          *     **Streaming.** To consume every retained event without gaps, list all pages using
          *     `continue`, then stream with `since` set to the list `resourceVersion`. Pages in a
