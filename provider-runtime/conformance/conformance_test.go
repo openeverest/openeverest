@@ -163,7 +163,7 @@ func TestBuildInstanceIncludesOptionalComponentsOnlyWhenAddressed(t *testing.T) 
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			instance, err := buildInstance(testSpec(), "test-provider", "simple", tt.path, nil)
+			instance, err := buildInstance(testSpec(), "test-provider", "simple", map[string]any{tt.path: nil})
 			require.NoError(t, err)
 
 			got := make([]string, 0, len(instance.Spec.Components))
@@ -178,12 +178,36 @@ func TestBuildInstanceIncludesOptionalComponentsOnlyWhenAddressed(t *testing.T) 
 func TestBuildInstanceSetsTheProbeValue(t *testing.T) {
 	t.Parallel()
 
-	instance, err := buildInstance(testSpec(), "test-provider", "simple", "spec.components.engine.replicas", int64(7919))
+	instance, err := buildInstance(
+		testSpec(), "test-provider", "simple",
+		map[string]any{"spec.components.engine.replicas": int64(7919)},
+	)
 	require.NoError(t, err)
 
 	engine := instance.Spec.Components["engine"]
 	require.NotNil(t, engine.Replicas)
 	assert.Equal(t, int32(7919), *engine.Replicas)
+}
+
+func TestSentinelPicksACatalogComponentVersion(t *testing.T) {
+	t.Parallel()
+
+	spec := testSpec()
+	spec.ComponentTypes = map[string]corev1alpha1.ComponentType{"db": {
+		DefaultVersion: "8.0.1",
+		Versions:       []corev1alpha1.ComponentVersion{{Version: "8.0.1"}, {Version: "8.0.2"}, {Version: "7.0.9"}},
+	}}
+	spec.DefaultVersion = "8.0"
+	spec.Versions = []corev1alpha1.VersionBundle{{Name: "8.0", Components: map[string]string{"engine": "8.0.2"}}}
+
+	value, token, err := sentinel(spec, "spec.components.engine.version", leafString)
+	require.NoError(t, err)
+	assert.Equal(t, "7.0.9", value, "neither the type's default nor the default bundle's version")
+	assert.Equal(t, "7.0.9", token)
+
+	spec.ComponentTypes["db"] = corev1alpha1.ComponentType{Versions: []corev1alpha1.ComponentVersion{{Version: "8.0.2"}}}
+	_, _, err = sentinel(spec, "spec.components.engine.version", leafString)
+	require.ErrorContains(t, err, "no other version")
 }
 
 // boolProbeProvider always writes an unrelated true, which is what a value
@@ -194,8 +218,11 @@ type boolProbeProvider struct {
 
 func (p *boolProbeProvider) Name() string                       { return "bool-probe" }
 func (p *boolProbeProvider) Types() func(*runtime.Scheme) error { return nil }
-func (p *boolProbeProvider) Validate(*controller.Context) error { return nil }
 func (p *boolProbeProvider) Cleanup(*controller.Context) error  { return nil }
+
+func (p *boolProbeProvider) Validate(controller.ValidationInput) controller.ValidationResult {
+	return controller.ValidationResult{}
+}
 
 func (p *boolProbeProvider) Status(*controller.Context) (controller.Status, error) {
 	return controller.Status{}, nil

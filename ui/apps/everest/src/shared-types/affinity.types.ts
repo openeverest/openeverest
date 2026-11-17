@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { DbEngineType } from '@percona/types';
 
 export type AffinityRule = {
@@ -41,7 +55,23 @@ export enum AffinityOperator {
   NotIn = 'NotIn',
   Exists = 'Exists',
   DoesNotExist = 'DoesNotExist',
+  Gt = 'Gt',
+  Lt = 'Lt',
 }
+
+// Label selectors (pod affinity) accept only these; node affinity adds Gt / Lt.
+export const LABEL_SELECTOR_OPERATORS: AffinityOperator[] = [
+  AffinityOperator.In,
+  AffinityOperator.NotIn,
+  AffinityOperator.Exists,
+  AffinityOperator.DoesNotExist,
+];
+
+// Compare the node label value as an integer; take exactly one value.
+export const NUMERIC_AFFINITY_OPERATORS: AffinityOperator[] = [
+  AffinityOperator.Gt,
+  AffinityOperator.Lt,
+];
 
 export const AffinityTypeValue: Record<AffinityType, string> = {
   [AffinityType.NodeAffinity]: 'Node affinity',
@@ -54,6 +84,8 @@ export const AffinityOperatorValue: Record<AffinityOperator, string> = {
   [AffinityOperator.DoesNotExist]: 'does not exist',
   [AffinityOperator.In]: 'in',
   [AffinityOperator.NotIn]: 'not in',
+  [AffinityOperator.Gt]: 'greater than',
+  [AffinityOperator.Lt]: 'less than',
 };
 
 export const AffinityPriorityValue: Record<AffinityPriority, string> = {
@@ -67,16 +99,17 @@ export type AffinityMatchExpression = {
   values?: string[];
 };
 
-type NodeAffinityPreference = {
-  matchExpressions: AffinityMatchExpression[];
+// Optional in k8s: a term may select by matchFields / matchLabels only.
+export type MatchExpressionsSelector = {
+  matchExpressions?: AffinityMatchExpression[];
 };
 
-type NodeSelectorTerm = NodeAffinityPreference;
+type NodeAffinityPreference = MatchExpressionsSelector;
+
+export type NodeSelectorTerm = NodeAffinityPreference;
 
 export type PodAffinityTerm = {
-  labelSelector?: {
-    matchExpressions: AffinityMatchExpression[];
-  };
+  labelSelector?: MatchExpressionsSelector;
   topologyKey: string;
 };
 

@@ -30,7 +30,7 @@ flowchart LR
   ZOD --> RHF["react-hook-form"]
   DEF --> RHF
   REN --> RHF
-  RHF --> POST["Postprocess<br/>multi-path, badges,<br/>empty-value cleanup"]
+  RHF --> POST["Postprocess<br/>topology scoping, multi-path,<br/>badges, empty-value cleanup"]
   POST --> API["API PUT / POST"]
 ```
 
@@ -53,4 +53,4 @@ See [pipeline.md](./pipeline.md) for details.
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-02
+- Last updated: 2026-09-25

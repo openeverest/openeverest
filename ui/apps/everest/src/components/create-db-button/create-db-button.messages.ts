@@ -13,10 +13,7 @@
 // limitations under the License.
 
 export const Messages = {
-  createDatabase: 'Create database',
-  importDatabase: 'Import database',
-  import: 'Import',
+  createDatabase: 'Create',
   selectProvider: 'Select a provider to continue',
-  technicalPreview: 'Technical Preview',
   closeDrawerAriaLabel: 'Close',
 };

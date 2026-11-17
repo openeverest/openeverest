@@ -23,7 +23,7 @@ import (
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
-	"github.com/openeverest/openeverest/v2/pkg/events"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 )
 
 // ListInstances proxies the request to the next handler.
@@ -36,66 +36,74 @@ func (h *validateHandler) GetInstance(ctx context.Context, cluster, namespace, n
 	return h.next.GetInstance(ctx, cluster, namespace, name)
 }
 
-// CreateInstance proxies the request to the next handler.
+// CreateInstance validates annotations, then proxies to the next handler.
 func (h *validateHandler) CreateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
-	// Add validation here if needed in the future
+	annotations := instance.GetAnnotations()
+	if annotations[common.InstancePresetAnnotation] != "" &&
+		annotations[common.ClusterInstancePresetAnnotation] != "" {
+		return nil, errors.Join(
+			ErrInvalidRequest,
+			fmt.Errorf("only one of %s and %s annotations may be set",
+				common.InstancePresetAnnotation,
+				common.ClusterInstancePresetAnnotation,
+			),
+		)
+	}
 	return h.next.CreateInstance(ctx, cluster, instance)
 }
 
-// UpdateInstance proxies the request to the next handler.
+// UpdateInstance rejects a change to the bootstrap credentials reference, then proxies to the next handler.
 func (h *validateHandler) UpdateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
+	if instance.Spec.UserSecretRef != nil {
+		current, err := h.next.GetInstance(ctx, cluster, instance.GetNamespace(), instance.GetName())
+		if err != nil {
+			return nil, err
+		}
+
+		// A update could set userSecretRef when it was previously unset, which
+		// kubebuilder's immutable validation does not catch.
+		if current.Spec.UserSecretRef == nil {
+			return nil, errors.Join(
+				ErrInvalidRequest,
+				errors.New("spec.userSecretRef may not be modified"),
+			)
+		}
+	}
 	// Add validation here if needed in the future
 	return h.next.UpdateInstance(ctx, cluster, instance)
 }
 
-// PatchInstance rejects a patch naming a member the caller may not write, then proxies to the next handler.
+// PatchInstance rejects a patch naming a member the caller may not write, or a
+// spec.monitoring of the wrong shape, then proxies to the next handler.
 func (h *validateHandler) PatchInstance(ctx context.Context, cluster, namespace, name string, patch []byte) (*corev1alpha1.Instance, error) {
-	var doc map[string]any
-
-	if err := json.Unmarshal(patch, &doc); err != nil || doc == nil {
-		return nil, errors.Join(ErrInvalidRequest, errors.New("patch must be a JSON object"))
+	doc, err := validateMergePatch(patch)
+	if err != nil {
+		return nil, err
 	}
-
-	if _, found := doc["status"]; found {
-		return nil, errors.Join(ErrInvalidRequest, errors.New("status may not be patched"))
-	}
-	if metadata, isObject := doc["metadata"].(map[string]any); isObject {
-		if err := rejectProtectedMetadata(metadata); err != nil {
-			return nil, errors.Join(ErrInvalidRequest, err)
+	if spec, isObject := doc["spec"].(map[string]any); isObject {
+		// A patch could set userSecretRef when it was previously unset, which
+		// kubebuilder's immutable validation does not catch.
+		if _, ok := spec["userSecretRef"]; ok {
+			return nil, errors.Join(
+				ErrInvalidRequest,
+				errors.New("spec.userSecretRef may not be patched"),
+			)
 		}
+	}
+	// The RBAC handler reads spec.monitoring with this shape and leaves a patch it cannot decode to be refused here.
+	var typed struct {
+		Spec struct {
+			Monitoring *corev1alpha1.InstanceMonitoringSpec `json:"monitoring"`
+		} `json:"spec"`
+	}
+	if err := json.Unmarshal(patch, &typed); err != nil {
+		var typeErr *json.UnmarshalTypeError
+		if !errors.As(err, &typeErr) {
+			return nil, errors.Join(ErrInvalidRequest, errors.New("spec.monitoring is malformed"))
+		}
+		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("%s: unexpected JSON %s", typeErr.Field, typeErr.Value))
 	}
 	return h.next.PatchInstance(ctx, cluster, namespace, name, patch)
-}
-
-// rejectProtectedMetadata reports the metadata members a patch may not name.
-func rejectProtectedMetadata(metadata map[string]any) error {
-	for _, member := range []string{"ownerReferences", "finalizers", "name", "namespace"} {
-		if _, found := metadata[member]; found {
-			return fmt.Errorf("metadata.%s may not be patched", member)
-		}
-	}
-
-	annotations, found := metadata["annotations"]
-	if !found {
-		return nil
-	}
-	// Honouring a wipe and stamping the actor in one document is not expressible
-	// in a merge patch, so the caller is pointed at the per-key route instead.
-	if annotations == nil {
-		return errors.New("metadata.annotations may not be removed wholesale; set individual keys to null instead")
-	}
-	named, isObject := annotations.(map[string]any)
-	if !isObject {
-		return nil
-	}
-	// The typed verbs stamp these after decoding, so a caller cannot author
-	// them there. A merge patch is relayed as sent, so it could.
-	for _, key := range []string{events.AnnotationActorType, events.AnnotationActorID} {
-		if _, found := named[key]; found {
-			return fmt.Errorf("annotation %s may not be patched", key)
-		}
-	}
-	return nil
 }
 
 // DeleteInstance proxies the request to the next handler.

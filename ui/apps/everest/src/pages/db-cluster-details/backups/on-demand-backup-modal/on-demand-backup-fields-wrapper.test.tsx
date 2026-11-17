@@ -73,7 +73,10 @@ vi.mock('hooks/api/backups/useBackups', () => ({
         metadata: { name: 'backup-1' },
         spec: {
           storageRef: { name: 'storage-a' },
-          instanceRef: { name: 'test-instance' },
+          origin: {
+            type: 'Instance',
+            instanceRef: { name: 'test-instance' },
+          },
         },
         status: { state: 'Completed' },
       },

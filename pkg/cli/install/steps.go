@@ -24,7 +24,6 @@ import (
 
 	"github.com/openeverest/openeverest/v2/pkg/cli/steps"
 	"github.com/openeverest/openeverest/v2/pkg/common"
-	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
 func (o *Installer) newStepInstallEverestHelmChart() steps.Step {
@@ -41,23 +40,6 @@ func (o *Installer) newStepEnsureEverestAPI() steps.Step {
 		Desc: "Ensuring Everest API deployment is ready",
 		F: func(ctx context.Context) error {
 			return o.waitForDeployment(ctx, common.PerconaEverestDeploymentName, o.kubeClient.Namespace())
-		},
-	}
-}
-
-func (o *Installer) newStepEnsureEverestMonitoring() steps.Step {
-	return steps.Step{
-		Desc: "Ensuring monitoring stack is ready",
-		F: func(ctx context.Context) error {
-			if err := o.waitForDeployment(ctx, common.VictoriaMetricsOperatorDeploymentName, common.MonitoringNamespace); err != nil {
-				return err
-			}
-			if o.cfg.ClusterType != kubernetes.ClusterTypeOpenShift {
-				if err := o.waitForDeployment(ctx, common.KubeStateMetricsDeploymentName, common.MonitoringNamespace); err != nil {
-					return err
-				}
-			}
-			return nil
 		},
 	}
 }

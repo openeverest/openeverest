@@ -15,14 +15,7 @@
 import { ScheduleFormData } from '../schedule-form/schedule-form-schema';
 import { kebabize } from '@percona/utils';
 import { ScheduleWizardMode, WizardMode } from 'shared-types/wizard.types';
-import { BackupClass } from 'shared-types/backups.types';
-import { Instance } from 'shared-types/api.types';
-
-type InstanceSchedule = NonNullable<
-  NonNullable<
-    NonNullable<Instance['spec']['backup']>['storages']
-  >[number]['schedules']
->[number];
+import { BackupClass, InstanceSchedule } from 'shared-types/backups.types';
 
 export type FlattenedSchedule = Omit<InstanceSchedule, 'parameters'> & {
   parameters?: Record<string, unknown>;

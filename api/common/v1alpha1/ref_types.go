@@ -105,3 +105,23 @@ type TypedObjectRef struct {
 	// +kubebuilder:validation:MaxLength=253
 	Name string `json:"name"`
 }
+
+// MonitoringDestinationRef references a MonitoringDestination in the same
+// namespace as the referrer. Kind is reserved for a future cluster-scoped
+// destination kind.
+//
+// +structType=atomic
+type MonitoringDestinationRef struct {
+	// Kind of the referenced object.
+	// +kubebuilder:validation:Enum=MonitoringDestination
+	// +kubebuilder:default=MonitoringDestination
+	// +optional
+	Kind string `json:"kind,omitempty"`
+	// Name of the referenced object. At most 63 characters, since it is also
+	// a label value on the MonitoringBinding.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	Name string `json:"name"`
+}

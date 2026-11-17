@@ -19,7 +19,6 @@ import { getDefaultValues } from '../utils/default-values';
 import { postprocessSchemaData } from '../utils/postprocess/postprocess-schema';
 import { getSectionStepId } from '../utils/section-step-id';
 import { UIGenerator } from '../ui-generator';
-import { applyModeOverrides } from '../utils/preprocess/apply-mode-overrides';
 
 /**
  * Core form-engine hook.
@@ -40,6 +39,8 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
     providerObject,
     namespace,
     formMode,
+    widgetRegistry,
+    originalData,
   } = config;
 
   // 1. Schema processing (sections, zod, field map)
@@ -50,24 +51,18 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
     sectionsOrder,
     zodSchema: { schema: zodSchema, celDependencyGroups },
     sectionFieldMap,
-  } = useUiGenerator(stableUiSchema, selectedTopology);
-
-  // 1b. Apply mode overrides (e.g. disable fields in restore mode)
-  const effectiveSections = useMemo(
-    () => (formMode ? applyModeOverrides(sections, formMode) : sections),
-    [sections, formMode]
-  );
+  } = useUiGenerator(stableUiSchema, selectedTopology, formMode);
 
   // 2. Build generated steps from schema sections
   const sectionKeys = useMemo(
-    () => sectionsOrder || Object.keys(effectiveSections),
-    [sectionsOrder, effectiveSections]
+    () => sectionsOrder || Object.keys(sections),
+    [sectionsOrder, sections]
   );
 
   const generatedSteps: StepDefinition[] = useMemo(
     () =>
       sectionKeys.map((sectionKey): StepDefinition => {
-        const section = effectiveSections[sectionKey];
+        const section = sections[sectionKey];
 
         // Collect field paths owned by this section
         const fields = Object.entries(sectionFieldMap)
@@ -82,10 +77,12 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
         }) =>
           React.createElement(UIGenerator, {
             sectionKey,
-            sections: effectiveSections,
+            sections,
             providerObject,
             loadingDefaultsForEdition,
+            formMode,
             namespace,
+            widgetRegistry,
           });
 
         return {
@@ -97,7 +94,15 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
           fields,
         };
       }),
-    [sectionKeys, effectiveSections, sectionFieldMap, providerObject, namespace]
+    [
+      sectionKeys,
+      sections,
+      sectionFieldMap,
+      providerObject,
+      formMode,
+      namespace,
+      widgetRegistry,
+    ]
   );
 
   // 3. Merge static + generated steps
@@ -135,14 +140,15 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
       postprocessSchemaData(data, {
         schema: stableUiSchema,
         selectedTopology,
+        originalData,
       }),
-    [stableUiSchema, selectedTopology]
+    [stableUiSchema, selectedTopology, originalData]
   );
 
   return useMemo(
     () => ({
       steps,
-      sections: effectiveSections,
+      sections,
       sectionsOrder,
       zodSchema,
       celDependencyGroups,
@@ -152,7 +158,7 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
     }),
     [
       steps,
-      effectiveSections,
+      sections,
       sectionsOrder,
       zodSchema,
       celDependencyGroups,

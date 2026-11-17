@@ -152,7 +152,7 @@ const ClusterStatusTable = ({
       },
       {
         accessorKey: 'name',
-        header: 'Database name',
+        header: 'Name',
       },
       {
         id: 'technology',

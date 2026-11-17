@@ -22,5 +22,4 @@ import type { GetProviderMeta } from 'components/provider-identity';
 export interface ProviderPickerProps {
   providers: Provider[];
   getProviderMeta: GetProviderMeta;
-  showImport?: boolean;
 }

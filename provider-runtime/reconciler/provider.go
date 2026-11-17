@@ -19,13 +19,17 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
+	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	toolscache "k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,16 +41,28 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 	"github.com/openeverest/openeverest/v2/provider-runtime/internal/instanceprep"
 	"github.com/openeverest/openeverest/v2/provider-runtime/server"
+	"github.com/openeverest/openeverest/v2/provider-runtime/validation"
 )
 
 const finalizerName = "everest.percona.com/provider-finalizer"
+
+// conflictRequeue gives the cache time to catch up with the write that won
+// the optimistic lock.
+const conflictRequeue = time.Second
+
+// referenceRecheck is how often an Instance with an invalid reference is
+// checked again: a referent's contents change without an event on the Instance.
+const referenceRecheck = time.Minute
 
 // =============================================================================
 // PROVIDER RECONCILER - Works with both Interface and Builder providers
@@ -54,10 +70,15 @@ const finalizerName = "everest.percona.com/provider-finalizer"
 
 // ProviderReconciler reconciles Instance resources using a Provider.
 type ProviderReconciler struct {
-	provider     providerAdapter
-	manager      ctrl.Manager
-	serverConfig *server.ServerConfig
-	server       *server.Server
+	provider      providerAdapter
+	manager       ctrl.Manager
+	server        *server.Server
+	breaker       maintenanceBreaker
+	pods          atomic.Value // client.Reader, set once the pod watch runs
+	apiReader     client.Reader
+	kubeSystemUID atomic.Value // string, the cluster identity of monitoring sources
+	recorder      events.EventRecorder
+	warned        sync.Map // Instance UID -> the generation its warnings were recorded for
 	client.Client
 }
 
@@ -65,7 +86,7 @@ type ProviderReconciler struct {
 type providerAdapter interface {
 	Name() string
 	Types() func(*runtime.Scheme) error
-	Validate(c *controller.Context) error
+	Validate(in controller.ValidationInput) controller.ValidationResult
 	Sync(c *controller.Context) error
 	Status(c *controller.Context) (controller.Status, error)
 	Cleanup(c *controller.Context) error
@@ -86,25 +107,17 @@ type ReconcilerOption func(*reconcilerOptions)
 type reconcilerOptions struct {
 	serverConfig       *server.ServerConfig
 	metricsBindAddress string
+	admissionCertDir   string // set by WithAdmission
 }
 
-// WithServer enables the integrated HTTP server for the validation webhook.
-//
-// The server provides:
-// - Validation webhook: Accepts validation requests and runs the provider's Validate() method
-// - Health/Ready endpoints: For Kubernetes probes
+// WithServer enables the integrated HTTP server, which serves the health and
+// readiness endpoints for Kubernetes probes.
 //
 // Example:
 //
-//	r, err := reconciler.NewFromInterface(provider,
-//	    reconciler.WithServer(reconciler.ServerConfig{
-//	        Port:           8080,
-//	        ValidationPath: "/validate",
-//	    }),
+//	r, err := reconciler.New(ctx, provider,
+//	    reconciler.WithServer(reconciler.ServerConfig{Port: 8082}),
 //	)
-//
-// Validation is handled by the provider's Validate() method - the same validation
-// used during reconciliation is exposed via the webhook.
 func WithServer(config server.ServerConfig) ReconcilerOption {
 	return func(o *reconcilerOptions) {
 		o.serverConfig = &config
@@ -147,6 +160,9 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 	if err := corev1.AddToScheme(scheme); err != nil {
 		return nil, fmt.Errorf("failed to add corev1 scheme: %w", err)
 	}
+	if err := authorizationv1.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("failed to add authorizationv1 scheme: %w", err)
+	}
 
 	// Register core types
 	if err := v1alpha1.AddToScheme(scheme); err != nil {
@@ -158,6 +174,10 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 	// provider to register them explicitly.
 	if err := backupv1alpha1.AddToScheme(scheme); err != nil {
 		return nil, fmt.Errorf("failed to add backup v1alpha1 scheme: %w", err)
+	}
+
+	if err := monitoringv1alpha1.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("failed to add monitoring v1alpha1 scheme: %w", err)
 	}
 
 	// Register provider-specific types
@@ -176,10 +196,27 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 			BindAddress: options.metricsBindAddress,
 		}
 	}
+	if options.admissionCertDir != "" {
+		if err := checkAdmissionCert(options.admissionCertDir); err != nil {
+			return nil, err
+		}
+		mgrOpts.WebhookServer = webhook.NewServer(webhook.Options{
+			Port:    AdmissionPort,
+			CertDir: options.admissionCertDir,
+		})
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create manager: %w", err)
+	}
+
+	if options.admissionCertDir != "" {
+		mgr.GetWebhookServer().Register(AdmissionPath, &webhook.Admission{Handler: &instanceAdmission{
+			provider: p,
+			client:   mgr.GetClient(),
+			decoder:  admission.NewDecoder(scheme),
+		}})
 	}
 
 	// Setup field indexes if provider implements FieldIndexProvider
@@ -201,10 +238,10 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 	if _, isBackupProvider := p.(controller.BackupProvider); isBackupProvider {
 		if err := mgr.GetFieldIndexer().IndexField(ctx, &backupv1alpha1.Backup{}, controller.IndexBackupInstanceName, func(obj client.Object) []string {
 			b, ok := obj.(*backupv1alpha1.Backup)
-			if !ok || b.Spec.InstanceRef.Name == "" {
+			if !ok || b.Spec.Origin.InstanceRef == nil {
 				return nil
 			}
-			return []string{b.Spec.InstanceRef.Name}
+			return []string{b.Spec.Origin.InstanceRef.Name}
 		}); err != nil {
 			return nil, fmt.Errorf("failed to register backup instanceName index: %w", err)
 		}
@@ -219,18 +256,24 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		}
 	}
 
-	r := &ProviderReconciler{
-		provider:     p,
-		manager:      mgr,
-		serverConfig: options.serverConfig,
-		Client:       mgr.GetClient(),
+	if _, ok := p.(controller.MonitoringIntegrationsProvider); ok {
+		if err := mgr.GetFieldIndexer().IndexField(ctx, &monitoringv1alpha1.MonitoringDestination{},
+			indexDestinationSecrets, destinationSecrets,
+		); err != nil {
+			return nil, fmt.Errorf("failed to register monitoring destination credentials index: %w", err)
+		}
 	}
 
-	// Setup server if configured
+	r := &ProviderReconciler{
+		provider:  p,
+		manager:   mgr,
+		apiReader: mgr.GetAPIReader(),
+		recorder:  mgr.GetEventRecorder(p.Name() + "-provider"),
+		Client:    mgr.GetClient(),
+	}
+
 	if options.serverConfig != nil {
-		if err := r.setupServer(p); err != nil {
-			return nil, fmt.Errorf("failed to setup server: %w", err)
-		}
+		r.server = server.NewServer(*options.serverConfig)
 	}
 
 	if err := r.setup(); err != nil {
@@ -255,30 +298,18 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		}
 	}
 
+	if bi, ok := p.(controller.BackupImporter); ok {
+		if err := setupBackupImportReconciler(mgr, bi, p.Name()); err != nil {
+			return nil, fmt.Errorf("failed to setup backup import reconciler: %w", err)
+		}
+	}
+
 	return r, nil
 }
 
 // GetManager returns the controller manager.
 func (r *ProviderReconciler) GetManager() ctrl.Manager {
 	return r.manager
-}
-
-// setupServer initializes the HTTP server with a validation webhook.
-func (r *ProviderReconciler) setupServer(p providerAdapter) error {
-	// Create validator function that wraps the provider's Validate method
-	validator := func(ctx context.Context, c client.Client, in *v1alpha1.Instance) error {
-		if err := validateVersionBundle(ctx, c, in); err != nil {
-			return err
-		}
-		if err := validateInstanceBackupConfig(ctx, c, in); err != nil {
-			return err
-		}
-		inCtx := controller.NewContext(ctx, c, in, p.Name())
-		return p.Validate(inCtx)
-	}
-
-	r.server = server.NewServer(*r.serverConfig, validator)
-	return nil
 }
 
 // Start starts the reconciler and server (blocking).
@@ -310,7 +341,29 @@ func (r *ProviderReconciler) setup() error {
 
 	b := ctrl.NewControllerManagedBy(r.manager).
 		For(&v1alpha1.Instance{}, builder.WithPredicates(filter)).
+		Watches(&v1alpha1.Provider{},
+			handler.EnqueueRequestsFromMapFunc(r.instancesForProvider),
+			builder.WithPredicates(
+				predicate.NewPredicateFuncs(func(o client.Object) bool { return o.GetName() == r.provider.Name() }),
+				predicate.GenerationChangedPredicate{},
+			),
+		).
+		WatchesMetadata(&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.instancesForSecret),
+			builder.WithPredicates(existenceChanged()),
+		).
 		Named(r.provider.Name() + "-controller")
+
+	if r.isBackupProvider() {
+		b.Watches(&backupv1alpha1.BackupClass{},
+			handler.EnqueueRequestsFromMapFunc(r.instancesForBackupClass),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		)
+		b.Watches(&backupv1alpha1.BackupStorage{},
+			handler.EnqueueRequestsFromMapFunc(r.instancesForBackupStorage),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		)
+	}
 
 	// Configure watches if provider implements WatchProvider
 	if wp, ok := r.provider.(controller.WatchProvider); ok {
@@ -340,7 +393,18 @@ func (r *ProviderReconciler) setup() error {
 		}
 	}
 
-	return b.Complete(r)
+	if monitoringEnabled(r.provider) {
+		r.watchMonitoringBindings(b)
+	}
+
+	c, err := b.Build(r)
+	if err != nil {
+		return err
+	}
+
+	return r.manager.Add(manager.RunnableFunc(func(ctx context.Context) error {
+		return r.watchPods(ctx, c)
+	}))
 }
 
 // Reconcile implements the reconciliation loop.
@@ -361,8 +425,10 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return r.handleDeletion(ctx, inCtx, in, logger)
 	}
 
-	// Ensure provider label and finalizer are present
+	// Ensure provider label and finalizer are present. A merge patch, unlike
+	// Update, cannot erase spec fields this binary's types do not know.
 	var needsUpdate bool
+	base := in.DeepCopy()
 	if in.Labels == nil {
 		in.Labels = make(map[string]string)
 	}
@@ -375,20 +441,37 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		needsUpdate = true
 	}
 	if needsUpdate {
-		if err := r.Client.Update(ctx, in); err != nil {
+		if err := r.Patch(ctx, in, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})); err != nil {
+			if apierrors.IsConflict(err) {
+				return reconcile.Result{RequeueAfter: conflictRequeue}, nil
+			}
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	// Run validation
-	if err := validateVersionBundle(ctx, r.Client, in); err != nil {
-		logger.Error(err, "Version bundle validation failed")
-		in.Status.Phase = v1alpha1.InstancePhaseFailed
-		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
-			logger.Error(updateErr, "Failed to update status after validation error")
-		}
+	// The provider is not called while a referent it needs is missing; the
+	// watches re-enqueue the Instance once it appears.
+	b, err := missingReferent(ctx, r.Client, in)
+	if err != nil {
 		return reconcile.Result{}, err
+	}
+	if b.reason != "" {
+		logger.Info("Waiting for a referent", "reason", b.reason, "message", b.message)
+		return reconcile.Result{}, r.block(ctx, in, &b)
+	}
+
+	backupMiss, err := r.missingBackupReferent(ctx, in)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if backupMiss.reason != "" {
+		logger.Info("Waiting for a backup referent", "reason", backupMiss.reason, "message", backupMiss.message)
+		setCondition(
+			in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
+			backupMiss.reason, backupMiss.message, metav1.Now(),
+		)
+		return reconcile.Result{}, r.block(ctx, in, nil)
 	}
 	if err := validateInstanceBackupConfig(ctx, r.Client, in); err != nil {
 		logger.Error(err, "Backup configuration validation failed")
@@ -401,19 +484,34 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		}
 		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
 			reason, err.Error(), metav1.Now())
-		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
+		if updateErr := r.updateStatus(ctx, in, nil); updateErr != nil {
 			logger.Error(updateErr, "Failed to update status after backup config violation")
 		}
 		return reconcile.Result{}, nil
 	}
-	if err := r.provider.Validate(inCtx); err != nil {
-		logger.Error(err, "Validation failed")
-		// Update status to failed
-		in.Status.Phase = v1alpha1.InstancePhaseFailed
-		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
-			logger.Error(updateErr, "Failed to update status after validation error")
-		}
+	// A rejected spec waits for the Instance or the Provider to change, and
+	// both enqueue the Instance, so it is not requeued.
+	errs, err := r.validate(ctx, in)
+	if err != nil {
 		return reconcile.Result{}, err
+	}
+	if len(errs) > 0 {
+		message := validation.Summary(errs)
+		logger.Info("Validation failed", "errors", message)
+		return reconcile.Result{}, r.block(ctx, in, &blocker{reason: v1alpha1.ReasonValidationFailed, message: message})
+	}
+	if rv, ok := r.provider.(controller.ReferenceValidator); ok {
+		errs, err := rv.ValidateReferences(inCtx)
+		if err != nil {
+			logger.Error(err, "Reference validation could not run")
+			return reconcile.Result{}, err
+		}
+		if len(errs) > 0 {
+			message := validation.Summary(errs)
+			logger.Info("Reference validation failed", "errors", message)
+			return reconcile.Result{RequeueAfter: referenceRecheck},
+				r.block(ctx, in, &blocker{reason: v1alpha1.ReasonInvalidReference, message: message})
+		}
 	}
 
 	// The provider is handed a prepared copy, never the stored object.
@@ -423,6 +521,10 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return reconcile.Result{}, err
 	}
 	syncCtx := controller.NewContext(ctx, r.Client, resolvedIn, r.provider.Name())
+	syncCtx.BlockMaintenance(r.breaker.blockedTokens(req.NamespacedName, approvedMaintenanceValue(in))...)
+	if ip, ok := r.provider.(controller.MonitoringIntegrationsProvider); ok {
+		syncCtx.SetMonitoringIntegrations(ip.MonitoringIntegrations()...)
+	}
 
 	// Passive warning for owners: flag effective component versions the
 	// installed catalog marks as deprecated, before any upgrade is attempted.
@@ -441,7 +543,13 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			logger.Error(err, "Backup configuration failed")
 			setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
 				bce.Reason, bce.Message, metav1.Now())
-			_ = r.Client.Status().Update(ctx, in)
+			// The provider got as far as declaring maintenance before failing,
+			// so the staged set is authoritative; without this the pending
+			// list and condition go stale until a fully successful pass.
+			if syncCtx.MaintenanceRequested() {
+				flushPendingMaintenance(syncCtx, in)
+			}
+			_ = r.updateStatus(ctx, in, nil)
 			return reconcile.Result{}, nil
 		}
 		// DataSourceConfigError means the engine is healthy but initial seeding
@@ -451,11 +559,20 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 			logger.Error(err, "DataSource configuration failed")
 			setCondition(in, v1alpha1.ConditionDataSourceReady, metav1.ConditionFalse,
 				dse.Reason, dse.Message, metav1.Now())
-			_ = r.Client.Status().Update(ctx, in)
+			if syncCtx.MaintenanceRequested() {
+				flushPendingMaintenance(syncCtx, in)
+			}
+			_ = r.updateStatus(ctx, in, nil)
 			return reconcile.Result{}, nil
 		}
 		logger.Error(err, "Sync failed")
+		r.breaker.recordFailure(req.NamespacedName, approvedMaintenanceValue(in), syncCtx.GetApprovedMaintenance())
 		return reconcile.Result{}, err
+	}
+	// A pass that merely held a tripped action succeeds trivially; resetting
+	// then would un-trip the breaker and restart the failure bursts.
+	if !syncCtx.MaintenanceBreakerHeld() {
+		r.breaker.reset(req.NamespacedName)
 	}
 	// Clear any stale BackupConfigured=False condition left from a previous failed Sync.
 	if _, ok := r.provider.(controller.BackupProvider); ok {
@@ -492,6 +609,7 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	instanceStatus := status.ToV2Alpha1()
 	in.Status.Phase = instanceStatus.Phase
 	in.Status.Message = instanceStatus.Message
+	recheck := r.setPodStatus(ctx, in, syncCtx.LabelledComponents(), time.Now())
 
 	// Collect per-storage backup observability data (e.g. the latest
 	// restorable time for PITR) when the provider opts into reporting it.
@@ -519,19 +637,21 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		in.Status.Version = effectiveBundleName
 	}
 
+	r.reconcileMonitoring(ctx, syncCtx, in)
+
 	// Write connection details Secret and set the ConnectionDetailsReady condition.
 	if err := r.reconcileConnectionSecret(ctx, in, status); err != nil {
 		logger.Error(err, "Failed to reconcile connection secret")
 		return reconcile.Result{}, err
 	}
 
-	if err := r.Client.Status().Update(ctx, in); err != nil {
+	if err := r.updateStatus(ctx, in, nil); err != nil {
 		logger.Error(err, "Failed to update status")
 		return reconcile.Result{}, err
 	}
 
 	logger.Info("Reconciliation complete", "phase", in.Status.Phase)
-	return reconcile.Result{}, nil
+	return reconcile.Result{RequeueAfter: recheck}, nil
 }
 
 // leaderElectionFree marks a Runnable as one that must run on every replica,
@@ -540,14 +660,15 @@ type leaderElectionFree struct{ manager.Runnable }
 
 func (leaderElectionFree) NeedLeaderElection() bool { return false }
 
-// startServer wires the validation server into the manager lifecycle. It is a
+// startServer wires the health server into the manager lifecycle. It is a
 // no-op when no server is configured.
 //
 // Readiness is gated on the manager's caches: the server is marked ready from a
-// manager Runnable only after the informers the validation path reads (Instance
-// and Provider) have synced, so /readyz reports ready only once the cache-backed
-// client is usable. This keeps probes from routing validation traffic to the
-// server before it can serve it. Readiness is cleared again on shutdown.
+// manager Runnable only after the Instance and Provider informers have synced,
+// so /readyz reports ready only once the cache-backed client is usable. This
+// keeps the Service from routing admission requests, which read the Provider
+// from that cache, to a pod before it can serve them. Readiness is cleared
+// again on shutdown.
 //
 // The Runnable is wrapped in leaderElectionFree so it runs on every replica, not
 // only the elected leader. Must be called before manager.Start.
@@ -556,7 +677,6 @@ func (r *ProviderReconciler) startServer(ctx context.Context) error {
 		return nil
 	}
 
-	r.server.SetClient(r.Client)
 	go func() {
 		if err := r.server.Start(ctx); err != nil {
 			log.FromContext(ctx).Error(err, "Server error")
@@ -564,9 +684,8 @@ func (r *ProviderReconciler) startServer(ctx context.Context) error {
 	}()
 
 	return r.manager.Add(leaderElectionFree{manager.RunnableFunc(func(runnableCtx context.Context) error {
-		// Report ready only once the informers the validation path reads have
-		// synced, so the cache-backed client is usable before /readyz turns
-		// green. Stay not-ready if the context is cancelled first (shutdown).
+		// Report ready only once the Instance and Provider informers have
+		// synced. Stay not-ready if the context is cancelled first (shutdown).
 		for _, obj := range []client.Object{&v1alpha1.Instance{}, &v1alpha1.Provider{}} {
 			if !r.waitForCacheSync(runnableCtx, obj) {
 				return nil
@@ -607,6 +726,7 @@ func (r *ProviderReconciler) handleDeletion(
 	in *v1alpha1.Instance,
 	logger interface{ Info(string, ...interface{}) },
 ) (reconcile.Result, error) {
+	r.warned.Delete(in.UID)
 	if !controllerutil.ContainsFinalizer(in, finalizerName) {
 		return reconcile.Result{}, nil
 	}
@@ -616,7 +736,7 @@ func (r *ProviderReconciler) handleDeletion(
 	// Update status to deleting
 	if in.Status.Phase != v1alpha1.InstancePhaseTerminating {
 		in.Status.Phase = v1alpha1.InstancePhaseTerminating
-		if err := r.Client.Status().Update(ctx, in); err != nil {
+		if err := r.updateStatus(ctx, in, nil); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
@@ -648,17 +768,25 @@ func (r *ProviderReconciler) handleDeletion(
 	}
 
 	// Remove finalizer
+	base := in.DeepCopy()
 	controllerutil.RemoveFinalizer(in, finalizerName)
-	if err := r.Client.Update(ctx, in); err != nil {
+	if err := r.Patch(ctx, in, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})); err != nil {
+		if apierrors.IsConflict(err) {
+			return reconcile.Result{RequeueAfter: conflictRequeue}, nil
+		}
 		return reconcile.Result{}, err
 	}
+	// Drop breaker state so a recreated Instance with the same name does not
+	// inherit this lifetime's failure counts.
+	r.breaker.reset(client.ObjectKeyFromObject(in))
 
 	logger.Info("Cleanup complete")
 	return reconcile.Result{}, nil
 }
 
 // cascadeDeleteChildren issues Delete on every Backup and Restore CR in the
-// Instance's namespace whose .spec.instanceName matches this Instance, then
+// Instance's namespace where Backup.spec.origin.instanceRef.name or
+// Restore.spec.instanceRef.name matches this Instance, then
 // returns the number of CRs still present (counting both freshly-deleted ones
 // that have not yet been reaped by their own controllers and any older ones
 // still finalizing). The caller should requeue while remaining > 0.
@@ -705,7 +833,9 @@ func (r *ProviderReconciler) cascadeDeleteChildren(
 }
 
 // reconcileConnectionSecret creates or updates the connection details Secret
-// and sets the ConnectionDetailsReady condition on the Instance status.
+// and sets the ConnectionDetailsReady condition on the Instance status. The
+// Secret's "provider" entry is always the Provider name, whatever the provider
+// reported.
 func (r *ProviderReconciler) reconcileConnectionSecret(
 	ctx context.Context,
 	in *v1alpha1.Instance,
@@ -721,6 +851,9 @@ func (r *ProviderReconciler) reconcileConnectionSecret(
 		return nil
 	}
 
+	details := status.ConnectionDetails
+	details.Provider = r.provider.Name()
+
 	secretName := in.Name + controller.ConnectionSecretSuffix
 
 	secret := &corev1.Secret{
@@ -734,12 +867,12 @@ func (r *ProviderReconciler) reconcileConnectionSecret(
 		},
 	}
 
-	if err := controllerutil.SetControllerReference(in, secret, r.manager.GetScheme()); err != nil {
+	if err := controllerutil.SetControllerReference(in, secret, r.Scheme()); err != nil {
 		return fmt.Errorf("failed to set owner reference on connection secret: %w", err)
 	}
 
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
-		secret.Data = status.ConnectionDetails.ToSecretData()
+		secret.Data = details.ToSecretData()
 		return nil
 	})
 	if err != nil {
@@ -779,24 +912,42 @@ func setCondition(in *v1alpha1.Instance, condType string, status metav1.Conditio
 
 // setDeprecationCondition maintains the read-only ComponentVersionDeprecated
 // condition: True while any of the Instance's effective component versions is
-// flagged as deprecated in the installed Provider catalog. It reuses the
-// upgrade preflight's catalog check, so this passive warning and the
-// pre-upgrade hook's verdict never disagree. The condition is informational:
-// lookup failures are skipped and never fail the reconcile, and it is only
-// flipped to False (never removed) once a deprecation it reported clears.
+// flagged as deprecated — or no longer supported at all — in the installed
+// Provider catalog. It reuses the upgrade preflight's catalog check, so this
+// passive warning and the pre-upgrade hook's verdict never disagree. The
+// condition is informational: lookup failures are skipped and never fail the
+// reconcile, and it is only flipped to False (never removed) once every issue
+// it reported clears.
 func (r *ProviderReconciler) setDeprecationCondition(ctx context.Context, in *v1alpha1.Instance) {
 	installed := &v1alpha1.Provider{}
 	if err := r.Get(ctx, client.ObjectKey{Name: in.Spec.ProviderRef.Name}, installed); err != nil {
+		log.FromContext(ctx).V(1).Info("skipping deprecation condition: fetching installed Provider failed", "error", err)
 		return
 	}
 
-	var deprecations []string
+	var deprecations, unsupported []string
 	for _, issue := range controller.PreflightUpgrade(&installed.Spec, []v1alpha1.Instance{*in}) {
-		if issue.Reason == controller.UpgradeReasonVersionDeprecated {
-			deprecations = append(deprecations, issue.Message)
+		msg := issue.Message
+		if issue.Component != "" {
+			msg = issue.Component + ": " + msg
+		}
+		switch issue.Severity {
+		case controller.UpgradeError:
+			unsupported = append(unsupported, msg)
+		case controller.UpgradeWarning:
+			if issue.Reason == controller.UpgradeReasonVersionDeprecated {
+				deprecations = append(deprecations, msg)
+			}
 		}
 	}
 
+	// A version the installed catalog no longer supports at all is strictly
+	// worse than a deprecation; it must never read as "all supported".
+	if len(unsupported) > 0 {
+		setCondition(in, v1alpha1.ConditionComponentVersionDeprecated, metav1.ConditionTrue,
+			v1alpha1.ReasonVersionsUnsupported, strings.Join(unsupported, "; "), metav1.Now())
+		return
+	}
 	if len(deprecations) > 0 {
 		setCondition(in, v1alpha1.ConditionComponentVersionDeprecated, metav1.ConditionTrue,
 			v1alpha1.ReasonScheduledForRemoval, strings.Join(deprecations, "; "), metav1.Now())
@@ -815,15 +966,23 @@ func (r *ProviderReconciler) setDeprecationCondition(ctx context.Context, in *v1
 // flushPendingMaintenance writes the actions held by RequestMaintenance to
 // status.pendingMaintenance and maintains the MaintenancePending condition:
 // True while anything is held, flipped to False (never removed) once the
-// last held action clears.
+// last held action clears. When a hold is due to exhausted retries the
+// reason says so, surfacing the breaker state.
 func flushPendingMaintenance(syncCtx *controller.Context, in *v1alpha1.Instance) {
 	pending := syncCtx.GetPendingMaintenance()
 	in.Status.PendingMaintenance = pending
 
 	if len(pending) > 0 {
+		reason := v1alpha1.ReasonAwaitingApproval
+		message := fmt.Sprintf("%d action(s) require approval to proceed", len(pending))
+		if syncCtx.MaintenanceBreakerHeld() {
+			reason = v1alpha1.ReasonRetriesExhausted
+			message = fmt.Sprintf(
+				"%d action(s) held; an approved action kept failing and is no longer retried — change spec.maintenance.approved (set it to the pending action's token, or clear and re-set it) to retry",
+				len(pending))
+		}
 		setCondition(in, v1alpha1.ConditionMaintenancePending, metav1.ConditionTrue,
-			v1alpha1.ReasonAwaitingApproval,
-			fmt.Sprintf("%d action(s) require approval to proceed", len(pending)), metav1.Now())
+			reason, message, metav1.Now())
 		return
 	}
 	for _, c := range in.Status.Conditions {
@@ -834,6 +993,15 @@ func flushPendingMaintenance(syncCtx *controller.Context, in *v1alpha1.Instance)
 			return
 		}
 	}
+}
+
+// approvedMaintenanceValue returns spec.maintenance.approved, tolerating an
+// unset maintenance block.
+func approvedMaintenanceValue(in *v1alpha1.Instance) string {
+	if in.Spec.Maintenance == nil {
+		return ""
+	}
+	return in.Spec.Maintenance.Approved
 }
 
 // prepareInstance fetches the Provider and returns the Instance the provider
@@ -851,30 +1019,6 @@ func (r *ProviderReconciler) prepareInstance(
 		return nil, "", fmt.Errorf("fetching provider for version resolution: %w", err)
 	}
 	return instanceprep.PrepareForSync(&providerObj.Spec, in)
-}
-
-// validateVersionBundle checks that spec.version (if set) exists in the
-// Provider's Versions map. This runs for both the reconciler and the webhook
-// so users get immediate feedback on an invalid version selection.
-func validateVersionBundle(ctx context.Context, c client.Client, in *v1alpha1.Instance) error {
-	if in.Spec.Version == "" {
-		return nil
-	}
-	providerObj := &v1alpha1.Provider{}
-	if err := c.Get(ctx, client.ObjectKey{Name: in.Spec.ProviderRef.Name}, providerObj); err != nil {
-		return fmt.Errorf("fetching provider for version validation: %w", err)
-	}
-	found := false
-	for _, b := range providerObj.Spec.Versions {
-		if b.Name == in.Spec.Version {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return fmt.Errorf("version %q is not defined by provider %q", in.Spec.Version, in.Spec.ProviderRef.Name)
-	}
-	return nil
 }
 
 // fetchBackupClassForInstance returns the BackupClass referenced by

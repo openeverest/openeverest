@@ -25,6 +25,15 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
 
+// ListBackups returns list of backups that match the criteria.
+func (k *Kubernetes) ListBackups(ctx context.Context, opts ...ctrlclient.ListOption) (*backupv1alpha1.BackupList, error) {
+	result := &backupv1alpha1.BackupList{}
+	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
 // GetBackup returns backup that matches the criteria.
 func (k *Kubernetes) GetBackup(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.Backup, error) {
 	result := &backupv1alpha1.Backup{}

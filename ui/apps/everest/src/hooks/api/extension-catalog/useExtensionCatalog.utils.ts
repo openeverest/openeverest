@@ -16,6 +16,7 @@ import { PLUGIN_HUB_NAME } from 'api/extension-catalog';
 import {
   RawExtensionCatalogEntry,
   RawExtensionIndex,
+  ResolvedExtensionCatalog,
   ResolvedExtensionMeta,
 } from 'shared-types/extension-catalog.types';
 
@@ -38,18 +39,24 @@ const resolveVersion = (
 // never see http(s):// values here — reject them defensively so a
 // misconfigured or malicious catalog can't inject external image loads that
 // CSP would block anyway.
-const resolveIconSrc = (rawIcon?: string): string | undefined => {
+const resolveIconSrc = (
+  clusterName: string,
+  rawIcon?: string
+): string | undefined => {
   if (!rawIcon) {
     return undefined;
   }
   if (rawIcon.startsWith('http://') || rawIcon.startsWith('https://')) {
     return undefined;
   }
-  if (rawIcon.startsWith('data:') || rawIcon.startsWith('/v1/plugins/')) {
+  if (
+    rawIcon.startsWith('data:') ||
+    rawIcon.startsWith(`/v1/clusters/${clusterName}/plugins/`)
+  ) {
     return rawIcon;
   }
   const stripped = rawIcon.startsWith('/') ? rawIcon.slice(1) : rawIcon;
-  return `/v1/plugins/${PLUGIN_HUB_NAME}/${stripped}`;
+  return `/v1/clusters/${clusterName}/plugins/${PLUGIN_HUB_NAME}/${stripped}`;
 };
 
 // Single narrowing point for catalog entries. Rejects anything that is not a
@@ -57,7 +64,8 @@ const resolveIconSrc = (rawIcon?: string): string | undefined => {
 // hub might introduce) are tolerated by returning null rather than crashing.
 // Downstream consumers work with `ResolvedExtensionMeta`, which is strict.
 const normalizeEntry = (
-  raw: RawExtensionCatalogEntry
+  raw: RawExtensionCatalogEntry,
+  clusterName: string
 ): {
   meta: ResolvedExtensionMeta;
   providerName?: string;
@@ -69,34 +77,39 @@ const normalizeEntry = (
     name: raw.name,
     displayName: raw.displayName || raw.name,
     description: raw.description,
-    icon: resolveIconSrc(raw.icon),
+    icon: resolveIconSrc(clusterName, raw.icon),
     version: resolveVersion(raw),
     categories: raw.categories,
     maturity: raw.maturity,
+    verified: raw.verified === true,
   };
   return { meta, providerName: raw.provider?.providerName };
 };
 
-// Builds a lookup keyed by every identifier a provider can be matched by
-// (provider CR name and the catalog entry name). Used as the react-query
-// `select` for the extension catalog so components consume resolved metadata.
-export const buildProviderMetaMap = (
-  index: RawExtensionIndex | null
-): Map<string, ResolvedExtensionMeta> => {
-  const map = new Map<string, ResolvedExtensionMeta>();
+// Resolves the raw catalog into the provider lookup used to decorate installed
+// providers plus the full provider list used to suggest ones to install. Used
+// as the react-query `select` for the extension catalog so components consume
+// resolved metadata.
+export const buildExtensionCatalog = (
+  index: RawExtensionIndex | null,
+  clusterName: string
+): ResolvedExtensionCatalog => {
+  const providerMeta = new Map<string, ResolvedExtensionMeta>();
+  const providersByName = new Map<string, ResolvedExtensionMeta>();
   const entries = index?.extensions;
   if (!entries) {
-    return map;
+    return { providerMeta, providers: [] };
   }
   for (const raw of entries) {
-    const normalized = normalizeEntry(raw);
+    const normalized = normalizeEntry(raw, clusterName);
     if (!normalized) {
       continue;
     }
     if (normalized.providerName) {
-      map.set(normalized.providerName, normalized.meta);
+      providerMeta.set(normalized.providerName, normalized.meta);
     }
-    map.set(normalized.meta.name, normalized.meta);
+    providerMeta.set(normalized.meta.name, normalized.meta);
+    providersByName.set(normalized.meta.name, normalized.meta);
   }
-  return map;
+  return { providerMeta, providers: [...providersByName.values()] };
 };

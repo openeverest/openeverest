@@ -16,9 +16,15 @@ import { Button } from '@mui/material';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Messages } from './configure-more.messages';
 
-export const ConfigureMore = ({ onClick }: { onClick: () => void }) => {
+export const ConfigureMore = ({
+  onClick,
+  disabled,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+}) => {
   return (
-    <Button type="button" onClick={onClick}>
+    <Button type="button" onClick={onClick} disabled={disabled}>
       {Messages.configMore}
       <EditOutlinedIcon
         sx={{

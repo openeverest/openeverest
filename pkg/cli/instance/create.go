@@ -30,31 +30,61 @@ import (
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
+
+// Spec keys and values that both the create and update paths spell out.
+const (
+	specKey       = "spec"
+	componentsKey = "components"
+	nullValue     = "null"
+)
+
+// Values of --dry-run, named as kubectl names them.
+const (
+	DryRunNone   = "none"
+	DryRunClient = "client" // print what would be sent, without sending it
+	DryRunServer = "server" // send with dryRun=All: the server runs every check but persists nothing
+)
+
+func checkDryRun(mode string) error {
+	switch mode {
+	case "", DryRunNone, DryRunClient, DryRunServer:
+		return nil
+	}
+	return fmt.Errorf("invalid --dry-run value %q: must be %q, %q or %q", mode, DryRunNone, DryRunClient, DryRunServer)
+}
+
+func isDryRun(mode string) bool {
+	return mode == DryRunClient || mode == DryRunServer
+}
 
 type Config struct {
 	Pretty bool
 }
 
 type CreateOptions struct {
-	Name       string
-	Namespace  string
-	Provider   string
-	Preset     string // InstancePreset name; provider must match --provider
-	Cluster    string
-	Version    string
-	Topology   string
-	Context    string        // overrides the active context when set
-	ValuesFile string        // path to a YAML values file with spec-level overrides (optional)
-	Set        []string      // dot-notation overrides e.g. "components.engine.replicas=3"; takes precedence over ValuesFile
-	Wait       bool          // block until the instance reaches the Ready phase
-	Timeout    time.Duration // bounds --wait; must be positive
+	Name          string
+	Namespace     string
+	Provider      string
+	Preset        string // InstancePreset name in the target namespace; mutually exclusive with ClusterPreset
+	ClusterPreset string // ClusterInstancePreset name; mutually exclusive with Preset
+	Cluster       string
+	Version       string
+	Topology      string
+	Context       string        // overrides the active context when set
+	ValuesFile    string        // path to a YAML values file with spec-level overrides (optional)
+	Set           []string      // dot-notation overrides e.g. "components.engine.replicas=3"; takes precedence over ValuesFile
+	Wait          bool          // block until the instance reaches the Ready phase
+	Timeout       time.Duration // bounds --wait; must be positive
+	DryRun        string        // DryRunClient prints the Instance without sending it, DryRunServer sends it with dryRun=All
 }
 
 type InstanceCreator struct {
@@ -71,11 +101,18 @@ func NewInstanceCreator(cfg Config, l *zap.SugaredLogger) *InstanceCreator {
 }
 
 func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath string) error {
-	if opts.Provider == "" && opts.Preset == "" {
-		return fmt.Errorf("--provider is required when --preset is not given")
+	usesPreset := opts.Preset != "" || opts.ClusterPreset != ""
+	if opts.Provider == "" && !usesPreset {
+		return fmt.Errorf("--provider is required when --preset or --clusterpreset is not given")
 	}
-	if opts.Preset != "" && opts.Topology != "" {
-		return fmt.Errorf("--topology cannot be combined with --preset")
+	if usesPreset && opts.Topology != "" {
+		return fmt.Errorf("--topology cannot be combined with --preset or --clusterpreset")
+	}
+	if err := checkDryRun(opts.DryRun); err != nil {
+		return err
+	}
+	if isDryRun(opts.DryRun) && opts.Wait {
+		return fmt.Errorf("--dry-run cannot be combined with --wait")
 	}
 
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: ic.config.Pretty}, ic.l.Desugar().Sugar(), cfgPath, opts.Context)
@@ -87,16 +124,28 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 		presetSpecBase map[string]any
 		annotations    map[string]string
 	)
-	if opts.Preset != "" {
-		pr, err := ic.resolvePreset(ctx, c, opts.Preset, opts.Cluster, opts.Namespace)
+
+	var pr *presetResult
+	if opts.ClusterPreset != "" {
+		pr, err = ic.getClusterInstancePreset(ctx, c, opts.ClusterPreset, opts.Cluster)
 		if err != nil {
 			return err
 		}
-		if err := applyPresetDefaults(opts.Preset, &opts, pr); err != nil {
+		annotations = map[string]string{common.ClusterInstancePresetAnnotation: opts.ClusterPreset}
+	} else if opts.Preset != "" {
+		pr, err = ic.getInstancePreset(ctx, c, opts.Preset, opts.Cluster, opts.Namespace)
+		if err != nil {
 			return err
 		}
+		annotations = map[string]string{common.InstancePresetAnnotation: opts.Preset}
+	}
+
+	if pr != nil {
+		if err := applyPresetDefaults(&opts, pr); err != nil {
+			return err
+		}
+
 		presetSpecBase = pr.specMap
-		annotations = map[string]string{"openeverest.io/instance-preset": opts.Preset}
 	}
 
 	provResp, err := c.GetProviderWithResponse(ctx, opts.Cluster, opts.Provider)
@@ -126,16 +175,17 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 		return err
 	}
 
-	if len(opts.Set) > 0 {
-		if err := validateComponents(opts.Set, prov, resolvedTopology); err != nil {
-			return err
-		}
-	}
-
 	// Merge order: preset < -f file < --set flags.
 	specOverrides, err := buildSpecOverrides(opts.ValuesFile, opts.Set)
 	if err != nil {
 		return err
+	}
+	// Checked before the preset merge, so this only validates names the user
+	// actually supplied via -f/--set, covering both instead of --set alone.
+	if names := patchedComponents(specOverrides); len(names) > 0 {
+		if err := validateComponentNames(names, prov, resolvedTopology); err != nil {
+			return err
+		}
 	}
 	if presetSpecBase != nil {
 		if specOverrides != nil {
@@ -145,16 +195,25 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 	}
 
 	payload := buildPayload(opts.Name, opts.Provider, resolvedVersion, resolvedTopology, specOverrides, annotations)
+	if opts.DryRun == DryRunClient {
+		return ic.emitClientDryRun(payload, opts)
+	}
 
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("failed to serialize instance spec: %w", err)
 	}
 
+	var params *client.CreateInstanceParams
+	if opts.DryRun == DryRunServer {
+		dryRun := client.CreateInstanceParamsDryRunAll
+		params = &client.CreateInstanceParams{DryRun: &dryRun}
+	}
 	resp, err := c.CreateInstanceWithBodyWithResponse(
 		ctx,
 		opts.Cluster,
 		opts.Namespace,
+		params,
 		"application/json",
 		bytes.NewReader(body),
 	)
@@ -162,17 +221,20 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 		return fmt.Errorf("create instance request failed: %w", err)
 	}
 
+	warnings, _ := utilnet.ParseWarningHeaders(resp.HTTPResponse.Header.Values("Warning"))
+	for _, w := range warnings {
+		output.PrintWarn(w.Text, ic.l, ic.config.Pretty)
+	}
+
 	if resp.StatusCode() != http.StatusOK && resp.StatusCode() != http.StatusCreated {
 		if resp.StatusCode() == http.StatusConflict {
 			return fmt.Errorf("instance %q already exists in namespace %q", opts.Name, opts.Namespace)
 		}
-		if msg, ok := clienterr.Message(resp.JSONDefault); ok {
+		if msg, ok := clienterr.Message(clienterr.FromAPIError(resp.JSON422), resp.JSONDefault); ok {
 			return fmt.Errorf("server error: %s", msg)
 		}
 		return fmt.Errorf("unexpected response creating instance: %s", resp.Status())
 	}
-
-	ic.l.Infof("created instance %q in namespace %q", opts.Name, opts.Namespace)
 
 	// The API returns the accepted Instance as JSON201 (or JSON200).
 	created := resp.JSON201
@@ -180,10 +242,46 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 		created = resp.JSON200
 	}
 
+	if opts.DryRun == DryRunServer {
+		return ic.emitServerDryRun(created, opts)
+	}
+	ic.l.Infof("created instance %q in namespace %q", opts.Name, opts.Namespace)
+
 	if !opts.Wait {
 		return ic.emitCreated(created, opts)
 	}
 	return ic.waitForInstance(ctx, c, created, opts)
+}
+
+// emitClientDryRun prints the Instance create would send: as YAML under a
+// header in pretty mode, as the request body in JSON mode.
+func (ic *InstanceCreator) emitClientDryRun(payload map[string]any, opts CreateOptions) error {
+	if !ic.config.Pretty {
+		if err := json.NewEncoder(os.Stdout).Encode(payload); err != nil {
+			return fmt.Errorf("failed to encode instance: %w", err)
+		}
+		return nil
+	}
+	out, err := yaml.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to encode instance: %w", err)
+	}
+	_, _ = fmt.Fprint(os.Stdout, output.Info("Dry run for instance %q, nothing sent", opts.Name))
+	_, _ = os.Stdout.Write(out)
+	return nil
+}
+
+// emitServerDryRun reports a create the server accepted without persisting it:
+// a line in pretty mode, the Instance the server would have stored in JSON mode.
+func (ic *InstanceCreator) emitServerDryRun(created *client.Instance, opts CreateOptions) error {
+	if ic.config.Pretty {
+		_, _ = fmt.Fprint(os.Stdout, output.Success("Dry run for instance %q accepted by the server, nothing created", opts.Name))
+		return nil
+	}
+	if created == nil {
+		return fmt.Errorf("the server accepted instance %q but returned an unreadable response body", opts.Name)
+	}
+	return writeInstanceJSON(created)
 }
 
 // emitCreated reports a non-waiting create: a success line in pretty mode, or
@@ -262,13 +360,18 @@ func writeInstanceJSON(inst *client.Instance) error {
 
 // applyPresetDefaults copies provider/version/topology from the preset into opts,
 // validating that an explicit --provider matches the preset's provider.
-func applyPresetDefaults(preset string, opts *CreateOptions, pr *presetResult) error {
+func applyPresetDefaults(opts *CreateOptions, pr *presetResult) error {
+	presetName := opts.Preset
+	if presetName == "" {
+		presetName = opts.ClusterPreset
+	}
+
 	if pr.provider != "" && opts.Provider != "" && pr.provider != opts.Provider {
-		return fmt.Errorf("--provider %q does not match preset %q provider %q", opts.Provider, preset, pr.provider)
+		return fmt.Errorf("--provider %q does not match preset %q provider %q", opts.Provider, presetName, pr.provider)
 	}
 	if opts.Provider == "" {
 		if pr.provider == "" {
-			return fmt.Errorf("preset %q does not specify a provider; use --provider to set one", preset)
+			return fmt.Errorf("preset %q does not specify a provider; use --provider to set one", presetName)
 		}
 		opts.Provider = pr.provider
 	}
@@ -288,68 +391,76 @@ type presetResult struct {
 	topology string
 }
 
-func (ic *InstanceCreator) resolvePreset(ctx context.Context, c *client.ClientWithResponses, preset, cluster, namespace string) (*presetResult, error) {
-	resp, err := c.ResolveInstancePresetWithResponse(
-		ctx,
-		cluster,
-		preset,
-		&client.ResolveInstancePresetParams{Namespace: namespace},
-	)
+// getInstancePreset fetches the namespace-scoped InstancePreset.
+func (ic *InstanceCreator) getInstancePreset(ctx context.Context, c *client.ClientWithResponses, preset, cluster, namespace string) (*presetResult, error) {
+	resp, err := c.GetInstancePresetWithResponse(ctx, cluster, namespace, preset)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve preset %q: %w", preset, err)
+		return nil, fmt.Errorf("failed to get instance preset %q: %w", preset, err)
 	}
 	if resp.StatusCode() == http.StatusNotFound {
-		return nil, fmt.Errorf("preset %q not found in cluster %q", preset, cluster)
+		return nil, fmt.Errorf("instance preset %q not found in namespace %q of cluster %q", preset, namespace, cluster)
 	}
 	if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
-		return nil, fmt.Errorf("unexpected response resolving preset %q: %s", preset, resp.Status())
+		return nil, fmt.Errorf("unexpected response getting instance preset %q: %s", preset, resp.Status())
 	}
 
-	p := resp.JSON200
-	pr := &presetResult{}
-	pr.provider = p.Spec.ProviderRef.Name
-	if p.Spec.Version != nil {
-		pr.version = *p.Spec.Version
+	spec := resp.JSON200.Spec
+	pr := &presetResult{
+		provider: spec.ProviderRef.Name,
 	}
-	if p.Spec.Topology != nil && p.Spec.Topology.Type != nil {
-		pr.topology = *p.Spec.Topology.Type
+	if spec.Version != nil {
+		pr.version = *spec.Version
 	}
-	specMap, err := presetSpecToMap(p)
-	if err != nil {
+	if spec.Topology != nil && spec.Topology.Type != nil {
+		pr.topology = *spec.Topology.Type
+	}
+	if pr.specMap, err = specToMap(spec); err != nil {
 		return nil, err
 	}
-	pr.specMap = specMap
 	return pr, nil
 }
 
-func presetSpecToMap(p *client.InstancePreset) (map[string]any, error) {
-	b, err := json.Marshal(p.Spec)
+// getClusterInstancePreset fetches cluster-scope ClusterInstancePreset.
+func (ic *InstanceCreator) getClusterInstancePreset(ctx context.Context, c *client.ClientWithResponses, preset, cluster string) (*presetResult, error) {
+	resp, err := c.GetClusterInstancePresetWithResponse(
+		ctx,
+		cluster,
+		preset,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal preset spec: %w", err)
+		return nil, fmt.Errorf("failed to get cluster instance preset %q: %w", preset, err)
 	}
-	var m map[string]any
-	if err := json.Unmarshal(b, &m); err != nil {
-		return nil, fmt.Errorf("failed to parse preset spec: %w", err)
+	if resp.StatusCode() == http.StatusNotFound {
+		return nil, fmt.Errorf("cluster instance preset %q not found in cluster %q", preset, cluster)
 	}
-	return m, nil
+	if resp.StatusCode() != http.StatusOK || resp.JSON200 == nil {
+		return nil, fmt.Errorf("unexpected response getting cluster instance preset %q: %s", preset, resp.Status())
+	}
+
+	spec := resp.JSON200.Spec
+	pr := &presetResult{
+		provider: spec.ProviderRef.Name,
+	}
+	if spec.Version != nil {
+		pr.version = *spec.Version
+	}
+	if spec.Topology != nil && spec.Topology.Type != nil {
+		pr.topology = *spec.Topology.Type
+	}
+	if pr.specMap, err = specToMap(spec); err != nil {
+		return nil, err
+	}
+	return pr, nil
 }
 
 func defaultVersion(prov *client.Provider) string {
-	if prov.Spec.Versions == nil {
+	if prov.Spec.DefaultVersion != nil && *prov.Spec.DefaultVersion != "" {
+		return *prov.Spec.DefaultVersion
+	}
+	if prov.Spec.Versions == nil || len(*prov.Spec.Versions) == 0 {
 		return ""
 	}
-
-	versions := *prov.Spec.Versions
-	first := ""
-	for _, v := range versions {
-		if first == "" {
-			first = v.Name
-		}
-		if v.Default != nil && *v.Default {
-			return v.Name
-		}
-	}
-	return first
+	return (*prov.Spec.Versions)[0].Name
 }
 
 func firstTopology(prov *client.Provider) string {
@@ -388,8 +499,9 @@ func validateTopology(topology string, prov *client.Provider) error {
 	return nil
 }
 
-// validateComponents only checks --set paths starting with "components.".
-func validateComponents(setFlags []string, prov *client.Provider, topology string) error {
+// validateComponentNames rejects component names the provider does not offer under
+// the given topology.
+func validateComponentNames(names []string, prov *client.Provider, topology string) error {
 	// Topology components are the ground truth, but the API strips null entries,
 	// so fall back to spec.components (global registry) when the topology map is empty.
 	valid := map[string]struct{}{}
@@ -411,22 +523,13 @@ func validateComponents(setFlags []string, prov *client.Provider, topology strin
 
 	var invalid []string
 	seen := map[string]struct{}{}
-	for _, s := range setFlags {
-		parts := strings.SplitN(s, "=", 2)
-		if len(parts) < 2 {
+	for _, name := range names {
+		if _, done := seen[name]; done {
 			continue
 		}
-		segments := strings.SplitN(parts[0], ".", 3)
-		if len(segments) < 2 || segments[0] != "components" {
-			continue
-		}
-		compName := segments[1]
-		if _, done := seen[compName]; done {
-			continue
-		}
-		seen[compName] = struct{}{}
-		if _, ok := valid[compName]; !ok {
-			invalid = append(invalid, compName)
+		seen[name] = struct{}{}
+		if _, ok := valid[name]; !ok {
+			invalid = append(invalid, name)
 		}
 	}
 
@@ -537,6 +640,9 @@ func parseSetFlags(setFlags []string) (map[string]any, error) {
 		if path == "" {
 			return nil, fmt.Errorf("invalid --set flag %q: path must not be empty", s)
 		}
+		if strings.ContainsRune(path, '[') {
+			return nil, fmt.Errorf("invalid --set flag %q: --set does not support list indices; set the whole list with -f", s)
+		}
 
 		segments := strings.Split(path, ".")
 		value := coerceValue(rawValue)
@@ -549,6 +655,10 @@ func parseSetFlags(setFlags []string) (map[string]any, error) {
 }
 
 func coerceValue(s string) any {
+	// A values file already yields nil for a YAML null; --set has to spell it out.
+	if s == nullValue {
+		return nil
+	}
 	if i, err := strconv.ParseInt(s, 10, 64); err == nil {
 		return i
 	}
@@ -604,6 +714,6 @@ func buildPayload(name, provider, version, topology string, specOverrides map[st
 
 	return map[string]any{
 		"metadata": metadata,
-		"spec":     specOverrides,
+		specKey:    specOverrides,
 	}
 }

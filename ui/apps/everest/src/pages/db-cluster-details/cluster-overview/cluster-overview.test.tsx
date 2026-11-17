@@ -60,6 +60,7 @@ function renderOverview(
     isLoading: false,
     instanceDeleted: false,
     canReadCredentials: true,
+    isCredentialsPermissionLoading: false,
     ...contextValue,
   };
 

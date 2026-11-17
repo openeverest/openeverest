@@ -14,6 +14,7 @@
 
 import { useMutation } from '@tanstack/react-query';
 import { getAuthToken } from 'api/session-token';
+import { useClusterName } from 'hooks/api/useClusterName';
 
 export interface PluginInstanceConfig {
   pluginName: string;
@@ -23,6 +24,7 @@ export interface PluginInstanceConfig {
 }
 
 async function submitPluginInstanceConfig(
+  clusterName: string,
   payload: PluginInstanceConfig
 ): Promise<void> {
   const token = getAuthToken();
@@ -33,7 +35,7 @@ async function submitPluginInstanceConfig(
     headers['Authorization'] = `Bearer ${token}`;
   }
   const resp = await window.fetch(
-    `/v1/plugins/${encodeURIComponent(payload.pluginName)}/instance-config`,
+    `/v1/clusters/${encodeURIComponent(clusterName)}/plugins/${encodeURIComponent(payload.pluginName)}/instance-config`,
     {
       method: 'POST',
       headers,
@@ -52,12 +54,14 @@ async function submitPluginInstanceConfig(
 
 /**
  * Mutation hook that POSTs plugin-specific configuration to
- * POST /v1/plugins/{name}/instance-config. The host calls this after
- * form submission to hand off plugin config collected via
+ * POST /v1/clusters/{cluster}/plugins/{name}/instance-config. The host calls
+ * this after form submission to hand off plugin config collected via
  * instanceCreateFormSection / instanceEditFormSection extensions.
  */
 export const useSubmitPluginInstanceConfig = () => {
+  const clusterName = useClusterName();
   return useMutation({
-    mutationFn: submitPluginInstanceConfig,
+    mutationFn: (payload: PluginInstanceConfig) =>
+      submitPluginInstanceConfig(clusterName, payload),
   });
 };

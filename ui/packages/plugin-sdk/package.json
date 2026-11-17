@@ -1,13 +1,20 @@
 {
   "name": "@openeverest/plugin-sdk",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "description": "SDK for building OpenEverest plugins",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openeverest/openeverest.git",
+    "directory": "ui/packages/plugin-sdk"
+  },
   "main": "dist/esm/index.js",
   "module": "dist/esm/index.js",
   "type": "module",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "publishConfig": {
     "access": "public",
@@ -18,7 +25,12 @@
     "build": "rollup -c"
   },
   "peerDependencies": {
-    "react": "^18.0.0"
+    "@types/react": "^18.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@types/react": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@percona/tsconfig": "workspace:*",

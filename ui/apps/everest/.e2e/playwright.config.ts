@@ -63,7 +63,6 @@ export default defineConfig({
     baseURL: process.env.EVEREST_URL || 'http://localhost:8080',
     headless: true,
     extraHTTPHeaders: {
-      'Content-Type': 'application/json',
       Accept: 'application/json',
     },
 
@@ -74,6 +73,11 @@ export default defineConfig({
   /* Configure projects for major browsers */
   projects: [
     {
+      name: 'global:auth:ci:setup',
+      testDir: './setup',
+      testMatch: /auth\.setup\.ts/,
+    },
+    {
       name: 'global:backup-storage:setup',
       testDir: './setup',
       testMatch: /backup-storage.setup\.ts/,
@@ -83,17 +87,6 @@ export default defineConfig({
       name: 'global:backup-storage:teardown',
       testDir: './teardown',
       testMatch: /backup-storage\.teardown\.ts/,
-    },
-    {
-      name: 'global:monitoring-config:setup',
-      testDir: './setup',
-      testMatch: /monitoring-config.setup\.ts/,
-      teardown: 'global:monitoring-config:teardown',
-    },
-    {
-      name: 'global:monitoring-config:teardown',
-      testDir: './teardown',
-      testMatch: /monitoring-config\.teardown\.ts/,
     },
     {
       name: 'pr',

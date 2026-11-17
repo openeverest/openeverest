@@ -14,8 +14,8 @@
 
 // Types describing the OpenEverest Extension Hub index (`hub.openeverest.io/v1`).
 // These mirror the JSON returned by the plugin-hub plugin at
-// `/v1/plugins/plugin-hub/api/summary`. They are hand-written because the hub
-// schema is not part of the OpenEverest CRD-generated types.
+// `/v1/clusters/{cluster}/plugins/plugin-hub/api/summary`. They are hand-written
+// because the hub schema is not part of the OpenEverest CRD-generated types.
 
 export type ExtensionType = 'provider' | 'plugin';
 
@@ -89,6 +89,15 @@ export interface ResolvedExtensionMeta {
   version?: string;
   categories?: string[];
   maturity?: ExtensionMaturity;
+  verified?: boolean;
+}
+
+export interface ResolvedExtensionCatalog {
+  // Lookup keyed by every identifier a provider can be matched by (provider CR
+  // name and catalog entry name).
+  providerMeta: Map<string, ResolvedExtensionMeta>;
+  // Every provider listed in the catalog, installed or not, in catalog order.
+  providers: ResolvedExtensionMeta[];
 }
 
 // Untrusted shapes for data coming off the wire. The hub is an independent

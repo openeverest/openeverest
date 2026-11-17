@@ -13,14 +13,19 @@
 // limitations under the License.
 
 export const Messages = {
-  welcome:
-    'Welcome to OpenEverest, an open source cloud-native database platform!',
-  intro: `OpenEverest accelerates code deployment and scaling, and reduces database administration overhead.
-    With the help of OpenEverest, you can regain control over data access, database configuration, and cloud database costs. Provision your first database cluster with OpenEverest today!`,
+  pitch:
+    'The open-source platform for automated database, storage and LLM provisioning and management',
   login: 'Log in',
-  insertCredentials: 'Enter your username and password to log in.',
-  ok: 'OK',
+  insertCredentials: 'Enter your username and password to continue.',
   username: 'Username',
   password: 'Password',
+  or: 'OR',
+  loginWithSso: 'Log in with SSO',
   ssoLoginError: 'SSO login failed. Please try again.',
+  links: {
+    community: 'Community',
+    github: 'GitHub',
+    documentation: 'Documentation',
+    support: 'Commercial support',
+  },
 };

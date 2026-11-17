@@ -1,7 +1,7 @@
 apiVersion: v1
 data:
-  AWS_ACCESS_KEY_ID: bWluaW9hZG1pbg==
-  AWS_SECRET_ACCESS_KEY: bWluaW9hZG1pbg==
+  AWS_ACCESS_KEY_ID: c2Vhd2VlZGZzYWRtaW4=
+  AWS_SECRET_ACCESS_KEY: c2Vhd2VlZGZzYWRtaW4=
 kind: Secret
 type: Opaque
 ---
@@ -10,7 +10,7 @@ kind: BackupStorage
 spec:
   type: s3
   s3:
-    endpointURL: https://minio.minio.svc.cluster.local
+    endpointURL: https://seaweedfs.seaweedfs.svc.cluster.local
     forcePathStyle: true
     region: us-east-1
     verifyTLS: false

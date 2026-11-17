@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,14 +17,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { DbCluster } from 'shared-types/dbCluster.types';
 
-import { getDbClusterFn, getDbClusterImports } from 'api/dbClusterApi';
+import { getDbClusterFn } from 'api/dbClusterApi';
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import { useRBACPermissions } from 'hooks/rbac';
 import { mergeNewDbClusterData } from 'utils/db';
-import { DataImportJobs } from 'shared-types/dataImporters.types';
 
 export const DB_CLUSTER_QUERY = 'dbCluster';
-export const DB_CLUSTER_IMPORTS_QUERY = 'dbClusterImports';
 
 export const useDbCluster = (
   dbClusterName: string,
@@ -46,18 +45,5 @@ export const useDbCluster = (
       return mergeNewDbClusterData(undefined, transformedCluster, true);
     },
     enabled: (options?.enabled ?? true) && canRead,
-  });
-};
-
-export const useDbClusterImportJobs = (
-  namespace: string,
-  dbClusterName: string,
-  options?: PerconaQueryOptions<DataImportJobs, unknown, DataImportJobs>
-) => {
-  return useQuery<DataImportJobs, unknown, DataImportJobs>({
-    queryKey: [DB_CLUSTER_IMPORTS_QUERY, dbClusterName],
-    refetchInterval: 5 * 1000,
-    queryFn: () => getDbClusterImports(namespace, dbClusterName),
-    ...options,
   });
 };

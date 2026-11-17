@@ -14,7 +14,12 @@
 
 import { ComponentType } from 'react';
 import { z } from 'zod';
-import { FormMode, Section, TopologyUISchemas } from '../ui-generator.types';
+import {
+  FormMode,
+  Section,
+  TopologyUISchemas,
+  WidgetRegistry,
+} from '../ui-generator.types';
 import { Provider } from 'shared-types/api.types';
 
 // Step - a single unit in the multi-step wizard.  Both "static" steps (hand-coded
@@ -41,13 +46,19 @@ export type StepDefinition = {
 };
 
 export type FormEngineConfig = {
-  // Pre-processed topology UI schema
+  // Topology UI schema preprocessed for `formMode`
   uiSchema: TopologyUISchemas;
   selectedTopology: string;
   staticSteps?: StepDefinition[];
   providerObject?: Provider;
   namespace?: string;
+  // Selects the `validation.modes` branch
   formMode?: FormMode;
+  // Host-provided renderers for schema widgets
+  widgetRegistry?: WidgetRegistry;
+  // Restore / edit source instance (same path shape as form data). Untouched
+  // quantity fields are written back as stored when this is set.
+  originalData?: Record<string, unknown>;
 };
 
 export type FormEngineResult = {

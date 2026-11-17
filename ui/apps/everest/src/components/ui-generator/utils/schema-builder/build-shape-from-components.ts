@@ -16,31 +16,35 @@ import { z } from 'zod';
 import {
   Component,
   ComponentGroup,
-  CelExpression,
   FormMode,
+  isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { ZOD_SCHEMA_MAP } from 'components/ui-generator/constants';
 import { generateFieldId } from '../component-renderer/generate-field-id';
+import { getComponentSourcePath } from '../preprocess/normalized-component';
 import { applyValidationFromSchema } from './apply-from-schema';
 import { resolveValidationForMode } from '../validation/resolve-validation-for-mode';
-
-export type ComponentSchemaResult = {
-  schemaShape: Record<string, z.ZodTypeAny>;
-  celExpValidations: { path: string[]; celExpressions: CelExpression[] }[];
-  celDependencyGroups: string[][];
-};
+import {
+  TOGGLEABLE_SWITCHES_KEY,
+  getToggleableMeta,
+  toggleableSwitchesSchema,
+} from '../toggleable/toggleable';
+import type {
+  CelExpValidation,
+  ComponentSchemaResult,
+  ToggleableFieldRule,
+} from './schema-builder.types';
 
 export const buildShapeFromComponents = (
   components: { [key: string]: Component | ComponentGroup },
   basePath: string = '',
-  formMode?: FormMode
+  formMode?: FormMode,
+  activeSwitch?: string
 ): ComponentSchemaResult => {
   const schemaShape: Record<string, z.ZodTypeAny> = {};
-  const celExpValidations: {
-    path: string[];
-    celExpressions: CelExpression[];
-  }[] = [];
+  const celExpValidations: CelExpValidation[] = [];
   const celDependencyGroups: string[][] = [];
+  const toggleableFieldRules: ToggleableFieldRule[] = [];
 
   Object.entries(components).forEach(([key, item]) => {
     const generatedName = basePath ? `${basePath}.${key}` : key;
@@ -48,16 +52,22 @@ export const buildShapeFromComponents = (
 
     // Handle groups recursively
     if (item.uiType === 'group' && 'components' in item) {
+      const toggleable = getToggleableMeta(item);
+      if (toggleable) {
+        schemaShape[TOGGLEABLE_SWITCHES_KEY] = toggleableSwitchesSchema;
+      }
       const groupResult = buildShapeFromComponents(
         (item as ComponentGroup).components,
         generatedName,
-        formMode
+        formMode,
+        toggleable?.switchName ?? activeSwitch
       );
 
       // Merge nested schemas into parent level (flat structure)
       Object.assign(schemaShape, groupResult.schemaShape);
       celExpValidations.push(...groupResult.celExpValidations);
       celDependencyGroups.push(...groupResult.celDependencyGroups);
+      toggleableFieldRules.push(...groupResult.toggleableFieldRules);
       return;
     }
 
@@ -67,6 +77,17 @@ export const buildShapeFromComponents = (
     // Disabled fields bypass all validation — they can't be changed by the user
     if (component.fieldParams?.disabled) {
       schemaShape[fieldId] = z.any().optional();
+      return;
+    }
+
+    // Widget components own their value shape and validation. A pure marker
+    // widget (no bound path) owns no form value, so it must not contribute a
+    // schema entry — its synthetic id would otherwise nest into a required
+    // parent object and wrongly invalidate the form.
+    if (isWidgetComponent(component)) {
+      if (getComponentSourcePath(component)) {
+        schemaShape[fieldId] = z.any().optional();
+      }
       return;
     }
 
@@ -93,13 +114,39 @@ export const buildShapeFromComponents = (
 
       // Collect CEL validation data
       if (celData.celExpValidation) {
-        celExpValidations.push(celData.celExpValidation);
+        celExpValidations.push({
+          ...celData.celExpValidation,
+          activeWhen: activeSwitch,
+        });
       }
       if (celData.celDependencyGroup) {
         celDependencyGroups.push(celData.celDependencyGroup);
       }
     } else {
-      fieldSchema = baseSchema;
+      // No validation means not required, same as a validated non-required field.
+      fieldSchema = baseSchema.optional();
+    }
+
+    if (activeSwitch) {
+      toggleableFieldRules.push({
+        switchName: activeSwitch,
+        fieldId,
+        schema: fieldSchema,
+      });
+      // Still transforms valid values, but never fails on its own.
+      schemaShape[fieldId] = fieldSchema.or(z.any());
+      return;
+    }
+
+    if (activeSwitch) {
+      toggleableFieldRules.push({
+        switchName: activeSwitch,
+        fieldId,
+        schema: fieldSchema,
+      });
+      // Still transforms valid values, but never fails on its own.
+      schemaShape[fieldId] = fieldSchema.or(z.any());
+      return;
     }
 
     schemaShape[fieldId] = fieldSchema;
@@ -109,5 +156,6 @@ export const buildShapeFromComponents = (
     schemaShape,
     celExpValidations,
     celDependencyGroups,
+    toggleableFieldRules,
   };
 };

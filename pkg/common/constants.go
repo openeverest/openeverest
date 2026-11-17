@@ -17,8 +17,6 @@
 // Package common holds common constants used across Everest.
 package common
 
-import everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
-
 const (
 	// Everest ...
 	Everest = "everest"
@@ -40,7 +38,7 @@ const (
 
 	// DefaultDBNamespaceName is the name of the default DB namespace during installation.
 	DefaultDBNamespaceName = "everest"
-	// MonitoringNamespace is the namespace where monitoring configs are created.
+	// MonitoringNamespace is the namespace the Helm chart creates for monitoring components.
 	MonitoringNamespace = "everest-monitoring"
 	// PerconaEverestDeploymentName stores the name of everest API Server deployment.
 	PerconaEverestDeploymentName = "everest-server"
@@ -53,18 +51,11 @@ const (
 	PerconaEverestOperatorDeploymentName = "everest-operator"
 	// EverestContainerNameInDeployment is the name of the Everest container in the deployment.
 	EverestContainerNameInDeployment = "everest"
-	// VictoriaMetricsOperatorDeploymentName stores the name of VictoriaMetrics operator deployment.
-	VictoriaMetricsOperatorDeploymentName = "vm-operator"
-	// KubeStateMetricsDeploymentName stores the name of kube-state-metrics deployment.
-	KubeStateMetricsDeploymentName = "kube-state-metrics"
 	// PerconaEverestCRDLabel is the label used to identify Everest CRDs.
 	PerconaEverestCRDLabel = "everest.percona.com/crd"
 
 	// EverestOperatorName holds the name for Everest operator.
 	EverestOperatorName = "everest-operator"
-
-	// VictoriaMetricsOperatorName holds the name for VictoriaMetrics operator.
-	VictoriaMetricsOperatorName = "victoriametrics-operator"
 
 	// EverestAccountsSecretName is the name of the secret that holds accounts.
 	EverestAccountsSecretName = "everest-accounts"
@@ -98,6 +89,9 @@ const (
 	DatabaseClusterNameLabel = "clusterName"
 	// InstanceNameLabel is the label used to identify resources by instance name.
 	InstanceNameLabel = "instanceName"
+	// BackupImportNameLabel is the label used to identify Backups by BackupImport name.
+	// The label value must be 63 characters or less.
+	BackupImportNameLabel = "backup.openeverest.io/backup-import"
 	// ForegroundDeletionFinalizer is the finalizer used to delete resources in foreground.
 	ForegroundDeletionFinalizer = "foregroundDeletion"
 	// UserCtxKey is the key used to store the user in the context.
@@ -107,22 +101,39 @@ const (
 	// that holds the name of the resource being served by an API endpoint.
 	EverestAPIExtnResourceName = "x-everest-resource-name"
 
-	// OpenEverestManagedLabel indicates a Secret or ConfigMap is managed by OpenEverest.
+	// OpenEverestManagedLabel marks a Secret or ConfigMap created through the OpenEverest API.
+	// For a Secret it gates changing the data through the API, not whether the API shows it.
 	OpenEverestManagedLabel = "openeverest.io/managed"
-	// OpenEverestProviderLabel identifies the provider that uses the Secret or ConfigMap.
+	// OpenEverestProviderLabel identifies the provider that defines a Secret or ConfigMap.
 	OpenEverestProviderLabel = "openeverest.io/provider"
-	// OpenEverestDefinitionLabel identifies the Secret or ConfigMap definition for filtering.
+	// OpenEverestMonitoringClassLabel identifies the MonitoringClass that defines a Secret.
+	OpenEverestMonitoringClassLabel = "openeverest.io/monitoring-class"
+	// OpenEverestDefinitionLabel names the definition a Secret or ConfigMap follows within its
+	// source: a key of Provider.spec.secrets or Provider.spec.configMaps, or an authentication
+	// mode of a MonitoringClass.
 	OpenEverestDefinitionLabel = "openeverest.io/definition"
-)
+	// OpenEverestCABundleDefinition is the definition of a CA bundle Secret, the one definition
+	// core owns: the Secret carries no source label, holds its certificates under
+	// OpenEverestCABundleKey, and every key holds PEM CA certificates.
+	OpenEverestCABundleDefinition = "ca-bundle"
+	// OpenEverestCABundleKey is the key every CA bundle Secret holds its certificates under, so
+	// a reference to a labelled bundle never has to ask for the key.
+	OpenEverestCABundleKey = "ca.crt"
+	// OpenEverestInUseProtectionFinalizer is held by core on a Secret while an object uses it.
+	OpenEverestInUseProtectionFinalizer = "openeverest.io/in-use-protection"
+	// AttachedDestinationsAnnotation counts, on a Secret, the MonitoringDestinations that use it.
+	// Core writes it; the secret-in-use admission policy refuses deleting the Secret while it is
+	// not "0".
+	AttachedDestinationsAnnotation = "monitoring.openeverest.io/attached-destinations"
+	// AttachedStoragesAnnotation counts, on a Secret, the BackupStorages that use it, as
+	// AttachedDestinationsAnnotation does for MonitoringDestinations.
+	AttachedStoragesAnnotation = "backup.openeverest.io/attached-storages"
 
-// OperatorTypeToName maps the engine type to the operator name.
-//
-//nolint:gochecknoglobals
-var OperatorTypeToName = map[everestv1alpha1.EngineType]string{
-	everestv1alpha1.DatabaseEnginePXC:        MySQLOperatorName,
-	everestv1alpha1.DatabaseEnginePSMDB:      MongoDBOperatorName,
-	everestv1alpha1.DatabaseEnginePostgresql: PostgreSQLOperatorName,
-}
+	// InstancePresetAnnotation is the annotation key for the InstancePreset that an Instance was created from.
+	InstancePresetAnnotation = "openeverest.io/instance-preset"
+	// ClusterInstancePresetAnnotation is the annotation key for the ClusterInstancePreset that an Instance was created from.
+	ClusterInstancePresetAnnotation = "openeverest.io/cluster-instance-preset"
+)
 
 // InitialPasswordWarningMessage is the message that is shown to the user after the installation/upgrade,
 // regarding insecure admin password.

@@ -27,8 +27,7 @@ import (
 
 // GetRestore returns a specific restore.
 func (e *EverestServer) GetRestore(c echo.Context, cluster string, namespace string, restore string) error {
-	// The cluster parameter is currently ignored.
-	result, err := e.handler.GetRestore(c.Request().Context(), namespace, restore)
+	result, err := e.handler.GetRestore(c.Request().Context(), cluster, namespace, restore)
 	if err != nil {
 		e.l.Errorf("GetRestore failed: %v", err)
 		return err
@@ -38,7 +37,6 @@ func (e *EverestServer) GetRestore(c echo.Context, cluster string, namespace str
 
 // CreateRestore creates a new restore.
 func (e *EverestServer) CreateRestore(c echo.Context, cluster string, namespace string) error {
-	// The cluster parameter is currently ignored.
 	restore := &backupv1alpha1.Restore{}
 	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
@@ -51,7 +49,7 @@ func (e *EverestServer) CreateRestore(c echo.Context, cluster string, namespace 
 	}
 
 	restore.Namespace = namespace
-	result, err := e.handler.CreateRestore(c.Request().Context(), restore)
+	result, err := e.handler.CreateRestore(c.Request().Context(), cluster, restore)
 	if err != nil {
 		e.l.Errorf("CreateRestore failed: %v", err)
 		return err
@@ -61,8 +59,7 @@ func (e *EverestServer) CreateRestore(c echo.Context, cluster string, namespace 
 
 // DeleteRestore deletes a restore.
 func (e *EverestServer) DeleteRestore(c echo.Context, cluster string, namespace string, restore string) error {
-	// The cluster parameter is currently ignored.
-	if err := e.handler.DeleteRestore(c.Request().Context(), namespace, restore); err != nil {
+	if err := e.handler.DeleteRestore(c.Request().Context(), cluster, namespace, restore); err != nil {
 		e.l.Errorf("DeleteRestore failed: %v", err)
 		return err
 	}

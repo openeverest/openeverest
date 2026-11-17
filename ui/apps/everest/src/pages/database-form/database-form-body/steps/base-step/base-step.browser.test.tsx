@@ -20,6 +20,10 @@ import { TestWrapper } from 'utils/test';
 import { WizardMode } from 'shared-types/wizard.types';
 import { DbWizardFormFields } from 'consts';
 import { DatabaseFormProvider } from 'pages/database-form/database-form-context';
+import {
+  PresetSelectionContext,
+  PresetSelectionContextType,
+} from 'pages/database-form/preset-selection';
 import { BaseInfoStep } from './base-step';
 import { getDBWizardSchema } from 'pages/database-form/database-form-schema';
 import { page, userEvent } from 'vitest/browser';
@@ -49,7 +53,7 @@ vi.mock('../../../hooks/use-database-page-mode', () => ({
   useDatabasePageMode: vi.fn(() => WizardMode.New),
 }));
 
-const schema = getDBWizardSchema([], false);
+const schema = getDBWizardSchema([]);
 
 const defaultValues = {
   [DbWizardFormFields.provider]: 'psmdb',
@@ -67,6 +71,17 @@ const contextValue = {
   sectionsOrder: [],
   providerObject: undefined,
   hasBackupStep: false,
+  hasMonitoringStep: false,
+};
+
+const presetSelectionValue: PresetSelectionContextType = {
+  presets: [],
+  isLoadingPresets: false,
+  isError: false,
+  presetName: '',
+  selectedPreset: null,
+  presetSelected: false,
+  presetPending: false,
 };
 
 const Wrapper = ({ children }: { children: React.ReactNode }) => {
@@ -79,9 +94,11 @@ const Wrapper = ({ children }: { children: React.ReactNode }) => {
   return (
     <TestWrapper>
       <DatabaseFormProvider value={contextValue}>
-        <FormProvider {...methods}>
-          <form>{children}</form>
-        </FormProvider>
+        <PresetSelectionContext.Provider value={presetSelectionValue}>
+          <FormProvider {...methods}>
+            <form>{children}</form>
+          </FormProvider>
+        </PresetSelectionContext.Provider>
       </DatabaseFormProvider>
     </TestWrapper>
   );

@@ -19,7 +19,7 @@ import { errorMessages } from 'utils/common-validation';
 export const Messages = {
   previous: 'Previous',
   continue: 'Continue',
-  createDatabase: 'Create database',
+  createDatabase: 'Create',
   editDatabase: 'Edit database',
   cancel: 'Cancel',
   dialog: {
@@ -36,10 +36,6 @@ export const Messages = {
     dbName: {
       tooLong: errorMessages.tooLong('database'),
       duplicate: errorMessages.duplicate('database'),
-    },
-    monitoringEndpoint: {
-      invalidOption:
-        'Invalid option. Please make sure you added a monitoring endpoint and select it from the dropdown',
     },
     sharding: {
       invalid: 'Please fill in valid values for sharding',

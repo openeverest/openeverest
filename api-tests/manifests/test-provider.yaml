@@ -6,10 +6,10 @@ metadata:
 spec:
   componentTypes:
     enginex:
+      defaultVersion: "1.0.0"
       versions:
         - version: "1.0.0"
           image: "test/engine:1.0.0"
-          default: true
   components:
     engine:
       type: enginex
@@ -17,11 +17,11 @@ spec:
     standalone:
       components:
         engine:
+  defaultVersion: "1.0.0"
   versions:
     - name: "1.0.0"
       components:
         enginex: "1.0.0"
-      default: true
   secrets:
     test-credentials:
       parametersSchema:

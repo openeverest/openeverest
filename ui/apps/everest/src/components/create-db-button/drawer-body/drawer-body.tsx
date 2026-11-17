@@ -19,16 +19,13 @@ import {
   resolveProviderDisplay,
 } from 'components/provider-identity';
 import { useExtensionCatalog } from 'hooks/api/extension-catalog';
+import { usePrefetchClusterInstancePresets } from 'hooks/api/cluster-instance-presets';
 import type { DrawerBodyProps } from './drawer-body.types';
 import { listSx, rowSx } from './drawer-body.constants';
 
-export const DrawerBody = ({
-  providers,
-  createFromImport,
-  onClose,
-}: DrawerBodyProps) => {
+export const DrawerBody = ({ providers, onClose }: DrawerBodyProps) => {
   const { getProviderMeta } = useExtensionCatalog();
-  const testIdPrefix = createFromImport ? 'import' : 'add';
+  const prefetchPresets = usePrefetchClusterInstancePresets();
 
   return (
     <Box role="list" sx={listSx}>
@@ -40,14 +37,13 @@ export const DrawerBody = ({
         return (
           <Box role="listitem" key={name}>
             <Box
-              data-testid={`${testIdPrefix}-db-cluster-button-${name}`}
+              data-testid={`add-db-cluster-button-${name}`}
               component={Link}
               to="/databases/new"
-              state={{
-                selectedDbProvider: provider,
-                showImport: createFromImport,
-              }}
+              state={{ selectedDbProvider: provider }}
               onClick={onClose}
+              onMouseEnter={() => prefetchPresets(provider)}
+              onFocus={() => prefetchPresets(provider)}
               sx={rowSx}
             >
               <ProviderIdentity label={label} meta={meta} ellipsis />

@@ -16,6 +16,7 @@
 package instance
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -28,7 +29,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
@@ -37,82 +37,11 @@ import (
 func TestInstanceStatus_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	phase := client.InstanceStatusPhaseReady
-	version := "1.22.0"
-	msg := "All replicas are ready"
-	ready := int32(3)
-	total := int32(3)
-	state := "Running"
-	condStatus := client.InstanceStatusConditionsStatusTrue
-
-	inst := &client.Instance{
-		Metadata: &metav1.ObjectMeta{Name: "my-mongo"},
-		Status: &struct {
-			Backup *struct {
-				Storages *[]struct {
-					Name string `json:"name"`
-					Pitr *struct {
-						EarliestRestorableTime *time.Time                                    `json:"earliestRestorableTime,omitempty"`
-						LatestRestorableTime   *time.Time                                    `json:"latestRestorableTime,omitempty"`
-						Message                *string                                       `json:"message,omitempty"`
-						Reason                 *string                                       `json:"reason,omitempty"`
-						State                  *client.InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
-					} `json:"pitr,omitempty"`
-				} `json:"storages,omitempty"`
-			} `json:"backup,omitempty"`
-			Components *[]struct {
-				PodRefs *[]struct {
-					Name string `json:"name"`
-				} `json:"podRefs,omitempty"`
-				Ready *int32  `json:"ready,omitempty"`
-				State *string `json:"state,omitempty"`
-				Total *int32  `json:"total,omitempty"`
-			} `json:"components,omitempty"`
-			Conditions *[]struct {
-				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
-				Message            string                                `json:"message"`
-				ObservedGeneration *int64                                `json:"observedGeneration,omitempty"`
-				Reason             string                                `json:"reason"`
-				Status             client.InstanceStatusConditionsStatus `json:"status"`
-				Type               string                                `json:"type"`
-			} `json:"conditions,omitempty"`
-			ConnectionSecretRef *struct {
-				Name string `json:"name"`
-			} `json:"connectionSecretRef,omitempty"`
-			Message            *string `json:"message,omitempty"`
-			PendingMaintenance *[]struct {
-				ApprovalToken *string                                         `json:"approvalToken,omitempty"`
-				Description   string                                          `json:"description"`
-				Severity      client.InstanceStatusPendingMaintenanceSeverity `json:"severity"`
-			} `json:"pendingMaintenance,omitempty"`
-			Phase   *client.InstanceStatusPhase `json:"phase,omitempty"`
-			Version *string                     `json:"version,omitempty"`
-		}{
-			Phase:   &phase,
-			Version: &version,
-			Message: &msg,
-			Components: &[]struct {
-				PodRefs *[]struct {
-					Name string `json:"name"`
-				} `json:"podRefs,omitempty"`
-				Ready *int32  `json:"ready,omitempty"`
-				State *string `json:"state,omitempty"`
-				Total *int32  `json:"total,omitempty"`
-			}{
-				{Ready: &ready, Total: &total, State: &state},
-			},
-			Conditions: &[]struct {
-				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
-				Message            string                                `json:"message"`
-				ObservedGeneration *int64                                `json:"observedGeneration,omitempty"`
-				Reason             string                                `json:"reason"`
-				Status             client.InstanceStatusConditionsStatus `json:"status"`
-				Type               string                                `json:"type"`
-			}{
-				{Type: "Available", Status: condStatus, Reason: "Ready", Message: "All replicas are ready"},
-			},
-		},
-	}
+	inst := instanceFromJSON(`{"metadata":{"name":"my-mongo"},"status":{
+		"phase":"Ready","version":"1.22.0","message":"All replicas are ready",
+		"components":[{"name":"engine","readyReplicas":3,"replicas":3}],
+		"conditions":[{"type":"Available","status":"True","reason":"Ready","message":"All replicas are ready"}]
+	}}`)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -132,6 +61,28 @@ func TestInstanceStatus_HappyPath(t *testing.T) {
 		Cluster:   "main",
 	}, cfgPath)
 	require.NoError(t, err)
+}
+
+func TestPrintConditionTable_MultiLineMessage(t *testing.T) {
+	t.Parallel()
+
+	status := `{"status":{"conditions":[
+		{"type":"Ready","status":"True","reason":"Ready","message":"","lastTransitionTime":"2026-10-02T12:00:00Z"},
+		{"type":"PodsScheduled","status":"False","reason":"Unschedulable","lastTransitionTime":"2026-10-02T12:00:00Z",
+		 "message":"configServer: 2 of 3 pods cannot be scheduled\nengine: 1 of 5 pods cannot be scheduled"}
+	]}}`
+	var inst client.Instance
+	require.NoError(t, json.Unmarshal([]byte(status), &inst))
+	var out bytes.Buffer
+
+	printConditionTable(&out, &inst)
+
+	want := "\nConditions:\n" +
+		"  TYPE           STATUS  REASON         MESSAGE\n" +
+		"  Ready          True    Ready          -\n" +
+		"  PodsScheduled  False   Unschedulable  configServer: 2 of 3 pods cannot be scheduled\n" +
+		"                                        engine: 1 of 5 pods cannot be scheduled\n"
+	assert.Equal(t, want, out.String())
 }
 
 func TestInstanceStatus_NotFound(t *testing.T) {
@@ -201,53 +152,7 @@ func TestInstanceStatus_NoActiveContext(t *testing.T) {
 func TestInstanceStatus_JSONOutput(t *testing.T) {
 	t.Parallel()
 
-	phase := client.InstanceStatusPhaseReady
-	inst := &client.Instance{
-		Metadata: &metav1.ObjectMeta{Name: "my-mongo"},
-		Status: &struct {
-			Backup *struct {
-				Storages *[]struct {
-					Name string `json:"name"`
-					Pitr *struct {
-						EarliestRestorableTime *time.Time                                    `json:"earliestRestorableTime,omitempty"`
-						LatestRestorableTime   *time.Time                                    `json:"latestRestorableTime,omitempty"`
-						Message                *string                                       `json:"message,omitempty"`
-						Reason                 *string                                       `json:"reason,omitempty"`
-						State                  *client.InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
-					} `json:"pitr,omitempty"`
-				} `json:"storages,omitempty"`
-			} `json:"backup,omitempty"`
-			Components *[]struct {
-				PodRefs *[]struct {
-					Name string `json:"name"`
-				} `json:"podRefs,omitempty"`
-				Ready *int32  `json:"ready,omitempty"`
-				State *string `json:"state,omitempty"`
-				Total *int32  `json:"total,omitempty"`
-			} `json:"components,omitempty"`
-			Conditions *[]struct {
-				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
-				Message            string                                `json:"message"`
-				ObservedGeneration *int64                                `json:"observedGeneration,omitempty"`
-				Reason             string                                `json:"reason"`
-				Status             client.InstanceStatusConditionsStatus `json:"status"`
-				Type               string                                `json:"type"`
-			} `json:"conditions,omitempty"`
-			ConnectionSecretRef *struct {
-				Name string `json:"name"`
-			} `json:"connectionSecretRef,omitempty"`
-			Message            *string `json:"message,omitempty"`
-			PendingMaintenance *[]struct {
-				ApprovalToken *string                                         `json:"approvalToken,omitempty"`
-				Description   string                                          `json:"description"`
-				Severity      client.InstanceStatusPendingMaintenanceSeverity `json:"severity"`
-			} `json:"pendingMaintenance,omitempty"`
-			Phase   *client.InstanceStatusPhase `json:"phase,omitempty"`
-			Version *string                     `json:"version,omitempty"`
-		}{
-			Phase: &phase,
-		},
-	}
+	inst := instanceFromJSON(`{"metadata":{"name":"my-mongo"},"status":{"phase":"Ready"}}`)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -271,51 +176,18 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 }
 
 func minimalInst() *client.Instance {
-	phase := client.InstanceStatusPhaseReady
-	return &client.Instance{
-		Metadata: &metav1.ObjectMeta{Name: "my-mongo"},
-		Status: &struct {
-			Backup *struct {
-				Storages *[]struct {
-					Name string `json:"name"`
-					Pitr *struct {
-						EarliestRestorableTime *time.Time                                    `json:"earliestRestorableTime,omitempty"`
-						LatestRestorableTime   *time.Time                                    `json:"latestRestorableTime,omitempty"`
-						Message                *string                                       `json:"message,omitempty"`
-						Reason                 *string                                       `json:"reason,omitempty"`
-						State                  *client.InstanceStatusBackupStoragesPitrState `json:"state,omitempty"`
-					} `json:"pitr,omitempty"`
-				} `json:"storages,omitempty"`
-			} `json:"backup,omitempty"`
-			Components *[]struct {
-				PodRefs *[]struct {
-					Name string `json:"name"`
-				} `json:"podRefs,omitempty"`
-				Ready *int32  `json:"ready,omitempty"`
-				State *string `json:"state,omitempty"`
-				Total *int32  `json:"total,omitempty"`
-			} `json:"components,omitempty"`
-			Conditions *[]struct {
-				LastTransitionTime time.Time                             `json:"lastTransitionTime"`
-				Message            string                                `json:"message"`
-				ObservedGeneration *int64                                `json:"observedGeneration,omitempty"`
-				Reason             string                                `json:"reason"`
-				Status             client.InstanceStatusConditionsStatus `json:"status"`
-				Type               string                                `json:"type"`
-			} `json:"conditions,omitempty"`
-			ConnectionSecretRef *struct {
-				Name string `json:"name"`
-			} `json:"connectionSecretRef,omitempty"`
-			Message            *string `json:"message,omitempty"`
-			PendingMaintenance *[]struct {
-				ApprovalToken *string                                         `json:"approvalToken,omitempty"`
-				Description   string                                          `json:"description"`
-				Severity      client.InstanceStatusPendingMaintenanceSeverity `json:"severity"`
-			} `json:"pendingMaintenance,omitempty"`
-			Phase   *client.InstanceStatusPhase `json:"phase,omitempty"`
-			Version *string                     `json:"version,omitempty"`
-		}{Phase: &phase},
+	return instanceFromJSON(`{"metadata":{"name":"my-mongo"},"status":{"phase":"Ready"}}`)
+}
+
+// instanceFromJSON decodes an Instance the way the API serves it. Building
+// it from JSON keeps the tests independent of the generated status struct,
+// which changes whenever the Instance status gains a field.
+func instanceFromJSON(doc string) *client.Instance {
+	inst := &client.Instance{}
+	if err := json.Unmarshal([]byte(doc), inst); err != nil {
+		panic(err)
 	}
+	return inst
 }
 
 func TestWatch_StopsOnContextCancel(t *testing.T) {

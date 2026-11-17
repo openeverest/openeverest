@@ -26,4 +26,7 @@ export type OverviewSectionProps = {
   editable?: boolean;
   showTooltip?: boolean;
   disabledEditTooltipText?: string;
+  // Adds an expand / collapse chevron to the heading.
+  collapsible?: boolean;
+  defaultExpanded?: boolean;
 } & LoadableChildrenProps;

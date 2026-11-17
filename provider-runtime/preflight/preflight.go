@@ -21,9 +21,6 @@
 // provider-spec.yaml the release applies — so the catalog has a single source
 // of truth and the provider image needs no embedded definition files.
 //
-// Design background: spec 009 (provider upgrades) in the openeverest/specs
-// repository.
-//
 // Providers wire it into their main:
 //
 //	if *preflightSpecFile != "" {
@@ -105,8 +102,8 @@ func Run(ctx context.Context, provider controller.ProviderInterface, opts Option
 		return err
 	}
 
-	c := controller.NewContext(ctx, cl, nil, provider.Name())
-	issues := controller.RunUpgradePreflight(c, provider, current, target, instances)
+	h := controller.NewHookContext(ctx, cl, provider.Name())
+	issues := controller.RunUpgradePreflight(h, provider, current, target, instances)
 
 	writeReport(opts.Out, provider.Name(), current, target, len(instances), issues)
 

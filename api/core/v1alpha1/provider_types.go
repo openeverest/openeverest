@@ -15,6 +15,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -27,10 +28,15 @@ type ProviderSpec struct {
 	Components     map[string]Component     `json:"components,omitempty"`
 	Topologies     map[string]Topology      `json:"topologies,omitempty"`
 
+	// DefaultVersion names the bundle in Versions used when an Instance
+	// omits Spec.Version.
+	// +optional
+	DefaultVersion string `json:"defaultVersion,omitempty"`
+
 	// Versions defines curated version bundles — named sets of component
 	// versions that are known to be mutually compatible. Users reference
 	// a bundle via Instance.Spec.Version. If the user does not set a version,
-	// the bundle whose Default field is true is used automatically.
+	// the bundle named by DefaultVersion is used automatically.
 	Versions []VersionBundle `json:"versions,omitempty"`
 
 	// ParametersSchema declares the OpenAPI v3 schema for the instance-wide
@@ -56,6 +62,11 @@ type ProviderSpec struct {
 	// upgrade-path constraints. It is read by the pre-upgrade preflight.
 	// +optional
 	Release *Release `json:"release,omitempty"`
+
+	// Monitoring is the provider's monitoring contract: the operator-native
+	// integrations it renders itself and what each component type exposes.
+	// +optional
+	Monitoring *ProviderMonitoring `json:"monitoring,omitempty"`
 }
 
 // Release identifies a provider release and its upgrade-path constraints.
@@ -84,20 +95,35 @@ type VersionBundle struct {
 	// Components maps component names to their version strings for this bundle.
 	// Keys must match component names defined in ProviderSpec.Components.
 	Components map[string]string `json:"components,omitempty"`
-
-	// Default marks this bundle as the implicit choice when an Instance omits
-	// Spec.Version entirely. Exactly one bundle should have Default: true.
-	Default bool `json:"default,omitempty"`
 }
 
+// KindPattern validates every component kind. Kubebuilder markers cannot
+// reference constants, so the Pattern markers on ComponentType.Kind,
+// MetricsEndpoint.Kind, ConnectionEndpoint.Kind and the items of the
+// MonitoringClass requires.kinds must stay identical to it.
+const KindPattern = `^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
+
 type ComponentType struct {
+	// Kind is the shared classification of the software the component type
+	// runs (e.g. "mongodb", "mysql", "haproxy"), matched by monitoring class
+	// filters and set on the component's published monitoring endpoints.
+	// Databases use OpenTelemetry db.system.name values; unknown kinds are
+	// allowed. A type without a kind matches no kind filter.
+	// +kubebuilder:validation:Pattern=`^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
+	// +optional
+	Kind string `json:"kind,omitempty"`
+
+	// DefaultVersion names the entry in Versions used when neither the
+	// Instance nor a version bundle selects one.
+	// +optional
+	DefaultVersion string `json:"defaultVersion,omitempty"`
+
 	Versions []ComponentVersion `json:"versions,omitempty"`
 }
 
 type ComponentVersion struct {
 	Version string `json:"version,omitempty"`
 	Image   string `json:"image,omitempty"`
-	Default bool   `json:"default,omitempty"`
 
 	// Deprecated marks a version as still supported but scheduled for
 	// removal. Instances running on it get a proactive warning with a
@@ -153,6 +179,12 @@ type TopologyComponent struct {
 
 // SecretDefinition describes a Secret type that a provider supports.
 type SecretDefinition struct {
+	// Type is the Kubernetes Secret type of secrets created for this
+	// definition. The clients use it to encode input into Secret data.
+	// +kubebuilder:default=Opaque
+	// +optional
+	Type corev1.SecretType `json:"type,omitempty"`
+
 	// UISchema holds UI rendering hints for the secret creation form.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields

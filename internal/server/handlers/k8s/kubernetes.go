@@ -19,7 +19,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
+	"slices"
+	"sort"
 
 	"github.com/AlekSi/pointer"
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +35,8 @@ import (
 )
 
 const (
-	annotationStorageClassDefault = "storageclass.kubernetes.io/is-default-class"
+	annotationStorageClassDefault      = "storageclass.kubernetes.io/is-default-class"
+	annotationStorageClassDefaultValue = "true"
 )
 
 func (h *k8sHandler) GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error) {
@@ -115,17 +117,34 @@ func (h *k8sHandler) GetSettings(ctx context.Context) (*api.Settings, error) {
 	}, nil
 }
 
+// storageClasses extracts the names of StorageClasses, placing default StorageClasses
+// at the beginning of the list (ordered by CreationTimestamp descending, with the most
+// recently created default at index 0 to match Kubernetes PVC default resolution behavior),
+// followed by non-default StorageClasses preserving their original order.
 func storageClasses(storagesList *storagev1.StorageClassList) []string {
-	classNames := make([]string, len(storagesList.Items))
-	swap := reflect.Swapper(classNames)
-	for i, storageClass := range storagesList.Items {
-		classNames[i] = storageClass.Name
-		if _, ok := storageClass.Annotations[annotationStorageClassDefault]; ok {
-			if i != 0 {
-				swap(i, 0)
-			}
-		}
+	if storagesList == nil || len(storagesList.Items) == 0 {
+		return []string{}
 	}
+
+	items := slices.Clone(storagesList.Items)
+	sort.SliceStable(items, func(i, j int) bool {
+		iDefault := items[i].Annotations[annotationStorageClassDefault] == annotationStorageClassDefaultValue
+		jDefault := items[j].Annotations[annotationStorageClassDefault] == annotationStorageClassDefaultValue
+
+		if iDefault != jDefault {
+			return iDefault
+		}
+		if iDefault {
+			return items[i].CreationTimestamp.After(items[j].CreationTimestamp.Time)
+		}
+		return false
+	})
+
+	classNames := make([]string, len(items))
+	for i, sc := range items {
+		classNames[i] = sc.Name
+	}
+
 	return classNames
 }
 

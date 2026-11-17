@@ -34,13 +34,14 @@ func deprecationTestProvider() *corev1alpha1.Provider {
 				"engine": {Type: "mongod"},
 			},
 			ComponentTypes: map[string]corev1alpha1.ComponentType{
-				"mongod": {Versions: []corev1alpha1.ComponentVersion{
+				"mongod": {DefaultVersion: "8.0.12-4", Versions: []corev1alpha1.ComponentVersion{
 					{Version: "6.0.19-16", Deprecated: true, RemovedInVersion: "0.3"},
-					{Version: "8.0.12-4", Default: true},
+					{Version: "8.0.12-4"},
 				}},
 			},
+			DefaultVersion: "8.0.12",
 			Versions: []corev1alpha1.VersionBundle{
-				{Name: "8.0.12", Default: true, Components: map[string]string{"engine": "8.0.12-4"}},
+				{Name: "8.0.12", Components: map[string]string{"engine": "8.0.12-4"}},
 			},
 		},
 	}
@@ -131,6 +132,48 @@ func TestSetDeprecationCondition(t *testing.T) {
 		cond := findDeprecationCondition(in)
 		require.NotNil(t, cond)
 		assert.Equal(t, metav1.ConditionTrue, cond.Status)
+	})
+
+	t.Run("removed version sets True with VersionsUnsupported", func(t *testing.T) {
+		t.Parallel()
+
+		// A version past its removal release must never read as "all
+		// supported" — it is strictly worse than a deprecation.
+		provider := deprecationTestProvider()
+		provider.Spec.ComponentTypes["mongod"] = corev1alpha1.ComponentType{
+			DefaultVersion: provider.Spec.ComponentTypes["mongod"].DefaultVersion,
+			Versions: append(provider.Spec.ComponentTypes["mongod"].Versions,
+				corev1alpha1.ComponentVersion{Version: "5.0.0-1", Deprecated: true, RemovedInVersion: "0.2"}),
+		}
+		in := deprecationTestInstance("5.0.0-1")
+		in.Status.Conditions = []metav1.Condition{{
+			Type:   corev1alpha1.ConditionComponentVersionDeprecated,
+			Status: metav1.ConditionTrue,
+			Reason: corev1alpha1.ReasonScheduledForRemoval,
+		}}
+		r := &ProviderReconciler{Client: newFakeClient(newTestScheme(), provider, in)}
+
+		r.setDeprecationCondition(t.Context(), in)
+
+		cond := findDeprecationCondition(in)
+		require.NotNil(t, cond)
+		assert.Equal(t, metav1.ConditionTrue, cond.Status)
+		assert.Equal(t, corev1alpha1.ReasonVersionsUnsupported, cond.Reason)
+		assert.Contains(t, cond.Message, "engine: ")
+	})
+
+	t.Run("version absent from the catalog sets True with VersionsUnsupported", func(t *testing.T) {
+		t.Parallel()
+
+		in := deprecationTestInstance("9.9.9-9")
+		r := &ProviderReconciler{Client: newFakeClient(newTestScheme(), deprecationTestProvider(), in)}
+
+		r.setDeprecationCondition(t.Context(), in)
+
+		cond := findDeprecationCondition(in)
+		require.NotNil(t, cond)
+		assert.Equal(t, metav1.ConditionTrue, cond.Status)
+		assert.Equal(t, corev1alpha1.ReasonVersionsUnsupported, cond.Reason)
 	})
 
 	t.Run("missing provider is a no-op", func(t *testing.T) {

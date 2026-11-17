@@ -16,6 +16,7 @@
 
 // TODO refactor and move to the components library
 
+import { useState } from 'react';
 import {
   Grid,
   Stack,
@@ -23,12 +24,15 @@ import {
   Divider,
   Box,
   Button,
+  Collapse,
+  IconButton,
   Tooltip,
 } from '@mui/material';
 import { LoadableChildren } from '@percona/ui-lib';
 import { OverviewSectionProps } from './overview-section.types';
 import { Messages } from '../cluster-overview.messages';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
 export const OverviewSection = ({
   title,
@@ -40,47 +44,86 @@ export const OverviewSection = ({
   showTooltip = false,
   disabledEditTooltipText = '',
   editText = Messages.actions.edit,
-}: OverviewSectionProps) => (
-  <Grid
-    size={6}
-    data-testid={
-      dataTestId ? `${dataTestId}-overview-section` : 'overview-section'
-    }
-  >
-    <Stack>
-      {(title || actionButtonProps) && (
-        <>
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="flex-end"
-          >
-            <Typography color="text.primary" variant="sectionHeading">
-              {title}
-            </Typography>
-            {actionButtonProps && (
-              <Tooltip title={showTooltip ? disabledEditTooltipText : ''}>
-                <Box>
-                  <Button
-                    size="small"
-                    disabled={!editable}
-                    startIcon={<EditOutlinedIcon />}
-                    {...actionButtonProps}
-                  >
-                    {editText}
-                  </Button>
-                </Box>
-              </Tooltip>
-            )}
-          </Stack>
-          <Divider sx={{ mt: 0.25 }} />
-        </>
-      )}
-      <LoadableChildren loading={loading}>
-        <Box sx={{ mt: title || actionButtonProps ? 1 : 0 }}>{children}</Box>
-      </LoadableChildren>
-    </Stack>
-  </Grid>
-);
+  collapsible = false,
+  defaultExpanded = true,
+}: OverviewSectionProps) => {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const hasHeader = !!(title || actionButtonProps || collapsible);
+  const content = (
+    <LoadableChildren loading={loading}>
+      <Box sx={{ mt: hasHeader ? 1 : 0 }}>{children}</Box>
+    </LoadableChildren>
+  );
+
+  return (
+    <Grid
+      size={6}
+      data-testid={
+        dataTestId ? `${dataTestId}-overview-section` : 'overview-section'
+      }
+    >
+      <Stack>
+        {hasHeader && (
+          <>
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="flex-end"
+            >
+              <Typography color="text.primary" variant="sectionHeading">
+                {title}
+              </Typography>
+              {actionButtonProps && (
+                <Tooltip title={showTooltip ? disabledEditTooltipText : ''}>
+                  <Box>
+                    <Button
+                      size="small"
+                      disabled={!editable}
+                      startIcon={<EditOutlinedIcon />}
+                      {...actionButtonProps}
+                    >
+                      {editText}
+                    </Button>
+                  </Box>
+                </Tooltip>
+              )}
+              {collapsible && (
+                <IconButton
+                  size="small"
+                  aria-expanded={expanded}
+                  aria-label={
+                    expanded
+                      ? Messages.actions.collapse
+                      : Messages.actions.expand
+                  }
+                  data-testid={`${dataTestId ?? 'overview-section'}-toggle`}
+                  onClick={() => setExpanded((open) => !open)}
+                  sx={{ p: 0.25 }}
+                >
+                  <KeyboardArrowDownIcon
+                    fontSize="small"
+                    sx={{
+                      transform: expanded ? 'rotate(180deg)' : 'none',
+                      transition: (theme) =>
+                        theme.transitions.create('transform'),
+                    }}
+                  />
+                </IconButton>
+              )}
+            </Stack>
+            <Divider sx={{ mt: 0.25 }} />
+          </>
+        )}
+        {collapsible ? (
+          <Collapse in={expanded} unmountOnExit>
+            {content}
+          </Collapse>
+        ) : (
+          content
+        )}
+      </Stack>
+    </Grid>
+  );
+};
 
 export default OverviewSection;

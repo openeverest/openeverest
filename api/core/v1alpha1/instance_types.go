@@ -30,6 +30,7 @@ import (
 // +kubebuilder:validation:XValidation:rule="!has(self.dataSource) || (has(self.backup) && self.backup.enabled)",message="spec.dataSource requires spec.backup.enabled=true with at least one storage so the provider can read the source backup"
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.dataSource) || (has(self.dataSource) && self.dataSource == oldSelf.dataSource)",message="spec.dataSource is immutable once set"
 // +kubebuilder:validation:XValidation:rule="!has(self.dataSource) || self.dataSource.type != 'PointInTime' || has(self.dataSource.pointInTime.source.instanceRef)",message="spec.dataSource.pointInTime.source.instanceRef is required when seeding an Instance: a new Instance has no stream of its own, so there is no target Instance to default to"
+// +kubebuilder:validation:XValidation:rule="!has(oldSelf.userSecretRef) || (has(self.userSecretRef) && self.userSecretRef == oldSelf.userSecretRef)",message="spec.userSecretRef is immutable once set"
 type InstanceSpec struct {
 	// ProviderRef references the cluster-scoped Provider that manages this
 	// Instance (e.g., "percona-server-mongodb", "postgresql").
@@ -63,9 +64,8 @@ type InstanceSpec struct {
 	// Backup configures the backup feature for this Instance. When enabled,
 	// the provider's reconciler is given the resolved BackupClass and storage
 	// list so it can configure the engine accordingly (sidecars, agent
-	// configuration, etc.). Required for ProviderManaged BackupClasses; Job
-	// classes do not need an entry here because they read directly from
-	// individual Backup CRs.
+	// configuration, etc.). Required to back up the Instance with its
+	// ProviderManaged BackupClass.
 	// +optional
 	Backup *InstanceBackupSpec `json:"backup,omitempty"`
 
@@ -109,6 +109,24 @@ type InstanceSpec struct {
 	// flow (spec.version / spec.components[].version).
 	// +optional
 	Maintenance *MaintenanceSpec `json:"maintenance,omitempty"`
+
+	// UserSecretRef optionally seeds the engine's initial (bootstrap)
+	// credentials from a Secret in the same namespace, for providers whose
+	// engine supports setting initial credentials at creation time.
+	//
+	// When omitted, the provider generates credentials automatically. The
+	// referenced Secret's required keys are provider-specific and validated
+	// by the referenced Provider. The field is immutable once set: initial
+	// credentials only apply at engine creation time, so changing it later
+	// would have no effect.
+	// +optional
+	UserSecretRef *common.SecretRef `json:"userSecretRef,omitempty"`
+
+	// Monitoring configures where this Instance sends monitoring data. Core
+	// creates one MonitoringBinding per destination; the resolved state is
+	// mirrored in status.monitoring.destinations[].
+	// +optional
+	Monitoring *InstanceMonitoringSpec `json:"monitoring,omitempty"`
 }
 
 // InstanceDeletionPolicy controls what happens to Backup and Restore CRs
@@ -260,6 +278,49 @@ type InstanceBackupStorage struct {
 	PITR *InstanceBackupStoragePITR `json:"pitr,omitempty"`
 }
 
+// BackupScheduleRetentionType selects how a schedule's retention is expressed.
+//
+// +kubebuilder:validation:Enum=count;time
+type BackupScheduleRetentionType string
+
+const (
+	// BackupScheduleRetentionTypeCount keeps the N most recent backups.
+	BackupScheduleRetentionTypeCount BackupScheduleRetentionType = "count"
+	// BackupScheduleRetentionTypeTime keeps backups inside a recovery window
+	// expressed as Nd/Nw/Nm.
+	BackupScheduleRetentionTypeTime BackupScheduleRetentionType = "time"
+)
+
+// BackupScheduleRetention configures how backups produced by a schedule are
+// retained. Type selects which field is meaningful:
+//   - count: keep Count recent backups (Count >= 1)
+//   - time:  keep backups within Duration (e.g. "30d", "4w", "2m")
+//
+// Omit Retention on the schedule to keep all backups.
+//
+// +kubebuilder:validation:XValidation:rule="self.type == 'count' ? has(self.count) : true",message="count is required when retention type is count"
+// +kubebuilder:validation:XValidation:rule="self.type == 'count' ? !has(self.duration) : true",message="duration is only allowed when retention type is time"
+// +kubebuilder:validation:XValidation:rule="self.type == 'time' ? !has(self.count) : true",message="count is only allowed when retention type is count"
+// +kubebuilder:validation:XValidation:rule="self.type == 'time' ? has(self.duration) : true",message="duration is required when retention type is time"
+type BackupScheduleRetention struct {
+	// Type selects count-based or time-based retention.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:default=count
+	Type BackupScheduleRetentionType `json:"type"`
+	// Count is the number of recent backups to keep when Type is count.
+	// Required when Type is count (minimum 1). Forbidden when Type is time.
+	// Omit Retention on the schedule to keep all backups.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	Count *int32 `json:"count,omitempty"`
+	// Duration is the recovery window when Type is time, in the form
+	// <positive-integer><unit> where unit is d (days), w (weeks), or m
+	// (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+	// +optional
+	// +kubebuilder:validation:Pattern=`^[1-9][0-9]*[dwm]$`
+	Duration string `json:"duration,omitempty"`
+}
+
 // InstanceBackupSchedule configures a recurring backup task on the engine
 // for the parent storage. The provider translates each schedule into the
 // engine's native scheduler (e.g. PSMDB BackupTaskSpec, PXC
@@ -283,12 +344,10 @@ type InstanceBackupSchedule struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Cron string `json:"cron"`
-	// RetentionCopies is the number of recent backups to keep for this
-	// schedule. Zero (or unset) means "keep all". Negative values are
-	// rejected.
-	// +kubebuilder:validation:Minimum=0
+	// Retention configures count-based or time-based backup retention for
+	// this schedule. Unset keeps all backups.
 	// +optional
-	RetentionCopies int32 `json:"retentionCopies,omitempty"`
+	Retention *BackupScheduleRetention `json:"retention,omitempty"`
 	// Parameters is schedule-specific structured configuration validated
 	// against the BackupClass's .spec.parametersSchema. When unset the
 	// provider falls back to engine defaults. The schema is the same as for
@@ -328,8 +387,6 @@ type TopologySpec struct {
 }
 
 type ComponentSpec struct {
-	// Name of the component.
-	Name string `json:"name,omitempty"`
 	// Type of the component from the Provider.
 	Type string `json:"type,omitempty"`
 	// Version of the component from ComponentVersions.
@@ -397,12 +454,12 @@ type Storage struct {
 	StorageClass *string           `json:"storageClass,omitempty"`
 }
 
-// GetComponentsOfType returns all components that match the given type.
-func (in *Instance) GetComponentsOfType(t string) []ComponentSpec {
-	var result []ComponentSpec
-	for _, c := range in.Spec.Components {
+// GetComponentsOfType returns the components of the given type, keyed by name.
+func (in *Instance) GetComponentsOfType(t string) map[string]ComponentSpec {
+	result := make(map[string]ComponentSpec)
+	for name, c := range in.Spec.Components {
 		if c.Type == t {
-			result = append(result, c)
+			result[name] = c
 		}
 	}
 	return result
@@ -459,6 +516,12 @@ func (sr *SourceRanges) NormalizedSourceRanges() SourceRanges {
 
 // InstanceStatus defines the observed state of Instance.
 type InstanceStatus struct {
+	// ObservedGeneration is the metadata.generation the provider-runtime last
+	// reconciled. Status describes an older spec while it is lower than
+	// metadata.generation.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
 	// Phase of the database cluster.
 	Phase InstancePhase `json:"phase,omitempty"`
 
@@ -489,7 +552,11 @@ type InstanceStatus struct {
 	//
 	// +optional
 	ConnectionSecretRef *common.SecretRef `json:"connectionSecretRef,omitempty"`
-	// Components is the status of the components in the database cluster.
+	// Components reports how many pods each component has and how many are Ready.
+	//
+	// +optional
+	// +listType=map
+	// +listMapKey=name
 	Components []ComponentStatus `json:"components,omitempty"`
 
 	// Message is a custom user-facing message describing the current state of the instance.
@@ -506,6 +573,11 @@ type InstanceStatus struct {
 	// never go stale: an action the provider stops requesting disappears.
 	// +optional
 	PendingMaintenance []PendingMaintenanceAction `json:"pendingMaintenance,omitempty"`
+	// Monitoring is what the Instance exposes to monitoring (sources) and
+	// one read-only summary per spec.monitoring.destinations[] entry.
+	// Written only by provider-runtime.
+	// +optional
+	Monitoring *InstanceMonitoringStatus `json:"monitoring,omitempty"`
 	// +listType=map
 	// +listMapKey=type
 	// +optional
@@ -657,6 +729,14 @@ const (
 
 // Condition types for Instance.
 const (
+	// ConditionReady summarises the Instance for kubectl wait, Argo CD and
+	// Flux. It is False with reason ProviderNotFound, UserSecretNotFound or
+	// ValidationFailed while one of them blocks the Instance, whatever the
+	// phase. Otherwise it is True when the phase is Ready and neither
+	// BackupConfigured nor DataSourceReady is False; else it is False with the
+	// reason and message of the False condition, or with the phase as reason.
+	ConditionReady = "Ready"
+
 	// ConditionConnectionDetailsReady indicates whether the connection
 	// details Secret has been populated by the provider.
 	ConditionConnectionDetailsReady = "ConnectionDetailsReady"
@@ -680,6 +760,22 @@ const (
 	// resolution or PITR wiring error).
 	ConditionBackupConfigured = "BackupConfigured"
 
+	// ConditionMonitoringConfigured aggregates status.monitoring.destinations[]:
+	// False if any entry is not Accepted or Configured=False, else Unknown if
+	// any entry is Unknown or has no binding yet, else True. Its message lists
+	// "entry: reason" for every non-True entry. Absent when spec.monitoring
+	// has no destinations.
+	ConditionMonitoringConfigured = "MonitoringConfigured"
+
+	// ConditionMonitoringReady aggregates the Ready condition of
+	// status.monitoring.destinations[] the same way MonitoringConfigured
+	// aggregates Configured: False if any entry is Ready=False, else Unknown
+	// if any is Unknown, else True. It goes False when a destination is not
+	// Ready even though every entry is Configured. It never claims data
+	// flows and does not affect the Instance's Ready. Absent when
+	// spec.monitoring has no destinations.
+	ConditionMonitoringReady = "MonitoringReady"
+
 	// ConditionDataSourceReady indicates the outcome of seeding an Instance
 	// from .spec.dataSource. The condition is set only when the Instance has
 	// a DataSource configured. Status=True means the source data has been
@@ -702,6 +798,69 @@ const (
 	// and False once nothing is held. The database keeps running while the
 	// condition is True — a held action never affects availability.
 	ConditionMaintenancePending = "MaintenancePending"
+
+	// ConditionPodsScheduled is False once a pod has waited more than a minute
+	// for a node, for example because a required anti-affinity needs more
+	// nodes than the cluster has. The message has one line per affected
+	// component and quotes the scheduler. Only set when the provider labels
+	// its pods.
+	ConditionPodsScheduled = "PodsScheduled"
+
+	// ConditionPodsReady is False while a pod is not Ready. The reason names
+	// the worst problem found: CrashLoopBackOff, ImagePullBackOff,
+	// CreateContainerConfigError, then NotReady. The message has one line per
+	// affected component. Only set when the provider labels its pods.
+	ConditionPodsReady = "PodsReady"
+)
+
+// Reasons for the Ready condition. Ready=True uses ReasonReady.
+const (
+	// ReasonProviderNotFound indicates the Provider named by
+	// spec.providerRef does not exist. The provider is not called.
+	ReasonProviderNotFound = "ProviderNotFound"
+
+	// ReasonUserSecretNotFound indicates the Secret named by
+	// spec.userSecretRef does not exist. The provider is not called, so a new
+	// Instance waits instead of being seeded with generated credentials.
+	ReasonUserSecretNotFound = "UserSecretNotFound"
+
+	// ReasonValidationFailed indicates the provider rejected the spec. The
+	// message carries the provider's error.
+	ReasonValidationFailed = "ValidationFailed"
+
+	// ReasonInvalidReference indicates an object the Instance names exists but
+	// its contents don't fit the Instance, such as a user Secret missing a key
+	// the provider needs. The provider is not called.
+	ReasonInvalidReference = "InvalidReference"
+)
+
+// Reasons for the PodsScheduled condition.
+const (
+	// ReasonScheduled indicates no pod has waited more than a minute for a node.
+	ReasonScheduled = "Scheduled"
+
+	// ReasonUnschedulable indicates a pod fits no node.
+	ReasonUnschedulable = "Unschedulable"
+)
+
+// Reasons for the PodsReady condition.
+const (
+	// ReasonReady indicates every pod is Ready.
+	ReasonReady = "Ready"
+
+	// ReasonCrashLoopBackOff indicates a container keeps exiting after it starts.
+	ReasonCrashLoopBackOff = "CrashLoopBackOff"
+
+	// ReasonImagePullBackOff indicates a container image cannot be pulled.
+	ReasonImagePullBackOff = "ImagePullBackOff"
+
+	// ReasonCreateContainerConfigError indicates a container cannot be created,
+	// typically because a Secret or ConfigMap it uses is missing.
+	ReasonCreateContainerConfigError = "CreateContainerConfigError"
+
+	// ReasonNotReady indicates a pod is not Ready for no reason listed above,
+	// for example while it starts.
+	ReasonNotReady = "NotReady"
 )
 
 // Reasons for the MaintenancePending condition.
@@ -715,6 +874,65 @@ const (
 	// held; everything the provider requested was within the Instance's
 	// standing tolerance or has been applied.
 	ReasonNoActionsPending = "NoActionsPending"
+
+	// ReasonRetriesExhausted indicates an approved disruptive action kept
+	// failing and the runtime stopped retrying it so a crash-looping
+	// provider cannot repeatedly disrupt the database. Changing
+	// spec.maintenance.approved re-arms the retries: set it to the pending
+	// action's token (for actions auto-approved by autoApproveUpTo), or
+	// clear and re-set it.
+	ReasonRetriesExhausted = "RetriesExhausted"
+)
+
+// Reasons for the BackupConfigured condition set by the provider-runtime before
+// it calls the provider. Providers set their own reasons through
+// BackupConfigError.
+const (
+	// ReasonBackupClassNotFound indicates the BackupClass named by
+	// spec.backup.classRef does not exist.
+	ReasonBackupClassNotFound = "BackupClassNotFound"
+
+	// ReasonBackupClassIncompatible indicates the BackupClass named by
+	// spec.backup.classRef is not ProviderManaged or does not list the
+	// Instance's provider in spec.supportedProviders.
+	ReasonBackupClassIncompatible = "BackupClassIncompatible"
+
+	// ReasonBackupStorageNotFound indicates a BackupStorage named in
+	// spec.backup.storages does not exist in the Instance's namespace.
+	ReasonBackupStorageNotFound = "BackupStorageNotFound"
+
+	// ReasonBackupStorageCredentialsNotFound indicates the credentials
+	// Secret of a BackupStorage named in spec.backup.storages does not exist.
+	ReasonBackupStorageCredentialsNotFound = "BackupStorageCredentialsNotFound"
+)
+
+// Reasons for the MonitoringConfigured condition.
+const (
+	// ReasonMonitoringConfigured indicates every destination is Configured.
+	ReasonMonitoringConfigured = "MonitoringConfigured"
+
+	// ReasonMonitoringNotConfigured indicates at least one destination is
+	// not Accepted or not Configured.
+	ReasonMonitoringNotConfigured = "MonitoringNotConfigured"
+
+	// ReasonMonitoringPending indicates at least one destination has not
+	// reported yet.
+	ReasonMonitoringPending = "MonitoringPending"
+
+	// ReasonMonitoringIntegrationUnsupported indicates the provider
+	// implements no monitoring interface, so no destination can be served.
+	ReasonMonitoringIntegrationUnsupported = "MonitoringIntegrationUnsupported"
+)
+
+// Reasons for the MonitoringReady condition, besides ReasonMonitoringPending
+// and ReasonMonitoringIntegrationUnsupported.
+const (
+	// ReasonMonitoringReady indicates every destination is Ready.
+	ReasonMonitoringReady = "MonitoringReady"
+
+	// ReasonMonitoringNotReady indicates at least one destination is not
+	// Ready.
+	ReasonMonitoringNotReady = "MonitoringNotReady"
 )
 
 // Reasons for the DataSourceReady condition.
@@ -762,6 +980,13 @@ const (
 	// BackupClass either does not exist, is not ProviderManaged, or does not
 	// list the target Instance's provider in SupportedProviders.
 	ReasonDataSourceClassUnsupported = "BackupClassUnsupported"
+
+	// ReasonDataSourceUserSecretMismatch indicates the restore failed terminally
+	// because the credentials in the Secret named by spec.userSecretRef differ
+	// from the users stored in the source backup data, so the engine cannot
+	// authenticate against the restored data. Like every False
+	// DataSourceReady reason, it is also propagated to Ready.
+	ReasonDataSourceUserSecretMismatch = "UserSecretMismatch"
 )
 
 // Reasons for the ComponentVersionDeprecated condition.
@@ -770,6 +995,12 @@ const (
 	// version is deprecated in the installed Provider catalog and is dropped
 	// in a future provider release named in the condition message.
 	ReasonScheduledForRemoval = "ScheduledForRemoval"
+
+	// ReasonVersionsUnsupported indicates at least one effective component
+	// version is no longer supported by the installed Provider catalog at
+	// all — past its removal release or absent entirely. Upgrade the
+	// database to a supported version.
+	ReasonVersionsUnsupported = "VersionsUnsupported"
 
 	// ReasonVersionsSupported indicates every effective component version is
 	// fully supported by the installed Provider catalog.
@@ -824,13 +1055,20 @@ const (
 	ReasonUpgradeFailed = "UpgradeFailed"
 )
 
+// ComponentStatus counts the pods of one component.
 type ComponentStatus struct {
-	// PodRefs references the Pods backing this component.
+	// Name is a key of spec.components.
+	Name string `json:"name"`
+	// Selector selects the component's pods in the Instance's namespace, in
+	// the form kubectl get pods -l accepts.
 	// +optional
-	PodRefs []common.ObjectRef `json:"podRefs,omitempty"`
-	Total   *int32             `json:"total,omitempty"`
-	Ready   *int32             `json:"ready,omitempty"`
-	State   string             `json:"state,omitempty"`
+	Selector string `json:"selector,omitempty"`
+	// Replicas is the number of the component's pods that are not terminating.
+	// +optional
+	Replicas *int32 `json:"replicas,omitempty"`
+	// ReadyReplicas is the number of those pods that are Ready.
+	// +optional
+	ReadyReplicas *int32 `json:"readyReplicas,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -839,6 +1077,8 @@ type ComponentStatus struct {
 // +kubebuilder:printcolumn:name="Provider",type="string",JSONPath=".spec.providerRef.name"
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.version"
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
+// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Topology",type="string",JSONPath=".spec.topology.type",priority=1
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.message",priority=1

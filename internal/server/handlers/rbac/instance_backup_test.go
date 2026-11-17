@@ -16,7 +16,6 @@ package rbac
 
 import (
 	"context"
-	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -48,6 +47,9 @@ func TestRBAC_InstanceBackup(t *testing.T) {
 		return h
 	}
 
+	// ListInstanceBackups is gated on the instance ("db1") it's scoped to,
+	// not on each backup's own generateName-produced name.
+	// Access is all-or-nothing per case rather than a partial filter.
 	t.Run("ListInstanceBackups", func(t *testing.T) {
 		t.Parallel()
 
@@ -56,7 +58,7 @@ func TestRBAC_InstanceBackup(t *testing.T) {
 			cluster string
 			ns      string
 			policy  string
-			assert  func(list *backupv1alpha1.BackupList) bool
+			wantErr error
 		}{
 			{
 				desc:    "admin",
@@ -65,72 +67,44 @@ func TestRBAC_InstanceBackup(t *testing.T) {
 				policy: newPolicy(
 					"g, bob, role:admin",
 				),
-				assert: func(list *backupv1alpha1.BackupList) bool {
-					return len(list.Items) == 3
-				},
 			},
 			{
-				desc:    "all backups with namespace wildcard",
+				desc:    "exact match on the instance",
+				cluster: "prod",
+				ns:      "ns1",
+				policy: newPolicy(
+					"p, role:test, backups, read, prod/ns1/db1",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:    "namespace wildcard",
 				cluster: "prod",
 				ns:      "ns1",
 				policy: newPolicy(
 					"p, role:test, backups, read, prod/ns1/*",
 					"g, bob, role:test",
 				),
-				assert: func(list *backupv1alpha1.BackupList) bool {
-					return len(list.Items) == 3
-				},
-			},
-			{
-				desc:    "specific backup",
-				cluster: "prod",
-				ns:      "ns1",
-				policy: newPolicy(
-					"p, role:test, backups, read, prod/ns1/backup-daily-1",
-					"g, bob, role:test",
-				),
-				assert: func(list *backupv1alpha1.BackupList) bool {
-					return len(list.Items) == 1 && list.Items[0].Name == "backup-daily-1"
-				},
-			},
-			{
-				desc:    "two specific backups",
-				cluster: "prod",
-				ns:      "ns1",
-				policy: newPolicy(
-					"p, role:test, backups, read, prod/ns1/backup-daily-1",
-					"p, role:test, backups, read, prod/ns1/backup-ondemand-1",
-					"g, bob, role:test",
-				),
-				assert: func(list *backupv1alpha1.BackupList) bool {
-					return len(list.Items) == 2 &&
-						slices.ContainsFunc(list.Items, func(b backupv1alpha1.Backup) bool { return b.Name == "backup-daily-1" }) &&
-						slices.ContainsFunc(list.Items, func(b backupv1alpha1.Backup) bool { return b.Name == "backup-ondemand-1" })
-				},
 			},
 			{
 				desc:    "wrong cluster",
 				cluster: "prod",
 				ns:      "ns1",
 				policy: newPolicy(
-					"p, role:test, backups, read, staging/ns1/*",
+					"p, role:test, backups, read, staging/ns1/db1",
 					"g, bob, role:test",
 				),
-				assert: func(list *backupv1alpha1.BackupList) bool {
-					return len(list.Items) == 0
-				},
+				wantErr: ErrInsufficientPermissions,
 			},
 			{
 				desc:    "wrong namespace",
 				cluster: "prod",
 				ns:      "ns1",
 				policy: newPolicy(
-					"p, role:test, backups, read, prod/ns2/*",
+					"p, role:test, backups, read, prod/ns2/db1",
 					"g, bob, role:test",
 				),
-				assert: func(list *backupv1alpha1.BackupList) bool {
-					return len(list.Items) == 0
-				},
+				wantErr: ErrInsufficientPermissions,
 			},
 			{
 				desc:    "no permissions",
@@ -139,9 +113,7 @@ func TestRBAC_InstanceBackup(t *testing.T) {
 				policy: newPolicy(
 					"g, bob, role:test",
 				),
-				assert: func(list *backupv1alpha1.BackupList) bool {
-					return len(list.Items) == 0
-				},
+				wantErr: ErrInsufficientPermissions,
 			},
 			{
 				desc:    "has instance read but not backup read",
@@ -151,13 +123,11 @@ func TestRBAC_InstanceBackup(t *testing.T) {
 					"p, role:test, instances, read, prod/ns1/*",
 					"g, bob, role:test",
 				),
-				assert: func(list *backupv1alpha1.BackupList) bool {
-					return len(list.Items) == 0
-				},
+				wantErr: ErrInsufficientPermissions,
 			},
 		}
 
-		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"})
+		ctx := context.WithValue(context.Background(), common.UserCtxKey, rbac.User{Subject: "bob"}) //nolint:staticcheck
 		for _, tc := range testCases {
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
@@ -174,10 +144,12 @@ func TestRBAC_InstanceBackup(t *testing.T) {
 				}
 
 				list, err := h.ListInstanceBackups(ctx, tc.cluster, tc.ns, "db1")
-				require.NoError(t, err)
-				assert.Condition(t, func() bool {
-					return tc.assert(list)
-				})
+				if tc.wantErr != nil {
+					require.ErrorIs(t, err, tc.wantErr)
+				} else {
+					require.NoError(t, err)
+					assert.Len(t, list.Items, 3)
+				}
 			})
 		}
 	})

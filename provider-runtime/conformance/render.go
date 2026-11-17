@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -170,7 +171,7 @@ func render(
 		return obs, err
 	}
 
-	instance, err := buildInstance(spec, cfg.Provider.Name(), topology, path, value)
+	instance, err := buildInstance(spec, cfg.Provider.Name(), topology, map[string]any{path: value})
 	if err != nil {
 		return obs, err
 	}
@@ -198,6 +199,10 @@ func render(
 				obs.applied = append(obs.applied, serialize(obj))
 				return c.Update(ctx, obj, opts...)
 			},
+			Apply: func(ctx context.Context, c client.WithWatch, obj runtime.ApplyConfiguration, opts ...client.ApplyOption) error {
+				obs.applied = append(obs.applied, serialize(obj))
+				return c.Apply(ctx, obj, opts...)
+			},
 		}).
 		Build()
 
@@ -224,19 +229,23 @@ func buildScheme(provider ProviderUnderTest) (*runtime.Scheme, error) {
 }
 
 // buildInstance assembles the smallest Instance the topology allows: every
-// required component, plus whichever optional component the path addresses.
+// required component, plus whichever optional components the paths address,
+// carrying each non-nil value at its path.
 func buildInstance(
 	spec *corev1alpha1.ProviderSpec,
-	providerName, topology, path string,
-	value any,
+	providerName, topology string,
+	values map[string]any,
 ) (*corev1alpha1.Instance, error) {
+	paths := sortedKeys(values)
+
 	components := map[string]any{}
 	for name, topologyComponent := range spec.Topologies[topology].Components {
-		if topologyComponent.Optional && !addressesComponent(path, name) {
+		if topologyComponent.Optional && !slices.ContainsFunc(paths, func(path string) bool {
+			return addressesComponent(path, name)
+		}) {
 			continue
 		}
 		components[name] = map[string]any{
-			"name": name,
 			"type": spec.Components[name].Type,
 		}
 	}
@@ -255,15 +264,18 @@ func buildInstance(
 		},
 	}
 
-	if value != nil {
-		if err := unstructured.SetNestedField(object, value, strings.Split(path, ".")...); err != nil {
+	for _, path := range paths {
+		if values[path] == nil {
+			continue
+		}
+		if err := unstructured.SetNestedField(object, values[path], strings.Split(path, ".")...); err != nil {
 			return nil, fmt.Errorf("setting %s: %w", path, err)
 		}
 	}
 
 	instance := &corev1alpha1.Instance{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(object, instance); err != nil {
-		return nil, fmt.Errorf("building an Instance with %s set: %w", path, err)
+		return nil, fmt.Errorf("building an Instance with %s set: %w", strings.Join(paths, ", "), err)
 	}
 	return instance, nil
 }
@@ -272,7 +284,7 @@ func addressesComponent(path, component string) bool {
 	return strings.HasPrefix(path, "spec."+componentsSegment+"."+component+".")
 }
 
-func serialize(obj client.Object) string {
+func serialize(obj any) string {
 	data, err := json.Marshal(obj)
 	if err != nil {
 		return ""

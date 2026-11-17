@@ -11,6 +11,7 @@ import (
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +26,7 @@ import (
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/events"
 )
 
 // KubernetesConnector ...
@@ -56,8 +58,12 @@ type KubernetesConnector interface {
 	CreateBackupStorage(ctx context.Context, storage *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
 	// UpdateBackupStorage updates a backup storage.
 	UpdateBackupStorage(ctx context.Context, storage *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
+	// PatchBackupStorage patches a backup storage using the provided patch.
+	PatchBackupStorage(ctx context.Context, storage *backupv1alpha1.BackupStorage, patch ctrlclient.Patch, opts ...ctrlclient.PatchOption) (*backupv1alpha1.BackupStorage, error)
 	// DeleteBackupStorage deletes a backup storage.
 	DeleteBackupStorage(ctx context.Context, obj *backupv1alpha1.BackupStorage) error
+	// ListBackups returns list of backups that match the criteria.
+	ListBackups(ctx context.Context, opts ...ctrlclient.ListOption) (*backupv1alpha1.BackupList, error)
 	// GetBackup returns backup that matches the criteria.
 	GetBackup(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.Backup, error)
 	// DeleteBackup deletes backup that matches the criteria.
@@ -70,6 +76,14 @@ type KubernetesConnector interface {
 	ListBackupClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*backupv1alpha1.BackupClassList, error)
 	// GetBackupClass returns backup class that matches the criteria.
 	GetBackupClass(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.BackupClass, error)
+	// GetBackupImport returns backup import that matches the criteria.
+	GetBackupImport(ctx context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.BackupImport, error)
+	// ListBackupImports returns a list of backup imports in a given namespace.
+	ListBackupImports(ctx context.Context, opts ...ctrlclient.ListOption) (*backupv1alpha1.BackupImportList, error)
+	// CreateBackupImport creates backup import.
+	CreateBackupImport(ctx context.Context, backupImport *backupv1alpha1.BackupImport) (*backupv1alpha1.BackupImport, error)
+	// DeleteBackupImport deletes backup import that matches the criteria.
+	DeleteBackupImport(ctx context.Context, obj *backupv1alpha1.BackupImport) error
 	// GetCatalogSource returns catalog source that matches the criteria.
 	GetCatalogSource(ctx context.Context, key ctrlclient.ObjectKey) (*olmv1alpha1.CatalogSource, error)
 	// DeleteCatalogSource deletes catalog source that matches the criteria.
@@ -195,47 +209,32 @@ type KubernetesConnector interface {
 	GetEverestID(ctx context.Context) (string, error)
 	// GetClusterType tries to guess the underlying kubernetes cluster based on storage class.
 	GetClusterType(ctx context.Context) (ClusterType, error)
-	// ListMonitoringConfigs returns list of managed monitoring configs that match the criteria.
-	// This method returns a list of full objects (meta and spec).
-	ListMonitoringConfigs(ctx context.Context, opts ...ctrlclient.ListOption) (*everestv1alpha1.MonitoringConfigList, error)
-	// GetMonitoringConfig returns monitoring config(full object) that matches the criteria.
-	GetMonitoringConfig(ctx context.Context, key ctrlclient.ObjectKey) (*everestv1alpha1.MonitoringConfig, error)
-	// GetMonitoringConfigMeta returns monitoring config(metadata only) that matches the criteria.
-	GetMonitoringConfigMeta(ctx context.Context, key ctrlclient.ObjectKey) (*metav1.PartialObjectMetadata, error)
-	// CreateMonitoringConfig creates monitoring config.
-	CreateMonitoringConfig(ctx context.Context, config *everestv1alpha1.MonitoringConfig) (*everestv1alpha1.MonitoringConfig, error)
-	// UpdateMonitoringConfig updates monitoring config.
-	UpdateMonitoringConfig(ctx context.Context, config *everestv1alpha1.MonitoringConfig) (*everestv1alpha1.MonitoringConfig, error)
-	// DeleteMonitoringConfig deletes monitoring config that matches the criteria.
-	DeleteMonitoringConfig(ctx context.Context, obj *everestv1alpha1.MonitoringConfig) error
-	// DeleteMonitoringConfigs deletes monitoring configs that matches the criteria.
-	// This function will wait until all configs are deleted.
-	DeleteMonitoringConfigs(ctx context.Context, opts ...ctrlclient.ListOption) error
-	// ListMonitoringConfigsV2 returns list of managed monitoring configs that match the criteria.
-	// This method returns a list of full objects (meta and spec).
-	//
-	// TODO Rename it to ListMonitoringConfigs once v1 code is removed.
-	ListMonitoringConfigsV2(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringConfigList, error)
-	// GetMonitoringConfigV2 returns monitoring config(full object) that matches the criteria.
-	//
-	// TODO Rename it to GetMonitoringConfig once v1 code is removed.
-	GetMonitoringConfigV2(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringConfig, error)
-	// GetMonitoringConfigMetaV2 returns monitoring config(metadata only) that matches the criteria.
-	//
-	// TODO Rename it to GetMonitoringConfigMeta once v1 code is removed.
-	GetMonitoringConfigMetaV2(ctx context.Context, key ctrlclient.ObjectKey) (*metav1.PartialObjectMetadata, error)
-	// CreateMonitoringConfigV2 creates monitoring config.
-	//
-	// TODO Rename it to CreateMonitoringConfig once v1 code is removed.
-	CreateMonitoringConfigV2(ctx context.Context, config *monitoringv1alpha1.MonitoringConfig) (*monitoringv1alpha1.MonitoringConfig, error)
-	// UpdateMonitoringConfigV2 updates monitoring config.
-	//
-	// TODO Rename it to UpdateMonitoringConfig once v1 code is removed.
-	UpdateMonitoringConfigV2(ctx context.Context, config *monitoringv1alpha1.MonitoringConfig) (*monitoringv1alpha1.MonitoringConfig, error)
-	// DeleteMonitoringConfigV2 deletes monitoring config that matches the criteria.
-	//
-	// TODO Rename it to DeleteMonitoringConfig once v1 code is removed.
-	DeleteMonitoringConfigV2(ctx context.Context, obj *monitoringv1alpha1.MonitoringConfig) error
+	// ListLegacyMonitoringConfigs returns the metadata of every MonitoringConfig in the cluster.
+	// The list is empty when the cluster no longer serves the MonitoringConfig kind.
+	ListLegacyMonitoringConfigs(ctx context.Context) (*metav1.PartialObjectMetadataList, error)
+	// ListMonitoringClasses returns list of monitoring classes that match the criteria.
+	ListMonitoringClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringClassList, error)
+	// GetMonitoringClass returns monitoring class that matches the criteria.
+	GetMonitoringClass(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringClass, error)
+	// ListMonitoringDestinations returns list of monitoring destinations that match the criteria.
+	ListMonitoringDestinations(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringDestinationList, error)
+	// GetMonitoringDestination returns a monitoring destination by name and namespace.
+	GetMonitoringDestination(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringDestination, error)
+	// CreateMonitoringDestination creates a monitoring destination.
+	CreateMonitoringDestination(ctx context.Context, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error)
+	// UpdateMonitoringDestination updates a monitoring destination.
+	UpdateMonitoringDestination(ctx context.Context, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error)
+	// DeleteMonitoringDestination deletes a monitoring destination.
+	DeleteMonitoringDestination(ctx context.Context, obj *monitoringv1alpha1.MonitoringDestination) error
+	// DeleteUnusedMonitoringDestinations deletes the monitoring destinations that
+	// match the criteria and that no Instance lists. The API server refuses
+	// deleting the others while they are in use: they go with their namespace,
+	// or stay with the Instances that use them.
+	DeleteUnusedMonitoringDestinations(ctx context.Context, opts ...ctrlclient.ListOption) error
+	// ListMonitoringBindings returns list of monitoring bindings that match the criteria.
+	ListMonitoringBindings(ctx context.Context, opts ...ctrlclient.ListOption) (*monitoringv1alpha1.MonitoringBindingList, error)
+	// GetMonitoringBinding returns a monitoring binding by name and namespace.
+	GetMonitoringBinding(ctx context.Context, key ctrlclient.ObjectKey) (*monitoringv1alpha1.MonitoringBinding, error)
 	// CreateNamespace creates the given namespace.
 	CreateNamespace(ctx context.Context, namespace *corev1.Namespace) (*corev1.Namespace, error)
 	// GetNamespace returns a namespace that matches the criteria.
@@ -372,32 +371,29 @@ type KubernetesConnector interface {
 	UpdateInstance(ctx context.Context, instance *v1alpha1.Instance) (*v1alpha1.Instance, error)
 	// PatchInstance patches instance using the provided patch.
 	PatchInstance(ctx context.Context, instance *v1alpha1.Instance, patch ctrlclient.Patch, opts ...ctrlclient.PatchOption) (*v1alpha1.Instance, error)
-	// ListInstancePresets returns list of instance presets that match the criteria.
+	// ListClusterInstancePresets returns list of cluster instance presets that match the criteria.
+	ListClusterInstancePresets(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.ClusterInstancePresetList, error)
+	// GetClusterInstancePreset returns a cluster instance preset that matches the criteria.
+	GetClusterInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.ClusterInstancePreset, error)
+	// ListInstancePresets returns list of namespace-scoped instance presets that match the criteria.
 	ListInstancePresets(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.InstancePresetList, error)
-	// GetInstancePreset returns instance preset that matches the criteria.
+	// GetInstancePreset returns a namespace-scoped instance preset that matches the criteria.
 	GetInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.InstancePreset, error)
-	// WatchBackups returns a watch.Interface that streams
-	// Backup events across all namespaces.
-	WatchBackups(ctx context.Context) (watch.Interface, error)
-	// WatchRestores returns a watch.Interface that streams
-	// Restore events across all namespaces.
-	WatchRestores(ctx context.Context) (watch.Interface, error)
-	// WatchInstances returns a watch.Interface that streams
-	// Instance events across all namespaces.
-	WatchInstances(ctx context.Context) (watch.Interface, error)
-	// WatchPlugins returns a watch.Interface that streams Plugin CR events.
-	// Plugin is cluster-scoped.
-	WatchPlugins(ctx context.Context) (watch.Interface, error)
-	// WatchInstalledExtensions returns a watch.Interface that streams
-	// InstalledExtension events across all namespaces.
-	WatchInstalledExtensions(ctx context.Context) (watch.Interface, error)
-	// WatchEverestManagedNamespaces returns a watch.Interface that streams
-	// events for Namespaces carrying the Everest managed-by label.
-	WatchEverestManagedNamespaces(ctx context.Context) (watch.Interface, error)
-	// WatchEverestSettings returns a watch.Interface that streams ConfigMap
-	// events for the Everest settings ConfigMap in the system namespace.
-	// Callers must filter results by name (the watch returns all ConfigMaps in
-	// the namespace; field-selector watches are not portable across the
-	// controller-runtime client).
-	WatchEverestSettings(ctx context.Context) (watch.Interface, error)
+	// CreateInstancePreset creates a namespace-scoped instance preset.
+	CreateInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) (*v1alpha1.InstancePreset, error)
+	// UpdateInstancePreset updates a namespace-scoped instance preset.
+	UpdateInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) (*v1alpha1.InstancePreset, error)
+	// DeleteInstancePreset deletes a namespace-scoped instance preset.
+	DeleteInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) error
+	// RecordLifecycleEvent records r as a lifecycle event.
+	RecordLifecycleEvent(ctx context.Context, r events.Record) error
+	// ListLifecycleEvents lists the lifecycle events (see pkg/events) in namespace, or in
+	// all namespaces when namespace is empty.
+	ListLifecycleEvents(ctx context.Context, namespace string, limit int64, continueToken string) (*eventsv1.EventList, error)
+	// WatchLifecycleEvents watches lifecycle events recorded after resourceVersion, or from
+	// now on when it is empty. The caller reconnects from its last received resourceVersion
+	// if the watch closes.
+	//
+	//nolint:ireturn // watch.Interface is the client-go streaming contract
+	WatchLifecycleEvents(ctx context.Context, namespace, resourceVersion string) (watch.Interface, error)
 }

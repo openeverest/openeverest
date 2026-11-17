@@ -14,13 +14,14 @@
 
 import { useMemo } from 'react';
 import { z } from 'zod';
-import { Section, TopologyUISchemas } from '../ui-generator.types';
+import { FormMode, Section, TopologyUISchemas } from '../ui-generator.types';
 import { getSteps, buildSectionFieldMap } from '../utils/component-renderer';
 import { buildZodSchema } from '../utils/schema-builder';
 
 export const useUiGenerator = (
   schema: TopologyUISchemas,
-  selectedTopology: string
+  selectedTopology: string,
+  formMode?: FormMode
 ): {
   sections: { [key: string]: Section };
   sectionsOrder?: string[];
@@ -33,8 +34,8 @@ export const useUiGenerator = (
   );
 
   const zodSchema = useMemo(
-    () => buildZodSchema(schema, selectedTopology),
-    [schema, selectedTopology]
+    () => buildZodSchema(schema, selectedTopology, { formMode }),
+    [schema, selectedTopology, formMode]
   );
 
   const sectionFieldMap = useMemo(

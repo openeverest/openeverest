@@ -72,5 +72,10 @@ const convertToZodRecursively = (obj: unknown): z.ZodTypeAny => {
   // This is critical for section-edit mode where the Zod shape only covers
   // one section's fields but CEL superRefine needs access to fields from
   // other sections (e.g. spec.topology.config.shards).
-  return z.object(shape).passthrough();
+  const object = z.object(shape).passthrough();
+  // Edit mode leaves unset optional fields undefined, so their parent object may
+  // be absent too; it is only required when something inside it is.
+  return Object.values(shape).every((child) => child.isOptional())
+    ? object.optional()
+    : object;
 };

@@ -126,7 +126,9 @@ func (u *Upgrade) upgradeCustomResourceDefinitions(ctx context.Context) error {
 	}); err != nil {
 		return fmt.Errorf("could not initialize Helm installer: %w", err)
 	}
-	return installer.Install(ctx)
+	// The release is created by the first upgrade that runs this step, so on every
+	// subsequent upgrade it already exists at the previous version.
+	return installer.InstallOrUpgrade(ctx, helm.UpgradeOptions{})
 }
 
 // legacyUpgradeCRDs upgrades the CRDs for any version below 1.9.0.
@@ -299,15 +301,6 @@ func (u *Upgrade) cleanupLegacyResources(ctx context.Context) error {
 		return fmt.Errorf("could not delete operator='%s' in namespace='%s': %w",
 			common.EverestOperatorName,
 			u.kubeConnector.Namespace(),
-			err,
-		)
-	}
-	// Delete resources related to victoria metrics operator Subscription.
-	if err := deleteOLMOperator(ctx, u.kubeConnector, common.VictoriaMetricsOperatorName, common.MonitoringNamespace); err != nil {
-		return fmt.Errorf(
-			"could not delete operator='%s' in namespace='%s': %w",
-			common.VictoriaMetricsOperatorName,
-			common.MonitoringNamespace,
 			err,
 		)
 	}

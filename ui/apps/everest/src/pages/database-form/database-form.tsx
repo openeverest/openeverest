@@ -29,6 +29,7 @@ import { useCreateDbInstance } from 'hooks/api/db-instances/useCreateDbInstance'
 import { DB_INSTANCES_QUERY_KEY } from 'hooks/api/db-instances/useDbInstanceList';
 import { buildRestoreDataSource } from 'hooks/api/restores/restore-data-source';
 import { useActiveBreakpoint } from 'hooks/utils/useActiveBreakpoint';
+import { RestoreDataSourceInput } from 'shared-types/restores.types';
 import { DbWizardType } from './database-form-schema';
 import DatabaseFormCancelDialog from './database-form-cancel-dialog/index';
 import DatabaseFormBody from './database-form-body';
@@ -39,17 +40,16 @@ import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { ZodType } from 'zod';
 import { useDatabasePageDefaultValues } from './hooks/use-database-form-default-values';
 import { useDatabasePageMode } from './hooks/use-database-page-mode';
+import { useImportNavigationState } from './hooks/use-import-navigation-state';
 import { useRestoreNavigationState } from './hooks/use-restore-navigation-state';
 import { DatabaseFormProvider } from './database-form-context';
 import { useSchema } from './hooks/use-schema';
 import { useDbValidationSchema } from './hooks/use-db-validation-schema';
-import { ImportFields } from 'components/cluster-form/import/import.types';
 import { DbWizardFormFields } from 'consts';
-import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import {
   BASE_STEP_ID,
-  IMPORT_STEP_ID,
   BACKUP_STEP_ID,
+  MONITORING_STEP_ID,
 } from './database-form-body/steps/constants';
 import {
   useFormEngine,
@@ -57,9 +57,10 @@ import {
   useErrorRouting,
   StepDefinition,
 } from 'components/ui-generator/form-engine';
+import { widgetRegistry } from './widget-registry';
 import { DataSourcePrefetcher } from 'components/ui-generator/api-providers';
+import { SecretNamespaceSync } from 'components/ui-generator/secret-field';
 import { BaseInfoStep } from './database-form-body/steps/base-step/base-step';
-import { ImportStep } from './database-form-body/steps-old/import/import-step';
 import {
   BackupStep,
   BACKUP_SCHEDULES_FIELD,
@@ -70,10 +71,21 @@ import {
 } from './database-form-body/steps/backup-step';
 import { FlattenedSchedule } from 'components/schedule-form-dialog/schedule-form-dialog-context/schedule-form-dialog-context.types';
 import { useBackupClassesList } from 'hooks/api/backup-classes/useBackupClasses';
+import { MONITORING_DESTINATIONS_FIELD } from 'components/monitoring-destinations-picker';
+import {
+  MonitoringStep,
+  useMonitoringStep,
+} from './database-form-body/steps/monitoring-step';
+import { Messages as MonitoringStepMessages } from './database-form-body/steps/monitoring-step/monitoring-step.messages';
 import { useClusterName } from 'hooks/api/useClusterName';
-import { mergeTopologyDefaults } from 'components/ui-generator/utils/default-values/merge-topology-defaults';
 import { PluginFormSections } from './plugin-form-sections';
 import { useSubmitPluginInstanceConfig } from 'hooks/api/plugins/useSubmitPluginInstanceConfig';
+import { useDatabaseFormSync } from './hooks/use-database-form-sync';
+import {
+  PresetSelectionContext,
+  usePresetSelection,
+  buildPresetCreateArgs,
+} from './preset-selection';
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -95,7 +107,7 @@ const isFlattenedSchedule = (value: unknown): value is FlattenedSchedule => {
   const cron = Reflect.get(value, 'cron');
   const enabled = Reflect.get(value, 'enabled');
   const storageName = Reflect.get(value, 'storageName');
-  const retentionCopies = Reflect.get(value, 'retentionCopies');
+  const retention = Reflect.get(value, 'retention');
   const parameters = Reflect.get(value, 'parameters');
 
   const hasCoreFields =
@@ -105,7 +117,7 @@ const isFlattenedSchedule = (value: unknown): value is FlattenedSchedule => {
     typeof storageName === 'string';
 
   const hasOptionalFields =
-    (retentionCopies === undefined || typeof retentionCopies === 'number') &&
+    (retention === undefined || isRecord(retention)) &&
     (parameters === undefined || isRecord(parameters));
 
   return hasCoreFields && hasOptionalFields;
@@ -189,12 +201,12 @@ export const DatabasePage = () => {
   const { isDesktop } = useActiveBreakpoint();
   const mode = useDatabasePageMode();
   const { restoreDataSource } = useRestoreNavigationState();
+  const importNavigation = useImportNavigationState();
 
   // ── Schema & topology
   const { uiSchema, topologies, hasMultipleTopologies, resolvedProvider } =
     useSchema();
   const defaultTopology = topologies[0] || '';
-  const hasImportStep = !!location.state?.showImport;
   const providerObject = location.state?.selectedDbProvider ?? resolvedProvider;
 
   // ── Backup classes (determines if backup step is shown)
@@ -203,12 +215,13 @@ export const DatabasePage = () => {
   const hasBackupStep = backupClasses.length > 0;
 
   // ── Page-level defaults (merges schema defaults + wizard-specific ones)
-  const { defaultValues, dbClusterRequestStatus } =
+  const { defaultValues, dbClusterRequestStatus, dbClusterData } =
     useDatabasePageDefaultValues(
       mode,
       uiSchema,
       defaultTopology,
-      hasBackupStep
+      hasBackupStep,
+      providerObject
     );
   const loadingClusterValues = !defaultValues;
 
@@ -273,6 +286,48 @@ export const DatabasePage = () => {
     name: DbWizardFormFields.k8sNamespace,
   });
 
+  const selectedProvider = useWatch({
+    control,
+    name: DbWizardFormFields.provider,
+  });
+
+  const selectedPreset = useWatch({
+    control,
+    name: DbWizardFormFields.presetName,
+  });
+
+  const presetSelection = usePresetSelection(
+    clusterName,
+    typeof selectedProvider === 'string' ? selectedProvider : undefined,
+    typeof selectedPreset === 'string' ? selectedPreset : ''
+  );
+
+  // ── Monitoring step (shown when a class is compatible with the provider)
+  const monitoringStep = useMonitoringStep(
+    typeof selectedNamespace === 'string' ? selectedNamespace : '',
+    typeof selectedProvider === 'string'
+      ? selectedProvider
+      : (providerObject?.metadata?.name ?? '')
+  );
+  const { hasMonitoringStep } = monitoringStep;
+
+  // Single owner of programmatic form writes: populate from the picked preset
+  // (and revert on clear) and merge topology defaults on a manual switch.
+  useDatabaseFormSync({
+    mode,
+    uiSchema,
+    defaultValues: defaultValues ?? {},
+    defaultTopology,
+    selectedTopology,
+    preset: {
+      selectedPreset: presetSelection.selectedPreset,
+      presetName: presetSelection.presetName,
+      presetSelected: presetSelection.presetSelected,
+    },
+    reset,
+    getValues,
+  });
+
   // Static step definitions
   const staticSteps = useMemo((): StepDefinition[] => {
     const steps: StepDefinition[] = [
@@ -288,14 +343,6 @@ export const DatabasePage = () => {
         ],
       },
     ];
-    if (hasImportStep) {
-      steps.push({
-        id: IMPORT_STEP_ID,
-        label: 'Import',
-        component: ImportStep,
-        fields: Object.values(ImportFields) as string[],
-      });
-    }
     if (hasBackupStep) {
       steps.push({
         id: BACKUP_STEP_ID,
@@ -304,8 +351,16 @@ export const DatabasePage = () => {
         fields: [BACKUP_SCHEDULES_FIELD],
       });
     }
+    if (hasMonitoringStep) {
+      steps.push({
+        id: MONITORING_STEP_ID,
+        label: MonitoringStepMessages.title,
+        component: MonitoringStep,
+        fields: [MONITORING_DESTINATIONS_FIELD],
+      });
+    }
     return steps;
-  }, [hasImportStep, hasBackupStep]);
+  }, [hasBackupStep, hasMonitoringStep]);
 
   const engine = useFormEngine({
     uiSchema,
@@ -314,6 +369,8 @@ export const DatabasePage = () => {
     providerObject,
     namespace: selectedNamespace || namespaces[0],
     formMode: mode,
+    widgetRegistry,
+    originalData: mode === FormMode.Restore ? dbClusterData : undefined,
   });
 
   // Navigation
@@ -343,38 +400,16 @@ export const DatabasePage = () => {
   // Validation
   const validationSchema = useDbValidationSchema(
     dbInstancesList,
-    hasImportStep,
-    engine.zodSchema
+    engine.zodSchema,
+    monitoringStep.parametersSchema
   ) as unknown as ZodType<DbWizardType>;
 
   useEffect(() => {
     validationSchemaRef.current = validationSchema;
   }, [validationSchema]);
 
-  // Topology switch — must run BEFORE the revalidation effect so that
-  // form values are reset before trigger() validates them.
-  const prevTopologyTypeRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    const topologyType = selectedTopology;
-    if (!topologyType || !uiSchema) return;
-    if (prevTopologyTypeRef.current === undefined) {
-      prevTopologyTypeRef.current = topologyType;
-      return;
-    }
-    if (topologyType === prevTopologyTypeRef.current) return;
-    prevTopologyTypeRef.current = topologyType;
-
-    const topologyDefaults = getDefaultValues(uiSchema, topologyType);
-    const merged = mergeTopologyDefaults(
-      getValues() as Record<string, unknown>,
-      topologyDefaults
-    );
-    reset(merged as DbWizardType, { keepDirty: true, keepIsSubmitted: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTopology, uiSchema]);
-
   // Revalidate after validation schema changes or defaults finish loading.
-  // Declared after the topology switch effect so that reset() runs first.
+  // Runs after useDatabaseFormSync (called above) so its reset() lands first.
   useEffect(() => {
     if (validationSchemaRef.current && !loadingClusterValues) {
       trigger();
@@ -417,6 +452,34 @@ export const DatabasePage = () => {
   );
 
   const onSubmit: SubmitHandler<DbWizardType> = (data) => {
+    // Preset mode: create straight from the selected preset spec (one-click),
+    // bypassing the wizard's field-by-field spec build. Never fall through to a
+    // manual create while a preset is picked but its spec is not yet loaded.
+    if (mode === FormMode.New && presetSelection.presetSelected) {
+      if (!presetSelection.selectedPreset) {
+        return;
+      }
+      createInstance(
+        buildPresetCreateArgs({
+          selectedPreset: presetSelection.selectedPreset,
+          provider:
+            typeof selectedProvider === 'string' ? selectedProvider : '',
+          dbName: data.dbName,
+          k8sNamespace: data.k8sNamespace ?? '',
+          presetName: presetSelection.presetName,
+        }),
+        {
+          onSuccess: () => {
+            queryClient.invalidateQueries({
+              queryKey: [DB_INSTANCES_QUERY_KEY],
+            });
+            setFormSubmitted(true);
+          },
+        }
+      );
+      return;
+    }
+
     const postProcessedData = engine.postprocess(data);
 
     // Transform flat backup schedules into nested storages structure
@@ -437,9 +500,36 @@ export const DatabasePage = () => {
       }
     }
 
+    monitoringStep.writeEntries(formData);
+
     latestDataRef.current = postProcessedData;
 
-    if (mode === FormMode.New) {
+    // Seed the new instance from the source in a single atomic create: the
+    // operator runs the restore from spec.dataSource (it creates the seeding
+    // Restore CR itself), so there is no second request to orchestrate here.
+    const seedFrom = (source: RestoreDataSourceInput) => {
+      Reflect.set(formData, 'dataSource', buildRestoreDataSource(source));
+      // The seeding storage (where the operator reads the source) must be
+      // registered on the new instance regardless of the user's schedule
+      // choices, or the restore stalls waiting for it.
+      Reflect.set(
+        formData,
+        'backup',
+        ensureStorageRegistered(
+          backupSpecForSubmit,
+          source.storageName,
+          backupFormData?.classRefName
+        )
+      );
+    };
+
+    // An import creates a new instance, seeded from the chosen backup.
+    if (mode === FormMode.Import) {
+      if (!importNavigation) return;
+      seedFrom(importNavigation.importSource.dataSource);
+    }
+
+    if (mode === FormMode.New || mode === FormMode.Import) {
       createInstance(
         { formValue: postProcessedData },
         {
@@ -471,26 +561,7 @@ export const DatabasePage = () => {
       );
     } else if (mode === FormMode.Restore) {
       if (!restoreDataSource) return;
-      // Seed the new instance from the source in a single atomic create: the
-      // operator runs the restore from spec.dataSource (it creates the seeding
-      // Restore CR itself), so there is no second request to orchestrate here.
-      Reflect.set(
-        formData,
-        'dataSource',
-        buildRestoreDataSource(restoreDataSource)
-      );
-      // The seeding storage (where the operator reads the source) must be
-      // registered on the new instance regardless of the user's schedule
-      // choices, or the restore stalls waiting for it.
-      Reflect.set(
-        formData,
-        'backup',
-        ensureStorageRegistered(
-          backupSpecForSubmit,
-          restoreDataSource.storageName,
-          backupFormData?.classRefName
-        )
-      );
+      seedFrom(restoreDataSource);
       createInstance(
         { formValue: postProcessedData },
         {
@@ -518,44 +589,61 @@ export const DatabasePage = () => {
         sectionsOrder: engine.sectionsOrder,
         providerObject,
         hasBackupStep,
+        hasMonitoringStep,
       }}
     >
       <Stack direction={isDesktop ? 'row' : 'column'}>
         <FormProvider {...methods}>
-          <DataSourcePrefetcher
-            sections={engine.sections}
-            namespace={selectedNamespace || namespaces[0]}
-          />
-          <DatabaseFormBody
-            steps={engine.steps}
-            activeStep={nav.activeStepIndex}
-            isSubmitting={isCreating}
-            hasErrors={stepsWithErrors.length > 0}
-            disableNext={
-              hasImportStep &&
-              nav.activeStepId === IMPORT_STEP_ID &&
-              stepsWithErrors.includes(IMPORT_STEP_ID)
-            }
-            onSubmit={handleSubmit(onSubmit)}
-            onCancel={() => navigate('/databases')}
-            handleNextStep={handleNext}
-            handlePreviousStep={handleBack}
-          />
-          {nav.activeStepIndex === 0 && (
-            <PluginFormSections
-              formValues={methods.getValues() as Record<string, unknown>}
-              namespace={selectedNamespace || namespaces[0] || ''}
-              engineType={providerObject?.name}
-              isCreate={true}
-              onPluginConfigChange={handlePluginConfigChange}
+          <PresetSelectionContext.Provider value={presetSelection}>
+            {/* A selected preset owns the values: its spec is sent verbatim, so
+                auto-selected options would only mislead the preview. */}
+            <DataSourcePrefetcher
+              sections={engine.sections}
+              namespace={selectedNamespace || namespaces[0]}
+              autoSelect={!presetSelection.presetSelected}
             />
-          )}
-          <DatabaseFormSideDrawer
-            disabled={loadingClusterValues}
-            activeStepId={nav.activeStepId}
-            handleSectionEdit={handleSectionEdit}
-            stepsWithErrors={stepsWithErrors}
-          />
+            {/* Restore fixes the namespace, and a selected preset owns the values. */}
+            {mode === FormMode.New && !presetSelection.presetSelected && (
+              <SecretNamespaceSync
+                sections={engine.sections}
+                namespace={selectedNamespace || namespaces[0]}
+                provider={providerObject?.metadata?.name}
+              />
+            )}
+            <DatabaseFormBody
+              steps={engine.steps}
+              activeStep={nav.activeStepIndex}
+              isSubmitting={isCreating}
+              hasErrors={stepsWithErrors.length > 0}
+              presetSelected={presetSelection.presetSelected}
+              presetPending={presetSelection.presetPending}
+              onSubmit={handleSubmit(onSubmit)}
+              onCancel={() => navigate('/databases')}
+              handleNextStep={handleNext}
+              handlePreviousStep={handleBack}
+            />
+            {/* TODO(presets, temporary): hiding plugin sections while a preset
+                is selected is a Phase-1 stopgap. Plugins are a separate data
+                plane the preset can't populate, so a preset + plugin config
+                deploy isn't supported yet. Revisit once presets×plugins is
+                designed (SDK/BE work) so plugin config can co-exist with a
+                preset instead of being hidden. */}
+            {nav.activeStepIndex === 0 && !presetSelection.presetSelected && (
+              <PluginFormSections
+                formValues={methods.getValues() as Record<string, unknown>}
+                namespace={selectedNamespace || namespaces[0] || ''}
+                engineType={providerObject?.name}
+                isCreate={true}
+                onPluginConfigChange={handlePluginConfigChange}
+              />
+            )}
+            <DatabaseFormSideDrawer
+              disabled={loadingClusterValues || presetSelection.presetSelected}
+              activeStepId={nav.activeStepId}
+              handleSectionEdit={handleSectionEdit}
+              stepsWithErrors={stepsWithErrors}
+            />
+          </PresetSelectionContext.Provider>
         </FormProvider>
       </Stack>
       <DatabaseFormCancelDialog

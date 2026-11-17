@@ -113,7 +113,6 @@ export const BackupsDetails = ({
   return (
     <OverviewCard
       dataTestId="backups-and-pitr"
-      sx={{ width: '100%' }}
       cardHeaderProps={{
         title: Messages.titles.backups,
         avatar: <NetworkNodeIcon />,

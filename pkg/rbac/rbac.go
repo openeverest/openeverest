@@ -66,16 +66,30 @@ const (
 
 	// v2 multi-cluster resource names.
 
-	ResourceClusters          = "clusters"
-	ResourceProviders         = "providers"
-	ResourceInstances         = "instances"
-	ResourceInstancePresets   = "instance-presets"
-	ResourceBackupClasses     = "backup-classes"
-	ResourceBackups           = "backups"
-	ResourceRestores          = "restores"
-	ResourceMonitoringConfigs = "monitoring-configs"
-	ResourceConfigMaps        = "config-maps"
-	ResourceSecrets           = "secrets"
+	ResourceClusters               = "clusters"
+	ResourceProviders              = "providers"
+	ResourceInstances              = "instances"
+	ResourceClusterInstancePresets = "cluster-instance-presets"
+	ResourceInstancePresets        = "instance-presets"
+	ResourceBackupClasses          = "backup-classes"
+	ResourceBackups                = "backups"
+	ResourceBackupImports          = "backup-imports"
+	ResourceRestores               = "restores"
+	ResourceConfigMaps             = "config-maps"
+	ResourceSecrets                = "secrets"
+
+	// v2 monitoring resource names.
+
+	ResourceMonitoringClasses      = "monitoring-classes"
+	ResourceMonitoringDestinations = "monitoring-destinations"
+	ResourceMonitoringBindings     = "monitoring-bindings"
+
+	// ResourceInstalledExtensions are the installed plugins and providers. The
+	// API serves only their lifecycle events.
+	ResourceInstalledExtensions = "installed-extensions"
+	// ResourcePlatformEvents are the login and logout events. They are about
+	// users, which have no resource of their own.
+	ResourcePlatformEvents = "platform-events"
 )
 
 // GlobalResources is a list of all Everest API resources that are considered global.
@@ -86,6 +100,7 @@ var GlobalResources = []string{
 	ResourceLoadBalancerConfigs,
 	ResourceDataImporters,
 	ResourceClusters,
+	ResourcePlatformEvents,
 }
 
 // ClusterScopedResources is a list of v2 resources scoped to a cluster (but not a namespace).
@@ -93,19 +108,32 @@ var ClusterScopedResources = []string{
 	ResourceNamespaces,
 	ResourceProviders,
 	ResourceBackupClasses,
+	ResourcePlugins,
+	ResourceClusterInstancePresets,
+	ResourceMonitoringClasses,
+	ResourceInstalledExtensions,
 }
 
 // ClusterNamespacedResources is a list of v2 resources scoped to cluster + namespace.
 // These use the 3-segment object format: cluster/namespace/name.
 var ClusterNamespacedResources = []string{
 	ResourceInstances,
+	ResourceInstancePresets,
 	ResourceBackups,
+	ResourceBackupImports,
 	ResourceRestores,
 	ResourceBackupStorages,
-	ResourceMonitoringConfigs,
 	ResourceConfigMaps,
 	ResourceSecrets,
-	ResourcePlugins,
+	ResourceMonitoringDestinations,
+	ResourceMonitoringBindings,
+}
+
+// isReadOnlyResource returns true if the API serves no writes for the
+// resource, so the admin role is granted only read on it.
+func isReadOnlyResource(resource string) bool {
+	return resource == ResourceMonitoringClasses || resource == ResourceMonitoringBindings ||
+		resource == ResourcePlatformEvents
 }
 
 // IsGlobalResource returns true if the given resource is a global (non-namespaced) Everest API resource.
@@ -141,16 +169,31 @@ const (
 	ActionRead   = "read"
 	ActionUpdate = "update"
 	ActionDelete = "delete"
-	// ActionUse is the verb granted to users for consuming a plugin via the
-	// /v1/plugins/{name}/* proxy. It is separate from CRUD so admins can
-	// install plugins (create) without automatically granting broad read
-	// access to every user.
+	// ActionUse grants consuming something rather than managing it. It has
+	// two meanings:
+	//   - on plugins, consuming a plugin via the /v1/plugins/{name}/* proxy.
+	//     It is separate from CRUD so admins can install plugins (create)
+	//     without automatically granting broad read access to every user.
+	//   - on secrets, using a Secret's contents through an object that
+	//     references it: creating an object that names the Secret, such as a
+	//     MonitoringDestination, or changing the spec of one that does, since
+	//     the object sends the contents to, or trusts them for, the endpoint
+	//     its spec names. ActionRead does not imply it: read only shows a
+	//     Secret's metadata.
 	ActionUse = "use"
-	// ActionDeploy allows creating instances with custom values that deviate
-	// from preset specifications. Users without this permission can only create
-	// instances that exactly match their referenced presets.
-	ActionDeploy = "deploy"
-	ActionAll    = "*"
+	// ActionCreateFromPreset, on instances, allows creating an instance only as
+	// an exact copy of the preset it names: the preset's spec, and no metadata
+	// besides its name, namespace and the annotation naming the preset.
+	// ActionCreate is strictly stronger: it allows any instance, presets with
+	// changes included.
+	ActionCreateFromPreset = "create-from-preset"
+	// ActionReadConnection gates reading an instance's connection credentials.
+	// ActionRead does not imply it; only an explicit grant or ActionAll does.
+	ActionReadConnection = "read-connection"
+	// ActionReadEvents gates reading the lifecycle events about an object.
+	// ActionRead does not imply it; only an explicit grant or ActionAll does.
+	ActionReadEvents = "read-events"
+	ActionAll        = "*"
 )
 
 const (
@@ -160,7 +203,9 @@ const (
 // SupportedActions is the list of all RBAC actions supported by Everest.
 //
 //nolint:gochecknoglobals // immutable lookup table
-var SupportedActions = []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionUse, ActionDeploy, ActionAll}
+var SupportedActions = []string{
+	ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionUse, ActionCreateFromPreset, ActionReadConnection, ActionReadEvents, ActionAll,
+}
 
 // User represents an authenticated subject and its groups for RBAC checks.
 type User struct {
@@ -190,26 +235,7 @@ func refreshEnforcerInBackground(
 		if !ok || cm.GetName() != common.EverestRBACConfigMapName {
 			return
 		}
-
-		// Validate the incoming policy on a throwaway enforcer, so that an invalid
-		// update never reaches the live one.
-		if _, err := newEnforcer(enforcer.GetAdapter(), false); err != nil {
-			l.Errorf("Invalid RBAC policy detected, keeping the previous policy: %s", err)
-			return
-		}
-
-		if err := enforcer.LoadPolicy(); err != nil {
-			l.Errorf("Failed to load RBAC policy: %s", err)
-			return
-		}
-
-		// Calling LoadPolicy() re-writes the entire model, so we need to add back the admin role.
-		if err := loadAdminPolicy(enforcer); err != nil {
-			l.Errorf("Failed to load admin policy: %s", err)
-			return
-		}
-
-		enforcer.EnableEnforce(IsEnabled(cm))
+		reloadEnforcerFromConfigMap(enforcer, cm, l)
 	})
 
 	if err := inf.Start(ctx, &corev1.ConfigMap{}); err != nil {
@@ -217,6 +243,34 @@ func refreshEnforcerInBackground(
 	}
 
 	return nil
+}
+
+// reloadEnforcerFromConfigMap reloads the enforcer's policy in response to
+// an update of the RBAC ConfigMap.
+func reloadEnforcerFromConfigMap(enforcer *casbin.Enforcer, cm *corev1.ConfigMap, l *zap.SugaredLogger) {
+	// Validate the incoming policy in-memory using the ConfigMap already
+	// delivered by the informer, so that an invalid update never reaches the
+	// live enforcer.
+	// Do not create a new enforcer here, because that calls LoadPolicy()
+	// sending an unnecessary request to GetConfigMap(), and causing
+	// e2e test flakiness on CI due to policy not being loaded in time.
+	if _, err := NewIOReaderEnforcer(strings.NewReader(cm.Data["policy.csv"])); err != nil {
+		l.Errorf("Invalid RBAC policy detected, keeping the previous policy: %s", err)
+		return
+	}
+
+	if err := enforcer.LoadPolicy(); err != nil {
+		l.Errorf("Failed to load RBAC policy: %s", err)
+		return
+	}
+
+	// Calling LoadPolicy() re-writes the entire model, so we need to add back the admin role.
+	if err := loadAdminPolicy(enforcer); err != nil {
+		l.Errorf("Failed to load admin policy: %s", err)
+		return
+	}
+
+	enforcer.EnableEnforce(IsEnabled(cm))
 }
 
 func getModel() (model.Model, error) {
@@ -314,8 +368,12 @@ func GetUser(ctx context.Context) (User, error) {
 		return User{}, errors.Join(err, errors.New("failed to get issuer from claims"))
 	}
 
+	// Built-in tokens carry sub="<user>:<capability>". SSO tokens carry the raw OIDC subject,
+	// which may itself contain colons and must not be truncated into another identity.
 	if issuer == session.SessionManagerClaimsIssuer {
-		subject = strings.Split(subject, ":")[0]
+		if _, isSSO := claims[session.OIDCIssuerClaim].(string); !isSSO {
+			subject = strings.Split(subject, ":")[0]
+		}
 	}
 
 	groups := getScopeValues(claims, []string{"groups"})
@@ -354,8 +412,11 @@ func loadAdminPolicy(enf casbin.IEnforcer) error {
 		resources[resource] = struct{}{}
 	}
 
-	action := ActionAll
 	for resource := range resources {
+		action := ActionAll
+		if isReadOnlyResource(resource) {
+			action = ActionRead
+		}
 		switch {
 		case IsGlobalResource(resource):
 			if _, err := enf.AddPolicy(common.EverestAdminRole, resource, action, "*"); err != nil {

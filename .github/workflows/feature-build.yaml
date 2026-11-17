@@ -39,9 +39,6 @@ permissions:
   packages: read
 
 env:
-  GONOPROXY: 'github.com/percona'
-  GONOSUMDB: 'github.com/percona'
-  GOPRIVATE: 'github.com/percona'
   GOCACHE: '/mnt/go_cache'
   GOMODCACHE: '/mnt/go_mod_cache'
   REGISTRY: ghcr.io
@@ -49,7 +46,7 @@ env:
 jobs:
   prepare:
     name: Prepare build metadata
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-8-32-x86
     outputs:
       version: ${{ steps.set_version.outputs.version }}
       version_tag: ${{ steps.set_version.outputs.version_tag }}
@@ -72,10 +69,10 @@ jobs:
       matrix:
         include:
           - arch: amd64
-            runner: ubuntu-latest
+            runner: cncf-ubuntu-8-32-x86
             platform: linux/amd64
           - arch: arm64
-            runner: ubuntu-24.04-arm
+            runner: cncf-ubuntu-8-32-arm
             platform: linux/arm64
 
     runs-on: ${{ matrix.runner }}
@@ -84,7 +81,6 @@ jobs:
       packages: write
 
     env:
-      TOOLS_PATH: "/opt/tools/bin"
       ARTIFACTS_RETENTION_DAYS: ${{ inputs.artifacts_retention_days }}
       HELM_BRANCH: ${{ inputs.helm_branch }}
       EVEREST_BRANCH: ${{ inputs.everest_branch }}
@@ -101,7 +97,10 @@ jobs:
 
       - name: Enable /mnt (big volume) to be used by runner
         run: |
-          sudo chown -v runner:runner /mnt
+          # chown to the current user: the runner user differs across GitHub-hosted
+          # (runner) and CNCF ARC (ubuntu) runners.
+          sudo mkdir -p /mnt
+          sudo chown -v "$(id -u):$(id -g)" /mnt
 
       - name: Input validation
         run: |
@@ -129,14 +128,14 @@ jobs:
           mkdir -p /tmp/${VERSION}
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        uses: docker/setup-buildx-action@594f3bf4285d9ea8dc53c9a0c9c4092420091003 # v4.4.0
 
       - name: Helm - checkout
         if: matrix.arch == 'amd64'
@@ -172,17 +171,8 @@ jobs:
           go-version-file: "go.mod"
           cache: true
 
-      - name: Everest UI - setup pnpm
-        uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
-        with:
-          version: 9.4.0
-
-      - name: Everest UI - run with Node 20
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 20.x
-          cache: "pnpm"
-          cache-dependency-path: ui/pnpm-lock.yaml
+      - name: Everest UI - setup Node and pnpm
+        uses: ./.github/actions/setup-node-pnpm
 
       - name: Everest UI - build
         run: |
@@ -195,7 +185,7 @@ jobs:
           RELEASE_VERSION=${VERSION_TAG} CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} make rc
 
       - name: Everest - push Everest image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: build/package/server/Dockerfile
@@ -207,7 +197,7 @@ jobs:
 
       - name: Upload artifacts
         if: matrix.arch == 'amd64'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ env.VERSION }}
           path: /tmp/${{ env.VERSION }}
@@ -217,7 +207,7 @@ jobs:
   create-manifests:
     name: Create multi-arch manifests
     needs: [prepare, build]
-    runs-on: ubuntu-latest
+    runs-on: cncf-ubuntu-8-32-x86
     permissions:
       contents: read
       packages: write
@@ -229,7 +219,7 @@ jobs:
 
     steps:
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}

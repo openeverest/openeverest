@@ -11,18 +11,25 @@
   - [Component vs ComponentGroup](#component-vs-componentgroup)
     - [Component (Single Field)](#component-single-field)
     - [ComponentGroup (Nested Fields)](#componentgroup-nested-fields)
+    - [Widget (Host-Rendered Component)](#widget-host-rendered-component)
 - [Mode-Aware Overrides](#mode-aware-overrides)
   - [Component-level modes](#component-level-modes)
   - [FieldParams-level modes](#fieldparams-level-modes)
   - [Validation-level modes](#validation-level-modes)
 - Field Types
   - [Number Field](components/number-field.md)
+  - [Quantity Field](components/quantity-field.md)
+  - [Secret Field](components/secret-field.md)
   - [Select Field](components/select-field.md)
   - [Text Field](components/text-field.md)
   - [Toggle Field](components/toggle-field.md)
 - [Groups](groups.md)
   - [Line Group](groups.md#line-group)
   - [Accordion Group](groups.md#accordion-group)
+  - [Bordered Group](groups.md#bordered-group)
+  - [Toggleable Group](groups.md#toggleable-group)
+- [Widgets](widgets.md)
+  - [Pod Scheduling Policy](widgets.md#pod-scheduling-policy)
 - [Validation](validation.md)
   - [Default Validation](validation.md#default-validation)
   - [Schema Custom Validation](validation.md#schema-custom-validation)
@@ -75,6 +82,11 @@ A **topology** is a top-level key representing a specific form configuration. Ea
 - **`sections`**: An object where each key is a section containing form components
 - **`sectionsOrder`** (optional): An array defining the order in which sections should be displayed
 
+Only the selected topology's fields are submitted. When the user switches topology, values bound only
+by the previous topology's paths (for example `spec.components.configServer` after switching from
+`sharded` to `replica`) are dropped, so each topology must declare every path it needs — including
+ones it shares with another topology.
+
 example for psmdb operator:
 
 ```yaml
@@ -125,8 +137,8 @@ basicInfo:
 
 A **Component** represents a single form field with the following properties:
 
-- **`uiType`**: Type of UI control (`'number'`, `'select'`, `'hidden'`)
-- **`path`** OR **`id`**: The data path in the resulting form values (e.g., `"spec.replica.nodes"`)
+- **`uiType`**: Type of UI control (`'number'`, `'select'`, `'hidden'`), or `'widget'` for a host-rendered component (see [Widget](#widget-host-rendered-component))
+- **`path`** OR **`id`**: The data path in the resulting form values (e.g., `"spec.replica.nodes"`). For widgets, defined by each widget type.
 - **`fieldParams`**: Configuration for the field (label, placeholder, defaultValue, etc.). Supports `modes` for documented per-mode overrides of shared field params
 - **`modes`** (optional): Per-mode component-level overrides (e.g. `uiType: hidden`)
 - **`validation`** (optional): Validation rules (min, max, etc.). Supports `modes` for per-mode overrides
@@ -154,15 +166,15 @@ A **ComponentGroup** allows you to group multiple components together with custo
 
 //TODO If the uiType is hidden, the component will not be displayed on the UI and, as a result, will not participate in generating data for the api.
 
-- **`groupType`** (optional). For a detailed description of the type of groups and their use, see the [Groups](#groups) section.
+- **`groupType`** (optional). For a detailed description of the type of groups and their use, see [Groups](groups.md).
 - **`label`** (optional): Display label for the group.
 - **`description`** (optional): Description text for the group
 
-The label and description display format may look different for different groups. A detailed description can be found in the [Groups](#groups) section.
+The label and description display format may look different for different groups. A detailed description can be found in [Groups](groups.md).
 
 - **`components`**: Nested components (can include other groups)
 - **`componentsOrder`** (optional): Order of nested components
-- **`groupParams`** (optional): Additional configuration for the group
+- **`groupParams`** (optional): Reserved for group-specific settings; no group type reads it yet, so it currently has no effect.
 
 Example:
 
@@ -189,7 +201,38 @@ resources:
     - memory
 ```
 
+#### Widget (Host-Rendered Component)
+
+A **Widget** is a component the application renders itself (`uiType: widget` + `widgetType`),
+for UI that plain fields can't describe. See [Widgets](widgets.md) for the supported widget types.
+
 ## Mode-Aware Overrides
+
+The form runs in one of four modes:
+
+| Mode      | When                                                             |
+| --------- | ---------------------------------------------------------------- |
+| `new`     | Creating a database                                              |
+| `edit`    | Changing an existing database                                    |
+| `restore` | Creating a database from a backup of another database            |
+| `import`  | Creating a database from a backup imported from a backup storage |
+
+### Component-level modes
+
+Use a component's `modes` to hide it in a mode with `uiType: hidden`. A hidden field isn't
+rendered or validated in that mode, and in `restore` it doesn't take the source instance's value.
+
+```yaml
+userSecret:
+  uiType: secret
+  path: spec.userSecretRef.name
+  fieldParams:
+    label: Database users
+    definition: user
+  modes:
+    restore:
+      uiType: hidden
+```
 
 ### FieldParams-level modes
 
@@ -226,7 +269,8 @@ Validation-specific mode-aware behavior is documented in [validation.md](validat
 
 ### Path vs ID
 
-Each component must have either a `path` or an `id` property (but not both):
+Each field component must have either a `path` or an `id` property (but not both).
+For [widgets](widgets.md), where the data lives is defined by each widget type.
 
 - **`path`**: Dot-notation string representing where the value should be stored in the form data
   - Example: `"spec.replica.nodes"` → `{ spec: { replica: { nodes: value } } }`
@@ -236,12 +280,25 @@ Each component must have either a `path` or an `id` property (but not both):
 
 ### Path scoping
 
-A component's `path` is its form-field name and write target verbatim. Declare it
-**relative to the section's root** — the object the consumer merges the section into
-(e.g. a single storage's `pitr`) — and spell the real sub-structure, so the schema alone
-says where the value lands. The consumer only supplies the root; it never injects keys.
+A component's `path` is its write target, **relative to the section's root** — the object the
+schema describes. Spell the real sub-structure below that root, so the schema alone says where the
+value lands. The host supplies the root (the form field is `<root>.<path>`) and never injects keys
+between the root and the path.
 
-- ✅ `path: parameters.timeBetweenUploads` → `<root>.parameters.timeBetweenUploads`
+| Schema                                    | Root                                        | Example `path`                      |
+| ----------------------------------------- | ------------------------------------------- | ----------------------------------- |
+| Topology                                  | the Instance                                | `spec.components.engine.replicas`   |
+| Backup class `pitr`                       | one storage's `pitr`                        | `parameters.timeBetweenUploads`     |
+| Secret definition                         | the secret's data                           | `MONGODB_USER`                      |
+| Monitoring class `destination`            | the MonitoringDestination's `spec`          | `parameters.url`                    |
+| Monitoring class `credentials.<authMode>` | the credentials Secret's data               | `token`                             |
+| Monitoring class `instance`               | one entry of `spec.monitoring.destinations` | `parameters.resources.requests.cpu` |
+
+A monitoring class without a `destination` form gets text and key/value fields generated from the
+string and string-map properties of its `destinationParametersSchema`; without a
+`credentials.<authMode>` form, it gets one masked input per credential key the auth mode declares.
+Settings shows a destination's address only when the `destination` form writes `parameters.url`.
+
 - ❌ `path: spec.backup.storages[].pitr.parameters.timeBetweenUploads`
 
 No absolute paths and no array segments (`[]`): an empty `[]` has no index to bind to, and
@@ -303,6 +360,7 @@ uiSchema:
               optionsPathConfig:
                 labelPath: "version"
                 valuePath: "version"
+                defaultValuePath: "spec.componentTypes.mongod.defaultVersion"
             validation:
               required: true
       resources:
@@ -409,6 +467,7 @@ uiSchema:
               optionsPathConfig:
                 labelPath: "version"
                 valuePath: "version"
+                defaultValuePath: "spec.componentTypes.mongod.defaultVersion"
             validation:
               required: true
       resources:
@@ -419,9 +478,10 @@ uiSchema:
             uiType: number
             path: "spec.sharding.shards"
             fieldParams:
-              required: true
               label: "Nº of shards"
               defaultValue: 1
+            validation:
+              required: true
           numberOfnodes:
             path: "spec.components.engine.replicas"
             uiType: number
@@ -469,10 +529,10 @@ uiSchema:
                   defaultValue: 25
                   badge: "Gi"
                   badgeToApi: true
-                  validation:
-                    min: 1
-                    int: true
-                    required: true
+                validation:
+                  min: 1
+                  int: true
+                  required: true
           numberOfRouters:
             path: "spec.components.proxy.replicas"
             uiType: number

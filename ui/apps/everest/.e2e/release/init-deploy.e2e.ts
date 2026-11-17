@@ -43,7 +43,7 @@ import {
   getPGStsName,
 } from '@e2e/utils/db-cmd-line';
 import { getK8sResource } from '@e2e/utils/kubernetes';
-import { checkDBMetrics, checkQAN } from '@e2e/utils/monitoring-config';
+import { checkDBMetrics, checkQAN } from '@e2e/utils/pmm';
 
 let token: string;
 
@@ -219,7 +219,9 @@ const zephyrMap: Record<string, string> = {
             expect(addedCluster?.spec.proxy.expose.type).toBe('ClusterIP');
           }
           if (db != 'psmdb') {
-            expect(addedCluster?.spec.proxy.replicas).toBe(size);
+            expect(addedCluster?.spec.proxy.replicas).toBe(
+              db === 'pxc' ? 2 : size
+            );
           }
         });
       });

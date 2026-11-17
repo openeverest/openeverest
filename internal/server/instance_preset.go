@@ -16,17 +16,20 @@
 package server
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/AlekSi/pointer"
 	"github.com/labstack/echo/v4"
 
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
-// ListInstancePresets lists all instance presets in the cluster, optionally filtered by provider.
-func (e *EverestServer) ListInstancePresets(c echo.Context, cluster string, params api.ListInstancePresetsParams) error {
-	result, err := e.handler.ListInstancePresets(c.Request().Context(), cluster, pointer.GetString(params.Provider))
+// ListInstancePresets lists all namespace-scoped instance presets, optionally filtered by provider.
+func (e *EverestServer) ListInstancePresets(c echo.Context, cluster string, namespace string, params api.ListInstancePresetsParams) error {
+	result, err := e.handler.ListInstancePresets(c.Request().Context(), cluster, namespace, pointer.GetString(params.Provider))
 	if err != nil {
 		e.l.Errorf("ListInstancePresets failed: %v", err)
 		return err
@@ -34,9 +37,9 @@ func (e *EverestServer) ListInstancePresets(c echo.Context, cluster string, para
 	return c.JSON(http.StatusOK, result)
 }
 
-// GetInstancePreset returns a specific instance preset.
-func (e *EverestServer) GetInstancePreset(c echo.Context, cluster string, name string) error {
-	result, err := e.handler.GetInstancePreset(c.Request().Context(), cluster, name)
+// GetInstancePreset returns a specific namespace-scoped instance preset.
+func (e *EverestServer) GetInstancePreset(c echo.Context, cluster string, namespace string, name string) error {
+	result, err := e.handler.GetInstancePreset(c.Request().Context(), cluster, namespace, name)
 	if err != nil {
 		e.l.Errorf("GetInstancePreset failed: %v", err)
 		return err
@@ -44,12 +47,60 @@ func (e *EverestServer) GetInstancePreset(c echo.Context, cluster string, name s
 	return c.JSON(http.StatusOK, result)
 }
 
-// ResolveInstancePreset returns an instance preset with namespace-specific default values populated.
-func (e *EverestServer) ResolveInstancePreset(c echo.Context, cluster string, name string, params api.ResolveInstancePresetParams) error {
-	result, err := e.handler.ResolveInstancePreset(c.Request().Context(), cluster, name, params.Namespace)
+// CreateInstancePreset creates a new namespace-scoped instance preset.
+func (e *EverestServer) CreateInstancePreset(c echo.Context, cluster string, namespace string) error {
+	preset := &corev1alpha1.InstancePreset{}
+	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
-		e.l.Errorf("ResolveInstancePreset failed: %v", err)
+		e.l.Errorf("CreateInstancePreset: failed to read request body: %v", err)
+		return err
+	}
+	if err := json.Unmarshal(body, preset); err != nil {
+		e.l.Errorf("CreateInstancePreset: failed to decode request body: %v", err)
+		return err
+	}
+
+	// Ensure the namespace matches
+	preset.Namespace = namespace
+
+	result, err := e.handler.CreateInstancePreset(c.Request().Context(), cluster, preset)
+	if err != nil {
+		e.l.Errorf("CreateInstancePreset failed: %v", err)
+		return err
+	}
+	return c.JSON(http.StatusCreated, result)
+}
+
+// UpdateInstancePreset updates an existing namespace-scoped instance preset.
+func (e *EverestServer) UpdateInstancePreset(c echo.Context, cluster string, namespace string, name string) error {
+	preset := &corev1alpha1.InstancePreset{}
+	body, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		e.l.Errorf("UpdateInstancePreset: failed to read request body: %v", err)
+		return err
+	}
+	if err := json.Unmarshal(body, preset); err != nil {
+		e.l.Errorf("UpdateInstancePreset: failed to decode request body: %v", err)
+		return err
+	}
+
+	// Ensure the namespace and name match
+	preset.Namespace = namespace
+	preset.Name = name
+
+	result, err := e.handler.UpdateInstancePreset(c.Request().Context(), cluster, preset)
+	if err != nil {
+		e.l.Errorf("UpdateInstancePreset failed: %v", err)
 		return err
 	}
 	return c.JSON(http.StatusOK, result)
+}
+
+// DeleteInstancePreset deletes a namespace-scoped instance preset.
+func (e *EverestServer) DeleteInstancePreset(c echo.Context, cluster string, namespace string, name string) error {
+	if err := e.handler.DeleteInstancePreset(c.Request().Context(), cluster, namespace, name); err != nil {
+		e.l.Errorf("DeleteInstancePreset failed: %v", err)
+		return err
+	}
+	return c.NoContent(http.StatusNoContent)
 }

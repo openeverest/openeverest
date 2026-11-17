@@ -3,15 +3,11 @@ RELEASE_VERSION ?= v0.0.0-$(shell git rev-parse --short HEAD)
 RELEASE_FULLCOMMIT ?= $(shell git rev-parse HEAD)
 IMAGE_PREFIX ?= ghcr.io/openeverest
 EVEREST_SERVER_DEV_IMAGE_NAME ?= openeverest-dev
-EVEREST_OPERATOR_DEV_IMAGE_NAME ?= openeverest-operator-dev
 EVEREST_CONTROLLER_DEV_IMAGE_NAME ?= openeverest-controller-dev
-EVEREST_CATALOG_DEV_IMAGE_NAME ?= openeverest-catalog-dev
 IMAGE_TAG ?= 0.0.0
 IMG = $(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME):$(IMAGE_TAG)
 EVEREST_CONTROLLER_IMG = $(IMAGE_PREFIX)/$(EVEREST_CONTROLLER_DEV_IMAGE_NAME):$(IMAGE_TAG)
-EVEREST_OPERATOR_IMG = $(IMAGE_PREFIX)/$(EVEREST_OPERATOR_DEV_IMAGE_NAME):$(IMAGE_TAG)
 CONTROLLER_TOOLS_VERSION ?= v0.18.0
-VICTORIAMETRICS_OPERATOR_VERSION ?= 0.66.1
 
 .PHONY: default
 default: help
@@ -65,7 +61,7 @@ gen-openapi-ts-types: ## Generate TypeScript types from all OpenAPI YAML files i
 generate: gen
 
 .PHONY: gen
-gen: gen-crds-deepcopy gen-crds-manifests gen-crds-openapi gen-openapi-ts-types ## Generate code.
+gen: gen-crds-deepcopy gen-crds-manifests gen-backupstorageclasses gen-crds-openapi gen-openapi-ts-types ## Generate code.
 	go generate ./...
 	python3 hack/add_copyright.py \
 		internal/server/api/everest-server.gen.go \
@@ -92,6 +88,16 @@ check:                  ## Run checks/linters for the whole project.
 	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
 	go tool go-consistent -pedantic ./...
 	LOG_LEVEL=error go tool golangci-lint run
+
+.PHONY: check-pr
+check-pr: ## Run checks/linters against main branch.
+# We need to ensure that /public/dist/index.html exists before linting because
+# it's embedded into the binary and a missing file breaks typechecking.
+	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
+	go tool go-consistent -pedantic ./... \
+	| { grep -v '/zz_generated\.' || true; } \
+	| go tool reviewdog -efm="%f:%l:%c: %m" -diff="git diff main" -reporter=local -filter-mode=added
+	LOG_LEVEL=error go tool golangci-lint run --new-from-rev=main
 
 .PHONY: copyright-check
 copyright-check: COPYRIGHT_FLAGS=--check
@@ -136,13 +142,10 @@ copyright-run:
 .PHONY: charts
 HELM=go tool helm
 charts:        ## Install Helm dependency charts for Everest CLI.
-	$(HELM) repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	$(HELM) repo add openeverest https://openeverest.github.io/helm-charts/
-	$(HELM) repo add vm https://victoriametrics.github.io/helm-charts
 	$(HELM) repo update
 
 ##@ Build
-export GOPRIVATE = github.com/percona,github.com/percona-platform,github.com/Percona-Lab
 # GOOS and GOARCH default to the host but may be overridden from the
 # environment (e.g. GOARCH=arm64 make release) for cross-compilation.
 export GOOS ?= $(shell go env GOHOSTOS)
@@ -312,30 +315,19 @@ test-crosscover: setup-envtest ## Run unit tests and collect cross-package cover
 	KUBEBUILDER_ASSETS="$$("$(ENVTEST)" use $(ENVTEST_K8S_VERSION) --bin-dir "$(LOCALBIN)" -p path)" \
 	CGO_ENABLED=1 go test -race -timeout=20m -count=1 -coverprofile=crosscover.out -covermode=atomic -p=1 -coverpkg=./... ./...
 
+# CI builds the controller image once (build_images in ci.yaml) and loads it
+# pre-built; SKIP_IMAGE_BUILD skips the local image build.
+CONTROLLER_IMAGE_PREREQ = $(if $(SKIP_IMAGE_BUILD),,docker-build-controller)
+
 .PHONY: test-integration-backup
-test-integration-backup: docker-build-controller k3d-upload-controller-image deploy-test-controller
+test-integration-backup: $(CONTROLLER_IMAGE_PREREQ) upload-controller-image deploy-test-controller
 	chainsaw test --config test/integration/.backup.yaml test/integration/backup
 
 .PHONY: test-integration-monitoring
-test-integration-monitoring: docker-build-controller k3d-upload-controller-image deploy-test-controller
+test-integration-monitoring: $(CONTROLLER_IMAGE_PREREQ) upload-controller-image deploy-test-controller
 	chainsaw test --config test/integration/.monitoring.yaml test/integration/monitoring
 
 ##@ Deployment management
-
-# This target builds the docker image for Everest operator from the commit referenced in go.mod.
-# Docker image will be tagged with the same tag as Everest API server image (IMAGE_TAG).
-.PHONY: docker-build-operator
-docker-build-operator:
-	$(info Building Everest Operator Docker image=$(EVEREST_OPERATOR_IMG))
-	@{ \
-	set -xe ;\
-	operator_commit_id=$(word 3, $(subst -,  ,$(word 2, $(shell go list -m github.com/percona/everest-operator)))) ;\
-	cd "$(shell mktemp -d)" ;\
-	git clone -q https://github.com/percona/everest-operator.git ;\
-	cd ./everest-operator ;\
-	git reset --hard $${operator_commit_id} ;\
-	make build docker-build IMG=$(EVEREST_OPERATOR_IMG) ;\
-	}
 
 DB_NAMESPACES = everest
 .PHONY: deploy
@@ -354,17 +346,17 @@ deploy:  ## Deploy Everest to K8S cluster using Everest CLI.
 	--helm.set server.apiRequestsRateLimit=500 \
 	--helm.set server.sessionRequestsRateLimit=200 \
 	--helm.set versionMetadataURL=https://check-dev.percona.com \
-	--helm.set server.initialAdminPassword=admin \
-	--helm.set operator.init=false \
-	--helm.set operator.image=$(IMAGE_PREFIX)/$(EVEREST_OPERATOR_DEV_IMAGE_NAME) \
-	--helm.set olm.catalogSourceImage=$(IMAGE_PREFIX)/$(EVEREST_CATALOG_DEV_IMAGE_NAME)
+	--helm.set server.initialAdminPassword=admin
 	$(MAKE) expose
+
+# Test cluster runtime: k3d locally, kind on CI (containerized runners).
+CLUSTER_PROVIDER ?= k3d
 
 DEPLOY_ALL_DEPS := build-ui build-debug build-controller-debug docker-build
 DEPLOY_ALL_DEPS += build-cli-debug
-DEPLOY_ALL_DEPS += k3d-upload-server-image k3d-upload-server-image deploy
+DEPLOY_ALL_DEPS += $(CLUSTER_PROVIDER)-upload-server-image deploy
 .PHONY: deploy-all
-deploy-all: $(DEPLOY_ALL_DEPS) ## Helper to build Everest and its dependencies and deploy to K3D test cluster.
+deploy-all: $(DEPLOY_ALL_DEPS) ## Helper to build Everest and its dependencies and deploy to the $(CLUSTER_PROVIDER) test cluster.
 
 .PHONY: undeploy-cli
 undeploy: build-cli-debug ## Undeploy Everest from K8S cluster using Everest CLI.
@@ -380,6 +372,40 @@ add-shared-everest-namespace: ## Add shared Everest namespace with all operators
 	--operator.mysql=true \
 	--take-ownership \
 	--skip-wizard
+
+PXC_PROVIDER_DIR ?= ../provider-percona-xtradb-cluster
+PXC_PROVIDER_IMG ?= ghcr.io/openeverest/provider-percona-xtradb-cluster-dev:latest
+PXC_PROVIDER_K3D_CLUSTER ?= everest-server-test
+PXC_PROVIDER_NAMESPACE ?= provider-system
+PXC_PROVIDER_CHART_DIR ?= $(PXC_PROVIDER_DIR)/charts/provider-percona-xtradb-cluster
+.PHONY: deploy-pxc-provider
+deploy-pxc-provider: ## Build + Helm-install the PXC provider into the test cluster (needs the provider repo checked out at PXC_PROVIDER_DIR).
+	$(info Building and Helm-installing the PXC provider from $(PXC_PROVIDER_DIR))
+	$(MAKE) -C "$(PXC_PROVIDER_DIR)" docker-build IMG=$(PXC_PROVIDER_IMG)
+	$(MAKE) $(CLUSTER_PROVIDER)-upload-pxc-provider-image
+	# Install the provider the way users do: on top of an already deployed
+	# Everest. OpenEverest CRDs come only from core (this checkout); the PXC
+	# operator CRDs come from the chart's pxc-operator dependency. Do not use the
+	# provider's `install-crds`: it applies the OpenEverest CRDs pinned in the
+	# provider's go.mod, which conflict with core's as soon as main changes a CRD.
+	$(HELM) repo add percona https://percona.github.io/percona-helm-charts/
+	$(HELM) dependency build "$(PXC_PROVIDER_CHART_DIR)"
+	$(HELM) upgrade --install provider-percona-xtradb-cluster "$(PXC_PROVIDER_CHART_DIR)" \
+		--create-namespace \
+		--namespace $(PXC_PROVIDER_NAMESPACE) \
+		--set image.repository=$(firstword $(subst :, ,$(PXC_PROVIDER_IMG))) \
+		--set image.tag=$(lastword $(subst :, ,$(PXC_PROVIDER_IMG))) \
+		--set image.pullPolicy=Never \
+		--set operator.replicaCount=1 \
+		--wait --timeout 5m
+
+.PHONY: k3d-upload-pxc-provider-image
+k3d-upload-pxc-provider-image:
+	k3d image import -c $(PXC_PROVIDER_K3D_CLUSTER) $(PXC_PROVIDER_IMG)
+
+.PHONY: kind-upload-pxc-provider-image
+kind-upload-pxc-provider-image:
+	kind load docker-image --name $(KIND_CLUSTER_NAME) $(PXC_PROVIDER_IMG)
 
 .PHONY: expose
 expose:
@@ -409,10 +435,30 @@ k3d-upload-controller-image: ## Upload the Everest controller image to the testi
 	$(info Uploading Everest controller image=$(EVEREST_CONTROLLER_IMG) to K3D testing cluster)
 	k3d image import -c everest-server-test $(EVEREST_CONTROLLER_IMG)
 
-.PHONY: k3d-upload-operator-image
-k3d-upload-operator-image: ## Upload the Everest operator image to the testing k3d cluster.
-	$(info Uploading Everest operator image=$(EVEREST_OPERATOR_IMG) to K3D testing cluster)
-	k3d image import -c everest-server-test $(EVEREST_OPERATOR_IMG)
+.PHONY: upload-controller-image
+upload-controller-image: $(CLUSTER_PROVIDER)-upload-controller-image ## Upload the controller image to the $(CLUSTER_PROVIDER) test cluster.
+
+KIND_CLUSTER_NAME = everest-server-test
+
+.PHONY: kind-cluster-up
+kind-cluster-up: ## Create a kind cluster for testing.
+	$(info Creating kind cluster for testing)
+	kind create cluster --config ./dev/kind_config.yaml --wait 120s
+
+.PHONY: kind-cluster-down
+kind-cluster-down: ## Destroy the kind test cluster.
+	$(info Destroying kind test cluster)
+	kind delete cluster --name $(KIND_CLUSTER_NAME)
+
+.PHONY: kind-upload-server-image
+kind-upload-server-image: ## Upload the Everest API server image to the testing kind cluster.
+	$(info Uploading Everest API server image=$(IMG) to kind testing cluster)
+	kind load docker-image --name $(KIND_CLUSTER_NAME) $(IMG)
+
+.PHONY: kind-upload-controller-image
+kind-upload-controller-image: ## Upload the Everest controller image to the testing kind cluster.
+	$(info Uploading Everest controller image=$(EVEREST_CONTROLLER_IMG) to kind testing cluster)
+	kind load docker-image --name $(KIND_CLUSTER_NAME) $(EVEREST_CONTROLLER_IMG)
 
 .PHONY: cert
 cert:                   ## Create dev TLS certificates.
@@ -497,6 +543,12 @@ gen-crds-deepcopy: controller-gen ## Generate code containing DeepCopy, DeepCopy
 gen-crds-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	"$(CONTROLLER_GEN)" rbac:roleName=manager-role crd:allowDangerousTypes=true webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
+.PHONY: gen-backupstorageclasses
+gen-backupstorageclasses: controller-gen ## Generate the built-in BackupStorageClasses from their Go types.
+	@tmp=$$(mktemp -d) && trap 'rm -rf "$$tmp"' EXIT && \
+	"$(CONTROLLER_GEN)" crd paths=./hack/gen-backupstorageclasses/_schema output:crd:dir="$$tmp" && \
+	go run ./hack/gen-backupstorageclasses -crd-dir "$$tmp" -out config/backupstorageclasses
+
 ##@ Kustomize Deployment
 
 ifndef ignore-not-found
@@ -530,9 +582,9 @@ build-installer: gen-crds-manifests kustomize ## Generate a consolidated YAML wi
 
 .PHONY: deploy-test-controller
 deploy-test-controller: gen-crds-manifests kustomize deploy-cert-manager
-	kubectl apply -f https://raw.githubusercontent.com/VictoriaMetrics/operator/v$(VICTORIAMETRICS_OPERATOR_VERSION)/config/crd/overlay/crd.yaml
-	kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
 	cd config/test && "$(KUSTOMIZE)" edit set image controller=${EVEREST_CONTROLLER_IMG}
+	"$(KUSTOMIZE)" build config/crd | kubectl apply -f -
+	kubectl wait --for condition=established --timeout=30s crd backupstorageclasses.backup.openeverest.io
 	"$(KUSTOMIZE)" build config/test | kubectl apply -f -
 	kubectl delete pod -n openeverest-system -l control-plane=controller-manager
 	$(MAKE) wait-test-controller

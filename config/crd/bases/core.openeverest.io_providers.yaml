@@ -46,11 +46,23 @@ spec:
               componentTypes:
                 additionalProperties:
                   properties:
+                    defaultVersion:
+                      description: |-
+                        DefaultVersion names the entry in Versions used when neither the
+                        Instance nor a version bundle selects one.
+                      type: string
+                    kind:
+                      description: |-
+                        Kind is the shared classification of the software the component type
+                        runs (e.g. "mongodb", "mysql", "haproxy"), matched by monitoring class
+                        filters and set on the component's published monitoring endpoints.
+                        Databases use OpenTelemetry db.system.name values; unknown kinds are
+                        allowed. A type without a kind matches no kind filter.
+                      pattern: ^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$
+                      type: string
                     versions:
                       items:
                         properties:
-                          default:
-                            type: boolean
                           deprecated:
                             description: |-
                               Deprecated marks a version as still supported but scheduled for
@@ -112,6 +124,108 @@ spec:
                   type: object
                 description: ConfigMaps defines ConfigMap types this provider supports.
                 type: object
+              defaultVersion:
+                description: |-
+                  DefaultVersion names the bundle in Versions used when an Instance
+                  omits Spec.Version.
+                type: string
+              monitoring:
+                description: |-
+                  Monitoring is the provider's monitoring contract: the operator-native
+                  integrations it renders itself and what each component type exposes.
+                properties:
+                  componentTypes:
+                    additionalProperties:
+                      description: |-
+                        MonitoringComponentType declares what one component type exposes. The
+                        component type's kind is declared on Provider.spec.componentTypes.
+                      properties:
+                        connection:
+                          default: None
+                          description: |-
+                            Connection states whether monitoring agents can connect to the
+                            component over its native protocol, with the monitor credential.
+                          enum:
+                          - Supported
+                          - None
+                          type: string
+                        metrics:
+                          default: None
+                          description: Metrics states how the component exposes OpenMetrics.
+                          enum:
+                          - Native
+                          - Exporter
+                          - None
+                          type: string
+                        podMetadata:
+                          default: None
+                          description: |-
+                            PodMetadata states whether the provider renders the pod annotations
+                            monitoring classes request (Context.MonitoringPodAnnotations) into the
+                            pods of the component type.
+                          enum:
+                          - Supported
+                          - None
+                          type: string
+                      type: object
+                    description: |-
+                      ComponentTypes declares what each component type exposes, keyed by
+                      component type (the software), not by component name.
+                    type: object
+                  integrations:
+                    additionalProperties:
+                      description: MonitoringIntegration describes one operator-native
+                        integration.
+                      properties:
+                        agentVersions:
+                          description: |-
+                            AgentVersions is the semver range of agent versions the provider can
+                            render (e.g. ">=3.0.0 <4.0.0").
+                          type: string
+                        authModes:
+                          description: |-
+                            AuthModes lists the authentication modes of the integration's
+                            MonitoringClass the provider can render. A destination whose mode is
+                            not listed is not bound.
+                          items:
+                            pattern: ^[A-Z][A-Za-z0-9]{0,62}$
+                            type: string
+                          maxItems: 16
+                          type: array
+                          x-kubernetes-list-type: set
+                        destinationParametersSchema:
+                          description: |-
+                            DestinationParametersSchema is the schema of MonitoringDestination
+                            parameters in the integration contract version the provider was built
+                            with, generated by provider-sdk. Core will check destination parameters
+                            against it as well as against the class.
+                          properties:
+                            openAPIV3Schema:
+                              description: |-
+                                OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                                parameters payload.
+                              x-kubernetes-preserve-unknown-fields: true
+                          type: object
+                        instanceParametersSchema:
+                          description: |-
+                            InstanceParametersSchema is the schema of
+                            Instance.spec.monitoring.destinations[].parameters in the integration
+                            contract version the provider was built with, generated by
+                            provider-sdk. Core will check entry parameters against it as well as
+                            against the class.
+                          properties:
+                            openAPIV3Schema:
+                              description: |-
+                                OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                                parameters payload.
+                              x-kubernetes-preserve-unknown-fields: true
+                          type: object
+                      type: object
+                    description: |-
+                      Integrations lists the operator-native monitoring integrations the
+                      provider renders itself, keyed by integration name (e.g. "pmm").
+                    type: object
+                type: object
               parametersSchema:
                 description: |-
                   ParametersSchema declares the OpenAPI v3 schema for the instance-wide
@@ -158,6 +272,12 @@ spec:
                             parameters payload.
                           x-kubernetes-preserve-unknown-fields: true
                       type: object
+                    type:
+                      default: Opaque
+                      description: |-
+                        Type is the Kubernetes Secret type of secrets created for this
+                        definition. The clients use it to encode input into Secret data.
+                      type: string
                     uiSchema:
                       description: UISchema holds UI rendering hints for the secret
                         creation form.
@@ -219,7 +339,7 @@ spec:
                   Versions defines curated version bundles — named sets of component
                   versions that are known to be mutually compatible. Users reference
                   a bundle via Instance.Spec.Version. If the user does not set a version,
-                  the bundle whose Default field is true is used automatically.
+                  the bundle named by DefaultVersion is used automatically.
                 items:
                   description: |-
                     VersionBundle is a curated set of component versions known to be mutually
@@ -232,11 +352,6 @@ spec:
                         Components maps component names to their version strings for this bundle.
                         Keys must match component names defined in ProviderSpec.Components.
                       type: object
-                    default:
-                      description: |-
-                        Default marks this bundle as the implicit choice when an Instance omits
-                        Spec.Version entirely. Exactly one bundle should have Default: true.
-                      type: boolean
                     name:
                       description: |-
                         Name is the unique identifier for this bundle (e.g. "8.0.12").

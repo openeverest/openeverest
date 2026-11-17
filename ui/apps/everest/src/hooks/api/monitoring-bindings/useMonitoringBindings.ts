@@ -1,0 +1,69 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import { useCallback } from 'react';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
+import { getMonitoringBindingsFn } from 'api/monitoring-bindings';
+import { useClusterName } from 'hooks/api/useClusterName';
+import {
+  MonitoringBinding,
+  MonitoringBindingList,
+} from 'shared-types/monitoring-destinations.types';
+
+export const MONITORING_BINDINGS_QUERY_KEY = 'monitoring-bindings';
+
+export const getMonitoringBindingsQueryKey = (
+  cluster: string,
+  namespace: string,
+  destination = ''
+) => [MONITORING_BINDINGS_QUERY_KEY, cluster, namespace, destination] as const;
+
+const selectBindings = ({ items = [] }: MonitoringBindingList) => items;
+
+// All bindings of each namespace in one request, to tell which Instances
+// use each destination.
+export const useMonitoringBindingsForNamespaces = (namespaces: string[]) => {
+  const cluster = useClusterName();
+
+  return useQueries({
+    queries: namespaces.map((namespace) => ({
+      queryKey: getMonitoringBindingsQueryKey(cluster, namespace),
+      queryFn: () => getMonitoringBindingsFn(cluster, namespace),
+      select: selectBindings,
+    })),
+  });
+};
+
+// Always asks the server, e.g. right before deleting a destination.
+export const useFetchMonitoringBindings = () => {
+  const cluster = useClusterName();
+  const queryClient = useQueryClient();
+
+  return useCallback(
+    (namespace: string, destination: string): Promise<MonitoringBinding[]> =>
+      queryClient
+        .fetchQuery({
+          queryKey: getMonitoringBindingsQueryKey(
+            cluster,
+            namespace,
+            destination
+          ),
+          queryFn: () =>
+            getMonitoringBindingsFn(cluster, namespace, destination),
+          staleTime: 0,
+        })
+        .then(selectBindings),
+    [cluster, queryClient]
+  );
+};

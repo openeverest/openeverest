@@ -66,22 +66,15 @@ func (e *EverestServer) GetBackupStorage(c echo.Context, cluster, namespace, nam
 	return c.JSON(http.StatusOK, result)
 }
 
-// PatchBackupStorage patches a backup storage.
+// PatchBackupStorage applies a merge patch to an existing backup storage.
 func (e *EverestServer) PatchBackupStorage(c echo.Context, cluster, namespace, name string) error {
-	bs := &backupv1alpha1.BackupStorage{}
-	body, err := io.ReadAll(c.Request().Body)
+	patch, err := io.ReadAll(c.Request().Body)
 	if err != nil {
 		e.l.Errorf("PatchBackupStorage: failed to read request body: %v", err)
 		return err
 	}
-	if err := json.Unmarshal(body, bs); err != nil {
-		e.l.Errorf("PatchBackupStorage: failed to decode request body: %v", err)
-		return err
-	}
 
-	bs.Namespace = namespace
-	bs.Name = name
-	result, err := e.handler.PatchBackupStorage(c.Request().Context(), cluster, bs)
+	result, err := e.handler.PatchBackupStorage(c.Request().Context(), cluster, namespace, name, patch)
 	if err != nil {
 		e.l.Errorf("PatchBackupStorage failed: %v", err)
 		return err

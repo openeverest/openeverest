@@ -21,6 +21,8 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
+	"k8s.io/apimachinery/pkg/watch"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
@@ -41,22 +43,39 @@ type Handler interface {
 	NamespacesHandler
 	BackupStorageHandler
 	ProviderHandler
+	PluginHandler
 	InstanceHandler
+	ClusterInstancePresetHandler
 	InstancePresetHandler
 	ClusterHandler
 	BackupClassHandler
 	BackupHandler
+	BackupImportHandler
 	RestoreHandler
 	InstanceBackupHandler
-	MonitoringConfigHandler
+	MonitoringClassHandler
+	MonitoringDestinationHandler
+	MonitoringBindingHandler
 	InstanceRestoreHandler
 	ConfigMapHandler
 	SecretHandler
+	EventHandler
 
 	GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error)
 	GetKubernetesClusterInfo(ctx context.Context) (*api.KubernetesClusterInfo, error)
 	GetUserPermissions(ctx context.Context) (*api.UserPermissions, error)
 	GetSettings(ctx context.Context) (*api.Settings, error)
+}
+
+// EventHandler provides the lifecycle events (see pkg/events).
+type EventHandler interface {
+	// ListEvents lists the lifecycle events in namespaces, or in all namespaces when
+	// namespaces is empty.
+	ListEvents(ctx context.Context, cluster string, namespaces []string, limit int64, continueToken string) (*eventsv1.EventList, error)
+	// WatchEvents streams the lifecycle events in namespaces, or in all namespaces when
+	// namespaces is empty, recorded after resourceVersion, or from now on when it is
+	// empty. Bookmark and error events are passed through.
+	WatchEvents(ctx context.Context, cluster string, namespaces []string, resourceVersion string) (watch.Interface, error)
 }
 
 // NamespacesHandler provides methods for handling operations on namespaces.
@@ -68,7 +87,7 @@ type NamespacesHandler interface {
 type BackupStorageHandler interface {
 	CreateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
 	UpdateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
-	PatchBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
+	PatchBackupStorage(ctx context.Context, cluster, namespace, name string, patch []byte) (*backupv1alpha1.BackupStorage, error)
 	ListBackupStorages(ctx context.Context, cluster, namespace string) (*backupv1alpha1.BackupStorageList, error)
 	GetBackupStorage(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.BackupStorage, error)
 	DeleteBackupStorage(ctx context.Context, cluster, namespace, name string) error
@@ -78,6 +97,12 @@ type BackupStorageHandler interface {
 type ProviderHandler interface {
 	ListProviders(ctx context.Context, cluster string) (*corev1alpha1.ProviderList, error)
 	GetProvider(ctx context.Context, cluster, name string) (*corev1alpha1.Provider, error)
+}
+
+// PluginHandler provides methods for handling generic plugin discovery.
+type PluginHandler interface {
+	ListPlugins(ctx context.Context, cluster string) (api.PluginDescriptorList, error)
+	GetPluginContext(ctx context.Context, cluster string) (*api.PluginContext, error)
 }
 
 // InstanceHandler provides methods for handling operations on instances.
@@ -91,11 +116,19 @@ type InstanceHandler interface {
 	GetInstanceConnection(ctx context.Context, cluster, namespace, name string) (*api.InstanceConnectionDetails, error)
 }
 
-// InstancePresetHandler provides methods for handling operations on instance presets.
+// ClusterInstancePresetHandler provides methods for handling operations on cluster instance presets.
+type ClusterInstancePresetHandler interface {
+	ListClusterInstancePresets(ctx context.Context, cluster string, provider string) (*corev1alpha1.ClusterInstancePresetList, error)
+	GetClusterInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.ClusterInstancePreset, error)
+}
+
+// InstancePresetHandler provides methods for handling operations on namespace-scoped instance presets.
 type InstancePresetHandler interface {
-	ListInstancePresets(ctx context.Context, cluster string, provider string) (*corev1alpha1.InstancePresetList, error)
-	GetInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.InstancePreset, error)
-	ResolveInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.InstancePreset, error)
+	ListInstancePresets(ctx context.Context, cluster, namespace, provider string) (*corev1alpha1.InstancePresetList, error)
+	GetInstancePreset(ctx context.Context, cluster, namespace, name string) (*corev1alpha1.InstancePreset, error)
+	CreateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error)
+	UpdateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error)
+	DeleteInstancePreset(ctx context.Context, cluster, namespace, name string) error
 }
 
 // ClusterHandler provides methods for handling operations on clusters.
@@ -112,16 +145,25 @@ type BackupClassHandler interface {
 
 // BackupHandler provides methods for handling operations on backups.
 type BackupHandler interface {
+	ListBackups(ctx context.Context, cluster, namespace string, params *api.ListBackupsParams) (*backupv1alpha1.BackupList, error)
 	GetBackup(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Backup, error)
 	CreateBackup(ctx context.Context, cluster string, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error)
 	DeleteBackup(ctx context.Context, cluster, namespace, name string, params *api.DeleteBackupParams) error
 }
 
+// BackupImportHandler provides methods for handling operations on backup imports.
+type BackupImportHandler interface {
+	ListBackupImports(ctx context.Context, cluster, namespace string) (*backupv1alpha1.BackupImportList, error)
+	GetBackupImport(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.BackupImport, error)
+	CreateBackupImport(ctx context.Context, cluster string, backupImport *backupv1alpha1.BackupImport) (*backupv1alpha1.BackupImport, error)
+	DeleteBackupImport(ctx context.Context, cluster, namespace, name string) error
+}
+
 // RestoreHandler provides methods for handling operations on restores.
 type RestoreHandler interface {
-	GetRestore(ctx context.Context, namespace, name string) (*backupv1alpha1.Restore, error)
-	CreateRestore(ctx context.Context, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error)
-	DeleteRestore(ctx context.Context, namespace, name string) error
+	GetRestore(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Restore, error)
+	CreateRestore(ctx context.Context, cluster string, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error)
+	DeleteRestore(ctx context.Context, cluster, namespace, name string) error
 }
 
 // InstanceBackupHandler provides methods for handling operations on instance backups.
@@ -129,13 +171,26 @@ type InstanceBackupHandler interface {
 	ListInstanceBackups(ctx context.Context, cluster, namespace, instance string) (*backupv1alpha1.BackupList, error)
 }
 
-// MonitoringConfigHandler provides methods for handling operations on monitoring configs.
-type MonitoringConfigHandler interface {
-	CreateMonitoringConfig(ctx context.Context, cluster, namespace string, req *api.MonitoringConfigCreateParams) (*monitoringv1alpha1.MonitoringConfig, error)
-	UpdateMonitoringConfig(ctx context.Context, cluster, namespace, name string, req *api.MonitoringConfigUpdateParams) (*monitoringv1alpha1.MonitoringConfig, error)
-	ListMonitoringConfigs(ctx context.Context, cluster, namespaces string) (*monitoringv1alpha1.MonitoringConfigList, error)
-	GetMonitoringConfig(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha1.MonitoringConfig, error)
-	DeleteMonitoringConfig(ctx context.Context, cluster, namespace, name string) error
+// MonitoringClassHandler provides methods for handling operations on monitoring classes.
+type MonitoringClassHandler interface {
+	ListMonitoringClasses(ctx context.Context, cluster, provider string) (*monitoringv1alpha1.MonitoringClassList, error)
+	GetMonitoringClass(ctx context.Context, cluster, name string) (*monitoringv1alpha1.MonitoringClass, error)
+}
+
+// MonitoringDestinationHandler provides methods for handling operations on monitoring destinations.
+// The namespace, and the name on update, come from the request path, never from the object.
+type MonitoringDestinationHandler interface {
+	ListMonitoringDestinations(ctx context.Context, cluster, namespace string, params *api.ListMonitoringDestinationsParams) (*monitoringv1alpha1.MonitoringDestinationList, error)
+	GetMonitoringDestination(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha1.MonitoringDestination, error)
+	CreateMonitoringDestination(ctx context.Context, cluster, namespace string, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error)
+	UpdateMonitoringDestination(ctx context.Context, cluster, namespace, name string, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error)
+	DeleteMonitoringDestination(ctx context.Context, cluster, namespace, name string) error
+}
+
+// MonitoringBindingHandler provides methods for handling operations on monitoring bindings.
+type MonitoringBindingHandler interface {
+	ListMonitoringBindings(ctx context.Context, cluster, namespace string, params *api.ListMonitoringBindingsParams) (*monitoringv1alpha1.MonitoringBindingList, error)
+	GetMonitoringBinding(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha1.MonitoringBinding, error)
 }
 
 // InstanceRestoreHandler provides methods for handling operations on instance restores.
@@ -154,7 +209,16 @@ type ConfigMapHandler interface {
 // SecretHandler provides methods for handling operations on secrets.
 type SecretHandler interface {
 	CreateSecret(ctx context.Context, cluster, namespace string, secret *corev1.Secret) (*corev1.Secret, error)
-	ListSecrets(ctx context.Context, cluster, namespace, provider, definition string) (*corev1.SecretList, error)
+	ListSecrets(ctx context.Context, cluster, namespace string, filter SecretFilter) (*corev1.SecretList, error)
 	GetSecret(ctx context.Context, cluster, namespace, name string) (*corev1.Secret, error)
+	PatchSecret(ctx context.Context, cluster, namespace, name string, patch []byte) (*corev1.Secret, error)
 	DeleteSecret(ctx context.Context, cluster, namespace, name string) error
+}
+
+// SecretFilter selects Secrets by the labels that name their definition.
+// Empty fields match any value.
+type SecretFilter struct {
+	Provider        string
+	MonitoringClass string
+	Definition      string
 }

@@ -24,7 +24,8 @@ import { useClusterName } from 'hooks/api/useClusterName';
 import { ScheduleFormData } from 'components/schedule-form-dialog/schedule-form/schedule-form-schema';
 import { getSchedulesPayload } from 'components/schedule-form-dialog/schedule-form/schedule-form.utils';
 import { Instance } from 'shared-types/api.types';
-import { flattenSchedules } from 'utils/backup-schedules';
+import { backupClassSupportsProvider } from 'utils/backup-classes';
+import { flattenSchedules, scheduleToApi } from 'utils/backup-schedules';
 import {
   applySchedulesToStorages,
   removeUnusedStorages,
@@ -52,10 +53,7 @@ export const ScheduledBackupModal = () => {
       backupClasses.filter((bc) => {
         // Schedules always require ProviderManaged execution mode.
         if (bc.spec?.executionMode !== 'ProviderManaged') return false;
-        const supported = bc.spec?.supportedProviders;
-        if (!supported || supported.length === 0) return true;
-        if (!providerType) return true;
-        return supported.includes(providerType);
+        return !providerType || backupClassSupportsProvider(bc, providerType);
       }),
     [backupClasses, providerType]
   );
@@ -112,15 +110,7 @@ export const ScheduledBackupModal = () => {
         storageRef: { name: newStorageName },
         schedules: updatedSchedules
           .filter((s) => s.storageName === newStorageName)
-          .map((schedule) => ({
-            name: schedule.name,
-            cron: schedule.cron,
-            enabled: schedule.enabled,
-            retentionCopies: schedule.retentionCopies,
-            ...(schedule.parameters && {
-              parameters: schedule.parameters as Record<string, never>,
-            }),
-          })),
+          .map(scheduleToApi),
       });
     }
 

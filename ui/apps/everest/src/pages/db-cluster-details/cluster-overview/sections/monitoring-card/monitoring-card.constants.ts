@@ -1,0 +1,47 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+import { BaseStatus } from 'components/status-field/status-field.types';
+import { Messages } from './monitoring-card.messages';
+import { ConditionStatus } from './monitoring-card.types';
+
+export const MONITORING_READY_CONDITION = 'MonitoringReady';
+
+// Condition types of an Instance.status.monitoring.destinations entry.
+export const ENTRY_CONFIGURED_CONDITION = 'Configured';
+export const ENTRY_READY_CONDITION = 'Ready';
+
+export const READY_TO_STATUS: Record<ConditionStatus, BaseStatus> = {
+  True: 'success',
+  False: 'error',
+  Unknown: 'pending',
+};
+
+// Entry reasons as core reports them, told in the user's terms; others show as core reports them.
+export const REASON_TEXT: Partial<
+  Record<string, (destination: string) => string>
+> = {
+  DestinationTerminating: Messages.destinationTerminating,
+  DestinationNotFound: Messages.destinationNotFound,
+  DestinationNotReady: Messages.destinationNotReady,
+  AgentTLSNotVerified: Messages.agentTlsNotVerified,
+  IntegrationInUse: Messages.integrationInUse,
+  IntegrationUnsupported: Messages.unsupported,
+  Incompatible: Messages.unsupported,
+  KindUnsupported: Messages.unsupported,
+  PodMetadataUnsupported: Messages.unsupported,
+};
+
+// Reasons the status already says all about.
+export const STATUS_ONLY_REASONS = ['Configured', 'Ready', 'Pending'];

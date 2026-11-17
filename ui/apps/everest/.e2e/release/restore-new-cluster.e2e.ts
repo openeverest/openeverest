@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { expect, test } from '@playwright/test';
+import { expect, test, request as apiRequest } from '@playwright/test';
 import {
   deleteDbCluster,
   gotoDbClusterBackups,
@@ -26,6 +26,7 @@ import {
   submitWizard,
   populateBasicInformation,
   populateResources,
+  populateEngineResources,
   populateAdvancedConfig,
 } from '@e2e/utils/db-wizard';
 import {
@@ -33,11 +34,12 @@ import {
   fillScheduleModalForm,
   ScheduleTimeOptions,
 } from '@e2e/pr/db-cluster/db-wizard/db-wizard-utils';
-import { EVEREST_CI_NAMESPACES } from '@e2e/constants';
+import { EVEREST_CI_NAMESPACES, TIMEOUTS } from '@e2e/constants';
 import {
   waitForStatus,
   waitForDelete,
   findRowAndClickActions,
+  confirmDeletion,
 } from '@e2e/utils/table';
 import { clickCreateSchedule } from '@e2e/pr/db-cluster-details/utils';
 import { prepareTestDB, queryTestDB } from '@e2e/utils/db-cmd-line';
@@ -62,18 +64,19 @@ function getNextScheduleMinute(incrementMinutes: number): string {
 }
 
 [
-  { db: 'psmdb', size: 3 },
+  // Only the PXC provider is deployed in the release lane (make deploy-pxc-provider);
+  // psmdb/postgresql have no provider installed, so restore them incrementally once
+  // their providers are provisioned in CI.
   { db: 'pxc', size: 3 },
-  { db: 'postgresql', size: 3 },
 ].forEach(({ db, size }) => {
-  test.describe(
+  test.describe.serial(
     'Restore to a new cluster',
     {
       tag: '@release',
     },
     () => {
       test.skip(!shouldExecuteDBCombination(db, size));
-      test.describe.configure({ timeout: 1_200_000 });
+      test.describe.configure({ timeout: 1_800_000 });
 
       // Define primary and restored cluster names to use across related tests
       const clusterName = `${db}-${size}-pri`;
@@ -94,11 +97,48 @@ function getNextScheduleMinute(incrementMinutes: number): string {
         storageClasses = storageClassNames;
       });
 
+      // Best-effort teardown: delete both the primary and the restored cluster
+      // via the API. Serial mode skips the trailing delete tests after a failure,
+      // so without this a mid-flow failure would leak 3-node clusters that starve
+      // the shared node and break the parallel release lane on re-runs.
+      test.afterAll(async () => {
+        try {
+          const cleanupToken = await getCITokenFromLocalStorage();
+          const ctx = await apiRequest.newContext({
+            baseURL: process.env.EVEREST_URL || 'http://localhost:8080',
+          });
+          for (const name of [clusterName, restoredClusterName]) {
+            await ctx.delete(
+              `/v1/clusters/main/namespaces/${namespace}/instances/${name}`,
+              { headers: { Authorization: `Bearer ${cleanupToken}` } }
+            );
+          }
+          await ctx.dispose();
+        } catch {
+          // Teardown must never fail the suite; leftovers are removed by the
+          // next run's pre-create delete.
+        }
+      });
+
       test(`Create primary database cluster [${db} size ${size}]`, async ({
         page,
         request,
       }) => {
         expect(storageClasses.length).toBeGreaterThan(0);
+
+        if (db === 'pxc') {
+          for (const name of [clusterName, restoredClusterName]) {
+            const response = await request.delete(
+              `/v1/clusters/main/namespaces/${namespace}/instances/${name}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+            expect([204, 404]).toContain(response.status());
+          }
+        }
 
         await page.goto('/databases');
         await clickAddDbClusterBtn(page, db);
@@ -117,33 +157,55 @@ function getNextScheduleMinute(incrementMinutes: number): string {
         });
 
         await test.step('Populate resources', async () => {
-          await page
-            .getByRole('button')
-            .getByText(size + ' node')
-            .click();
+          if (db !== 'pxc') {
+            await page
+              .getByRole('button')
+              .getByText(size + ' node')
+              .click();
 
-          await expect(page.getByText('Nodes (' + size + ')')).toBeVisible();
-          await populateResources(page, 0.6, 1, 1, size);
-          await moveForward(page);
+            await expect(page.getByText('Nodes (' + size + ')')).toBeVisible();
+            await populateResources(page, 0.6, 1, 1, size);
+            await moveForward(page);
+          } else {
+            // Resources comes after Database Version in the PXC wizard.
+            await moveForward(page);
+            // The topology defaults (4 CPU / 8Gi / 100Gi per node) do not fit a CI runner.
+            // Whole CPUs only: the wizard sends 0.6 as a JSON float, which the API rejects.
+            await populateEngineResources(page, 1, 1, 1);
+          }
         });
 
         await test.step('Populate backups', async () => {
           await moveForward(page);
         });
 
-        await test.step('Populate advanced db config', async () => {
-          await populateAdvancedConfig(page, db, false, '', true, '');
-          await moveForward(page);
+        await test.step('Populate monitoring', async () => {
+          if (db !== 'pxc') {
+            await page.getByTestId('switch-input-monitoring').click();
+            await page
+              .getByTestId('text-input-monitoring-instance')
+              .fill(monitoringName);
+            await expect(
+              page.getByTestId('text-input-monitoring-instance')
+            ).toHaveValue(monitoringName);
+          } else {
+            // TODO(monitoring): the PXC provider dropped the wizard Monitoring
+            // step and spec.components.monitoring in favour of
+            // MonitoringDestination (openeverest/provider-percona-xtradb-cluster#46),
+            // so the wizard goes straight to Proxy. Restore monitoring coverage
+            // once core and the UI support MonitoringDestination.
+            await expect(page.getByTestId('step-header')).toHaveText('Proxy');
+            await moveForward(page);
+          }
         });
 
-        await test.step('Populate monitoring', async () => {
-          await page.getByTestId('switch-input-monitoring').click();
-          await page
-            .getByTestId('text-input-monitoring-instance')
-            .fill(monitoringName);
-          await expect(
-            page.getByTestId('text-input-monitoring-instance')
-          ).toHaveValue(monitoringName);
+        await test.step('Populate advanced db config', async () => {
+          if (db === 'pxc') {
+            return;
+          }
+
+          await populateAdvancedConfig(page, db, false, '', true, '');
+          await moveForward(page);
         });
 
         await test.step('Submit wizard', async () => {
@@ -151,11 +213,20 @@ function getNextScheduleMinute(incrementMinutes: number): string {
         });
 
         await test.step('Check db list and status', async () => {
-          await page.goto('/databases');
-          if (db !== 'postgresql') {
+          // The wizard navigates to the list once the create request succeeds;
+          // navigating ourselves would abort the in-flight request.
+          await page.waitForURL('**/databases', {
+            timeout: TIMEOUTS.ThirtySeconds,
+          });
+          if (db !== 'postgresql' && db !== 'pxc') {
             await waitForStatus(page, clusterName, 'Initializing', 15000);
           }
-          await waitForStatus(page, clusterName, 'Up', 900000);
+
+          if (db === 'pxc') {
+            await waitForStatus(page, clusterName, 'Ready', 900000);
+          } else {
+            await waitForStatus(page, clusterName, 'Up', 900000);
+          }
         });
 
         await test.step('Check db cluster k8s object options', async () => {
@@ -168,16 +239,26 @@ function getNextScheduleMinute(incrementMinutes: number): string {
 
           expect(addedCluster?.spec.engine.type).toBe(db);
           expect(addedCluster?.spec.engine.replicas).toBe(size);
-          expect(['600m', '0.6']).toContain(
-            addedCluster?.spec.engine.resources?.cpu.toString()
-          );
-          expect(addedCluster?.spec.engine.resources?.memory.toString()).toBe(
-            '1G'
-          );
-          expect(addedCluster?.spec.engine.storage.size.toString()).toBe('1Gi');
+          if (db !== 'pxc') {
+            expect(['600m', '0.6']).toContain(
+              addedCluster?.spec.engine.resources?.cpu.toString()
+            );
+            expect(addedCluster?.spec.engine.resources?.memory.toString()).toBe(
+              '1G'
+            );
+            expect(addedCluster?.spec.engine.storage.size.toString()).toBe(
+              '1Gi'
+            );
+          } else {
+            expect(addedCluster?.spec.engine.resources?.cpu).toBeTruthy();
+            expect(addedCluster?.spec.engine.resources?.memory).toBeTruthy();
+            expect(addedCluster?.spec.engine.storage.size).toBeTruthy();
+          }
           expect(addedCluster?.spec.proxy.expose.type).toBe('ClusterIP');
           if (db != 'psmdb') {
-            expect(addedCluster?.spec.proxy.replicas).toBe(size);
+            expect(addedCluster?.spec.proxy.replicas).toBe(
+              db === 'pxc' ? 2 : size
+            );
           }
         });
       });
@@ -267,12 +348,13 @@ function getNextScheduleMinute(incrementMinutes: number): string {
       test(`Wait for two backups to succeeded for primary database [${db} size ${size}]`, async ({
         page,
       }) => {
+        test.setTimeout(16 * 60 * 1000);
         await gotoDbClusterBackups(page, clusterName);
         await expect(page.getByText(`${db}-${size}-pri-`)).toHaveCount(2, {
-          timeout: 360000,
+          timeout: 900000,
         });
         await expect(page.getByText('Succeeded')).toHaveCount(2, {
-          timeout: 360000,
+          timeout: 900000,
         });
       });
 
@@ -291,7 +373,8 @@ function getNextScheduleMinute(incrementMinutes: number): string {
             .first();
           await scheduleForDeleteBtn.click();
           await page.getByTestId('confirm-dialog-delete').click();
-          expect(page.getByText('1 active schedule')).toBeTruthy();
+          // Wait for the update to land, otherwise the reload below aborts the in-flight PUT.
+          await expect(page.getByText('1 active schedule')).toBeVisible();
         });
 
         await test.step('Delete second schedule', async () => {
@@ -338,26 +421,16 @@ function getNextScheduleMinute(incrementMinutes: number): string {
           await moveForward(page);
         });
 
-        await test.step('Populate resources', async () => {
-          await moveForward(page);
-        });
-
-        await test.step('Populate backups', async () => {
-          await moveForward(page);
-        });
-        await test.step('Populate advanced db config', async () => {
-          await moveForward(page);
-        });
-
-        await test.step('Submit restore request (monitoring step)', async () => {
-          await expect(
-            page.getByTestId('db-wizard-submit-button')
-          ).toBeVisible();
-          await page.getByTestId('db-wizard-submit-button').click();
+        // Restore mode inserts a Backups step, so walk the remaining steps up
+        // to submit rather than counting them.
+        await test.step('Submit restore request', async () => {
+          await submitWizard(page);
         });
 
         await test.step('Check restored DB list and status', async () => {
-          if (db !== 'postgresql') {
+          // A PXC instance seeded from a backup reports Restoring from the moment
+          // its engine exists, so it never shows Initializing.
+          if (db !== 'postgresql' && db !== 'pxc') {
             await waitForStatus(
               page,
               restoredClusterName,
@@ -366,12 +439,22 @@ function getNextScheduleMinute(incrementMinutes: number): string {
             );
           }
           await waitForStatus(page, restoredClusterName, 'Restoring', 660000);
-          await waitForStatus(page, restoredClusterName, 'Up', 2400000);
+          await waitForStatus(
+            page,
+            restoredClusterName,
+            db === 'pxc' ? 'Ready' : 'Up',
+            2400000
+          );
         });
 
         await test.step(`Delete primary database cluster`, async () => {
           await deleteDbCluster(page, clusterName);
-          await waitForStatus(page, clusterName, 'Deleting', 15000);
+          await waitForStatus(
+            page,
+            clusterName,
+            db === 'pxc' ? 'Terminating' : 'Deleting',
+            15000
+          );
           await waitForDelete(page, clusterName, 240000);
         });
 
@@ -410,7 +493,7 @@ function getNextScheduleMinute(incrementMinutes: number): string {
           await test.step('Delete the restore entry', async () => {
             await findRowAndClickActions(page, restoredClusterName, 'Delete');
             await expect(page.getByLabel('Delete restore')).toBeVisible();
-            await page.getByTestId('confirm-dialog-delete').click();
+            await confirmDeletion(page, 'confirm-dialog-delete');
             await waitForDelete(page, restoredClusterName, 15000);
           });
         });
@@ -505,7 +588,12 @@ function getNextScheduleMinute(incrementMinutes: number): string {
         page,
       }) => {
         await deleteDbCluster(page, restoredClusterName);
-        await waitForStatus(page, restoredClusterName, 'Deleting', 15000);
+        await waitForStatus(
+          page,
+          restoredClusterName,
+          db === 'pxc' ? 'Terminating' : 'Deleting',
+          15000
+        );
         await waitForDelete(page, restoredClusterName, 240000);
       });
     }

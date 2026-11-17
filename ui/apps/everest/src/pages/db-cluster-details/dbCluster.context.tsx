@@ -21,9 +21,9 @@ import {
   getDbInstanceQueryKey,
   useDbInstance,
 } from 'hooks/api/db-instances';
+import { useRBACAction } from 'hooks/rbac';
 import { DbInstanceContextProps } from './dbCluster.context.types';
 import { Instance } from 'shared-types/api.types';
-// import { useRBACPermissions } from 'hooks/rbac';
 
 export const DbInstanceContext = createContext<DbInstanceContextProps>({
   instance: {} as Instance,
@@ -31,6 +31,7 @@ export const DbInstanceContext = createContext<DbInstanceContextProps>({
   instanceDeleted: false,
   //   canReadBackups: false,
   canReadCredentials: false,
+  isCredentialsPermissionLoading: false,
   //   canUpdateDb: false,
   //   temporarilyIncreaseInterval: () => {},
   //   queryResult: {} as QueryObserverResult<DbCluster, unknown>,
@@ -69,16 +70,14 @@ export const DbInstanceContextProvider = ({
   //   }, timeoutTime);
   // };
 
-  //  const { canRead: canReadBackups } = useRBACPermissions(
-  //     'database-cluster-backups',
-  //     `${namespace}/${dbClusterName}`
-  //   );
-  //TODO RBAC fix to instance
-  // const { canRead: canReadCredentials } = useRBACPermissions(
-  //   'database-cluster-credentials',
-  //   `${namespace}/${instanceName}`
-  // );
-  const canReadCredentials = true;
+  const {
+    isAllowed: canReadCredentials,
+    isPermissionsLoading: isCredentialsPermissionLoading,
+  } = useRBACAction(
+    'read-connection',
+    'instances',
+    `${namespace}/${instanceName}`
+  );
   //   const { canUpdate: canUpdateDb } = useRBACPermissions(
   //     'database-clusters',
   //     `${dbCluster?.metadata.namespace}/${dbCluster?.metadata.name}`
@@ -115,6 +114,7 @@ export const DbInstanceContextProvider = ({
         // canReadBackups,
         // canUpdateDb,
         canReadCredentials,
+        isCredentialsPermissionLoading,
         // temporarilyIncreaseInterval,
         // queryResult,
       }}

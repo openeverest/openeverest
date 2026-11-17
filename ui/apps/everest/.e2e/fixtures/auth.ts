@@ -139,6 +139,13 @@ export const test = base.extend<AuthOptions, AuthWorkerFixtures>({
     },
     { scope: 'worker', timeout: TIMEOUTS.ThreeMinutes },
   ],
+
+  // Refresh token is rotated by the server. Persist the latest cookie jar
+  // after every test so the next test does not boot from a stale worker state.
+  context: async ({ context, workerStorageState }, use) => {
+    await use(context);
+    await context.storageState({ path: workerStorageState });
+  },
 });
 
 export { expect } from '@playwright/test';

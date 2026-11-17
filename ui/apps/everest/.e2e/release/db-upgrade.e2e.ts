@@ -34,6 +34,7 @@ import {
   waitForStatus,
   waitForDelete,
   findRowAndClickActions,
+  confirmDeletion,
 } from '@e2e/utils/table';
 import { clickOnDemandBackup } from '@e2e/pr/db-cluster-details/utils';
 import {
@@ -222,7 +223,9 @@ test.describe.configure({ retries: 0 });
           expect(addedCluster?.spec.engine.storage.size.toString()).toBe('1Gi');
           expect(addedCluster?.spec.proxy.expose.type).toBe('ClusterIP');
           if (db != 'psmdb') {
-            expect(addedCluster?.spec.proxy.replicas).toBe(size);
+            expect(addedCluster?.spec.proxy.replicas).toBe(
+              db === 'pxc' ? 2 : size
+            );
           }
         });
       });
@@ -415,7 +418,7 @@ test.describe.configure({ retries: 0 });
               'Delete'
             );
             await expect(page.getByLabel('Delete backup')).toBeVisible();
-            await page.getByTestId('form-dialog-delete').click();
+            await confirmDeletion(page, 'form-dialog-delete');
             await waitForDelete(page, baseBackupName + `-${i}`, 30000);
           }
         }

@@ -19,13 +19,23 @@ import {
   getByPath,
   setByPath,
   deleteByPath,
+  isEmptyFieldValue,
 } from '../object-path';
 import { walkTopologyComponents } from '../schema-walker';
+import { dropOtherTopologyValues } from '../topology-scope';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
 import {
   extractBadgeMappings,
   applyBadgesToFormData,
 } from '../badge-to-api/badge-to-api';
+import {
+  extractQuantityMappings,
+  applyQuantitiesToFormData,
+} from '../quantity';
+import {
+  TOGGLEABLE_SWITCHES_KEY,
+  getInactiveToggleablePaths,
+} from '../toggleable/toggleable';
 
 export type PostprocessInput = Record<string, unknown>;
 
@@ -39,13 +49,10 @@ export type PostprocessOptions = {
   schema?: TopologyUISchemas;
   selectedTopology?: string;
   multiPathMappings?: MultiPathMapping[];
+  // Instance / restore source at the same paths as form data. Used so an
+  // untouched quantity field is written back as stored (e.g. "10240Mi").
+  originalData?: Record<string, unknown>;
 };
-
-// Empty value contract (applies to all field types by default):
-// - Removed: undefined, null, ''
-// - Preserved: false, 0, [], non-empty objects
-export const isEmptyFieldValue = (value: unknown): boolean =>
-  value === undefined || value === null || value === '';
 
 const normalizeRuntimePathArray = (paths: unknown): string[] => {
   if (!Array.isArray(paths)) {
@@ -200,18 +207,49 @@ export const postprocessSchemaData = (
     ...(options?.multiPathMappings ?? []),
   ];
 
-  const mapped = applyMultiPathMappings(formValues, allMappings);
+  const scoped =
+    options?.schema && options.selectedTopology
+      ? dropOtherTopologyValues(
+          formValues,
+          options.schema,
+          options.selectedTopology
+        )
+      : formValues;
+
+  const mapped = applyMultiPathMappings(scoped, allMappings);
 
   const coerced =
     options?.schema && options.selectedTopology
       ? coerceSchemaNumbers(mapped, options.schema, options.selectedTopology)
       : mapped;
 
+  // Quantity paths must become strings before badge append; they are never
+  // coerced to JSON numbers (that is what broke fractional CPU).
+  const quantityMappings =
+    options?.schema && options.selectedTopology
+      ? extractQuantityMappings(options.schema, options.selectedTopology)
+      : [];
+  const withQuantities = applyQuantitiesToFormData(
+    coerced,
+    quantityMappings,
+    options?.originalData
+  );
+
   const badgeMappings =
     options?.schema && options.selectedTopology
       ? extractBadgeMappings(options.schema, options.selectedTopology)
       : [];
-  const withBadges = applyBadgesToFormData(coerced, badgeMappings);
+  const withBadges = applyBadgesToFormData(withQuantities, badgeMappings);
 
-  return removeEmptyFieldValues(withBadges);
+  const sections =
+    options?.schema && options.selectedTopology
+      ? options.schema[options.selectedTopology]?.sections
+      : undefined;
+  const withoutInactive = deepClone(withBadges);
+  (sections ? getInactiveToggleablePaths(sections, formValues) : []).forEach(
+    (path) => deleteByPath(withoutInactive, path)
+  );
+  deleteByPath(withoutInactive, TOGGLEABLE_SWITCHES_KEY);
+
+  return removeEmptyFieldValues(withoutInactive);
 };

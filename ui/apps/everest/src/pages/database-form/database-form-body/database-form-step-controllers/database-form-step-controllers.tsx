@@ -31,6 +31,7 @@ const DatabaseFormStepControllers = ({
   onCancel,
   onSubmit,
   showConfigMore,
+  disableConfigMore,
 }: DatabaseFormStepControllersProps) => (
   <>
     <Box
@@ -41,7 +42,9 @@ const DatabaseFormStepControllers = ({
         justifyContent: 'flex-end',
       }}
     >
-      {showConfigMore && <ConfigureMore onClick={onNextClick} />}
+      {showConfigMore && (
+        <ConfigureMore onClick={onNextClick} disabled={disableConfigMore} />
+      )}
     </Box>
     <Box sx={{ display: 'flex', flexDirection: 'row', pt: 4 }}>
       {!disableBack && (

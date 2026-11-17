@@ -22,16 +22,26 @@ import (
 )
 
 // ListInstancePresets proxies the request to the next handler.
-func (h *validateHandler) ListInstancePresets(ctx context.Context, cluster string, provider string) (*corev1alpha1.InstancePresetList, error) {
-	return h.next.ListInstancePresets(ctx, cluster, provider)
+func (h *validateHandler) ListInstancePresets(ctx context.Context, cluster, namespace, provider string) (*corev1alpha1.InstancePresetList, error) {
+	return h.next.ListInstancePresets(ctx, cluster, namespace, provider)
 }
 
 // GetInstancePreset proxies the request to the next handler.
-func (h *validateHandler) GetInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.InstancePreset, error) {
-	return h.next.GetInstancePreset(ctx, cluster, name)
+func (h *validateHandler) GetInstancePreset(ctx context.Context, cluster, namespace, name string) (*corev1alpha1.InstancePreset, error) {
+	return h.next.GetInstancePreset(ctx, cluster, namespace, name)
 }
 
-// ResolveInstancePreset proxies the request to the next handler.
-func (h *validateHandler) ResolveInstancePreset(ctx context.Context, cluster, name, namespace string) (*corev1alpha1.InstancePreset, error) {
-	return h.next.ResolveInstancePreset(ctx, cluster, name, namespace)
+// CreateInstancePreset proxies the request to the next handler.
+func (h *validateHandler) CreateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
+	return h.next.CreateInstancePreset(ctx, cluster, preset)
+}
+
+// UpdateInstancePreset proxies the request to the next handler.
+func (h *validateHandler) UpdateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
+	return h.next.UpdateInstancePreset(ctx, cluster, preset)
+}
+
+// DeleteInstancePreset proxies the request to the next handler.
+func (h *validateHandler) DeleteInstancePreset(ctx context.Context, cluster, namespace, name string) error {
+	return h.next.DeleteInstancePreset(ctx, cluster, namespace, name)
 }

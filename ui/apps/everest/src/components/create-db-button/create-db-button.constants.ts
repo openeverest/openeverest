@@ -48,10 +48,3 @@ export const drawerHeaderSx: SxProps<Theme> = {
   py: 2,
   borderBottom: (theme) => `1px solid ${theme.palette.divider}`,
 };
-
-export const drawerBannerSx: SxProps<Theme> = {
-  px: 3,
-  py: 1.5,
-  bgcolor: (theme) => theme.palette.action.hover,
-  borderBottom: (theme) => `1px solid ${theme.palette.divider}`,
-};

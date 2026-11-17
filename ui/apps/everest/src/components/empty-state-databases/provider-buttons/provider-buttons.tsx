@@ -24,7 +24,6 @@ import { buttonSx, rowSx } from './provider-buttons.constants';
 export const ProviderButtons = ({
   providers,
   getProviderMeta,
-  showImport = false,
 }: ProviderPickerProps) => {
   return (
     <Box sx={rowSx}>
@@ -39,7 +38,7 @@ export const ProviderButtons = ({
             data-testid={`provider-tile-${name}`}
             component={Link}
             to="/databases/new"
-            state={{ selectedDbProvider: provider, showImport }}
+            state={{ selectedDbProvider: provider }}
             variant="outlined"
             sx={buttonSx}
           >

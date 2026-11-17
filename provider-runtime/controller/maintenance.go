@@ -23,11 +23,10 @@ package controller
 // approved by token (spec.maintenance.approved); everything else is held and
 // flushed to status.pendingMaintenance by the reconciler, so a provider
 // upgrade never causes surprise downtime.
-//
-// Design background: spec 009 (provider upgrades) in the openeverest/specs
-// repository.
 
 import (
+	"slices"
+
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
@@ -70,9 +69,21 @@ func severityRank(s MaintenanceSeverity) int {
 // reconcile; the runtime records it on status.pendingMaintenance instead.
 // The pending list is rebuilt every reconcile from the calls the provider
 // makes, so an action the provider stops requesting disappears on its own.
+//
+// An approved action whose Sync keeps failing eventually exhausts its
+// retries: the runtime then holds it despite the approval, so a
+// crash-looping provider cannot repeatedly disrupt the database. Clearing
+// and re-setting spec.maintenance.approved re-arms the retries.
 func (c *Context) RequestMaintenance(token, description string, severity MaintenanceSeverity) bool {
+	c.maintenanceRequested = true
 	if c.maintenanceApproved(token, severity) {
-		return true
+		if _, blocked := c.blockedMaintenance[token]; !blocked {
+			if severityRank(severity) > severityRank(MaintenanceNonDisruptive) && !slices.Contains(c.approvedMaintenance, token) {
+				c.approvedMaintenance = append(c.approvedMaintenance, token)
+			}
+			return true
+		}
+		c.maintenanceBreakerHeld = true
 	}
 	c.pendingMaintenance = append(c.pendingMaintenance, v1alpha1.PendingMaintenanceAction{
 		Description:   description,
@@ -104,4 +115,37 @@ func (c *Context) maintenanceApproved(token string, severity MaintenanceSeverity
 // status.pendingMaintenance.
 func (c *Context) GetPendingMaintenance() []v1alpha1.PendingMaintenanceAction {
 	return c.pendingMaintenance
+}
+
+// GetApprovedMaintenance returns the tokens of disruptive actions approved
+// this pass (used internally by the reconciler to count Sync failures
+// against them).
+func (c *Context) GetApprovedMaintenance() []string {
+	return c.approvedMaintenance
+}
+
+// BlockMaintenance marks tokens whose retries are exhausted (used internally
+// by the reconciler before Sync). RequestMaintenance holds them despite
+// approval.
+func (c *Context) BlockMaintenance(tokens ...string) {
+	if c.blockedMaintenance == nil {
+		c.blockedMaintenance = make(map[string]struct{}, len(tokens))
+	}
+	for _, t := range tokens {
+		c.blockedMaintenance[t] = struct{}{}
+	}
+}
+
+// MaintenanceBreakerHeld reports whether at least one action was held this
+// pass because its retries were exhausted (used internally by the reconciler
+// to pick the MaintenancePending condition reason).
+func (c *Context) MaintenanceBreakerHeld() bool {
+	return c.maintenanceBreakerHeld
+}
+
+// MaintenanceRequested reports whether the provider invoked
+// RequestMaintenance this pass (used internally by the reconciler: only then
+// is the staged pending set authoritative on early-exit paths).
+func (c *Context) MaintenanceRequested() bool {
+	return c.maintenanceRequested
 }

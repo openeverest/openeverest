@@ -17,9 +17,10 @@ import type { StepDefinition } from 'components/ui-generator/form-engine';
 export type DatabaseFormBodyProps = {
   steps: StepDefinition[];
   activeStep: number;
-  disableNext?: boolean;
   isSubmitting: boolean;
   hasErrors: boolean;
+  presetSelected?: boolean;
+  presetPending?: boolean;
   onCancel: () => void;
   onSubmit: () => void;
   handleNextStep: () => void;

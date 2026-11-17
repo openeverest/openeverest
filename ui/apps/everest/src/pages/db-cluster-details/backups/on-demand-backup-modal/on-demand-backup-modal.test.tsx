@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { OnDemandBackupModal } from './on-demand-backup-modal';
+import { Messages } from './on-demand-backup-modal.messages';
 import { ScheduleModalContext } from '../backups.context';
 import { Instance } from 'shared-types/api.types';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
@@ -23,11 +24,28 @@ import { ScheduleWizardMode } from 'shared-types/wizard.types';
 
 const mockCreateBackup = vi.fn();
 const mockUpdateInstance = vi.fn();
+const mockEnqueueSnackbar = vi.fn();
 let mockLoadingStorages = false;
 let mockLoadingClasses = false;
 
+vi.mock('notistack', () => ({
+  enqueueSnackbar: (...args: unknown[]) => mockEnqueueSnackbar(...args),
+}));
+
 vi.mock('hooks/api/useClusterName.ts', () => ({
   useClusterName: () => 'main',
+}));
+
+// Pre-fill a valid form so submit reaches the mutation without the (mocked) fields.
+vi.mock('./on-demand-backup-modal.types.ts', async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import('./on-demand-backup-modal.types.ts')
+  >()),
+  defaultValuesFc: () => ({
+    name: 'backup-test',
+    backupClassName: 'standard-class',
+    storageName: 'storage-1',
+  }),
 }));
 
 vi.mock('hooks/api/backups/useBackups.ts', () => ({
@@ -183,4 +201,31 @@ describe('OnDemandBackupModal', () => {
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
     expect(screen.queryByText('Fields')).not.toBeInTheDocument();
   });
+
+  it(
+    'shows a success toast and closes the modal once the backup is created',
+    { timeout: 15000 },
+    async () => {
+      mockCreateBackup.mockImplementationOnce(
+        (_payload: unknown, options?: { onSuccess?: () => void }) =>
+          options?.onSuccess?.()
+      );
+      const { contextValue } = renderModal();
+
+      // Submit stays disabled until the initial async validation marks the form valid.
+      const createButton = screen.getByRole('button', { name: /create/i });
+      await waitFor(() => expect(createButton).toBeEnabled());
+      fireEvent.click(createButton);
+
+      await waitFor(() => {
+        expect(mockEnqueueSnackbar).toHaveBeenCalledWith(
+          Messages.backupStarted,
+          { variant: 'success' }
+        );
+      });
+      expect(contextValue.setOpenOnDemandModal).toHaveBeenCalledWith(false);
+      // storage-1 is already registered on the instance, so no instance update is needed
+      expect(mockUpdateInstance).not.toHaveBeenCalled();
+    }
+  );
 });

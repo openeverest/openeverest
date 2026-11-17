@@ -153,7 +153,7 @@ func newBackupStorage(opts CreateOptions) (*client.BackupStorage, error) {
 
 // createStorageError maps a non-201 response to an error.
 func createStorageError(resp *client.CreateBackupStorageResponse) error {
-	if msg, ok := clienterr.Message(resp.JSON400, resp.JSON500, resp.JSONDefault); ok {
+	if msg, ok := clienterr.Message(resp.JSON400, clienterr.FromAPIError(resp.JSON422), resp.JSON500, resp.JSONDefault); ok {
 		return fmt.Errorf("server error: %s", msg)
 	}
 	return fmt.Errorf("unexpected response creating backup storage: %s", resp.Status())

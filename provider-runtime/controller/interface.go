@@ -21,6 +21,7 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -38,8 +39,10 @@ type ProviderInterface interface {
 	// Types returns the scheme builder for registering provider-specific CRDs.
 	Types() func(*runtime.Scheme) error
 
-	// Validate checks if the Instance spec is valid.
-	Validate(c *Context) error
+	// Validate checks the Instance alone, without reading the cluster. The
+	// runtime calls it before every Sync, once the Instance matches the
+	// topologies, components, versions and schemas its Provider declares.
+	Validate(in ValidationInput) ValidationResult
 
 	// Sync ensures all required resources exist and are configured.
 	Sync(c *Context) error
@@ -49,6 +52,38 @@ type ProviderInterface interface {
 
 	// Cleanup handles deletion (called when deletion timestamp is set).
 	Cleanup(c *Context) error
+}
+
+// ValidationInput is everything Validate may read.
+type ValidationInput struct {
+	// Instance is the Instance as written by the user, before the runtime
+	// resolves its version bundle.
+	Instance *corev1alpha1.Instance
+	// Old is the previous Instance on an update at admission, and nil
+	// otherwise, so rules about transitions return nothing when it is nil.
+	Old *corev1alpha1.Instance
+	// Provider is the Provider the Instance names.
+	Provider *corev1alpha1.Provider
+}
+
+// ValidationResult is what Validate returns. Errors carry Instance field
+// paths, for example spec.components[configServer].replicas.
+type ValidationResult struct {
+	Errors   field.ErrorList
+	Warnings []string
+}
+
+// ReferenceValidator is an optional interface for rules about the contents of
+// other objects, such as the keys of the user Secret or the origin of the
+// source Backup. The runtime calls ValidateReferences after Validate passes and
+// before Sync. Whether a referent exists is checked by the runtime, not here.
+//
+// Errors carry the path of the Instance field that names the object, for
+// example spec.userSecretRef.name, and are reported with reason
+// InvalidReference. err is for a check that could not run, such as a failed
+// read; it is retried with backoff.
+type ReferenceValidator interface {
+	ValidateReferences(c *Context) (errs field.ErrorList, err error)
 }
 
 // =============================================================================
@@ -346,6 +381,23 @@ type BackupMirror interface {
 }
 
 // =============================================================================
+// BACKUP IMPORTER (Optional interface for backup discovery / import)
+// =============================================================================
+
+// BackupImporter is an optional interface that providers implement to import
+// restorable backups already sitting in a BackupStorage and turn them into
+// Backup CRs.
+type BackupImporter interface {
+	// ImportBackups lists and parses the BackupStorage and returns the
+	// discovered Backups to create along with the resulting import state.
+	// The return Backups must be named deterministically based on the
+	// storage path so concurrent imports are de-duplicated.
+	// A returned error is treated as transient (the runtime retries);
+	// a Failed State in the result is treated as terminal.
+	ImportBackups(ctx context.Context, imp *backupv1alpha1.BackupImport, storage *backupv1alpha1.BackupStorage) (BackupImportExecutionStatus, error)
+}
+
+// =============================================================================
 // UPGRADE PREFLIGHT (Optional interface for provider-specific upgrade checks)
 // =============================================================================
 
@@ -356,11 +408,84 @@ type BackupMirror interface {
 // convergence outside the bundled operator's compatibility window.
 //
 // CheckUpgrade runs inside the chart's Helm pre-upgrade hook, not during
-// reconciliation: c carries the Kubernetes client and context but no
-// Instance, so Instance-scoped Context methods must not be used. Issues with
-// severity UpgradeError abort the upgrade.
+// reconciliation: the HookContext carries the Kubernetes client and context
+// but no Instance. Issues with severity UpgradeError abort the upgrade.
 type UpgradeProvider interface {
-	CheckUpgrade(c *Context, target *corev1alpha1.ProviderSpec, instances []corev1alpha1.Instance) []UpgradeIssue
+	CheckUpgrade(h *HookContext, target *corev1alpha1.ProviderSpec, instances []corev1alpha1.Instance) []UpgradeIssue
+}
+
+// =============================================================================
+// MONITORING (Optional interfaces for the monitoring contract)
+// =============================================================================
+
+// MonitoringSourcesProvider is an optional interface a provider implements to
+// publish what an Instance exposes to monitoring (credentials, OpenMetrics
+// endpoints and native-protocol connection endpoints), which ExtensionManaged
+// MonitoringClasses consume.
+//
+// A provider whose component types declare connection: Supported publishes,
+// while RequiredSources().Connections asks for it, one connection endpoint
+// per serving component and an Instance-owned Secret with the read-only
+// monitoring user under the CredentialProfileMonitor profile. It also renders
+// Context.MonitoringPodAnnotations(component) into each component's pod
+// template on every Sync, for classes whose agents discover databases
+// through pod annotations.
+//
+// When a provider implements MonitoringSourcesProvider or
+// MonitoringIntegrationsProvider the runtime:
+//   - watches the Instances' MonitoringBindings and the MonitoringDestinations
+//     and MonitoringClasses they reference,
+//   - writes Instance.status.monitoring and the MonitoringConfigured condition
+//     after every successful Sync,
+//   - writes the Configured condition of ProviderManaged bindings.
+//
+// The provider's RBAC must then grant, e.g. as these markers in its
+// internal/provider/rbac.go (the namespaces get reads the kube-system UID that
+// identifies the cluster):
+//
+//	// +kubebuilder:rbac:groups=monitoring.openeverest.io,resources=monitoringclasses;monitoringdestinations;monitoringbindings,verbs=get;list;watch
+//	// +kubebuilder:rbac:groups=monitoring.openeverest.io,resources=monitoringbindings/status,verbs=patch
+//	// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get
+type MonitoringSourcesProvider interface {
+	// MonitoringSources returns the endpoints that are currently serving.
+	// The runtime drops duplicate credential profiles and credentials whose
+	// Secret is not controlled by the Instance; it drops endpoints of
+	// component types the Provider does not declare or declares with
+	// metrics None (connection None for connection endpoints), endpoints
+	// whose pod selector lacks the Instance label, metrics endpoints with a
+	// scheme other than http or https and endpoints naming a credential
+	// profile missing from credentials, and keeps at most 32 of each.
+	// Endpoints of a component type without a kind, or whose kind differs
+	// from the type's declared kind (Provider.spec.componentTypes.<type>.kind),
+	// are dropped too; an empty kind is set to the declared one. The runtime
+	// overwrites identity. Returning nil clears the published sources; an
+	// error keeps the previous ones.
+	MonitoringSources(c *Context) (*corev1alpha1.MonitoringSources, error)
+}
+
+// MonitoringIntegrationsProvider is an optional interface a provider
+// implements to fulfil ProviderManaged MonitoringClasses through its engine
+// operator's native integration (e.g. PMM).
+//
+// The provider renders the integration inside Sync, on the same Apply as the
+// rest of the engine CR, from the binding of Context.MonitoringBindings()
+// whose Apply is true. Whether the integration runs at all is gated on
+// Context.RequiredSources(): req.Integrations["pmm"].Else(livePMMEnabled),
+// so a live integration is held, not removed, while its requirement is
+// Unresolved. The runtime writes the bindings' Configured condition from
+// Sync success and from the results staged with
+// Context.SetMonitoringBindingResult, and RenderFailed for a binding whose
+// integration MonitoringIntegrations does not list. A binding that cannot be
+// rendered must be staged, never returned as a Sync error.
+//
+// The runtime re-runs Sync for an Instance when a destination it is bound to
+// changes, status included, and when that destination's credentials Secret
+// is created, changed or deleted, so a rotated token or a Secret created
+// after a RenderFailed is rendered without waiting for a resync.
+type MonitoringIntegrationsProvider interface {
+	// MonitoringIntegrations returns the integration names the provider
+	// renders, matching Provider.spec.monitoring.integrations.
+	MonitoringIntegrations() []string
 }
 
 // =============================================================================

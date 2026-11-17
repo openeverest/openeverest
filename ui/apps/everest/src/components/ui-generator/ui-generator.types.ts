@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ReactNode } from 'react';
+import { ComponentType, ReactNode } from 'react';
 import { Provider } from 'shared-types/api.types';
+import type { kubernetesUnit } from 'utils/k8ResourceParser';
 
 export enum FormMode {
   New = 'new',
@@ -55,15 +56,32 @@ export interface DataSource {
 
 export enum FieldType {
   Number = 'number',
+  Quantity = 'quantity',
   Select = 'select',
   Text = 'text',
   Toggle = 'toggle',
   Hidden = 'hidden',
+  Secret = 'secret',
 }
+
+export enum WidgetType {
+  // Public marker a provider authors to place the scheduling section; the
+  // consumer expands it (per-component support, tabs) at render time.
+  PodSchedulingPolicy = 'podSchedulingPolicy',
+  // Internal to the scheduling orchestrator's own UIGenerator, not authored by
+  // providers.
+  Affinity = 'affinity',
+}
+
+// Host-rendered component; `widgetType` picks the renderer, like `groupType`
+// picks a group's layout.
+export const WIDGET_UI_TYPE = 'widget' as const;
 
 export enum GroupType {
   Accordion = 'accordion',
+  Bordered = 'bordered',
   Line = 'line',
+  Toggleable = 'toggleable',
 }
 
 interface CommonFieldParams {
@@ -80,6 +98,22 @@ interface CommonFieldParams {
 }
 
 export interface NumberFieldParams extends CommonFieldParams {
+  step?: number;
+  placeholder?: string;
+}
+
+// Kubernetes resource quantity (CPU / memory / disk). Prefer `unit` /
+// `unitLabel` over badge / badgeToApi — the quantity codec owns conversion.
+export interface QuantityFieldParams
+  extends Omit<CommonFieldParams, 'badge' | 'badgeToApi'> {
+  // Not supported: quantity owns conversion via `unit` / `unitLabel`.
+  badge?: never;
+  badgeToApi?: never;
+  // Target unit for form values and API writes (e.g. Gi). Omit for CPU (cores).
+  unit?: kubernetesUnit;
+  // End-adornment / display label falls back to `unit` (e.g. "cores").
+  unitLabel?: string;
+  // Omit to accept "any" fractional value.
   step?: number;
   placeholder?: string;
 }
@@ -101,11 +135,26 @@ export type SelectFieldParams =
     })
   | (SelectFieldParamsBase & {
       optionsPath: string;
-      optionsPathConfig: { labelPath: string; valuePath: string };
+      optionsPathConfig: {
+        labelPath: string;
+        valuePath: string;
+        // Provider path (e.g. spec.defaultVersion) whose value names the option
+        // pre-selected on create. Written by `provider-sdk generate`.
+        defaultValuePath?: string;
+      };
       options?: never;
     });
 
 export type ToggleFieldParams = CommonFieldParams;
+
+export interface SecretFieldParams extends CommonFieldParams {
+  // Key of the provider's spec.secrets entry the selectable secrets belong to.
+  definition: string;
+  readOnly?: boolean;
+  createLabel?: string;
+  // A Secret is namespaced, so a cluster-wide schema can't name a default one.
+  defaultValue?: never;
+}
 
 export interface TextFieldParams extends CommonFieldParams {
   placeholder?: string;
@@ -133,10 +182,12 @@ export type ToggleValidation = Omit<CommonValidation, 'required'> & {
 
 export type FieldParamsMap = {
   [FieldType.Number]: NumberFieldParams;
+  [FieldType.Quantity]: QuantityFieldParams;
   [FieldType.Select]: SelectFieldParams;
   [FieldType.Text]: TextFieldParams;
   [FieldType.Toggle]: ToggleFieldParams;
   [FieldType.Hidden]: CommonFieldParams;
+  [FieldType.Secret]: SecretFieldParams;
 };
 
 type PathOrId =
@@ -183,10 +234,12 @@ export type NumberValidation = CommonValidation & {
 
 export type ValidationMap = {
   [FieldType.Number]: NumberValidation;
+  [FieldType.Quantity]: NumberValidation;
   [FieldType.Text]: TextValidation;
   [FieldType.Select]: CommonValidation;
   [FieldType.Toggle]: ToggleValidation;
   [FieldType.Hidden]: CommonValidation;
+  [FieldType.Secret]: CommonValidation;
 };
 
 type ComponentCommonFields = {
@@ -200,13 +253,55 @@ export type ModeAwareValidation<T extends CommonValidation> = T & {
   modes?: Partial<Record<FormMode, T & { inheritShared?: boolean }>>;
 };
 
-export type Component = {
+type FieldComponent = {
   [K in keyof FieldParamsMap]: ComponentCommonFields & {
     uiType: K;
     validation?: ModeAwareValidation<ValidationMap[K]>;
     fieldParams: FieldParamsMap[K];
   } & PathOrId;
 }[keyof FieldParamsMap];
+
+export interface WidgetTarget {
+  // Display key, e.g. the Instance component the value belongs to.
+  key: string;
+  path: string;
+}
+
+export type WidgetComponent = ComponentCommonFields & {
+  uiType: typeof WIDGET_UI_TYPE;
+  widgetType: WidgetType;
+  validation?: CommonValidation;
+  // No widget type reads schema params yet; add per-widget params here when one does.
+  fieldParams?: never;
+  // API paths a marker widget writes, resolved by preprocess from the provider.
+  _widgetTargets?: WidgetTarget[];
+  // A pure marker widget (e.g. podSchedulingPolicy) binds no value.
+} & (PathOrId | { path?: never; id?: never });
+
+export type Component = FieldComponent | WidgetComponent;
+
+export const isWidgetComponent = (item: Component): item is WidgetComponent =>
+  item.uiType === WIDGET_UI_TYPE;
+
+// Narrows an opaque API payload (e.g. a CRD's uiSchema) to a section.
+export const isSection = (value: unknown): value is Section =>
+  typeof value === 'object' &&
+  value !== null &&
+  'components' in value &&
+  typeof value.components === 'object' &&
+  value.components !== null;
+
+export type WidgetRendererProps = {
+  // Engine-resolved RHF field key. A widget is a first-class component: it flows
+  // through the same preprocess / name-resolution / render pipeline as a field,
+  // and only its final render is delegated to a host renderer. Handing over
+  // `name` keeps the widget on that shared pipeline, so it (or parts of it) can
+  // later migrate to plain schema fields without reworking name/path handling.
+  name: string;
+  item: WidgetComponent;
+};
+export type WidgetRenderer = ComponentType<WidgetRendererProps>;
+export type WidgetRegistry = Partial<Record<WidgetType, WidgetRenderer>>;
 
 export type ComponentGroup = {
   uiType: 'group' | 'hidden';
@@ -217,7 +312,24 @@ export type ComponentGroup = {
   groupParams?: Record<string, unknown>;
   components: { [key: string]: Component | ComponentGroup };
   componentsOrder?: string[];
+  _toggleable?: ToggleableMeta;
 };
+
+export interface ToggleableMeta {
+  // Form-only switch field, e.g. `toggleable-switches.advanced~monitoring`.
+  switchName: string;
+  // Every API path written by fields nested (at any depth) inside the group.
+  childPaths: string[];
+}
+
+// What UIGroup forwards to every groupType wrapper.
+export interface GroupWrapperProps {
+  children: ReactNode;
+  label?: string;
+  description?: string;
+  // Set only for an active toggleable group.
+  toggleable?: ToggleableMeta;
+}
 
 export type Section = {
   label?: string;
@@ -243,9 +355,12 @@ export type TopologyUISchemas = {
 export type UIGeneratorProps = {
   sectionKey: string;
   sections: { [key: string]: Section };
+  // Form path the host mounts the section's own object at; schema paths stay relative to it.
+  root?: string;
   providerObject?: Provider;
   loadingDefaultsForEdition?: boolean;
   formMode?: FormMode;
   namespace?: string;
   emptySectionMessage?: ReactNode;
+  widgetRegistry?: WidgetRegistry;
 };

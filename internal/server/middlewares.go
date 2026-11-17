@@ -20,17 +20,21 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"regexp"
 	"slices"
 	"strings"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/labstack/echo/v4"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
 	"github.com/unrolled/secure"
 	"github.com/unrolled/secure/cspbuilder"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/oidc"
 )
 
@@ -115,6 +119,54 @@ func (e *EverestServer) checkOperatorUpgradeState(next echo.HandlerFunc) echo.Ha
 	}
 }
 
+// kubernetesWarnings returns the warnings the Kubernetes API raises while handling a request as Warning headers.
+func kubernetesWarnings(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ctx, collector := kubernetes.WithWarningCollector(c.Request().Context())
+		c.SetRequest(c.Request().WithContext(ctx))
+		res := c.Response()
+		res.Before(func() {
+			for _, text := range collector.Warnings() {
+				// A text no header can carry is left to the server log.
+				if header, err := utilnet.NewWarningHeader(299, "-", text); err == nil {
+					res.Header().Add("Warning", header)
+				}
+			}
+		})
+		return next(c)
+	}
+}
+
+var pathParam = regexp.MustCompile(`\{([^}]+)\}`)
+
+// dryRun runs the operations whose spec declares the dryRun query parameter with a dry-run context,
+// and rejects the parameter on any other operation, which would otherwise persist the write.
+func dryRun(swagger *openapi3.T, basePath string) echo.MiddlewareFunc {
+	supported := make(map[string]bool)
+	for path, item := range swagger.Paths.Map() {
+		for method, op := range item.Operations() {
+			if op.Parameters.GetByInAndName(openapi3.ParameterInQuery, "dryRun") != nil {
+				supported[method+" "+basePath+pathParam.ReplaceAllString(path, ":$1")] = true
+			}
+		}
+	}
+
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if !c.QueryParams().Has("dryRun") {
+				return next(c)
+			}
+			if !supported[c.Request().Method+" "+c.Path()] {
+				return c.JSON(http.StatusBadRequest, api.Error{
+					Message: new("dryRun is not supported by this endpoint"),
+				})
+			}
+			c.SetRequest(c.Request().WithContext(kubernetes.WithDryRun(c.Request().Context())))
+			return next(c)
+		}
+	}
+}
+
 func (e *EverestServer) securityHeaders() echo.MiddlewareFunc {
 	oidcProvider := e.oidcProvider
 	useTLS := e.config.TLSCertsPath != ""
@@ -139,6 +191,10 @@ func (e *EverestServer) securityHeaders() echo.MiddlewareFunc {
 			// The YAML editor draws its inline lint underlines as data: SVG
 			// background-images (@codemirror/lint), so allow data: images.
 			cspbuilder.ImgSrc: {CSPSelf, "data:"},
+			// Same-origin scripts ('self') cover the app and plugin bundles;
+			// $NONCE allows the inline <script type="importmap"> that maps
+			// plugins' shared React/MUI specifiers to host modules.
+			cspbuilder.ScriptSrc: {CSPSelf, "$NONCE"},
 			cspbuilder.StyleSrc: {
 				CSPSelf,
 				// $NONCE will be replaced by the real nonce value

@@ -22,10 +22,12 @@ import {
   deleteBackupFn,
   getBackupFn,
   getBackupsListFn,
+  getNamespaceBackupsFn,
 } from 'api/backups';
 import {
   Backup,
   BackupList,
+  BackupListFilter,
   CreateBackupPayload,
   CreateBackupResponse,
   DeleteBackupPayload,
@@ -47,6 +49,17 @@ export const getBackupListQueryKey = (
   namespace: string,
   instanceName: string
 ) => [BACKUPS_QUERY_KEY, clusterName, namespace, instanceName, 'list'] as const;
+
+export const getNamespaceBackupsKeyPrefix = (
+  clusterName: string,
+  namespace: string
+) => [BACKUPS_QUERY_KEY, clusterName, namespace, 'namespace-list'] as const;
+
+export const getNamespaceBackupsQueryKey = (
+  clusterName: string,
+  namespace: string,
+  filter: BackupListFilter
+) => [...getNamespaceBackupsKeyPrefix(clusterName, namespace), filter] as const;
 
 type DeleteBackupArgType = {
   backupName: string;
@@ -70,13 +83,28 @@ export const useBackupsList = (
     select: canRead
       ? ({ items = [] }) =>
           items.filter(
-            (backup) => backup.spec.instanceRef.name === instanceName
+            (backup) =>
+              backup.spec.origin.type === 'Instance' &&
+              backup.spec.origin.instanceRef?.name === instanceName
           )
       : () => [],
     enabled: (options?.enabled ?? true) && canRead,
     ...options,
   });
 };
+
+export const useNamespaceBackups = (
+  clusterName: string,
+  namespace: string,
+  filter: BackupListFilter,
+  options?: PerconaQueryOptions<BackupList, unknown, Backup[]>
+) =>
+  useQuery<BackupList, unknown, Backup[]>({
+    queryKey: getNamespaceBackupsQueryKey(clusterName, namespace, filter),
+    queryFn: () => getNamespaceBackupsFn(clusterName, namespace, filter),
+    select: ({ items = [] }) => items,
+    ...options,
+  });
 
 export const useCreateBackupOnDemand = (
   clusterName: string,

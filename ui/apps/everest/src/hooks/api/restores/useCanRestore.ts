@@ -14,17 +14,16 @@
 
 import { useRBACPermissions } from 'hooks/rbac';
 
-// A user may restore an instance only if they can create restores and read the
-// target's credentials (the restored database must be usable afterwards).
+// In-place restore of the instance's own backups: it keeps its own secret, so read-connection isn't needed.
 export const useCanRestore = (namespace: string, instanceName: string) => {
   const { canCreate } = useRBACPermissions(
-    'database-cluster-restores',
+    'restores',
     `${namespace}/${instanceName}`
   );
-  const { canRead: canReadCredentials } = useRBACPermissions(
-    'database-cluster-credentials',
+  const { canRead: canReadBackups } = useRBACPermissions(
+    'backups',
     `${namespace}/${instanceName}`
   );
 
-  return canCreate && canReadCredentials;
+  return canCreate && canReadBackups;
 };

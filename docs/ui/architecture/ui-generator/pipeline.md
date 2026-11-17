@@ -22,16 +22,32 @@ flowchart TD
 **Files:** `utils/preprocess/`
 **Input:** raw `TopologyUISchemas` + `Provider` object. **Output:** normalized sections.
 
-- **`preprocessSchema(schema, provider)`** — for each component:
+- **`preprocessSchema(schema, provider, formMode?)`** — for each component:
   - **`withNormalizedPathMeta`** → `_normalized.sourcePath` / `targetPaths` (parses `path` — a string
     or an array for multi-path). This is the only place paths are parsed.
   - **`resolveSelectOptions`** — `optionsPath` → static `options[]` (reads the array from the Provider
-    by path, maps `labelPath` / `valuePath`).
+    by path, maps `labelPath` / `valuePath`). The `defaultValue` is then the schema's own
+    `defaultValue`, else (create only) the option named by `optionsPathConfig.defaultValuePath`
+    (e.g. the Provider's `spec.defaultVersion`), else the first option. A `defaultValuePath` that
+    resolves to a value outside the options falls back to the first option with a dev-time warning.
   - **`dataSource` validation** — for a component with `dataSource: { provider }`, warns (dev-time) if
     the provider is not registered. Options are not resolved here — they are loaded at runtime by
     `DataSourceField` and prefetched by `DataSourcePrefetcher`.
+  - **`resolveToggleable`** (`utils/toggleable/toggleable.ts`) — sets
+    `_toggleable: { switchName, childPaths }` on a `toggleable` group. The switch is
+    named after the group's key path (`toggleable-switches.advanced~monitoring`), so form modes
+    never change it. The group degrades to `bordered` (dev warning) if a key is outside
+    `[A-Za-z0-9_-]`, it has no path-bound fields, it is nested in another toggleable, or a field
+    outside it writes one of its paths.
+  - **`findUnguardedCelReferences`** (`utils/toggleable/find-unguarded-cel-references.ts`) —
+    warns (dev-time) when a CEL rule outside a working toggleable reads one of its paths without
+    `has()` on that exact path: while the group is off the path is absent and the rule fails.
+  - The Go validator `provider-runtime/uischema` applies the same toggleable rules to provider schemas;
+    `provider-runtime/uischema/testdata/toggleable.yaml` is the case set both are tested against.
 - **`applyModeOverrides(sections, formMode)`** (`apply-mode-overrides.ts`) — applies `modes` overrides
-  for the current `FormMode`.
+  for the current `FormMode`. `preprocessSchema` runs it last when given a `formMode`: the create
+  wizard (`useSchema`) passes its mode, so defaults, validation, render and postprocess all see the
+  same fields. The section edit modal calls it directly.
 
 **Principle:** after this stage the tree is ready — nothing parses paths again.
 
@@ -40,7 +56,8 @@ flowchart TD
 **Files:** `utils/schema-builder/`
 **Input:** normalized sections. **Output:** `z.ZodTypeAny` for `zodResolver` (react-hook-form).
 
-- **`buildZodSchema(schema, topology, options?)`** — full wizard.
+- **`buildZodSchema(schema, topology, options?)`** — full wizard. `useUiGenerator` passes the
+  wizard's `formMode`, which selects the `validation.modes` branch.
 - **`buildSectionZodSchema(sectionKey, sections, options?)`** — section edit modal: rules are built
   only for the target section, the root uses `.passthrough()`, but **CEL is collected from all
   sections** (cross-field rules).
@@ -48,10 +65,18 @@ flowchart TD
   - **`resolveValidationForMode(validation, formMode)`** — merges base rules and `modes[formMode]`
     (scalars replace, `celExpressions` append, `inheritShared: false` ignores the base).
   - **`buildShapeFromComponents`** — `ZOD_SCHEMA_MAP[uiType]` (base zod type) +
-    `applyValidationFromSchema` (min/max/regex/required/…) + CEL expression collection.
-  - **`convertToNestedSchema`** — flat fields → nested `z.object`.
-  - **`applyCelValidation(schema, celExprs, originalData?)`** — attaches CEL (in edit mode the
-    `original` namespace — persisted instance data — is available).
+    `applyValidationFromSchema` (min/max/regex/required/…) + CEL expression collection. A field
+    without `validation` is optional, like a validated field without `required: true`.
+  - **`convertToNestedSchema`** — flat fields → nested `z.object`. A parent object is optional when
+    all of its fields are, so edit mode accepts an instance that lacks it (e.g. no
+    `spec.components.engine.parameters` when Engine configuration is unset).
+  - **`applyCelValidation(schema, celExprs, originalData?, toggleables?)`** — attaches CEL (in edit
+    mode the `original` namespace — persisted instance data — is available).
+  - **Toggleable children** — `schema.or(z.any())`; the real rules run in
+    `applyToggleableValidation` only while the switch is on, and their CEL carries `activeWhen`.
+    CEL on other fields sees switched-off paths as absent and re-runs when the switch flips.
+    Limitation: both are root `superRefine`s, so zod skips them while another field has a type
+    error.
 
 **Principle:** validation is **mode-aware** and **declarative** — providers don't write resolvers by hand.
 
@@ -60,26 +85,45 @@ flowchart TD
 **Files:** `utils/default-values/`
 **Output:** a `defaultValues` object for `useForm`.
 
-- Collects initial values from `fieldParams.defaultValue` (create).
-- **`extractInstanceValues`** — in edit/restore, reads values **only from the instance** (by
-  `sourcePath`), **without** schema defaults (so edit doesn't inject defaults).
+- Collects initial values from `fieldParams.defaultValue` (create). A `secret` field never takes
+  one: a Secret is namespaced, while the schema is cluster-wide (`getSchemaDefault`).
+- **Topology switch** (create wizard, no preset) — `useDatabaseFormSync` drops the previous
+  topology's values with `dropOtherTopologyValues` (`utils/topology-scope/`), then merges the new
+  topology's defaults over the rest (`mergeTopologyDefaults`). Switching back therefore starts from
+  defaults, not stale values.
+- **`extractInstanceValues`** — reads values from the instance (by `sourcePath`). In edit it uses
+  **only** the instance, so edit doesn't inject defaults; in restore and for a preset it falls back
+  to schema defaults. A field hidden in the mode has no `sourcePath`, so restore doesn't copy its
+  value from the source. A `quantity` field is read through `readQuantity` into a number in
+  `unit` (or cores / bytes when `unit` is omitted).
+- **Toggleable switches** — `false` on create; when values come from an instance or preset, on
+  if any of the group's `childPaths` has a value.
 
 ## 4. Render
 
 **Files:** `ui-generator.tsx`, `utils/component-renderer/`, `ui-component/`, `api-providers/`
 
-- **`<UIGenerator sectionKey sections providerObject formMode namespace />`** — root.
-- **`UiGeneratorProvider`** (context) — provides `provider`, `formMode`, `namespace`, and loading
-  down the tree.
+- **`<UIGenerator sectionKey sections root providerObject formMode namespace />`** — entry component.
+  - **`root`** (optional) — the form path where the host mounts the section's own object, e.g. a
+    secret's data at `stringData`. Field names and toggleable switches become `<root>.<path>`. The
+    other stages stay relative, so the host nests the section's zod schema and defaults under
+    `root`, prefixes `celDependencyGroups` with it, and postprocesses `formData[root]`.
+- **`UiGeneratorProvider`** (context) — provides `provider`, `formMode`, `namespace`, `root`, and
+  loading down the tree, plus `generator` (the UIGenerator itself) so a field that embeds a form,
+  like the secret field's create modal, renders it without depending on UIGenerator directly (a
+  circular dependency).
 - **`orderComponents(components, componentsOrder)`** — field order.
-- **`renderComponent({ item, name })`** — recursive traversal:
+- **`renderComponent({ item, name, root })`** — recursive traversal:
   - `group` / `hidden` → recurse into nested `components`;
-  - leaf → `generateFieldId(item, name)` (form field name) →
+  - leaf → `generateFieldId(item, name)` joined with `root` (form field name) →
     - has `dataSource` → `<ComponentErrorBoundary><DataSourceField><UIComponent/></DataSourceField></ComponentErrorBoundary>`
       (the wrapper loads options through `api-providers/registry` and sets a default via `useEffect`);
     - otherwise → `<ComponentErrorBoundary><UIComponent/></ComponentErrorBoundary>`.
+- **`UIGroup`** — picks the wrapper by `groupType`. `ToggleableWrapper` mounts the body only
+  while the switch is on; turning it on focuses the first field without validating untouched ones.
 - **`UIComponent`** — maps `uiType` to a concrete input (`@percona/ui-lib`: SelectInput / TextInput /
-  SwitchInput …).
+  SwitchInput …). `quantity` reuses the number TextInput; the adornment is `unitLabel ?? unit`,
+  and omitting `step` applies HTML `step="any"`.
 
 **Principle:** every component is isolated by `ComponentErrorBoundary` — a single failing field doesn't break the form.
 
@@ -90,7 +134,7 @@ flowchart TD
 ```mermaid
 flowchart TD
   REG["1. Registry<br/>api-providers/registry.ts<br/>register(key, entry)<br/>useProviderOptions(key, params)"]
-  PROVIDERS["2. Provider registrations<br/>api-providers/providers.ts<br/>monitoringConfigs<br/>storageClasses"]
+  PROVIDERS["2. Provider registrations<br/>api-providers/providers.ts<br/>storageClasses"]
   RUNTIME["3. Runtime"]
   PREFETCH["DataSourcePrefetcher<br/>prefetches options per provider<br/>sets defaults on form mount"]
   FIELD["DataSourceField<br/>wraps one select<br/>patches fieldParams.options<br/>handles loading/error/empty states"]
@@ -104,7 +148,38 @@ flowchart TD
 `getDefaultValues()` runs synchronously before the API responds, so `dataSource` fields start with
 an empty value. The default is set asynchronously in two places: `DataSourcePrefetcher` on form
 mount and `DataSourceField` when the specific field renders. Both check the current value via
-`getValues(path)` before writing, so they never overwrite a user selection or an existing value.
+`getValues(path)` before writing: a value that is among the options is kept, an empty one gets the
+first option, and one no longer among the options is replaced with the first option, or cleared
+when there are none.
+In `edit` mode `DataSourceField` doesn't auto-select at all — the same rule `extractInstanceValues`
+applies to schema defaults: the form shows the stored spec as-is, so a value that is unset or no
+longer among the options stays untouched instead of being written into the spec on save. A stored
+value missing from the options is appended to the select's options (labelled as unavailable once
+the options have loaded), so the select shows what the spec holds. It is taken from the form's
+`defaultValues`, so it stays listed after the user picks another option and the pick can be undone.
+The appended option only affects rendering: the select's zod schema is built from the section
+schema, where `dataSource` fields have no static `options`. Once the options have loaded, the
+helper text explains an unavailable stored value (without claiming a cause) or an empty one (via the
+registry entry's `unsetValueHint`); it reads the current value with `useWatch`, so it clears as soon
+as the user picks another option.
+A resource created from the provider's `emptyStateFallback` is a separate path: the fallback calls
+`onCreated(value)` once the refetched options include it, and `DataSourceField` sets it as a user
+change (`shouldDirty`) in every mode — the user picked it, so the edit rule doesn't apply. The
+fallback waits for the refetch as a safeguard: in create modes the reconcile could reset a value
+that isn't among the options yet if the options update without it.
+
+`DataSourcePrefetcher` skips fields of switched-off `toggleable` groups, so a disabled section
+triggers no request. With `autoSelect={false}` it still prefetches the options but writes no value;
+the create wizard passes it while a preset is selected, because the preset's spec is sent verbatim
+and an auto-selected option would only show in the preview (e.g. a storage class the preset leaves
+to the cluster default).
+
+### Secret fields on a namespace switch
+
+The create wizard mounts only the active step, so a `secret` field misses a namespace switch on
+the first step. `SecretNamespaceSync`, mounted next to `DataSourcePrefetcher` while no preset is
+selected, lists the definition's secrets in the new namespace and clears picks it doesn't have.
+Read-only and disabled fields keep their value.
 
 ## 5. Postprocess
 
@@ -112,8 +187,18 @@ mount and `DataSourceField` when the specific field renders. Both check the curr
 **Input:** form data (RHF). **Output:** a clean API payload.
 
 - **`postprocessSchemaData(formData, { schema, selectedTopology })`**:
+  - **`dropOtherTopologyValues`** (`utils/topology-scope/`) — removes values bound only by other
+    topologies' paths, walking all sections regardless of `sectionsOrder` (leftovers from a topology
+    switch, e.g. `spec.components.mixCoord` after switching Milvus cluster → standalone). Paths shared with the selected topology, or nested under/over one of its paths, are
+    kept; values no topology binds (`dbName`, `backup`, …) are untouched.
   - **`extractMultiPathMappings` / `applyMultiPathMappings`** — one value → all `targetPaths`.
-  - **`extractBadgeMappings` / `applyBadgesToFormData`** — unit suffix (`8` → `8Gi`).
+  - **`extractQuantityMappings` / `applyQuantitiesToFormData`** — number in `unit` → quantity
+    string (`10` → `"10Gi"`). When `originalData` is set and the form number still equals the
+    stored quantity, the stored string is kept (`"10240Mi"` stays). Runs before badges.
+  - **`extractBadgeMappings` / `applyBadgesToFormData`** — unit suffix (`8` → `8Gi`). Skips
+    `quantity` fields (they use `unit`, not `badge` / `badgeToApi`).
+  - **`getInactiveToggleablePaths`** — returns the `childPaths` of switched-off toggleable groups;
+    they are deleted together with the form-only `toggleable-switches` key.
   - **`removeEmptyFieldValues`** — strip `undefined` / `null` / `""`.
 
 **Principle:** the mapping source is the same `_normalized` computed in preprocess.
@@ -125,19 +210,28 @@ flowchart TD
   OVERVIEW["Overview page"] --> EDITABLE["isSectionEditable(section, Edit)"]
   EDITABLE --> MODAL["SectionEditModal"]
   MODAL --> MODE["applyModeOverrides(sections, Edit)"]
-  MODE --> ZOD_EDIT["buildSectionZodSchema(sectionKey, editSections,<br/>{ formMode: Edit, originalData: instance })"]
   MODE --> VALUES["extractInstanceValues(editSections, instance)"]
+  VALUES --> ORIGINAL["originalDataForCel =<br/>stripBadges(deepMerge(instance, defaultValues))"]
+  ORIGINAL --> ZOD_EDIT["buildSectionZodSchema(…, { originalData })"]
+  MODE --> ZOD_EDIT
   ZOD_EDIT --> FORM["FormDialog + UIGenerator"]
   VALUES --> FORM
   FORM --> SUBMIT["submit"]
-  SUBMIT --> POST_EDIT["postprocessSchemaData(formData)"]
-  POST_EDIT --> MERGE["deepMerge into instance"]
+  SUBMIT --> MERGE["mergeSectionEdit:<br/>postprocessSchemaData → deepMerge into spec<br/>→ delete switched-off toggleable paths<br/>(and parents left empty)"]
   MERGE --> UPDATE["useUpdateDbInstanceWithConflictRetry"]
 ```
 
 The edit modal reuses the same `UIGenerator` but validates only the target section via
 `buildSectionZodSchema`; other fields pass through `.passthrough()`, while CEL dependencies are
 collected from all sections.
+
+CEL's `original` is built from the same read as the form (`extractInstanceValues`), so a
+`quantity` disk rule like `size >= original.size` compares numbers (`10 >= 10`), not
+`10 >= "10240Mi"`. Legacy `badgeToApi` fields are still stripped on top.
+
+The update replaces the whole instance and `deepMerge` keeps keys missing from the form, so
+`mergeSectionEdit` deletes the paths of switched-off toggleable groups explicitly, with parents
+left empty.
 
 ## Cross-cutting principles
 
@@ -189,22 +283,27 @@ components:
 | CEL validation             | `utils/schema-builder/cel-validation/`                     |
 | Defaults                   | `utils/default-values/`                                    |
 | Instance values            | `utils/default-values/extract-instance-values.ts`          |
+| Quantity codec             | `utils/quantity/`                                          |
 | Section editability        | `utils/section-editable/is-section-editable.ts`            |
 | Renderer                   | `utils/component-renderer/render-component.tsx`            |
 | UI component mapper        | `ui-component/`                                            |
 | Postprocess                | `utils/postprocess/postprocess-schema.ts`                  |
 | Schema walker              | `utils/schema-walker/schema-walker.ts`                     |
+| Toggleable groups          | `utils/toggleable/toggleable.ts`                           |
+| Toggleable validation      | `utils/schema-builder/apply-toggleable-validation.ts`      |
+| Section edit merge         | `utils/postprocess/merge-section-edit.ts`                  |
+| Topology scope             | `utils/topology-scope/topology-scope.ts`                   |
 | Object path                | `utils/object-path/object-path.ts`                         |
 | API provider registry      | `api-providers/registry.ts`                                |
 | API provider registrations | `api-providers/providers.ts`                               |
 | DataSourceField            | `api-providers/data-source-field/data-source-field.tsx`    |
 | DataSourcePrefetcher       | `api-providers/data-source-prefetcher.tsx`                 |
+| SecretNamespaceSync        | `secret-field/secret-namespace-sync.tsx`                   |
 | Error boundary             | `component-error-boundary/component-error-boundary.tsx`    |
-| Monitoring options hook    | `hooks/api/monitoring/useMonitoringConfigsOptions.ts`      |
 | Storage classes hook       | `hooks/api/kubernetesClusters/useStorageClassesOptions.ts` |
 
 ## Metadata
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-02
+- Last updated: 2026-11-13

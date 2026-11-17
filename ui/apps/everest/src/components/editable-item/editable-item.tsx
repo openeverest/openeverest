@@ -28,20 +28,24 @@ const EditableItem = ({
   endText,
   controls,
 }: EditableItemProps) => {
+  const { sx: paperSx, ...restPaperProps } = paperProps ?? {};
   return (
     <Paper
       data-testid="editable-item"
-      sx={{
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingX: 2,
-        paddingY: 1,
-        marginTop: 1,
-        justifyContent: 'space-between',
-      }}
+      sx={[
+        {
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingX: 2,
+          paddingY: 1,
+          marginTop: 1,
+          justifyContent: 'space-between',
+        },
+        ...(Array.isArray(paperSx) ? paperSx : [paperSx]),
+      ]}
       variant="outlined"
-      {...paperProps}
+      {...restPaperProps}
     >
       {children}
       {!!endText && (

@@ -15,12 +15,24 @@ spec:
     - pre
     - preset
     singular: instancepreset
-  scope: Cluster
+  scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: InstancePreset is the Schema for the instancepresets API
+        description: |-
+          InstancePreset is a namespace-scoped template for creating Instances
+          within a single namespace.
+
+          Because an InstancePreset lives in the same namespace as the Instances
+          it produces, it may reference namespace-scoped objects (Secrets, etc.)
+          directly by name. It is used for capturing a known-good configuration,
+          including concrete local references, and reuse it to create Instances
+          in that namespace.
+
+          It is similar to a ClusterInstancePreset, however it is scoped to a single
+          namespace and can therefore only be used to create Instances within that
+          same namespace.
         properties:
           apiVersion:
             description: |-
@@ -47,9 +59,8 @@ spec:
                   Backup configures the backup feature for this Instance. When enabled,
                   the provider's reconciler is given the resolved BackupClass and storage
                   list so it can configure the engine accordingly (sidecars, agent
-                  configuration, etc.). Required for ProviderManaged BackupClasses; Job
-                  classes do not need an entry here because they read directly from
-                  individual Backup CRs.
+                  configuration, etc.). Required to back up the Instance with its
+                  ProviderManaged BackupClass.
                 properties:
                   classRef:
                     description: |-
@@ -151,14 +162,54 @@ spec:
                                   per-backup-run.
                                 type: object
                                 x-kubernetes-preserve-unknown-fields: true
-                              retentionCopies:
+                              retention:
                                 description: |-
-                                  RetentionCopies is the number of recent backups to keep for this
-                                  schedule. Zero (or unset) means "keep all". Negative values are
-                                  rejected.
-                                format: int32
-                                minimum: 0
-                                type: integer
+                                  Retention configures count-based or time-based backup retention for
+                                  this schedule. Unset keeps all backups.
+                                properties:
+                                  count:
+                                    description: |-
+                                      Count is the number of recent backups to keep when Type is count.
+                                      Required when Type is count (minimum 1). Forbidden when Type is time.
+                                      Omit Retention on the schedule to keep all backups.
+                                    format: int32
+                                    minimum: 1
+                                    type: integer
+                                  duration:
+                                    description: |-
+                                      Duration is the recovery window when Type is time, in the form
+                                      <positive-integer><unit> where unit is d (days), w (weeks), or m
+                                      (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+                                    pattern: ^[1-9][0-9]*[dwm]$
+                                    type: string
+                                  type:
+                                    default: count
+                                    description: Type selects count-based or time-based
+                                      retention.
+                                    enum:
+                                    - count
+                                    - time
+                                    type: string
+                                required:
+                                - type
+                                type: object
+                                x-kubernetes-validations:
+                                - message: count is required when retention type is
+                                    count
+                                  rule: 'self.type == ''count'' ? has(self.count)
+                                    : true'
+                                - message: duration is only allowed when retention
+                                    type is time
+                                  rule: 'self.type == ''count'' ? !has(self.duration)
+                                    : true'
+                                - message: count is only allowed when retention type
+                                    is count
+                                  rule: 'self.type == ''time'' ? !has(self.count)
+                                    : true'
+                                - message: duration is required when retention type
+                                    is time
+                                  rule: 'self.type == ''time'' ? has(self.duration)
+                                    : true'
                             required:
                             - cron
                             - enabled
@@ -209,9 +260,6 @@ spec:
                         Image specifies an override for the image to use.
                         When unspecified, it is autmatically set from the ComponentVersions
                         based on the Version specified.
-                      type: string
-                    name:
-                      description: Name of the component.
                       type: string
                     parameters:
                       description: |-
@@ -296,6 +344,8 @@ spec:
                             Affinity constrains node selection, pod co-location and pod
                             anti-affinity (spreading pods across nodes, zones or other topology
                             domains for high availability).
+                            When omitted, the provider applies its default, which may require each
+                            replica on its own node; an empty affinity ({}) sets no constraints.
                           properties:
                             nodeAffinity:
                               description: Describes node affinity scheduling rules
@@ -1280,7 +1330,9 @@ spec:
                         topologySpreadConstraints:
                           description: |-
                             TopologySpreadConstraints describe how the pods spread across topology
-                            domains. All constraints are ANDed.
+                            domains. A constraint with neither labelSelector nor matchLabelKeys counts
+                            this component's pods. When omitted, the provider applies its default; an
+                            empty list sets no constraints.
                           items:
                             description: TopologySpreadConstraint specifies how to
                               spread matching pods among the given topology.
@@ -1686,6 +1738,95 @@ spec:
                     - Downtime
                     type: string
                 type: object
+              monitoring:
+                description: |-
+                  Monitoring configures where this Instance sends monitoring data. Core
+                  creates one MonitoringBinding per destination; the resolved state is
+                  mirrored in status.monitoring.destinations[].
+                properties:
+                  destinations:
+                    description: |-
+                      Destinations lists the MonitoringDestinations this Instance sends to.
+                      Core creates one MonitoringBinding per entry.
+                    items:
+                      description: |-
+                        InstanceMonitoringDestination sends the Instance's monitoring data to one
+                        MonitoringDestination.
+                      properties:
+                        destinationRef:
+                          description: |-
+                            DestinationRef references the MonitoringDestination in the Instance's
+                            namespace.
+                          properties:
+                            kind:
+                              default: MonitoringDestination
+                              description: Kind of the referenced object.
+                              enum:
+                              - MonitoringDestination
+                              type: string
+                            name:
+                              description: |-
+                                Name of the referenced object. At most 63 characters, since it is also
+                                a label value on the MonitoringBinding.
+                              maxLength: 63
+                              minLength: 1
+                              pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
+                          required:
+                          - name
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        name:
+                          description: |-
+                            Name identifies the entry within the Instance; it is the key of
+                            status.monitoring.destinations[] and part of the MonitoringBinding name.
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                        parameters:
+                          description: Parameters are validated against the class's
+                            instanceParametersSchema.
+                          type: object
+                          x-kubernetes-preserve-unknown-fields: true
+                      required:
+                      - destinationRef
+                      - name
+                      type: object
+                    maxItems: 8
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                    x-kubernetes-validations:
+                    - message: each MonitoringDestination may be listed at most once
+                      rule: self.all(a, self.exists_one(b, b.destinationRef.name ==
+                        a.destinationRef.name))
+                  sources:
+                    description: |-
+                      Sources configures the monitoring sources the Instance runs whether or
+                      not a destination needs them.
+                    properties:
+                      metrics:
+                        description: Metrics configures the Instance's OpenMetrics
+                          endpoints.
+                        properties:
+                          policy:
+                            default: OnDemand
+                            description: |-
+                              Policy says when the provider runs the exporters and turns on the
+                              optional metrics endpoints of the Instance's components. OnDemand runs
+                              them while a destination's class needs metrics. Always runs them
+                              without a destination, for scrapers that OpenEverest does not
+                              configure. The serving endpoints are listed in
+                              status.monitoring.sources.metrics.
+                            enum:
+                            - OnDemand
+                            - Always
+                            type: string
+                        type: object
+                    type: object
+                type: object
               parameters:
                 description: |-
                   Parameters contains structured parameters that apply to the Instance
@@ -1726,6 +1867,28 @@ spec:
                       If omitted, the provider's default topology is used.
                     type: string
                 type: object
+              userSecretRef:
+                description: |-
+                  UserSecretRef optionally seeds the engine's initial (bootstrap)
+                  credentials from a Secret in the same namespace, for providers whose
+                  engine supports setting initial credentials at creation time.
+
+                  When omitted, the provider generates credentials automatically. The
+                  referenced Secret's required keys are provider-specific and validated
+                  by the referenced Provider. The field is immutable once set: initial
+                  credentials only apply at engine creation time, so changing it later
+                  would have no effect.
+                properties:
+                  name:
+                    description: Name of the referenced Secret.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                required:
+                - name
+                type: object
+                x-kubernetes-map-type: atomic
               version:
                 description: |-
                   Version selects a provider-defined version bundle, resolving compatible
@@ -1748,6 +1911,9 @@ spec:
                 so there is no target Instance to default to'
               rule: '!has(self.dataSource) || self.dataSource.type != ''PointInTime''
                 || has(self.dataSource.pointInTime.source.instanceRef)'
+            - message: spec.userSecretRef is immutable once set
+              rule: '!has(oldSelf.userSecretRef) || (has(self.userSecretRef) && self.userSecretRef
+                == oldSelf.userSecretRef)'
           status:
             description: status defines the observed state of InstancePreset
             properties:
@@ -1814,6 +1980,8 @@ spec:
         required:
         - spec
         type: object
+    selectableFields:
+    - jsonPath: .spec.providerRef.name
     served: true
     storage: true
     subresources:

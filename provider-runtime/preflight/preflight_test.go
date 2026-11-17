@@ -44,15 +44,15 @@ spec:
       type: mongod
   componentTypes:
     mongod:
+      defaultVersion: "8.0.12-4"
       versions:
         - version: "6.0.19-16"
           deprecated: true
           removedInVersion: "0.3"
         - version: "8.0.12-4"
-          default: true
+  defaultVersion: "8.0.12"
   versions:
     - name: "8.0.12"
-      default: true
       components:
         engine: "8.0.12-4"
 `
@@ -61,8 +61,10 @@ type stubProvider struct {
 	controller.BaseProvider
 }
 
-func (p *stubProvider) Validate(*controller.Context) error { return nil }
-func (p *stubProvider) Sync(*controller.Context) error     { return nil }
+func (p *stubProvider) Validate(controller.ValidationInput) controller.ValidationResult {
+	return controller.ValidationResult{}
+}
+func (p *stubProvider) Sync(*controller.Context) error { return nil }
 func (p *stubProvider) Status(*controller.Context) (controller.Status, error) {
 	return controller.Status{}, nil
 }

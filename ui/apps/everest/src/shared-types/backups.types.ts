@@ -16,9 +16,31 @@ import { CrdsGen, HttpApi } from '@generated/api-types';
 import { Section } from 'components/ui-generator/ui-generator.types';
 
 export type Backup = CrdsGen.components['schemas']['Backup'];
+export type BackupSourceMetadata = NonNullable<
+  NonNullable<Backup['spec']['origin']['external']>['sourceMetadata']
+>;
 export type BackupClass = CrdsGen.components['schemas']['BackupClass'];
 export type BackupList = CrdsGen.components['schemas']['BackupList'];
 export type BackupClassList = CrdsGen.components['schemas']['BackupClassList'];
+export type BackupImport = CrdsGen.components['schemas']['BackupImport'];
+export type BackupImportList =
+  CrdsGen.components['schemas']['BackupImportList'];
+export type BackupImportState = NonNullable<
+  NonNullable<BackupImport['status']>['state']
+>;
+export type BackupListFilter = NonNullable<
+  HttpApi.operations['listBackups']['parameters']['query']
+>;
+
+export type InstanceSchedule = NonNullable<
+  NonNullable<
+    NonNullable<
+      NonNullable<CrdsGen.components['schemas']['Instance']['spec']>['backup']
+    >['storages']
+  >[number]['schedules']
+>[number];
+
+export type ScheduleRetention = NonNullable<InstanceSchedule['retention']>;
 
 export type CreateBackupPayload =
   HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/backups']['post']['requestBody']['content']['application/json'];

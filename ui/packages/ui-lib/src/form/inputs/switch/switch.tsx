@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import {
+  Box,
   FormControl,
   FormControlLabel,
   FormHelperText,
@@ -68,14 +69,21 @@ const SwitchInput = ({
   const labelElement = (
     <FormControlLabel
       label={
-        <>
+        <Box
+          component="span"
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+          }}
+        >
           <Typography variant="body1" component="span">
             {label}
           </Typography>
           {labelCaption && (
             <Typography variant="caption">{labelCaption}</Typography>
           )}
-        </>
+        </Box>
       }
       data-testid={`switch-input-${kebabize(name)}-label`}
       control={switchControl}

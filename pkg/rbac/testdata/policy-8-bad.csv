@@ -1,0 +1,4 @@
+p, role:admin, namespaces, read, *
+p, role:admin, clusters, *, *
+p, alice, instances, read*, prod/ns1/db1
+g, admin, role:admin

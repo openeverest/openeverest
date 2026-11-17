@@ -19,15 +19,24 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"reflect"
+	"slices"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/structured-merge-diff/v6/value"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	apicommon "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
@@ -55,6 +64,38 @@ type Context struct {
 	// reconcile pass; the reconciler flushes them to
 	// status.pendingMaintenance after Sync.
 	pendingMaintenance []v1alpha1.PendingMaintenanceAction
+
+	// approvedMaintenance collects the tokens of disruptive actions
+	// RequestMaintenance approved this pass, so the reconciler can count
+	// Sync failures against them.
+	approvedMaintenance []string
+
+	// blockedMaintenance holds tokens whose retries are exhausted; the
+	// reconciler sets it before Sync and RequestMaintenance holds them
+	// despite approval.
+	blockedMaintenance map[string]struct{}
+
+	// maintenanceBreakerHeld reports that at least one action was held this
+	// pass because its retries were exhausted.
+	maintenanceBreakerHeld bool
+
+	// maintenanceRequested reports that the provider invoked
+	// RequestMaintenance at least once this pass, so the staged pending set
+	// is authoritative even when Sync later fails.
+	maintenanceRequested bool
+
+	// labelledComponents holds the components PodLabels was called for this
+	// pass; the reconciler counts their pods into status.components.
+	labelledComponents map[string]struct{}
+
+	// monitoringResults collects the per-binding outcomes staged with
+	// SetMonitoringBindingResult; the reconciler writes them on the
+	// bindings' Configured condition after Sync.
+	monitoringResults map[string]bindingResult
+
+	// monitoringIntegrations holds the integrations the provider renders,
+	// set by the reconciler before Sync.
+	monitoringIntegrations []string
 }
 
 // NewContext creates a new Context handle (used internally by the reconciler).
@@ -97,9 +138,33 @@ func (c *Context) Annotations() map[string]string {
 	return c.in.Annotations
 }
 
-// ComponentsOfType returns all components of a given type.
-func (c *Context) ComponentsOfType(componentType string) []v1alpha1.ComponentSpec {
+// ComponentsOfType returns the components of a given type, keyed by name.
+func (c *Context) ComponentsOfType(componentType string) map[string]v1alpha1.ComponentSpec {
 	return c.in.GetComponentsOfType(componentType)
+}
+
+// PodLabels returns the labels to set on the pods of the named component,
+// typically through the pod labels field of the operator's custom resource.
+// The runtime counts the pods carrying them into the Instance's
+// status.components, which requires list and watch permission on pods.
+// Call it during Sync for every component in spec.components.
+func (c *Context) PodLabels(component string) map[string]string {
+	if c.labelledComponents == nil {
+		c.labelledComponents = make(map[string]struct{})
+	}
+	c.labelledComponents[component] = struct{}{}
+
+	return map[string]string{
+		ProviderLabel:  c.providerName,
+		InstanceLabel:  c.Name(),
+		ComponentLabel: component,
+	}
+}
+
+// LabelledComponents returns, sorted, the components PodLabels was called for
+// (used internally by the reconciler).
+func (c *Context) LabelledComponents() []string {
+	return slices.Sorted(maps.Keys(c.labelledComponents))
 }
 
 // Instance returns the underlying Instance for direct access.
@@ -122,27 +187,152 @@ func (c *Context) ProviderSpec() (*v1alpha1.ProviderSpec, error) {
 // RESOURCE OPERATIONS
 // =============================================================================
 
-// Apply creates or updates a resource, setting ownership automatically.
-// This is the primary way to manage resources - just describe what you want.
+// Apply server-side applies obj and sets the owner reference.
+//
+// Rules:
+//   - Build the whole desired object every time. Fields you stop setting are
+//     removed; fields you never set are left to the engine operator.
+//   - Zero scalars (false, 0, "") and non-nil pointers to empty structs
+//     (emptyDir: {}) count as set. Nil fields and empty non-pointer
+//     omitempty structs do not, so CRD defaults nested directly under such
+//     a struct are not applied either.
+//   - Pass a freshly built object, never one from Get.
+//
+// Emptying a pointer struct you previously filled (&EmptyDirVolumeSource{}
+// after one with SizeLimit) still fails: SSA stores it as null, and that {}
+// cannot be told apart from a deliberate one.
+//
+// obj is not updated with the server response; use Get to read it back.
 func (c *Context) Apply(obj client.Object) error {
-	// Set the owner reference automatically
+	// A Get result carries every field the operator wrote; force-applying it
+	// would claim them all and fight the operator on each reconcile.
+	if len(obj.GetManagedFields()) > 0 || obj.GetResourceVersion() != "" {
+		return errors.New("Apply expects a freshly built object; read state with Get, build desired state separately")
+	}
+
 	if err := controllerutil.SetControllerReference(c.in, obj, c.client.Scheme()); err != nil {
 		return fmt.Errorf("failed to set owner: %w", err)
 	}
 
-	// Use create-or-update semantics
-	existing := obj.DeepCopyObject().(client.Object)
-	err := c.client.Get(c.ctx, client.ObjectKeyFromObject(obj), existing)
+	gvk, err := apiutil.GVKForObject(obj, c.client.Scheme())
 	if err != nil {
-		if client.IgnoreNotFound(err) != nil {
-			return err
-		}
-		// Doesn't exist, create it
-		return c.client.Create(c.ctx, obj)
+		return fmt.Errorf("failed to resolve GVK for apply: %w", err)
 	}
-	// Exists, update it
-	obj.SetResourceVersion(existing.GetResourceVersion())
-	return c.client.Update(c.ctx, obj)
+	obj.GetObjectKind().SetGroupVersionKind(gvk)
+
+	// omitempty does not cover untagged fields, so nulls are pruned.
+	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return fmt.Errorf("failed to build apply configuration: %w", err)
+	}
+	delete(raw, "status")
+	pruneNulls(raw)
+	pruneEmptyStructs(reflect.ValueOf(obj), raw)
+	return c.client.Apply(c.ctx,
+		client.ApplyConfigurationFromUnstructured(&unstructured.Unstructured{Object: raw}),
+		client.FieldOwner("provider-"+c.providerName),
+		client.ForceOwnership,
+	)
+}
+
+// pruneNulls drops null values, recursing into objects and lists.
+func pruneNulls(v any) {
+	switch val := v.(type) {
+	case map[string]any:
+		for k, child := range val {
+			if child == nil {
+				delete(val, k)
+				continue
+			}
+			pruneNulls(child)
+		}
+	case []any:
+		for _, child := range val {
+			pruneNulls(child)
+		}
+	}
+}
+
+// pruneEmptyStructs drops the {} ToUnstructured emits for empty non-pointer
+// omitempty structs: Go cannot leave them unset, and once SSA prunes the
+// children they replaced, the API server stores null, which CRDs reject.
+// A non-nil pointer keeps its {} (emptyDir: {} selects a volume type).
+//
+// The null is kubernetes-sigs/structured-merge-diff#305; once a server-side
+// fix ships, this walk becomes redundant and can go.
+func pruneEmptyStructs(v reflect.Value, raw any) {
+	for v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface {
+		if v.IsNil() {
+			return
+		}
+		v = v.Elem()
+	}
+	// Custom marshalers (Quantity, Time, RawExtension) decide their own shape.
+	if !v.IsValid() || value.TypeReflectEntryOf(v.Type()).CanConvertToUnstructured() {
+		return
+	}
+
+	switch r := raw.(type) {
+	case map[string]any:
+		if v.Kind() == reflect.Struct {
+			pruneStructFields(v, r)
+			return
+		}
+		pruneMapValues(v, r)
+	case []any:
+		if (v.Kind() == reflect.Slice || v.Kind() == reflect.Array) && v.Len() == len(r) {
+			for i := range r {
+				pruneEmptyStructs(v.Index(i), r[i])
+			}
+		}
+	}
+}
+
+func pruneStructFields(v reflect.Value, m map[string]any) {
+	for i := range v.NumField() {
+		field := v.Type().Field(i)
+		name, omitempty := jsonField(field)
+		if name == "-" {
+			continue
+		}
+		if name == "" {
+			pruneEmptyStructs(v.Field(i), m)
+			continue
+		}
+		child, ok := m[name]
+		if !ok {
+			continue
+		}
+		pruneEmptyStructs(v.Field(i), child)
+		if childMap, isMap := child.(map[string]any); isMap && len(childMap) == 0 && omitempty && isPlainStruct(field.Type) {
+			delete(m, name)
+		}
+	}
+}
+
+func pruneMapValues(v reflect.Value, m map[string]any) {
+	if v.Kind() != reflect.Map || v.Type().Key().Kind() != reflect.String {
+		return
+	}
+	for it := v.MapRange(); it.Next(); {
+		if child, ok := m[it.Key().String()]; ok {
+			pruneEmptyStructs(it.Value(), child)
+		}
+	}
+}
+
+func isPlainStruct(t reflect.Type) bool {
+	return t.Kind() == reflect.Struct && !value.TypeReflectEntryOf(t).CanConvertToUnstructured()
+}
+
+// jsonField returns a field's key as runtime.DefaultUnstructuredConverter
+// names it ("" when inlined) and whether it is tagged omitempty.
+func jsonField(f reflect.StructField) (string, bool) {
+	name, opts, _ := strings.Cut(f.Tag.Get("json"), ",")
+	if name == "" && !f.Anonymous {
+		name = f.Name
+	}
+	return name, slices.Contains(strings.Split(opts, ","), "omitempty")
 }
 
 // Get retrieves a resource by name (in the instance's namespace).
@@ -295,7 +485,9 @@ type ConnectionDetails struct {
 	// Type is the type of database (e.g., mongodb, postgresql, mysql)
 	// +optional
 	Type string `json:"type,omitempty"`
-	// Provider is the provider that manages this instance
+	// Provider is the name of the Provider that manages this instance, as in
+	// the Instance's spec.providerRef.name. The provider-runtime reconciler
+	// writes it; a value set by the provider is replaced.
 	// +optional
 	Provider string `json:"provider,omitempty"`
 	// Host is the hostname or IP address to connect to
@@ -366,15 +558,6 @@ type Status struct {
 	Phase             v1alpha1.InstancePhase
 	Message           string
 	ConnectionDetails ConnectionDetails
-	Components        []ComponentStatus
-}
-
-// ComponentStatus represents the status of a single component.
-type ComponentStatus struct {
-	Name  string
-	Ready int32
-	Total int32
-	State string // "Ready", "InProgress", "Error"
 }
 
 // ToV2Alpha1 converts Status to the API type.
@@ -428,11 +611,15 @@ func Ready() Status {
 // Providers should populate the well-known fields so the API server can expose
 // them generically without any provider-specific logic.
 //
+// Providers need not set Provider: the reconciler writes the Secret's
+// "provider" entry as the Provider name (the Instance's spec.providerRef.name),
+// replacing any value set in Provider or AdditionalProperties, so the entry
+// names the Provider the same way for every provider.
+//
 // Example:
 //
 //	return controller.ReadyWithConnectionDetails(controller.ConnectionDetails{
 //		Type:     "mongodb",
-//		Provider: "percona-server-mongodb",
 //		Host:     host,
 //		Port:     "27017",
 //		Username: user,
@@ -620,9 +807,9 @@ func (c *Context) BackupClassForInstance() (*backupv1alpha1.BackupClass, error) 
 }
 
 // BackupClassLimits returns the limits declared by the BackupClass referenced
-// by the Instance, or nil when the class is Job-mode, has no limits set, or
-// the Instance has no backup configuration. The returned pointer aliases the
-// BackupClass; callers must not mutate it.
+// by the Instance, or nil when the class is not ProviderManaged, has no limits
+// set, or the Instance has no backup configuration. The returned pointer
+// aliases the BackupClass; callers must not mutate it.
 func (c *Context) BackupClassLimits() (*backupv1alpha1.BackupClassLimits, error) {
 	bc, err := c.BackupClassForInstance()
 	if err != nil || bc == nil {
@@ -675,8 +862,8 @@ func (c *Context) BackupStorageCredentials(bs *backupv1alpha1.BackupStorage) (ac
 }
 
 // BackupsForInstance lists all Backup CRs in the instance namespace whose
-// .spec.instanceRef.name matches this Instance. Requires the field index
-// ".spec.instanceRef.name" on backupv1alpha1.Backup, which the runtime registers
+// .spec.origin.instanceRef.name matches this Instance. Requires the field index
+// ".spec.origin.instanceRef.name" on backupv1alpha1.Backup, which the runtime registers
 // automatically when the provider implements BackupProvider.
 func (c *Context) BackupsForInstance() ([]backupv1alpha1.Backup, error) {
 	list := &backupv1alpha1.BackupList{}
@@ -702,8 +889,8 @@ func (c *Context) RestoresForInstance() ([]backupv1alpha1.Restore, error) {
 	return list.Items, nil
 }
 
-// IndexBackupInstanceName is the field index path used for Backup.spec.instanceRef.name.
-const IndexBackupInstanceName = "spec.instanceRef.name"
+// IndexBackupInstanceName is the field index path used for Backup.spec.origin.instanceRef.name.
+const IndexBackupInstanceName = "spec.origin.instanceRef.name"
 
 // IndexRestoreInstanceName is the field index path used for Restore.spec.instanceRef.name.
 const IndexRestoreInstanceName = "spec.instanceRef.name"
@@ -711,6 +898,13 @@ const IndexRestoreInstanceName = "spec.instanceRef.name"
 // ProviderLabel is the label key used to identify which provider
 // manages an Instance. Set automatically by the provider reconciler.
 const ProviderLabel = "core.openeverest.io/provider"
+
+// InstanceLabel and ComponentLabel identify the Instance and component a pod
+// belongs to. See Context.PodLabels.
+const (
+	InstanceLabel  = "core.openeverest.io/instance"
+	ComponentLabel = "core.openeverest.io/component"
+)
 
 // ShouldRetainBackupData returns true when the underlying backup data in the
 // configured BackupStorage (e.g., the S3 object) must be preserved on
@@ -764,6 +958,25 @@ type RestoreExecutionStatus struct {
 // Convenience wrapper so providers don't have to import apimachinery directly.
 func IsNotFound(err error) bool {
 	return apierrors.IsNotFound(err)
+}
+
+// =============================================================================
+// BACKUP IMPORT EXECUTION STATUS
+// =============================================================================
+
+// BackupImportExecutionStatus is returned by BackupImporter.ImportBackups. The
+// runtime creates the discovered Backups and reflects State/Message onto the
+// BackupImport CR.
+type BackupImportExecutionStatus struct {
+	// Backups are the discovered restorable backups the runtime should create
+	// as Backup CRs.
+	Backups []*backupv1alpha1.Backup
+	// State is the current state of the import. The state must be set;
+	// an empty state is retried as an error. Failed and Succeeded are
+	// terminal states; the runtime will not re-attempt the import.
+	State backupv1alpha1.BackupImportState
+	// Message is a human-readable description of the current state.
+	Message string
 }
 
 // =============================================================================
@@ -825,7 +1038,14 @@ type DataSourceStatus struct {
 // reconciler reads it after Sync completes and reflects the result onto the
 // ConditionDataSourceReady condition. Providers do not normally call this
 // directly — ReconcileDataSource does it for them.
+//
+// Seeding is one-shot (.spec.dataSource is immutable), so once the Instance
+// records a successful seeding the staged status stays Succeeded whatever the
+// provider reports: an engine that later leaves Ready is not being seeded.
 func (c *Context) SetDataSourceStatus(s DataSourceStatus) {
+	if seeded := c.seededDataSourceStatus(); seeded != nil {
+		s = *seeded
+	}
 	c.dataSourceStatus = &s
 }
 
@@ -856,12 +1076,22 @@ func (c *Context) GetDataSourceStatus() *DataSourceStatus {
 // phase — either no DataSource is configured, or the restore reached a
 // terminal state (Succeeded or Failed). Providers should report
 // InstancePhaseRestoring while Done is false.
+//
+// Once seeding has Succeeded the helper returns that result without touching
+// the source or the Restore: the source Backup may since have been deleted
+// (e.g. cascaded with its Instance) and the seeding Restore pruned, and neither
+// un-seeds the Instance or warrants restoring it again.
 func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 	ds := c.in.Spec.DataSource
 	if ds == nil {
 		s := DataSourceStatus{Done: true, State: DataSourceStateNone}
 		c.SetDataSourceStatus(s)
 		return s, nil
+	}
+
+	if seeded := c.seededDataSourceStatus(); seeded != nil {
+		c.SetDataSourceStatus(*seeded)
+		return *seeded, nil
 	}
 
 	// 1. Resolve the source and the read BackupClass that describes it.
@@ -984,6 +1214,21 @@ func (c *Context) ReconcileDataSource() (DataSourceStatus, error) {
 	}
 	c.SetDataSourceStatus(s)
 	return s, nil
+}
+
+// seededDataSourceStatus returns the Succeeded status recorded on the Instance
+// by an earlier reconcile, or nil when seeding has not succeeded yet.
+func (c *Context) seededDataSourceStatus() *DataSourceStatus {
+	cond := meta.FindStatusCondition(c.in.Status.Conditions, v1alpha1.ConditionDataSourceReady)
+	if cond == nil || cond.Status != metav1.ConditionTrue {
+		return nil
+	}
+	return &DataSourceStatus{
+		Done:    true,
+		State:   DataSourceStateSucceeded,
+		Reason:  cond.Reason,
+		Message: cond.Message,
+	}
 }
 
 // dataSourceOrigin describes where a DataSource reads from: the BackupClass
@@ -1155,12 +1400,11 @@ func hasInstanceStorage(b *v1alpha1.InstanceBackupSpec, name string) bool {
 //
 // Example usage in a watch handler:
 //
-//	func enqueueMonitoringConfig(providerName string) func(ctx context.Context, obj client.Object) []reconcile.Request {
+//	func enqueueForSecret(providerName string) func(ctx context.Context, obj client.Object) []reconcile.Request {
 //	    return func(ctx context.Context, obj client.Object) []reconcile.Request {
-//	        mc := obj.(*monitoringv1alpha1.MonitoringConfig)
 //	        requests, err := controller.RequestsForInstancesMatching(ctx, client, providerName,
-//	            client.InNamespace(mc.GetNamespace()),
-//	            client.MatchingFields{monitoringConfigPath: mc.GetName()},
+//	            client.InNamespace(obj.GetNamespace()),
+//	            client.MatchingFields{secretRefPath: obj.GetName()},
 //	        )
 //	        if err != nil {
 //	            return []reconcile.Request{}
@@ -1188,4 +1432,40 @@ func RequestsForInstancesMatching(ctx context.Context, c client.Client, provider
 		})
 	}
 	return requests, nil
+}
+
+// ReconcileExternalBackupStatus validates an external Backup and
+// records its state on backup.Status. An external Backup carries no live
+// Instance and runs no job: it is a reference to backup data already sitting
+// in a BackupStorage. The startedAt and completedAt timestamps are supplied by
+// the creator on spec.origin.external and mirrored to status here. The state is
+// set to Succeeded when those timestamps are present.
+//
+// Every execution mode shares this reconciliation of backup status; there
+// is no engine specific logic to validate an external backup to set the
+// state.
+func ReconcileExternalBackupStatus(backup *backupv1alpha1.Backup) {
+	external := backup.Spec.Origin.External
+	if external == nil {
+		backup.Status.State = backupv1alpha1.BackupStateFailed
+		backup.Status.Message = "external backup must have spec.origin.external set"
+		return
+	}
+
+	if external.StartedAt.IsZero() {
+		backup.Status.State = backupv1alpha1.BackupStateFailed
+		backup.Status.Message = "external backup must have a startedAt timestamp"
+		return
+	}
+
+	if external.CompletedAt.IsZero() {
+		backup.Status.State = backupv1alpha1.BackupStateFailed
+		backup.Status.Message = "external backup must have a completedAt timestamp"
+		return
+	}
+
+	backup.Status.StartedAt = external.StartedAt.DeepCopy()
+	backup.Status.CompletedAt = external.CompletedAt.DeepCopy()
+	backup.Status.SourceMetadata = external.SourceMetadata.DeepCopy()
+	backup.Status.State = backupv1alpha1.BackupStateSucceeded
 }

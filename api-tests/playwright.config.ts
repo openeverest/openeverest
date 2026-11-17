@@ -93,53 +93,19 @@ export default defineConfig({
       testDir: 'tests/setup/auth',
       testMatch: /test\.setup\.ts/,
     },
-    // global:pmm
-    {
-      name: 'global:pmm:api-key:setup',
-      testDir: 'tests/setup',
-      testMatch: /pmm\.setup\.ts/,
-      use: {
-        ignoreHTTPSErrors: true,
-      },
-    },
-    // global:monitoring-config
-    {
-      name: 'global:monitoring-config:setup',
-      testDir: 'tests/setup',
-      testMatch: /monitoring-config\.setup\.ts/,
-      dependencies: [
-        'global:auth:ci:setup',
-        'global:pmm:api-key:setup',
-      ],
-      teardown: 'global:monitoring-config:teardown',
-      use: {
-        extraHTTPHeaders: {
-          'Authorization': `Bearer ${process.env[API_CI_TOKEN]}`,
-        },
-      },
-    },
-    {
-      name: 'global:monitoring-config:teardown',
-      testDir: 'tests/teardown',
-      testMatch: /monitoring-config\.teardown\.ts/,
-      use: {
-        extraHTTPHeaders: {
-          'Authorization': `Bearer ${process.env[API_CI_TOKEN]}`,
-        },
-      },
-    },
     // ---------------------- TESTS ----------------------
     // api-tests project
     {
       name: 'api-tests',
       dependencies: [
         'auth',
+        'backup-import',
         'backup-storage',
         'config-map',
         'instance',
-        'instance-preset',
+        'cluster-instance-preset',
         'kubernetes',
-        'monitoring-config-v2',
+        'monitoring-destination',
         'secrets',
         'settings',
         'version',
@@ -155,6 +121,18 @@ export default defineConfig({
       use: {
         extraHTTPHeaders: {
           'Authorization': `Bearer ${process.env[API_TEST_TOKEN]}`,
+        }
+      },
+    },
+    // backup-import tests
+    {
+      name: 'backup-import',
+      testDir: 'tests',
+      testMatch: /backup-import\.spec\.ts/,
+      dependencies: ['global:auth:ci:setup'],
+      use: {
+        extraHTTPHeaders: {
+          'Authorization': `Bearer ${process.env[API_CI_TOKEN]}`,
         }
       },
     },
@@ -182,15 +160,12 @@ export default defineConfig({
         }
       },
     },
-    // monitoring-config-v2 tests
+    // monitoring-destination tests
     {
-      name: 'monitoring-config-v2',
+      name: 'monitoring-destination',
       testDir: 'tests',
-      testMatch: /monitoring-config-v2\.spec\.ts/,
-      dependencies: [
-        'global:auth:ci:setup',
-        'global:pmm:api-key:setup',
-      ],
+      testMatch: /monitoring-destination\.spec\.ts/,
+      dependencies: ['global:auth:ci:setup'],
       use: {
         extraHTTPHeaders: {
           'Authorization': `Bearer ${process.env[API_CI_TOKEN]}`,
@@ -221,11 +196,11 @@ export default defineConfig({
         }
       },
     },
-    // instance-preset tests
+    // cluster-instance-preset tests
     {
-      name: 'instance-preset',
+      name: 'cluster-instance-preset',
       testDir: 'tests',
-      testMatch: /instance-preset\.spec\.ts/,
+      testMatch: /cluster-instance-preset\.spec\.ts/,
       dependencies: ['global:auth:ci:setup'],
       use: {
         extraHTTPHeaders: {

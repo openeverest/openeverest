@@ -35,6 +35,7 @@ import {
   waitForStatus,
   waitForDelete,
   findRowAndClickActions,
+  confirmDeletion,
 } from '@e2e/utils/table';
 import { clickOnDemandBackup } from '@e2e/pr/db-cluster-details/utils';
 import { prepareTestDB, dropTestDB, queryTestDB } from '@e2e/utils/db-cmd-line';
@@ -167,7 +168,9 @@ const zephyrMap: Record<string, string> = {
           expect(addedCluster?.spec.engine.storage.size.toString()).toBe('1Gi');
           expect(addedCluster?.spec.proxy.expose.type).toBe('ClusterIP');
           if (db != 'psmdb') {
-            expect(addedCluster?.spec.proxy.replicas).toBe(size);
+            expect(addedCluster?.spec.proxy.replicas).toBe(
+              db === 'pxc' ? 2 : size
+            );
           }
         });
       });
@@ -242,7 +245,7 @@ const zephyrMap: Record<string, string> = {
         await gotoDbClusterRestores(page, clusterName);
         await findRowAndClickActions(page, baseBackupName + '-1', 'Delete');
         await expect(page.getByLabel('Delete restore')).toBeVisible();
-        await page.getByTestId('confirm-dialog-delete').click();
+        await confirmDeletion(page, 'confirm-dialog-delete');
         await waitForDelete(page, baseBackupName + '-1', 15000);
       });
 
@@ -250,7 +253,7 @@ const zephyrMap: Record<string, string> = {
         await gotoDbClusterBackups(page, clusterName);
         await findRowAndClickActions(page, baseBackupName + '-1', 'Delete');
         await expect(page.getByLabel('Delete backup')).toBeVisible();
-        await page.getByTestId('form-dialog-delete').click();
+        await confirmDeletion(page, 'form-dialog-delete');
         await waitForDelete(page, baseBackupName + '-1', 30000);
       });
 

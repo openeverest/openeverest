@@ -23,3 +23,12 @@ const style = document.createElement('style');
 style.textContent =
   '*, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; }';
 document.head.appendChild(style);
+
+// jsdom has no ResizeObserver; provide a no-op so components that observe
+// element size (e.g. CardPicker) can render in unit tests.
+class ResizeObserverStub implements ResizeObserver {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+globalThis.ResizeObserver = globalThis.ResizeObserver ?? ResizeObserverStub;

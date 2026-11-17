@@ -18,8 +18,14 @@ import type {
   Section,
 } from 'components/ui-generator/ui-generator.types';
 import { buildShapeFromComponents } from './build-shape-from-components';
+import type { CelExpValidation } from './schema-builder.types';
 import { convertToNestedSchema } from './convert-to-nested-schema';
 import { applyCelValidation } from './apply-cel-validation';
+import { applyToggleableValidation } from './apply-toggleable-validation';
+import {
+  collectToggleableMetas,
+  withToggleableSwitchDependencies,
+} from '../toggleable/toggleable';
 
 export type BuildSectionSchemaOptions = {
   formMode?: FormMode;
@@ -46,16 +52,14 @@ export const buildSectionZodSchema = (
   }
 
   // Build Zod shape only for the target section
-  const { schemaShape } = buildShapeFromComponents(
+  const { schemaShape, toggleableFieldRules } = buildShapeFromComponents(
     targetSection.components,
     sectionKey,
     options?.formMode
   );
 
   // Collect CEL from ALL sections (cross-field validation)
-  const allCelExpValidations: ReturnType<
-    typeof buildShapeFromComponents
-  >['celExpValidations'] = [];
+  const allCelExpValidations: CelExpValidation[] = [];
   const allCelDependencyGroups: string[][] = [];
 
   Object.entries(allSections).forEach(([secKey, section]) => {
@@ -72,17 +76,24 @@ export const buildSectionZodSchema = (
 
   // Convert flat section schema to nested structure
   const nestedFields = convertToNestedSchema(schemaShape);
+  const toggleables = collectToggleableMetas(allSections);
   let zodSchema: z.ZodTypeAny = z.object(nestedFields).passthrough();
+
+  zodSchema = applyToggleableValidation(zodSchema, toggleableFieldRules);
 
   // Apply CEL validation from all sections
   zodSchema = applyCelValidation(
     zodSchema,
     allCelExpValidations,
-    options?.originalData
+    options?.originalData,
+    toggleables
   );
 
   return {
     schema: zodSchema,
-    celDependencyGroups: allCelDependencyGroups,
+    celDependencyGroups: withToggleableSwitchDependencies(
+      allCelDependencyGroups,
+      toggleables
+    ),
   };
 };

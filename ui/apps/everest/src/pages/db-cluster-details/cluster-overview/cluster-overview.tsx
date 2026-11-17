@@ -15,8 +15,8 @@
 // limitations under the License.
 
 import { useMemo, useState, useCallback } from 'react';
-import { Box, Stack } from '@mui/material';
-import { DatabaseIcon, OverviewCard } from '@percona/ui-lib';
+import { Stack } from '@mui/material';
+import { DatabaseIcon, MasonryColumns, OverviewCard } from '@percona/ui-lib';
 import { Messages } from './cluster-overview.messages';
 import { useClusterOverviewData } from './hooks/use-cluster-overview-data';
 import BasicInfoSection from './sections/basic-info-section';
@@ -26,6 +26,7 @@ import { BackupsDetails } from './old-cards/backups-details';
 // TODO: Re-enable OtherFieldsCard when uncovered fields are properly formatted
 // import OtherFieldsCard from './sections/other-fields-card';
 import { SectionEditModal } from './sections/section-edit-modal';
+import { MonitoringCard } from './sections/monitoring-card/monitoring-card';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { isSectionEditable } from 'components/ui-generator/utils/section-editable';
 import { shouldDbActionsBeBlocked } from 'utils/db';
@@ -73,18 +74,14 @@ export const ClusterOverview = () => {
   const actionsBlocked = shouldDbActionsBeBlocked(instance?.status?.phase);
 
   return (
-    <Box
-      sx={{
-        columnCount: { xs: 1, lg: 2, xl: 3 },
-        columnGap: 2,
-        '& > *': { breakInside: 'avoid', marginBottom: 2 },
-      }}
-      data-testid="cluster-overview"
-    >
-      <Box>
+    <>
+      <MasonryColumns
+        minColumnWidth={440}
+        maxColumns={3}
+        dataTestId="cluster-overview"
+      >
         <OverviewCard
           dataTestId="database-details"
-          sx={{ width: '100%' }}
           cardHeaderProps={{
             title: Messages.titles.dbDetails,
             avatar: <DatabaseIcon />,
@@ -103,46 +100,56 @@ export const ClusterOverview = () => {
             <ConnectionSection credentials={credentials} loading={isLoading} />
           </Stack>
         </OverviewCard>
-      </Box>
-      {schemaSectionCards.map((card) => {
-        const section = sections[card.key];
-        const editable =
-          !actionsBlocked &&
-          !!section &&
-          isSectionEditable(section, FormMode.Edit);
-        return (
-          <SchemaDrivenCard
-            key={card.key}
-            card={card}
-            loading={isLoading}
-            editable={editable}
-            onEdit={() => setEditingSectionKey(card.key)}
-          />
-        );
-      })}
-      {/* Uncovered instance fields */}
-      {/* TODO: temporarily hidden until properly formatted
-      {otherFields.length > 0 && (
-        <OtherFieldsCard fields={otherFields} loading={isLoading} />
-      )}
-      */}
-      {/* Plugin-contributed cards */}
-      {pluginCards.map((pc) => {
-        const CardComponent = pc.ext.component;
-        return (
-          <Box key={`plugin-card-${pc.pluginName}-${pc.ext.label}`}>
+        {schemaSectionCards.map((card) => {
+          const section = sections[card.key];
+          const editable =
+            !actionsBlocked &&
+            !!section &&
+            isSectionEditable(section, FormMode.Edit);
+          return (
+            <SchemaDrivenCard
+              key={card.key}
+              card={card}
+              loading={isLoading}
+              editable={editable}
+              onEdit={() => setEditingSectionKey(card.key)}
+            />
+          );
+        })}
+        {/* Uncovered instance fields */}
+        {/* TODO: temporarily hidden until properly formatted
+        {otherFields.length > 0 && (
+          <OtherFieldsCard fields={otherFields} loading={isLoading} />
+        )}
+        */}
+        {/* Plugin-contributed cards */}
+        {pluginCards.map((pc) => {
+          const CardComponent = pc.ext.component;
+          return (
             <OverviewCard
+              key={`plugin-card-${pc.pluginName}-${pc.ext.label}`}
               dataTestId={`plugin-card-${pc.pluginName}`}
-              sx={{ width: '100%' }}
               cardHeaderProps={{ title: pc.ext.label }}
             >
               <PluginErrorBoundary pluginName={pc.pluginName}>
                 <CardComponent cluster={instance} namespace={namespace} />
               </PluginErrorBoundary>
             </OverviewCard>
-          </Box>
-        );
-      })}
+          );
+        })}
+        <MonitoringCard
+          instance={instance}
+          namespace={namespace}
+          editable={!actionsBlocked}
+        />
+        {backupsSupported && (
+          <BackupsDetails
+            instance={instance}
+            namespace={namespace}
+            loading={isLoading}
+          />
+        )}
+      </MasonryColumns>
       {editingSectionKey && provider && (
         <SectionEditModal
           sectionKey={editingSectionKey}
@@ -154,15 +161,6 @@ export const ClusterOverview = () => {
           onSuccess={handleCloseModal}
         />
       )}
-      {backupsSupported && (
-        <Box>
-          <BackupsDetails
-            instance={instance}
-            namespace={namespace}
-            loading={isLoading}
-          />
-        </Box>
-      )}
-    </Box>
+    </>
   );
 };

@@ -1,6 +1,6 @@
 # Basic instance preset for testing
 apiVersion: core.openeverest.io/v1alpha1
-kind: InstancePreset
+kind: ClusterInstancePreset
 metadata:
   name: test-preset
 spec:

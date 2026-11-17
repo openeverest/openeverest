@@ -16,12 +16,10 @@ import { MongoIcon, MySqlIcon, PostgreSqlIcon } from '@percona/ui-lib';
 import { DbEngineType, DbType, ProxyType } from '@percona/types';
 import {
   DbCluster,
-  ManageableSchedules,
   Proxy,
   ProxyExposeType,
   Schedule,
 } from 'shared-types/dbCluster.types';
-import { can } from './rbac';
 import {
   Affinity,
   AffinityComponent,
@@ -30,7 +28,9 @@ import {
   AffinityPriority,
   AffinityRule,
   AffinityType,
+  LABEL_SELECTOR_OPERATORS,
   NodeAffinity,
+  NUMERIC_AFFINITY_OPERATORS,
   PodAffinity,
   PodAffinityTerm,
   PodAntiAffinity,
@@ -123,28 +123,6 @@ export const someErrorInStateFields = <T extends Record<string, unknown>>(
 export const isProxy = (proxy: Proxy): boolean => {
   return proxy && typeof proxy.expose === 'object';
 };
-export const transformSchedulesIntoManageableSchedules = async (
-  schedules: Schedule[],
-  namespace: string,
-  canCreateBackups: boolean,
-  canUpdateDb: boolean
-) => {
-  const transformedSchedules: ManageableSchedules[] = await Promise.all(
-    schedules.map(async (schedule) => ({
-      ...schedule,
-      canBeManaged:
-        (await can(
-          'read',
-          'backup-storages',
-          `${namespace}/${schedule.backupStorageName}`
-        )) &&
-        canCreateBackups &&
-        canUpdateDb,
-    }))
-  );
-
-  return transformedSchedules;
-};
 
 export const dbPayloadToAffinityRules = (
   payload: PodSchedulingPolicy
@@ -184,17 +162,17 @@ export const dbPayloadToAffinityRules = (
         } = nodeAffinity;
 
         preferredDuringSchedulingIgnoredDuringExecution.forEach(
-          ({ preference = { matchExpressions: [] }, weight }) => {
+          ({ preference: { matchExpressions = [] } = {}, weight }) => {
             rules.push({
               component,
               type: AffinityType.NodeAffinity,
               priority: AffinityPriority.Preferred,
               uid: generateShortUID(),
               weight,
-              ...(preference.matchExpressions.length > 0 && {
-                key: preference.matchExpressions[0].key,
-                operator: preference.matchExpressions[0].operator,
-                values: preference.matchExpressions[0].values?.join(','),
+              ...(matchExpressions.length > 0 && {
+                key: matchExpressions[0].key,
+                operator: matchExpressions[0].operator,
+                values: matchExpressions[0].values?.join(','),
               }),
             });
           }
@@ -229,8 +207,10 @@ export const dbPayloadToAffinityRules = (
           } = affinity;
           preferredDuringSchedulingIgnoredDuringExecution.forEach(
             ({ weight, podAffinityTerm }) => {
-              const { topologyKey, labelSelector = { matchExpressions: [] } } =
-                podAffinityTerm;
+              const {
+                topologyKey,
+                labelSelector: { matchExpressions = [] } = {},
+              } = podAffinityTerm;
 
               rules.push({
                 component,
@@ -239,27 +219,30 @@ export const dbPayloadToAffinityRules = (
                 uid: generateShortUID(),
                 weight,
                 topologyKey,
-                ...(labelSelector.matchExpressions.length > 0 && {
-                  key: labelSelector.matchExpressions[0].key,
-                  operator: labelSelector.matchExpressions[0].operator,
-                  values: labelSelector.matchExpressions[0].values?.join(','),
+                ...(matchExpressions.length > 0 && {
+                  key: matchExpressions[0].key,
+                  operator: matchExpressions[0].operator,
+                  values: matchExpressions[0].values?.join(','),
                 }),
               });
             }
           );
 
           requiredDuringSchedulingIgnoredDuringExecution.forEach(
-            ({ topologyKey, labelSelector = { matchExpressions: [] } }) => {
+            ({
+              topologyKey,
+              labelSelector: { matchExpressions = [] } = {},
+            }) => {
               rules.push({
                 component,
                 type: affinityType,
                 priority: AffinityPriority.Required,
                 uid: generateShortUID(),
                 topologyKey,
-                ...(labelSelector.matchExpressions.length > 0 && {
-                  key: labelSelector.matchExpressions[0].key,
-                  operator: labelSelector.matchExpressions[0].operator,
-                  values: labelSelector.matchExpressions[0].values?.join(','),
+                ...(matchExpressions.length > 0 && {
+                  key: matchExpressions[0].key,
+                  operator: matchExpressions[0].operator,
+                  values: matchExpressions[0].values?.join(','),
                 }),
               });
             }
@@ -285,7 +268,17 @@ export const dbPayloadToAffinityRules = (
 
 export const doesAffinityOperatorRequireValues = (
   operator: AffinityOperator
-): boolean => [AffinityOperator.In, AffinityOperator.NotIn].includes(operator);
+): boolean =>
+  [
+    AffinityOperator.In,
+    AffinityOperator.NotIn,
+    ...NUMERIC_AFFINITY_OPERATORS,
+  ].includes(operator);
+
+export const getAffinityOperators = (type: AffinityType): AffinityOperator[] =>
+  type === AffinityType.NodeAffinity
+    ? [...LABEL_SELECTOR_OPERATORS, ...NUMERIC_AFFINITY_OPERATORS]
+    : LABEL_SELECTOR_OPERATORS;
 
 export const affinityRulesToDbPayload = (
   affinityRules: AffinityRule[]
@@ -569,7 +562,7 @@ export const removeRuleInExistingPolicy = (
             {}
           ).nodeSelectorTerms || []
         ).findIndex(
-          ({ matchExpressions }) =>
+          ({ matchExpressions = [] }) =>
             matchExpressions.length &&
             matchExpressions[0].key === rule.key &&
             matchExpressions[0].operator === rule.operator &&
@@ -596,9 +589,10 @@ export const removeRuleInExistingPolicy = (
         ).findIndex(
           ({ topologyKey, labelSelector }) =>
             topologyKey === rule.topologyKey &&
-            labelSelector?.matchExpressions[0].key === rule.key &&
-            labelSelector?.matchExpressions[0].operator === rule.operator &&
-            labelSelector?.matchExpressions[0].values?.join(',') === rule.values
+            labelSelector?.matchExpressions?.[0].key === rule.key &&
+            labelSelector?.matchExpressions?.[0].operator === rule.operator &&
+            labelSelector?.matchExpressions?.[0].values?.join(',') ===
+              rule.values
         );
 
         if (matchingRuleIdx !== -1) {
@@ -623,9 +617,9 @@ export const removeRuleInExistingPolicy = (
         ).findIndex(
           ({ weight, preference }) =>
             weight === rule.weight &&
-            preference.matchExpressions[0].key === rule.key &&
-            preference.matchExpressions[0].operator === rule.operator &&
-            preference.matchExpressions[0].values?.join(',') === rule.values
+            preference.matchExpressions?.[0].key === rule.key &&
+            preference.matchExpressions?.[0].operator === rule.operator &&
+            preference.matchExpressions?.[0].values?.join(',') === rule.values
         );
 
         if (matchingRuleIdx !== -1) {
@@ -649,11 +643,11 @@ export const removeRuleInExistingPolicy = (
           ({ weight, podAffinityTerm }) =>
             weight === rule.weight &&
             podAffinityTerm.topologyKey === rule.topologyKey &&
-            podAffinityTerm.labelSelector?.matchExpressions[0].key ===
+            podAffinityTerm.labelSelector?.matchExpressions?.[0].key ===
               rule.key &&
-            podAffinityTerm.labelSelector?.matchExpressions[0].operator ===
+            podAffinityTerm.labelSelector?.matchExpressions?.[0].operator ===
               rule.operator &&
-            podAffinityTerm.labelSelector?.matchExpressions[0].values?.join(
+            podAffinityTerm.labelSelector?.matchExpressions?.[0].values?.join(
               ','
             ) === rule.values
         );
