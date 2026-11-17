@@ -259,7 +259,8 @@ func kindOf[T client.Object](t *testing.T) Kind {
 			return k
 		}
 	}
-	t.Fatalf("no kind for %T", *new(T))
+	var zero T
+	t.Fatalf("no kind for %T", zero)
 	return Kind{}
 }
 
