@@ -20,7 +20,7 @@ import {
   Typography,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { usePlugins } from 'contexts/plugins';
+import { extensionAppliesToProvider, usePlugins } from 'contexts/plugins';
 import type {
   InstanceCreateFormSectionExtension,
   InstanceEditFormSectionExtension,
@@ -74,11 +74,7 @@ export const PluginFormSections: React.FC<PluginFormSectionsProps> = ({
             | InstanceCreateFormSectionExtension
             | InstanceEditFormSectionExtension => ext.type === extensionType
         )
-        .filter(
-          (ext) =>
-            !ext.providers?.length ||
-            (engineType != null && ext.providers.includes(engineType))
-        )
+        .filter((ext) => extensionAppliesToProvider(ext, engineType))
         .map((ext) => ({ pluginName: p.name, ...ext }))
     );
   }, [plugins, extensionType, engineType]);
@@ -106,8 +102,7 @@ export const PluginFormSections: React.FC<PluginFormSectionsProps> = ({
 interface PluginFormSectionItemProps {
   pluginName: string;
   section: (
-    | InstanceCreateFormSectionExtension
-    | InstanceEditFormSectionExtension
+    InstanceCreateFormSectionExtension | InstanceEditFormSectionExtension
   ) & {
     pluginName: string;
   };

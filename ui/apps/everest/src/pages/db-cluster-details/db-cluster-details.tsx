@@ -30,7 +30,7 @@ import DbActions from 'components/db-actions/db-actions';
 import { Messages } from './db-cluster-details.messages';
 import { InstanceStatus } from 'components/instance-status';
 import { getPodsAlertConditions } from 'shared-types/instance.types';
-import { usePlugins } from 'contexts/plugins';
+import { extensionAppliesToProvider, usePlugins } from 'contexts/plugins';
 import type { ClusterDetailTabExtension } from '@openeverest/plugin-sdk';
 import { PodsAlert } from './pods-alert';
 
@@ -72,11 +72,7 @@ const WithPermissionDetails = ({
             (ext): ext is ClusterDetailTabExtension =>
               ext.type === 'clusterDetailTab'
           )
-          .filter(
-            (ext) =>
-              !ext.providers?.length ||
-              (engineType != null && ext.providers.includes(engineType))
-          )
+          .filter((ext) => extensionAppliesToProvider(ext, engineType))
           .map((ext) => ({ pluginName: p.name, ...ext }))
       ),
     [plugins, engineType]

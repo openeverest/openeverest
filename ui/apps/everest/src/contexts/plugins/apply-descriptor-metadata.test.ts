@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest';
 import type { Extension } from '@openeverest/plugin-sdk';
 import {
   applyDescriptorMetadata,
+  extensionAppliesToProvider,
   type ExtensionPointDescriptor,
 } from './apply-descriptor-metadata';
 
@@ -125,5 +126,48 @@ describe('applyDescriptorMetadata', () => {
     applyDescriptorMetadata(ext, descriptors);
 
     expect(ext.icon).toBe('/bundle-icon.png');
+  });
+});
+
+describe('applyDescriptorMetadata match result', () => {
+  const descriptors: ExtensionPointDescriptor[] = [
+    { type: 'clusterAction', label: 'Explore', providers: ['a'] },
+  ];
+
+  it('returns the matched CR entry and scopes a label-matched action', () => {
+    const ext: Extension = {
+      type: 'clusterAction',
+      label: 'Explore',
+      component: NoopComponent,
+    };
+
+    expect(applyDescriptorMetadata(ext, descriptors)).toBe(descriptors[0]);
+    expect(ext.providers).toEqual(['a']);
+  });
+
+  it('returns undefined when the labels differ, leaving the action unscoped', () => {
+    const ext: Extension = {
+      type: 'clusterAction',
+      label: 'Renamed',
+      component: NoopComponent,
+    };
+
+    expect(applyDescriptorMetadata(ext, descriptors)).toBeUndefined();
+    expect(ext.providers).toBeUndefined();
+  });
+});
+
+describe('extensionAppliesToProvider', () => {
+  it('applies to every provider without a filter', () => {
+    expect(extensionAppliesToProvider({}, 'a')).toBe(true);
+    expect(extensionAppliesToProvider({ providers: [] }, undefined)).toBe(true);
+  });
+
+  it('applies only to listed providers when filtered', () => {
+    expect(extensionAppliesToProvider({ providers: ['a'] }, 'a')).toBe(true);
+    expect(extensionAppliesToProvider({ providers: ['a'] }, 'b')).toBe(false);
+    expect(extensionAppliesToProvider({ providers: ['a'] }, undefined)).toBe(
+      false
+    );
   });
 });

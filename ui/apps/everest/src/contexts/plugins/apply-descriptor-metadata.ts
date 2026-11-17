@@ -28,11 +28,12 @@ export interface ExtensionPointDescriptor {
 // Plugin CR. Tabs and settings panels are matched by type+path; the rest by
 // type+label. The CR is the source of truth for provider filtering, so a
 // declared `providers` list overrides whatever the bundle registered — this
-// lets operators scope a plugin without rebuilding it.
+// lets operators scope a plugin without rebuilding it. Returns the matched
+// entry, if any.
 export function applyDescriptorMetadata(
   ext: Extension,
   extensionPoints: ExtensionPointDescriptor[]
-): void {
+): ExtensionPointDescriptor | undefined {
   const extPath = 'path' in ext ? ext.path : undefined;
   const match = extensionPoints.find((ep) => {
     if (ep.type !== ext.type) {
@@ -44,7 +45,7 @@ export function applyDescriptorMetadata(
     return ep.label === ext.label;
   });
   if (!match) {
-    return;
+    return undefined;
   }
 
   if (
@@ -63,4 +64,18 @@ export function applyDescriptorMetadata(
   if (ext.type === 'sidebarItem' && !ext.icon && match.icon) {
     ext.icon = match.icon;
   }
+
+  return match;
+}
+
+// Whether an extension should be shown for an Instance of the given provider
+// (`spec.providerRef.name`). No filter means it applies to every provider.
+export function extensionAppliesToProvider(
+  ext: { providers?: string[] },
+  providerName: string | undefined
+): boolean {
+  return (
+    !ext.providers?.length ||
+    (providerName != null && ext.providers.includes(providerName))
+  );
 }
