@@ -119,8 +119,10 @@ flowchart TD
     - has `dataSource` → `<ComponentErrorBoundary><DataSourceField><UIComponent/></DataSourceField></ComponentErrorBoundary>`
       (the wrapper loads options through `api-providers/registry` and sets a default via `useEffect`);
     - otherwise → `<ComponentErrorBoundary><UIComponent/></ComponentErrorBoundary>`.
-- **`UIGroup`** — picks the wrapper by `groupType`. `ToggleableWrapper` mounts the body only
-  while the switch is on; turning it on focuses the first field without validating untouched ones.
+- **`UIGroup`** — picks the wrapper by `groupType`, forwarding `label` / `description` /
+  `groupParams` (and descendant field names for collapsible). `CollapsibleWrapper` folds a
+  bordered card without unmounting children; `ToggleableWrapper` mounts the body only while
+  the switch is on; turning it on focuses the first field without validating untouched ones.
 - **`UIComponent`** — maps `uiType` to a concrete input (`@percona/ui-lib`: SelectInput / TextInput /
   SwitchInput …). `quantity` reuses the number TextInput; the adornment is `unitLabel ?? unit`,
   and omitting `step` applies HTML `step="any"`.
