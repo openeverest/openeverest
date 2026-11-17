@@ -12,3 +12,7 @@ spec:
   backupStorageClasses:
     - name: s3
       authModes: [AccessKey]
+      # The api-tests storages verify TLS against nothing (insecureSkipVerify).
+      tls:
+        customCA: Supported
+        insecureSkipVerify: Supported

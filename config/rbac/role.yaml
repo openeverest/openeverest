@@ -33,6 +33,18 @@ rules:
 - apiGroups:
   - backup.openeverest.io
   resources:
+  - backupclasses/status
+  - backupimports/status
+  - backups/status
+  - backupstorages/status
+  - restores/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - backup.openeverest.io
+  resources:
   - backupimports
   - backups
   - restores
@@ -44,17 +56,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - backup.openeverest.io
-  resources:
-  - backupimports/status
-  - backups/status
-  - backupstorages/status
-  - restores/status
-  verbs:
-  - get
-  - patch
-  - update
 - apiGroups:
   - backup.openeverest.io
   resources:

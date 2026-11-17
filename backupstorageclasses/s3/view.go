@@ -23,6 +23,7 @@ package s3
 //
 // +kubebuilder:validation:XValidation:rule="has(self.location.objectStore) && self.location.objectStore.bucket.matches('^[a-z0-9][a-z0-9._-]{1,61}[a-z0-9]$') && !self.location.objectStore.bucket.contains('..')",message="an s3 bucket name must be 3 to 63 lowercase letters, digits, '.', '-' or '_', start and end with a letter or digit, and contain no '..'",fieldPath=".location.objectStore.bucket"
 // +kubebuilder:validation:XValidation:rule="!(has(self.tls) && (has(self.tls.ca) || (has(self.tls.insecureSkipVerify) && self.tls.insecureSkipVerify)) && has(self.parameters) && has(self.parameters.endpointURL) && self.parameters.endpointURL.startsWith('http://'))",message="tls applies to https endpoints only, and endpointURL is http",fieldPath=".tls"
+// +kubebuilder:validation:XValidation:rule="!has(self.parameters) || !has(self.parameters.endpointURL) || (isURL(self.parameters.endpointURL) && (url(self.parameters.endpointURL).getPort().size() == 0 || (int(url(self.parameters.endpointURL).getPort()) >= 1 && int(url(self.parameters.endpointURL).getPort()) <= 65535)))",message="endpointURL must be a URL whose port, if any, is between 1 and 65535",fieldPath=".parameters.endpointURL"
 type StorageView struct {
 	// +kubebuilder:validation:Required
 	Location StorageLocation `json:"location"`
