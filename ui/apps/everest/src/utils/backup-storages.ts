@@ -94,3 +94,8 @@ export const getBackupStorageClassTitle = (
 ) =>
   classes.find((storageClass) => storageClass.metadata?.name === className)
     ?.spec.displayName || className;
+
+// The kind in the name keeps a storage's Secret apart from those of a
+// monitoring destination or an Instance with the same name.
+export const getDefaultStorageCredentialsSecretName = (storageName: string) =>
+  `backup-storage-${storageName}-credentials`;

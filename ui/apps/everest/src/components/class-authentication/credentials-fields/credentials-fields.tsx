@@ -34,6 +34,7 @@ import {
   getKeptCredentialsSecretName,
   takesCredentials,
 } from '../class-authentication.utils';
+import { useResetStaleCredentials } from '../hooks/use-reset-stale-credentials';
 import { ExistingSecretSelect } from './existing-secret-select/existing-secret-select';
 
 // Where the credentials of a mode that keeps them in a Secret come from, and
@@ -60,6 +61,12 @@ export const CredentialsFields = ({
   const sources = getCredentialsSources(values, saved, secretPermissions);
   const source = getCredentialsSource(values, saved, secretPermissions);
   const keptSecret = getKeptCredentialsSecretName(authMode, saved) ?? '';
+  useResetStaleCredentials({
+    namespace,
+    className: contract.name,
+    authMode,
+    form,
+  });
 
   if (!form || !authMode || !isSecretBackedAuthMode(authMode)) {
     return null;

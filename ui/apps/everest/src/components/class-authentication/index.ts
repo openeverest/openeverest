@@ -25,10 +25,14 @@ export type {
   AuthenticationNouns,
   SavedAuthentication,
   SecretNamespacePermissions,
+  SecretNamingSpec,
 } from './class-authentication.types';
 export {
   getAuthenticationFormValues,
   getAuthenticationRequest,
   getCredentialsSecretErrorMessage,
+  getSecretUseProblem,
   toCredentialsForm,
 } from './class-authentication.utils';
+export { useCanUseSecret } from './hooks/use-can-use-secret';
+export { useSecretNamespacePermissions } from './hooks/use-secret-namespace-permissions';

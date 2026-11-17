@@ -29,6 +29,7 @@ import {
   getCredentialsSection,
   isSecretBackedAuthMode,
 } from 'utils/class-contract';
+import { isSameJsonDocument } from 'utils/json-document';
 import { toSecretStringData } from 'utils/secrets';
 import { CREDENTIALS_SECTION_KEY } from './class-authentication.constants';
 import { Messages } from './class-authentication.messages';
@@ -38,6 +39,7 @@ import {
   CredentialsSource,
   SavedAuthentication,
   SecretNamespacePermissions,
+  SecretNamingSpec,
 } from './class-authentication.types';
 
 // The form the user types the mode's credentials in. New credentials are
@@ -146,16 +148,25 @@ const toCredentialsSecretWrite = ({
         ? postprocessSectionForm(credentialsForm, values.credentials)
         : {}
     );
-  if (source === CredentialsSource.New && contract) {
+  if (!contract) {
+    return undefined;
+  }
+  const labels = getCredentialsSecretLabels(contract, values.authMode);
+  if (source === CredentialsSource.New) {
     return {
       action: 'create',
       name: values.credentialsSecretName || defaultSecretName,
-      labels: getCredentialsSecretLabels(contract, values.authMode),
+      labels,
       stringData: stringData(),
     };
   }
   if (source === CredentialsSource.Update && keptSecretName) {
-    return { action: 'update', name: keptSecretName, stringData: stringData() };
+    return {
+      action: 'update',
+      name: keptSecretName,
+      labels,
+      stringData: stringData(),
+    };
   }
   return undefined;
 };
@@ -216,4 +227,40 @@ export const getCredentialsSecretErrorMessage = (
   return error.reusable
     ? Messages.secretExists(error.secretName)
     : Messages.secretTaken(error.secretName, nouns.class);
+};
+
+// Why the save can't go ahead, when it needs use on Secrets the user may not
+// use: the server requires it on every Secret an object names when the
+// object is created or its spec changes, Secret by Secret, as checked here.
+// Run before anything is written, so a refused save leaves no Secret changed.
+export const getSecretUseProblem = async ({
+  spec,
+  savedSpec,
+  namespace,
+  canUseSecret,
+}: {
+  spec: SecretNamingSpec;
+  savedSpec: SecretNamingSpec | undefined;
+  namespace: string;
+  canUseSecret: (name: string) => Promise<boolean>;
+}): Promise<string | undefined> => {
+  const names = [
+    ...new Set(
+      [
+        spec.authentication?.credentialsSecretRef?.name,
+        spec.tls?.ca?.secretKeyRef?.name,
+      ].filter((name): name is string => !!name)
+    ),
+  ];
+  if (
+    names.length === 0 ||
+    (savedSpec && isSameJsonDocument(spec, savedSpec))
+  ) {
+    return undefined;
+  }
+  const usable = await Promise.all(names.map(canUseSecret));
+  const denied = names.filter((_, index) => !usable[index]);
+  return denied.length > 0
+    ? Messages.secretUseRequired(denied, namespace)
+    : undefined;
 };

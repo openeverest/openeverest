@@ -13,8 +13,15 @@
 // limitations under the License.
 
 import { useMemo, useState } from 'react';
+import { Add } from '@mui/icons-material';
+import { Button } from '@mui/material';
 import { Table } from '@percona/ui-lib';
 import { type MRT_ColumnDef } from 'material-react-table';
+import {
+  BackupStorageModal,
+  BackupStorageTarget,
+  useBackupStoragePermissions,
+} from 'components/backup-storage-modal';
 import { useDeleteBackupStorage } from 'hooks/api/backup-storages';
 import { DeleteStorageDialog } from './delete-storage-dialog/delete-storage-dialog';
 import { useStorageLocationRows } from './hooks/use-storage-location-rows';
@@ -24,11 +31,15 @@ import { StorageStatusCell } from './storage-status-cell/storage-status-cell';
 import { Messages } from './storage-locations.messages';
 import { BackupStorageRow } from './storage-locations.types';
 
+type ModalState = { target?: BackupStorageTarget } | undefined;
+
 export const StorageLocations = () => {
   const { rows, isLoading } = useStorageLocationRows();
+  const { createNamespaces } = useBackupStoragePermissions();
   const { mutate: deleteStorage, isPending: isDeleting } =
     useDeleteBackupStorage();
   const [deletion, setDeletion] = useState<BackupStorageRow>();
+  const [modal, setModal] = useState<ModalState>();
 
   const columns = useMemo<MRT_ColumnDef<BackupStorageRow>[]>(
     () => [
@@ -57,13 +68,38 @@ export const StorageLocations = () => {
         columns={columns}
         state={{ isLoading }}
         enableRowActions
+        renderTopToolbarCustomActions={() =>
+          createNamespaces.length > 0 && (
+            <Button
+              size="small"
+              startIcon={<Add />}
+              data-testid="add-backup-storage"
+              variant="outlined"
+              onClick={() => setModal({})}
+            >
+              {Messages.add}
+            </Button>
+          )
+        }
         renderRowActions={({ row }) => (
-          <StorageRowActions row={row.original} onDelete={setDeletion} />
+          <StorageRowActions
+            row={row.original}
+            onEdit={({ namespace, name }) =>
+              setModal({ target: { namespace, name } })
+            }
+            onDelete={setDeletion}
+          />
         )}
         renderDetailPanel={({ row }) => (
           <StorageDetails storage={row.original.raw} />
         )}
       />
+      {modal && (
+        <BackupStorageModal
+          target={modal.target}
+          onClose={() => setModal(undefined)}
+        />
+      )}
       {deletion && (
         <DeleteStorageDialog
           row={deletion}

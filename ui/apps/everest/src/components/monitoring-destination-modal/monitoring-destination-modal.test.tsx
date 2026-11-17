@@ -59,6 +59,12 @@ vi.mock('api/monitoring-destinations', () => ({
 vi.mock('api/monitoring-bindings', () => ({
   getMonitoringBindingsFn: vi.fn().mockResolvedValue({ items: [] }),
 }));
+const rbacMocks = vi.hoisted(() => ({
+  // Checks secrets:use on one Secret, as per-Secret grants allow it.
+  check: vi.fn<
+    (action: string, resource: string, object: string) => Promise<boolean>
+  >(async () => true),
+}));
 vi.mock('hooks/rbac', async (importOriginal) => {
   const secretPermissions = {
     canCreate: ['team-a'],
@@ -70,6 +76,7 @@ vi.mock('hooks/rbac', async (importOriginal) => {
   return {
     ...(await importOriginal<typeof import('hooks/rbac')>()),
     useNamespacePermissionsForResource: () => secretPermissions,
+    useRBACCheck: () => rbacMocks.check,
   };
 });
 
@@ -186,6 +193,7 @@ const submit = async () => {
 
 describe('MonitoringDestinationModal', () => {
   beforeEach(() => {
+    rbacMocks.check.mockReset().mockResolvedValue(true);
     vi.mocked(createSecretFn).mockReset().mockResolvedValue({});
     vi.mocked(getSecretFn)
       .mockReset()
@@ -393,6 +401,65 @@ describe('MonitoringDestinationModal', () => {
         }),
       })
     );
+  });
+
+  it('replaces the credentials in place without permission to use the Secret, as the spec stays', async () => {
+    rbacMocks.check.mockResolvedValue(false);
+    vi.mocked(getMonitoringDestinationFn).mockResolvedValue(storedPmm());
+    vi.mocked(getSecretFn).mockResolvedValue({
+      metadata: { name: 'pmm-credentials', resourceVersion: '7' },
+    });
+    vi.mocked(patchSecretFn).mockReset().mockResolvedValue({});
+    vi.mocked(updateMonitoringDestinationFn)
+      .mockReset()
+      .mockResolvedValue(storedPmm());
+    const onClose = renderModal({ namespace: 'team-a', name: 'pmm-prod' });
+
+    fireEvent.click(await screen.findByLabelText('Enter new credentials'));
+    fireEvent.change(await screen.findByLabelText(/Service account token/), {
+      target: { value: 'n3w' },
+    });
+    const save = screen.getByTestId('form-dialog-save');
+    await waitFor(() => expect(save).toBeEnabled());
+    fireEvent.click(save);
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(patchSecretFn).toHaveBeenCalled();
+  });
+
+  it('refuses changing the destination without permission to use its Secret, writing nothing', async () => {
+    rbacMocks.check.mockImplementation(
+      async (_action, _resource, object) => object !== 'team-a/pmm-credentials'
+    );
+    vi.mocked(getMonitoringDestinationFn).mockResolvedValue(storedPmm());
+    vi.mocked(patchSecretFn).mockReset();
+    vi.mocked(updateMonitoringDestinationFn).mockReset();
+    const onClose = renderModal({ namespace: 'team-a', name: 'pmm-prod' });
+
+    fireEvent.click(await screen.findByLabelText('Enter new credentials'));
+    fireEvent.change(await screen.findByLabelText(/Service account token/), {
+      target: { value: 'n3w' },
+    });
+    fireEvent.change(screen.getByLabelText(/PMM server URL/), {
+      target: { value: 'https://pmm2.example.com' },
+    });
+    const save = screen.getByTestId('form-dialog-save');
+    await waitFor(() => expect(save).toBeEnabled());
+    fireEvent.click(save);
+
+    expect(
+      await screen.findByText(
+        /needs permission to use Secret pmm-credentials in the team-a namespace/
+      )
+    ).toBeInTheDocument();
+    expect(rbacMocks.check).toHaveBeenCalledWith(
+      'use',
+      'secrets',
+      'team-a/pmm-credentials'
+    );
+    expect(patchSecretFn).not.toHaveBeenCalled();
+    expect(updateMonitoringDestinationFn).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('keeps the user edits when the destination changed meanwhile', async () => {

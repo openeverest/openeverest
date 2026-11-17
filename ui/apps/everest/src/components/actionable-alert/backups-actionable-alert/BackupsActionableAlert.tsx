@@ -13,17 +13,31 @@
 // limitations under the License.
 
 import ActionableAlert from '..';
+import {
+  BackupStorageModal,
+  useAddBackupStorage,
+} from 'components/backup-storage-modal';
 import { Messages } from './BackupsActionableAlert.messages';
 import { BackupsActionableAlertProps } from './BackupsActionableAlert.types';
 
 const BackupsActionableAlert = ({
+  namespace,
   message = Messages.noStoragesMessage,
-}: BackupsActionableAlertProps) => (
-  <ActionableAlert
-    message={message}
-    data-testid="no-storage-message"
-    action={undefined}
-  />
-);
+}: BackupsActionableAlertProps) => {
+  const { canAdd, isOpen, open, modalProps } = useAddBackupStorage(namespace);
+
+  return (
+    <>
+      <ActionableAlert
+        message={message}
+        buttonMessage={Messages.addStorage}
+        data-testid="no-storage-message"
+        onClick={open}
+        {...(!canAdd && { action: undefined })}
+      />
+      {isOpen && <BackupStorageModal {...modalProps} />}
+    </>
+  );
+};
 
 export default BackupsActionableAlert;

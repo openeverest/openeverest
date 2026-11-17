@@ -149,6 +149,26 @@ export const fromOpenApiParameterFormValues = (
   );
 };
 
+// What a save sends: the form's parameters, and those of the saved object
+// the form can't edit, as they were.
+export const toOpenApiParametersUpdate = (
+  values: unknown,
+  parameterFields: OpenApiParameterFields,
+  saved: unknown
+): Record<string, unknown> => {
+  const kept = isPlainObject(saved)
+    ? Object.fromEntries(
+        Object.entries(saved).filter(([key]) =>
+          parameterFields.skipped.includes(key)
+        )
+      )
+    : {};
+  return {
+    ...kept,
+    ...fromOpenApiParameterFormValues(values, parameterFields),
+  };
+};
+
 const noDuplicateKeys = (pairs: KeyValuePair[], ctx: z.RefinementCtx) =>
   pairs.forEach(({ key }, index) => {
     if (key && pairs.findIndex((pair) => pair.key === key) !== index) {

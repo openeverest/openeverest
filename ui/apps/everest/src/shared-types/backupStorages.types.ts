@@ -19,6 +19,14 @@ import { CrdsGen, HttpApi } from '@generated/api-types';
 export type BackupStorageCRD = CrdsGen.components['schemas']['BackupStorage'];
 export type BackupStorageListCRD =
   CrdsGen.components['schemas']['BackupStorageList'];
+export type BackupStorageSpec = BackupStorageCRD['spec'];
+
+// What a save sends: the generated type can't hold a class's parameters.
+export type BackupStoragePayload = Omit<BackupStorageCRD, 'spec' | 'status'> & {
+  spec: Omit<BackupStorageSpec, 'parameters'> & {
+    parameters?: Record<string, unknown>;
+  };
+};
 
 // backupClass: the storages that backup class can use;
 // backupStorageClass: those of the class; secret: those that use the Secret.

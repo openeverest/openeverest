@@ -24,8 +24,9 @@ import {
 } from '@e2e/constants';
 import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 import {
-  createBackupStorage,
+  backupStorageCredentialsSecretName,
   deleteBackupStorage,
+  getBackupStorage,
 } from '@e2e/utils/backup-storage';
 
 const {
@@ -41,29 +42,13 @@ test.describe.serial('Backup storage', () => {
   const namespace = EVEREST_CI_NAMESPACES.EVEREST_UI,
     backupStorageName = limitedSuffixedName('pr-set-bac-str'),
     bucketName = limitedSuffixedName('bucket');
+
+  const storageUrl = `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/backup-storages`;
   let token: string;
 
-  test.beforeAll(async ({ request }) => {
+  test.beforeAll(async () => {
     token = await getCITokenFromLocalStorage();
     expect(token).not.toHaveLength(0);
-
-    const response = await createBackupStorage(
-      request,
-      namespace,
-      {
-        name: backupStorageName,
-        bucket: bucketName,
-        region: EVEREST_LOCATION_REGION,
-        endpointURL: EVEREST_LOCATION_URL,
-        implementation: 'other',
-        accessKeyId: EVEREST_LOCATION_ACCESS_KEY,
-        secretAccessKey: EVEREST_LOCATION_SECRET_KEY,
-        verifyTLS: false,
-        forcePathStyle: true,
-      },
-      token
-    );
-    expect(response.status()).toBe(201);
   });
 
   test.beforeEach(async ({ page }) => {
@@ -76,6 +61,73 @@ test.describe.serial('Backup storage', () => {
     }).toPass({
       intervals: [1000],
       timeout: TIMEOUTS.TenSeconds,
+    });
+  });
+
+  // The CI store is SeaweedFS behind a self-signed certificate.
+  test('Add Backup Storage', async ({ page, request }) => {
+    const dialog = page.getByRole('dialog');
+
+    await test.step('Fill in the S3 forms', async () => {
+      await page.getByTestId('add-backup-storage').click();
+      await dialog.getByTestId('text-input-name').fill(backupStorageName);
+      await dialog.getByTestId('text-input-namespace').click();
+      await page.getByRole('option', { name: namespace, exact: true }).click();
+      await dialog.getByTestId('select-class-name-button').click();
+      await page
+        .getByRole('option', { name: 'S3-compatible object storage' })
+        .click();
+      await dialog.getByLabel('Bucket').fill(bucketName);
+      await dialog.getByLabel('Region').fill(EVEREST_LOCATION_REGION);
+      await dialog.getByLabel('Endpoint URL').fill(EVEREST_LOCATION_URL);
+      await dialog.getByLabel('Implementation').click();
+      await page.getByRole('option', { name: 'Other S3-compatible' }).click();
+      await dialog.getByLabel('Force path-style URLs').check();
+      await dialog
+        .getByLabel('Access key ID')
+        .fill(EVEREST_LOCATION_ACCESS_KEY);
+      await dialog
+        .getByLabel('Secret access key')
+        .fill(EVEREST_LOCATION_SECRET_KEY);
+      await dialog.getByLabel('Skip TLS certificate verification').check();
+    });
+
+    await test.step('Add it', async () => {
+      const created = page.waitForResponse(
+        (resp) =>
+          resp.request().method() === 'POST' &&
+          resp.url().endsWith(storageUrl) &&
+          resp.status() === 201
+      );
+      await page.getByTestId('form-dialog-add').click();
+      await created;
+      await expect(dialog).not.toBeVisible();
+    });
+
+    await test.step('Check it references a new credentials Secret', async () => {
+      const storage = await getBackupStorage(
+        request,
+        namespace,
+        backupStorageName,
+        token
+      );
+      expect(storage.spec).toMatchObject({
+        backupStorageClassRef: { name: 's3' },
+        authentication: {
+          mode: 'AccessKey',
+          credentialsSecretRef: {
+            name: backupStorageCredentialsSecretName(backupStorageName),
+          },
+        },
+        location: { objectStore: { bucket: bucketName } },
+        parameters: {
+          region: EVEREST_LOCATION_REGION,
+          endpointURL: EVEREST_LOCATION_URL,
+          implementation: 'other',
+          forcePathStyle: true,
+        },
+        tls: { insecureSkipVerify: true },
+      });
     });
   });
 
@@ -93,16 +145,57 @@ test.describe.serial('Backup storage', () => {
     });
   });
 
+  test('Edit Backup Storage', async ({ page, request }) => {
+    const dialog = page.getByRole('dialog');
+    const region = 'us-west-2';
+
+    await test.step('Change its region', async () => {
+      await findRowAndClickActions(page, backupStorageName, 'Edit');
+      // Engines catalog backups by location, so it can't change.
+      await expect(dialog.getByLabel('Bucket')).toBeDisabled();
+      await dialog.getByLabel('Region').fill(region);
+      const updated = page.waitForResponse(
+        (resp) =>
+          resp.request().method() === 'PUT' &&
+          resp.url().endsWith(`${storageUrl}/${backupStorageName}`) &&
+          resp.status() === 200
+      );
+      await page.getByTestId('form-dialog-save').click();
+      await updated;
+      await expect(dialog).not.toBeVisible();
+    });
+
+    await test.step('Check the rest stays as it was', async () => {
+      const storage = await getBackupStorage(
+        request,
+        namespace,
+        backupStorageName,
+        token
+      );
+      expect(storage.spec).toMatchObject({
+        location: { objectStore: { bucket: bucketName } },
+        parameters: {
+          region,
+          endpointURL: EVEREST_LOCATION_URL,
+          implementation: 'other',
+          forcePathStyle: true,
+        },
+        authentication: {
+          credentialsSecretRef: {
+            name: backupStorageCredentialsSecretName(backupStorageName),
+          },
+        },
+        tls: { insecureSkipVerify: true },
+      });
+    });
+  });
+
   test('Delete Backup Storage', async ({ page }) => {
     await findRowAndClickActions(page, backupStorageName, 'Delete');
     const delResponse = page.waitForResponse(
       (resp) =>
         resp.request().method() === 'DELETE' &&
-        resp
-          .url()
-          .includes(
-            `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/backup-storages/${backupStorageName}`
-          ) &&
+        resp.url().endsWith(`${storageUrl}/${backupStorageName}`) &&
         resp.status() === 204
     );
     await page.getByTestId('confirm-dialog-delete').click();

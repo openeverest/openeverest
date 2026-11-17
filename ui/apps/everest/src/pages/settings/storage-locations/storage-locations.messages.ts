@@ -13,6 +13,7 @@
 // limitations under the License.
 
 export const Messages = {
+  add: 'Add storage',
   noData: 'No backup storage set up yet.',
   columns: {
     name: 'Name',
@@ -31,6 +32,7 @@ export const Messages = {
     tlsSystem: 'System trust store',
     none: 'None',
   },
+  edit: 'Edit',
   delete: 'Delete',
   deleteHeader: 'Delete backup storage',
   deleteConfirmation: (name: string) =>

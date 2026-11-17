@@ -19,10 +19,10 @@ import {
   toCredentialsForm,
 } from 'components/class-authentication';
 import {
-  fromOpenApiParameterFormValues,
   getOpenApiParameterFields,
   OpenApiParameterFields,
   toOpenApiParameterFormValues,
+  toOpenApiParametersUpdate,
 } from 'components/openapi-parameters-fields';
 import {
   getTlsConfigFormValues,
@@ -41,11 +41,11 @@ import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
+import { toParametersContract } from 'utils/class-contract';
 import {
   getMonitoringClassName,
   getMonitoringClassUiSchema,
   toMonitoringClassContract,
-  toParametersContract,
 } from 'utils/monitoring-classes';
 import { getDefaultCredentialsSecretName } from 'utils/monitoring-destinations';
 import { DESTINATION_SECTION_KEY } from './monitoring-destination-modal.constants';
@@ -189,22 +189,11 @@ const toParameters = (
     );
     return isPlainObject(parameters) ? parameters : {};
   }
-  // Parameters the generated form can't edit are kept as they are.
-  const current: unknown = original?.spec.parameters;
-  const kept = isPlainObject(current)
-    ? Object.fromEntries(
-        Object.entries(current).filter(([key]) =>
-          forms.parameterFields.skipped.includes(key)
-        )
-      )
-    : {};
-  return {
-    ...kept,
-    ...fromOpenApiParameterFormValues(
-      values.fallbackParameters,
-      forms.parameterFields
-    ),
-  };
+  return toOpenApiParametersUpdate(
+    values.fallbackParameters,
+    forms.parameterFields,
+    original?.spec.parameters
+  );
 };
 
 // The requests a submit makes. Credentials go to the Secret only; the

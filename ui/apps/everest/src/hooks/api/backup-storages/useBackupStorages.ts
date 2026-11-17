@@ -19,12 +19,27 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { deleteBackupStorageFn, getBackupStoragesFn } from 'api/backupStorage';
+import {
+  createBackupStorageFn,
+  deleteBackupStorageFn,
+  getBackupStorageFn,
+  getBackupStoragesFn,
+  updateBackupStorageFn,
+} from 'api/backupStorage';
+import {
+  CredentialsSecretWrite,
+  getCredentialsSecretRequests,
+  saveWithCredentialsSecret,
+  SECRETS_QUERY_KEY,
+} from 'hooks/api/secrets';
+import { isAxiosError } from 'axios';
 import {
   BackupStorageCRD,
   BackupStorageListFilter,
+  BackupStoragePayload,
 } from 'shared-types/backupStorages.types';
 import { PerconaQueryOptions } from 'shared-types/query.types';
+import { isSameJsonDocument } from 'utils/json-document';
 import { useNamespaces } from '../namespaces';
 import { useClusterName } from '../useClusterName';
 
@@ -85,5 +100,96 @@ export const useDeleteBackupStorage = () => {
       queryClient.invalidateQueries({
         queryKey: getBackupStoragesQueryKey(cluster, namespace),
       }),
+  });
+};
+
+export const useBackupStorage = (
+  namespace: string,
+  name: string,
+  options?: PerconaQueryOptions<BackupStorageCRD>
+) => {
+  const cluster = useClusterName();
+  return useQuery<BackupStorageCRD>({
+    // Under the namespace's key, so a write to the namespace refreshes it.
+    queryKey: [BACKUP_STORAGES_QUERY_KEY, cluster, namespace, name],
+    queryFn: () => getBackupStorageFn(cluster, namespace, name),
+    ...options,
+  });
+};
+
+export interface SaveBackupStorageRequest {
+  namespace: string;
+  storage: BackupStoragePayload;
+  // The spec the edit started from; a new storage is added without it.
+  savedSpec?: BackupStoragePayload['spec'];
+  credentialsSecret?: CredentialsSecretWrite;
+}
+
+const STATUS_ONLY_CONFLICT_RETRIES = 3;
+
+// Core writes a storage's status as it checks it, e.g. once its Secret is
+// back, and that changes the storage's version too. Only a spec changed since
+// the edit started is a conflict the user has to look at: over any other
+// change the update goes again, at the latest version.
+const updateOverStatusChanges = async (
+  cluster: string,
+  namespace: string,
+  storage: BackupStoragePayload,
+  savedSpec: BackupStoragePayload['spec'],
+  retriesLeft = STATUS_ONLY_CONFLICT_RETRIES
+): Promise<BackupStorageCRD> => {
+  try {
+    return await updateBackupStorageFn(cluster, namespace, storage);
+  } catch (error) {
+    const isConflict = isAxiosError(error) && error.response?.status === 409;
+    if (!isConflict || retriesLeft === 0) {
+      throw error;
+    }
+    const latest = await getBackupStorageFn(
+      cluster,
+      namespace,
+      storage.metadata?.name ?? ''
+    );
+    if (!isSameJsonDocument(latest.spec, savedSpec)) {
+      throw error;
+    }
+    return updateOverStatusChanges(
+      cluster,
+      namespace,
+      { ...storage, metadata: latest.metadata },
+      savedSpec,
+      retriesLeft - 1
+    );
+  }
+};
+
+export const useSaveBackupStorage = () => {
+  const cluster = useClusterName();
+  const queryClient = useQueryClient();
+  return useMutation<BackupStorageCRD, unknown, SaveBackupStorageRequest>({
+    mutationFn: ({ namespace, storage, savedSpec, credentialsSecret }) =>
+      saveWithCredentialsSecret(
+        {
+          credentialsSecret,
+          save: () =>
+            savedSpec
+              ? updateOverStatusChanges(cluster, namespace, storage, savedSpec)
+              : createBackupStorageFn(cluster, namespace, storage),
+        },
+        getCredentialsSecretRequests(cluster, namespace)
+      ),
+    // Don't keep the submitted credentials in the mutation cache.
+    gcTime: 0,
+    // Settled, not only successful: a refused save may still have written
+    // the Secret.
+    onSettled: (_data, _error, { namespace }) =>
+      Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: getBackupStoragesQueryKey(cluster, namespace),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: [SECRETS_QUERY_KEY, cluster, namespace],
+        }),
+      ]),
   });
 };

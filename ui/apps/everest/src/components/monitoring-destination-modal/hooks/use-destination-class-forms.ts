@@ -15,7 +15,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
 import { AuthenticationFormFields } from 'components/class-authentication';
-import { getSectionFormDefaults } from 'components/ui-generator/utils/section-form';
 import {
   MonitoringClass,
   MonitoringDestination,
@@ -32,8 +31,8 @@ import {
 } from '../monitoring-destination-modal.utils';
 
 // The forms of the picked class and auth mode. Picking another class starts
-// its forms from their defaults (and preselects a class's only auth mode);
-// picking another mode clears the credentials typed for the previous one.
+// its forms from their defaults, and preselects a class's only auth mode; the
+// credentials block drops what was picked or typed for the previous one.
 export const useDestinationClassForms = (
   classes: MonitoringClass[],
   original: MonitoringDestination | undefined
@@ -70,18 +69,6 @@ export const useDestinationClassForms = (
       defaults.fallbackParameters
     );
   }, [className, monitoringClass, setValue]);
-
-  const previousAuthMode = useRef(authMode);
-  useEffect(() => {
-    if (previousAuthMode.current === authMode) {
-      return;
-    }
-    previousAuthMode.current = authMode;
-    setValue(
-      AuthenticationFormFields.credentials,
-      forms.credentials ? getSectionFormDefaults(forms.credentials) : {}
-    );
-  }, [authMode, forms.credentials, setValue]);
 
   return { monitoringClass, forms };
 };

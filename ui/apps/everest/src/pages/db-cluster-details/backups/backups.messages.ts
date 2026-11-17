@@ -17,4 +17,5 @@
 export const Messages = {
   noStoragesMessage:
     'To start using Backups, you need to add a backups storage first.',
+  addStorage: 'Add storage',
 };

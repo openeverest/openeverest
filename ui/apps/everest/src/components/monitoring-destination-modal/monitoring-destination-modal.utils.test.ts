@@ -291,9 +291,14 @@ describe('buildSaveRequest', () => {
       secretPermissions: ALL_SECRET_PERMISSIONS,
     });
 
+    // Labelled for its class and mode, should the Secret be gone.
     expect(request.credentialsSecret).toEqual({
       action: 'update',
       name: 'prom-basic',
+      labels: {
+        'openeverest.io/monitoring-class': 'prometheus',
+        'openeverest.io/definition': 'BasicAuth',
+      },
       stringData: { username: 'u2', password: 'p2' },
     });
     expect(request.destination.spec.authentication).toEqual({

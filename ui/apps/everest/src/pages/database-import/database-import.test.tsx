@@ -113,9 +113,14 @@ vi.mock('react-router-dom', async (importOriginal) => ({
   useLocation: () => mocks.location,
 }));
 vi.mock('hooks/api/useClusterName', () => ({ useClusterName: () => 'main' }));
-vi.mock('hooks/rbac', () => ({
-  useRBACPermissions: () => ({ canCreate: true }),
-}));
+vi.mock('hooks/rbac', () => {
+  const permissions = { canCreate: true };
+  const namespacePermissions = { canCreate: [] };
+  return {
+    useRBACPermissions: () => permissions,
+    useNamespacePermissionsForResource: () => namespacePermissions,
+  };
+});
 vi.mock('hooks/api/providers/useProviders', () => ({
   useProviders: () => ({ data: PROVIDERS }),
 }));

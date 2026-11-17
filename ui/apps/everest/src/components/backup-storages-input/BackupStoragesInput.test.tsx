@@ -155,6 +155,27 @@ describe('BackupStoragesInput (on-demand context)', () => {
     }
   );
 
+  it('leaves the field empty once the user clears it', async () => {
+    const picker = () => (
+      <FormProviderWrapper>
+        <QueryClientProvider client={queryClient}>
+          <BackupStoragesInput namespace="test" schedules={[]} />
+        </QueryClientProvider>
+      </FormProviderWrapper>
+    );
+    const { rerender } = render(picker());
+    const field = screen.getByRole('combobox');
+    await waitFor(() => expect(field).toHaveValue('storage1'));
+
+    fireEvent.click(screen.getByTitle('Clear'));
+    // The form around the picker renders again on any change of its values.
+    rerender(picker());
+
+    await waitFor(() => expect(field).toHaveValue(''));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(field).toHaveValue('');
+  });
+
   it('shows "(in use)" highlight for instance storages when limit not reached', () => {
     render(
       <FormProviderWrapper>

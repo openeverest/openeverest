@@ -13,24 +13,43 @@
 // limitations under the License.
 
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { Box, Typography } from '@mui/material';
+import { Box, Button, Typography } from '@mui/material';
+import { useParams } from 'react-router-dom';
+import {
+  BackupStorageModal,
+  useAddBackupStorage,
+} from 'components/backup-storage-modal';
 import { Messages } from '../backups.messages';
 
-export const NoStoragesMessage = () => (
-  <Box
-    sx={{
-      display: 'flex',
-      py: 6,
-      px: 0,
-      flexDirection: 'column',
-      alignItems: 'center',
-      gap: 1,
-      alignSelf: 'stretch',
-    }}
-  >
-    <Box sx={{ fontSize: '100px', lineHeight: 0 }}>
-      <WarningAmberIcon fontSize="inherit" />
+export const NoStoragesMessage = () => {
+  const { namespace = '' } = useParams();
+  const { canAdd, isOpen, open, modalProps } = useAddBackupStorage(namespace);
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        py: 6,
+        px: 0,
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 1,
+        alignSelf: 'stretch',
+      }}
+    >
+      <Box sx={{ fontSize: '100px', lineHeight: 0 }}>
+        <WarningAmberIcon fontSize="inherit" />
+      </Box>
+      <Typography variant="body1">{Messages.noStoragesMessage}</Typography>
+      <Button
+        sx={{ my: 4 }}
+        variant="contained"
+        onClick={open}
+        disabled={!canAdd}
+      >
+        {Messages.addStorage}
+      </Button>
+      {isOpen && <BackupStorageModal {...modalProps} />}
     </Box>
-    <Typography variant="body1">{Messages.noStoragesMessage}</Typography>
-  </Box>
-);
+  );
+};

@@ -43,7 +43,9 @@ export const AuthorizerObservable = Object.freeze({
 });
 
 export type RBACStandardAction = 'read' | 'update' | 'delete' | 'create';
-export type RBACAction = RBACStandardAction | 'read-connection';
+// use: consuming something rather than managing it, e.g. a Secret's contents
+// through an object that names the Secret.
+export type RBACAction = RBACStandardAction | 'read-connection' | 'use';
 export type RBACResource =
   | 'namespaces'
   | 'database-engines'

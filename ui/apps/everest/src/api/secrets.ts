@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { AxiosError } from 'axios';
 import { api } from 'api/api';
 import {
   Secret,
@@ -51,7 +52,7 @@ export const getSecretFn = async (
   cluster: string,
   namespace: string,
   name: string,
-  disableNotifications = false
+  disableNotifications: boolean | ((error: AxiosError) => boolean) = false
 ): Promise<Secret> => {
   const response = await api.get<Secret>(
     `clusters/${cluster}/namespaces/${namespace}/secrets/${name}`,

@@ -16,7 +16,12 @@ import { useMemo, useState } from 'react';
 import { isAxiosError } from 'axios';
 import { Alert } from '@mui/material';
 import { AutoCompleteInput, TextInput } from '@percona/ui-lib';
-import { getCredentialsSecretErrorMessage } from 'components/class-authentication';
+import {
+  getCredentialsSecretErrorMessage,
+  getSecretUseProblem,
+  useCanUseSecret,
+  useSecretNamespacePermissions,
+} from 'components/class-authentication';
 import { ClassPicker } from 'components/class-picker';
 import { FormDialog } from 'components/form-dialog';
 import { TlsConfigFields } from 'components/tls-config-fields';
@@ -25,7 +30,6 @@ import {
   SecretAlreadyExistsError,
   SecretChangedMeanwhileError,
 } from 'hooks/api/secrets';
-import { useNamespacePermissionsForResource } from 'hooks/rbac';
 import {
   getMonitoringClassName,
   isMonitoringClassAccepted,
@@ -56,15 +60,13 @@ export const MonitoringDestinationForm = ({
 }: MonitoringDestinationFormProps) => {
   const isEdit = !!original;
   const { mutate, isPending } = useSaveMonitoringDestination();
-  const [secretError, setSecretError] = useState<
-    SecretAlreadyExistsError | SecretChangedMeanwhileError
-  >();
-  const { canCreate, canRead, canUpdate, isPermissionsLoading } =
-    useNamespacePermissionsForResource('secrets');
-  const secretPermissions = useMemo(
-    () => ({ canCreate, canRead, canUpdate }),
-    [canCreate, canRead, canUpdate]
-  );
+  // Why the last save was refused before or while writing the Secret.
+  const [saveProblem, setSaveProblem] = useState<string>();
+  const {
+    permissions: secretPermissions,
+    isPermissionsLoading: secretPermissionsLoading,
+  } = useSecretNamespacePermissions();
+  const canUseSecret = useCanUseSecret();
 
   const schema = useMemo(
     () =>
@@ -99,35 +101,47 @@ export const MonitoringDestinationForm = ({
     [classes, original]
   );
 
-  const save = (values: MonitoringDestinationFormValues) => {
-    setSecretError(undefined);
-    mutate(
-      buildSaveRequest({
-        values,
-        monitoringClass: classes.find(
-          (c) => getMonitoringClassName(c) === values.className
-        ),
-        original,
-        secretPermissions,
-      }),
-      {
-        onSuccess: onClose,
-        onError: (error) => {
-          if (
-            error instanceof SecretAlreadyExistsError ||
-            error instanceof SecretChangedMeanwhileError
-          ) {
-            setSecretError(error);
-          } else if (
-            isEdit &&
-            isAxiosError(error) &&
-            error.response?.status === 409
-          ) {
-            onChangedMeanwhile();
-          }
-        },
-      }
-    );
+  const save = async (values: MonitoringDestinationFormValues) => {
+    const request = buildSaveRequest({
+      values,
+      monitoringClass: classes.find(
+        (c) => getMonitoringClassName(c) === values.className
+      ),
+      original,
+      secretPermissions,
+    });
+    const useProblem = await getSecretUseProblem({
+      spec: request.destination.spec,
+      savedSpec: original?.spec,
+      namespace: values.namespace,
+      canUseSecret: (name) => canUseSecret(values.namespace, name),
+    });
+    setSaveProblem(useProblem);
+    if (useProblem) {
+      return;
+    }
+    mutate(request, {
+      onSuccess: onClose,
+      onError: (error) => {
+        if (
+          error instanceof SecretAlreadyExistsError ||
+          error instanceof SecretChangedMeanwhileError
+        ) {
+          setSaveProblem(
+            getCredentialsSecretErrorMessage(
+              error,
+              Messages.authenticationNouns
+            )
+          );
+        } else if (
+          isEdit &&
+          isAxiosError(error) &&
+          error.response?.status === 409
+        ) {
+          onChangedMeanwhile();
+        }
+      },
+    });
   };
 
   return (
@@ -180,15 +194,12 @@ export const MonitoringDestinationForm = ({
           classes={classes}
           original={original}
           secretPermissions={secretPermissions}
-          secretPermissionsLoading={isPermissionsLoading}
+          secretPermissionsLoading={secretPermissionsLoading}
         />
         <TlsConfigFields />
-        {secretError && (
+        {saveProblem && (
           <Alert severity="error" sx={{ mt: 3 }}>
-            {getCredentialsSecretErrorMessage(
-              secretError,
-              Messages.authenticationNouns
-            )}
+            {saveProblem}
           </Alert>
         )}
       </>
