@@ -103,6 +103,22 @@ func run(specFile, outputFile, resourceNameExt string) error {
 
 	for path, pathItem := range doc.Paths.Map() {
 		parsedPath := parseEndpoint(path)
+		if val, ok := pathItem.Extensions["x-everest-additional-resource-names"]; ok {
+			var names []any
+			switch value := val.(type) {
+			case []any:
+				names = value
+			case []string:
+				for _, name := range value {
+					names = append(names, name)
+				}
+			}
+			for _, name := range names {
+				if resourceName, ok := name.(string); ok && resourceName != "" {
+					resourceSet[resourceName] = true
+				}
+			}
+		}
 
 		// Check for resource name extension
 		if val, ok := pathItem.Extensions[resourceNameExt]; ok {

@@ -58,7 +58,6 @@ import (
 	"github.com/openeverest/openeverest/v2/internal/tokenregistry"
 	"github.com/openeverest/openeverest/v2/pkg/accounts"
 	"github.com/openeverest/openeverest/v2/pkg/common"
-	"github.com/openeverest/openeverest/v2/pkg/events"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/oidc"
 	"github.com/openeverest/openeverest/v2/pkg/session"
@@ -77,21 +76,21 @@ const (
 
 // EverestServer represents the server struct.
 type EverestServer struct {
-	config        *config.EverestConfig
-	l             *zap.SugaredLogger
-	echo          *echo.Echo
-	kubeConnector kubernetes.KubernetesConnector
-	kubeStreamer  clientgo.Interface
-	sessionMgr    *session.Manager
-	tokenRegistry *tokenregistry.Registry
-	attemptsStore *RateLimiterMemoryStore
+	config         *config.EverestConfig
+	l              *zap.SugaredLogger
+	echo           *echo.Echo
+	kubeConnector  kubernetes.KubernetesConnector
+	kubeStreamer   clientgo.Interface
+	sessionMgr     *session.Manager
+	tokenRegistry  *tokenregistry.Registry
+	attemptsStore  *RateLimiterMemoryStore
+	authEventSlots chan struct{}
 	// ssoAttemptsStore is separate so SSO renewals neither consume nor penalize password logins.
 	ssoAttemptsStore *RateLimiterMemoryStore
 	handler          handlers.Handler
 	oidcProvider     *oidc.ProviderConfig
 	// ssoTokenVerifier validates the ID tokens exchanged for Everest JWTs; nil when OIDC is not configured.
 	ssoTokenVerifier *oidc.IDTokenVerifier
-	eventHub         *events.Hub
 }
 
 var errFailedToReadRequestBody = errors.New("failed to read request body")
@@ -198,10 +197,10 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 		sessionMgr:       sessMgr,
 		tokenRegistry:    tokenRegistry,
 		attemptsStore:    store,
+		authEventSlots:   make(chan struct{}, maxConcurrentAuthEventWrites),
 		ssoAttemptsStore: ssoStore,
 		oidcProvider:     oidcProvider,
 		ssoTokenVerifier: newSSOTokenVerifier(ctx, l, oidcProvider),
-		eventHub:         events.NewHub(l, kubeConnector, events.NewRingBuffer(c.EventBufferMaxEvents, c.EventBufferMaxAge)),
 	}
 	e.echo.HTTPErrorHandler = e.errorHandlerChain()
 
@@ -217,13 +216,6 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 
 // Start starts everest server.
 func (e *EverestServer) Start(ctx context.Context) error {
-	// Start the event hub in the background.
-	go func() {
-		if err := e.eventHub.Start(ctx); err != nil && ctx.Err() == nil {
-			e.l.Errorf("event hub stopped: %v", err)
-		}
-	}()
-
 	// Periodically prune expired API token records.
 	go e.pruneExpiredTokens(ctx)
 
@@ -364,12 +356,6 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	pluginGroup.PUT("/:name/*", pp.authedProxyHandler)
 	pluginGroup.DELETE("/:name/*", pp.authedProxyHandler)
 	pluginGroup.PATCH("/:name/*", pp.authedProxyHandler)
-
-	// Event stream — JWT protected, outside OpenAPI validation.
-	eventsGroup := e.echo.Group("/v1/events")
-	eventsGroup.Use(jwtMW)
-	eventsGroup.Use(blocklistMW)
-	eventsGroup.GET("", e.eventsHandler)
 
 	return nil
 }
