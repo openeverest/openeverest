@@ -32,7 +32,6 @@ export const Messages = {
   noImportClasses: 'No backup class supports importing backups.',
   noStorages:
     'To import a database, add the backup storage that holds its backups.',
-  addStorage: 'Add storage',
   providerNotInstalled:
     'The database provider of this backup class is not installed.',
   backups: {

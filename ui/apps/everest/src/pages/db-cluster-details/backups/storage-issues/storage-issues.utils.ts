@@ -12,16 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {
-  BackupStorageCRD,
-  BackupStorageFormValues,
-} from 'shared-types/backupStorages.types';
+import { Messages } from './storage-issues.messages';
 
-export interface CreateEditModalStorageProps {
-  open: boolean;
-  handleCloseModal: () => void;
-  handleSubmitModal: (isEdit: boolean, data: BackupStorageFormValues) => void;
-  selectedStorageLocation?: BackupStorageCRD;
-  prefillNamespace?: string;
-  isLoading?: boolean;
-}
+const isKnownReason = (
+  reason: string
+): reason is keyof typeof Messages.reasons => reason in Messages.reasons;
+
+// What is wrong, in the user's terms; nothing to add for a reason this
+// version doesn't know, whose message is shown as is.
+export const describeStorageIssue = (reason: string) =>
+  isKnownReason(reason) ? Messages.reasons[reason] : undefined;

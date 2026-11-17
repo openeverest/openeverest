@@ -15,27 +15,15 @@
 import ActionableAlert from '..';
 import { Messages } from './BackupsActionableAlert.messages';
 import { BackupsActionableAlertProps } from './BackupsActionableAlert.types';
-import { CreateEditModalStorage } from 'pages/settings/storage-locations/createEditModal/create-edit-modal';
-import { useAddBackupStorage } from 'hooks/api/backup-storages/useAddBackupStorage';
 
 const BackupsActionableAlert = ({
-  namespace,
   message = Messages.noStoragesMessage,
-}: BackupsActionableAlertProps) => {
-  const { canAdd, isOpen, open, modalProps } = useAddBackupStorage(namespace);
-
-  return (
-    <>
-      <ActionableAlert
-        message={message}
-        buttonMessage={Messages.addStorage}
-        data-testid="no-storage-message"
-        onClick={open}
-        {...(!canAdd && { action: undefined })}
-      />
-      {isOpen && <CreateEditModalStorage {...modalProps} />}
-    </>
-  );
-};
+}: BackupsActionableAlertProps) => (
+  <ActionableAlert
+    message={message}
+    data-testid="no-storage-message"
+    action={undefined}
+  />
+);
 
 export default BackupsActionableAlert;

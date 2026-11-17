@@ -14,94 +14,32 @@
 // limitations under the License.
 
 import {
-  BackupStorageFormValues,
   BackupStorageCRD,
   BackupStorageListCRD,
+  BackupStorageListFilter,
 } from 'shared-types/backupStorages.types';
 import { api } from './api';
 
-const formValuesToCrdCreate = (formValues: BackupStorageFormValues) => ({
-  metadata: {
-    name: formValues.name,
-    namespace: formValues.namespace,
-  },
-  spec: {
-    type: formValues.type,
-    s3: {
-      bucket: formValues.bucketName,
-      endpointURL: formValues.url,
-      region: formValues.region,
-      credentialsSecretRef: {
-        name: `backup-storage-${formValues.name}-credentials`,
-      },
-      accessKeyId: formValues.accessKey,
-      secretAccessKey: formValues.secretKey,
-      verifyTLS: formValues.verifyTLS,
-      forcePathStyle: formValues.forcePathStyle,
-    },
-  },
-});
-
-const formValuesToCrdEdit = (formValues: BackupStorageFormValues) => ({
-  spec: {
-    type: formValues.type,
-    s3: {
-      bucket: formValues.bucketName,
-      endpointURL: formValues.url,
-      region: formValues.region,
-      credentialsSecretRef: {
-        name: `backup-storage-${formValues.name}-credentials`,
-      },
-      ...(formValues.accessKey && { accessKeyId: formValues.accessKey }),
-      ...(formValues.secretKey && { secretAccessKey: formValues.secretKey }),
-      verifyTLS: formValues.verifyTLS,
-      forcePathStyle: formValues.forcePathStyle,
-    },
-  },
-});
+const storagesPath = (cluster: string, namespace: string) =>
+  `clusters/${cluster}/namespaces/${namespace}/backup-storages`;
 
 export const getBackupStoragesFn = async (
   cluster: string,
-  namespace: string
+  namespace: string,
+  filter?: BackupStorageListFilter
 ): Promise<BackupStorageCRD[]> => {
   const response = await api.get<BackupStorageListCRD>(
-    `clusters/${cluster}/namespaces/${namespace}/backup-storages`
+    storagesPath(cluster, namespace),
+    { params: filter }
   );
   return response.data?.items ?? [];
 };
 
-export const createBackupStorageFn = async (
-  cluster: string,
-  formData: BackupStorageFormValues
-) => {
-  const { namespace } = formData;
-  const response = await api.post(
-    `clusters/${cluster}/namespaces/${namespace}/backup-storages`,
-    formValuesToCrdCreate(formData)
-  );
-  return response.data;
-};
-
-export const editBackupStorageFn = async (
-  cluster: string,
-  formData: BackupStorageFormValues
-) => {
-  const { name, namespace } = formData;
-  const response = await api.patch(
-    `clusters/${cluster}/namespaces/${namespace}/backup-storages/${name}`,
-    formValuesToCrdEdit(formData),
-    { headers: { 'Content-Type': 'application/merge-patch+json' } }
-  );
-  return response.data;
-};
-
+// A storage something still uses stays, Deleting, until nothing does.
 export const deleteBackupStorageFn = async (
   cluster: string,
-  backupStorageId: string,
-  namespace: string
+  namespace: string,
+  name: string
 ) => {
-  const response = await api.delete(
-    `clusters/${cluster}/namespaces/${namespace}/backup-storages/${backupStorageId}`
-  );
-  return response.data;
+  await api.delete(`${storagesPath(cluster, namespace)}/${name}`);
 };

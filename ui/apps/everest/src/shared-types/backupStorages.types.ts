@@ -13,32 +13,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { CrdsGen } from '@generated/api-types';
+import { CrdsGen, HttpApi } from '@generated/api-types';
 
 /** The full CRD type returned by the v2 cluster-scoped API. */
 export type BackupStorageCRD = CrdsGen.components['schemas']['BackupStorage'];
 export type BackupStorageListCRD =
   CrdsGen.components['schemas']['BackupStorageList'];
 
-/**
- * Flat form-values representation of a backup storage.
- * Used only in create/edit forms and as the input to mutation hooks.
- */
-export interface BackupStorageFormValues {
-  name: string;
-  namespace: string;
-  type: StorageType;
-  bucketName: string;
-  url: string;
-  region: string;
-  accessKey: string;
-  secretKey: string;
-  verifyTLS: boolean;
-  forcePathStyle: boolean;
+// backupClass: the storages that backup class can use;
+// backupStorageClass: those of the class; secret: those that use the Secret.
+export type BackupStorageListFilter = NonNullable<
+  HttpApi.operations['listBackupStorages']['parameters']['query']
+>;
+
+export type BackupStorageCondition = NonNullable<
+  NonNullable<BackupStorageCRD['status']>['conditions']
+>[number];
+
+export type BackupStorageClass =
+  CrdsGen.components['schemas']['BackupStorageClass'];
+export type BackupStorageClassList =
+  CrdsGen.components['schemas']['BackupStorageClassList'];
+
+export enum BackupStorageState {
+  // Valid for its class; nothing has tested that the store is reachable.
+  Valid = 'valid',
+  Pending = 'pending',
+  Invalid = 'invalid',
+  // Deleted, waiting until nothing uses it.
+  Deleting = 'deleting',
 }
 
-export enum StorageType {
-  S3 = 's3',
-  // AZURE = 'azure',
-  // GCS = 'gcs',
+// The Accepted and Deleting conditions rolled into one state, with the
+// condition that explains it.
+export interface BackupStorageStatus {
+  state: BackupStorageState;
+  reason?: string;
+  message?: string;
 }

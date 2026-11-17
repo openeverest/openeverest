@@ -15,19 +15,14 @@
 
 import {
   useMutation,
-  UseMutationOptions,
   useQueries,
   useQuery,
+  useQueryClient,
 } from '@tanstack/react-query';
-import {
-  createBackupStorageFn,
-  deleteBackupStorageFn,
-  editBackupStorageFn,
-  getBackupStoragesFn,
-} from 'api/backupStorage';
+import { deleteBackupStorageFn, getBackupStoragesFn } from 'api/backupStorage';
 import {
   BackupStorageCRD,
-  BackupStorageFormValues,
+  BackupStorageListFilter,
 } from 'shared-types/backupStorages.types';
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import { useNamespaces } from '../namespaces';
@@ -35,90 +30,60 @@ import { useClusterName } from '../useClusterName';
 
 export const BACKUP_STORAGES_QUERY_KEY = 'backupStorages';
 
-export const getBackupStoragesQueryKey = (cluster: string, namespace: string) =>
-  [BACKUP_STORAGES_QUERY_KEY, cluster, namespace] as const;
+// A filtered list is cached apart from the namespace's full one; both start
+// with the namespace's key, which a write to the namespace invalidates.
+export const getBackupStoragesQueryKey = (
+  cluster: string,
+  namespace: string,
+  filter?: BackupStorageListFilter
+) =>
+  filter
+    ? ([BACKUP_STORAGES_QUERY_KEY, cluster, namespace, filter] as const)
+    : ([BACKUP_STORAGES_QUERY_KEY, cluster, namespace] as const);
 
 export const useBackupStorages = () => {
   const cluster = useClusterName();
   const { data: namespaces = [] } = useNamespaces({
     refetchInterval: 5 * 1000,
   });
-  const queries = namespaces.map((namespace) => {
-    return {
+  return useQueries({
+    queries: namespaces.map((namespace) => ({
       queryKey: getBackupStoragesQueryKey(cluster, namespace),
       queryFn: () => getBackupStoragesFn(cluster, namespace),
       refetchInterval: 5 * 1000,
-    };
+    })),
   });
-
-  const queryResults = useQueries({
-    queries,
-  });
-
-  return queryResults;
 };
 
 export const useBackupStoragesByNamespace = (
   namespace: string,
+  filter?: BackupStorageListFilter,
   options?: PerconaQueryOptions<BackupStorageCRD[], unknown, BackupStorageCRD[]>
 ) => {
   const cluster = useClusterName();
   return useQuery<BackupStorageCRD[], unknown, BackupStorageCRD[]>({
-    queryKey: getBackupStoragesQueryKey(cluster, namespace),
-    queryFn: () => getBackupStoragesFn(cluster, namespace),
+    queryKey: getBackupStoragesQueryKey(cluster, namespace, filter),
+    queryFn: () => getBackupStoragesFn(cluster, namespace, filter),
     ...options,
   });
 };
 
-export const useCreateBackupStorage = (
-  options?: UseMutationOptions<
-    unknown,
-    unknown,
-    BackupStorageFormValues,
-    unknown
-  >
-) => {
-  const cluster = useClusterName();
-  return useMutation({
-    mutationFn: (formData: BackupStorageFormValues) =>
-      createBackupStorageFn(cluster, formData),
-    ...options,
-  });
-};
-
-export const useEditBackupStorage = (
-  options?: UseMutationOptions<
-    unknown,
-    unknown,
-    BackupStorageFormValues,
-    unknown
-  >
-) => {
-  const cluster = useClusterName();
-  return useMutation({
-    mutationFn: (formData: BackupStorageFormValues) =>
-      editBackupStorageFn(cluster, formData),
-    ...options,
-  });
-};
-
-type DeleteBackupStorageArgType = {
-  backupStorageId: string;
+interface DeleteBackupStorageVariables {
   namespace: string;
-};
+  name: string;
+}
 
-export const useDeleteBackupStorage = (
-  options?: UseMutationOptions<
-    unknown,
-    unknown,
-    DeleteBackupStorageArgType,
-    unknown
-  >
-) => {
+// Settled, not only successful: the list shows the storage as Deleting, or
+// without it.
+export const useDeleteBackupStorage = () => {
   const cluster = useClusterName();
-  return useMutation({
-    mutationFn: ({ backupStorageId, namespace }: DeleteBackupStorageArgType) =>
-      deleteBackupStorageFn(cluster, backupStorageId, namespace),
-    ...options,
+  const queryClient = useQueryClient();
+  return useMutation<void, unknown, DeleteBackupStorageVariables>({
+    mutationFn: ({ namespace, name }) =>
+      deleteBackupStorageFn(cluster, namespace, name),
+    onSettled: (_data, _error, { namespace }) =>
+      queryClient.invalidateQueries({
+        queryKey: getBackupStoragesQueryKey(cluster, namespace),
+      }),
   });
 };

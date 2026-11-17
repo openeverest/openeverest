@@ -20,6 +20,7 @@ import { ScheduleModalContext } from './backups.context.ts';
 import { NoStoragesMessage } from './no-storages-message/no-storages-message';
 import { OnDemandBackupModal } from './on-demand-backup-modal/on-demand-backup-modal';
 import { ScheduledBackupModal } from './scheduled-backup-modal';
+import { StorageIssues } from './storage-issues/storage-issues';
 import { ScheduleWizardMode, WizardMode } from 'shared-types/wizard.types.ts';
 import { DbInstanceContext } from '../dbCluster.context';
 
@@ -60,6 +61,7 @@ export const Backups = () => {
         <NoStoragesMessage />
       ) : (
         <>
+          <StorageIssues instance={instance} />
           <BackupsList />
           {openOnDemandModal && <OnDemandBackupModal />}
           {openScheduleModal && <ScheduledBackupModal />}
