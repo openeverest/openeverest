@@ -23,7 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
-	watchtools "k8s.io/client-go/tools/watch"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openeverest/openeverest/v2/pkg/events"
@@ -40,11 +39,13 @@ func (k *Kubernetes) RecordLifecycleEvent(ctx context.Context, r events.Record) 
 
 // ListLifecycleEvents lists the lifecycle events (see pkg/events) in namespace, or in
 // all namespaces when namespace is empty.
-func (k *Kubernetes) ListLifecycleEvents(ctx context.Context, namespace string) (*eventsv1.EventList, error) {
+func (k *Kubernetes) ListLifecycleEvents(ctx context.Context, namespace string, limit int64, continueToken string) (*eventsv1.EventList, error) {
 	list := &eventsv1.EventList{}
 	err := k.k8sClient.List(ctx, list,
 		ctrlclient.InNamespace(namespace),
 		ctrlclient.MatchingLabels{events.LabelLifecycleEvent: events.LabelLifecycleEventValue},
+		ctrlclient.Limit(limit),
+		ctrlclient.Continue(continueToken),
 	)
 	if err != nil {
 		return nil, err
@@ -52,37 +53,33 @@ func (k *Kubernetes) ListLifecycleEvents(ctx context.Context, namespace string) 
 	return list, nil
 }
 
-// WatchLifecycleEvents watches the lifecycle events in namespace, or in all namespaces
-// when namespace is empty, recorded after resourceVersion, or from now on when it is
-// empty. The watch resumes on its own when the API server closes it. When
-// resourceVersion is too old to resume from, it sends an error event with a 410 status
-// and stops.
+// WatchLifecycleEvents watches lifecycle events recorded after resourceVersion, or from
+// now on when it is empty. The caller reconnects from its last received resourceVersion
+// if the watch closes.
 //
 //nolint:ireturn // watch.Interface is the client-go streaming contract
 func (k *Kubernetes) WatchLifecycleEvents(ctx context.Context, namespace, resourceVersion string) (watch.Interface, error) {
-	wc, err := ctrlclient.NewWithWatch(k.restConfig, ctrlclient.Options{Scheme: k.k8sClient.Scheme()})
-	if err != nil {
-		return nil, fmt.Errorf("create watch client: %w", err)
+	if k.watchClient == nil {
+		return nil, fmt.Errorf("watch client is not configured")
 	}
 	if resourceVersion == "" {
-		// The retrying watcher needs a starting point: the current resourceVersion of the
-		// events, so that only events recorded from now on are sent.
 		list := &eventsv1.EventList{}
-		if err := wc.List(ctx, list, ctrlclient.InNamespace(namespace), ctrlclient.Limit(1)); err != nil {
+		if err := k.watchClient.List(ctx, list,
+			ctrlclient.InNamespace(namespace),
+			ctrlclient.MatchingLabels{events.LabelLifecycleEvent: events.LabelLifecycleEventValue},
+			ctrlclient.Limit(1),
+		); err != nil {
 			return nil, fmt.Errorf("get the current resourceVersion of the events: %w", err)
 		}
 		resourceVersion = list.ResourceVersion
 	}
-	return watchtools.NewRetryWatcherWithContext(ctx, resourceVersion, lifecycleEventsWatcher{client: wc, namespace: namespace})
-}
-
-type lifecycleEventsWatcher struct {
-	client    ctrlclient.WithWatch
-	namespace string
-}
-
-//nolint:ireturn // implements cache.WatcherWithContext
-func (w lifecycleEventsWatcher) WatchWithContext(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	opts.LabelSelector = labels.SelectorFromSet(labels.Set{events.LabelLifecycleEvent: events.LabelLifecycleEventValue}).String()
-	return w.client.Watch(ctx, &eventsv1.EventList{}, ctrlclient.InNamespace(w.namespace), &ctrlclient.ListOptions{Raw: &opts})
+	opts := &metav1.ListOptions{
+		ResourceVersion:     resourceVersion,
+		AllowWatchBookmarks: true,
+		LabelSelector:       labels.SelectorFromSet(labels.Set{events.LabelLifecycleEvent: events.LabelLifecycleEventValue}).String(),
+	}
+	return k.watchClient.Watch(ctx, &eventsv1.EventList{},
+		ctrlclient.InNamespace(namespace),
+		&ctrlclient.ListOptions{Raw: opts},
+	)
 }

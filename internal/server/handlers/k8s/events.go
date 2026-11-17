@@ -24,8 +24,8 @@ import (
 )
 
 // ListEvents lists the lifecycle events in namespaces, or in all namespaces when empty.
-func (h *k8sHandler) ListEvents(ctx context.Context, _ string, namespaces []string) (*eventsv1.EventList, error) {
-	list, err := h.kubeConnector.ListLifecycleEvents(ctx, watchedNamespace(namespaces))
+func (h *k8sHandler) ListEvents(ctx context.Context, _ string, namespaces []string, limit int64, continueToken string) (*eventsv1.EventList, error) {
+	list, err := h.kubeConnector.ListLifecycleEvents(ctx, watchedNamespace(namespaces), limit, continueToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list lifecycle events: %w", err)
 	}

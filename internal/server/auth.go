@@ -386,6 +386,8 @@ func sessionErrToHTTPRes(ctx echo.Context, err error) error {
 // background so a slow Kubernetes API doesn't delay logins.
 const authEventTimeout = 10 * time.Second
 
+const maxConcurrentAuthEventWrites = 64
+
 // recordAuthEvent records a login or logout of subject as a lifecycle event about the
 // user. detail explains a failed login.
 func (e *EverestServer) recordAuthEvent(ctx echo.Context, reason events.Reason, subject, detail string) {
@@ -413,8 +415,15 @@ func (e *EverestServer) recordAuthEvent(ctx echo.Context, reason events.Reason, 
 	} else {
 		record.Actor = events.Actor{Type: events.ActorTypeUser, ID: subject}
 	}
+	select {
+	case e.authEventSlots <- struct{}{}:
+	default:
+		e.l.Warnf("dropping the %s event for %q: too many writes in flight", reason, subject)
+		return
+	}
 	reqCtx := context.WithoutCancel(ctx.Request().Context())
 	go func() {
+		defer func() { <-e.authEventSlots }()
 		recordCtx, cancel := context.WithTimeout(reqCtx, authEventTimeout)
 		defer cancel()
 		if err := e.kubeConnector.RecordLifecycleEvent(recordCtx, record); err != nil {

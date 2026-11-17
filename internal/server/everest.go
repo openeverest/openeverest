@@ -76,14 +76,15 @@ const (
 
 // EverestServer represents the server struct.
 type EverestServer struct {
-	config        *config.EverestConfig
-	l             *zap.SugaredLogger
-	echo          *echo.Echo
-	kubeConnector kubernetes.KubernetesConnector
-	kubeStreamer  clientgo.Interface
-	sessionMgr    *session.Manager
-	tokenRegistry *tokenregistry.Registry
-	attemptsStore *RateLimiterMemoryStore
+	config         *config.EverestConfig
+	l              *zap.SugaredLogger
+	echo           *echo.Echo
+	kubeConnector  kubernetes.KubernetesConnector
+	kubeStreamer   clientgo.Interface
+	sessionMgr     *session.Manager
+	tokenRegistry  *tokenregistry.Registry
+	attemptsStore  *RateLimiterMemoryStore
+	authEventSlots chan struct{}
 	// ssoAttemptsStore is separate so SSO renewals neither consume nor penalize password logins.
 	ssoAttemptsStore *RateLimiterMemoryStore
 	handler          handlers.Handler
@@ -196,6 +197,7 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 		sessionMgr:       sessMgr,
 		tokenRegistry:    tokenRegistry,
 		attemptsStore:    store,
+		authEventSlots:   make(chan struct{}, maxConcurrentAuthEventWrites),
 		ssoAttemptsStore: ssoStore,
 		oidcProvider:     oidcProvider,
 		ssoTokenVerifier: newSSOTokenVerifier(ctx, l, oidcProvider),

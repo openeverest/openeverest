@@ -53,13 +53,24 @@ func (e *EverestServer) ListEvents(c echo.Context, cluster string, params api.Li
 	}
 
 	if params.Watch != nil && *params.Watch {
+		if params.Limit != nil || (params.Continue != nil && *params.Continue != "") {
+			return c.JSON(http.StatusBadRequest, api.Error{Message: new("limit and continue are only supported when listing events")})
+		}
 		return e.streamEvents(c, cluster, namespaces, since, filter)
 	}
 	if since != "" {
 		return c.JSON(http.StatusBadRequest, api.Error{Message: new("since is only supported with watch=true")})
 	}
 
-	list, err := e.handler.ListEvents(c.Request().Context(), cluster, namespaces)
+	limit := int64(100)
+	if params.Limit != nil {
+		limit = *params.Limit
+	}
+	continueToken := ""
+	if params.Continue != nil {
+		continueToken = *params.Continue
+	}
+	list, err := e.handler.ListEvents(c.Request().Context(), cluster, namespaces, limit, continueToken)
 	if err != nil {
 		return err
 	}
@@ -69,10 +80,9 @@ func (e *EverestServer) ListEvents(c echo.Context, cluster string, params api.Li
 			items = append(items, toLifecycleEvent(cluster, &list.Items[i]))
 		}
 	}
-	slices.SortStableFunc(items, func(a, b api.LifecycleEvent) int {
-		return a.OccurredAt.Compare(b.OccurredAt)
+	return c.JSON(http.StatusOK, api.LifecycleEventList{
+		Items: items, ResourceVersion: list.ResourceVersion, Continue: nonEmpty(list.Continue),
 	})
-	return c.JSON(http.StatusOK, api.LifecycleEventList{Items: items, ResourceVersion: list.ResourceVersion})
 }
 
 func (e *EverestServer) streamEvents(c echo.Context, cluster string, namespaces []string, since string, filter eventFilter) error {

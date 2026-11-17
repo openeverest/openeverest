@@ -95,34 +95,37 @@ func TestListEvents(t *testing.T) {
 	at := time.Date(2026, 11, 12, 10, 0, 0, 0, time.UTC)
 	next := &handlers.MockHandler{}
 	list := &eventsv1.EventList{
-		ListMeta: metav1.ListMeta{ResourceVersion: "50"},
+		ListMeta: metav1.ListMeta{ResourceVersion: "50", Continue: "page-2"},
 		Items: []eventsv1.Event{
 			kubeEvent("later", "12", "Instance", "PhaseChanged", at.Add(time.Minute)),
 			kubeEvent("earlier", "11", "Instance", "Created", at),
 			kubeEvent("other-kind", "13", "Backup", "Created", at),
 		},
 	}
-	next.On("ListEvents", mock.Anything, "main", []string{"team-a"}).Return(list, nil)
+	next.On("ListEvents", mock.Anything, "main", []string{"team-a"}, int64(2), "page-1").Return(list, nil)
 	srv := &EverestServer{handler: next}
 
-	t.Run("lists the matching events, oldest first, with the resourceVersion to stream from", func(t *testing.T) {
+	t.Run("lists the matching events with list and stream cursors", func(t *testing.T) {
 		t.Parallel()
 		c, rec := newEventsRequest(context.Background(), t)
 		require.NoError(t, srv.ListEvents(c, "main", api.ListEventsParams{
-			Namespaces: new("team-a"), Kinds: new("instance"),
+			Namespaces: new("team-a"), Kinds: new("instance"), Limit: new(int64(2)), Continue: new("page-1"),
 		}))
 		require.Equal(t, http.StatusOK, rec.Code)
 		var list api.LifecycleEventList
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &list))
 		assert.Equal(t, "50", list.ResourceVersion)
+		assert.Equal(t, "page-2", *list.Continue)
 		require.Len(t, list.Items, 2)
-		assert.Equal(t, "earlier", list.Items[0].Name)
-		assert.Equal(t, "later", list.Items[1].Name)
+		assert.Equal(t, "later", list.Items[0].Name)
+		assert.Equal(t, "earlier", list.Items[1].Name)
 	})
 
 	for name, params := range map[string]api.ListEventsParams{
-		"unknown reason":      {Reasons: new("Exploded")},
-		"since without watch": {Since: new("42")},
+		"unknown reason":            {Reasons: new("Exploded")},
+		"since without watch":       {Since: new("42")},
+		"continue with watch":       {Watch: new(true), Continue: new("next")},
+		"limit with watch":          {Watch: new(true), Limit: new(int64(10))},
 	} {
 		t.Run(name+" is a bad request", func(t *testing.T) {
 			t.Parallel()

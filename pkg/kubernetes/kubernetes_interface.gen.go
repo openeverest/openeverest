@@ -6,6 +6,13 @@ import (
 	"context"
 
 	goversion "github.com/hashicorp/go-version"
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/accounts"
+	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/events"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	enginefeaturesv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
@@ -19,14 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
-	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
-	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/accounts"
-	"github.com/openeverest/openeverest/v2/pkg/common"
-	"github.com/openeverest/openeverest/v2/pkg/events"
 )
 
 // KubernetesConnector ...
@@ -389,12 +388,10 @@ type KubernetesConnector interface {
 	RecordLifecycleEvent(ctx context.Context, r events.Record) error
 	// ListLifecycleEvents lists the lifecycle events (see pkg/events) in namespace, or in
 	// all namespaces when namespace is empty.
-	ListLifecycleEvents(ctx context.Context, namespace string) (*eventsv1.EventList, error)
-	// WatchLifecycleEvents watches the lifecycle events in namespace, or in all namespaces
-	// when namespace is empty, recorded after resourceVersion, or from now on when it is
-	// empty. The watch resumes on its own when the API server closes it. When
-	// resourceVersion is too old to resume from, it sends an error event with a 410 status
-	// and stops.
+	ListLifecycleEvents(ctx context.Context, namespace string, limit int64, continueToken string) (*eventsv1.EventList, error)
+	// WatchLifecycleEvents watches lifecycle events recorded after resourceVersion, or from
+	// now on when it is empty. The caller reconnects from its last received resourceVersion
+	// if the watch closes.
 	//
 	//nolint:ireturn // watch.Interface is the client-go streaming contract
 	WatchLifecycleEvents(ctx context.Context, namespace, resourceVersion string) (watch.Interface, error)

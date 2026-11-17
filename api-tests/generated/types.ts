@@ -480,20 +480,22 @@ export interface paths {
          *       for.
          *
          *     They are stored as Kubernetes Events, so they are kept for the event TTL of the
-         *     cluster (one hour by default).
+         *     cluster (one hour by default). This retention window is independent of the watch
+         *     cache: a `since` cursor may expire and require a relist before the Events expire.
          *
-         *     **Streaming.** To consume every event without gaps, list the events, then stream
-         *     with `since` set to the `resourceVersion` of the list. Each streamed event carries
-         *     its `cursor`; to resume after a disconnect, stream again with `since` set to the
-         *     last cursor received. A `bookmark` event only advances the cursor. When the cursor
-         *     is too old for the cluster to resume from, the stream sends an `error` event with
-         *     code 410: list again and stream from the new `resourceVersion`.
+         *     **Streaming.** To consume every retained event without gaps, list all pages using
+         *     `continue`, then stream with `since` set to the list `resourceVersion`. Pages in a
+         *     continued list share the same `resourceVersion`. Each streamed event carries its
+         *     `cursor`; to resume after a disconnect, stream again with `since` set to the last
+         *     cursor received. A `bookmark` event only advances the cursor. When the cursor is
+         *     too old for the cluster to resume from, the stream sends an `error` event with
+         *     code 410: relist all pages and stream from the new `resourceVersion`.
          *
-         *     **Access.** Only the events the caller has `read` access to on the `events`
-         *     resource are returned. The RBAC object is `{cluster}/{namespace}/{name}`, where
-         *     `name` is the name of the object the event is about. Events about cluster-scoped
-         *     objects, such as Plugins and Namespaces, are in the `default` namespace, as
-         *     Kubernetes requires; events about users are in the namespace OpenEverest runs in.
+         *     **Access.** Namespaced-object events require `read` on `events` for
+         *     `{cluster}/{namespace}/{name}`. Cluster-scoped-object events require `read` on
+         *     `cluster-events` for `{cluster}/{name}`. Login and logout events require the
+         *     global `platform-events` permission. These checks use the object the Event is
+         *     about, not the namespace where Kubernetes stores the Event.
          */
         get: operations["listEvents"];
         put?: never;
@@ -1173,6 +1175,8 @@ export interface components {
             items: components["schemas"]["LifecycleEvent"][];
             /** @description Pass it as `since` with `watch=true` to stream the events recorded after the list. */
             resourceVersion: string;
+            /** @description Opaque token for the next page, if more events are available. */
+            continue?: string;
         };
         LifecycleEvent: {
             /** @description The name of the Kubernetes Event. */
@@ -8922,6 +8926,10 @@ export interface operations {
                 kinds?: string;
                 /** @description Comma-separated reasons to return, e.g. `PhaseChanged`. */
                 reasons?: string;
+                /** @description Maximum number of events to return in a list page. Defaults to 100. */
+                limit?: number;
+                /** @description Opaque token from the previous page. Only used when listing. */
+                continue?: string;
                 /** @description Stream the events as Server-Sent Events instead of listing them. */
                 watch?: boolean;
                 /**

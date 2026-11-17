@@ -22,8 +22,8 @@ import (
 )
 
 // ListEvents proxies the request to the next handler.
-func (h *validateHandler) ListEvents(ctx context.Context, cluster string, namespaces []string) (*eventsv1.EventList, error) {
-	return h.next.ListEvents(ctx, cluster, namespaces)
+func (h *validateHandler) ListEvents(ctx context.Context, cluster string, namespaces []string, limit int64, continueToken string) (*eventsv1.EventList, error) {
+	return h.next.ListEvents(ctx, cluster, namespaces, limit, continueToken)
 }
 
 // WatchEvents proxies the request to the next handler.

@@ -1299,9 +1299,9 @@ func (_m *MockHandler) ListConfigMaps(ctx context.Context, cluster string, names
 	return r0, r1
 }
 
-// ListEvents provides a mock function with given fields: ctx, cluster, namespaces
-func (_m *MockHandler) ListEvents(ctx context.Context, cluster string, namespaces []string) (*eventsv1.EventList, error) {
-	ret := _m.Called(ctx, cluster, namespaces)
+// ListEvents provides a mock function with given fields: ctx, cluster, namespaces, limit, continueToken
+func (_m *MockHandler) ListEvents(ctx context.Context, cluster string, namespaces []string, limit int64, continueToken string) (*eventsv1.EventList, error) {
+	ret := _m.Called(ctx, cluster, namespaces, limit, continueToken)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListEvents")
@@ -1309,19 +1309,19 @@ func (_m *MockHandler) ListEvents(ctx context.Context, cluster string, namespace
 
 	var r0 *eventsv1.EventList
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, []string) (*eventsv1.EventList, error)); ok {
-		return rf(ctx, cluster, namespaces)
+	if rf, ok := ret.Get(0).(func(context.Context, string, []string, int64, string) (*eventsv1.EventList, error)); ok {
+		return rf(ctx, cluster, namespaces, limit, continueToken)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, []string) *eventsv1.EventList); ok {
-		r0 = rf(ctx, cluster, namespaces)
+	if rf, ok := ret.Get(0).(func(context.Context, string, []string, int64, string) *eventsv1.EventList); ok {
+		r0 = rf(ctx, cluster, namespaces, limit, continueToken)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*eventsv1.EventList)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, []string) error); ok {
-		r1 = rf(ctx, cluster, namespaces)
+	if rf, ok := ret.Get(1).(func(context.Context, string, []string, int64, string) error); ok {
+		r1 = rf(ctx, cluster, namespaces, limit, continueToken)
 	} else {
 		r1 = ret.Error(1)
 	}

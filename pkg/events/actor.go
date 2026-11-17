@@ -33,15 +33,15 @@ const deletionAttributionWindow = 30 * time.Second
 
 // CreatorActor returns who created obj.
 func CreatorActor(obj metav1.Object) Actor {
-	if actor := ActorFromAnnotations(obj.GetAnnotations()); !actor.IsZero() {
-		return actor
-	}
 	// The creator wrote first, so its managed fields entry is the oldest one.
 	var creator *metav1.ManagedFieldsEntry
 	for _, entry := range mainResourceEntries(obj) {
 		if creator == nil || entryTime(entry).Before(entryTime(*creator)) {
 			creator = &entry
 		}
+	}
+	if creator != nil && ownsActorAnnotation(*creator) {
+		return ActorFromAnnotations(obj.GetAnnotations())
 	}
 	return clientActor(creator)
 }

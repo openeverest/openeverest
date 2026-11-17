@@ -71,7 +71,7 @@ type Handler interface {
 type EventHandler interface {
 	// ListEvents lists the lifecycle events in namespaces, or in all namespaces when
 	// namespaces is empty.
-	ListEvents(ctx context.Context, cluster string, namespaces []string) (*eventsv1.EventList, error)
+	ListEvents(ctx context.Context, cluster string, namespaces []string, limit int64, continueToken string) (*eventsv1.EventList, error)
 	// WatchEvents streams the lifecycle events in namespaces, or in all namespaces when
 	// namespaces is empty, recorded after resourceVersion, or from now on when it is
 	// empty. Bookmark and error events are passed through.

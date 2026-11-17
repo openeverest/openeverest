@@ -70,6 +70,14 @@ func TestCreatorActor(t *testing.T) {
 			want: Actor{Type: ActorTypeKubernetesClient, ID: "kubectl-create"},
 		},
 		{
+			desc: "stale actor annotations are ignored when the creator did not own them",
+			obj: object(aliceAnnotations,
+				entry("kubectl-create", kubectlSpecFields, 0),
+				entry(apiManager, apiFields, time.Minute),
+			),
+			want: Actor{Type: ActorTypeKubernetesClient, ID: "kubectl-create"},
+		},
+		{
 			desc: "nothing to attribute",
 			obj:  object(nil),
 			want: Actor{},

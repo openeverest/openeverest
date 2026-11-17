@@ -87,6 +87,62 @@ func allLifecycleEvents() []eventsv1.Event {
 	}
 }
 
+func TestRBAC_ListEventsUsesRegardingScope(t *testing.T) {
+	t.Parallel()
+
+	events := []eventsv1.Event{
+		{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "db1.created"},
+			Regarding:  corev1.ObjectReference{Kind: "Instance", Namespace: "team-a", Name: "db1"},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "prod-plugin.created"},
+			Regarding:  corev1.ObjectReference{Kind: "Plugin", Name: "prod-plugin"},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "everest-system", Name: "alice.login"},
+			Regarding:  corev1.ObjectReference{Kind: "User", Namespace: "everest-system", Name: "alice"},
+		},
+	}
+	cases := []struct {
+		name   string
+		policy string
+		want   []string
+	}{
+		{
+			name:   "namespaced permission cannot read cluster or platform events",
+			policy: newPolicy("p, role:test, events, read, prod/team-a/*", "g, bob, role:test"),
+			want:   []string{"db1.created"},
+		},
+		{
+			name:   "cluster permission reads cluster-scoped events",
+			policy: newPolicy("p, role:test, cluster-events, read, prod/*", "g, bob, role:test"),
+			want:   []string{"prod-plugin.created"},
+		},
+		{
+			name:   "platform permission reads login events",
+			policy: newPolicy("p, role:test, platform-events, read, *", "g, bob, role:test"),
+			want:   []string{"alice.login"},
+		},
+	}
+	ctx := testUserContext(rbac.User{Subject: "bob"})
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			enf, err := rbac.NewEnforcer(ctx, newConfigMapMock(tc.policy), zap.NewNop().Sugar())
+			require.NoError(t, err)
+			next := &handlers.MockHandler{}
+			next.On("ListEvents", mock.Anything, "prod", mock.Anything, int64(100), "").
+				Return(&eventsv1.EventList{Items: events}, nil)
+			h := &rbacHandler{next: next, log: zap.NewNop().Sugar(), enforcer: enf, userGetter: testUserGetter}
+
+			list, err := h.ListEvents(ctx, "prod", nil, 100, "")
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, eventNames(list.Items))
+		})
+	}
+}
+
 func TestRBAC_ListEvents(t *testing.T) {
 	t.Parallel()
 
@@ -97,11 +153,11 @@ func TestRBAC_ListEvents(t *testing.T) {
 			enf, err := rbac.NewEnforcer(ctx, newConfigMapMock(tc.policy), zap.NewNop().Sugar())
 			require.NoError(t, err)
 			next := &handlers.MockHandler{}
-			next.On("ListEvents", mock.Anything, "prod", mock.Anything).
+			next.On("ListEvents", mock.Anything, "prod", mock.Anything, int64(100), "").
 				Return(&eventsv1.EventList{Items: allLifecycleEvents()}, nil)
 			h := &rbacHandler{next: next, log: zap.NewNop().Sugar(), enforcer: enf, userGetter: testUserGetter}
 
-			list, err := h.ListEvents(ctx, "prod", nil)
+			list, err := h.ListEvents(ctx, "prod", nil, 100, "")
 			require.NoError(t, err)
 			assert.Equal(t, tc.want, eventNames(list.Items))
 		})

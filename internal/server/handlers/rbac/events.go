@@ -26,8 +26,8 @@ import (
 )
 
 // ListEvents returns the lifecycle events the caller can read.
-func (h *rbacHandler) ListEvents(ctx context.Context, cluster string, namespaces []string) (*eventsv1.EventList, error) {
-	list, err := h.next.ListEvents(ctx, cluster, namespaces)
+func (h *rbacHandler) ListEvents(ctx context.Context, cluster string, namespaces []string, limit int64, continueToken string) (*eventsv1.EventList, error) {
+	list, err := h.next.ListEvents(ctx, cluster, namespaces, limit, continueToken)
 	if err != nil {
 		return nil, fmt.Errorf("ListEvents failed: %w", err)
 	}
@@ -80,8 +80,17 @@ func carriesEvent(t watch.EventType) bool {
 // canReadEvent reports whether the caller can read ev. The RBAC object is the object
 // the event is about.
 func (h *rbacHandler) canReadEvent(ctx context.Context, cluster string, ev *eventsv1.Event) (bool, error) {
-	object := rbac.ClusterNamespacedObjectName(cluster, ev.Namespace, ev.Regarding.Name)
-	err := h.enforce(ctx, rbac.ResourceEvents, rbac.ActionRead, object)
+	resource := rbac.ResourceEvents
+	object := rbac.ClusterNamespacedObjectName(cluster, ev.Regarding.Namespace, ev.Regarding.Name)
+	switch {
+	case ev.Regarding.Kind == "User":
+		resource = rbac.ResourcePlatformEvents
+		object = "*"
+	case ev.Regarding.Namespace == "":
+		resource = rbac.ResourceClusterEvents
+		object = rbac.ClusterObjectName(cluster, ev.Regarding.Name)
+	}
+	err := h.enforce(ctx, resource, rbac.ActionRead, object)
 	if errors.Is(err, ErrInsufficientPermissions) {
 		return false, nil
 	}
