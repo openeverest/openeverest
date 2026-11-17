@@ -102,7 +102,8 @@ export const PluginFormSections: React.FC<PluginFormSectionsProps> = ({
 interface PluginFormSectionItemProps {
   pluginName: string;
   section: (
-    InstanceCreateFormSectionExtension | InstanceEditFormSectionExtension
+    | InstanceCreateFormSectionExtension
+    | InstanceEditFormSectionExtension
   ) & {
     pluginName: string;
   };
