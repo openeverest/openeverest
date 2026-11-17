@@ -14,19 +14,22 @@
 
 import { useMemo, useState } from 'react';
 import { isAxiosError } from 'axios';
-import { Alert, MenuItem } from '@mui/material';
-import { AutoCompleteInput, SelectInput, TextInput } from '@percona/ui-lib';
+import { Alert } from '@mui/material';
+import { AutoCompleteInput, TextInput } from '@percona/ui-lib';
+import { getCredentialsSecretErrorMessage } from 'components/class-authentication';
+import { ClassPicker } from 'components/class-picker';
 import { FormDialog } from 'components/form-dialog';
+import { TlsConfigFields } from 'components/tls-config-fields';
+import { useSaveMonitoringDestination } from 'hooks/api/monitoring-destinations';
 import {
   SecretAlreadyExistsError,
   SecretChangedMeanwhileError,
-  useSaveMonitoringDestination,
-} from 'hooks/api/monitoring-destinations';
+} from 'hooks/api/secrets';
 import { useNamespacePermissionsForResource } from 'hooks/rbac';
 import {
   getMonitoringClassName,
-  getMonitoringClassTitle,
   isMonitoringClassAccepted,
+  toMonitoringClassContract,
 } from 'utils/monitoring-classes';
 import { ClassFields } from '../class-fields/class-fields';
 import { buildMonitoringDestinationSchema } from '../monitoring-destination-modal-schema';
@@ -39,9 +42,7 @@ import {
 import {
   buildSaveRequest,
   getFormDefaults,
-  getSecretErrorMessage,
 } from '../monitoring-destination-modal.utils';
-import { TlsFields } from '../tls-fields/tls-fields';
 import { RestartNotice } from '../restart-notice/restart-notice';
 
 export const MonitoringDestinationForm = ({
@@ -87,12 +88,14 @@ export const MonitoringDestinationForm = ({
   // The class of an existing destination can't change, accepted or not.
   const selectableClasses = useMemo(
     () =>
-      classes.filter((monitoringClass) =>
-        original
-          ? getMonitoringClassName(monitoringClass) ===
-            original.spec.classRef.name
-          : isMonitoringClassAccepted(monitoringClass)
-      ),
+      classes
+        .filter((monitoringClass) =>
+          original
+            ? getMonitoringClassName(monitoringClass) ===
+              original.spec.classRef.name
+            : isMonitoringClassAccepted(monitoringClass)
+        )
+        .map(toMonitoringClassContract),
     [classes, original]
   );
 
@@ -167,31 +170,25 @@ export const MonitoringDestinationForm = ({
           disabled={isEdit}
           isRequired
         />
-        <SelectInput
+        <ClassPicker
           name={DestinationFormFields.className}
           label={Messages.monitoringClass}
-          selectFieldProps={{ disabled: isEdit }}
-          isRequired
-        >
-          {selectableClasses.map((monitoringClass) => (
-            <MenuItem
-              key={getMonitoringClassName(monitoringClass)}
-              value={getMonitoringClassName(monitoringClass)}
-            >
-              {getMonitoringClassTitle(monitoringClass)}
-            </MenuItem>
-          ))}
-        </SelectInput>
+          classes={selectableClasses}
+          disabled={isEdit}
+        />
         <ClassFields
           classes={classes}
           original={original}
           secretPermissions={secretPermissions}
           secretPermissionsLoading={isPermissionsLoading}
         />
-        <TlsFields />
+        <TlsConfigFields />
         {secretError && (
           <Alert severity="error" sx={{ mt: 3 }}>
-            {getSecretErrorMessage(secretError)}
+            {getCredentialsSecretErrorMessage(
+              secretError,
+              Messages.authenticationNouns
+            )}
           </Alert>
         )}
       </>

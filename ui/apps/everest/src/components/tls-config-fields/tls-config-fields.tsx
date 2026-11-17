@@ -16,22 +16,22 @@ import { Stack, Typography } from '@mui/material';
 import { SwitchInput, TextInput } from '@percona/ui-lib';
 import { useFormContext, useWatch } from 'react-hook-form';
 import TlsAlert from 'components/tls-alert';
-import { DestinationFormFields } from '../monitoring-destination-modal.constants';
-import { Messages } from '../monitoring-destination-modal.messages';
-import { MonitoringDestinationFormValues } from '../monitoring-destination-modal.types';
+import { TlsConfigFormFields } from './tls-config-fields.constants';
+import { Messages } from './tls-config-fields.messages';
 
-export const TlsFields = () => {
-  const { control } = useFormContext<MonitoringDestinationFormValues>();
-  const skipVerification = useWatch({
+// How the object verifies the server it reaches.
+export const TlsConfigFields = () => {
+  const { control } = useFormContext();
+  const skipVerification: unknown = useWatch({
     control,
-    name: DestinationFormFields.insecureSkipVerify,
+    name: TlsConfigFormFields.insecureSkipVerify,
   });
 
   return (
     <Stack sx={{ mt: 3 }}>
       <Typography variant="sectionHeading">{Messages.tls}</Typography>
       <SwitchInput
-        name={DestinationFormFields.insecureSkipVerify}
+        name={TlsConfigFormFields.insecureSkipVerify}
         label={Messages.skipTlsVerification}
       />
       {skipVerification ? (
@@ -39,12 +39,12 @@ export const TlsFields = () => {
       ) : (
         <>
           <TextInput
-            name={DestinationFormFields.caSecretName}
+            name={TlsConfigFormFields.caSecretName}
             label={Messages.caSecretName}
             textFieldProps={{ helperText: Messages.caHelper }}
           />
           <TextInput
-            name={DestinationFormFields.caSecretKey}
+            name={TlsConfigFormFields.caSecretKey}
             label={Messages.caSecretKey}
           />
         </>

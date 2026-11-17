@@ -14,11 +14,12 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
+import { AuthenticationFormFields } from 'components/class-authentication';
+import { getSectionFormDefaults } from 'components/ui-generator/utils/section-form';
 import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
-import { getSectionFormDefaults } from 'utils/monitoring-classes';
 import { DestinationFormFields } from '../monitoring-destination-modal.constants';
 import {
   DestinationClassForms,
@@ -44,7 +45,7 @@ export const useDestinationClassForms = (
     useFormContext<MonitoringDestinationFormValues>();
   const [className, authMode] = useWatch({
     control,
-    name: [DestinationFormFields.className, DestinationFormFields.authMode],
+    name: [DestinationFormFields.className, AuthenticationFormFields.authMode],
   });
   const monitoringClass = classes.find((c) => c.metadata?.name === className);
   const formMode = getFormMode(original);
@@ -60,7 +61,7 @@ export const useDestinationClassForms = (
     }
     previousClassName.current = className;
     const defaults = getNewDestinationClassDefaults(monitoringClass);
-    setValue(DestinationFormFields.authMode, defaults.authMode, {
+    setValue(AuthenticationFormFields.authMode, defaults.authMode, {
       shouldValidate: true,
     });
     setValue(DestinationFormFields.spec, defaults.spec);
@@ -77,7 +78,7 @@ export const useDestinationClassForms = (
     }
     previousAuthMode.current = authMode;
     setValue(
-      DestinationFormFields.credentials,
+      AuthenticationFormFields.credentials,
       forms.credentials ? getSectionFormDefaults(forms.credentials) : {}
     );
   }, [authMode, forms.credentials, setValue]);

@@ -16,31 +16,27 @@ import { MenuItem } from '@mui/material';
 import { SelectInput } from '@percona/ui-lib';
 import { useSecrets } from 'hooks/api/secrets';
 import { useClusterName } from 'hooks/api/useClusterName';
-import { DestinationFormFields } from '../../monitoring-destination-modal.constants';
-import { Messages } from '../../monitoring-destination-modal.messages';
+import { SecretListFilter } from 'shared-types/api.types';
+import { AuthenticationFormFields } from '../../class-authentication.constants';
+import { Messages } from '../../class-authentication.messages';
 
 interface ExistingSecretSelectProps {
   namespace: string;
-  className: string;
-  authMode: string;
+  // Secrets labelled with the class and mode, as the Secrets API requires of
+  // the object's credentials.
+  filter: SecretListFilter;
 }
 
-// Secrets labelled with the class and mode, as the Secrets API requires of the
-// destination's credentials.
 export const ExistingSecretSelect = ({
   namespace,
-  className,
-  authMode,
+  filter,
 }: ExistingSecretSelectProps) => {
   const cluster = useClusterName();
   const {
     data: secrets = [],
     isLoading,
     isError,
-  } = useSecrets(cluster, namespace, {
-    monitoringClass: className,
-    definition: authMode,
-  });
+  } = useSecrets(cluster, namespace, filter);
   const names = secrets.flatMap(({ metadata }) =>
     metadata?.name ? [metadata.name] : []
   );
@@ -55,7 +51,7 @@ export const ExistingSecretSelect = ({
 
   return (
     <SelectInput
-      name={DestinationFormFields.existingSecretName}
+      name={AuthenticationFormFields.existingSecretName}
       label={Messages.existingSecret}
       helperText={helperText}
       loading={isLoading}

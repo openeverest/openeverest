@@ -167,7 +167,6 @@ vi.mock('hooks/api/monitoring-destinations', () => {
       mocks.destinationsFailed ? failed : result,
     useMonitoringDestination: () => noDestination,
     useSaveMonitoringDestination: () => save,
-    SecretAlreadyExistsError: class extends Error {},
   };
 });
 

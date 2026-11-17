@@ -16,6 +16,10 @@ import { z } from 'zod';
 import { KeyValuePair } from '@percona/ui-lib';
 import { isPlainObject } from 'components/ui-generator/utils/object-path';
 import {
+  getOpenApiConstraintError,
+  getOpenApiConstraints,
+} from 'components/ui-generator/utils/openapi-constraints';
+import {
   OpenApiParameterField,
   OpenApiParameterFields,
   OpenApiParameterFormValues,
@@ -68,10 +72,20 @@ export const getOpenApiParameterFields = (
         isPlainObject(property) && typeof property.description === 'string'
           ? property.description
           : undefined;
+      const constraints =
+        kind === OpenApiParameterKind.Text
+          ? getOpenApiConstraints(openAPIV3Schema, [name])
+          : undefined;
       return {
         fields: [
           ...fields,
-          { name, kind, required: required.includes(name), description },
+          {
+            name,
+            kind,
+            required: required.includes(name),
+            description,
+            constraints,
+          },
         ],
         skipped,
       };
@@ -162,9 +176,22 @@ const toFieldSchema = (field: OpenApiParameterField): z.ZodTypeAny => {
   if (field.kind === OpenApiParameterKind.StringMap) {
     return pairsSchema(field.required, field.name);
   }
-  return field.required
+  const text = field.required
     ? z.string().min(1, Messages.required(field.name))
     : z.string();
+  const { constraints } = field;
+  return constraints
+    ? text.superRefine((value, ctx) => {
+        // An empty value is left out of the request, or reported as required.
+        const error =
+          value === ''
+            ? undefined
+            : getOpenApiConstraintError(value, constraints);
+        if (error) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: error });
+        }
+      })
+    : text;
 };
 
 export const buildOpenApiParametersSchema = ({
