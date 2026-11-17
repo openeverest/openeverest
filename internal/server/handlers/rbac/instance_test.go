@@ -493,6 +493,8 @@ func TestRBAC_Instance(t *testing.T) {
 			instance *corev1alpha1.Instance
 			policy   string
 			wantErr  error
+			// wantMismatch are the paths a PresetMismatchError names; nil for any other error.
+			wantMismatch []string
 		}{
 			{
 				desc:    "admin",
@@ -554,7 +556,7 @@ func TestRBAC_Instance(t *testing.T) {
 				),
 			},
 			{
-				desc:    "has deploy",
+				desc:    "has create-from-preset",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -568,13 +570,13 @@ func TestRBAC_Instance(t *testing.T) {
 					},
 				},
 				policy: newPolicy(
-					"p, role:developer, instances, deploy, prod/ns1/*",
+					"p, role:developer, instances, create-from-preset, prod/ns1/*",
 					"p, role:developer, cluster-instance-presets, read, prod/*",
 					"g, bob, role:developer",
 				),
 			},
 			{
-				desc:    "has deploy without preset annotation",
+				desc:    "has create-from-preset without preset annotation",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -587,14 +589,14 @@ func TestRBAC_Instance(t *testing.T) {
 					},
 				},
 				policy: newPolicy(
-					"p, role:developer, instances, deploy, prod/ns1/*",
+					"p, role:developer, instances, create-from-preset, prod/ns1/*",
 					"p, role:developer, cluster-instance-presets, read, prod/*",
 					"g, bob, role:developer",
 				),
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
-				desc:    "has deploy with customization",
+				desc:    "has create-from-preset with customization",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -608,14 +610,15 @@ func TestRBAC_Instance(t *testing.T) {
 					},
 				},
 				policy: newPolicy(
-					"p, role:developer, instances, deploy, prod/ns1/*",
+					"p, role:developer, instances, create-from-preset, prod/ns1/*",
 					"p, role:developer, cluster-instance-presets, read, prod/*",
 					"g, bob, role:developer",
 				),
-				wantErr: ErrInsufficientPermissions,
+				wantErr:      ErrInsufficientPermissions,
+				wantMismatch: []string{"spec.version"},
 			},
 			{
-				desc:    "has deploy without preset read permission",
+				desc:    "has create-from-preset without preset read permission",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -629,10 +632,98 @@ func TestRBAC_Instance(t *testing.T) {
 					},
 				},
 				policy: newPolicy(
-					"p, role:developer, instances, deploy, prod/ns1/*",
+					"p, role:developer, instances, create-from-preset, prod/ns1/*",
 					"g, bob, role:developer",
 				),
 				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "has create-from-preset with customization, without preset read permission",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "db1",
+						Namespace:   "ns1",
+						Annotations: map[string]string{"openeverest.io/cluster-instance-preset": "standard-mysql"},
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "9.0",
+					},
+				},
+				policy: newPolicy(
+					"p, role:developer, instances, create-from-preset, prod/ns1/*",
+					"g, bob, role:developer",
+				),
+				// A plain 403: a user who cannot read the preset is not told how the instance differs from it.
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "has create-from-preset with another annotation",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "db1",
+						Namespace:   "ns1",
+						Annotations: map[string]string{"openeverest.io/cluster-instance-preset": "standard-mysql", "example.com/backup-hook": "x"},
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "8.0",
+					},
+				},
+				policy: newPolicy(
+					"p, role:developer, instances, create-from-preset, prod/ns1/*",
+					"p, role:developer, cluster-instance-presets, read, prod/*",
+					"g, bob, role:developer",
+				),
+				wantErr:      ErrInsufficientPermissions,
+				wantMismatch: []string{"metadata.annotations[example.com/backup-hook]"},
+			},
+			{
+				desc:    "has create-from-preset with a label and customization",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "db1",
+						Namespace:   "ns1",
+						Annotations: map[string]string{"openeverest.io/cluster-instance-preset": "standard-mysql"},
+						Labels:      map[string]string{"team": "a"},
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "9.0",
+					},
+				},
+				policy: newPolicy(
+					"p, role:developer, instances, create-from-preset, prod/ns1/*",
+					"p, role:developer, cluster-instance-presets, read, prod/*",
+					"g, bob, role:developer",
+				),
+				wantErr:      ErrInsufficientPermissions,
+				wantMismatch: []string{"spec.version", "metadata.labels[team]"},
+			},
+			{
+				desc:    "has create with another annotation and a label",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "db1",
+						Namespace:   "ns1",
+						Annotations: map[string]string{"openeverest.io/cluster-instance-preset": "standard-mysql", "example.com/backup-hook": "x"},
+						Labels:      map[string]string{"team": "a"},
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "8.0",
+					},
+				},
+				policy: newPolicy(
+					"p, role:developer, instances, create, prod/ns1/*",
+					"p, role:developer, cluster-instance-presets, read, prod/*",
+					"p, role:developer, providers, read, prod/*",
+					"g, bob, role:developer",
+				),
 			},
 		}
 
@@ -659,6 +750,8 @@ func TestRBAC_Instance(t *testing.T) {
 				result, err := h.CreateInstance(ctx, tc.cluster, tc.instance)
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
+					assert.Equal(t, tc.wantMismatch, mismatchPaths(err))
+					next.AssertNotCalled(t, "CreateInstance", mock.Anything, mock.Anything, mock.Anything)
 
 					return
 				}
@@ -688,6 +781,8 @@ func TestRBAC_Instance(t *testing.T) {
 			instance *corev1alpha1.Instance
 			policy   string
 			wantErr  error
+			// wantMismatch are the paths a PresetMismatchError names; nil for any other error.
+			wantMismatch []string
 		}{
 			{
 				desc:    "admin",
@@ -749,7 +844,7 @@ func TestRBAC_Instance(t *testing.T) {
 				),
 			},
 			{
-				desc:    "has deploy",
+				desc:    "has create-from-preset",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -763,13 +858,13 @@ func TestRBAC_Instance(t *testing.T) {
 					},
 				},
 				policy: newPolicy(
-					"p, role:developer, instances, deploy, prod/ns1/*",
+					"p, role:developer, instances, create-from-preset, prod/ns1/*",
 					"p, role:developer, instance-presets, read, prod/*/*",
 					"g, bob, role:developer",
 				),
 			},
 			{
-				desc:    "has deploy without preset annotation",
+				desc:    "has create-from-preset without preset annotation",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -782,14 +877,14 @@ func TestRBAC_Instance(t *testing.T) {
 					},
 				},
 				policy: newPolicy(
-					"p, role:developer, instances, deploy, prod/ns1/*",
+					"p, role:developer, instances, create-from-preset, prod/ns1/*",
 					"p, role:developer, instance-presets, read, prod/*/*",
 					"g, bob, role:developer",
 				),
 				wantErr: ErrInsufficientPermissions,
 			},
 			{
-				desc:    "has deploy with customization",
+				desc:    "has create-from-preset with customization",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -803,14 +898,15 @@ func TestRBAC_Instance(t *testing.T) {
 					},
 				},
 				policy: newPolicy(
-					"p, role:developer, instances, deploy, prod/ns1/*",
+					"p, role:developer, instances, create-from-preset, prod/ns1/*",
 					"p, role:developer, instance-presets, read, prod/*/*",
 					"g, bob, role:developer",
 				),
-				wantErr: ErrInsufficientPermissions,
+				wantErr:      ErrInsufficientPermissions,
+				wantMismatch: []string{"spec.version"},
 			},
 			{
-				desc:    "has deploy without preset read permission",
+				desc:    "has create-from-preset without preset read permission",
 				cluster: "prod",
 				instance: &corev1alpha1.Instance{
 					ObjectMeta: metav1.ObjectMeta{
@@ -824,10 +920,98 @@ func TestRBAC_Instance(t *testing.T) {
 					},
 				},
 				policy: newPolicy(
-					"p, role:developer, instances, deploy, prod/ns1/*",
+					"p, role:developer, instances, create-from-preset, prod/ns1/*",
 					"g, bob, role:developer",
 				),
 				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "has create-from-preset with customization, without preset read permission",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "db1",
+						Namespace:   "ns1",
+						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "9.0",
+					},
+				},
+				policy: newPolicy(
+					"p, role:developer, instances, create-from-preset, prod/ns1/*",
+					"g, bob, role:developer",
+				),
+				// A plain 403: a user who cannot read the preset is not told how the instance differs from it.
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "has create-from-preset with another annotation",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "db1",
+						Namespace:   "ns1",
+						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql", "example.com/backup-hook": "x"},
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "8.0",
+					},
+				},
+				policy: newPolicy(
+					"p, role:developer, instances, create-from-preset, prod/ns1/*",
+					"p, role:developer, instance-presets, read, prod/*/*",
+					"g, bob, role:developer",
+				),
+				wantErr:      ErrInsufficientPermissions,
+				wantMismatch: []string{"metadata.annotations[example.com/backup-hook]"},
+			},
+			{
+				desc:    "has create-from-preset with a label and customization",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "db1",
+						Namespace:   "ns1",
+						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql"},
+						Labels:      map[string]string{"team": "a"},
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "9.0",
+					},
+				},
+				policy: newPolicy(
+					"p, role:developer, instances, create-from-preset, prod/ns1/*",
+					"p, role:developer, instance-presets, read, prod/*/*",
+					"g, bob, role:developer",
+				),
+				wantErr:      ErrInsufficientPermissions,
+				wantMismatch: []string{"spec.version", "metadata.labels[team]"},
+			},
+			{
+				desc:    "has create with another annotation and a label",
+				cluster: "prod",
+				instance: &corev1alpha1.Instance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "db1",
+						Namespace:   "ns1",
+						Annotations: map[string]string{"openeverest.io/instance-preset": "standard-mysql", "example.com/backup-hook": "x"},
+						Labels:      map[string]string{"team": "a"},
+					},
+					Spec: corev1alpha1.InstanceSpec{
+						ProviderRef: apicommon.ObjectRef{Name: "mysql"},
+						Version:     "8.0",
+					},
+				},
+				policy: newPolicy(
+					"p, role:developer, instances, create, prod/ns1/*",
+					"p, role:developer, instance-presets, read, prod/*/*",
+					"p, role:developer, providers, read, prod/*",
+					"g, bob, role:developer",
+				),
 			},
 		}
 
@@ -853,6 +1037,8 @@ func TestRBAC_Instance(t *testing.T) {
 				result, err := h.CreateInstance(ctx, tc.cluster, tc.instance)
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
+					assert.Equal(t, tc.wantMismatch, mismatchPaths(err))
+					next.AssertNotCalled(t, "CreateInstance", mock.Anything, mock.Anything, mock.Anything)
 
 					return
 				}
@@ -1618,7 +1804,7 @@ func TestRBAC_InstanceReferences(t *testing.T) {
 				ctx := testUserContext(rbac.User{Subject: "alice"})
 				rules := append(
 					[]string{
-						"p, role:deployer, instances, deploy, prod/ns1/*",
+						"p, role:deployer, instances, create-from-preset, prod/ns1/*",
 						"p, role:deployer, cluster-instance-presets, read, prod/*",
 						"g, alice, role:deployer",
 					},

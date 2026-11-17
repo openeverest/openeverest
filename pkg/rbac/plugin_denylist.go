@@ -16,8 +16,8 @@ package rbac
 
 import "github.com/openeverest/openeverest/v2/pkg/plugintoken"
 
-// spec001Resources are the resources managed by spec-001 Provider plugins,
-// plus the monitoring resources, which only users and core configure.
+// spec001Resources are the resources managed by providers, plus
+// the monitoring resources, which only users and core configure.
 // Daemon plugin tokens are unconditionally denied write access to these.
 var spec001Resources = map[string]struct{}{
 	ResourceDatabaseClusters:           {},

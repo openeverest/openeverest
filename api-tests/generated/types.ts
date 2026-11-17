@@ -456,6 +456,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clusters/{cluster}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List or stream lifecycle events
+         * @description Lists the lifecycle events of the cluster, or streams them as Server-Sent Events
+         *     when `watch=true`.
+         *
+         *     Lifecycle events are recorded for the objects OpenEverest manages (Instances,
+         *     Backups, Restores, BackupImports, BackupStorages, MonitoringDestinations, Plugins,
+         *     InstalledExtensions and managed Namespaces), whether they were changed through
+         *     this API, kubectl or a GitOps tool, and for logins and logouts. They use a small,
+         *     kind-independent set of reasons; `object.kind` tells what the event is about:
+         *
+         *     - `Created`, `Updated` (spec changed), `PhaseChanged` (with `phase.from` and
+         *       `phase.to`), `DeletionRequested` and `Deleted`.
+         *     - `LoginSucceeded`, `LoginFailed` and `Logout`, about the `User` the login was
+         *       for.
+         *
+         *     They are stored as Kubernetes Events, so they are kept for the event TTL of the
+         *     cluster: one hour by default, and not adjustable on most managed Kubernetes
+         *     services. A `since` cursor is served from the API server's watch cache, which
+         *     often holds only minutes of history, so it can expire well before the Events do;
+         *     relist when it does.
+         *
+         *     **Streaming.** To consume every retained event without gaps, list all pages using
+         *     `continue`, then stream with `since` set to the list `resourceVersion`. Pages in a
+         *     continued list share the same `resourceVersion`. Each streamed event carries its
+         *     `cursor`; to resume after a disconnect, stream again with `since` set to the last
+         *     cursor received. A `bookmark` event only advances the cursor. When the cursor is
+         *     too old for the cluster to resume from, the stream sends an `error` event with
+         *     code 410: relist all pages and stream from the new `resourceVersion`.
+         *
+         *     **Access.** The events about an object require `read-events` on the object's own
+         *     resource and RBAC object, e.g. `instances` for `{cluster}/{namespace}/{name}` or
+         *     `plugins` for `{cluster}/{name}`; InstalledExtensions use `installed-extensions`.
+         *     `read` does not imply `read-events`. Login and logout events require `read` on the
+         *     global `platform-events`. These checks use the object the Event is about, not the
+         *     namespace where Kubernetes stores the Event.
+         */
+        get: operations["listEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clusters/{cluster}/namespaces/{namespace}/instances": {
         parameters: {
             query?: never;
@@ -473,6 +526,9 @@ export interface paths {
          * Create instance
          * @description This API creates a new database instance in the specified namespace and cluster.
          *     Every monitoring destination listed in `spec.monitoring.destinations` requires `read` on it; otherwise the request fails with 403.
+         *
+         *     `instances:create` allows any instance. Without it, `instances:create-from-preset` allows an instance only as an exact copy of the preset named by its `openeverest.io/instance-preset` or `openeverest.io/cluster-instance-preset` annotation, which also requires `read` on the preset: the preset's `spec`, and no metadata besides `name`, `generateName`, `namespace` and that annotation.
+         *     Any other difference fails with 403 and reason `PresetMismatch`, with a cause naming every field that differs; a 403 for a missing permission has no reason.
          */
         post: operations["createInstance"];
         delete?: never;
@@ -1118,6 +1174,66 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        LifecycleEventList: {
+            items: components["schemas"]["LifecycleEvent"][];
+            /** @description Pass it as `since` with `watch=true` to stream the events recorded after the list. */
+            resourceVersion: string;
+            /** @description Opaque token for the next page, if more events are available. */
+            continue?: string;
+        };
+        LifecycleEvent: {
+            /** @description The name of the Kubernetes Event. */
+            name: string;
+            /** @description Pass it as `since` with `watch=true` to resume streaming after this event. */
+            cursor: string;
+            /** Format: date-time */
+            occurredAt: string;
+            /**
+             * @description The kind and reason of the event, e.g. `instance.phase-changed`.
+             * @example instance.phase-changed
+             */
+            type: string;
+            /** @enum {string} */
+            reason: "Created" | "Updated" | "PhaseChanged" | "DeletionRequested" | "Deleted" | "LoginSucceeded" | "LoginFailed" | "Logout";
+            /** @enum {string} */
+            severity: "Normal" | "Warning";
+            cluster: string;
+            namespace?: string;
+            object: components["schemas"]["LifecycleEventObject"];
+            actor?: components["schemas"]["LifecycleEventActor"];
+            phase?: components["schemas"]["LifecycleEventPhase"];
+            /**
+             * Format: int64
+             * @description The new `metadata.generation` of an `Updated` event.
+             */
+            generation?: number;
+            /** @description The client IP of a login or logout. */
+            sourceIP?: string;
+            message?: string;
+        };
+        /** @description The previous and new phase of a `PhaseChanged` event. */
+        LifecycleEventPhase: {
+            from?: string;
+            to?: string;
+        };
+        /** @description The object the event is about. */
+        LifecycleEventObject: {
+            apiVersion?: string;
+            kind: string;
+            name: string;
+            uid?: string;
+        };
+        /**
+         * @description Who caused the event: an OpenEverest `user` (`id` is their subject), an OpenEverest
+         *     component (`system`), or a Kubernetes client that changed the object directly
+         *     (`kubernetes-client`, `id` is its field manager, e.g. `kubectl-client-side-apply`).
+         *     Absent when unknown, e.g. for deletions made directly in Kubernetes.
+         */
+        LifecycleEventActor: {
+            /** @enum {string} */
+            type?: "user" | "system" | "kubernetes-client";
+            id?: string;
+        };
         /** @description Error response */
         Error: {
             message?: string;
@@ -1140,7 +1256,7 @@ export interface components {
             /** @description Every field that failed validation, on a 422. */
             causes?: components["schemas"]["APIErrorCause"][];
         };
-        /** @description One field that failed validation. */
+        /** @description One field that failed validation, or that the request may not set. */
         APIErrorCause: {
             /**
              * @description Machine-readable kind of failure.
@@ -1157,6 +1273,20 @@ export interface components {
              * @example spec.components[hidden].replicas
              */
             field?: string;
+        };
+        /**
+         * @description A 403. One answering a missing permission has only a `message`.
+         *     One answering a request the caller's permission covers only within limits has a `reason` and a cause for every field outside them:
+         *     `PresetMismatch` when `instances:create-from-preset` creates an instance that is not an exact copy of its preset.
+         */
+        ForbiddenError: components["schemas"]["Error"] & {
+            /**
+             * @description Machine-readable reason for the error; absent for a missing permission.
+             * @example PresetMismatch
+             */
+            reason?: string;
+            /** @description Every field outside what the permission allows. */
+            causes?: components["schemas"]["APIErrorCause"][];
         };
         /** @description A list of labelled Secrets (metadata only). */
         SecretList: {
@@ -2900,6 +3030,26 @@ export interface components {
                         /** @description Parameters are validated against the class's instanceParametersSchema. */
                         parameters?: Record<string, never>;
                     }[];
+                    /**
+                     * @description Sources configures the monitoring sources the Instance runs whether or
+                     *     not a destination needs them.
+                     */
+                    sources?: {
+                        /** @description Metrics configures the Instance's OpenMetrics endpoints. */
+                        metrics?: {
+                            /**
+                             * @description Policy says when the provider runs the exporters and turns on the
+                             *     optional metrics endpoints of the Instance's components. OnDemand runs
+                             *     them while a destination's class needs metrics. Always runs them
+                             *     without a destination, for scrapers that OpenEverest does not
+                             *     configure. The serving endpoints are listed in
+                             *     status.monitoring.sources.metrics.
+                             * @default OnDemand
+                             * @enum {string}
+                             */
+                            policy: "OnDemand" | "Always";
+                        };
+                    };
                 };
                 /**
                  * @description Parameters contains structured parameters that apply to the Instance
@@ -4241,6 +4391,26 @@ export interface components {
                         /** @description Parameters are validated against the class's instanceParametersSchema. */
                         parameters?: Record<string, never>;
                     }[];
+                    /**
+                     * @description Sources configures the monitoring sources the Instance runs whether or
+                     *     not a destination needs them.
+                     */
+                    sources?: {
+                        /** @description Metrics configures the Instance's OpenMetrics endpoints. */
+                        metrics?: {
+                            /**
+                             * @description Policy says when the provider runs the exporters and turns on the
+                             *     optional metrics endpoints of the Instance's components. OnDemand runs
+                             *     them while a destination's class needs metrics. Always runs them
+                             *     without a destination, for scrapers that OpenEverest does not
+                             *     configure. The serving endpoints are listed in
+                             *     status.monitoring.sources.metrics.
+                             * @default OnDemand
+                             * @enum {string}
+                             */
+                            policy: "OnDemand" | "Always";
+                        };
+                    };
                 };
                 /**
                  * @description Parameters contains structured parameters that apply to the Instance
@@ -4509,7 +4679,7 @@ export interface components {
                              * @description DestinationParametersSchema is the schema of MonitoringDestination
                              *     parameters in the integration contract version the provider was built
                              *     with, generated by provider-sdk. Core will check destination parameters
-                             *     against it as well as against the class (spec 019 §4.4).
+                             *     against it as well as against the class.
                              */
                             destinationParametersSchema?: {
                                 /**
@@ -4523,7 +4693,7 @@ export interface components {
                              *     Instance.spec.monitoring.destinations[].parameters in the integration
                              *     contract version the provider was built with, generated by
                              *     provider-sdk. Core will check entry parameters against it as well as
-                             *     against the class (spec 019 §4.4).
+                             *     against the class.
                              */
                             instanceParametersSchema?: {
                                 /**
@@ -5914,6 +6084,26 @@ export interface components {
                         /** @description Parameters are validated against the class's instanceParametersSchema. */
                         parameters?: Record<string, never>;
                     }[];
+                    /**
+                     * @description Sources configures the monitoring sources the Instance runs whether or
+                     *     not a destination needs them.
+                     */
+                    sources?: {
+                        /** @description Metrics configures the Instance's OpenMetrics endpoints. */
+                        metrics?: {
+                            /**
+                             * @description Policy says when the provider runs the exporters and turns on the
+                             *     optional metrics endpoints of the Instance's components. OnDemand runs
+                             *     them while a destination's class needs metrics. Always runs them
+                             *     without a destination, for scrapers that OpenEverest does not
+                             *     configure. The serving endpoints are listed in
+                             *     status.monitoring.sources.metrics.
+                             * @default OnDemand
+                             * @enum {string}
+                             */
+                            policy: "OnDemand" | "Always";
+                        };
+                    };
                 };
                 /**
                  * @description Parameters contains structured parameters that apply to the Instance
@@ -8787,6 +8977,66 @@ export interface operations {
             };
         };
     };
+    listEvents: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated namespaces to return events from. All namespaces when empty. */
+                namespaces?: string;
+                /** @description Comma-separated kinds of objects to return events about, e.g. `Instance,Backup`. */
+                kinds?: string;
+                /** @description Comma-separated reasons to return, e.g. `PhaseChanged`. */
+                reasons?: string;
+                /** @description Maximum number of events to return in a list page. Defaults to 100. */
+                limit?: number;
+                /** @description Opaque token from the previous page. Only used when listing. */
+                continue?: string;
+                /** @description Stream the events as Server-Sent Events instead of listing them. */
+                watch?: boolean;
+                /**
+                 * @description With `watch=true`, stream the events recorded after this cursor (an event
+                 *     `cursor` or a list `resourceVersion`). Without it, only new events are streamed.
+                 */
+                since?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The lifecycle events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LifecycleEventList"];
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listInstances: {
         parameters: {
             query?: never;
@@ -8863,13 +9113,13 @@ export interface operations {
                     "application/json": components["schemas"]["Instance"];
                 };
             };
-            /** @description Forbidden */
+            /** @description A permission is missing, or the instance is not an exact copy of its preset (reason `PresetMismatch`) */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Error"];
+                    "application/json": components["schemas"]["ForbiddenError"];
                 };
             };
             /** @description Namespace not found */

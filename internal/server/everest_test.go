@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -37,6 +38,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/openeverest/openeverest/v2/internal/secretdefinition"
+	rbachandler "github.com/openeverest/openeverest/v2/internal/server/handlers/rbac"
 	"github.com/openeverest/openeverest/v2/pkg/oidc"
 )
 
@@ -127,6 +129,55 @@ func TestEverestErrorHandler_Conflict(t *testing.T) {
 			handler(tt.err, c)
 
 			require.Equal(t, http.StatusConflict, rec.Code)
+			assert.JSONEq(t, tt.want, rec.Body.String())
+		})
+	}
+}
+
+func TestEverestErrorHandler_Forbidden(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			name: "missing permission",
+			err:  rbachandler.ErrInsufficientPermissions,
+			want: `{"message": "insufficient permissions for performing the operation"}`,
+		},
+		{
+			name: "instance differs from its preset",
+			err: fmt.Errorf("create: %w", &rbachandler.PresetMismatchError{
+				PresetKind: "ClusterInstancePreset",
+				PresetName: "small",
+				Fields:     []string{"spec.version"},
+				Metadata:   []string{"metadata.labels[team]"},
+			}),
+			want: `{
+				"message": "instance does not match ClusterInstancePreset \"small\": it changes spec.version and sets metadata.labels[team]. instances:create-from-preset allows only an exact copy of the preset; changes need instances:create",
+				"reason": "PresetMismatch",
+				"causes": [
+					{"reason": "FieldValueForbidden", "message": "differs from ClusterInstancePreset \"small\"", "field": "spec.version"},
+					{"reason": "FieldValueForbidden", "message": "not allowed on an instance created from a preset", "field": "metadata.labels[team]"}
+				]
+			}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			e := echo.New()
+			rec := httptest.NewRecorder()
+			c := e.NewContext(httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil), rec)
+
+			handler := everestErrorHandler(e.DefaultHTTPErrorHandler)
+			handler(tt.err, c)
+
+			require.Equal(t, http.StatusForbidden, rec.Code)
 			assert.JSONEq(t, tt.want, rec.Body.String())
 		})
 	}

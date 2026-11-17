@@ -24,9 +24,9 @@ import (
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
-// targetSpec returns a target ProviderSpec modeled on the PSMDB example from
-// spec 009 §9: provider release 0.3 where mongod 6.0.19-16 is removed and
-// 7.0.18-11 is deprecated with a runway.
+// targetSpec returns a target ProviderSpec modeled on a PSMDB upgrade:
+// provider release 0.3 where mongod 6.0.19-16 is removed and 7.0.18-11 is
+// deprecated with a runway.
 func targetSpec() *v1alpha1.ProviderSpec {
 	return &v1alpha1.ProviderSpec{
 		Release: &v1alpha1.Release{
