@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
+import { grantRBAC } from 'api/__mocks__/policies';
 import { BackupStatus } from 'shared-types/backups.types';
 import { getRestoresListQueryKey } from 'hooks/api/restores/useInstanceRestores';
+import { stopAuthorizerFetchLoop } from 'utils/rbac';
 import { Messages } from './restore-db-modal.messages';
 import { RestoreDbFields } from './restore-db-modal-schema';
 import { useRestoreDbModal } from './useRestoreDbModal';
@@ -30,6 +32,8 @@ const mockUseCreateInstanceRestore = vi.fn();
 const mockUseClusterName = vi.fn();
 const mockResolveRestoreAction = vi.fn();
 const mockEnqueueSnackbar = vi.fn();
+
+vi.mock('api/policies');
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate,
@@ -85,6 +89,10 @@ describe('useRestoreDbModal', () => {
       mutate: mockMutate,
       isPending: false,
     });
+  });
+
+  afterEach(() => {
+    stopAuthorizerFetchLoop();
   });
 
   it('navigates to create-db flow for navigate-new action', () => {
@@ -226,5 +234,55 @@ describe('useRestoreDbModal', () => {
       'newer',
       'older',
     ]);
+  });
+
+  it('only offers PITR storages the user can read', async () => {
+    mockUseClusterName.mockReturnValue('main');
+    mockUseDbInstance.mockReturnValue({
+      data: {
+        status: {
+          backup: {
+            storages: [
+              {
+                name: 'readable-storage',
+                pitr: {
+                  available: true,
+                  earliest: '2026-07-29T08:00:00Z',
+                  latest: '2026-07-29T10:00:00Z',
+                },
+              },
+              {
+                name: 'unreadable-storage',
+                pitr: {
+                  available: true,
+                  earliest: '2026-07-29T08:00:00Z',
+                  latest: '2026-07-29T10:00:00Z',
+                },
+              },
+            ],
+          },
+        },
+      },
+    });
+    await grantRBAC([
+      'backup-storages',
+      'read',
+      'main/ns-a/readable-storage',
+    ]);
+
+    const { result } = renderHook(() =>
+      useRestoreDbModal({
+        instanceName: 'source-db',
+        namespace: 'ns-a',
+        isNewClusterMode: false,
+        closeModal: mockCloseModal,
+      })
+    );
+
+    await waitFor(() =>
+      expect(result.current.pitrStorages.map((storage) => storage.name)).toEqual(
+        ['readable-storage']
+      )
+    );
   });
 });
