@@ -116,7 +116,8 @@ func init() {
 }
 
 func createPreRun(cmd *cobra.Command, _ []string) {
-	createCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
+	createCfg.Pretty = cli.IsPretty(cmd)
+	createCfg.YAML = cli.IsYAML(cmd)
 }
 
 // createRun validates --type before resolving any credential, so an unsupported type
@@ -156,7 +157,7 @@ func resolveSecretAccessKey(cmd *cobra.Command) (string, error) {
 	if v := os.Getenv(envSecretAccessKey); v != "" {
 		return v, nil
 	}
-	if cmd.Flag(cli.FlagJSON).Changed || !term.IsTerminal(int(os.Stdin.Fd())) {
+	if cli.IsMachineReadable(cmd) || !term.IsTerminal(int(os.Stdin.Fd())) {
 		return "", fmt.Errorf("%s must be set: not running interactively", envSecretAccessKey)
 	}
 	return tui.NewInputPassword(cmd.Context(), "Secret access key",

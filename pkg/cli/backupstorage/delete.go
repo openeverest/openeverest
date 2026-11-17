@@ -141,14 +141,14 @@ func checkDeleteResponse(resp *client.DeleteBackupStorageResponse, opts DeleteOp
 
 // emitDeleted prints success: a line in pretty mode, JSON otherwise.
 func (bd *Deleter) emitDeleted(opts DeleteOptions) error {
-	return deletion.EmitDeleted(bd.config.Pretty, "backup storage", opts.Name, opts.Namespace)
+	return deletion.EmitDeleted(bd.config.Pretty, bd.config.YAML, "backup storage", opts.Name, opts.Namespace)
 }
 
 // emitAlreadyGone reports the --ignore-not-found short-circuit: nothing was
 // deleted, so "deleted" must stay false, it should only mean this run
 // actually deleted something.
 func (bd *Deleter) emitAlreadyGone(opts DeleteOptions) error {
-	return deletion.EmitAlreadyGone(bd.config.Pretty, "backup storage", opts.Name, opts.Namespace)
+	return deletion.EmitAlreadyGone(bd.config.Pretty, bd.config.YAML, "backup storage", opts.Name, opts.Namespace)
 }
 
 // waitForDeletion blocks until the backup storage is gone, like instance
@@ -177,7 +177,7 @@ func (bd *Deleter) waitForDeletion(ctx context.Context, c *client.ClientWithResp
 		return err
 	}
 
-	return deletion.EmitWaitSucceeded(bd.config.Pretty, "backup storage", opts.Name, opts.Namespace)
+	return deletion.EmitWaitSucceeded(bd.config.Pretty, bd.config.YAML, "backup storage", opts.Name, opts.Namespace)
 }
 
 // newBackupStorageDeletePoll checks if the backup storage still exists. A 404

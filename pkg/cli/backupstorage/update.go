@@ -119,5 +119,5 @@ func (u *Updater) emitUpdated(updated *client.BackupStorage, opts UpdateOptions)
 	if updated == nil {
 		return fmt.Errorf("backup storage %q was updated but the server returned an unreadable response body", opts.Name)
 	}
-	return writeBackupStorageJSON(updated)
+	return writeBackupStorageJSON(updated, u.config.YAML)
 }

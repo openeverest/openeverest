@@ -77,7 +77,8 @@ func init() {
 }
 
 func statusPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
-	statusCfg.Pretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	statusCfg.Pretty = cli.IsPretty(cmd)
+	statusCfg.YAML = cli.IsYAML(cmd)
 }
 
 func statusRun(cmd *cobra.Command, _ []string) { //nolint:revive

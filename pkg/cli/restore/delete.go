@@ -184,13 +184,13 @@ func deleteConfirmMessage(name, namespace string, state client.RestoreStatusStat
 
 // emitDeleted prints success: a line in pretty mode, JSON otherwise.
 func (rd *Deleter) emitDeleted(opts DeleteOptions) error {
-	return deletion.EmitDeleted(rd.config.Pretty, "restore", opts.Name, opts.Namespace)
+	return deletion.EmitDeleted(rd.config.Pretty, rd.config.YAML, "restore", opts.Name, opts.Namespace)
 }
 
 // emitAlreadyGone reports the --ignore-not-found short-circuit: "deleted"
 // stays false since this run didn't actually delete anything.
 func (rd *Deleter) emitAlreadyGone(opts DeleteOptions) error {
-	return deletion.EmitAlreadyGone(rd.config.Pretty, "restore", opts.Name, opts.Namespace)
+	return deletion.EmitAlreadyGone(rd.config.Pretty, rd.config.YAML, "restore", opts.Name, opts.Namespace)
 }
 
 // waitForDeletion blocks until the restore is gone. The cancellable context
@@ -217,5 +217,5 @@ func (rd *Deleter) waitForDeletion(ctx context.Context, c *client.ClientWithResp
 		return err
 	}
 
-	return deletion.EmitWaitSucceeded(rd.config.Pretty, "restore", opts.Name, opts.Namespace)
+	return deletion.EmitWaitSucceeded(rd.config.Pretty, rd.config.YAML, "restore", opts.Name, opts.Namespace)
 }

@@ -18,7 +18,6 @@ package backup
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -28,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
@@ -121,7 +121,7 @@ func (cr *CreateRunner) emitCreated(created *client.Backup, name string) error {
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup %q created", name))
 		return nil
 	}
-	return writeBackupJSON(created)
+	return writeBackupJSON(created, cr.config.YAML)
 }
 
 // waitForBackup blocks until the backup reaches a terminal state, streaming
@@ -168,11 +168,11 @@ func (cr *CreateRunner) waitForBackup(
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup %q completed", name))
 		return nil
 	}
-	return writeBackupJSON(final)
+	return writeBackupJSON(final, cr.config.YAML)
 }
 
-func writeBackupJSON(b *client.Backup) error {
-	if err := json.NewEncoder(os.Stdout).Encode(b); err != nil {
+func writeBackupJSON(b *client.Backup, asYAML bool) error {
+	if err := cli.Encode(os.Stdout, b, asYAML); err != nil {
 		return fmt.Errorf("failed to encode backup: %w", err)
 	}
 	return nil

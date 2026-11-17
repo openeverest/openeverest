@@ -18,7 +18,6 @@ package instance
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 )
 
@@ -122,7 +122,7 @@ func (il *ListRunner) listInstances(ctx context.Context, c *client.ClientWithRes
 
 func (il *ListRunner) render(w io.Writer, instances []client.Instance) {
 	if !il.config.Pretty {
-		_ = json.NewEncoder(w).Encode(instances) //nolint:errchkjson
+		_ = cli.Encode(w, instances, il.config.YAML) //nolint:errchkjson
 		return
 	}
 	printInstanceTable(w, instances)

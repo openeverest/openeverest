@@ -18,7 +18,6 @@ package backupstorage
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -27,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/output"
@@ -166,11 +166,11 @@ func (cr *CreateRunner) emitCreated(created *client.BackupStorage, name string) 
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup storage %q created", name))
 		return nil
 	}
-	return writeBackupStorageJSON(created)
+	return writeBackupStorageJSON(created, cr.config.YAML)
 }
 
-func writeBackupStorageJSON(bs *client.BackupStorage) error {
-	if err := json.NewEncoder(os.Stdout).Encode(bs); err != nil {
+func writeBackupStorageJSON(bs *client.BackupStorage, asYAML bool) error {
+	if err := cli.Encode(os.Stdout, bs, asYAML); err != nil {
 		return fmt.Errorf("failed to encode backup storage: %w", err)
 	}
 	return nil

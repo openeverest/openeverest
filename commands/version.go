@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	"github.com/openeverest/openeverest/v2/pkg/cli/utils"
 	"github.com/openeverest/openeverest/v2/pkg/logger"
 	"github.com/openeverest/openeverest/v2/pkg/version"
@@ -77,6 +78,9 @@ func versionRunE(cmd *cobra.Command, _ []string) error {
 	if rootCmdFlags.JSON {
 		_, _ = fmt.Fprintln(os.Stdout, v.JSONString())
 		return nil
+	}
+	if rootCmdFlags.YAML {
+		return cli.Encode(os.Stdout, v, true)
 	}
 	_, _ = fmt.Fprintln(os.Stdout, v)
 	return nil

@@ -18,7 +18,6 @@ package instance
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -31,6 +30,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
@@ -136,7 +136,7 @@ func (is *InstanceStatusRunner) watch(
 
 func (is *InstanceStatusRunner) render(w io.Writer, inst *client.Instance, namespace string) {
 	if !is.config.Pretty {
-		_ = json.NewEncoder(w).Encode(inst) //nolint:errchkjson
+		_ = cli.Encode(w, inst, is.config.YAML) //nolint:errchkjson
 		return
 	}
 	printInstanceStatus(w, inst, namespace)
