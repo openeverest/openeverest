@@ -104,7 +104,7 @@ func (rl *ListRunner) listInstanceRestores(
 
 func (rl *ListRunner) render(w io.Writer, restores []client.Restore) {
 	if !rl.config.Pretty {
-		_ = cli.Encode(w, restores, rl.config.YAML) //nolint:errchkjson
+		_ = cli.Encode(w, restores, rl.config.YAML)
 		return
 	}
 	printRestoreTable(w, restores)

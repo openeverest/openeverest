@@ -136,7 +136,7 @@ func (sl *ListRunner) listBackupStorages(
 
 func (sl *ListRunner) render(w io.Writer, backupStorages []client.BackupStorage) {
 	if !sl.config.Pretty {
-		_ = cli.Encode(w, backupStorages, sl.config.YAML) //nolint:errchkjson
+		_ = cli.Encode(w, backupStorages, sl.config.YAML)
 		return
 	}
 	printBackupStorageTable(w, backupStorages)

@@ -138,7 +138,7 @@ func (nsL *NamespaceLister) Render(w io.Writer, nsList []NamespaceInfo) {
 		if nsList == nil {
 			nsList = []NamespaceInfo{}
 		}
-		_ = cli.Encode(w, nsList, nsL.cfg.YAML) //nolint:errchkjson
+		_ = cli.Encode(w, nsList, nsL.cfg.YAML)
 		return
 	}
 	printNamespacesTable(w, nsList)

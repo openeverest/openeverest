@@ -102,7 +102,7 @@ func (bl *ListRunner) listBackupClasses(ctx context.Context, c *client.ClientWit
 
 func (bl *ListRunner) render(w io.Writer, backupClasses []client.BackupClass) {
 	if !bl.config.Pretty {
-		_ = cli.Encode(w, backupClasses, bl.config.YAML) //nolint:errchkjson
+		_ = cli.Encode(w, backupClasses, bl.config.YAML)
 		return
 	}
 	printBackupClassTable(w, backupClasses)

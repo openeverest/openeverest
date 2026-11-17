@@ -101,7 +101,7 @@ func (pl *ListRunner) listProviders(ctx context.Context, c *client.ClientWithRes
 
 func (pl *ListRunner) render(w io.Writer, providers []client.Provider) {
 	if !pl.config.Pretty {
-		_ = cli.Encode(w, providers, pl.config.YAML) //nolint:errchkjson
+		_ = cli.Encode(w, providers, pl.config.YAML)
 		return
 	}
 	printProviderTable(w, providers)

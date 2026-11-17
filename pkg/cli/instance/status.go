@@ -136,7 +136,7 @@ func (is *InstanceStatusRunner) watch(
 
 func (is *InstanceStatusRunner) render(w io.Writer, inst *client.Instance, namespace string) {
 	if !is.config.Pretty {
-		_ = cli.Encode(w, inst, is.config.YAML) //nolint:errchkjson
+		_ = cli.Encode(w, inst, is.config.YAML)
 		return
 	}
 	printInstanceStatus(w, inst, namespace)

@@ -122,7 +122,7 @@ func (il *ListRunner) listInstances(ctx context.Context, c *client.ClientWithRes
 
 func (il *ListRunner) render(w io.Writer, instances []client.Instance) {
 	if !il.config.Pretty {
-		_ = cli.Encode(w, instances, il.config.YAML) //nolint:errchkjson
+		_ = cli.Encode(w, instances, il.config.YAML)
 		return
 	}
 	printInstanceTable(w, instances)

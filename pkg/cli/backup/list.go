@@ -104,7 +104,7 @@ func (bl *ListRunner) listInstanceBackups(
 
 func (bl *ListRunner) render(w io.Writer, backups []client.Backup) {
 	if !bl.config.Pretty {
-		_ = cli.Encode(w, backups, bl.config.YAML) //nolint:errchkjson
+		_ = cli.Encode(w, backups, bl.config.YAML)
 		return
 	}
 	printBackupTable(w, backups)
