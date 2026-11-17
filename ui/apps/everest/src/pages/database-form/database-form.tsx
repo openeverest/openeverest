@@ -632,7 +632,7 @@ export const DatabasePage = () => {
               <PluginFormSections
                 formValues={methods.getValues() as Record<string, unknown>}
                 namespace={selectedNamespace || namespaces[0] || ''}
-                engineType={providerObject?.name}
+                engineType={providerObject?.metadata?.name}
                 isCreate={true}
                 onPluginConfigChange={handlePluginConfigChange}
               />
