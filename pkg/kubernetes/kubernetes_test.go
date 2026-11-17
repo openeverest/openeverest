@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,8 +22,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"time"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -150,7 +151,9 @@ func TestWatchLifecycleEventsForwardsBookmarks(t *testing.T) {
 	select {
 	case event := <-events.ResultChan():
 		assert.Equal(t, watch.Bookmark, event.Type)
-		assert.Equal(t, "45", event.Object.(*eventsv1.Event).ResourceVersion)
+		bookmark, ok := event.Object.(*eventsv1.Event)
+		require.True(t, ok, "bookmark object is %T", event.Object)
+		assert.Equal(t, "45", bookmark.ResourceVersion)
 	case <-time.After(5 * time.Second):
 		t.Fatal("watch did not forward the bookmark")
 	}

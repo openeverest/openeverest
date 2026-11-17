@@ -95,7 +95,14 @@ func TestRecorder_Add(t *testing.T) {
 	t.Run("a new object is recorded as created, with its creator", func(t *testing.T) {
 		t.Parallel()
 		r, emitter := newTestRecorder(t)
-		instanceHandler(t, r).OnAdd(instance(1, "", 0), false)
+		obj := instance(1, "", 0)
+		obj.ManagedFields = []metav1.ManagedFieldsEntry{{
+			Manager:    "everest-api",
+			Operation:  metav1.ManagedFieldsOperationUpdate,
+			FieldsType: "FieldsV1",
+			FieldsV1:   metav1.NewFieldsV1(`{"f:metadata":{"f:annotations":{"f:openeverest.io/last-actor-id":{}}}}`),
+		}}
+		instanceHandler(t, r).OnAdd(obj, false)
 
 		require.Len(t, emitter.records, 1)
 		rec := emitter.records[0]

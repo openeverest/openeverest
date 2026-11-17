@@ -122,10 +122,10 @@ func TestListEvents(t *testing.T) {
 	})
 
 	for name, params := range map[string]api.ListEventsParams{
-		"unknown reason":            {Reasons: new("Exploded")},
-		"since without watch":       {Since: new("42")},
-		"continue with watch":       {Watch: new(true), Continue: new("next")},
-		"limit with watch":          {Watch: new(true), Limit: new(int64(10))},
+		"unknown reason":      {Reasons: new("Exploded")},
+		"since without watch": {Since: new("42")},
+		"continue with watch": {Watch: new(true), Continue: new("next")},
+		"limit with watch":    {Watch: new(true), Limit: new(int64(10))},
 	} {
 		t.Run(name+" is a bad request", func(t *testing.T) {
 			t.Parallel()
