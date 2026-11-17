@@ -17,17 +17,24 @@
 import { test, expect } from '@e2e/fixtures/auth';
 import { findRowAndClickActions, waitForDelete } from '@e2e/utils/table';
 import { goToUrl, limitedSuffixedName } from '@e2e/utils/generic';
-import {
-  EVEREST_CI_NAMESPACES,
-  EVEREST_CI_CLUSTER,
-  TIMEOUTS,
-} from '@e2e/constants';
+import { EVEREST_CI_NAMESPACES, TIMEOUTS } from '@e2e/constants';
 import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 import {
   backupStorageCredentialsSecretName,
   deleteBackupStorage,
   getBackupStorage,
 } from '@e2e/utils/backup-storage';
+import {
+  backupStoragesUrl,
+  expectStorageState,
+  fillS3Storage,
+  openAddStorageDialog,
+  openEditStorageDialog,
+  S3_CLASS_TITLE,
+  STORAGES_PAGE,
+  storageRow,
+  submitStorageDialog,
+} from '@e2e/utils/backup-storage-form';
 
 const {
   EVEREST_LOCATION_ACCESS_KEY,
@@ -42,8 +49,6 @@ test.describe.serial('Backup storage', () => {
   const namespace = EVEREST_CI_NAMESPACES.EVEREST_UI,
     backupStorageName = limitedSuffixedName('pr-set-bac-str'),
     bucketName = limitedSuffixedName('bucket');
-
-  const storageUrl = `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/backup-storages`;
   let token: string;
 
   test.beforeAll(async () => {
@@ -52,7 +57,7 @@ test.describe.serial('Backup storage', () => {
   });
 
   test.beforeEach(async ({ page }) => {
-    await goToUrl(page, '/settings/storage-locations');
+    await goToUrl(page, STORAGES_PAGE);
   });
 
   test.afterAll(async ({ request }) => {
@@ -66,41 +71,26 @@ test.describe.serial('Backup storage', () => {
 
   // The CI store is SeaweedFS behind a self-signed certificate.
   test('Add Backup Storage', async ({ page, request }) => {
-    const dialog = page.getByRole('dialog');
+    const dialog = await openAddStorageDialog(page);
 
-    await test.step('Fill in the S3 forms', async () => {
-      await page.getByTestId('add-backup-storage').click();
-      await dialog.getByTestId('text-input-name').fill(backupStorageName);
-      await dialog.getByTestId('text-input-namespace').click();
-      await page.getByRole('option', { name: namespace, exact: true }).click();
-      await dialog.getByTestId('select-class-name-button').click();
-      await page
-        .getByRole('option', { name: 'S3-compatible object storage' })
-        .click();
-      await dialog.getByLabel('Bucket').fill(bucketName);
-      await dialog.getByLabel('Region').fill(EVEREST_LOCATION_REGION);
-      await dialog.getByLabel('Endpoint URL').fill(EVEREST_LOCATION_URL);
-      await dialog.getByLabel('Implementation').click();
-      await page.getByRole('option', { name: 'Other S3-compatible' }).click();
-      await dialog.getByLabel('Force path-style URLs').check();
-      await dialog
-        .getByLabel('Access key ID')
-        .fill(EVEREST_LOCATION_ACCESS_KEY);
-      await dialog
-        .getByLabel('Secret access key')
-        .fill(EVEREST_LOCATION_SECRET_KEY);
-      await dialog.getByLabel('Skip TLS certificate verification').check();
-    });
-
-    await test.step('Add it', async () => {
-      const created = page.waitForResponse(
-        (resp) =>
-          resp.request().method() === 'POST' &&
-          resp.url().endsWith(storageUrl) &&
-          resp.status() === 201
-      );
-      await page.getByTestId('form-dialog-add').click();
-      await created;
+    await test.step('Fill in the S3 forms and add it', async () => {
+      await fillS3Storage(page, dialog, {
+        name: backupStorageName,
+        namespace,
+        bucket: bucketName,
+        region: EVEREST_LOCATION_REGION,
+        endpointURL: EVEREST_LOCATION_URL,
+        implementation: 'Other S3-compatible',
+        forcePathStyle: true,
+        accessKeyId: EVEREST_LOCATION_ACCESS_KEY,
+        secretAccessKey: EVEREST_LOCATION_SECRET_KEY,
+        skipTLSVerification: true,
+      });
+      await submitStorageDialog(page, dialog, {
+        method: 'POST',
+        namespace,
+        status: 201,
+      });
       await expect(dialog).not.toBeVisible();
     });
 
@@ -129,39 +119,34 @@ test.describe.serial('Backup storage', () => {
         tls: { insecureSkipVerify: true },
       });
     });
-  });
 
-  test('List Backup Storages', async ({ page }) => {
-    const row = page
-      .locator('.MuiTableRow-root')
-      .filter({ hasText: backupStorageName });
-    await expect(row).toBeVisible();
-    await expect(row.getByText('S3-compatible object storage')).toBeVisible();
-    await expect(row.getByText(bucketName)).toBeVisible();
-    await expect(row.getByText(namespace)).toBeVisible();
-    // Core accepts the storage once it has checked it against its class.
-    await expect(row.getByText('Valid', { exact: true })).toBeVisible({
-      timeout: TIMEOUTS.ThirtySeconds,
+    await test.step('The list shows it as valid without a reload', async () => {
+      await expectStorageState(page, backupStorageName, 'Valid');
     });
   });
 
+  test('List Backup Storages', async ({ page }) => {
+    const row = storageRow(page, backupStorageName);
+    await expect(row).toBeVisible();
+    await expect(row.getByText(S3_CLASS_TITLE)).toBeVisible();
+    await expect(row.getByText(bucketName)).toBeVisible();
+    await expect(row.getByText(namespace)).toBeVisible();
+    await expectStorageState(page, backupStorageName, 'Valid');
+  });
+
   test('Edit Backup Storage', async ({ page, request }) => {
-    const dialog = page.getByRole('dialog');
     const region = 'us-west-2';
 
     await test.step('Change its region', async () => {
-      await findRowAndClickActions(page, backupStorageName, 'Edit');
+      const dialog = await openEditStorageDialog(page, backupStorageName);
       // Engines catalog backups by location, so it can't change.
       await expect(dialog.getByLabel('Bucket')).toBeDisabled();
       await dialog.getByLabel('Region').fill(region);
-      const updated = page.waitForResponse(
-        (resp) =>
-          resp.request().method() === 'PUT' &&
-          resp.url().endsWith(`${storageUrl}/${backupStorageName}`) &&
-          resp.status() === 200
-      );
-      await page.getByTestId('form-dialog-save').click();
-      await updated;
+      await submitStorageDialog(page, dialog, {
+        method: 'PUT',
+        namespace,
+        status: 200,
+      });
       await expect(dialog).not.toBeVisible();
     });
 
@@ -195,7 +180,9 @@ test.describe.serial('Backup storage', () => {
     const delResponse = page.waitForResponse(
       (resp) =>
         resp.request().method() === 'DELETE' &&
-        resp.url().endsWith(`${storageUrl}/${backupStorageName}`) &&
+        resp
+          .url()
+          .endsWith(`${backupStoragesUrl(namespace)}/${backupStorageName}`) &&
         resp.status() === 204
     );
     await page.getByTestId('confirm-dialog-delete').click();

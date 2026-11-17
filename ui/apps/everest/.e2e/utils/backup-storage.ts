@@ -40,6 +40,37 @@ const authHeaders = (token: string) => ({
 export const backupStorageCredentialsSecretName = (storageName: string) =>
   `backup-storage-${storageName}-credentials`;
 
+const postBackupStorage = (
+  request: APIRequestContext,
+  namespace: string,
+  storage: S3BackupStorage,
+  secretName: string,
+  token: string
+) =>
+  request.post(`${namespaceUrl(namespace)}/backup-storages`, {
+    data: {
+      metadata: { name: storage.name },
+      spec: {
+        backupStorageClassRef: { name: 's3' },
+        location: { objectStore: { bucket: storage.bucket } },
+        parameters: {
+          region: storage.region,
+          endpointURL: storage.endpointURL,
+          forcePathStyle: storage.forcePathStyle,
+          ...(storage.implementation && {
+            implementation: storage.implementation,
+          }),
+        },
+        authentication: {
+          mode: 'AccessKey',
+          credentialsSecretRef: { name: secretName },
+        },
+        ...(!storage.verifyTLS && { tls: { insecureSkipVerify: true } }),
+      },
+    },
+    headers: authHeaders(token),
+  });
+
 // Credentials are never part of a storage: they go into a Secret labelled with
 // the s3 class and its AccessKey mode, which the storage references.
 // Returns the first response that isn't a success, so a caller can tell a
@@ -77,30 +108,45 @@ export const createBackupStorage = async (
     return secretResponse;
   }
 
-  return request.post(`${namespaceUrl(namespace)}/backup-storages`, {
-    data: {
-      metadata: { name: storage.name },
-      spec: {
-        backupStorageClassRef: { name: 's3' },
-        location: { objectStore: { bucket: storage.bucket } },
-        parameters: {
-          region: storage.region,
-          endpointURL: storage.endpointURL,
-          forcePathStyle: storage.forcePathStyle,
-          ...(storage.implementation && {
-            implementation: storage.implementation,
-          }),
-        },
-        authentication: {
-          mode: 'AccessKey',
-          credentialsSecretRef: { name: secretName },
-        },
-        ...(!storage.verifyTLS && { tls: { insecureSkipVerify: true } }),
-      },
-    },
-    headers,
-  });
+  return postBackupStorage(request, namespace, storage, secretName, token);
 };
+
+// A storage whose credentials Secret doesn't exist, as after someone deleted
+// the Secret: core refuses it until the Secret is back.
+export const createBackupStorageWithoutItsSecret = (
+  request: APIRequestContext,
+  namespace: string,
+  storage: S3BackupStorage,
+  token: string
+): Promise<APIResponse> =>
+  postBackupStorage(
+    request,
+    namespace,
+    storage,
+    backupStorageCredentialsSecretName(storage.name),
+    token
+  );
+
+// The Secrets API returns a Secret's metadata, never its data.
+export const getSecretResponse = (
+  request: APIRequestContext,
+  namespace: string,
+  name: string,
+  token: string
+): Promise<APIResponse> =>
+  request.get(`${namespaceUrl(namespace)}/secrets/${name}`, {
+    headers: authHeaders(token),
+  });
+
+export const getBackupStorageResponse = (
+  request: APIRequestContext,
+  namespace: string,
+  name: string,
+  token: string
+): Promise<APIResponse> =>
+  request.get(`${namespaceUrl(namespace)}/backup-storages/${name}`, {
+    headers: authHeaders(token),
+  });
 
 export const getBackupStorage = async (
   request: APIRequestContext,
@@ -116,6 +162,21 @@ export const getBackupStorage = async (
   return await response.json();
 };
 
+// Delete a storage before the Secret it names: the API deletes a Secret a
+// storage still uses, and core then refuses that storage.
+export const deleteSecret = async (
+  request: APIRequestContext,
+  namespace: string,
+  name: string,
+  token: string
+) => {
+  const response = await request.delete(
+    `${namespaceUrl(namespace)}/secrets/${name}`,
+    { headers: authHeaders(token) }
+  );
+  expect([204, 404]).toContain(response.status());
+};
+
 // Deletes the storage, then the credentials Secret createBackupStorage made.
 export const deleteBackupStorage = async (
   request: APIRequestContext,
@@ -123,16 +184,16 @@ export const deleteBackupStorage = async (
   name: string,
   token: string
 ) => {
-  const headers = authHeaders(token);
   const response = await request.delete(
     `${namespaceUrl(namespace)}/backup-storages/${name}`,
-    { headers }
+    { headers: authHeaders(token) }
   );
   expect([204, 404]).toContain(response.status());
 
-  const secretResponse = await request.delete(
-    `${namespaceUrl(namespace)}/secrets/${backupStorageCredentialsSecretName(name)}`,
-    { headers }
+  await deleteSecret(
+    request,
+    namespace,
+    backupStorageCredentialsSecretName(name),
+    token
   );
-  expect([204, 404]).toContain(secretResponse.status());
 };
