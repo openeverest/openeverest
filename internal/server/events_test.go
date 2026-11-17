@@ -173,7 +173,7 @@ func TestStreamEvents(t *testing.T) {
 func TestListEventsRequestValidation(t *testing.T) {
 	t.Parallel()
 
-	swagger, err := api.GetSwagger()
+	swagger, err := api.GetSpec()
 	require.NoError(t, err)
 	e := echo.New()
 	g := e.Group("/v1")
@@ -194,7 +194,7 @@ func TestListEventsRequestValidation(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			req := httptest.NewRequest(http.MethodGet, "/v1/clusters/main/events?"+tc.query, nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/v1/clusters/main/events?"+tc.query, nil)
 			rec := httptest.NewRecorder()
 			e.ServeHTTP(rec, req)
 			require.Equal(t, tc.code, rec.Code, rec.Body.String())
