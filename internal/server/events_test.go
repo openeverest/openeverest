@@ -65,6 +65,7 @@ func TestToLifecycleEvent(t *testing.T) {
 	ev.Annotations = map[string]string{
 		events.AnnotationEventActorType: "system", events.AnnotationEventActorID: "controller",
 		events.AnnotationPhaseFrom: "Ready", events.AnnotationPhaseTo: "Failed",
+		events.AnnotationInstance: "db1", events.AnnotationProvider: "percona-server-mysql",
 	}
 
 	systemActor := api.LifecycleEventActorTypeSystem
@@ -80,9 +81,11 @@ func TestToLifecycleEvent(t *testing.T) {
 		Object: api.LifecycleEventObject{
 			ApiVersion: new("core.openeverest.io/v1alpha1"), Kind: "Instance", Name: "db1", Uid: new("uid-1"),
 		},
-		Actor:   &api.LifecycleEventActor{Type: &systemActor, Id: new("controller")},
-		Phase:   &api.LifecycleEventPhase{From: new("Ready"), To: new("Failed")},
-		Message: new("Instance team-a/db1 phase changed"),
+		Actor:    &api.LifecycleEventActor{Type: &systemActor, Id: new("controller")},
+		Phase:    &api.LifecycleEventPhase{From: new("Ready"), To: new("Failed")},
+		Message:  new("Instance team-a/db1 phase changed"),
+		Instance: new("db1"),
+		Provider: new("percona-server-mysql"),
 	}
 	assert.Equal(t, want, toLifecycleEvent("main", &ev))
 
