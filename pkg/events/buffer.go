@@ -53,6 +53,9 @@ type ringBuffer struct {
 	epoch  string
 	maxLen int
 	maxAge time.Duration
+	// lastSeq survives expiry so a caught-up cursor remains verifiable even
+	// when no events are retained.
+	lastSeq uint64
 
 	// entries is ordered oldest-first by Seq. Ages are tracked separately
 	// from Event.OccurredAt (which is domain data - a resource's own
@@ -105,6 +108,7 @@ func (b *ringBuffer) Append(ev *Event) {
 	defer b.mu.Unlock()
 
 	b.entries = append(b.entries, bufferedEvent{event: *ev, bufferedAt: time.Now()})
+	b.lastSeq = ev.Seq
 	b.evictLocked()
 }
 
@@ -112,14 +116,12 @@ func (b *ringBuffer) Since(seq uint64) ([]Event, bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	b.evictLocked()
 	if len(b.entries) == 0 {
-		// Nothing retained. seq==0 ("I've never seen an event") is the only
-		// value that's trivially satisfiable against an empty buffer - there's
-		// an empty replay and no gap. Anything else can't be verified: either
-		// it aged out, or it's ahead of what this buffer instance has ever
-		// held (shouldn't happen if the epoch already matched, but treated
-		// the same way regardless: signal resync, don't guess).
-		return nil, seq == 0
+		// Only a caught-up cursor needs no replay. Older cursors missed
+		// expired events; newer ones cannot be verified. For a buffer that
+		// has never held events, lastSeq is zero.
+		return nil, seq == b.lastSeq
 	}
 
 	// entries[0].Seq is always >= 1 (Hub assigns Seq by pre-incrementing
