@@ -64,8 +64,8 @@ func (k *Kubernetes) DeleteMonitoringDestination(ctx context.Context, obj *monit
 
 // DeleteUnusedMonitoringDestinations deletes the monitoring destinations that
 // match the criteria and that no Instance lists. The API server refuses
-// deleting the others while they are in use (spec 015 §4.5): they go with
-// their namespace, or stay with the Instances that use them.
+// deleting the others while they are in use: they go with their namespace,
+// or stay with the Instances that use them.
 func (k *Kubernetes) DeleteUnusedMonitoringDestinations(ctx context.Context, opts ...ctrlclient.ListOption) error {
 	list, err := k.ListMonitoringDestinations(ctx, opts...)
 	if err != nil {
