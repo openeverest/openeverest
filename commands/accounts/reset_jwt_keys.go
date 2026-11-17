@@ -43,7 +43,7 @@ var (
 
 func accountsResetJWTKeysPreRun(cmd *cobra.Command, _ []string) {
 	// Copy global flags to config
-	accountsResetJWTKeysCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
+	accountsResetJWTKeysCfg.Pretty = cli.IsPretty(cmd)
 	accountsResetJWTKeysCfg.KubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 }
 
