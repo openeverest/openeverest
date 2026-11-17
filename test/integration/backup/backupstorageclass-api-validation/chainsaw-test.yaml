@@ -25,6 +25,9 @@ spec:
                 required:
                 - endpointURL
                 - region
+            (length(validations)): 2
+            (validations[0].reason): InvalidLocation
+            (validations[1].reason): InvalidParameters
   - name: auth-modes
     try:
     - script:
@@ -156,3 +159,66 @@ spec:
           YAML
         check:
           ($error): ~
+  - name: validations
+    try:
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'YAML'
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupStorageClass
+          metadata:
+            name: bsc-api-validations.test.openeverest.io
+          spec:
+            authModes:
+            - name: AccountKey
+              credentials:
+                required: [key]
+            validations:
+            - expression: self.location.objectStore.bucket.size() <= 24
+              message: a container name is at most 24 characters
+              reason: InvalidLocation
+            - expression: "!has(self.tls) || !self.tls.insecureSkipVerify"
+              message: TLS verification cannot be turned off
+              reason: InvalidParameters
+          YAML
+        check:
+          ($error): ~
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'YAML'
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupStorageClass
+          metadata:
+            name: bsc-api-validation-reason.test.openeverest.io
+          spec:
+            authModes:
+            - name: AccountKey
+              credentials:
+                required: [key]
+            validations:
+            - expression: "true"
+              message: never
+              reason: CredentialsNotFound
+          YAML
+        check:
+          ($error != null): true
+          (contains($stderr, 'the reason of a validation must be InvalidLocation or InvalidParameters')): true
+    - script:
+        content: |
+          kubectl create --dry-run=server -f - <<'YAML'
+          apiVersion: backup.openeverest.io/v1alpha1
+          kind: BackupStorageClass
+          metadata:
+            name: bsc-api-validation-message.test.openeverest.io
+          spec:
+            authModes:
+            - name: AccountKey
+              credentials:
+                required: [key]
+            validations:
+            - expression: "true"
+              reason: InvalidParameters
+          YAML
+        check:
+          ($error != null): true
+          "(contains($stderr, 'spec.validations[0].message: Required value'))": true

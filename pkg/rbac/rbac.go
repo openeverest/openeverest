@@ -72,6 +72,7 @@ const (
 	ResourceClusterInstancePresets = "cluster-instance-presets"
 	ResourceInstancePresets        = "instance-presets"
 	ResourceBackupClasses          = "backup-classes"
+	ResourceBackupStorageClasses   = "backup-storage-classes"
 	ResourceBackups                = "backups"
 	ResourceBackupImports          = "backup-imports"
 	ResourceRestores               = "restores"
@@ -108,6 +109,7 @@ var ClusterScopedResources = []string{
 	ResourceNamespaces,
 	ResourceProviders,
 	ResourceBackupClasses,
+	ResourceBackupStorageClasses,
 	ResourcePlugins,
 	ResourceClusterInstancePresets,
 	ResourceMonitoringClasses,
@@ -133,7 +135,7 @@ var ClusterNamespacedResources = []string{
 // resource, so the admin role is granted only read on it.
 func isReadOnlyResource(resource string) bool {
 	return resource == ResourceMonitoringClasses || resource == ResourceMonitoringBindings ||
-		resource == ResourcePlatformEvents
+		resource == ResourceBackupStorageClasses || resource == ResourcePlatformEvents
 }
 
 // IsGlobalResource returns true if the given resource is a global (non-namespaced) Everest API resource.
@@ -176,10 +178,10 @@ const (
 	//     without automatically granting broad read access to every user.
 	//   - on secrets, using a Secret's contents through an object that
 	//     references it: creating an object that names the Secret, such as a
-	//     MonitoringDestination, or changing the spec of one that does, since
-	//     the object sends the contents to, or trusts them for, the endpoint
-	//     its spec names. ActionRead does not imply it: read only shows a
-	//     Secret's metadata.
+	//     MonitoringDestination or a BackupStorage, or changing the spec of
+	//     one that does, since the object sends the contents to, or trusts
+	//     them for, the endpoint its spec names. ActionRead does not imply
+	//     it: read only shows a Secret's metadata.
 	ActionUse = "use"
 	// ActionCreateFromPreset, on instances, allows creating an instance only as
 	// an exact copy of the preset it names: the preset's spec, and no metadata

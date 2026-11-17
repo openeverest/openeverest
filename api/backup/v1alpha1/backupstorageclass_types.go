@@ -48,6 +48,17 @@ type BackupStorageClassSpec struct {
 	// +listType=map
 	// +listMapKey=name
 	AuthModes []common.AuthMode `json:"authModes"`
+	// Validations are CEL rules every BackupStorage of the class must
+	// satisfy, for constraints parametersSchema cannot express, such as a
+	// naming rule on location.objectStore.bucket or a rule across parameters
+	// and tls. self is the BackupStorage's spec. A violation sets the
+	// storage's Accepted condition to False with the rule's reason,
+	// InvalidLocation or InvalidParameters, and its message.
+	// +kubebuilder:validation:MaxItems=16
+	// +kubebuilder:validation:XValidation:rule="self.all(v, v.reason in ['InvalidLocation', 'InvalidParameters'])",message="the reason of a validation must be InvalidLocation or InvalidParameters"
+	// +listType=atomic
+	// +optional
+	Validations []common.ClassValidation `json:"validations,omitempty"`
 	// UISchema holds rendering hints for the forms that create a
 	// BackupStorage of the class, grouped by form: "location" for
 	// spec.location, "storage" for spec.parameters and "credentials" keyed by

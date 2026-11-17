@@ -25,7 +25,6 @@ import (
 	"net/http"
 	"os"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/rodaine/table"
@@ -86,7 +85,7 @@ func (bl *ListRunner) Run(ctx context.Context, opts ListOptions, cfgPath string)
 }
 
 func (bl *ListRunner) listBackupClasses(ctx context.Context, c *client.ClientWithResponses, cluster string) ([]client.BackupClass, error) {
-	resp, err := c.ListBackupClassesWithResponse(ctx, cluster)
+	resp, err := c.ListBackupClassesWithResponse(ctx, cluster, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list backup classes: %w", err)
 	}
@@ -129,10 +128,10 @@ func backupClassName(bc *client.BackupClass) string {
 }
 
 func backupClassProvider(bc *client.BackupClass) string {
-	if bc.Spec.SupportedProviders == nil || len(*bc.Spec.SupportedProviders) == 0 {
+	if bc.Spec.ProviderManaged == nil || bc.Spec.ProviderManaged.ProviderRef.Name == "" {
 		return "-"
 	}
-	return strings.Join(*bc.Spec.SupportedProviders, ",")
+	return bc.Spec.ProviderManaged.ProviderRef.Name
 }
 
 func backupClassExecutionMode(bc *client.BackupClass) string {

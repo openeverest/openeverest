@@ -20,12 +20,12 @@ rules:
   - get
   - list
   - patch
-  - update
   - watch
 - apiGroups:
   - backup.openeverest.io
   resources:
   - backupclasses
+  - backupstorageclasses
   verbs:
   - get
   - list
@@ -35,7 +35,6 @@ rules:
   resources:
   - backupimports
   - backups
-  - backupstorages
   - restores
   verbs:
   - create
@@ -56,6 +55,16 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - backup.openeverest.io
+  resources:
+  - backupstorages
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - backup.openeverest.io
   resources:

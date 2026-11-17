@@ -69,9 +69,9 @@ func TestCreateRestore_Validation(t *testing.T) {
 	pitrClass := &backupv1alpha1.BackupClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "pitr-class"},
 		Spec: backupv1alpha1.BackupClassSpec{
-			ExecutionMode:      backupv1alpha1.BackupExecutionModeProviderManaged,
-			SupportedProviders: backupv1alpha1.ProviderNameList{"test-provider"},
+			ExecutionMode: backupv1alpha1.BackupExecutionModeProviderManaged,
 			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{
+				ProviderRef:  common.ObjectRef{Name: "test-provider"},
 				SupportsPITR: true,
 			},
 		},
@@ -79,9 +79,9 @@ func TestCreateRestore_Validation(t *testing.T) {
 	noPitrClass := &backupv1alpha1.BackupClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "no-pitr-class"},
 		Spec: backupv1alpha1.BackupClassSpec{
-			ExecutionMode:      backupv1alpha1.BackupExecutionModeProviderManaged,
-			SupportedProviders: backupv1alpha1.ProviderNameList{"test-provider"},
+			ExecutionMode: backupv1alpha1.BackupExecutionModeProviderManaged,
 			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{
+				ProviderRef:  common.ObjectRef{Name: "test-provider"},
 				SupportsPITR: false,
 			},
 		},
@@ -89,9 +89,9 @@ func TestCreateRestore_Validation(t *testing.T) {
 	unsupportedProviderClass := &backupv1alpha1.BackupClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "unsupported-provider-class"},
 		Spec: backupv1alpha1.BackupClassSpec{
-			ExecutionMode:      backupv1alpha1.BackupExecutionModeProviderManaged,
-			SupportedProviders: backupv1alpha1.ProviderNameList{"other-provider"},
+			ExecutionMode: backupv1alpha1.BackupExecutionModeProviderManaged,
 			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{
+				ProviderRef:  common.ObjectRef{Name: "other-provider"},
 				SupportsPITR: true,
 			},
 		},
