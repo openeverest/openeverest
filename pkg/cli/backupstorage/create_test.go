@@ -31,6 +31,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 )
 
 const (
@@ -128,7 +129,7 @@ func newFakeCreateAPI(t *testing.T, configure ...func(*fakeCreateAPI)) (*fakeCre
 		assert.NoError(t, json.NewDecoder(r.Body).Decode(&s))
 		f.mu.Lock()
 		defer f.mu.Unlock()
-		f.calls = append(f.calls, "create secret "+s.Metadata.Name)
+		f.calls = append(f.calls, "create secret "+s.Metadata.Name+dryRunSuffix(r))
 		if status, ok := f.secretStatus[s.Metadata.Name]; ok {
 			writeJSON(w, status, map[string]string{"message": "secret rejected"})
 			return
@@ -147,7 +148,7 @@ func newFakeCreateAPI(t *testing.T, configure ...func(*fakeCreateAPI)) (*fakeCre
 		assert.NoError(t, json.NewDecoder(r.Body).Decode(&bs))
 		f.mu.Lock()
 		defer f.mu.Unlock()
-		f.calls = append(f.calls, "create backup storage")
+		f.calls = append(f.calls, "create backup storage"+dryRunSuffix(r))
 		f.storage = &bs
 		if f.storageResponse != nil {
 			f.storageResponse(w)
@@ -158,6 +159,14 @@ func newFakeCreateAPI(t *testing.T, configure ...func(*fakeCreateAPI)) (*fakeCre
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 	return f, newConfigPath(t, srv.URL)
+}
+
+// dryRunSuffix marks a recorded call made with the dryRun query parameter.
+func dryRunSuffix(r *http.Request) string {
+	if v := r.URL.Query().Get("dryRun"); v != "" {
+		return " (dryRun=" + v + ")"
+	}
+	return ""
 }
 
 func (f *fakeCreateAPI) recorded() ([]string, []client.Secret, *client.BackupStorage) {
@@ -569,4 +578,80 @@ func TestNewBackupStorage(t *testing.T) {
 			assert.JSONEq(t, tt.wantSpec, string(spec))
 		})
 	}
+}
+
+//nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
+func TestCreateRun_ClientDryRun_SendsNothingAndPrintsNoSecretValue(t *testing.T) {
+	f, cfgPath := newFakeCreateAPI(t)
+	opts := baseCreateOptions()
+	opts.CredentialsFile = writeTempFile(t, "s3.env", testCredentials)
+	opts.DryRun = cli.DryRunClient
+
+	var runErr error
+	out := captureStdout(t, func() { runErr = runCreate(t, false, opts, cfgPath) })
+	require.NoError(t, runErr)
+
+	calls, _, _ := f.recorded()
+	assert.Empty(t, calls)
+	var printed client.BackupStorage
+	require.NoError(t, json.Unmarshal([]byte(out), &printed))
+	require.NotNil(t, printed.Metadata)
+	assert.Equal(t, "my-s3", printed.Metadata.Name)
+	assert.NotContains(t, out, "shh")
+}
+
+func TestCreateRun_ServerDryRun_SendsEveryWriteWithDryRunAll(t *testing.T) {
+	t.Parallel()
+
+	f, cfgPath := newFakeCreateAPI(t)
+	opts := baseCreateOptions()
+	opts.CredentialsFile = writeTempFile(t, "s3.env", testCredentials)
+	opts.CAFile = writeTempFile(t, "ca.pem", testPEM)
+	opts.DryRun = cli.DryRunServer
+
+	require.NoError(t, runCreate(t, true, opts, cfgPath))
+
+	calls, _, _ := f.recorded()
+	wantCalls := []string{
+		"create secret backup-storage-my-s3-credentials (dryRun=All)",
+		"create secret backup-storage-my-s3-ca (dryRun=All)",
+		"create backup storage (dryRun=All)",
+	}
+	assert.Equal(t, wantCalls, calls)
+}
+
+func TestCreateRun_ServerDryRunRejected_DeletesNoSecret(t *testing.T) {
+	t.Parallel()
+
+	f, cfgPath := newFakeCreateAPI(t, func(f *fakeCreateAPI) {
+		f.storageResponse = func(w http.ResponseWriter) {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"message": "bucket is invalid"})
+		}
+	})
+	opts := baseCreateOptions()
+	opts.CredentialsFile = writeTempFile(t, "s3.env", testCredentials)
+	opts.DryRun = cli.DryRunServer
+
+	err := runCreate(t, true, opts, cfgPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "bucket is invalid")
+
+	calls, _, _ := f.recorded()
+	wantCalls := []string{
+		"create secret backup-storage-my-s3-credentials (dryRun=All)",
+		"create backup storage (dryRun=All)",
+	}
+	assert.Equal(t, wantCalls, calls)
+}
+
+func TestCreateRun_InvalidDryRunRejected(t *testing.T) {
+	t.Parallel()
+
+	opts := baseCreateOptions()
+	opts.CredentialsSecret = "my-s3-creds"
+	opts.DryRun = "true"
+
+	err := runCreate(t, false, opts, filepath.Join(t.TempDir(), "config.yaml"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid --dry-run value")
 }
