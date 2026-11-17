@@ -154,7 +154,7 @@ func TestCheckDeleteResponse(t *testing.T) {
 //nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
 func TestEmitDeleted_Pretty(t *testing.T) {
 	out := captureStdout(t, func() {
-		err := EmitDeleted(true, "backup storage", "my-s3", "everest")
+		err := EmitDeleted(true, false, "backup storage", "my-s3", "everest")
 		require.NoError(t, err)
 	})
 	assert.Contains(t, out, `Backup storage "my-s3" deleted`)
@@ -163,7 +163,7 @@ func TestEmitDeleted_Pretty(t *testing.T) {
 //nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
 func TestEmitDeleted_JSON(t *testing.T) {
 	out := captureStdout(t, func() {
-		err := EmitDeleted(false, "instance", "my-db", "everest")
+		err := EmitDeleted(false, false, "instance", "my-db", "everest")
 		require.NoError(t, err)
 	})
 	assert.JSONEq(t, `{"name":"my-db","namespace":"everest","deleted":true}`, out)
@@ -172,7 +172,7 @@ func TestEmitDeleted_JSON(t *testing.T) {
 //nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
 func TestEmitAlreadyGone_Pretty(t *testing.T) {
 	out := captureStdout(t, func() {
-		err := EmitAlreadyGone(true, "instance", "my-db", "everest")
+		err := EmitAlreadyGone(true, false, "instance", "my-db", "everest")
 		require.NoError(t, err)
 	})
 	assert.Contains(t, out, `Instance "my-db" not found in namespace "everest"; nothing to delete`)
@@ -181,7 +181,7 @@ func TestEmitAlreadyGone_Pretty(t *testing.T) {
 //nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
 func TestEmitAlreadyGone_JSON(t *testing.T) {
 	out := captureStdout(t, func() {
-		err := EmitAlreadyGone(false, "backup storage", "my-s3", "everest")
+		err := EmitAlreadyGone(false, false, "backup storage", "my-s3", "everest")
 		require.NoError(t, err)
 	})
 	assert.JSONEq(t, `{"name":"my-s3","namespace":"everest","deleted":false}`, out)
@@ -190,7 +190,7 @@ func TestEmitAlreadyGone_JSON(t *testing.T) {
 //nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
 func TestEmitWaitSucceeded_Pretty(t *testing.T) {
 	out := captureStdout(t, func() {
-		err := EmitWaitSucceeded(true, "backup storage", "my-s3", "everest")
+		err := EmitWaitSucceeded(true, false, "backup storage", "my-s3", "everest")
 		require.NoError(t, err)
 	})
 	assert.Contains(t, out, `Backup storage "my-s3" is deleted`)
@@ -199,7 +199,7 @@ func TestEmitWaitSucceeded_Pretty(t *testing.T) {
 //nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
 func TestEmitWaitSucceeded_JSON(t *testing.T) {
 	out := captureStdout(t, func() {
-		err := EmitWaitSucceeded(false, "instance", "my-db", "everest")
+		err := EmitWaitSucceeded(false, false, "instance", "my-db", "everest")
 		require.NoError(t, err)
 	})
 	assert.JSONEq(t, `{"name":"my-db","namespace":"everest","deleted":true}`, out)
@@ -221,13 +221,13 @@ func TestTitleFirst(t *testing.T) {
 	}
 }
 
-// Ensure writeResultJSON's output is exactly the wire shape callers depend
+// Ensure writeResult's JSON output is exactly the wire shape callers depend
 // on (field order doesn't matter for JSON, but the field set/types do).
 //
 //nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
-func TestWriteResultJSON_Shape(t *testing.T) {
+func TestWriteResult_JSONShape(t *testing.T) {
 	out := captureStdout(t, func() {
-		require.NoError(t, writeResultJSON("my-s3", "everest", true))
+		require.NoError(t, writeResult("my-s3", "everest", true, false))
 	})
 	var decoded struct {
 		Name      string `json:"name"`
