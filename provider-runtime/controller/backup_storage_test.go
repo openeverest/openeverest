@@ -46,7 +46,8 @@ func newBackupStorageTestContext(t *testing.T, objs ...client.Object) *Context {
 		ObjectMeta: metav1.ObjectMeta{Name: "orders", Namespace: "ns", UID: "orders-uid"},
 		Spec: v1alpha1.InstanceSpec{
 			Backup: &v1alpha1.InstanceBackupSpec{
-				Enabled: true,
+				Enabled:  true,
+				ClassRef: common.ObjectRef{Name: "pbm"},
 				Storages: []v1alpha1.InstanceBackupStorage{
 					{StorageRef: common.ObjectRef{Name: "s3-prod"}},
 				},
@@ -101,6 +102,109 @@ func TestBackupStorages_PathAndRejection(t *testing.T) {
 	assert.False(t, storages[0].Apply())
 	assert.Equal(t, v1alpha1.ReasonUnsupportedParameter, storages[0].Reason)
 	assert.Equal(t, "backup storage s3-prod: decode: unsupported parameter", storages[0].Message)
+}
+
+// TestBackupStorages_Verdicts checks that an entry is judged by the verdict
+// core publishes on the storage for the Instance's class, read through
+// CurrentVerdict.
+func TestBackupStorages_Verdicts(t *testing.T) {
+	t.Parallel()
+
+	class := &backupv1alpha1.BackupClass{ObjectMeta: metav1.ObjectMeta{Name: "pbm", UID: "pbm-uid", Generation: 3}}
+	storageClass := &backupv1alpha1.BackupStorageClass{ObjectMeta: metav1.ObjectMeta{Name: s3.ClassName, UID: "s3-uid", Generation: 2}}
+	current := backupv1alpha1.BackupClassVerdictInputs{
+		ClassUID: "pbm-uid", ClassGeneration: 3, StorageClassUID: "s3-uid", StorageClassGeneration: 2,
+	}
+	verdict := func(c backupv1alpha1.Compatibility, reason, message string, mutate ...func(*backupv1alpha1.BackupClassVerdictInputs)) backupv1alpha1.BackupClassVerdict {
+		v := backupv1alpha1.BackupClassVerdict{Name: "pbm", Compatibility: c, Reason: reason, Message: message, Observed: current}
+		for _, m := range mutate {
+			m(&v.Observed)
+		}
+		return v
+	}
+	storage := func(verdicts ...backupv1alpha1.BackupClassVerdict) *backupv1alpha1.BackupStorage {
+		bs := acceptedBackupStorage(nil)
+		bs.Status.BackupClasses = verdicts
+		return bs
+	}
+
+	tests := []struct {
+		name        string
+		objs        []client.Object
+		wantReason  string
+		wantMessage string
+	}{
+		{
+			name: "compatible",
+			objs: []client.Object{class, storageClass, storage(verdict(backupv1alpha1.CompatibilityCompatible, "", ""))},
+		},
+		{
+			name: "incompatible",
+			objs: []client.Object{class, storageClass, storage(verdict(
+				backupv1alpha1.CompatibilityIncompatible, backupv1alpha1.ReasonParameterUnsupported, "implementation: gcs is not allowed",
+			))},
+			wantReason:  v1alpha1.ReasonBackupStorageIncompatible,
+			wantMessage: "backup class pbm cannot write to backup storage s3-prod: ParameterUnsupported: implementation: gcs is not allowed",
+		},
+		{
+			name: "pending",
+			objs: []client.Object{class, storageClass, storage(verdict(
+				backupv1alpha1.CompatibilityPending, backupv1alpha1.ReasonStorageNotAccepted, "not accepted yet",
+			))},
+			wantReason:  v1alpha1.ReasonBackupStorageVerdictPending,
+			wantMessage: "backup storage s3-prod is Pending for backup class pbm: StorageNotAccepted: not accepted yet",
+		},
+		{
+			name:       "no verdict for the class yet",
+			objs:       []client.Object{class, storageClass, storage()},
+			wantReason: v1alpha1.ReasonBackupStorageVerdictPending,
+		},
+		{
+			name: "verdict for an older generation of the class",
+			objs: []client.Object{class, storageClass, storage(verdict(backupv1alpha1.CompatibilityCompatible, "", "",
+				func(o *backupv1alpha1.BackupClassVerdictInputs) { o.ClassGeneration = 2 },
+			))},
+			wantReason: v1alpha1.ReasonBackupStorageVerdictPending,
+		},
+		{
+			name: "verdict for a class recreated under the same name",
+			objs: []client.Object{class, storageClass, storage(verdict(backupv1alpha1.CompatibilityCompatible, "", "",
+				func(o *backupv1alpha1.BackupClassVerdictInputs) { o.ClassUID = "old-uid" },
+			))},
+			wantReason: v1alpha1.ReasonBackupStorageVerdictPending,
+		},
+		{
+			name: "verdict for an older generation of the storage class",
+			objs: []client.Object{class, storageClass, storage(verdict(backupv1alpha1.CompatibilityCompatible, "", "",
+				func(o *backupv1alpha1.BackupClassVerdictInputs) { o.StorageClassGeneration = 1 },
+			))},
+			wantReason: v1alpha1.ReasonBackupStorageVerdictPending,
+		},
+		{
+			name:       "missing storage class",
+			objs:       []client.Object{class, storage(verdict(backupv1alpha1.CompatibilityCompatible, "", ""))},
+			wantReason: v1alpha1.ReasonBackupStorageVerdictPending,
+		},
+		{
+			name: "no class: nothing to judge against",
+			objs: []client.Object{storageClass, storage()},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			c := newBackupStorageTestContext(t, tc.objs...)
+
+			storages, err := c.BackupStorages()
+			require.NoError(t, err)
+			require.Len(t, storages, 1)
+			assert.Equal(t, tc.wantReason == "", storages[0].Apply())
+			assert.Equal(t, tc.wantReason, storages[0].Reason)
+			if tc.wantMessage != "" {
+				assert.Equal(t, tc.wantMessage, storages[0].Message)
+			}
+		})
+	}
 }
 
 func TestRejectBackupStorage_Reasons(t *testing.T) {
@@ -202,4 +306,117 @@ func TestBackupLocation(t *testing.T) {
 		External: &backupv1alpha1.BackupOriginExternal{Path: "legacy/2026-01-01"},
 	}}}
 	assert.Equal(t, "team-a/legacy/2026-01-01", BackupLocation(imported, bs))
+}
+
+// flatStyleProvider declares the flat backup path style.
+type flatStyleProvider struct{}
+
+func (flatStyleProvider) BackupPathStyle() backupv1alpha1.BackupPathStyle {
+	return backupv1alpha1.BackupPathFlat
+}
+
+// emptyStyleProvider declares no style.
+type emptyStyleProvider struct{}
+
+func (emptyStyleProvider) BackupPathStyle() backupv1alpha1.BackupPathStyle { return "" }
+
+func TestBackupPathStyleOf(t *testing.T) {
+	t.Parallel()
+	assert.Equal(t, backupv1alpha1.BackupPathFlat, BackupPathStyleOf(flatStyleProvider{}))
+	assert.Equal(t, backupv1alpha1.BackupPathNested, BackupPathStyleOf(emptyStyleProvider{}))
+	assert.Equal(t, backupv1alpha1.BackupPathNested, BackupPathStyleOf(&BaseProvider{}))
+}
+
+// TestContextBackupLocation checks where a provider of each style finds a
+// backup's data: what the runtime recorded, laid out in the style, or for
+// an imported backup its path under the style's key prefix.
+func TestContextBackupLocation(t *testing.T) {
+	t.Parallel()
+
+	bs := acceptedBackupStorage(nil)
+	bs.Spec.Location.ObjectStore.Prefix = "team-a"
+	taken := func(path string) *backupv1alpha1.Backup {
+		return &backupv1alpha1.Backup{Status: backupv1alpha1.BackupStatus{Path: path}}
+	}
+	imported := func(path string) *backupv1alpha1.Backup {
+		return &backupv1alpha1.Backup{Spec: backupv1alpha1.BackupSpec{Origin: backupv1alpha1.BackupOrigin{
+			External: &backupv1alpha1.BackupOriginExternal{Path: path},
+		}}}
+	}
+
+	tests := []struct {
+		name   string
+		style  backupv1alpha1.BackupPathStyle
+		backup *backupv1alpha1.Backup
+		want   string
+	}{
+		{name: "nested, taken", backup: taken("team-a/backups/ns/orders/uid/s3-prod"), want: "team-a/backups/ns/orders/uid/s3-prod"},
+		{name: "nested, imported", backup: imported("legacy/2026-01-01"), want: "team-a/legacy/2026-01-01"},
+		{
+			name: "flat, taken", style: backupv1alpha1.BackupPathFlat,
+			backup: taken("team-a_backups_ns_orders_uid_s3-prod"), want: "team-a_backups_ns_orders_uid_s3-prod",
+		},
+		{
+			name: "flat, taken before the provider declared the style", style: backupv1alpha1.BackupPathFlat,
+			backup: taken("team-a/backups/ns/orders/uid/s3-prod"), want: "team-a_backups_ns_orders_uid_s3-prod",
+		},
+		{
+			name: "flat, imported", style: backupv1alpha1.BackupPathFlat,
+			backup: imported("backups_ns_orders_uid_s3-prod/node-1/2026-01-01"), want: "team-a_backups_ns_orders_uid_s3-prod/node-1/2026-01-01",
+		},
+		{name: "not recorded", style: backupv1alpha1.BackupPathFlat, backup: taken("")},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			c := newBackupStorageTestContext(t)
+			if tc.style != "" {
+				c.SetBackupPathStyle(tc.style)
+			}
+			assert.Equal(t, tc.want, c.BackupLocation(tc.backup, bs))
+		})
+	}
+}
+
+// TestBackupStorages_PathStyle checks that the path of each entry is laid
+// out in the provider's style, and that a location recorded in the nested
+// layout is not a change once the provider declares the flat one.
+func TestBackupStorages_PathStyle(t *testing.T) {
+	t.Parallel()
+
+	const nested = "backups/ns/orders/orders-uid/s3-prod"
+	tests := []struct {
+		name       string
+		style      backupv1alpha1.BackupPathStyle
+		recorded   string
+		wantPath   string
+		wantReason string
+	}{
+		{name: "nested by default", wantPath: nested},
+		{name: "flat", style: backupv1alpha1.BackupPathFlat, wantPath: "backups_ns_orders_orders-uid_s3-prod"},
+		{
+			name: "flat, recorded nested", style: backupv1alpha1.BackupPathFlat, recorded: nested,
+			wantPath: "backups_ns_orders_orders-uid_s3-prod",
+		},
+		{
+			name: "flat, recorded under another prefix", style: backupv1alpha1.BackupPathFlat, recorded: "old/" + nested,
+			wantPath: "backups_ns_orders_orders-uid_s3-prod", wantReason: v1alpha1.ReasonBackupStorageLocationChanged,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			c := newBackupStorageTestContext(t, acceptedBackupStorage(nil))
+			c.SetBackupPathStyle(tc.style)
+			if tc.recorded != "" {
+				c.in.Status.Backup = &v1alpha1.InstanceBackupStatus{Storages: []v1alpha1.InstanceBackupStorageStatus{{Name: "s3-prod", Location: tc.recorded}}}
+			}
+
+			storages, err := c.BackupStorages()
+			require.NoError(t, err)
+			require.Len(t, storages, 1)
+			assert.Equal(t, tc.wantPath, storages[0].Path)
+			assert.Equal(t, tc.wantReason, storages[0].Reason)
+		})
+	}
 }

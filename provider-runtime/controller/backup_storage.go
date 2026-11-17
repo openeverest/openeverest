@@ -48,7 +48,8 @@ type ResolvedBackupStorage struct {
 	// Storage is nil when the BackupStorage does not exist.
 	Storage *backupv1alpha1.BackupStorage
 	// Path is where the engine writes this Instance's backups, within
-	// Storage.Spec.Location.ObjectStore.Bucket. Every engine writes under it.
+	// Storage.Spec.Location.ObjectStore.Bucket, laid out in the provider's
+	// BackupPathStyle. Every engine writes under it.
 	Path string
 	// Reason and Message say why the entry must not be rendered as
 	// specified; both are empty when it must.
@@ -71,9 +72,11 @@ func (r ResolvedBackupStorage) Name() string {
 
 // BackupStorages resolves and judges every entry of the Instance's
 // spec.backup.storages, in order. An entry may be rendered only when its
-// BackupStorage exists, is Accepted, the Instance's BackupClass can write to
-// it, and it renders to the path recorded in status.backup.storages. Entries
-// the provider rejected with RejectBackupStorage keep that verdict.
+// BackupStorage exists, is Accepted, its current verdict for the Instance's
+// BackupClass in status.backupClasses is Compatible, and it renders to the
+// path recorded in status.backup.storages, read in the provider's
+// BackupPathStyle. Entries the provider rejected with RejectBackupStorage
+// keep that verdict.
 func (c *Context) BackupStorages() ([]ResolvedBackupStorage, error) {
 	if c.backupStorages != nil {
 		return c.backupStorages, nil
@@ -93,6 +96,7 @@ func (c *Context) BackupStorages() ([]ResolvedBackupStorage, error) {
 		}
 	}
 
+	storageClasses := make(map[string]*backupv1alpha1.BackupStorageClass)
 	out := make([]ResolvedBackupStorage, 0, len(spec.Storages))
 	for i := range spec.Storages {
 		entry := &spec.Storages[i]
@@ -109,8 +113,14 @@ func (c *Context) BackupStorages() ([]ResolvedBackupStorage, error) {
 			continue
 		}
 		rs.Storage = bs
-		rs.Path = backupv1alpha1.BackupPath(bs.Spec.Location, c.in.Namespace, c.in.Name, c.in.UID, name)
-		rs.Reason, rs.Message = judgeBackupStorage(class, bs, rs.Path, recorded[name])
+		rs.Path = backupv1alpha1.BackupPathFor(c.BackupPathStyle(), bs.Spec.Location, c.in.Namespace, c.in.Name, c.in.UID, name)
+		var storageClass *backupv1alpha1.BackupStorageClass
+		if class != nil {
+			if storageClass, err = c.backupStorageClass(storageClasses, bs.Spec.BackupStorageClassRef.Name); err != nil {
+				return nil, err
+			}
+		}
+		rs.Reason, rs.Message = judgeBackupStorage(class, bs, storageClass, rs.Path, c.BackupPathStyle().Apply(recorded[name]))
 		out = append(out, rs)
 	}
 	for i := range out {
@@ -122,7 +132,36 @@ func (c *Context) BackupStorages() ([]ResolvedBackupStorage, error) {
 	return out, nil
 }
 
-func judgeBackupStorage(class *backupv1alpha1.BackupClass, bs *backupv1alpha1.BackupStorage, path, recorded string) (string, string) {
+// backupStorageClass returns the BackupStorageClass named name, nil when it
+// does not exist, through cache.
+func (c *Context) backupStorageClass(
+	cache map[string]*backupv1alpha1.BackupStorageClass, name string,
+) (*backupv1alpha1.BackupStorageClass, error) {
+	if sc, ok := cache[name]; ok {
+		return sc, nil
+	}
+	var found *backupv1alpha1.BackupStorageClass
+	sc := &backupv1alpha1.BackupStorageClass{}
+	switch err := c.client.Get(c.ctx, client.ObjectKey{Name: name}, sc); {
+	case err == nil:
+		found = sc
+	case !apierrors.IsNotFound(err):
+		return nil, fmt.Errorf("get BackupStorageClass %q: %w", name, err)
+	}
+	cache[name] = found
+	return found, nil
+}
+
+// judgeBackupStorage returns why the entry naming bs must not be rendered,
+// or nothing. Whether class can write to bs is the verdict core publishes in
+// bs's status.backupClasses, read through CurrentVerdict with storageClass,
+// the storage's BackupStorageClass: an Incompatible verdict is
+// BackupStorageIncompatible, any other that is not Compatible holds the
+// entry as BackupStorageVerdictPending until core publishes a current one.
+func judgeBackupStorage(
+	class *backupv1alpha1.BackupClass, bs *backupv1alpha1.BackupStorage, storageClass *backupv1alpha1.BackupStorageClass,
+	path, recorded string,
+) (string, string) {
 	accepted := meta.FindStatusCondition(bs.Status.Conditions, backupv1alpha1.BackupStorageConditionAccepted)
 	switch {
 	case accepted == nil || accepted.ObservedGeneration != bs.Generation:
@@ -133,9 +172,14 @@ func judgeBackupStorage(class *backupv1alpha1.BackupClass, bs *backupv1alpha1.Ba
 			fmt.Sprintf("backup storage %s is not accepted: %s: %s", bs.Name, accepted.Reason, accepted.Message)
 	}
 	if class != nil {
-		if c := class.CanWriteTo(bs); !c.Compatible {
+		v := backupv1alpha1.CurrentVerdict(bs, class, storageClass)
+		if v.Compatibility == backupv1alpha1.CompatibilityIncompatible {
 			return v1alpha1.ReasonBackupStorageIncompatible,
-				fmt.Sprintf("backup class %s cannot write to backup storage %s: %s", class.Name, bs.Name, c.Message)
+				fmt.Sprintf("backup class %s cannot write to backup storage %s: %s: %s", class.Name, bs.Name, v.Reason, v.Message)
+		}
+		if v.Compatibility != backupv1alpha1.CompatibilityCompatible {
+			return v1alpha1.ReasonBackupStorageVerdictPending,
+				fmt.Sprintf("backup storage %s is %s for backup class %s: %s: %s", bs.Name, v.Compatibility, class.Name, v.Reason, v.Message)
 		}
 	}
 	if recorded != "" && recorded != path {
@@ -148,10 +192,44 @@ func judgeBackupStorage(class *backupv1alpha1.BackupClass, bs *backupv1alpha1.Ba
 	return "", ""
 }
 
+// SetBackupPathStyle sets how the provider lays out backup paths, from
+// BackupPathStyleProvider. It is set by the runtime; providers do not call
+// it.
+func (c *Context) SetBackupPathStyle(style backupv1alpha1.BackupPathStyle) {
+	c.backupPathStyle = style
+}
+
+// BackupPathStyle returns how the provider lays out backup paths:
+// BackupPathNested unless it declares another style through
+// BackupPathStyleProvider. Lay a path out with backupv1alpha1.BackupPathFor
+// and this style, never by hand.
+func (c *Context) BackupPathStyle() backupv1alpha1.BackupPathStyle {
+	if c.backupPathStyle == "" {
+		return backupv1alpha1.BackupPathNested
+	}
+	return c.backupPathStyle
+}
+
+// BackupLocation returns the directory in bs's bucket that holds backup's
+// data, laid out in the provider's BackupPathStyle: the path recorded when
+// the backup started, or for an imported backup its external path under
+// BackupKeyPrefix of the storage's location. It is "" for a backup taken
+// before the path was recorded.
+func (c *Context) BackupLocation(backup *backupv1alpha1.Backup, bs *backupv1alpha1.BackupStorage) string {
+	style := c.BackupPathStyle()
+	if ext := backup.Spec.Origin.External; ext != nil && style == backupv1alpha1.BackupPathFlat {
+		return backupv1alpha1.BackupKeyPrefix(style, bs.Spec.Location) + ext.Path
+	}
+	return style.Apply(BackupLocation(backup, bs))
+}
+
 // BackupLocation returns the directory in bs's bucket that holds backup's
 // data: the path recorded when the backup started, or for an imported backup
 // its external path under the storage's prefix. It is "" for a backup taken
 // before the path was recorded.
+//
+// Deprecated: use Context.BackupLocation, which honours the provider's
+// BackupPathStyle. BackupLocation assumes the nested one.
 func BackupLocation(backup *backupv1alpha1.Backup, bs *backupv1alpha1.BackupStorage) string {
 	if ext := backup.Spec.Origin.External; ext != nil {
 		var prefix string
