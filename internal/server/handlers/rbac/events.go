@@ -19,9 +19,15 @@ import (
 	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	eventsv1 "k8s.io/api/events/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
@@ -77,20 +83,50 @@ func carriesEvent(t watch.EventType) bool {
 	return t == watch.Added || t == watch.Modified || t == watch.Deleted
 }
 
-// canReadEvent reports whether the caller can read ev. The RBAC object is the object
-// the event is about.
-func (h *rbacHandler) canReadEvent(ctx context.Context, cluster string, ev *eventsv1.Event) (bool, error) {
-	resource := rbac.ResourceEvents
-	object := rbac.ClusterNamespacedObjectName(cluster, ev.Regarding.Namespace, ev.Regarding.Name)
-	switch {
-	case ev.Regarding.Kind == "User":
-		resource = rbac.ResourcePlatformEvents
-		object = "*"
-	case ev.Regarding.Namespace == "":
-		resource = rbac.ResourceClusterEvents
-		object = rbac.ClusterObjectName(cluster, ev.Regarding.Name)
+// eventResources maps the kinds lifecycle events are recorded for to their RBAC
+// resource.
+//
+//nolint:gochecknoglobals // immutable lookup table
+var eventResources = map[schema.GroupKind]string{
+	{Group: corev1alpha1.GroupVersion.Group, Kind: "Instance"}:                    rbac.ResourceInstances,
+	{Group: backupv1alpha1.GroupVersion.Group, Kind: "Backup"}:                    rbac.ResourceBackups,
+	{Group: backupv1alpha1.GroupVersion.Group, Kind: "Restore"}:                   rbac.ResourceRestores,
+	{Group: backupv1alpha1.GroupVersion.Group, Kind: "BackupImport"}:              rbac.ResourceBackupImports,
+	{Group: backupv1alpha1.GroupVersion.Group, Kind: "BackupStorage"}:             rbac.ResourceBackupStorages,
+	{Group: monitoringv1alpha1.GroupVersion.Group, Kind: "MonitoringDestination"}: rbac.ResourceMonitoringDestinations,
+	{Group: extensionsv1alpha1.GroupVersion.Group, Kind: "Plugin"}:                rbac.ResourcePlugins,
+	{Group: extensionsv1alpha1.GroupVersion.Group, Kind: "InstalledExtension"}:    rbac.ResourceInstalledExtensions,
+	{Group: corev1.GroupName, Kind: "Namespace"}:                                  rbac.ResourceNamespaces,
+}
+
+// eventResource returns the RBAC resource of the object ref refers to.
+func eventResource(ref corev1.ObjectReference) (string, bool) {
+	gv, err := schema.ParseGroupVersion(ref.APIVersion)
+	if err != nil {
+		return "", false
 	}
-	err := h.enforce(ctx, resource, rbac.ActionRead, object)
+	resource, ok := eventResources[gv.WithKind(ref.Kind).GroupKind()]
+	return resource, ok
+}
+
+// canReadEvent reports whether the caller can read ev: read-events on the object
+// the event is about, or read on platform-events for logins and logouts. Events
+// about kinds without a resource are never shown.
+func (h *rbacHandler) canReadEvent(ctx context.Context, cluster string, ev *eventsv1.Event) (bool, error) {
+	ref := ev.Regarding
+	resource, action, object := rbac.ResourcePlatformEvents, rbac.ActionRead, "*"
+	if ref.Kind != "User" {
+		var ok bool
+		if resource, ok = eventResource(ref); !ok {
+			return false, nil
+		}
+		action = rbac.ActionReadEvents
+		object = rbac.ClusterNamespacedObjectName(cluster, ref.Namespace, ref.Name)
+		if ref.Namespace == "" {
+			object = rbac.ClusterObjectName(cluster, ref.Name)
+		}
+	}
+	err := h.enforce(ctx, resource, action, object)
 	if errors.Is(err, ErrInsufficientPermissions) {
 		return false, nil
 	}

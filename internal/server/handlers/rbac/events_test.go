@@ -26,15 +26,22 @@ import (
 	eventsv1 "k8s.io/api/events/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/controller/lifecycleevents"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
 
 func lifecycleEvent(namespace, object string) eventsv1.Event {
 	return eventsv1.Event{
 		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: object + ".created"},
-		Regarding:  corev1.ObjectReference{Kind: "Instance", Namespace: namespace, Name: object},
+		Regarding: corev1.ObjectReference{
+			APIVersion: corev1alpha1.GroupVersion.String(), Kind: "Instance", Namespace: namespace, Name: object,
+		},
 	}
 }
 
@@ -59,12 +66,12 @@ var eventPolicyCases = []struct {
 	},
 	{
 		desc:   "namespace grant reads only the events of that namespace",
-		policy: newPolicy("p, role:test, events, read, prod/team-a/*", "g, bob, role:test"),
+		policy: newPolicy("p, role:test, instances, read-events, prod/team-a/*", "g, bob, role:test"),
 		want:   []string{"db1.created"},
 	},
 	{
 		desc:   "object grant reads only the events about that object",
-		policy: newPolicy("p, role:test, events, read, prod/team-b/db2", "g, bob, role:test"),
+		policy: newPolicy("p, role:test, instances, read-events, prod/team-b/db2", "g, bob, role:test"),
 		want:   []string{"db2.created"},
 	},
 	{
@@ -73,8 +80,18 @@ var eventPolicyCases = []struct {
 		want:   []string{},
 	},
 	{
+		desc:   "all actions on instances grant events",
+		policy: newPolicy("p, role:test, instances, *, prod/team-a/*", "g, bob, role:test"),
+		want:   []string{"db1.created"},
+	},
+	{
+		desc:   "read-events on another kind reads nothing",
+		policy: newPolicy("p, role:test, backups, read-events, prod/*/*", "g, bob, role:test"),
+		want:   []string{},
+	},
+	{
 		desc:   "grant on another cluster reads nothing",
-		policy: newPolicy("p, role:test, events, read, staging/*/*", "g, bob, role:test"),
+		policy: newPolicy("p, role:test, instances, read-events, staging/*/*", "g, bob, role:test"),
 		want:   []string{},
 	},
 }
@@ -87,21 +104,28 @@ func allLifecycleEvents() []eventsv1.Event {
 	}
 }
 
-func TestRBAC_ListEventsUsesRegardingScope(t *testing.T) {
+func TestRBAC_ListEventsAuthorizesTheRegardingObject(t *testing.T) {
 	t.Parallel()
 
 	events := []eventsv1.Event{
-		{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "db1.created"},
-			Regarding:  corev1.ObjectReference{Kind: "Instance", Namespace: "team-a", Name: "db1"},
-		},
+		lifecycleEvent("team-a", "db1"),
 		{
 			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "prod-plugin.created"},
-			Regarding:  corev1.ObjectReference{Kind: "Plugin", Name: "prod-plugin"},
+			Regarding: corev1.ObjectReference{
+				APIVersion: extensionsv1alpha1.GroupVersion.String(), Kind: "Plugin", Name: "prod-plugin",
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "team-a.created"},
+			Regarding:  corev1.ObjectReference{APIVersion: "v1", Kind: "Namespace", Name: "team-a"},
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{Namespace: "everest-system", Name: "alice.login"},
 			Regarding:  corev1.ObjectReference{Kind: "User", Namespace: "everest-system", Name: "alice"},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "widget.created"},
+			Regarding:  corev1.ObjectReference{APIVersion: "example.com/v1", Kind: "Widget", Namespace: "team-a", Name: "widget"},
 		},
 	}
 	cases := []struct {
@@ -110,14 +134,31 @@ func TestRBAC_ListEventsUsesRegardingScope(t *testing.T) {
 		want   []string
 	}{
 		{
-			name:   "namespaced permission cannot read cluster or platform events",
-			policy: newPolicy("p, role:test, events, read, prod/team-a/*", "g, bob, role:test"),
+			name:   "admin reads the events of every recorded kind",
+			policy: newPolicy("g, bob, role:admin"),
+			want:   []string{"db1.created", "prod-plugin.created", "team-a.created", "alice.login"},
+		},
+		{
+			name:   "namespaced grant reads no cluster-scoped or login events",
+			policy: newPolicy("p, role:test, instances, read-events, prod/team-a/*", "g, bob, role:test"),
 			want:   []string{"db1.created"},
 		},
 		{
-			name:   "cluster permission reads cluster-scoped events",
-			policy: newPolicy("p, role:test, cluster-events, read, prod/*", "g, bob, role:test"),
+			name:   "cluster-scoped resource uses the cluster/name object",
+			policy: newPolicy("p, role:test, plugins, read-events, prod/*", "g, bob, role:test"),
 			want:   []string{"prod-plugin.created"},
+		},
+		{
+			name:   "namespace events need read-events on the namespace",
+			policy: newPolicy("p, role:test, namespaces, read-events, prod/team-a", "g, bob, role:test"),
+			want:   []string{"team-a.created"},
+		},
+		{
+			name: "resource wildcard reads every object's events but no logins",
+			policy: newPolicy(
+				"p, role:test, *, read-events, */*/*", "p, role:test, *, read-events, */*", "g, bob, role:test",
+			),
+			want: []string{"db1.created", "prod-plugin.created", "team-a.created"},
 		},
 		{
 			name:   "platform permission reads login events",
@@ -208,5 +249,20 @@ func TestRBAC_WatchEvents(t *testing.T) {
 			assert.Equal(t, watch.Error, (<-w.ResultChan()).Type)
 			assert.ElementsMatch(t, tc.want, got)
 		})
+	}
+}
+
+// Events about a recorded kind without an RBAC resource would be hidden from everyone.
+func TestEventResourcesCoverRecordedKinds(t *testing.T) {
+	t.Parallel()
+
+	scheme := kubernetes.CreateScheme()
+	for _, kind := range lifecycleevents.DefaultKinds() {
+		gvk, err := apiutil.GVKForObject(kind.New(), scheme)
+		require.NoError(t, err)
+		resource, ok := eventResources[gvk.GroupKind()]
+		if assert.True(t, ok, "no RBAC resource for %s", gvk.GroupKind()) {
+			assert.Contains(t, rbac.AllResources, resource)
+		}
 	}
 }

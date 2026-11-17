@@ -493,11 +493,12 @@ export interface paths {
          *     too old for the cluster to resume from, the stream sends an `error` event with
          *     code 410: relist all pages and stream from the new `resourceVersion`.
          *
-         *     **Access.** Namespaced-object events require `read` on `events` for
-         *     `{cluster}/{namespace}/{name}`. Cluster-scoped-object events require `read` on
-         *     `cluster-events` for `{cluster}/{name}`. Login and logout events require the
-         *     global `platform-events` permission. These checks use the object the Event is
-         *     about, not the namespace where Kubernetes stores the Event.
+         *     **Access.** The events about an object require `read-events` on the object's own
+         *     resource and RBAC object, e.g. `instances` for `{cluster}/{namespace}/{name}` or
+         *     `plugins` for `{cluster}/{name}`; InstalledExtensions use `installed-extensions`.
+         *     `read` does not imply `read-events`. Login and logout events require `read` on the
+         *     global `platform-events`. These checks use the object the Event is about, not the
+         *     namespace where Kubernetes stores the Event.
          */
         get: operations["listEvents"];
         put?: never;

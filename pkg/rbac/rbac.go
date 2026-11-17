@@ -84,10 +84,11 @@ const (
 	ResourceMonitoringDestinations = "monitoring-destinations"
 	ResourceMonitoringBindings     = "monitoring-bindings"
 
-	// ResourceEvents are the lifecycle events. Its RBAC object is
-	// cluster/namespace/name, where name is the object the event is about.
-	ResourceEvents         = "events"
-	ResourceClusterEvents  = "cluster-events"
+	// ResourceInstalledExtensions are the installed plugins and providers. The
+	// API serves only their lifecycle events.
+	ResourceInstalledExtensions = "installed-extensions"
+	// ResourcePlatformEvents are the login and logout events. They are about
+	// users, which have no resource of their own.
 	ResourcePlatformEvents = "platform-events"
 )
 
@@ -110,7 +111,7 @@ var ClusterScopedResources = []string{
 	ResourcePlugins,
 	ResourceClusterInstancePresets,
 	ResourceMonitoringClasses,
-	ResourceClusterEvents,
+	ResourceInstalledExtensions,
 }
 
 // ClusterNamespacedResources is a list of v2 resources scoped to cluster + namespace.
@@ -126,14 +127,13 @@ var ClusterNamespacedResources = []string{
 	ResourceSecrets,
 	ResourceMonitoringDestinations,
 	ResourceMonitoringBindings,
-	ResourceEvents,
 }
 
 // isReadOnlyResource returns true if the API serves no writes for the
 // resource, so the admin role is granted only read on it.
 func isReadOnlyResource(resource string) bool {
 	return resource == ResourceMonitoringClasses || resource == ResourceMonitoringBindings ||
-		resource == ResourceEvents || resource == ResourceClusterEvents || resource == ResourcePlatformEvents
+		resource == ResourcePlatformEvents
 }
 
 // IsGlobalResource returns true if the given resource is a global (non-namespaced) Everest API resource.
@@ -190,7 +190,10 @@ const (
 	// ActionReadConnection gates reading an instance's connection credentials.
 	// ActionRead does not imply it; only an explicit grant or ActionAll does.
 	ActionReadConnection = "read-connection"
-	ActionAll            = "*"
+	// ActionReadEvents gates reading the lifecycle events about an object.
+	// ActionRead does not imply it; only an explicit grant or ActionAll does.
+	ActionReadEvents = "read-events"
+	ActionAll        = "*"
 )
 
 const (
@@ -200,7 +203,9 @@ const (
 // SupportedActions is the list of all RBAC actions supported by Everest.
 //
 //nolint:gochecknoglobals // immutable lookup table
-var SupportedActions = []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionUse, ActionCreateFromPreset, ActionReadConnection, ActionAll}
+var SupportedActions = []string{
+	ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionUse, ActionCreateFromPreset, ActionReadConnection, ActionReadEvents, ActionAll,
+}
 
 // User represents an authenticated subject and its groups for RBAC checks.
 type User struct {
