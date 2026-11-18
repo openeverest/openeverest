@@ -18,7 +18,9 @@
 package rbac
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -74,6 +76,28 @@ func init() {
 	settingsRBACCanCmd.Flags().StringVar(&rbacCanPolicyFilePath, cli.FlagRBACPolicyFile, "", "Path to the policy file to use, otherwise use policy from Everest deployment.")
 }
 
+// CanResult represents the result of an RBAC permissions check.
+type CanResult struct {
+	Can bool `json:"can"`
+}
+
+func isFlagChanged(cmd *cobra.Command, name string) bool {
+	f := cmd.Flag(name)
+	return f != nil && f.Changed
+}
+
+func renderCan(w io.Writer, can bool, pretty bool) {
+	if !pretty {
+		_ = json.NewEncoder(w).Encode(CanResult{Can: can}) //nolint:errchkjson
+		return
+	}
+	if can {
+		_, _ = fmt.Fprintln(w, "Yes")
+		return
+	}
+	_, _ = fmt.Fprintln(w, "No")
+}
+
 func settingsRBACCanPreRunE(cmd *cobra.Command, args []string) error {
 	// validate action
 	if !rbac.ValidateAction(args[1]) {
@@ -84,8 +108,10 @@ func settingsRBACCanPreRunE(cmd *cobra.Command, args []string) error {
 	}
 
 	// Copy global flags to config
-	rbacCanPretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
-	rbacCanKubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
+	rbacCanPretty = !isFlagChanged(cmd, cli.FlagVerbose) && !isFlagChanged(cmd, cli.FlagJSON)
+	if f := cmd.Flag(cli.FlagKubeconfig); f != nil {
+		rbacCanKubeconfigPath = f.Value.String()
+	}
 	return nil
 }
 
@@ -119,11 +145,7 @@ func settingsRBACCanRun(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	if can {
-		_, _ = fmt.Fprintln(os.Stdout, "Yes")
-		return
-	}
-	_, _ = fmt.Fprintln(os.Stdout, "No")
+	renderCan(os.Stdout, can, rbacCanPretty)
 }
 
 // GetSettingsRBACCanCmd returns the command to test RBAC policy.
