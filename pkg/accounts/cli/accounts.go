@@ -19,9 +19,12 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/rodaine/table"
@@ -173,8 +176,53 @@ const (
 	ColumnEnabled = "enabled"
 )
 
+// AccountInfo contains information about a user account.
+type AccountInfo struct {
+	User         string                       `json:"user"`
+	Capabilities []accounts.AccountCapability `json:"capabilities"`
+	Enabled      bool                         `json:"enabled"`
+}
+
 // List all user accounts in the system.
 func (c *Accounts) List(ctx context.Context, opts ListOptions) error {
+	accountsList, err := c.accountManager.List(ctx)
+	if err != nil {
+		return err
+	}
+
+	users := make([]string, 0, len(accountsList))
+	for user := range accountsList {
+		users = append(users, user)
+	}
+	slices.Sort(users)
+
+	accList := make([]AccountInfo, 0, len(users))
+	for _, user := range users {
+		a := accountsList[user]
+		accList = append(accList, AccountInfo{
+			User:         user,
+			Capabilities: a.Capabilities,
+			Enabled:      a.Enabled,
+		})
+	}
+
+	c.Render(os.Stdout, accList, opts)
+	return nil
+}
+
+// Render formats user accounts to w as either JSON or an ASCII table based on c.config.Pretty.
+func (c *Accounts) Render(w io.Writer, accList []AccountInfo, opts ListOptions) {
+	if !c.config.Pretty {
+		if accList == nil {
+			accList = []AccountInfo{}
+		}
+		_ = json.NewEncoder(w).Encode(accList) //nolint:errchkjson
+		return
+	}
+	printAccountsTable(w, accList, opts)
+}
+
+func printAccountsTable(w io.Writer, accList []AccountInfo, opts ListOptions) {
 	// Prepare table headings.
 	headings := []any{ColumnUser, ColumnCapabilities, ColumnEnabled}
 	if len(opts.Columns) > 0 {
@@ -184,7 +232,7 @@ func (c *Accounts) List(ctx context.Context, opts ListOptions) error {
 		}
 	}
 	// Prepare table header.
-	tbl := table.New(headings...)
+	tbl := table.New(headings...).WithWriter(w)
 	tbl.WithHeaderFormatter(func(format string, vals ...any) string {
 		if opts.NoHeaders { // Skip printing headers.
 			return ""
@@ -192,31 +240,26 @@ func (c *Accounts) List(ctx context.Context, opts ListOptions) error {
 		// Otherwise print in all caps.
 		return strings.ToUpper(fmt.Sprintf(format, vals...))
 	})
-	accountsList, err := c.accountManager.List(ctx)
-	if err != nil {
-		return err
-	}
 
 	// Return a table row for the given account.
-	row := func(user string, account *accounts.Account) []any {
+	row := func(acc AccountInfo) []any {
 		var row []any
 		for _, heading := range headings {
 			switch heading {
 			case ColumnUser:
-				row = append(row, user)
+				row = append(row, acc.User)
 			case ColumnCapabilities:
-				row = append(row, account.Capabilities)
+				row = append(row, acc.Capabilities)
 			case ColumnEnabled:
-				row = append(row, account.Enabled)
+				row = append(row, acc.Enabled)
 			}
 		}
 		return row
 	}
-	for user, a := range accountsList {
-		tbl.AddRow(row(user, a)...)
+	for _, acc := range accList {
+		tbl.AddRow(row(acc)...)
 	}
 	tbl.Print()
-	return nil
 }
 
 // GetInitAdminPassword returns the initial admin password.
