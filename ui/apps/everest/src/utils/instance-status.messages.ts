@@ -48,10 +48,10 @@ export const REASON_LABELS: Record<string, string> = {
 
 export const Messages = {
   // Whether clients can connect, said next to the status word while work is
-  // in flight: "Upgrading · online".
+  // in flight: "Upgrading · available". The words of the Available condition.
   connectivity: {
-    Yes: 'online',
-    No: 'offline',
+    Yes: 'available',
+    No: 'unavailable',
   },
   withDetail: (statusWord: string, detail: string) =>
     `${statusWord} \u00b7 ${detail}`,

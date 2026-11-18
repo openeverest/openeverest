@@ -221,7 +221,7 @@ test.describe.serial(
 
       await page.goto('/databases');
 
-      await test.step('It is being created, and is not called offline', async () => {
+      await test.step('It is being created, and is not called unavailable', async () => {
         await expect(statusOf(page, dbName)).toHaveText('Creating', {
           timeout: TIMEOUTS.ThirtySeconds,
         });
@@ -293,16 +293,16 @@ test.describe.serial(
       });
     });
 
-    test('An upgrade keeps the database online and holds edits back', async ({
+    test('An upgrade keeps the database available and holds edits back', async ({
       page,
       request,
     }) => {
       await changeVersion(request, dbName, TO_VERSION);
       await page.goto('/databases');
 
-      await test.step('The list says both: upgrading, and online', async () => {
+      await test.step('The list says both: upgrading, and available', async () => {
         await expect(statusOf(page, dbName)).toHaveText(
-          'Upgrading \u00b7 online',
+          'Upgrading \u00b7 available',
           { timeout: TIMEOUTS.ThreeMinutes }
         );
       });
@@ -310,7 +310,7 @@ test.describe.serial(
       await test.step('So does the header, and nothing is reported as wrong', async () => {
         await openDetails(page, dbName);
         await expect(statusOf(page, dbName)).toHaveText(
-          'Upgrading \u00b7 online',
+          'Upgrading \u00b7 available',
           { timeout: TIMEOUTS.ThirtySeconds }
         );
         await expect(page.getByTestId('instance-status-alert')).toHaveCount(0);

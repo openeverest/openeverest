@@ -91,10 +91,10 @@ describe('getInstanceStatusText', () => {
     getInstanceStatusText(source, getInstanceStatusDisplay(source));
 
   it.each([
-    ['rolling-upgrade', 'Upgrading \u00b7 online'],
-    ['spec-edited-not-observed', 'Applying changes \u00b7 online'],
-    ['in-place-restore', 'Restoring \u00b7 offline'],
-    // Never been up, so it is not offline either.
+    ['rolling-upgrade', 'Upgrading \u00b7 available'],
+    ['spec-edited-not-observed', 'Applying changes \u00b7 available'],
+    ['in-place-restore', 'Restoring \u00b7 unavailable'],
+    // Never been up, so it is not unavailable either.
     ['seeding-from-backup', 'Restoring'],
     ['change-availability-unknown', 'Applying changes'],
     // Outside of work the status word and its tone say it.

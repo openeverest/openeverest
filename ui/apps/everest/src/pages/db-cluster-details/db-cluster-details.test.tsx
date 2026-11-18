@@ -103,7 +103,7 @@ const renderDetails = (instance: Instance) => {
 };
 
 describe('DbClusterDetails', () => {
-  it('says in the header that a database being upgraded is still online', () => {
+  it('says in the header that a database being upgraded is still available', () => {
     renderDetails(
       instanceWith([
         condition('Available', 'True'),
@@ -113,14 +113,14 @@ describe('DbClusterDetails', () => {
     );
 
     expect(screen.getByTestId('my-test-db-status')).toHaveTextContent(
-      'Upgrading \u00b7 online'
+      'Upgrading \u00b7 available'
     );
     expect(
       screen.queryByTestId('instance-status-alert')
     ).not.toBeInTheDocument();
   });
 
-  it('does not call a database that has never been up offline', () => {
+  it('does not call a database that has never been up unavailable', () => {
     renderDetails(
       instanceWith(
         [
