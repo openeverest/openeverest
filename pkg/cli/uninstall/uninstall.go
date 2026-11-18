@@ -46,7 +46,6 @@ type Uninstall struct {
 	config        Config
 	kubeConnector kubernetes.KubernetesConnector
 	l             *zap.SugaredLogger
-	clusterType   kubernetes.ClusterType
 }
 
 // Config stores configuration for the Uninstall command.
@@ -57,7 +56,8 @@ type Config struct {
 	AssumeYes bool
 	// Force is true when we shall not prompt for removal.
 	Force bool
-	// SkipEnvDetection skips detecting the Kubernetes environment.
+	// SkipEnvDetection is deprecated and no longer has any effect.
+	// Kubernetes environment detection is not needed by the uninstall flow.
 	SkipEnvDetection bool
 	// If set, we will print the pretty output.
 	Pretty bool
@@ -100,10 +100,6 @@ func (u *Uninstall) Run(ctx context.Context) error {
 		}
 	}
 
-	if err := u.setKubernetesEnv(ctx); err != nil {
-		return fmt.Errorf("failed to detect Kubernetes environment: %w", err)
-	}
-
 	dbsExist, err := u.kubeConnector.DatabasesExist(ctx)
 	if err != nil {
 		return errors.Join(err, errors.New("failed to check if databases exist"))
@@ -137,19 +133,6 @@ func (u *Uninstall) Run(ctx context.Context) error {
 
 	u.l.Infof("Everest has been uninstalled successfully")
 	_, _ = fmt.Fprintln(out, "Everest has been uninstalled successfully")
-	return nil
-}
-
-func (u *Uninstall) setKubernetesEnv(ctx context.Context) error {
-	if !u.config.SkipEnvDetection {
-		return nil
-	}
-	t, err := u.kubeConnector.GetClusterType(ctx)
-	if err != nil {
-		return err
-	}
-	u.clusterType = t
-	u.l.Infof("Detected Kubernetes environment: %s", t)
 	return nil
 }
 
