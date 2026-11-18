@@ -28,6 +28,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	toolscache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/events"
 	"k8s.io/client-go/util/workqueue"
@@ -762,7 +763,9 @@ func (r *ProviderReconciler) observe(ctx context.Context, p *pass, syncCtx *cont
 		return err
 	}
 	p.reported(ctx, status)
-	p.lookAgainIn(r.setPodStatus(ctx, in, syncCtx.LabelledComponents(), p.now))
+	labelled := syncCtx.LabelledComponents()
+	p.state.labelled = sets.New(labelled...)
+	p.lookAgainIn(r.setPodStatus(ctx, in, labelled, p.state.desired, p.now))
 	p.podsObserved = true
 
 	// Collect per-storage backup observability data (e.g. the latest
@@ -886,6 +889,7 @@ func (r *ProviderReconciler) handleDeletion(
 
 	p := r.begin(in)
 	p.deleting = true
+	r.countPodsWhileDeleting(ctx, p)
 
 	// Say that the Instance is being deleted before cleanup starts, which can
 	// take long. Later passes write only at their end, once they know what

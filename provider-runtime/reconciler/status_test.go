@@ -17,9 +17,12 @@ package reconciler
 import (
 	"context"
 	"errors"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr/funcr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -31,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
@@ -48,16 +52,25 @@ type readyTestProvider struct {
 	calls int
 
 	// sync runs inside Sync, before syncErr is returned.
-	sync       func(*controller.Context)
-	syncErr    error
-	statusErr  error
+	sync      func(*controller.Context)
+	syncErr   error
+	statusErr error
+	// cleanup runs inside Cleanup, before cleanupErr is returned.
+	cleanup    func(*controller.Context)
 	cleanupErr error
 	syncs      int
 }
 
 func (p *readyTestProvider) Name() string                       { return "test-provider" }
 func (p *readyTestProvider) Types() func(*runtime.Scheme) error { return nil }
-func (p *readyTestProvider) Cleanup(*controller.Context) error  { return p.cleanupErr }
+
+func (p *readyTestProvider) Cleanup(c *controller.Context) error {
+	if p.cleanup != nil {
+		p.cleanup(c)
+	}
+
+	return p.cleanupErr
+}
 
 func (p *readyTestProvider) Sync(c *controller.Context) error {
 	p.syncs++
@@ -1161,6 +1174,113 @@ func TestReconcile_PodsStartingLeaveTheStatusWordAlone(t *testing.T) {
 	}
 }
 
+// The desired replicas the provider reports describe the generation it
+// reported them for. They stand on a pass that does not ask the provider,
+// are absent on a new generation until it reports again, and survive a
+// restart only when the stored status describes the current generation.
+func TestReconcile_DesiredReplicas(t *testing.T) {
+	t.Parallel()
+
+	var ignored atomic.Int32
+	ctx := log.IntoContext(t.Context(), funcr.New(func(_, args string) {
+		if strings.Contains(args, "a component the Instance does not have") {
+			ignored.Add(1)
+		}
+	}, funcr.Options{}))
+	p := &readyTestProvider{status: controller.Ready().WithAvailable(controller.Available).
+		WithDesiredReplicas("engine", 3).
+		WithDesiredReplicas("hidden", 2).
+		WithDesiredReplicas("arbiter", 1)}
+	p.sync = func(c *controller.Context) { c.PodLabels("engine") }
+	provider := readyTestProviderObject()
+	provider.Spec.ComponentTypes = map[string]v1alpha1.ComponentType{"mongod": {}}
+	provider.Spec.Components = map[string]v1alpha1.Component{"engine": {Type: "mongod"}, "hidden": {Type: "mongod"}}
+	st := newStatusTest(t, p, provider, readyTestInstance(func(in *v1alpha1.Instance) {
+		in.Spec.Components = map[string]v1alpha1.ComponentSpec{"engine": {Type: "mongod"}, "hidden": {Type: "mongod"}}
+	}))
+	inTeamA := func(p *corev1.Pod) { p.Namespace = "team-a" }
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	pods := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		componentPod("orders-rs0-0", "orders", "engine", true, inTeamA),
+		componentPod("orders-rs0-1", "orders", "engine", true, inTeamA),
+		// The provider holds the hidden members back and labels none, but
+		// this pod still carries the labels. It is counted, not judged.
+		componentPod("orders-rs0-hidden-0", "orders", "hidden", false, inTeamA),
+	).Build()
+	st.r.pods.Store(client.Reader(pods))
+	pass := func() *v1alpha1.Instance {
+		t.Helper()
+		_, err := st.r.Reconcile(ctx, reconcile.Request{NamespacedName: st.key()})
+		require.NoError(t, err)
+		got := &v1alpha1.Instance{}
+		require.NoError(t, st.r.Get(ctx, st.key(), got))
+		return got
+	}
+	type counts struct{ replicas, desired *int32 }
+	components := func(in *v1alpha1.Instance) map[string]counts {
+		out := make(map[string]counts, len(in.Status.Components))
+		for _, c := range in.Status.Components {
+			out[c.Name] = counts{replicas: c.Replicas, desired: c.DesiredReplicas}
+		}
+		return out
+	}
+	restart := func() { st.r.tracker.forget(st.key()) }
+
+	got := pass()
+	assert.Equal(t, map[string]counts{
+		"engine": {replicas: new(int32(2)), desired: new(int32(3))},
+		"hidden": {replicas: new(int32(1)), desired: new(int32(2))},
+	}, components(got), "copied; a component the Instance does not have is left out")
+	requireCondition(t, got, v1alpha1.ConditionPodsReady, metav1.ConditionTrue, v1alpha1.ReasonReady)
+	assert.Equal(t, int32(1), ignored.Load())
+
+	pass()
+	assert.Equal(t, int32(1), ignored.Load(), "logged once per generation")
+
+	// The provider is not asked while Sync waits. The pods are still counted.
+	p.syncErr = controller.WaitFor("waiting for the rollout")
+	require.NoError(t, pods.Create(ctx, componentPod("orders-rs0-2", "orders", "engine", true, inTeamA)))
+	got = pass()
+	assert.Equal(t, map[string]counts{
+		"engine": {replicas: new(int32(3)), desired: new(int32(3))},
+		"hidden": {replicas: new(int32(1)), desired: new(int32(2))},
+	}, components(got), "carried within the generation")
+	requireCondition(t, got, v1alpha1.ConditionPodsReady, metav1.ConditionTrue, v1alpha1.ReasonReady)
+
+	restart()
+	got = pass()
+	assert.Equal(t, map[string]counts{
+		"engine": {replicas: new(int32(3)), desired: new(int32(3))},
+		"hidden": {replicas: new(int32(1)), desired: new(int32(2))},
+	}, components(got), "seeded from the stored status, which describes this generation")
+
+	st.editSpec()
+	got = pass()
+	assert.Equal(t, map[string]counts{
+		"engine": {replicas: new(int32(3))},
+		"hidden": {replicas: new(int32(1))},
+	}, components(got), "absent on a new generation until the provider reports")
+
+	p.syncErr = nil
+	p.status = p.status.WithDesiredReplicas("engine", 5)
+	got = pass()
+	assert.Equal(t, map[string]counts{
+		"engine": {replicas: new(int32(3)), desired: new(int32(5))},
+		"hidden": {replicas: new(int32(1)), desired: new(int32(2))},
+	}, components(got))
+	assert.Equal(t, int32(2), ignored.Load(), "logged again on a new generation")
+
+	restart()
+	st.editSpec()
+	p.syncErr = controller.WaitFor("waiting for the rollout")
+	got = pass()
+	assert.Equal(t, map[string]counts{
+		"engine": {replicas: new(int32(3))},
+		"hidden": {replicas: new(int32(1))},
+	}, components(got), "not seeded from a stored status that describes the generation before")
+}
+
 func TestReconcile_Deletion(t *testing.T) {
 	t.Parallel()
 
@@ -1209,6 +1329,60 @@ func TestReconcile_Deletion(t *testing.T) {
 		require.NoError(t, err)
 		err = st.r.Get(t.Context(), st.key(), &v1alpha1.Instance{})
 		assert.True(t, apierrors.IsNotFound(err), "the finalizer is removed once cleanup is done")
+	})
+
+	t.Run("the pods are counted and the desired replicas removed", func(t *testing.T) {
+		t.Parallel()
+		p := &readyTestProvider{cleanupErr: controller.WaitFor("volumes are being released")}
+		podsReady := metav1.Condition{
+			Type: v1alpha1.ConditionPodsReady, Status: metav1.ConditionTrue, Reason: v1alpha1.ReasonReady,
+			ObservedGeneration: 2, LastTransitionTime: metav1.NewTime(time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)),
+		}
+		const selector = "core.openeverest.io/component=engine,core.openeverest.io/instance=orders"
+		st := newStatusTest(t, p, readyTestProviderObject(), deleting(func(in *v1alpha1.Instance) {
+			in.Spec.Components = map[string]v1alpha1.ComponentSpec{"engine": {}}
+			in.Status.ObservedGeneration = in.Generation
+			in.Status.Components = []v1alpha1.ComponentStatus{{
+				Name: "engine", Selector: selector,
+				Replicas: new(int32(3)), ReadyReplicas: new(int32(3)), DesiredReplicas: new(int32(3)),
+			}}
+			in.Status.Conditions = []metav1.Condition{podsReady}
+		}))
+		inTeamA := func(p *corev1.Pod) { p.Namespace = "team-a" }
+		scheme := runtime.NewScheme()
+		require.NoError(t, corev1.AddToScheme(scheme))
+		pods := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+			componentPod("orders-rs0-0", "orders", "engine", true, inTeamA),
+			componentPod("orders-rs0-1", "orders", "engine", false, inTeamA),
+			componentPod("orders-rs0-2", "orders", "engine", true, inTeamA, func(p *corev1.Pod) {
+				deleted := metav1.Now()
+				p.DeletionTimestamp = &deleted
+				p.Finalizers = []string{"test"}
+			}),
+		).Build()
+		st.r.pods.Store(client.Reader(pods))
+		want := []v1alpha1.ComponentStatus{{
+			Name: "engine", Selector: selector, Replicas: new(int32(2)), ReadyReplicas: new(int32(1)),
+		}}
+		var firstWrite []v1alpha1.ComponentStatus
+		p.cleanup = func(*controller.Context) {
+			stored := &v1alpha1.Instance{}
+			require.NoError(t, st.r.Get(t.Context(), st.key(), stored))
+			firstWrite = stored.Status.Components
+		}
+
+		got, _ := st.pass()
+
+		assert.Equal(t, want, firstWrite, "the write that says the Instance is being deleted")
+		assert.Equal(t, want, got.Status.Components)
+		ready := requireCondition(t, got, v1alpha1.ConditionPodsReady, metav1.ConditionTrue, v1alpha1.ReasonReady)
+		assert.True(t, podsReady.LastTransitionTime.Equal(&ready.LastTransitionTime), "PodsReady is not judged")
+
+		require.NoError(t, pods.Delete(t.Context(), componentPod("orders-rs0-0", "orders", "engine", true, inTeamA)))
+		st.advance(10 * time.Second)
+		got, _ = st.pass()
+		want[0].Replicas, want[0].ReadyReplicas = new(int32(1)), new(int32(0))
+		assert.Equal(t, want, got.Status.Components, "the counts follow the pods")
 	})
 
 	t.Run("it waits for the Instance's backups first", func(t *testing.T) {
@@ -1310,6 +1484,50 @@ func TestTracker(t *testing.T) {
 	tr.forget(client.ObjectKeyFromObject(in))
 	in.Generation++
 	assert.False(t, tr.track(in, now).converged, "Ready describes the generation before")
+}
+
+// A process that has just started takes the desired replicas over from the
+// stored status only when it describes the current generation.
+func TestTracker_DesiredReplicas(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+	stored := func(observed int64) *v1alpha1.Instance {
+		return readyTestInstance(func(in *v1alpha1.Instance) {
+			in.Spec.Components = map[string]v1alpha1.ComponentSpec{"engine": {}, "proxy": {}}
+			in.Status.ObservedGeneration = observed
+			in.Status.Components = []v1alpha1.ComponentStatus{
+				{Name: "engine", DesiredReplicas: new(int32(3))},
+				{Name: "proxy", DesiredReplicas: new(int32(0))},
+				{Name: "arbiter", DesiredReplicas: new(int32(1))},
+				{Name: "hidden"},
+			}
+		})
+	}
+
+	tests := []struct {
+		name     string
+		observed int64
+		want     map[string]int32
+	}{
+		{name: "the stored status describes the generation", observed: 2, want: map[string]int32{"engine": 3, "proxy": 0}},
+		{name: "it describes the generation before", observed: 1},
+		{name: "nothing was observed", observed: -1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var tr tracker
+
+			assert.Equal(t, tt.want, tr.track(stored(tt.observed), now).desired)
+		})
+	}
+
+	var tr tracker
+	in := stored(2)
+	st := tr.track(in, now)
+	st.desired = map[string]int32{"engine": 5}
+	in.Generation++
+	assert.Nil(t, tr.track(in, now).desired, "a new generation in a running process starts without")
 }
 
 func TestSettleConditions(t *testing.T) {

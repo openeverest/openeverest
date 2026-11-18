@@ -99,6 +99,16 @@ type tracked struct {
 	lastConverged bool
 	message       string
 	terminal      *summary.Cause
+	// desired is how many pods the provider last said each component will
+	// have once this generation has converged, and nil until it says so.
+	// It holds components of the Instance only.
+	desired map[string]int32
+	// labelled are the components whose pods the provider labelled the
+	// last time it was asked, and nil until it is asked in this generation.
+	labelled sets.Set[string]
+	// ignored are the names the provider reported desired replicas for that
+	// the Instance cannot take, each logged once.
+	ignored sets.Set[string]
 	// failingSince is when the provider's calls started to fail, and zero
 	// when the last one succeeded.
 	failingSince time.Time
@@ -106,7 +116,8 @@ type tracked struct {
 
 // track returns what is remembered about the Instance's current generation,
 // starting afresh when the generation is new to this process. A generation
-// stored as Ready had converged before the process started.
+// stored as Ready had converged before the process started, and the desired
+// replicas stored for it are what the provider last reported.
 func (t *tracker) track(in *v1alpha1.Instance, now time.Time) *tracked {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -118,12 +129,32 @@ func (t *tracker) track(in *v1alpha1.Instance, now time.Time) *tracked {
 	ready := meta.FindStatusCondition(in.Status.Conditions, v1alpha1.ConditionReady)
 	converged := ready != nil && ready.Status == metav1.ConditionTrue && ready.ObservedGeneration == in.Generation
 	st := &tracked{uid: in.UID, generation: in.Generation, start: now, converged: converged, lastConverged: converged}
+	if in.Status.ObservedGeneration == in.Generation {
+		st.desired = storedDesired(in)
+	}
 	if t.instances == nil {
 		t.instances = make(map[types.NamespacedName]*tracked)
 	}
 	t.instances[key] = st
 
 	return st
+}
+
+// storedDesired returns the desired replicas the stored status lists for
+// components of the Instance.
+func storedDesired(in *v1alpha1.Instance) map[string]int32 {
+	var desired map[string]int32
+	for _, c := range in.Status.Components {
+		if _, ok := in.Spec.Components[c.Name]; !ok || c.DesiredReplicas == nil {
+			continue
+		}
+		if desired == nil {
+			desired = make(map[string]int32)
+		}
+		desired[c.Name] = *c.DesiredReplicas
+	}
+
+	return desired
 }
 
 func (t *tracker) forget(key types.NamespacedName) {
@@ -259,6 +290,7 @@ func (p *pass) reported(ctx context.Context, status controller.Status) {
 	st.lastConverged = status.Converged
 	st.message = status.Message
 	st.terminal = nil
+	st.desired = p.desiredReplicas(ctx, status.DesiredReplicas)
 
 	for _, op := range status.Operations {
 		if !slices.Contains(summary.Operations(), op.Type) {
@@ -289,6 +321,40 @@ func (p *pass) reported(ctx context.Context, status controller.Status) {
 	if lead.Terminal {
 		st.terminal = &summary.Cause{Reason: reason, Message: message}
 	}
+}
+
+// desiredReplicas returns the desired replicas the provider reported, by
+// component. A name that is not a key of spec.components, or a negative
+// count, which the API would reject with the whole status, is logged once
+// per generation and ignored.
+func (p *pass) desiredReplicas(ctx context.Context, reported []controller.ComponentReplicas) map[string]int32 {
+	st := p.state
+	var desired map[string]int32
+	for _, r := range reported {
+		_, known := p.in.Spec.Components[r.Component]
+		if known && r.Desired >= 0 {
+			if desired == nil {
+				desired = make(map[string]int32, len(reported))
+			}
+			desired[r.Component] = r.Desired
+
+			continue
+		}
+		if st.ignored.Has(r.Component) {
+			continue
+		}
+		if st.ignored == nil {
+			st.ignored = sets.New[string]()
+		}
+		st.ignored.Insert(r.Component)
+		if known {
+			log.FromContext(ctx).Info("Ignoring a negative desired replica count", "component", r.Component, "desired", r.Desired)
+		} else {
+			log.FromContext(ctx).Info("Ignoring the desired replicas of a component the Instance does not have", "component", r.Component)
+		}
+	}
+
+	return desired
 }
 
 func boolRank(b bool) int {
@@ -434,7 +500,9 @@ func (p *pass) withdrawBackupVerdict() {
 // directly.
 func (r *ProviderReconciler) finish(ctx context.Context, p *pass, err error) (reconcile.Result, error) {
 	p.recordOutcome(err)
-	if !p.deleting {
+	if p.deleting {
+		r.countPodsWhileDeleting(ctx, p)
+	} else {
 		r.observeStoredPods(ctx, p)
 		p.setOperations()
 		p.withdrawBackupVerdict()
@@ -474,16 +542,22 @@ func (r *ProviderReconciler) requeueAfter(key client.ObjectKey, after time.Durat
 // observeStoredPods looks at the pods of the components the status already
 // lists on a pass that did not get to ask the provider which components
 // there are. A crash loop starts and ends whether or not the provider can be
-// called.
+// called. The desired replicas are what the provider last reported in this
+// generation.
 func (r *ProviderReconciler) observeStoredPods(ctx context.Context, p *pass) {
 	if p.podsObserved || len(p.stored.Components) == 0 {
 		return
 	}
-	components := make([]string, 0, len(p.stored.Components))
+	labelled := make([]string, 0, len(p.stored.Components))
 	for _, c := range p.stored.Components {
-		components = append(components, c.Name)
+		// Until the provider is asked in this generation, which of the
+		// stored components it labelled is not known, so all are judged. One
+		// it did not label has no pods to judge, as a rule.
+		if p.state.labelled == nil || p.state.labelled.Has(c.Name) {
+			labelled = append(labelled, c.Name)
+		}
 	}
-	p.lookAgainIn(r.setPodStatus(ctx, p.in, components, p.now))
+	p.lookAgainIn(r.setPodStatus(ctx, p.in, labelled, p.state.desired, p.now))
 	p.podsObserved = true
 }
 

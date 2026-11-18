@@ -89,7 +89,7 @@ func TestSetPodStatus(t *testing.T) {
 	r.pods.Store(client.Reader(pods))
 	in := &corev1alpha1.Instance{ObjectMeta: metav1.ObjectMeta{Name: "db", Namespace: "ns"}}
 
-	recheck := r.setPodStatus(t.Context(), in, []string{"configServer", "engine", "proxy"}, now)
+	recheck := r.setPodStatus(t.Context(), in, []string{"configServer", "engine", "proxy"}, nil, now)
 
 	want := []corev1alpha1.ComponentStatus{
 		{
@@ -122,7 +122,7 @@ func TestSetPodStatus(t *testing.T) {
 	assert.Equal(t, corev1alpha1.ReasonNotReady, readiness.Reason)
 	assert.Equal(t, "engine: 1 of 2 pods are not ready", readiness.Message)
 
-	recheck = r.setPodStatus(t.Context(), in, nil, now)
+	recheck = r.setPodStatus(t.Context(), in, nil, nil, now)
 
 	assert.Empty(t, in.Status.Components)
 	assert.Empty(t, in.Status.Conditions)
@@ -137,10 +137,81 @@ func TestSetPodStatus_BeforePodWatch(t *testing.T) {
 		Components: []corev1alpha1.ComponentStatus{{Name: "engine"}},
 	}}
 
-	recheck := r.setPodStatus(t.Context(), in, []string{"engine"}, time.Now())
+	recheck := r.setPodStatus(t.Context(), in, []string{"engine"}, nil, time.Now())
 
 	assert.Equal(t, []corev1alpha1.ComponentStatus{{Name: "engine"}}, in.Status.Components)
 	assert.Empty(t, in.Status.Conditions)
+	assert.Zero(t, recheck)
+
+	// The desired replicas still follow what the provider reported.
+	in.Status.Components = []corev1alpha1.ComponentStatus{
+		{Name: "engine", Replicas: new(int32(3)), DesiredReplicas: new(int32(3))},
+		{Name: "proxy", Replicas: new(int32(1))},
+	}
+
+	r.setPodStatus(t.Context(), in, []string{"engine", "proxy"}, map[string]int32{"proxy": 2, "hidden": 1}, time.Now())
+
+	assert.Equal(t, []corev1alpha1.ComponentStatus{
+		{Name: "engine", Replicas: new(int32(3))},
+		{Name: "proxy", Replicas: new(int32(1)), DesiredReplicas: new(int32(2))},
+	}, in.Status.Components)
+	assert.Empty(t, in.Status.Conditions)
+}
+
+// A component the provider reported desired replicas for has an entry even
+// when it labelled none of its pods, such as members it holds back. Only the
+// labelled components are judged.
+func TestSetPodStatus_DesiredReplicas(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	pods := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		componentPod("db-rs0-0", "db", "engine", true),
+		componentPod("db-rs0-1", "db", "engine", true),
+		// Still carries the labels, but the provider no longer labels the
+		// component.
+		componentPod("db-rs0-hidden-0", "db", "hidden", false),
+	).Build()
+	r := &ProviderReconciler{}
+	r.pods.Store(client.Reader(pods))
+	in := &corev1alpha1.Instance{ObjectMeta: metav1.ObjectMeta{Name: "db", Namespace: "ns"}}
+
+	recheck := r.setPodStatus(t.Context(), in, []string{"engine"}, map[string]int32{"engine": 3, "hidden": 2, "arbiter": 0}, now)
+
+	want := []corev1alpha1.ComponentStatus{
+		{
+			Name:            "arbiter",
+			Selector:        "core.openeverest.io/component=arbiter,core.openeverest.io/instance=db",
+			Replicas:        new(int32(0)),
+			ReadyReplicas:   new(int32(0)),
+			DesiredReplicas: new(int32(0)),
+		},
+		{
+			Name:            "engine",
+			Selector:        "core.openeverest.io/component=engine,core.openeverest.io/instance=db",
+			Replicas:        new(int32(2)),
+			ReadyReplicas:   new(int32(2)),
+			DesiredReplicas: new(int32(3)),
+		},
+		{
+			Name:            "hidden",
+			Selector:        "core.openeverest.io/component=hidden,core.openeverest.io/instance=db",
+			Replicas:        new(int32(1)),
+			ReadyReplicas:   new(int32(0)),
+			DesiredReplicas: new(int32(2)),
+		},
+	}
+	assert.Equal(t, want, in.Status.Components)
+	assert.Zero(t, recheck)
+	requireCondition(t, in, corev1alpha1.ConditionPodsScheduled, metav1.ConditionTrue, corev1alpha1.ReasonScheduled)
+	requireCondition(t, in, corev1alpha1.ConditionPodsReady, metav1.ConditionTrue, corev1alpha1.ReasonReady)
+
+	recheck = r.setPodStatus(t.Context(), in, nil, map[string]int32{"hidden": 2}, now)
+
+	assert.Equal(t, want[2:], in.Status.Components)
+	assert.Empty(t, in.Status.Conditions, "nothing labelled, nothing judged")
 	assert.Zero(t, recheck)
 }
 
