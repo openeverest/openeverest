@@ -89,6 +89,7 @@ func carriesEvent(t watch.EventType) bool {
 //nolint:gochecknoglobals // immutable lookup table
 var eventResources = map[schema.GroupKind]string{
 	{Group: corev1alpha1.GroupVersion.Group, Kind: "Instance"}:                    rbac.ResourceInstances,
+	{Group: corev1alpha1.GroupVersion.Group, Kind: "Provider"}:                    rbac.ResourceProviders,
 	{Group: backupv1alpha1.GroupVersion.Group, Kind: "Backup"}:                    rbac.ResourceBackups,
 	{Group: backupv1alpha1.GroupVersion.Group, Kind: "Restore"}:                   rbac.ResourceRestores,
 	{Group: backupv1alpha1.GroupVersion.Group, Kind: "BackupImport"}:              rbac.ResourceBackupImports,

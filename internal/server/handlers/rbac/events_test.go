@@ -62,7 +62,7 @@ var eventPolicyCases = []struct {
 	{
 		desc:   "admin reads every event",
 		policy: newPolicy("g, bob, role:admin"),
-		want:   []string{"db1.created", "db2.created", "my-plugin.created"},
+		want:   []string{"db1.created", "db2.created", "my-provider.created", "my-plugin.created"},
 	},
 	{
 		desc:   "namespace grant reads only the events of that namespace",
@@ -97,9 +97,15 @@ var eventPolicyCases = []struct {
 }
 
 func allLifecycleEvents() []eventsv1.Event {
+	provider := lifecycleEvent("", "my-provider")
+	provider.ObjectMeta.Namespace = "default"
+	provider.Regarding.APIVersion = corev1alpha1.GroupVersion.String()
+	provider.Regarding.Kind = "Provider"
+	provider.Regarding.Namespace = ""
 	return []eventsv1.Event{
 		lifecycleEvent("team-a", "db1"),
 		lifecycleEvent("team-b", "db2"),
+		provider,
 		lifecycleEvent("everest-system", "my-plugin"),
 	}
 }
@@ -109,6 +115,12 @@ func TestRBAC_ListEventsAuthorizesTheRegardingObject(t *testing.T) {
 
 	events := []eventsv1.Event{
 		lifecycleEvent("team-a", "db1"),
+		{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "prod-provider.created"},
+			Regarding: corev1.ObjectReference{
+				APIVersion: corev1alpha1.GroupVersion.String(), Kind: "Provider", Name: "prod-provider",
+			},
+		},
 		{
 			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "prod-plugin.created"},
 			Regarding: corev1.ObjectReference{
@@ -136,12 +148,17 @@ func TestRBAC_ListEventsAuthorizesTheRegardingObject(t *testing.T) {
 		{
 			name:   "admin reads the events of every recorded kind",
 			policy: newPolicy("g, bob, role:admin"),
-			want:   []string{"db1.created", "prod-plugin.created", "team-a.created", "alice.login"},
+			want:   []string{"db1.created", "prod-provider.created", "prod-plugin.created", "team-a.created", "alice.login"},
 		},
 		{
 			name:   "namespaced grant reads no cluster-scoped or login events",
 			policy: newPolicy("p, role:test, instances, read-events, prod/team-a/*", "g, bob, role:test"),
 			want:   []string{"db1.created"},
+		},
+		{
+			name:   "provider events use provider read-events permissions",
+			policy: newPolicy("p, role:test, providers, read-events, prod/*", "g, bob, role:test"),
+			want:   []string{"prod-provider.created"},
 		},
 		{
 			name:   "cluster-scoped resource uses the cluster/name object",
@@ -158,7 +175,7 @@ func TestRBAC_ListEventsAuthorizesTheRegardingObject(t *testing.T) {
 			policy: newPolicy(
 				"p, role:test, *, read-events, */*/*", "p, role:test, *, read-events, */*", "g, bob, role:test",
 			),
-			want: []string{"db1.created", "prod-plugin.created", "team-a.created"},
+			want: []string{"db1.created", "prod-provider.created", "prod-plugin.created", "team-a.created"},
 		},
 		{
 			name:   "platform permission reads login events",
