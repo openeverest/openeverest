@@ -240,6 +240,8 @@ func toLifecycleEvent(cluster string, ev *eventsv1.Event) api.LifecycleEvent {
 		Namespace: nonEmpty(ev.Namespace),
 		Message:   nonEmpty(ev.Note),
 		SourceIP:  nonEmpty(ev.Annotations[events.AnnotationSourceIP]),
+		Instance:  nonEmpty(ev.Annotations[events.AnnotationInstance]),
+		Provider:  nonEmpty(ev.Annotations[events.AnnotationProvider]),
 	}
 	if actorType, actorID := ev.Annotations[events.AnnotationEventActorType], ev.Annotations[events.AnnotationEventActorID]; actorType != "" || actorID != "" {
 		out.Actor = &api.LifecycleEventActor{Id: nonEmpty(actorID)}
