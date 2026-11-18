@@ -153,10 +153,8 @@ func TestDescribe(t *testing.T) {
 			cond(corev1alpha1.ConditionNeedsAttention, metav1.ConditionFalse, corev1alpha1.ReasonNoProblems, time.Hour),
 		}
 	}
-	// written records a write to the object or to one of its subresources.
-	written := func(subresource string, since time.Duration) metav1.ManagedFieldsEntry {
-		when := ago(since)
-		return metav1.ManagedFieldsEntry{Subresource: subresource, Time: &when}
+	unattended := func(status metav1.ConditionStatus, reason string, since time.Duration) metav1.Condition {
+		return cond(corev1alpha1.ConditionUnattended, status, reason, since)
 	}
 	deletedAt := ago(time.Second)
 
@@ -192,12 +190,9 @@ func TestDescribe(t *testing.T) {
 			wantWait:     Pending,
 		},
 		{
-			name: "spec edited a moment ago: the old status decides nothing",
+			name: "spec edited: the old status decides nothing",
 			in: Input{
-				Meta: &metav1.ObjectMeta{
-					Generation:    2,
-					ManagedFields: []metav1.ManagedFieldsEntry{written("", time.Minute), written("status", time.Hour)},
-				},
+				Meta:               &metav1.ObjectMeta{Generation: 2, CreationTimestamp: ago(30 * 24 * time.Hour)},
 				ObservedGeneration: 1,
 				Phase:              string(corev1alpha1.InstancePhaseProvisioned),
 				Conditions:         healthy(),
@@ -209,38 +204,74 @@ func TestDescribe(t *testing.T) {
 			wantWait:     Pending,
 		},
 		{
-			name: "spec edited long ago and never observed: nobody is reconciling",
+			name: "spec edited and nobody attends to it: core's condition says so, message included",
 			in: Input{
-				Meta: &metav1.ObjectMeta{
-					Generation:    2,
-					ManagedFields: []metav1.ManagedFieldsEntry{written("", 6*time.Minute), written("", time.Hour)},
-				},
+				Meta:               &metav1.ObjectMeta{Generation: 2},
 				ObservedGeneration: 1,
 				Phase:              string(corev1alpha1.InstancePhaseProvisioned),
-				Conditions:         healthy(),
+				Conditions: append(healthy(),
+					unattended(metav1.ConditionUnknown, corev1alpha1.ReasonNotResponding, 2*time.Minute)),
 			},
 			wantTone:     ToneUnknown,
-			wantReason:   ReasonNotPickedUp,
-			wantSentence: "Up · Not picked up by provider",
+			wantReason:   corev1alpha1.ReasonNotResponding,
+			wantSentence: "Up · Provider not responding",
+			wantMessage:  "NotResponding message",
+			wantSince:    at(2 * time.Minute),
 			wantStale:    true,
 			wantWait:     Pending,
 		},
 		{
-			name: "a status write does not start the clock again",
+			name: "a missing Provider wins over a stop",
 			in: Input{
-				Meta: &metav1.ObjectMeta{
-					Generation:    2,
-					ManagedFields: []metav1.ManagedFieldsEntry{written("", 6*time.Minute), written("status", time.Second)},
-				},
-				ObservedGeneration: 1,
+				Meta:               &metav1.ObjectMeta{Generation: 3},
+				ObservedGeneration: 2,
 				Phase:              string(corev1alpha1.InstancePhaseProvisioned),
-				Conditions:         healthy(),
+				Conditions: []metav1.Condition{
+					cond(corev1alpha1.ConditionAvailable, metav1.ConditionFalse, "Suspended", time.Hour),
+					cond(corev1alpha1.ConditionReady, metav1.ConditionTrue, "Suspended", time.Hour),
+					cond(conditionSuspended, metav1.ConditionTrue, "Suspended", time.Hour),
+					unattended(metav1.ConditionTrue, corev1alpha1.ReasonProviderNotFound, time.Minute),
+				},
 			},
-			wantTone:     ToneUnknown,
-			wantReason:   ReasonNotPickedUp,
-			wantSentence: "Up · Not picked up by provider",
+			wantTone:     ToneAttention,
+			wantReason:   corev1alpha1.ReasonProviderNotFound,
+			wantSentence: "Down · Provider not found",
+			wantMessage:  "ProviderNotFound message",
+			wantSince:    at(time.Minute),
 			wantStale:    true,
 			wantWait:     Pending,
+		},
+		{
+			name: "core never writes Unattended=False, and a reader ignores it",
+			in: Input{
+				Meta:               &metav1.ObjectMeta{Generation: 2},
+				ObservedGeneration: 1,
+				Phase:              string(corev1alpha1.InstancePhaseProvisioned),
+				Conditions: append(healthy(),
+					unattended(metav1.ConditionFalse, corev1alpha1.ReasonNotResponding, time.Minute)),
+			},
+			wantTone:     ToneProgress,
+			wantReason:   corev1alpha1.ReasonApplyingChanges,
+			wantSentence: "Up · Applying changes",
+			wantStale:    true,
+			wantWait:     Pending,
+		},
+		{
+			name: "deletion nobody attends to: deletion sets the tone, core's condition the word and the message",
+			in: Input{
+				Meta:               &metav1.ObjectMeta{Generation: 3, DeletionTimestamp: &deletedAt},
+				ObservedGeneration: 2,
+				Phase:              string(corev1alpha1.InstancePhaseProvisioned),
+				Conditions: append(healthy(),
+					unattended(metav1.ConditionTrue, corev1alpha1.ReasonProviderNotFound, 0)),
+			},
+			wantTone:     ToneDeleting,
+			wantReason:   corev1alpha1.ReasonProviderNotFound,
+			wantSentence: "Deleting · Provider not found",
+			wantMessage:  "ProviderNotFound message",
+			wantSince:    at(time.Second),
+			wantStale:    true,
+			wantWait:     Failed,
 		},
 		{
 			name: "deletion requested, not observed yet: the old status word is not shown",

@@ -24,6 +24,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -202,16 +203,17 @@ func writeInstanceStatus(w io.Writer, inst *client.Instance, namespace string, n
 }
 
 // staleNote warns that the details printed below the header are not about
-// the current spec, which the header alone would not explain.
+// the current spec, which the header alone would not explain. Core's
+// Unattended condition is about the current spec, and the header already
+// carries its message.
 func staleNote(in instancestatus.Input, shown instancestatus.Display) string {
-	switch {
-	case shown.Tone == instancestatus.ToneUnknown:
-		return "No provider is reconciling this instance. Check that its provider is installed and running."
-	case shown.Stale && len(in.Conditions) > 0:
+	fromProvider := slices.ContainsFunc(in.Conditions, func(c metav1.Condition) bool {
+		return c.Type != corev1alpha1.ConditionUnattended
+	})
+	if shown.Stale && fromProvider {
 		return "The latest change has not been observed yet. The details below describe the instance before it."
-	default:
-		return ""
 	}
+	return ""
 }
 
 // age says how long ago t was, the way the AGE column of a list does.

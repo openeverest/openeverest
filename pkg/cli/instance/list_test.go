@@ -79,7 +79,7 @@ func TestPrintInstanceTable_Fixtures(t *testing.T) {
 		"backup-storage-missing-stalled",
 		"crash-loop-all-replicas-stalled",
 		"reason-the-client-has-never-seen",
-		"never-reconciled-old",
+		"unattended-not-responding-new",
 		"deleting",
 	}
 	instances := make([]client.Instance, 0, len(names))
@@ -93,17 +93,17 @@ func TestPrintInstanceTable_Fixtures(t *testing.T) {
 
 	printInstanceTable(&out, instances, now)
 
-	want := `NAME                              NAMESPACE  PROVIDER  VERSION  STATUS                     AVAILABLE  AGE
-healthy                           demo       -         -        Ready                      Yes        40d
-rolling-upgrade                   demo       -         -        Upgrading                  Yes        40d
-in-place-restore                  demo       -         -        Restoring                  No         40d
-creating                          demo       -         -        Creating                   No         40d
-change-availability-unknown       demo       -         -        Applying changes           -          40d
-backup-storage-missing-stalled    demo       -         -        Backup storage not found   Yes        40d
-crash-loop-all-replicas-stalled   demo       -         -        Crash loop                 No         40d
-reason-the-client-has-never-seen  demo       -         -        Rebalancing shards         Yes        40d
-never-reconciled-old              demo       -         -        Not picked up by provider  -          6m
-deleting                          demo       -         -        Deleting                   -          40d
+	want := `NAME                              NAMESPACE  PROVIDER  VERSION  STATUS                    AVAILABLE  AGE
+healthy                           demo       -         -        Ready                     Yes        40d
+rolling-upgrade                   demo       -         -        Upgrading                 Yes        40d
+in-place-restore                  demo       -         -        Restoring                 No         40d
+creating                          demo       -         -        Creating                  No         40d
+change-availability-unknown       demo       -         -        Applying changes          -          40d
+backup-storage-missing-stalled    demo       -         -        Backup storage not found  Yes        40d
+crash-loop-all-replicas-stalled   demo       -         -        Crash loop                No         40d
+reason-the-client-has-never-seen  demo       -         -        Rebalancing shards        Yes        40d
+unattended-not-responding-new     demo       -         -        Provider not responding   -          10m
+deleting                          demo       -         -        Deleting                  -          40d
 `
 	assert.Equal(t, want, trimLineEnds(out.String()))
 }

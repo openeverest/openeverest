@@ -49,8 +49,8 @@ const (
 	ToneStopped Tone = "stopped"
 	// ToneDeleting means deletion was requested.
 	ToneDeleting Tone = "deleting"
-	// ToneUnknown means no provider is reconciling the Instance, so nobody
-	// can tell what state it is in.
+	// ToneUnknown means the provider has not reported on the current spec
+	// for so long that nobody can tell what state the Instance is in.
 	ToneUnknown Tone = "unknown"
 )
 
@@ -66,18 +66,9 @@ const (
 	AvailableUnknown Availability = "Unknown"
 )
 
-// ReasonNotPickedUp is the status word of an Instance that no provider is
-// reconciling. It never appears in an Instance's status: only a reader can
-// notice that nobody is writing.
-const ReasonNotPickedUp = "NotPickedUp"
-
 // conditionSuspended is True while compute is at zero because the spec asks
 // for it.
 const conditionSuspended = "Suspended"
-
-// notPickedUpAfter is how long a spec may go unobserved before the Instance
-// reads as not picked up by any provider.
-const notPickedUpAfter = 5 * time.Minute
 
 // sentenceSeparator joins the parts of a details sentence.
 const sentenceSeparator = " · "
@@ -86,9 +77,8 @@ const sentenceSeparator = " · "
 // type and the API client's type both carry these fields, so either is
 // adapted without copying the object.
 type Input struct {
-	// Meta is the Instance's metadata. The generation, the creation and
-	// deletion timestamps and the managed fields are read. Nil reads as
-	// empty metadata.
+	// Meta is the Instance's metadata. The generation and the deletion
+	// timestamp are read. Nil reads as empty metadata.
 	Meta *metav1.ObjectMeta
 	// ObservedGeneration is status.observedGeneration.
 	ObservedGeneration int64
@@ -120,8 +110,9 @@ type Display struct {
 	Label string
 	// Available says whether clients can connect.
 	Available Availability
-	// Message is one sentence about the status word. It is empty while Stale
-	// is set, because the only message there is describes an older spec.
+	// Message is one sentence about the status word. While Stale is set it
+	// is the Unattended condition's message, or empty, because the
+	// provider's message describes an older spec.
 	Message string
 	// Since is when the Instance got into this status, or nil if that is
 	// not known.
@@ -140,8 +131,11 @@ type Display struct {
 // The tone comes from the statuses of the summary conditions and never from
 // a reason, so a reason this code has never seen still gets the right tone,
 // and its label is derived from its spelling.
+//
+// Nothing is inferred from how long the status has not changed: when nobody
+// attends to an Instance, core says so with the Unattended condition.
 func Describe(in Input, now time.Time) Display {
-	tone := in.tone(now)
+	tone := in.tone()
 	reason := in.reason(tone)
 	d := Display{
 		Tone:      tone,
@@ -151,7 +145,9 @@ func Describe(in Input, now time.Time) Display {
 		Since:     in.since(tone, reason),
 		Stale:     in.stale(),
 	}
-	if ready := in.condition(corev1alpha1.ConditionReady); ready != nil && !d.Stale {
+	if unattended := in.unattended(); unattended != nil {
+		d.Message = unattended.Message
+	} else if ready := in.condition(corev1alpha1.ConditionReady); ready != nil && !d.Stale {
 		d.Message = ready.Message
 	}
 	d.Sentence = in.sentence(d)
@@ -159,11 +155,14 @@ func Describe(in Input, now time.Time) Display {
 }
 
 // tone picks the tone. The first case that matches wins.
-func (in Input) tone(now time.Time) Tone {
+func (in Input) tone() Tone {
+	unattended := in.unattended()
 	switch {
 	case in.deleting():
 		return ToneDeleting
-	case in.notPickedUp(now):
+	case unattended != nil && unattended.Status == metav1.ConditionTrue:
+		return ToneAttention
+	case unattended != nil:
 		return ToneUnknown
 	case in.isTrue(conditionSuspended):
 		return ToneStopped
@@ -183,13 +182,15 @@ func (in Input) tone(now time.Time) Tone {
 	}
 }
 
-// reason picks the status word: the reason of the Ready condition, unless
+// reason picks the status word: the reason of the Unattended condition
+// while it is honoured, otherwise the reason of the Ready condition, unless
 // that condition is missing or describes an older spec.
 func (in Input) reason(tone Tone) string {
 	ready := in.condition(corev1alpha1.ConditionReady)
+	unattended := in.unattended()
 	switch {
-	case tone == ToneUnknown:
-		return ReasonNotPickedUp
+	case unattended != nil && unattended.Reason != "":
+		return unattended.Reason
 	case ready != nil && ready.Reason != "" && !in.stale():
 		return ready.Reason
 	case tone == ToneDeleting:
@@ -223,7 +224,7 @@ func (in Input) since(tone Tone, reason string) *time.Time {
 	if tone == ToneDeleting {
 		return timeOf(in.meta().DeletionTimestamp)
 	}
-	if in.stale() {
+	if in.stale() && in.unattended() == nil {
 		return nil
 	}
 	// A long operation is a condition named like the status word it
@@ -232,7 +233,7 @@ func (in Input) since(tone Tone, reason string) *time.Time {
 	if operation := in.condition(reason); operation != nil && operation.Status == metav1.ConditionTrue {
 		return timeOf(&operation.LastTransitionTime)
 	}
-	if decidedBy := in.condition(decidingCondition(tone)); decidedBy != nil {
+	if decidedBy := in.condition(in.decidingCondition(tone)); decidedBy != nil {
 		return timeOf(&decidedBy.LastTransitionTime)
 	}
 	return nil
@@ -240,7 +241,10 @@ func (in Input) since(tone Tone, reason string) *time.Time {
 
 // decidingCondition names the condition whose status decided the tone, for
 // the tones a condition decides.
-func decidingCondition(tone Tone) string {
+func (in Input) decidingCondition(tone Tone) string {
+	if tone != ToneDeleting && in.unattended() != nil {
+		return corev1alpha1.ConditionUnattended
+	}
 	switch tone {
 	case ToneError:
 		return corev1alpha1.ConditionStalled
@@ -344,34 +348,19 @@ func (in Input) stale() bool {
 	return in.ObservedGeneration < in.meta().Generation
 }
 
-// notPickedUp reports whether the current spec has gone unobserved for so
-// long that no provider can be reconciling the Instance.
-func (in Input) notPickedUp(now time.Time) bool {
+// unattended returns the Unattended condition core writes while nobody
+// attends to the Instance's current spec, if it is to be honoured: only
+// while the status is stale, since a provider that has caught up has
+// answered it, and only True or Unknown, the statuses core writes.
+func (in Input) unattended() *metav1.Condition {
 	if !in.stale() {
-		return false
+		return nil
 	}
-	waitingSince := in.specWrittenAt()
-	return !waitingSince.IsZero() && now.Sub(waitingSince) > notPickedUpAfter
-}
-
-// specWrittenAt is when the spec the status has not caught up with was
-// written, or the zero time if that is not known.
-func (in Input) specWrittenAt() time.Time {
-	if in.ObservedGeneration < 1 {
-		// Never reconciled: it has been waiting since it was created.
-		return in.meta().CreationTimestamp.Time
+	c := in.condition(corev1alpha1.ConditionUnattended)
+	if c == nil || (c.Status != metav1.ConditionTrue && c.Status != metav1.ConditionUnknown) {
+		return nil
 	}
-	// Nothing records when the generation changed. The latest write to the
-	// object itself, as opposed to its status, is the closest there is; a
-	// later write to labels or annotations moves it too, which can only
-	// delay the verdict.
-	var latest time.Time
-	for _, entry := range in.meta().ManagedFields {
-		if entry.Subresource == "" && entry.Time != nil && entry.Time.After(latest) {
-			latest = entry.Time.Time
-		}
-	}
-	return latest
+	return c
 }
 
 // timeOf copies a timestamp out of the object, or returns nil if it is unset.

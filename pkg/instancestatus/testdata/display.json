@@ -21,6 +21,7 @@
     "AwaitingApproval": "Awaiting approval",
     "RetriesExhausted": "Maintenance failed",
     "ProviderNotFound": "Provider not found",
+    "NotResponding": "Provider not responding",
     "UserSecretNotFound": "Secret not found",
     "InvalidReference": "Invalid reference",
     "Unschedulable": "Pods can't be scheduled",
@@ -33,8 +34,7 @@
     "ProgressDeadlineExceeded": "Not progressing",
     "BackupStorageNotFound": "Backup storage not found",
     "BackupClassNotFound": "Backup class not found",
-    "BackupStorageCredentialsNotFound": "Backup credentials not found",
-    "NotPickedUp": "Not picked up by provider"
+    "BackupStorageCredentialsNotFound": "Backup credentials not found"
   },
   "components": [
     {
@@ -169,32 +169,6 @@
         "label": "Creating",
         "available": "Unknown",
         "sentence": "Creating",
-        "since": null,
-        "kstatus": "InProgress",
-        "wait": "pending"
-      }
-    },
-    {
-      "name": "never-reconciled-old",
-      "about": "Still nothing but the CRD default after more than five minutes: nobody is reconciling it.",
-      "now": "2026-03-01T12:00:00Z",
-      "instance": {
-        "metadata": {
-          "name": "db",
-          "namespace": "demo",
-          "generation": 1,
-          "creationTimestamp": "2026-03-01T11:54:00Z"
-        },
-        "status": {
-          "observedGeneration": -1
-        }
-      },
-      "want": {
-        "tone": "unknown",
-        "reason": "NotPickedUp",
-        "label": "Not picked up by provider",
-        "available": "Unknown",
-        "sentence": "Not picked up by provider",
         "since": null,
         "kstatus": "InProgress",
         "wait": "pending"
@@ -1900,6 +1874,342 @@
         "since": "2026-03-01T11:25:00Z",
         "kstatus": "Terminating",
         "wait": "failed"
+      }
+    },
+    {
+      "name": "unattended-provider-not-found",
+      "about": "No provider has written status, and the Provider spec.providerRef names does not exist: core says so with Unattended=True.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 1,
+          "creationTimestamp": "2026-03-01T11:58:00Z"
+        },
+        "status": {
+          "observedGeneration": -1,
+          "phase": "Pending",
+          "conditions": [
+            {
+              "type": "Unattended",
+              "status": "True",
+              "reason": "ProviderNotFound",
+              "message": "Provider \"percona-server-mongodb\" is not installed. Installed Providers: postgresql. spec.providerRef cannot be changed: delete the Instance and create it again with the right provider.",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:59:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "attention",
+        "reason": "ProviderNotFound",
+        "label": "Provider not found",
+        "available": "Unknown",
+        "sentence": "Provider not found",
+        "since": "2026-03-01T11:59:00Z",
+        "kstatus": "InProgress",
+        "wait": "pending"
+      }
+    },
+    {
+      "name": "unattended-not-responding-new",
+      "about": "The Provider exists, but nothing has reported on the new Instance for five minutes: core says so with Unattended=Unknown.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 1,
+          "creationTimestamp": "2026-03-01T11:50:00Z"
+        },
+        "status": {
+          "observedGeneration": -1,
+          "phase": "Pending",
+          "conditions": [
+            {
+              "type": "Unattended",
+              "status": "Unknown",
+              "reason": "NotResponding",
+              "message": "Provider \"percona-server-mongodb\" has not picked this Instance up for 5 minutes; check that it is running.",
+              "observedGeneration": 1,
+              "lastTransitionTime": "2026-03-01T11:55:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "unknown",
+        "reason": "NotResponding",
+        "label": "Provider not responding",
+        "available": "Unknown",
+        "sentence": "Provider not responding",
+        "since": "2026-03-01T11:55:00Z",
+        "kstatus": "InProgress",
+        "wait": "pending"
+      }
+    },
+    {
+      "name": "unattended-not-responding-after-edit",
+      "about": "The spec was edited and the provider that reconciled the Instance has not reported on the edit for five minutes. The rest of the status describes the generation before.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 3,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 2,
+          "phase": "Provisioned",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "True",
+              "reason": "Available",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-01-30T12:00:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "True",
+              "reason": "Ready",
+              "message": "The instance is ready",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "False",
+              "reason": "Converged",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "Converged",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "Unattended",
+              "status": "Unknown",
+              "reason": "NotResponding",
+              "message": "Provider \"percona-server-mongodb\" picked this Instance up but has not reported on generation 3 for 5 minutes; check its logs.",
+              "observedGeneration": 3,
+              "lastTransitionTime": "2026-03-01T11:50:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "unknown",
+        "reason": "NotResponding",
+        "label": "Provider not responding",
+        "available": "Yes",
+        "sentence": "Up · Provider not responding",
+        "since": "2026-03-01T11:50:00Z",
+        "kstatus": "InProgress",
+        "wait": "pending"
+      }
+    },
+    {
+      "name": "unattended-ignored-when-current",
+      "about": "The provider has caught up and core has not withdrawn its condition yet: a status that describes the current spec answers it, so it is ignored.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 3,
+          "creationTimestamp": "2026-01-20T12:00:00Z"
+        },
+        "status": {
+          "observedGeneration": 3,
+          "phase": "Provisioned",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "True",
+              "reason": "Available",
+              "message": "",
+              "observedGeneration": 3,
+              "lastTransitionTime": "2026-01-30T12:00:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "True",
+              "reason": "Ready",
+              "message": "The instance is ready",
+              "observedGeneration": 3,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "False",
+              "reason": "Converged",
+              "message": "",
+              "observedGeneration": 3,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "Converged",
+              "message": "",
+              "observedGeneration": 3,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 3,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "Unattended",
+              "status": "Unknown",
+              "reason": "NotResponding",
+              "message": "Provider \"percona-server-mongodb\" picked this Instance up but has not reported on generation 3 for 5 minutes; check its logs.",
+              "observedGeneration": 3,
+              "lastTransitionTime": "2026-03-01T11:50:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "ok",
+        "reason": "Ready",
+        "label": "Ready",
+        "available": "Yes",
+        "sentence": "Up · Ready",
+        "since": "2026-02-26T12:00:00Z",
+        "kstatus": "Current",
+        "wait": "succeeded"
+      }
+    },
+    {
+      "name": "unattended-deleting",
+      "about": "Deletion was requested, and the provider that has to clean up does not respond. Deletion sets the tone; core's condition says what it waits for.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 3,
+          "creationTimestamp": "2026-01-20T12:00:00Z",
+          "deletionTimestamp": "2026-03-01T11:50:00Z",
+          "finalizers": [
+            "everest.percona.com/provider-finalizer"
+          ]
+        },
+        "status": {
+          "observedGeneration": 2,
+          "phase": "Provisioned",
+          "conditions": [
+            {
+              "type": "Available",
+              "status": "True",
+              "reason": "Available",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-01-30T12:00:00Z"
+            },
+            {
+              "type": "Ready",
+              "status": "True",
+              "reason": "Ready",
+              "message": "The instance is ready",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "Reconciling",
+              "status": "False",
+              "reason": "Converged",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "Stalled",
+              "status": "False",
+              "reason": "Converged",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "NeedsAttention",
+              "status": "False",
+              "reason": "NoProblems",
+              "message": "",
+              "observedGeneration": 2,
+              "lastTransitionTime": "2026-02-26T12:00:00Z"
+            },
+            {
+              "type": "Unattended",
+              "status": "Unknown",
+              "reason": "NotResponding",
+              "message": "Provider \"percona-server-mongodb\" picked this Instance up but has not reported on generation 3 for 5 minutes; check its logs.",
+              "observedGeneration": 3,
+              "lastTransitionTime": "2026-03-01T11:55:00Z"
+            }
+          ]
+        }
+      },
+      "want": {
+        "tone": "deleting",
+        "reason": "NotResponding",
+        "label": "Provider not responding",
+        "available": "Yes",
+        "sentence": "Deleting · Provider not responding",
+        "since": "2026-03-01T11:50:00Z",
+        "kstatus": "Terminating",
+        "wait": "failed"
+      }
+    },
+    {
+      "name": "stale-without-unattended",
+      "about": "Nothing has reported on the new Instance for an hour, and core has not said that nobody attends to it. Clients infer nothing from the time: it reads as being created.",
+      "now": "2026-03-01T12:00:00Z",
+      "instance": {
+        "metadata": {
+          "name": "db",
+          "namespace": "demo",
+          "generation": 1,
+          "creationTimestamp": "2026-03-01T11:00:00Z"
+        },
+        "status": {
+          "observedGeneration": -1,
+          "phase": "Pending"
+        }
+      },
+      "want": {
+        "tone": "progress",
+        "reason": "Creating",
+        "label": "Creating",
+        "available": "Unknown",
+        "sentence": "Creating",
+        "since": null,
+        "kstatus": "InProgress",
+        "wait": "pending"
       }
     }
   ]

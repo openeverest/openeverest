@@ -179,13 +179,37 @@ Conditions:
 `,
 		},
 		{
-			fixture: "never-reconciled-old",
-			want: `Instance:  never-reconciled-old
+			// Core's condition is about the current spec: it is the
+			// header, and nothing below needs a note.
+			fixture: "unattended-provider-not-found",
+			want: `Instance:  unattended-provider-not-found
 Namespace: demo
-Status:    Not picked up by provider
+Status:    Provider not found (for 1m)
 Version:   -
-Message:   -
-Note:      No provider is reconciling this instance. Check that its provider is installed and running.
+Message:   Provider "percona-server-mongodb" is not installed. Installed Providers: postgresql. spec.providerRef cannot be changed: delete the Instance and create it again with the right provider.
+
+Conditions:
+  TYPE        STATUS  REASON            MESSAGE
+  Unattended  True    ProviderNotFound  Provider "percona-server-mongodb" is not installed. Installed Providers: postgresql. spec.providerRef cannot be changed: delete the Instance and create it again with the right provider.
+`,
+		},
+		{
+			fixture: "unattended-not-responding-after-edit",
+			want: `Instance:  unattended-not-responding-after-edit
+Namespace: demo
+Status:    Up · Provider not responding (for 10m)
+Version:   -
+Message:   Provider "percona-server-mongodb" picked this Instance up but has not reported on generation 3 for 5 minutes; check its logs.
+Note:      The latest change has not been observed yet. The details below describe the instance before it.
+
+Conditions:
+  TYPE            STATUS   REASON         MESSAGE
+  Available       True     Available      -
+  Ready           True     Ready          The instance is ready
+  Reconciling     False    Converged      -
+  Stalled         False    Converged      -
+  NeedsAttention  False    NoProblems     -
+  Unattended      Unknown  NotResponding  Provider "percona-server-mongodb" picked this Instance up but has not reported on generation 3 for 5 minutes; check its logs.
 `,
 		},
 	}
@@ -307,6 +331,12 @@ func TestChangeKey(t *testing.T) {
 		return instanceFromJSON(`{"metadata":{"name":"my-mongo","generation":1,"creationTimestamp":"2026-03-01T12:00:00Z"},
 			"status":{"observedGeneration":-1}}`)
 	}
+	unattended := func() *client.Instance {
+		return instanceFromJSON(`{"metadata":{"name":"my-mongo","generation":1,"creationTimestamp":"2026-03-01T12:00:00Z"},
+			"status":{"observedGeneration":-1,"conditions":[
+				{"type":"Unattended","status":"Unknown","reason":"NotResponding","message":"check that it is running","lastTransitionTime":"2026-03-01T12:05:00Z"}
+			]}}`)
+	}
 
 	pretty := NewInstanceStatusRunner(Config{Pretty: true}, zap.NewNop().Sugar())
 	raw := NewInstanceStatusRunner(Config{Pretty: false}, zap.NewNop().Sugar())
@@ -338,10 +368,17 @@ func TestChangeKey(t *testing.T) {
 			wantSame: true,
 		},
 		{
-			name:   "an instance nobody reconciles comes to read as not picked up",
+			name:     "time passing on an instance nobody has reconciled prints nothing",
+			runner:   pretty,
+			before:   unreconciled(),
+			after:    unreconciled(),
+			wantSame: true,
+		},
+		{
+			name:   "core saying that nobody attends to the instance prints again",
 			runner: pretty,
 			before: unreconciled(),
-			after:  unreconciled(),
+			after:  unattended(),
 		},
 		{
 			name:     "the raw object is emitted again only when it changed",

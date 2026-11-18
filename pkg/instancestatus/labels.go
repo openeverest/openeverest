@@ -43,6 +43,7 @@ var labels = map[string]string{
 	"RetriesExhausted": "Maintenance failed",
 
 	"ProviderNotFound":   "Provider not found",
+	"NotResponding":      "Provider not responding",
 	"UserSecretNotFound": "Secret not found",
 	"InvalidReference":   "Invalid reference",
 
@@ -59,8 +60,6 @@ var labels = map[string]string{
 	"BackupStorageNotFound":            "Backup storage not found",
 	"BackupClassNotFound":              "Backup class not found",
 	"BackupStorageCredentialsNotFound": "Backup credentials not found",
-
-	ReasonNotPickedUp: "Not picked up by provider",
 }
 
 // Label is how a person reads a reason. A reason the dictionary does not
