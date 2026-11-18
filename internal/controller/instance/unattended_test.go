@@ -147,7 +147,6 @@ func newHarness(t *testing.T, objs ...client.Object) *harness {
 		WithReturnManagedFields().
 		WithObjects(objs...).
 		WithStatusSubresource(&corev1alpha1.Instance{}).
-		WithIndex(&corev1alpha1.Instance{}, instanceProviderField, instanceProviderName).
 		Build()
 	// Only the reconciler's applies are recorded, not the stand-in
 	// provider's.
@@ -611,6 +610,7 @@ func TestInstancesOfProvider(t *testing.T) {
 		named("current", testProvider, observed(2, 2)),
 		named("stale", testProvider, observed(2, 2), withCondition(metav1.ConditionTrue, corev1alpha1.ReasonProviderNotFound)),
 		named("other", "postgresql"),
+		named("typo", "percona-server-mongdb", withCondition(metav1.ConditionTrue, corev1alpha1.ReasonProviderNotFound)),
 	)
 
 	reqs := h.r.instancesOfProvider(t.Context(), testProviderObject(testProvider, t0))
@@ -619,5 +619,7 @@ func TestInstancesOfProvider(t *testing.T) {
 	for _, req := range reqs {
 		names = append(names, req.Name)
 	}
-	assert.ElementsMatch(t, []string{"new", "lagging", "stale"}, names)
+	assert.ElementsMatch(t, []string{"new", "lagging", "stale", "typo"}, names,
+		"an Instance whose Provider was not found lists the installed ones, so any Provider change requeues it",
+	)
 }

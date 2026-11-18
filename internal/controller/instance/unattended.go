@@ -58,9 +58,6 @@ const (
 	// an Instance's current spec unobserved before that is reported.
 	DefaultResponseDeadline = 5 * time.Minute
 
-	// instanceProviderField indexes Instances by spec.providerRef.name.
-	instanceProviderField = ".spec.providerRef.name"
-
 	// conflictRequeue gives the cache time to catch up with the write that
 	// won the optimistic lock.
 	conflictRequeue = time.Second
@@ -97,15 +94,9 @@ type UnattendedReconciler struct {
 // +kubebuilder:rbac:groups=core.openeverest.io,resources=instances/status,verbs=patch
 // +kubebuilder:rbac:groups=core.openeverest.io,resources=providers,verbs=get;list;watch
 
-// SetupWithManager registers the index of Instances by Provider and the
-// controller. The manager runs controllers on the leader only, so a single
-// clock decides.
+// SetupWithManager registers the controller. The manager runs controllers on
+// the leader only, so a single clock decides.
 func (r *UnattendedReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1alpha1.Instance{},
-		instanceProviderField, instanceProviderName,
-	); err != nil {
-		return fmt.Errorf("indexing instance by provider: %w", err)
-	}
 	return ctrl.NewControllerManagedBy(mgr).
 		Named("InstanceUnattended").
 		For(&corev1alpha1.Instance{}, builder.WithPredicates(unattendedEvents())).
@@ -245,16 +236,21 @@ func (r *UnattendedReconciler) apply(ctx context.Context, in *corev1alpha1.Insta
 }
 
 // instancesOfProvider enqueues the Instances that name the Provider and
-// that a verdict concerns.
+// that a verdict concerns, and every Instance whose Provider was not found:
+// their message lists the installed Providers, so it changes whenever one
+// is installed or removed.
 func (r *UnattendedReconciler) instancesOfProvider(ctx context.Context, obj client.Object) []reconcile.Request {
 	instances := &corev1alpha1.InstanceList{}
-	if err := r.List(ctx, instances, client.MatchingFields{instanceProviderField: obj.GetName()}); err != nil {
+	if err := r.List(ctx, instances); err != nil {
 		log.FromContext(ctx).Error(err, "List Instances for Provider", "provider", obj.GetName())
 		return nil
 	}
 	var reqs []reconcile.Request
 	for i := range instances.Items {
-		if in := &instances.Items[i]; concerns(in) {
+		in := &instances.Items[i]
+		stored := meta.FindStatusCondition(in.Status.Conditions, corev1alpha1.ConditionUnattended)
+		named := in.Spec.ProviderRef.Name == obj.GetName() && concerns(in)
+		if named || (stored != nil && stored.Reason == corev1alpha1.ReasonProviderNotFound) {
 			reqs = append(reqs, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(in)})
 		}
 	}
@@ -359,15 +355,6 @@ func createdOrDeleted() predicate.Predicate { //nolint:ireturn // the builder ta
 		UpdateFunc:  func(event.UpdateEvent) bool { return false },
 		GenericFunc: func(event.GenericEvent) bool { return false },
 	}
-}
-
-// instanceProviderName is the extractor for instanceProviderField.
-func instanceProviderName(obj client.Object) []string {
-	in, ok := obj.(*corev1alpha1.Instance)
-	if !ok || in.Spec.ProviderRef.Name == "" {
-		return nil
-	}
-	return []string{in.Spec.ProviderRef.Name}
 }
 
 // holding returns the stored condition if it has the reason the facts
