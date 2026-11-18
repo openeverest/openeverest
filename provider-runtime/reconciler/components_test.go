@@ -154,7 +154,8 @@ func TestSetPodStatus_BeforePodWatch(t *testing.T) {
 	assert.Equal(t, []corev1alpha1.ComponentStatus{
 		{Name: "engine", Replicas: new(int32(3))},
 		{Name: "proxy", Replicas: new(int32(1)), DesiredReplicas: new(int32(2))},
-	}, in.Status.Components)
+	}, in.Status.Components,
+	)
 	assert.Empty(t, in.Status.Conditions)
 }
 

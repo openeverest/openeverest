@@ -101,10 +101,12 @@ func (s *summaryConditions) checkStatuses() []error {
 	switch {
 	case isTrue(s.ready) && (reconciling || stalled || isTrue(s.attention)):
 		errs = append(errs, fmt.Errorf("%s=True with Reconciling=%s, Stalled=%s and NeedsAttention=%s, want all three False",
-			s.ready.Type, s.reconciling.Status, s.stalled.Status, s.attention.Status))
+			s.ready.Type, s.reconciling.Status, s.stalled.Status, s.attention.Status,
+		))
 	case !isTrue(s.ready) && reconciling == stalled:
 		errs = append(errs, fmt.Errorf("%s=%s with Reconciling=%s and Stalled=%s, want exactly one of them True",
-			s.ready.Type, s.ready.Status, s.reconciling.Status, s.stalled.Status))
+			s.ready.Type, s.ready.Status, s.reconciling.Status, s.stalled.Status,
+		))
 	}
 
 	return errs
@@ -124,19 +126,22 @@ func (s *summaryConditions) checkFalseReasons() []error {
 	} {
 		if c.condition.Status == metav1.ConditionFalse && !slices.Contains(c.reasons, c.condition.Reason) {
 			errs = append(errs, fmt.Errorf("%s=False has reason %q, want one of %v",
-				c.condition.Type, c.condition.Reason, c.reasons))
+				c.condition.Type, c.condition.Reason, c.reasons,
+			))
 		}
 	}
 	for _, c := range []*metav1.Condition{s.reconciling, s.stalled} {
 		if (c.Reason == v1alpha1.ReasonConverged) != isTrue(s.ready) {
 			errs = append(errs, fmt.Errorf("%s=%s has reason %q while Ready=%s, want %s exactly while Ready=True",
-				c.Type, c.Status, c.Reason, s.ready.Status, v1alpha1.ReasonConverged))
+				c.Type, c.Status, c.Reason, s.ready.Status, v1alpha1.ReasonConverged,
+			))
 		}
 	}
 	stalledReason := s.reconciling.Status == metav1.ConditionFalse && s.reconciling.Reason == v1alpha1.ReasonStalled
 	if stalledReason != isTrue(s.stalled) {
 		errs = append(errs, fmt.Errorf("%s=%s has reason %q while Stalled=%s, want Reconciling=False %s exactly while Stalled=True",
-			s.reconciling.Type, s.reconciling.Status, s.reconciling.Reason, s.stalled.Status, v1alpha1.ReasonStalled))
+			s.reconciling.Type, s.reconciling.Status, s.reconciling.Reason, s.stalled.Status, v1alpha1.ReasonStalled,
+		))
 	}
 
 	return errs
@@ -152,7 +157,8 @@ func (s *summaryConditions) checkTrueReasons() []error {
 	}
 	if isTrue(s.stalled) && s.stalled.Reason != s.ready.Reason && s.stalled.Reason != v1alpha1.ReasonProgressDeadlineExceeded {
 		errs = append(errs, fmt.Errorf("%s=True has reason %q, want Ready's %q or %s",
-			s.stalled.Type, s.stalled.Reason, s.ready.Reason, v1alpha1.ReasonProgressDeadlineExceeded))
+			s.stalled.Type, s.stalled.Reason, s.ready.Reason, v1alpha1.ReasonProgressDeadlineExceeded,
+		))
 	}
 
 	return errs
@@ -167,7 +173,8 @@ func (s *summaryConditions) checkNoProblems() []error {
 		}
 		if c != s.attention || c.Status != metav1.ConditionFalse {
 			errs = append(errs, fmt.Errorf("%s=%s has reason %s, which only NeedsAttention=False carries",
-				c.Type, c.Status, v1alpha1.ReasonNoProblems))
+				c.Type, c.Status, v1alpha1.ReasonNoProblems,
+			))
 		}
 	}
 

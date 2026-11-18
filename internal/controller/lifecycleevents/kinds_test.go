@@ -69,20 +69,23 @@ func TestInstanceStatusWord(t *testing.T) {
 		{
 			name: "an edit whose Provider is not installed",
 			in: unattended(observedAt(instance(3, corev1alpha1.ReasonReady, time.Hour), 2),
-				metav1.ConditionTrue, corev1alpha1.ReasonProviderNotFound),
+				metav1.ConditionTrue, corev1alpha1.ReasonProviderNotFound,
+			),
 			wantWord:      corev1alpha1.ReasonProviderNotFound,
 			wantAttention: true,
 		},
 		{
 			name: "the condition is answered once the status is current",
 			in: unattended(observedAt(instance(3, corev1alpha1.ReasonReady, time.Hour), 3),
-				metav1.ConditionUnknown, corev1alpha1.ReasonNotResponding),
+				metav1.ConditionUnknown, corev1alpha1.ReasonNotResponding,
+			),
 			wantWord: corev1alpha1.ReasonReady,
 		},
 		{
 			name: "core never writes it False",
 			in: unattended(observedAt(instance(3, corev1alpha1.ReasonReady, time.Hour), 2),
-				metav1.ConditionFalse, corev1alpha1.ReasonNotResponding),
+				metav1.ConditionFalse, corev1alpha1.ReasonNotResponding,
+			),
 			wantWord: corev1alpha1.ReasonReady,
 		},
 		{

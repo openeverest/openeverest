@@ -125,7 +125,8 @@ func stoppedStatus() string {
 // with core's condition saying so.
 func unattendedStatus(status, reason, message string) string {
 	return fmt.Sprintf(`{"observedGeneration":-1,"phase":"Pending","conditions":[%s]}`,
-		conditionJSON("Unattended", status, reason, message))
+		conditionJSON("Unattended", status, reason, message),
+	)
 }
 
 // instanceJSON is an Instance at the given generation with the given status.
@@ -370,7 +371,8 @@ func TestRunWait(t *testing.T) {
 			name:      "a timeout says what the status read last",
 			getStatus: http.StatusOK,
 			getStatuses: []string{unattendedStatus("Unknown", "NotResponding",
-				`Provider "psmdb" has not picked this Instance up for 5 minutes; check that it is running.`)},
+				`Provider "psmdb" has not picked this Instance up for 5 minutes; check that it is running.`,
+			)},
 			timeout: 40 * time.Millisecond,
 			wantErr: func(t *testing.T, err error) {
 				t.Helper()

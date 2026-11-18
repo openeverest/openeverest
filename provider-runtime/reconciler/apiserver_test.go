@@ -282,11 +282,13 @@ func TestAPIServer_InstanceStatusDefaults(t *testing.T) {
 		want := []string{got.Name + "@" + got.ResourceVersion}
 		assert.Equal(t, want, listed(t, &metav1.ListOptions{
 			ResourceVersion: got.ResourceVersion, ResourceVersionMatch: metav1.ResourceVersionMatchExact,
-		}), "from etcd")
+		}), "from etcd",
+		)
 		assert.Equal(t, want, listed(t, &metav1.ListOptions{}), "the latest")
 		assert.EventuallyWithT(t, func(t *assert.CollectT) {
 			assert.Equal(t, want, listed(t, &metav1.ListOptions{ResourceVersion: "0"}))
-		}, 10*time.Second, 100*time.Millisecond, "from the watch cache")
+		}, 10*time.Second, 100*time.Millisecond, "from the watch cache",
+		)
 		return got
 	}
 

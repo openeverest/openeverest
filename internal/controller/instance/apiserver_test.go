@@ -228,7 +228,8 @@ func TestAPIServer_Unattended(t *testing.T) {
 	stand.report(got, 1, "the runtime reports again")
 	got = get()
 	require.NotNil(t, meta.FindStatusCondition(got.Status.Conditions, corev1alpha1.ConditionUnattended),
-		"the runtime's forced apply leaves core's condition alone")
+		"the runtime's forced apply leaves core's condition alone",
+	)
 	requireReadyMessage(t, got, "the runtime reports again")
 
 	// The runtime catching up has core withdraw its condition.

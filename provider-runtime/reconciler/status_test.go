@@ -1201,7 +1201,8 @@ func TestReconcile_DesiredReplicas(t *testing.T) {
 		if strings.Contains(args, "a component the Instance does not have") {
 			ignored.Add(1)
 		}
-	}, funcr.Options{}))
+	}, funcr.Options{},
+	))
 	p := &readyTestProvider{status: controller.Ready().WithAvailable(controller.Available).
 		WithDesiredReplicas("engine", 3).
 		WithDesiredReplicas("hidden", 2).
@@ -1246,7 +1247,8 @@ func TestReconcile_DesiredReplicas(t *testing.T) {
 	assert.Equal(t, map[string]counts{
 		"engine": {replicas: new(int32(2)), desired: new(int32(3))},
 		"hidden": {replicas: new(int32(1)), desired: new(int32(2))},
-	}, components(got), "copied; a component the Instance does not have is left out")
+	}, components(got), "copied; a component the Instance does not have is left out",
+	)
 	requireCondition(t, got, v1alpha1.ConditionPodsReady, metav1.ConditionTrue, v1alpha1.ReasonReady)
 	assert.Equal(t, int32(1), ignored.Load())
 
@@ -1260,7 +1262,8 @@ func TestReconcile_DesiredReplicas(t *testing.T) {
 	assert.Equal(t, map[string]counts{
 		"engine": {replicas: new(int32(3)), desired: new(int32(3))},
 		"hidden": {replicas: new(int32(1)), desired: new(int32(2))},
-	}, components(got), "carried within the generation")
+	}, components(got), "carried within the generation",
+	)
 	requireCondition(t, got, v1alpha1.ConditionPodsReady, metav1.ConditionTrue, v1alpha1.ReasonReady)
 
 	restart()
@@ -1268,14 +1271,16 @@ func TestReconcile_DesiredReplicas(t *testing.T) {
 	assert.Equal(t, map[string]counts{
 		"engine": {replicas: new(int32(3)), desired: new(int32(3))},
 		"hidden": {replicas: new(int32(1)), desired: new(int32(2))},
-	}, components(got), "seeded from the stored status, which describes this generation")
+	}, components(got), "seeded from the stored status, which describes this generation",
+	)
 
 	st.editSpec()
 	got = pass()
 	assert.Equal(t, map[string]counts{
 		"engine": {replicas: new(int32(3))},
 		"hidden": {replicas: new(int32(1))},
-	}, components(got), "absent on a new generation until the provider reports")
+	}, components(got), "absent on a new generation until the provider reports",
+	)
 
 	p.syncErr = nil
 	p.status = p.status.WithDesiredReplicas("engine", 5)
@@ -1283,7 +1288,8 @@ func TestReconcile_DesiredReplicas(t *testing.T) {
 	assert.Equal(t, map[string]counts{
 		"engine": {replicas: new(int32(3)), desired: new(int32(5))},
 		"hidden": {replicas: new(int32(1)), desired: new(int32(2))},
-	}, components(got))
+	}, components(got),
+	)
 	assert.Equal(t, int32(2), ignored.Load(), "logged again on a new generation")
 
 	restart()
@@ -1293,7 +1299,8 @@ func TestReconcile_DesiredReplicas(t *testing.T) {
 	assert.Equal(t, map[string]counts{
 		"engine": {replicas: new(int32(3))},
 		"hidden": {replicas: new(int32(1))},
-	}, components(got), "not seeded from a stored status that describes the generation before")
+	}, components(got), "not seeded from a stored status that describes the generation before",
+	)
 }
 
 func TestReconcile_Deletion(t *testing.T) {

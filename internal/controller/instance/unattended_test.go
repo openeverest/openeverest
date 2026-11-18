@@ -400,7 +400,8 @@ func TestUnattendedReconciler(t *testing.T) {
 					assert.Equal(t, s.want.message, cond.Message, "%s: message", s.name)
 					assert.Equal(t, s.want.generation, cond.ObservedGeneration, "%s: observedGeneration", s.name)
 					assert.True(t, s.want.since.Equal(cond.LastTransitionTime.Time),
-						"%s: lastTransitionTime: want %s, got %s", s.name, s.want.since, cond.LastTransitionTime)
+						"%s: lastTransitionTime: want %s, got %s", s.name, s.want.since, cond.LastTransitionTime,
+					)
 				}
 				assert.Equal(t, s.requeue, res.RequeueAfter, "%s: requeue", s.name)
 				assert.Len(t, h.applies, s.writes, "%s: writes", s.name)
@@ -430,7 +431,8 @@ func TestUnattendedReconciler_SharesTheStatus(t *testing.T) {
 	got = &corev1alpha1.Instance{}
 	require.NoError(t, h.c.Get(t.Context(), h.key(), got))
 	require.NotNil(t, meta.FindStatusCondition(got.Status.Conditions, corev1alpha1.ConditionUnattended),
-		"the provider's apply leaves core's condition alone")
+		"the provider's apply leaves core's condition alone",
+	)
 
 	got, _ = h.reconcile()
 	assert.Nil(t, meta.FindStatusCondition(got.Status.Conditions, corev1alpha1.ConditionUnattended))
@@ -451,7 +453,8 @@ func TestUnattendedReconciler_Conflict(t *testing.T) {
 		WithInterceptorFuncs(interceptor.Funcs{
 			SubResourceApply: func(context.Context, client.Client, string, runtime.ApplyConfiguration, ...client.SubResourceApplyOption) error {
 				return apierrors.NewConflict(schema.GroupResource{Group: corev1alpha1.GroupVersion.Group, Resource: "instances"},
-					instance.Name, nil)
+					instance.Name, nil,
+				)
 			},
 		}).
 		Build()

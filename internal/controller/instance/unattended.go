@@ -184,7 +184,8 @@ func (r *UnattendedReconciler) verdict(
 			return nil, 0, err
 		}
 		return newCondition(in, stored, metav1.ConditionTrue, corev1alpha1.ReasonProviderNotFound,
-			providerNotFoundMessage(name, installed), now), 0, nil
+			providerNotFoundMessage(name, installed), now,
+		), 0, nil
 	case err != nil:
 		return nil, 0, fmt.Errorf("get provider %s: %w", name, err)
 	}
@@ -193,7 +194,8 @@ func (r *UnattendedReconciler) verdict(
 		return holding(stored, corev1alpha1.ReasonNotResponding), due.Sub(now), nil
 	}
 	return newCondition(in, stored, metav1.ConditionUnknown, corev1alpha1.ReasonNotResponding,
-		notRespondingMessage(in, r.responseDeadline()), now), 0, nil
+		notRespondingMessage(in, r.responseDeadline()), now,
+	), 0, nil
 }
 
 // installedProviders returns the names of the Providers that exist, sorted.
@@ -236,7 +238,8 @@ func (r *UnattendedReconciler) apply(ctx context.Context, in *corev1alpha1.Insta
 	}}
 	if err := r.Status().Apply(ctx, client.ApplyConfigurationFromUnstructured(u), client.FieldOwner(UnattendedFieldOwner)); err != nil {
 		return fmt.Errorf("apply the %s condition of instance %s/%s: %w",
-			corev1alpha1.ConditionUnattended, in.Namespace, in.Name, err)
+			corev1alpha1.ConditionUnattended, in.Namespace, in.Name, err,
+		)
 	}
 	return nil
 }
@@ -433,10 +436,12 @@ func notRespondingMessage(in *corev1alpha1.Instance, waited time.Duration) strin
 	name := in.Spec.ProviderRef.Name
 	if controllerutil.ContainsFinalizer(in, controller.ProviderFinalizer) || in.Labels[controller.ProviderLabel] != "" {
 		return fmt.Sprintf("Provider %q picked this Instance up but has not reported on generation %d for %s; check its logs.",
-			name, in.Generation, spellDuration(waited))
+			name, in.Generation, spellDuration(waited),
+		)
 	}
 	return fmt.Sprintf("Provider %q has not picked this Instance up for %s; check that it is running.",
-		name, spellDuration(waited))
+		name, spellDuration(waited),
+	)
 }
 
 // spellDuration writes whole minutes in words, and any other duration as Go

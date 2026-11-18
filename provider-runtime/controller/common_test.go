@@ -133,7 +133,8 @@ func TestWithDesiredReplicas(t *testing.T) {
 		{Component: "proxy", Desired: 2},
 		{Component: "engine", Desired: 6},
 		{Component: "hidden", Desired: 0},
-	}, s.DesiredReplicas)
+	}, s.DesiredReplicas,
+	)
 }
 
 func TestRestoring(t *testing.T) {

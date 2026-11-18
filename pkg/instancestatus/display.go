@@ -133,8 +133,10 @@ type Display struct {
 // and its label is derived from its spelling.
 //
 // Nothing is inferred from how long the status has not changed: when nobody
-// attends to an Instance, core says so with the Unattended condition.
-func Describe(in Input, now time.Time) Display {
+// attends to an Instance, core says so with the Unattended condition. The
+// current time is reserved for provider liveness, which will decide whether
+// a status anyone still vouches for; callers pass it already.
+func Describe(in Input, _ time.Time) Display {
 	tone := in.tone()
 	reason := in.reason(tone)
 	d := Display{
