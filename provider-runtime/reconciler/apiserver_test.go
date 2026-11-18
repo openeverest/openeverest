@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -70,6 +71,10 @@ func apiServerClient(t *testing.T) (client.Client, string) { //nolint:ireturn //
 			CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
 			ErrorIfCRDPathMissing: true,
 		}
+		// Without snapshots of the watch cache, a list at an exact resource
+		// version is served from etcd: no other list is, as the cache also
+		// serves the consistent ones.
+		s.env.ControlPlane.GetAPIServer().Configure().Append("feature-gates", "ListFromCacheSnapshot=false")
 		s.cfg, s.err = s.env.Start()
 	})
 	require.NoError(t, s.err)
@@ -232,6 +237,69 @@ func TestAPIServer_InstanceStatus(t *testing.T) {
 	require.NoError(t, c.Get(t.Context(), key, got))
 	assert.Nil(t, meta.FindStatusCondition(got.Status.Conditions, coreCondition().Type), "core removes its own condition")
 	assert.NotNil(t, meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionReady))
+}
+
+// TestAPIServer_InstanceStatusDefaults checks that an Instance no provider
+// has reconciled reads as such: the CRD defaults its status on every read,
+// field selectors match the defaulted phase whether etcd or the watch cache
+// serves the list, and the defaults stay once another writer applies a
+// status of its own, as core does.
+func TestAPIServer_InstanceStatusDefaults(t *testing.T) {
+	t.Parallel()
+	c, ns := apiServerClient(t)
+
+	in := readyTestInstance(func(in *v1alpha1.Instance) {
+		in.Namespace = ns
+		in.Generation = 0
+		in.Finalizers = nil
+		in.Spec.ProviderRef.Name = "envtest-defaults-provider"
+		in.Spec.Version = "7.0"
+		in.Spec.Components = map[string]v1alpha1.ComponentSpec{"engine": {Replicas: new(int32(3))}}
+	})
+	ctx := t.Context()
+	require.NoError(t, c.Create(ctx, in))
+	key := client.ObjectKeyFromObject(in)
+
+	pending := client.MatchingFields{"status.phase": string(v1alpha1.InstancePhasePending)}
+	// listed returns the name and resource version of each Instance in the
+	// namespace whose phase is Pending.
+	listed := func(t require.TestingT, raw *metav1.ListOptions) []string {
+		list := &v1alpha1.InstanceList{}
+		require.NoError(t, c.List(ctx, list, client.InNamespace(ns), pending, &client.ListOptions{Raw: raw}))
+		found := make([]string, 0, len(list.Items))
+		for _, item := range list.Items {
+			found = append(found, item.Name+"@"+item.ResourceVersion)
+		}
+		return found
+	}
+	requireNeverReconciled := func(t *testing.T) *v1alpha1.Instance {
+		t.Helper()
+		got := &v1alpha1.Instance{}
+		require.NoError(t, c.Get(ctx, key, got))
+		assert.Equal(t, int64(-1), got.Status.ObservedGeneration)
+		assert.Equal(t, v1alpha1.InstancePhasePending, got.Status.Phase)
+
+		want := []string{got.Name + "@" + got.ResourceVersion}
+		assert.Equal(t, want, listed(t, &metav1.ListOptions{
+			ResourceVersion: got.ResourceVersion, ResourceVersionMatch: metav1.ResourceVersionMatchExact,
+		}), "from etcd")
+		assert.Equal(t, want, listed(t, &metav1.ListOptions{}), "the latest")
+		assert.EventuallyWithT(t, func(t *assert.CollectT) {
+			assert.Equal(t, want, listed(t, &metav1.ListOptions{ResourceVersion: "0"}))
+		}, 10*time.Second, 100*time.Millisecond, "from the watch cache")
+		return got
+	}
+
+	created := requireNeverReconciled(t)
+
+	applyCoreCondition(t, c, in, metav1.Condition{
+		Type: v1alpha1.ConditionUnattended, Status: metav1.ConditionUnknown, Reason: v1alpha1.ReasonNotResponding,
+		Message: "The provider has not reported on generation 1", ObservedGeneration: 1, LastTransitionTime: metav1.Now(),
+	})
+	got := requireNeverReconciled(t)
+	require.NotEqual(t, created.ResourceVersion, got.ResourceVersion, "core's status was written")
+	require.Len(t, got.Status.Conditions, 1)
+	assert.Equal(t, v1alpha1.ConditionUnattended, got.Status.Conditions[0].Type)
 }
 
 // retiredCondition is a condition type an earlier runtime wrote and this one
