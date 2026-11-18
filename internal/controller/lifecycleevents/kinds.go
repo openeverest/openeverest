@@ -19,6 +19,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
@@ -95,9 +96,13 @@ func DefaultKinds() []Kind {
 	}
 }
 
-// instanceStatusWord returns the reason of an Instance's Ready condition, or
-// "" before a provider has reported on it.
+// instanceStatusWord returns the reason of the Unattended condition while
+// core says nobody attends to the Instance's current spec, and otherwise the
+// reason of its Ready condition, or "" before a provider has reported on it.
 func instanceStatusWord(o *corev1alpha1.Instance) string {
+	if unattended := instanceUnattended(o); unattended != nil {
+		return unattended.Reason
+	}
 	if ready := meta.FindStatusCondition(o.Status.Conditions, corev1alpha1.ConditionReady); ready != nil {
 		return ready.Reason
 	}
@@ -105,9 +110,25 @@ func instanceStatusWord(o *corev1alpha1.Instance) string {
 }
 
 // instanceNeedsAttention reports whether something is wrong with an Instance
-// that a person may want to look at, stalled or not.
+// that a person may want to look at, stalled or not, including that nobody
+// attends to it.
 func instanceNeedsAttention(o *corev1alpha1.Instance) bool {
-	return meta.IsStatusConditionTrue(o.Status.Conditions, corev1alpha1.ConditionNeedsAttention)
+	return instanceUnattended(o) != nil ||
+		meta.IsStatusConditionTrue(o.Status.Conditions, corev1alpha1.ConditionNeedsAttention)
+}
+
+// instanceUnattended returns the Unattended condition while it is to be
+// honoured: core wrote it True or Unknown, and no provider has reported on
+// the current spec since, which would have answered it.
+func instanceUnattended(o *corev1alpha1.Instance) *metav1.Condition {
+	if o.Status.ObservedGeneration >= o.Generation {
+		return nil
+	}
+	c := meta.FindStatusCondition(o.Status.Conditions, corev1alpha1.ConditionUnattended)
+	if c == nil || c.Status == metav1.ConditionFalse {
+		return nil
+	}
+	return c
 }
 
 // phaseOf adapts a typed phase accessor to Kind.Phase.
