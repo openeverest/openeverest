@@ -123,8 +123,10 @@ func podChanged(e event.TypedUpdateEvent[*corev1.Pod]) bool {
 
 // setPodStatus reports the pods of each labelled component on the Instance:
 // their counts and the PodsScheduled and PodsReady conditions. It returns how
-// soon to look again while a pod waits for a node within the grace period.
-// Until the pod watch runs it leaves the status untouched.
+// soon to look again because a verdict changes with time alone: a pod that
+// waits for a node within the grace period, a back-off that is not a problem
+// yet, or a crash loop that may have ended. Until the pod watch runs it leaves
+// the status untouched.
 func (r *ProviderReconciler) setPodStatus(ctx context.Context, in *v1alpha1.Instance, components []string, now time.Time) time.Duration {
 	reader, ok := r.pods.Load().(client.Reader)
 	if !ok {
@@ -168,10 +170,10 @@ func (r *ProviderReconciler) setPodStatus(ctx context.Context, in *v1alpha1.Inst
 	}
 	scheduled, recheck := podsScheduled(components, pods, now)
 	setCondition(in, v1alpha1.ConditionPodsScheduled, scheduled.Status, scheduled.Reason, scheduled.Message, metav1.NewTime(now))
-	readiness := podsReady(components, pods)
+	readiness, readyRecheck := podsReady(components, pods, now)
 	setCondition(in, v1alpha1.ConditionPodsReady, readiness.Status, readiness.Reason, readiness.Message, metav1.NewTime(now))
 
-	return recheck
+	return soonest(recheck, readyRecheck)
 }
 
 // podCounted reports whether the pod is neither terminating nor terminated.

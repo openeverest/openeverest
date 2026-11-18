@@ -189,11 +189,14 @@ func TestAPIServer_InstanceStatus(t *testing.T) {
 	key := client.ObjectKeyFromObject(in)
 
 	// The status an earlier runtime wrote, with Update under the client's
-	// default field manager.
-	in.Status.Phase = v1alpha1.InstancePhaseProvisioning
-	in.Status.Message = "creating pods"
+	// default field manager, including a condition this runtime no longer
+	// writes.
+	in.Status.Phase = v1alpha1.InstancePhasePending
 	in.Status.Conditions = []metav1.Condition{{
 		Type: v1alpha1.ConditionReady, Status: metav1.ConditionFalse, Reason: "Provisioning",
+		Message: "creating pods", LastTransitionTime: metav1.Now(),
+	}, {
+		Type: retiredCondition, Status: metav1.ConditionTrue, Reason: "Provisioning",
 		Message: "creating pods", LastTransitionTime: metav1.Now(),
 	}}
 	require.NoError(t, c.Status().Update(t.Context(), in, client.FieldOwner("legacy-provider")))
@@ -205,8 +208,10 @@ func TestAPIServer_InstanceStatus(t *testing.T) {
 
 	got := &v1alpha1.Instance{}
 	require.NoError(t, c.Get(t.Context(), key, got))
-	assert.Equal(t, v1alpha1.InstancePhaseReady, got.Status.Phase)
-	assert.Empty(t, got.Status.Message, "the earlier runtime's message is gone with its owner")
+	assert.Equal(t, v1alpha1.InstancePhaseProvisioned, got.Status.Phase)
+	assert.Nil(t, meta.FindStatusCondition(got.Status.Conditions, retiredCondition),
+		"the earlier runtime's condition is gone with its owner",
+	)
 	core := meta.FindStatusCondition(got.Status.Conditions, coreCondition().Type)
 	require.NotNil(t, core, "core's condition survives")
 	assert.Equal(t, "set by core", core.Message)
@@ -220,7 +225,7 @@ func TestAPIServer_InstanceStatus(t *testing.T) {
 	applyCoreCondition(t, c, got, changed)
 	require.NoError(t, c.Get(t.Context(), key, got))
 	require.NotEqual(t, stale.ResourceVersion, got.ResourceVersion)
-	stale.Status.Message = "stale"
+	stale.Status.Version = "stale"
 	require.Error(t, r.applyStatus(t.Context(), stale))
 
 	applyCoreCondition(t, c, got)
@@ -228,6 +233,10 @@ func TestAPIServer_InstanceStatus(t *testing.T) {
 	assert.Nil(t, meta.FindStatusCondition(got.Status.Conditions, coreCondition().Type), "core removes its own condition")
 	assert.NotNil(t, meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionReady))
 }
+
+// retiredCondition is a condition type an earlier runtime wrote and this one
+// does not.
+const retiredCondition = "Initializing"
 
 // namedTestProvider is readyTestProvider under another name.
 type namedTestProvider struct {

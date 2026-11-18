@@ -118,7 +118,8 @@ func TestSetPodStatus(t *testing.T) {
 	assert.Equal(t, metav1.ConditionTrue, scheduled.Status)
 	readiness := meta.FindStatusCondition(in.Status.Conditions, corev1alpha1.ConditionPodsReady)
 	require.NotNil(t, readiness)
-	assert.Equal(t, metav1.ConditionFalse, readiness.Status)
+	assert.Equal(t, metav1.ConditionUnknown, readiness.Status, "a pod that is merely not ready yet is in progress")
+	assert.Equal(t, corev1alpha1.ReasonNotReady, readiness.Reason)
 	assert.Equal(t, "engine: 1 of 2 pods are not ready", readiness.Message)
 
 	recheck = r.setPodStatus(t.Context(), in, nil, now)
