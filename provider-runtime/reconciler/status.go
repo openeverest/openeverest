@@ -56,13 +56,24 @@ var conditionReason = regexp.MustCompile(`^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])
 
 // reasonOr returns reason when a condition can carry it, and fallback
 // otherwise. A status with a malformed reason is rejected as a whole, so a
-// reason a provider made up must not reach it unchecked.
+// reason a provider made up must not reach it unchecked. The reasons that
+// say why a summary condition is False are reserved: a cause named after
+// one would read as that state.
 func reasonOr(reason, fallback string) string {
-	if conditionReason.MatchString(reason) {
+	if conditionReason.MatchString(reason) && !slices.Contains(reservedReasons, reason) {
 		return reason
 	}
 
 	return fallback
+}
+
+// reservedReasons are the reasons of the summary conditions while they are
+// False.
+var reservedReasons = []string{ //nolint:gochecknoglobals // a constant list
+	v1alpha1.ReasonConverged,
+	v1alpha1.ReasonReconciling,
+	v1alpha1.ReasonStalled,
+	v1alpha1.ReasonNoProblems,
 }
 
 // tracker remembers, for each Instance, what its status cannot hold: when

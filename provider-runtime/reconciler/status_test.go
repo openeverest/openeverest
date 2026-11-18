@@ -860,6 +860,21 @@ func TestReconcile_Problems(t *testing.T) {
 		requireCondition(t, got, v1alpha1.ConditionEngineHealthy, metav1.ConditionFalse, v1alpha1.ReasonEngineError)
 	})
 
+	t.Run("a reason reserved for the summary conditions is not taken from a provider", func(t *testing.T) {
+		t.Parallel()
+		for _, reserved := range []string{
+			v1alpha1.ReasonConverged, v1alpha1.ReasonReconciling, v1alpha1.ReasonStalled, v1alpha1.ReasonNoProblems,
+		} {
+			p := &readyTestProvider{status: controller.Progressing("electing").WithProblem(reserved, "rs0 has no primary")}
+			st := newStatusTest(t, p, readyTestProviderObject(), readyTestInstance(nil))
+
+			got, _ := st.pass()
+
+			requireCondition(t, got, v1alpha1.ConditionEngineHealthy, metav1.ConditionFalse, v1alpha1.ReasonEngineError)
+			require.NoError(t, summary.CheckConditions(got.Status.Conditions), reserved)
+		}
+	})
+
 	t.Run("exhausted maintenance retries stall at once", func(t *testing.T) {
 		t.Parallel()
 		p := &readyTestProvider{status: controller.Ready()}

@@ -750,10 +750,10 @@ func (r *ProviderReconciler) syncStopped(ctx context.Context, p *pass, syncCtx *
 	switch {
 	case bce != nil:
 		logger.Error(err, "Backup configuration failed")
-		p.check(v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse, bce.Reason, bce.Message)
+		p.check(v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse, reasonOr(bce.Reason, v1alpha1.ReasonEngineError), bce.Message)
 	case dse != nil:
 		logger.Error(err, "DataSource configuration failed")
-		p.check(v1alpha1.ConditionDataSourceReady, metav1.ConditionFalse, dse.Reason, dse.Message)
+		p.check(v1alpha1.ConditionDataSourceReady, metav1.ConditionFalse, reasonOr(dse.Reason, v1alpha1.ReasonDataSourceFailed), dse.Message)
 	default:
 		logger.Error(err, "Sync failed")
 		r.breaker.recordFailure(client.ObjectKeyFromObject(in), approvedMaintenanceValue(in), syncCtx.GetApprovedMaintenance())
