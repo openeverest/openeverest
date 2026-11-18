@@ -19,6 +19,8 @@ import { getDefaultValues } from '../utils/default-values';
 import { postprocessSchemaData } from '../utils/postprocess/postprocess-schema';
 import { getSectionStepId } from '../utils/section-step-id';
 import { UIGenerator } from '../ui-generator';
+import { mergeStepOrder } from './merge-step-order';
+import { RESERVED_STATIC_STEP_IDS } from 'pages/database-form/database-form-body/steps/constants';
 
 /**
  * Core form-engine hook.
@@ -54,10 +56,7 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
   } = useUiGenerator(stableUiSchema, selectedTopology, formMode);
 
   // 2. Build generated steps from schema sections
-  const sectionKeys = useMemo(
-    () => sectionsOrder || Object.keys(sections),
-    [sectionsOrder, sections]
-  );
+  const sectionKeys = useMemo(() => Object.keys(sections), [sections]);
 
   const generatedSteps: StepDefinition[] = useMemo(
     () =>
@@ -107,8 +106,8 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
 
   // 3. Merge static + generated steps
   const steps = useMemo(
-    () => [...staticSteps, ...generatedSteps],
-    [staticSteps, generatedSteps]
+    () => mergeStepOrder(staticSteps, generatedSteps, sectionsOrder),
+    [staticSteps, generatedSteps, sectionsOrder]
   );
 
   // 4. Build complete field → step-ID map
@@ -121,8 +120,16 @@ export const useFormEngine = (config: FormEngineConfig): FormEngineResult => {
       }
     }
 
+    const reservedStaticIds = new Set<string>(RESERVED_STATIC_STEP_IDS);
+
     for (const [fieldPath, sectionKey] of Object.entries(sectionFieldMap)) {
-      map[fieldPath] = getSectionStepId(sectionKey);
+      const staticStepCollides =
+        reservedStaticIds.has(sectionKey) &&
+        staticSteps.some((step) => step.id === sectionKey);
+
+      map[fieldPath] = staticStepCollides
+        ? sectionKey
+        : getSectionStepId(sectionKey);
     }
 
     return map;
