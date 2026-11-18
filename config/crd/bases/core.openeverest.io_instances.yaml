@@ -1858,7 +1858,9 @@ spec:
               providerRef:
                 description: |-
                   ProviderRef references the cluster-scoped Provider that manages this
-                  Instance (e.g., "percona-server-mongodb", "postgresql").
+                  Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                  providerRef cannot be changed: the provider that picked it up owns its
+                  finalizer and engine resources, and only that provider cleans them up.
                 properties:
                   name:
                     description: Name of the referenced object.
@@ -1920,6 +1922,9 @@ spec:
             - providerRef
             type: object
             x-kubernetes-validations:
+            - message: 'spec.providerRef is immutable: delete the Instance and create
+                it again with the provider you want'
+              rule: self.providerRef == oldSelf.providerRef
             - message: spec.dataSource requires spec.backup.enabled=true with at least
                 one storage so the provider can read the source backup
               rule: '!has(self.dataSource) || (has(self.backup) && self.backup.enabled)'
@@ -1935,8 +1940,7 @@ spec:
               rule: '!has(oldSelf.userSecretRef) || (has(self.userSecretRef) && self.userSecretRef
                 == oldSelf.userSecretRef)'
           status:
-            default:
-              observedGeneration: -1
+            default: {}
             description: InstanceStatus defines the observed state of Instance.
             properties:
               backup:
@@ -2020,6 +2024,23 @@ spec:
                 items:
                   description: ComponentStatus counts the pods of one component.
                   properties:
+                    desiredReplicas:
+                      description: |-
+                        DesiredReplicas is how many pods the component will have once the
+                        current generation has converged, as the provider reports it. It
+                        describes status.observedGeneration: it is absent until the provider
+                        reports for that generation, during deletion, and for providers that
+                        don't report it; clients then show readyReplicas over replicas. Zero is
+                        a real target, for example a model scaled to zero. A cluster paused
+                        outside OpenEverest keeps its target, so it reads 0 of N; one stopped
+                        through its spec has a target of zero.
+
+                        It is meant for display. When a component sums several groups, such as
+                        the replica sets of every shard, it cannot tell whether each group has
+                        a majority.
+                      format: int32
+                      minimum: 0
+                      type: integer
                     name:
                       description: Name is a key of spec.components.
                       type: string
@@ -2534,6 +2555,7 @@ spec:
                     type: object
                 type: object
               observedGeneration:
+                default: -1
                 description: |-
                   ObservedGeneration is the metadata.generation the provider-runtime last
                   reconciled. Status describes an older spec while it is lower than
@@ -2578,10 +2600,12 @@ spec:
                   type: object
                 type: array
               phase:
+                default: Pending
                 description: |-
                   Phase is where the Instance is in its life: Pending until the database
                   is first available, Provisioned afterwards, Terminating once deletion
-                  is requested. Read the conditions for everything else.
+                  is requested. The CRD sets Pending at creation; only provider-runtime
+                  changes it. Read the conditions for everything else.
                 enum:
                 - Pending
                 - Provisioned

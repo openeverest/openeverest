@@ -3123,7 +3123,9 @@ export interface components {
                 parameters?: Record<string, never>;
                 /**
                  * @description ProviderRef references the cluster-scoped Provider that manages this
-                 *     Instance (e.g., "percona-server-mongodb", "postgresql").
+                 *     Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                 *     providerRef cannot be changed: the provider that picked it up owns its
+                 *     finalizer and engine resources, and only that provider cleans them up.
                  */
                 providerRef: {
                     /** @description Name of the referenced object. */
@@ -4467,7 +4469,9 @@ export interface components {
                 parameters?: Record<string, never>;
                 /**
                  * @description ProviderRef references the cluster-scoped Provider that manages this
-                 *     Instance (e.g., "percona-server-mongodb", "postgresql").
+                 *     Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                 *     providerRef cannot be changed: the provider that picked it up owns its
+                 *     finalizer and engine resources, and only that provider cleans them up.
                  */
                 providerRef: {
                     /** @description Name of the referenced object. */
@@ -6137,7 +6141,9 @@ export interface components {
                 parameters?: Record<string, never>;
                 /**
                  * @description ProviderRef references the cluster-scoped Provider that manages this
-                 *     Instance (e.g., "percona-server-mongodb", "postgresql").
+                 *     Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                 *     providerRef cannot be changed: the provider that picked it up owns its
+                 *     finalizer and engine resources, and only that provider cleans them up.
                  */
                 providerRef: {
                     /** @description Name of the referenced object. */
@@ -6183,9 +6189,7 @@ export interface components {
             };
             /**
              * @description InstanceStatus defines the observed state of Instance.
-             * @default {
-             *       "observedGeneration": -1
-             *     }
+             * @default {}
              */
             status?: {
                 /**
@@ -6248,6 +6252,22 @@ export interface components {
                 };
                 /** @description Components reports how many pods each component has and how many are Ready. */
                 components?: {
+                    /**
+                     * Format: int32
+                     * @description DesiredReplicas is how many pods the component will have once the
+                     *     current generation has converged, as the provider reports it. It
+                     *     describes status.observedGeneration: it is absent until the provider
+                     *     reports for that generation, during deletion, and for providers that
+                     *     don't report it; clients then show readyReplicas over replicas. Zero is
+                     *     a real target, for example a model scaled to zero. A cluster paused
+                     *     outside OpenEverest keeps its target, so it reads 0 of N; one stopped
+                     *     through its spec has a target of zero.
+                     *
+                     *     It is meant for display. When a component sums several groups, such as
+                     *     the replica sets of every shard, it cannot tell whether each group has
+                     *     a majority.
+                     */
+                    desiredReplicas?: number;
                     /** @description Name is a key of spec.components. */
                     name: string;
                     /**
@@ -6548,6 +6568,7 @@ export interface components {
                  *     reconciled. Status describes an older spec while it is lower than
                  *     metadata.generation. It defaults to -1, so an Instance no provider has
                  *     reconciled reads as in progress, never as current.
+                 * @default -1
                  */
                 observedGeneration?: number;
                 /**
@@ -6577,7 +6598,9 @@ export interface components {
                 /**
                  * @description Phase is where the Instance is in its life: Pending until the database
                  *     is first available, Provisioned afterwards, Terminating once deletion
-                 *     is requested. Read the conditions for everything else.
+                 *     is requested. The CRD sets Pending at creation; only provider-runtime
+                 *     changes it. Read the conditions for everything else.
+                 * @default Pending
                  * @enum {string}
                  */
                 phase?: "Pending" | "Provisioned" | "Terminating";

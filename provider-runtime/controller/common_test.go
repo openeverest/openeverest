@@ -93,6 +93,49 @@ func TestStatusHelpers(t *testing.T) {
 	}
 }
 
+// TestStatusWithMethods_DoNotShareEntries derives two statuses from one base
+// whose lists have spare capacity. With a plain append on a value receiver,
+// the second derivation would overwrite the first one's new entry.
+func TestStatusWithMethods_DoNotShareEntries(t *testing.T) {
+	t.Parallel()
+
+	base := Progressing("rolling out")
+	base.Operations = make([]Operation, 0, 4)
+	base.Problems = make([]Problem, 0, 4)
+	base.DesiredReplicas = make([]ComponentReplicas, 0, 4)
+
+	a := base.WithOperation(v1alpha1.ConditionUpgrading, "RollingOutImage", "a").
+		WithProblem("EngineError", "a").
+		WithDesiredReplicas("engine", 3)
+	b := base.WithOperation(v1alpha1.ConditionRestoring, "Restoring", "b").
+		WithTerminalProblem("Paused", "b").
+		WithDesiredReplicas("engine", 5)
+
+	assert.Equal(t, "a", a.Operations[0].Message)
+	assert.Equal(t, "a", a.Problems[0].Message)
+	assert.Equal(t, []ComponentReplicas{{Component: "engine", Desired: 3}}, a.DesiredReplicas)
+	assert.Equal(t, "b", b.Operations[0].Message)
+	assert.Equal(t, []ComponentReplicas{{Component: "engine", Desired: 5}}, b.DesiredReplicas)
+	assert.Empty(t, base.Operations)
+	assert.Empty(t, base.DesiredReplicas)
+}
+
+func TestWithDesiredReplicas(t *testing.T) {
+	t.Parallel()
+
+	s := Ready().
+		WithDesiredReplicas("engine", 3).
+		WithDesiredReplicas("proxy", 2).
+		WithDesiredReplicas("engine", 6).
+		WithDesiredReplicas("hidden", 0)
+
+	assert.Equal(t, []ComponentReplicas{
+		{Component: "proxy", Desired: 2},
+		{Component: "engine", Desired: 6},
+		{Component: "hidden", Desired: 0},
+	}, s.DesiredReplicas)
+}
+
 func TestRestoring(t *testing.T) {
 	t.Parallel()
 

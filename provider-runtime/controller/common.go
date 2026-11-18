@@ -636,6 +636,18 @@ type Status struct {
 	Operations []Operation
 	// Problems lists what is wrong with the engine.
 	Problems []Problem
+	// DesiredReplicas lists, per component, how many pods it will have once
+	// the current spec has converged. Set it with WithDesiredReplicas.
+	DesiredReplicas []ComponentReplicas
+}
+
+// ComponentReplicas is the number of pods a component will have once the
+// current spec has converged.
+type ComponentReplicas struct {
+	// Component is a key of the Instance's spec.components.
+	Component string
+	// Desired is the number of pods.
+	Desired int32
 }
 
 // WithAvailable reports whether clients can connect.
@@ -652,21 +664,39 @@ func (s Status) WithUnavailable(reason, message string) Status {
 	return s
 }
 
+// The With... methods take and return a Status by value. They append to a
+// clipped copy of each list, so two statuses built from one base never share
+// the entries either adds.
+
 // WithOperation adds a long operation in progress.
 func (s Status) WithOperation(conditionType, reason, message string) Status {
-	s.Operations = append(s.Operations, Operation{Type: conditionType, Reason: reason, Message: message})
+	s.Operations = append(slices.Clip(s.Operations), Operation{Type: conditionType, Reason: reason, Message: message})
 	return s
 }
 
 // WithProblem adds a problem that is expected to clear by itself.
 func (s Status) WithProblem(reason, message string) Status {
-	s.Problems = append(s.Problems, Problem{Reason: reason, Message: message})
+	s.Problems = append(slices.Clip(s.Problems), Problem{Reason: reason, Message: message})
 	return s
 }
 
 // WithTerminalProblem adds a problem nothing but a person can resolve.
 func (s Status) WithTerminalProblem(reason, message string) Status {
-	s.Problems = append(s.Problems, Problem{Reason: reason, Message: message, Terminal: true})
+	s.Problems = append(slices.Clip(s.Problems), Problem{Reason: reason, Message: message, Terminal: true})
+	return s
+}
+
+// WithDesiredReplicas reports how many pods a component will have once the
+// current spec has converged: what the provider applies, with its defaults,
+// summed over the groups the component spans, such as the replica sets of
+// every shard. A later call for the same component replaces the earlier
+// one. Clients show the component's ready pods against this number, and fall
+// back to the pods that exist when it isn't reported.
+func (s Status) WithDesiredReplicas(component string, desired int32) Status {
+	s.DesiredReplicas = append(
+		slices.DeleteFunc(slices.Clone(s.DesiredReplicas), func(r ComponentReplicas) bool { return r.Component == component }),
+		ComponentReplicas{Component: component, Desired: desired},
+	)
 	return s
 }
 

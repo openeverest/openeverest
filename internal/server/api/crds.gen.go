@@ -3188,7 +3188,9 @@ type ClusterInstancePreset struct {
 		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 		// ProviderRef ProviderRef references the cluster-scoped Provider that manages this
-		// Instance (e.g., "percona-server-mongodb", "postgresql").
+		// Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+		// providerRef cannot be changed: the provider that picked it up owns its
+		// finalizer and engine resources, and only that provider cleans them up.
 		ProviderRef struct {
 			// Name Name of the referenced object.
 			Name string `json:"name"`
@@ -4537,7 +4539,9 @@ type Instance struct {
 		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 		// ProviderRef ProviderRef references the cluster-scoped Provider that manages this
-		// Instance (e.g., "percona-server-mongodb", "postgresql").
+		// Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+		// providerRef cannot be changed: the provider that picked it up owns its
+		// finalizer and engine resources, and only that provider cleans them up.
 		ProviderRef struct {
 			// Name Name of the referenced object.
 			Name string `json:"name"`
@@ -4627,6 +4631,20 @@ type Instance struct {
 
 		// Components Components reports how many pods each component has and how many are Ready.
 		Components *[]struct {
+			// DesiredReplicas DesiredReplicas is how many pods the component will have once the
+			// current generation has converged, as the provider reports it. It
+			// describes status.observedGeneration: it is absent until the provider
+			// reports for that generation, during deletion, and for providers that
+			// don't report it; clients then show readyReplicas over replicas. Zero is
+			// a real target, for example a model scaled to zero. A cluster paused
+			// outside OpenEverest keeps its target, so it reads 0 of N; one stopped
+			// through its spec has a target of zero.
+			//
+			// It is meant for display. When a component sums several groups, such as
+			// the replica sets of every shard, it cannot tell whether each group has
+			// a majority.
+			DesiredReplicas *int32 `json:"desiredReplicas,omitempty"`
+
 			// Name Name is a key of spec.components.
 			Name string `json:"name"`
 
@@ -4906,7 +4924,8 @@ type Instance struct {
 
 		// Phase Phase is where the Instance is in its life: Pending until the database
 		// is first available, Provisioned afterwards, Terminating once deletion
-		// is requested. Read the conditions for everything else.
+		// is requested. The CRD sets Pending at creation; only provider-runtime
+		// changes it. Read the conditions for everything else.
 		Phase *InstanceStatusPhase `json:"phase,omitempty"`
 
 		// Version Version is the effective version bundle that is currently applied to this
@@ -5047,7 +5066,8 @@ type InstanceStatusPendingMaintenanceSeverity string
 
 // InstanceStatusPhase Phase is where the Instance is in its life: Pending until the database
 // is first available, Provisioned afterwards, Terminating once deletion
-// is requested. Read the conditions for everything else.
+// is requested. The CRD sets Pending at creation; only provider-runtime
+// changes it. Read the conditions for everything else.
 type InstanceStatusPhase string
 
 // InstanceConnectionDetails ConnectionDetails holds the typed connection details for a database instance. These are written by the provider-runtime reconciler to a Kubernetes Secret and later read back by the API server to serve the connection endpoint. They follow the Service Binding well-known keys where applicable.
@@ -6135,7 +6155,9 @@ type InstancePreset struct {
 		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 		// ProviderRef ProviderRef references the cluster-scoped Provider that manages this
-		// Instance (e.g., "percona-server-mongodb", "postgresql").
+		// Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+		// providerRef cannot be changed: the provider that picked it up owns its
+		// finalizer and engine resources, and only that provider cleans them up.
 		ProviderRef struct {
 			// Name Name of the referenced object.
 			Name string `json:"name"`

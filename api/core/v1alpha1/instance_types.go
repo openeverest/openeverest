@@ -33,7 +33,9 @@ import (
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.userSecretRef) || (has(self.userSecretRef) && self.userSecretRef == oldSelf.userSecretRef)",message="spec.userSecretRef is immutable once set"
 type InstanceSpec struct {
 	// ProviderRef references the cluster-scoped Provider that manages this
-	// Instance (e.g., "percona-server-mongodb", "postgresql").
+	// Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+	// providerRef cannot be changed: the provider that picked it up owns its
+	// finalizer and engine resources, and only that provider cleans them up.
 	// +kubebuilder:validation:Required
 	ProviderRef common.ObjectRef `json:"providerRef"`
 
@@ -521,12 +523,15 @@ type InstanceStatus struct {
 	// metadata.generation. It defaults to -1, so an Instance no provider has
 	// reconciled reads as in progress, never as current.
 	// +optional
+	// +kubebuilder:default=-1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// Phase is where the Instance is in its life: Pending until the database
 	// is first available, Provisioned afterwards, Terminating once deletion
-	// is requested. Read the conditions for everything else.
+	// is requested. The CRD sets Pending at creation; only provider-runtime
+	// changes it. Read the conditions for everything else.
 	// +optional
+	// +kubebuilder:default=Pending
 	Phase InstancePhase `json:"phase,omitempty"`
 
 	// Version is the effective version bundle that is currently applied to this
@@ -734,6 +739,15 @@ const (
 	// when the problem began.
 	ConditionNeedsAttention = "NeedsAttention"
 
+	// ConditionUnattended is written by core, never by a provider. It is
+	// present only while nobody is reconciling the Instance's current spec,
+	// and removed as soon as a provider catches up: True with reason
+	// ProviderNotFound while the Provider named by spec.providerRef does not
+	// exist, Unknown with reason NotResponding while the Provider exists but
+	// has not reported on the current generation. Clients honour it only
+	// while status.observedGeneration is below metadata.generation.
+	ConditionUnattended = "Unattended"
+
 	// ConditionReferencesResolved is a check: False while the Provider, the
 	// user Secret or another object the Instance names is missing or does not
 	// fit. The provider is not called meanwhile.
@@ -876,6 +890,10 @@ const (
 	// spec.providerRef does not exist. The provider is not called.
 	ReasonProviderNotFound = "ProviderNotFound"
 
+	// ReasonNotResponding is the reason of Unattended while the Provider
+	// exists but has not reported on the Instance's current generation.
+	ReasonNotResponding = "NotResponding"
+
 	// ReasonUserSecretNotFound indicates the Secret named by
 	// spec.userSecretRef does not exist. The provider is not called, so a new
 	// Instance waits instead of being seeded with generated credentials.
@@ -923,8 +941,21 @@ const (
 	// ReasonHealthy indicates the provider reports no problem with the engine.
 	ReasonHealthy = "Healthy"
 
-	// ReasonNoProblems indicates no problem is observed.
+	// ReasonNoProblems is the reason of NeedsAttention while it is False: no
+	// problem is observed.
 	ReasonNoProblems = "NoProblems"
+
+	// ReasonConverged is the reason of Reconciling and Stalled while they are
+	// False because the Instance is Ready.
+	ReasonConverged = "Converged"
+
+	// ReasonReconciling is the reason of Stalled while it is False because
+	// the Instance is still being worked on.
+	ReasonReconciling = "Reconciling"
+
+	// ReasonStalled is the reason of Reconciling while it is False because
+	// the Instance is stalled.
+	ReasonStalled = "Stalled"
 
 	// ReasonSeeding indicates a new Instance is being seeded from a backup.
 	ReasonSeeding = "Seeding"
@@ -1215,6 +1246,21 @@ type ComponentStatus struct {
 	// ReadyReplicas is the number of those pods that are Ready.
 	// +optional
 	ReadyReplicas *int32 `json:"readyReplicas,omitempty"`
+	// DesiredReplicas is how many pods the component will have once the
+	// current generation has converged, as the provider reports it. It
+	// describes status.observedGeneration: it is absent until the provider
+	// reports for that generation, during deletion, and for providers that
+	// don't report it; clients then show readyReplicas over replicas. Zero is
+	// a real target, for example a model scaled to zero. A cluster paused
+	// outside OpenEverest keeps its target, so it reads 0 of N; one stopped
+	// through its spec has a target of zero.
+	//
+	// It is meant for display. When a component sums several groups, such as
+	// the replica sets of every shard, it cannot tell whether each group has
+	// a majority.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	DesiredReplicas *int32 `json:"desiredReplicas,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -1238,9 +1284,10 @@ type Instance struct {
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
 	// +required
+	// +kubebuilder:validation:XValidation:rule="self.providerRef == oldSelf.providerRef",message="spec.providerRef is immutable: delete the Instance and create it again with the provider you want"
 	Spec InstanceSpec `json:"spec"`
 	// +optional
-	// +kubebuilder:default={"observedGeneration":-1}
+	// +kubebuilder:default={}
 	Status InstanceStatus `json:"status,omitzero"`
 }
 
