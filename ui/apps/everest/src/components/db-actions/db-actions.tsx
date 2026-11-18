@@ -37,7 +37,7 @@ import { Messages } from './db-actions.messages';
 import { ArrowDropDownIcon } from '@mui/x-date-pickers/icons';
 import DbActionsModals from './db-actions-modals';
 import { useDbInstanceActions } from 'hooks/api/db-instance';
-import { usePlugins } from 'contexts/plugins';
+import { extensionAppliesToProvider, usePlugins } from 'contexts/plugins';
 import type { ClusterActionExtension } from '@openeverest/plugin-sdk';
 import PluginErrorBoundary from 'components/plugin-host/PluginErrorBoundary';
 import { useBackupsList } from 'hooks/api/backups/useBackups';
@@ -123,8 +123,9 @@ export const DbActions = ({
   // const noActionAvailable = !canUpdate && !canDelete && !canRestore;
   const noActionAvailable = false;
 
-  // Collect plugin clusterAction extensions.
+  // Collect plugin clusterAction extensions, filtered by provider.
   const { plugins } = usePlugins();
+  const providerName = dbInstance.spec?.providerRef?.name;
   const pluginActions = useMemo(
     () =>
       plugins.flatMap((p) =>
@@ -132,9 +133,10 @@ export const DbActions = ({
           .filter(
             (ext): ext is ClusterActionExtension => ext.type === 'clusterAction'
           )
+          .filter((ext) => extensionAppliesToProvider(ext, providerName))
           .map((ext) => ({ pluginName: p.name, ext }))
       ),
-    [plugins]
+    [plugins, providerName]
   );
   const sx = {
     display: 'flex',

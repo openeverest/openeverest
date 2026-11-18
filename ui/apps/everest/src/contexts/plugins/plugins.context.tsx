@@ -28,18 +28,14 @@ import AuthContext from 'contexts/auth/auth.context';
 import { getAuthToken } from 'api/session-token';
 import { satisfiesHostVersion, satisfiesUiContract } from './plugin-version';
 import { useClusterName } from 'hooks/api/useClusterName';
+import {
+  applyDescriptorMetadata,
+  type ExtensionPointDescriptor,
+} from './apply-descriptor-metadata';
 
 export interface PluginRegistration {
   name: string;
   extensions: Extension[];
-}
-
-interface ExtensionPointDescriptor {
-  type: string;
-  label?: string;
-  path?: string;
-  icon?: string;
-  providers?: string[];
 }
 
 interface PluginDescriptor {
@@ -208,19 +204,28 @@ export const PluginProvider = ({ children }: { children: ReactNode }) => {
             );
             registerFn(pluginApi);
 
-            // Forward icon from the CRD descriptor into registered sidebarItem extensions.
-            // The plugin bundle may not include the icon, so we fill it in from the descriptor.
-            // The backend already resolves relative paths to full proxy URLs.
+            // Merge Plugin CR extension-point metadata (provider filter, icon)
+            // onto the extensions the bundle just registered.
             const registration = registrations[registrations.length - 1];
             if (registration && descriptor.extensionPoints?.length) {
+              const matched = new Set<ExtensionPointDescriptor>();
               for (const ext of registration.extensions) {
-                if (ext.type === 'sidebarItem' && !ext.icon) {
-                  const match = descriptor.extensionPoints.find(
-                    (ep) => ep.type === 'sidebarItem' && ep.label === ext.label
+                const match = applyDescriptorMetadata(
+                  ext,
+                  descriptor.extensionPoints
+                );
+                if (match) {
+                  matched.add(match);
+                }
+              }
+              // A provider filter that matches nothing is silently not applied,
+              // so the extension shows for every provider: say so.
+              for (const ep of descriptor.extensionPoints) {
+                if (ep.providers?.length && !matched.has(ep)) {
+                  // eslint-disable-next-line no-console
+                  console.warn(
+                    `[plugins] "${descriptor.name}": the ${ep.type} extension point "${ep.path || ep.label}" declares providers but matches no extension registered by the bundle; its provider filter is ignored.`
                   );
-                  if (match?.icon) {
-                    ext.icon = match.icon;
-                  }
                 }
               }
             }

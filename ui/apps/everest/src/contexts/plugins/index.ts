@@ -13,6 +13,7 @@
 // limitations under the License.
 
 export { PluginProvider, usePlugins } from './plugins.context';
+export { extensionAppliesToProvider } from './apply-descriptor-metadata';
 export type { PluginRegistration } from './plugins.context';
 export type {
   Extension,

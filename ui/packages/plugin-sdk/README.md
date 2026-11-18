@@ -29,6 +29,14 @@ const register: PluginRegisterFn = (api) => {
 export default register;
 ```
 
+`providers` can also be set per extension point on the `Plugin` CR
+(`spec.frontend.extensionPoints[].providers`). A non-empty list there replaces
+the one registered by the bundle, so a plugin can be scoped without a rebuild.
+The CR entry is matched to the extension by `type` and `path` (tabs), or by
+`type` and `label` otherwise; an entry that matches nothing is ignored and the
+host logs a console warning. An empty or omitted list leaves the bundle's
+filter in place.
+
 ## `PluginApi`
 
 | Member | Description |
