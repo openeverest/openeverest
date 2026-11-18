@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Stack } from '@mui/material';
 import {
   ComponentGroup,
   GroupType,
 } from 'components/ui-generator/ui-generator.types';
 import React from 'react';
 import { componentGroupMap } from '../constants';
+import StackWrapper from '../ui-group-wrappers/stack-wrapper';
+import { readGroupDirection } from '../utils/group-params/read-group-direction';
 import { getToggleableMeta } from '../utils/toggleable/toggleable';
 
 export type UIGroupProps = {
@@ -29,17 +30,19 @@ export type UIGroupProps = {
 
 const UIGroup = ({ groupType, children, item }: UIGroupProps) => {
   const Component = groupType ? componentGroupMap[groupType] : undefined;
+  const direction = readGroupDirection(item?.groupParams);
 
   return Component ? (
     <Component
       label={item?.label}
       description={item?.description}
+      groupParams={item?.groupParams}
       toggleable={item && getToggleableMeta(item)}
     >
       {children}
     </Component>
   ) : (
-    <Stack spacing={2}>{children}</Stack>
+    <StackWrapper direction={direction}>{children}</StackWrapper>
   );
 };
 

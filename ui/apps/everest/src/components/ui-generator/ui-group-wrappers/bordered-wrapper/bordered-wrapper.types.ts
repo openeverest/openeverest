@@ -17,7 +17,7 @@ import { GroupWrapperProps } from 'components/ui-generator/ui-generator.types';
 
 export type BorderedWrapperProps = Pick<
   GroupWrapperProps,
-  'children' | 'label' | 'description'
+  'children' | 'label' | 'description' | 'groupParams'
 > & {
   // Control shown at the heading's end (e.g. a toggleable group's switch).
   action?: ReactNode;

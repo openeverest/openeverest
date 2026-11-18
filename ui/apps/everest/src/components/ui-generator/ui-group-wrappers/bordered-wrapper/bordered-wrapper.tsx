@@ -14,6 +14,8 @@
 
 import { Box, Stack, Typography } from '@mui/material';
 import RoundedBox from 'components/rounded-box';
+import { readGroupDirection } from 'components/ui-generator/utils/group-params/read-group-direction';
+import StackWrapper from '../stack-wrapper';
 import { BorderedWrapperProps } from './bordered-wrapper.types';
 
 // A static bordered card grouping distinct fields. The heading region renders
@@ -25,8 +27,10 @@ export const BorderedWrapper = ({
   description,
   action,
   bodyRef,
+  groupParams,
   children,
 }: BorderedWrapperProps) => {
+  const direction = readGroupDirection(groupParams);
   const heading =
     label || description || action ? (
       <Stack
@@ -53,9 +57,9 @@ export const BorderedWrapper = ({
   return (
     <RoundedBox title={heading}>
       {children && (
-        <Stack ref={bodyRef} spacing={2}>
+        <StackWrapper direction={direction} stackRef={bodyRef}>
           {children}
-        </Stack>
+        </StackWrapper>
       )}
     </RoundedBox>
   );
