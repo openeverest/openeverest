@@ -14,7 +14,11 @@
 
 import { AxiosError, AxiosHeaders } from 'axios';
 import { api } from 'api/api';
-import { exchangeSsoToken, isReusableToken } from './auth.utils';
+import {
+  exchangeSsoToken,
+  getSafeRedirectPath,
+  isReusableToken,
+} from './auth.utils';
 
 const axiosError = (status: number) =>
   new AxiosError('request failed', String(status), undefined, undefined, {
@@ -94,5 +98,23 @@ describe('isReusableToken', () => {
   it('rejects missing and malformed tokens', () => {
     expect(isReusableToken(null)).toBe(false);
     expect(isReusableToken('not-a-jwt')).toBe(false);
+  });
+});
+
+describe('getSafeRedirectPath', () => {
+  it('accepts same-app relative paths including search', () => {
+    expect(getSafeRedirectPath('/databases')).toBe('/databases');
+    expect(getSafeRedirectPath('/databases?ns=default')).toBe(
+      '/databases?ns=default'
+    );
+  });
+
+  it('rejects missing, absolute, and protocol-relative values', () => {
+    expect(getSafeRedirectPath(null)).toBeNull();
+    expect(getSafeRedirectPath(undefined)).toBeNull();
+    expect(getSafeRedirectPath('')).toBeNull();
+    expect(getSafeRedirectPath('https://evil.example/phish')).toBeNull();
+    expect(getSafeRedirectPath('//evil.example/phish')).toBeNull();
+    expect(getSafeRedirectPath('databases')).toBeNull();
   });
 });
