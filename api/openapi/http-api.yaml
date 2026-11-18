@@ -991,7 +991,6 @@ paths:
             format: int64
             minimum: 1
             maximum: 1000
-            default: 100
         - name: continue
           in: query
           description: Opaque token from the previous page. Only used when listing.
@@ -4008,6 +4007,12 @@ components:
         sourceIP:
           type: string
           description: The client IP of a login or logout.
+        instance:
+          type: string
+          description: The Instance the object belongs to, in `namespace`. The object itself for an Instance, the referenced Instance for a Backup or Restore.
+        provider:
+          type: string
+          description: The provider of `instance`, when it was known at the time of the event.
         message:
           type: string
     LifecycleEventPhase:

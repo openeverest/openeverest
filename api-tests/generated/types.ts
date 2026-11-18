@@ -1268,6 +1268,10 @@ export interface components {
             generation?: number;
             /** @description The client IP of a login or logout. */
             sourceIP?: string;
+            /** @description The Instance the object belongs to, in `namespace`. The object itself for an Instance, the referenced Instance for a Backup or Restore. */
+            instance?: string;
+            /** @description The provider of `instance`, when it was known at the time of the event. */
+            provider?: string;
             message?: string;
         };
         /** @description The previous and new phase of a `PhaseChanged` event. */

@@ -25,12 +25,14 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	toolscache "k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/events"
 )
 
@@ -51,6 +53,9 @@ type Kind struct {
 	Failed func(client.Object) bool
 	// Include, when set, limits the events to the objects it accepts.
 	Include func(client.Object) bool
+	// Owner, when set, returns the Instance an object belongs to and, when the object
+	// tells, its provider. Otherwise the provider is read from the Instance.
+	Owner func(client.Object) (instance, provider string)
 }
 
 type emitter interface {
@@ -61,6 +66,7 @@ type emitter interface {
 // elected leader, so every change is recorded once.
 type Recorder struct {
 	informers cache.Informers
+	reader    client.Reader
 	scheme    *runtime.Scheme
 	emitter   emitter
 	kinds     []Kind
@@ -70,16 +76,19 @@ type Recorder struct {
 }
 
 // NewRecorder returns a Recorder for kinds. Add it to the manager with mgr.Add.
-func NewRecorder(informers cache.Informers, scheme *runtime.Scheme, e emitter, kinds []Kind, log logr.Logger) *Recorder {
-	return &Recorder{
-		informers: informers,
-		scheme:    scheme,
-		emitter:   e,
-		kinds:     kinds,
-		lookback:  DefaultLookback,
-		log:       log,
-		now:       time.Now,
+func NewRecorder(c cache.Cache, scheme *runtime.Scheme, e emitter, kinds []Kind, log logr.Logger) *Recorder {
+	r := &Recorder{
+		scheme:   scheme,
+		emitter:  e,
+		kinds:    kinds,
+		lookback: DefaultLookback,
+		log:      log,
+		now:      time.Now,
 	}
+	if c != nil {
+		r.informers, r.reader = c, c
+	}
+	return r
 }
 
 // NeedLeaderElection implements manager.LeaderElectionRunnable.
@@ -107,7 +116,7 @@ func (r *Recorder) handlerFor(ctx context.Context, kind Kind) toolscache.Resourc
 	return toolscache.ResourceEventHandlerDetailedFuncs{
 		AddFunc: func(obj any, isInInitialList bool) {
 			if o, ok := included(kind, obj); ok {
-				r.onAdd(ctx, o, isInInitialList)
+				r.onAdd(ctx, kind, o, isInInitialList)
 			}
 		},
 		UpdateFunc: func(oldObj, newObj any) {
@@ -119,10 +128,10 @@ func (r *Recorder) handlerFor(ctx context.Context, kind Kind) toolscache.Resourc
 			case isIncluded:
 				// The object now matches Include, e.g. a namespace OpenEverest started
 				// managing: it appears to OpenEverest.
-				r.onAdd(ctx, newO, false)
+				r.onAdd(ctx, kind, newO, false)
 			case wasIncluded:
 				if o, ok := newObj.(client.Object); ok {
-					r.recordDeleted(ctx, o)
+					r.recordDeleted(ctx, kind, o)
 				}
 			}
 		},
@@ -131,7 +140,7 @@ func (r *Recorder) handlerFor(ctx context.Context, kind Kind) toolscache.Resourc
 				obj = tombstone.Obj
 			}
 			if o, ok := included(kind, obj); ok {
-				r.recordDeleted(ctx, o)
+				r.recordDeleted(ctx, kind, o)
 			}
 		},
 	}
@@ -153,16 +162,16 @@ func included(kind Kind, obj any) (client.Object, bool) {
 // existing object as an addition; only objects created (or deleted) within the lookback
 // window are recorded then, and the deterministic event names drop the ones already
 // recorded.
-func (r *Recorder) onAdd(ctx context.Context, obj client.Object, isInInitialList bool) {
+func (r *Recorder) onAdd(ctx context.Context, kind Kind, obj client.Object, isInInitialList bool) {
 	if !isInInitialList || r.recent(obj.GetCreationTimestamp().Time) {
-		r.record(ctx, obj, events.Record{
+		r.record(ctx, kind, obj, events.Record{
 			Reason: events.ReasonCreated,
 			Note:   fmt.Sprintf("%s created", r.describe(obj)),
 			Actor:  events.CreatorActor(obj),
 		})
 	}
 	if deletion := obj.GetDeletionTimestamp(); isInInitialList && deletion != nil && r.recent(deletion.Time) {
-		r.recordDeletionRequested(ctx, obj)
+		r.recordDeletionRequested(ctx, kind, obj)
 	}
 }
 
@@ -171,7 +180,7 @@ func (r *Recorder) onUpdate(ctx context.Context, kind Kind, oldObj, newObj clien
 	// which is not a change of its spec.
 	if newObj.GetDeletionTimestamp() == nil &&
 		oldObj.GetGeneration() > 0 && newObj.GetGeneration() > oldObj.GetGeneration() {
-		r.record(ctx, newObj, events.Record{
+		r.record(ctx, kind, newObj, events.Record{
 			Reason:     events.ReasonUpdated,
 			Note:       fmt.Sprintf("%s updated", r.describe(newObj)),
 			Actor:      events.UpdaterActor(newObj),
@@ -182,7 +191,7 @@ func (r *Recorder) onUpdate(ctx context.Context, kind Kind, oldObj, newObj clien
 	if kind.Phase != nil {
 		from, to := kind.Phase(oldObj), kind.Phase(newObj)
 		if from != to && to != "" {
-			r.record(ctx, newObj, events.Record{
+			r.record(ctx, kind, newObj, events.Record{
 				Reason:    events.ReasonPhaseChanged,
 				Note:      fmt.Sprintf("%s phase changed from %q to %q", r.describe(newObj), from, to),
 				Warning:   kind.Failed != nil && kind.Failed(newObj),
@@ -194,27 +203,27 @@ func (r *Recorder) onUpdate(ctx context.Context, kind Kind, oldObj, newObj clien
 		}
 	}
 	if oldObj.GetDeletionTimestamp() == nil && newObj.GetDeletionTimestamp() != nil {
-		r.recordDeletionRequested(ctx, newObj)
+		r.recordDeletionRequested(ctx, kind, newObj)
 	}
 }
 
-func (r *Recorder) recordDeleted(ctx context.Context, obj client.Object) {
-	r.record(ctx, obj, events.Record{
+func (r *Recorder) recordDeleted(ctx context.Context, kind Kind, obj client.Object) {
+	r.record(ctx, kind, obj, events.Record{
 		Reason: events.ReasonDeleted,
 		Note:   fmt.Sprintf("%s deleted", r.describe(obj)),
 		Actor:  events.DeleterActor(obj),
 	})
 }
 
-func (r *Recorder) recordDeletionRequested(ctx context.Context, obj client.Object) {
-	r.record(ctx, obj, events.Record{
+func (r *Recorder) recordDeletionRequested(ctx context.Context, kind Kind, obj client.Object) {
+	r.record(ctx, kind, obj, events.Record{
 		Reason: events.ReasonDeletionRequested,
 		Note:   fmt.Sprintf("%s deletion requested", r.describe(obj)),
 		Actor:  events.DeleterActor(obj),
 	})
 }
 
-func (r *Recorder) record(ctx context.Context, obj client.Object, rec events.Record) {
+func (r *Recorder) record(ctx context.Context, kind Kind, obj client.Object, rec events.Record) {
 	gvk, err := apiutil.GVKForObject(obj, r.scheme)
 	if err != nil {
 		r.log.Error(err, "Failed to determine the kind of an object", "object", client.ObjectKeyFromObject(obj))
@@ -228,11 +237,32 @@ func (r *Recorder) record(ctx context.Context, obj client.Object, rec events.Rec
 		UID:             obj.GetUID(),
 		ResourceVersion: obj.GetResourceVersion(),
 	}
+	if kind.Owner != nil {
+		rec.Instance, rec.Provider = kind.Owner(obj)
+		if rec.Instance != "" && rec.Provider == "" {
+			rec.Provider = r.providerOf(ctx, obj.GetNamespace(), rec.Instance)
+		}
+	}
 	if err := r.emitter.Emit(ctx, rec); err != nil {
 		r.log.Error(err, "Failed to record a lifecycle event",
 			"reason", rec.Reason, "kind", gvk.Kind, "object", client.ObjectKeyFromObject(obj),
 		)
 	}
+}
+
+// providerOf returns the provider of an Instance, or "" when it's gone.
+func (r *Recorder) providerOf(ctx context.Context, namespace, name string) string {
+	if r.reader == nil {
+		return ""
+	}
+	var instance corev1alpha1.Instance
+	if err := r.reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, &instance); err != nil {
+		if !apierrors.IsNotFound(err) {
+			r.log.Error(err, "Failed to read the Instance of a lifecycle event", "instance", name, "namespace", namespace)
+		}
+		return ""
+	}
+	return instance.Spec.ProviderRef.Name
 }
 
 func (r *Recorder) recent(t time.Time) bool {

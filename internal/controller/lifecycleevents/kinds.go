@@ -50,16 +50,28 @@ func DefaultKinds() []Kind {
 			// Provisioned or Terminating.
 			Phase:  phaseOf(instanceStatusWord),
 			Failed: objectIs(instanceNeedsAttention),
+			Owner: ownerOf(func(o *corev1alpha1.Instance) (string, string) {
+				return o.Name, o.Spec.ProviderRef.Name
+			}),
 		},
 		{
 			New:    func() client.Object { return &backupv1alpha1.Backup{} },
 			Phase:  phaseOf(backupState),
 			Failed: stateIn(backupState, string(backupv1alpha1.BackupStateFailed), string(backupv1alpha1.BackupStateError)),
+			Owner: ownerOf(func(o *backupv1alpha1.Backup) (string, string) {
+				if o.Spec.Origin.InstanceRef == nil {
+					return "", ""
+				}
+				return o.Spec.Origin.InstanceRef.Name, ""
+			}),
 		},
 		{
 			New:    func() client.Object { return &backupv1alpha1.Restore{} },
 			Phase:  phaseOf(restoreState),
 			Failed: stateIn(restoreState, string(backupv1alpha1.RestoreStateFailed), string(backupv1alpha1.RestoreStateError)),
+			Owner: ownerOf(func(o *backupv1alpha1.Restore) (string, string) {
+				return o.Spec.InstanceRef.Name, ""
+			}),
 		},
 		{
 			New:    func() client.Object { return &backupv1alpha1.BackupImport{} },
@@ -104,6 +116,17 @@ func phaseOf[T client.Object](get func(T) string) func(client.Object) string {
 		obj, ok := o.(T)
 		if !ok {
 			return ""
+		}
+		return get(obj)
+	}
+}
+
+// ownerOf adapts a typed owner accessor to Kind.Owner.
+func ownerOf[T client.Object](get func(T) (string, string)) func(client.Object) (string, string) {
+	return func(o client.Object) (string, string) {
+		obj, ok := o.(T)
+		if !ok {
+			return "", ""
 		}
 		return get(obj)
 	}
