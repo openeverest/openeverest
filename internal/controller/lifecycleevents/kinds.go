@@ -28,7 +28,7 @@ import (
 )
 
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core.openeverest.io,resources=instances,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core.openeverest.io,resources=instances;providers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=backup.openeverest.io,resources=backups;restores;backupimports;backupstorages,verbs=get;list;watch
 // +kubebuilder:rbac:groups=extensions.openeverest.io,resources=plugins;installedextensions,verbs=get;list;watch
 // +kubebuilder:rbac:groups=monitoring.openeverest.io,resources=monitoringdestinations,verbs=get;list;watch
@@ -71,6 +71,7 @@ func DefaultKinds() []Kind {
 		},
 		{New: func() client.Object { return &backupv1alpha1.BackupStorage{} }},
 		{New: func() client.Object { return &monitoringv1alpha1.MonitoringDestination{} }},
+		{New: func() client.Object { return &corev1alpha1.Provider{} }},
 		{New: func() client.Object { return &extensionsv1alpha1.Plugin{} }},
 		{
 			New:    func() client.Object { return &extensionsv1alpha1.InstalledExtension{} },
