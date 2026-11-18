@@ -90,10 +90,11 @@ const (
 
 // Kubernetes is a client for Kubernetes.
 type Kubernetes struct {
-	k8sClient  ctrlclient.Client
-	l          *zap.SugaredLogger
-	restConfig *rest.Config
-	kubeconfig string
+	k8sClient   ctrlclient.Client
+	watchClient ctrlclient.WithWatch
+	l           *zap.SugaredLogger
+	restConfig  *rest.Config
+	kubeconfig  string
 	// namespace is the namespace where OpenEverest is installed.
 	namespace string
 	// it is required for handling plain runtime.Objects (ApplyManifestFile)
@@ -140,13 +141,18 @@ func New(kubeconfigPath string, l *zap.SugaredLogger, namespace string) (Kuberne
 	if err != nil {
 		return nil, err
 	}
+	watchClient, err := ctrlclient.NewWithWatch(restConfig, getKubernetesClientOptions(nil))
+	if err != nil {
+		return nil, err
+	}
 
 	return &Kubernetes{
-		k8sClient:  k8client,
-		l:          l.With("component", "kubernetes"),
-		restConfig: restConfig,
-		kubeconfig: path,
-		namespace:  namespace,
+		k8sClient:   k8client,
+		watchClient: watchClient,
+		l:           l.With("component", "kubernetes"),
+		restConfig:  restConfig,
+		kubeconfig:  path,
+		namespace:   namespace,
 	}, nil
 }
 
@@ -183,12 +189,17 @@ func NewInCluster(ctx context.Context, l *zap.SugaredLogger, cacheOptions *cache
 	if err != nil {
 		return nil, err
 	}
+	watchClient, err := ctrlclient.NewWithWatch(clientConfig, ctrlclient.Options{Scheme: CreateScheme()})
+	if err != nil {
+		return nil, err
+	}
 
 	return &Kubernetes{
-		k8sClient:  withDryRun(k8sclient),
-		l:          l.With("component", "kubernetes"),
-		restConfig: restConfig,
-		namespace:  namespace,
+		k8sClient:   withDryRun(k8sclient),
+		watchClient: watchClient,
+		l:           l.With("component", "kubernetes"),
+		restConfig:  restConfig,
+		namespace:   namespace,
 	}, nil
 }
 

@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,9 +18,21 @@
 package kubernetes
 
 import (
+	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	eventsv1 "k8s.io/api/events/v1"
+	apiMeta "k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/rest"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestMergeNamesspacesEnvVar(t *testing.T) {
@@ -99,5 +112,49 @@ func TestMergeNamesspacesEnvVar(t *testing.T) {
 			mergedNS := mergeNamespacesEnvVar(tt.ns1, tt.ns2)
 			assert.Equal(t, tt.want, mergedNS)
 		})
+	}
+}
+
+func TestWatchLifecycleEventsForwardsBookmarks(t *testing.T) {
+	t.Parallel()
+
+	queries := make(chan map[string][]string, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("watch") != "true" {
+			http.NotFound(w, r)
+			return
+		}
+		queries <- r.URL.Query()
+		w.Header().Set("Content-Type", "application/json;stream=watch")
+		_, err := io.WriteString(w, `{"type":"BOOKMARK","object":{"apiVersion":"events.k8s.io/v1","kind":"Event","metadata":{"resourceVersion":"45"}}}`+"\n")
+		assert.NoError(t, err)
+	}))
+	defer server.Close()
+
+	groupVersion := eventsv1.SchemeGroupVersion
+	mapper := apiMeta.NewDefaultRESTMapper([]schema.GroupVersion{groupVersion})
+	mapper.AddSpecific(groupVersion.WithKind("Event"), groupVersion.WithResource("events"), groupVersion.WithResource("events"), apiMeta.RESTScopeNamespace)
+	mapper.AddSpecific(groupVersion.WithKind("EventList"), groupVersion.WithResource("events"), groupVersion.WithResource("events"), apiMeta.RESTScopeNamespace)
+	watchClient, err := ctrlclient.NewWithWatch(&rest.Config{Host: server.URL}, ctrlclient.Options{Scheme: CreateScheme(), Mapper: mapper})
+	require.NoError(t, err)
+	events, err := (&Kubernetes{watchClient: watchClient}).WatchLifecycleEvents(context.Background(), "", "40")
+	require.NoError(t, err)
+	defer events.Stop()
+
+	select {
+	case query := <-queries:
+		assert.Equal(t, []string{"true"}, query["allowWatchBookmarks"])
+		assert.Equal(t, []string{"40"}, query["resourceVersion"])
+	case <-time.After(5 * time.Second):
+		t.Fatal("watch request was not received")
+	}
+	select {
+	case event := <-events.ResultChan():
+		assert.Equal(t, watch.Bookmark, event.Type)
+		bookmark, ok := event.Object.(*eventsv1.Event)
+		require.True(t, ok, "bookmark object is %T", event.Object)
+		assert.Equal(t, "45", bookmark.ResourceVersion)
+	case <-time.After(5 * time.Second):
+		t.Fatal("watch did not forward the bookmark")
 	}
 }

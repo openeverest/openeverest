@@ -14,8 +14,139 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { APIRequestContext, expect } from '@playwright/test';
+import { APIRequestContext, APIResponse, expect } from '@playwright/test';
 import { EVEREST_CI_CLUSTER } from '@e2e/constants';
+
+export interface S3BackupStorage {
+  name: string;
+  bucket: string;
+  region: string;
+  endpointURL: string;
+  // Unset means Amazon S3.
+  implementation?: 'aws' | 'minio' | 'ceph' | 'gcs' | 'other';
+  accessKeyId: string;
+  secretAccessKey: string;
+  verifyTLS: boolean;
+  forcePathStyle: boolean;
+}
+
+const namespaceUrl = (namespace: string) =>
+  `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}`;
+
+const authHeaders = (token: string) => ({
+  Authorization: `Bearer ${token}`,
+});
+
+export const backupStorageCredentialsSecretName = (storageName: string) =>
+  `backup-storage-${storageName}-credentials`;
+
+const postBackupStorage = (
+  request: APIRequestContext,
+  namespace: string,
+  storage: S3BackupStorage,
+  secretName: string,
+  token: string
+) =>
+  request.post(`${namespaceUrl(namespace)}/backup-storages`, {
+    data: {
+      metadata: { name: storage.name },
+      spec: {
+        backupStorageClassRef: { name: 's3' },
+        location: { objectStore: { bucket: storage.bucket } },
+        parameters: {
+          region: storage.region,
+          endpointURL: storage.endpointURL,
+          forcePathStyle: storage.forcePathStyle,
+          ...(storage.implementation && {
+            implementation: storage.implementation,
+          }),
+        },
+        authentication: {
+          mode: 'AccessKey',
+          credentialsSecretRef: { name: secretName },
+        },
+        ...(!storage.verifyTLS && { tls: { insecureSkipVerify: true } }),
+      },
+    },
+    headers: authHeaders(token),
+  });
+
+// Credentials are never part of a storage: they go into a Secret labelled with
+// the s3 class and its AccessKey mode, which the storage references.
+// Returns the first response that isn't a success, so a caller can tell a
+// missing namespace (404) from a storage that already exists (409).
+export const createBackupStorage = async (
+  request: APIRequestContext,
+  namespace: string,
+  storage: S3BackupStorage,
+  token: string
+): Promise<APIResponse> => {
+  const headers = authHeaders(token);
+  const secretName = backupStorageCredentialsSecretName(storage.name);
+
+  const secretResponse = await request.post(
+    `${namespaceUrl(namespace)}/secrets`,
+    {
+      data: {
+        metadata: {
+          name: secretName,
+          labels: {
+            'openeverest.io/backup-storage-class': 's3',
+            'openeverest.io/definition': 'AccessKey',
+          },
+        },
+        type: 'Opaque',
+        stringData: {
+          AWS_ACCESS_KEY_ID: storage.accessKeyId,
+          AWS_SECRET_ACCESS_KEY: storage.secretAccessKey,
+        },
+      },
+      headers,
+    }
+  );
+  if (![201, 409].includes(secretResponse.status())) {
+    return secretResponse;
+  }
+
+  return postBackupStorage(request, namespace, storage, secretName, token);
+};
+
+// A storage whose credentials Secret doesn't exist, as after someone deleted
+// the Secret: core refuses it until the Secret is back.
+export const createBackupStorageWithoutItsSecret = (
+  request: APIRequestContext,
+  namespace: string,
+  storage: S3BackupStorage,
+  token: string
+): Promise<APIResponse> =>
+  postBackupStorage(
+    request,
+    namespace,
+    storage,
+    backupStorageCredentialsSecretName(storage.name),
+    token
+  );
+
+// The Secrets API returns a Secret's metadata, never its data.
+export const getSecretResponse = (
+  request: APIRequestContext,
+  namespace: string,
+  name: string,
+  token: string
+): Promise<APIResponse> =>
+  request.get(`${namespaceUrl(namespace)}/secrets/${name}`, {
+    headers: authHeaders(token),
+  });
+
+export const getBackupStorageResponse = (
+  request: APIRequestContext,
+  namespace: string,
+  name: string,
+  token: string
+): Promise<APIResponse> =>
+  request.get(`${namespaceUrl(namespace)}/backup-storages/${name}`, {
+    headers: authHeaders(token),
+  });
 
 export const getBackupStorage = async (
   request: APIRequestContext,
@@ -24,17 +155,29 @@ export const getBackupStorage = async (
   token: string
 ) => {
   const response = await request.get(
-    `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/backup-storages/${name}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
+    `${namespaceUrl(namespace)}/backup-storages/${name}`,
+    { headers: authHeaders(token) }
   );
   expect(response.status() === 200).toBeTruthy();
   return await response.json();
 };
 
+// Delete a storage before the Secret it names: the API deletes a Secret a
+// storage still uses, and core then refuses that storage.
+export const deleteSecret = async (
+  request: APIRequestContext,
+  namespace: string,
+  name: string,
+  token: string
+) => {
+  const response = await request.delete(
+    `${namespaceUrl(namespace)}/secrets/${name}`,
+    { headers: authHeaders(token) }
+  );
+  expect([204, 404]).toContain(response.status());
+};
+
+// Deletes the storage, then the credentials Secret createBackupStorage made.
 export const deleteBackupStorage = async (
   request: APIRequestContext,
   namespace: string,
@@ -42,14 +185,15 @@ export const deleteBackupStorage = async (
   token: string
 ) => {
   const response = await request.delete(
-      `/v1/clusters/${EVEREST_CI_CLUSTER}/namespaces/${namespace}/backup-storages/${name}`,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    ),
-    code = response.status();
-  expect(code === 204 || code === 404).toBeTruthy();
+    `${namespaceUrl(namespace)}/backup-storages/${name}`,
+    { headers: authHeaders(token) }
+  );
+  expect([204, 404]).toContain(response.status());
+
+  await deleteSecret(
+    request,
+    namespace,
+    backupStorageCredentialsSecretName(name),
+    token
+  );
 };

@@ -12,32 +12,42 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { UseQueryResult } from '@tanstack/react-query';
 import {
+  BackupStorageClass,
   BackupStorageCRD,
-  StorageType,
 } from 'shared-types/backupStorages.types';
+import {
+  formatBackupStorageLocation,
+  getBackupStorageClassTitle,
+  getBackupStorageStatus,
+} from 'utils/backup-storages';
 import { Messages } from './storage-locations.messages';
-import { BackupStorageTableElement } from './storage-locations.types';
+import { BackupStorageRow } from './storage-locations.types';
 
-export const convertStoragesType = (value: StorageType) =>
-  ({
-    [StorageType.S3]: Messages.s3,
-  })[value] ?? value;
+export const toBackupStorageRows = (
+  storages: BackupStorageCRD[],
+  classes: BackupStorageClass[]
+): BackupStorageRow[] =>
+  storages.map((storage) => ({
+    name: storage.metadata?.name ?? '',
+    namespace: storage.metadata?.namespace ?? '',
+    type: getBackupStorageClassTitle(
+      storage.spec.backupStorageClassRef.name,
+      classes
+    ),
+    location: formatBackupStorageLocation(storage),
+    status: getBackupStorageStatus(storage),
+    raw: storage,
+  }));
 
-export const convertBackupStoragesPayloadToTableFormat = (
-  data: UseQueryResult<BackupStorageCRD[], Error>[]
-): BackupStorageTableElement[] => {
-  return data.flatMap((item) =>
-    item.isSuccess
-      ? item.data.map((storage) => ({
-          namespace: storage.metadata?.namespace ?? '',
-          name: storage.metadata?.name ?? '',
-          type: (storage.spec?.type as StorageType) ?? StorageType.S3,
-          bucketName: storage.spec?.s3?.bucket ?? '',
-          url: storage.spec?.s3?.endpointURL ?? '',
-          raw: storage,
-        }))
-      : []
-  );
+export const describeBackupStorageTls = (
+  tls: BackupStorageCRD['spec']['tls']
+) => {
+  if (tls?.insecureSkipVerify) {
+    return Messages.details.tlsSkipVerify;
+  }
+  const caRef = tls?.ca?.secretKeyRef;
+  return caRef
+    ? Messages.details.tlsCustomCa(caRef.name, caRef.key)
+    : Messages.details.tlsSystem;
 };

@@ -35,12 +35,14 @@ const mocks = vi.hoisted(() => ({
     canDelete: ['team-a'],
     isPermissionsLoading: false,
   },
+  canUseSecret: async () => true,
   destinationsFailed: false,
 }));
 
 vi.mock('hooks/rbac', () => ({
   useRBACPermissions: () => mocks.permissions,
   useNamespacePermissionsForResource: () => mocks.secretPermissions,
+  useRBACCheck: () => mocks.canUseSecret,
 }));
 
 vi.mock('hooks/api/monitoring-classes', () => {
@@ -167,7 +169,6 @@ vi.mock('hooks/api/monitoring-destinations', () => {
       mocks.destinationsFailed ? failed : result,
     useMonitoringDestination: () => noDestination,
     useSaveMonitoringDestination: () => save,
-    SecretAlreadyExistsError: class extends Error {},
   };
 });
 

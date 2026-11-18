@@ -12,283 +12,106 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Add } from '@mui/icons-material';
-import { Box, Button } from '@mui/material';
-import { Table } from '@percona/ui-lib';
-import { useQueryClient } from '@tanstack/react-query';
-import { ConfirmDialog } from 'components/confirm-dialog/confirm-dialog';
-import {
-  getBackupStoragesQueryKey,
-  useBackupStorages,
-  useCreateBackupStorage,
-  useDeleteBackupStorage,
-  useEditBackupStorage,
-} from 'hooks/api/backup-storages/useBackupStorages';
-import { type MRT_ColumnDef } from 'material-react-table';
-import { ExpandedRowInfoLine } from './ExpandedRowInfoLine/ExpandedRowInfoLine';
 import { useMemo, useState } from 'react';
+import { Add } from '@mui/icons-material';
+import { Button } from '@mui/material';
+import { Table } from '@percona/ui-lib';
+import { type MRT_ColumnDef } from 'material-react-table';
 import {
-  BackupStorageCRD,
-  BackupStorageFormValues,
-  StorageType,
-} from 'shared-types/backupStorages.types';
-import { CreateEditModalStorage } from './createEditModal/create-edit-modal';
+  BackupStorageModal,
+  BackupStorageTarget,
+  useBackupStoragePermissions,
+} from 'components/backup-storage-modal';
+import { useDeleteBackupStorage } from 'hooks/api/backup-storages';
+import { DeleteStorageDialog } from './delete-storage-dialog/delete-storage-dialog';
+import { useStorageLocationRows } from './hooks/use-storage-location-rows';
+import { StorageDetails } from './storage-details/storage-details';
+import { StorageRowActions } from './storage-row-actions/storage-row-actions';
+import { StorageStatusCell } from './storage-status-cell/storage-status-cell';
 import { Messages } from './storage-locations.messages';
-import {
-  StorageLocationsFields,
-  BackupStorageTableElement,
-} from './storage-locations.types';
-import {
-  convertBackupStoragesPayloadToTableFormat,
-  convertStoragesType,
-} from './storage-locations.utils';
-import { useNamespacePermissionsForResource } from 'hooks/rbac';
-import { useClusterName } from 'hooks/api/useClusterName';
-import TableActionsMenu from '../../../components/table-actions-menu';
-import { StorageLocationsActionButtons } from './storage-locations-menu-actions';
-import {
-  optimisticCreateBy,
-  optimisticDeleteBy,
-  optimisticEditBy,
-} from 'utils/generalOptimisticDataUpdate';
+import { BackupStorageRow } from './storage-locations.types';
+
+type ModalState = { target?: BackupStorageTarget } | undefined;
 
 export const StorageLocations = () => {
-  const queryClient = useQueryClient();
-  const clusterName = useClusterName();
-  const { canCreate } = useNamespacePermissionsForResource('backup-storages');
-  const backupStorages = useBackupStorages();
-
-  const backupStoragesLoading = backupStorages.some(
-    (result) => result.isLoading
-  );
-
-  const tableData = useMemo(
-    () => convertBackupStoragesPayloadToTableFormat(backupStorages),
-    [backupStorages]
-  );
-
-  const { mutate: createBackupStorage, isPending: creatingBackupStorage } =
-    useCreateBackupStorage();
-  const { mutate: editBackupStorage, isPending: editingBackupStorage } =
-    useEditBackupStorage();
-  const { mutate: deleteBackupStorage, isPending: deletingBackupStorage } =
+  const { rows, isLoading } = useStorageLocationRows();
+  const { createNamespaces } = useBackupStoragePermissions();
+  const { mutate: deleteStorage, isPending: isDeleting } =
     useDeleteBackupStorage();
+  const [deletion, setDeletion] = useState<BackupStorageRow>();
+  const [modal, setModal] = useState<ModalState>();
 
-  const [openCreateEditModal, setOpenCreateEditModal] = useState(false);
-  const [selectedStorageName, setSelectedStorageName] = useState<string>('');
-  const [selectedStorageNamespace, setSelectedStorageNamespace] =
-    useState<string>('');
-  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const [selectedStorageLocation, setSelectedStorageLocation] =
-    useState<BackupStorageCRD>();
-
-  const columns = useMemo<MRT_ColumnDef<BackupStorageTableElement>[]>(
+  const columns = useMemo<MRT_ColumnDef<BackupStorageRow>[]>(
     () => [
+      { accessorKey: 'name', header: Messages.columns.name },
+      { accessorKey: 'namespace', header: Messages.columns.namespace },
+      { accessorKey: 'type', header: Messages.columns.type },
+      { accessorKey: 'location', header: Messages.columns.location },
       {
-        accessorKey: StorageLocationsFields.name,
-        header: Messages.name,
-      },
-      {
-        accessorKey: StorageLocationsFields.type,
-        header: Messages.type,
-        Cell: ({ cell }) => convertStoragesType(cell.getValue<StorageType>()),
-      },
-      {
-        accessorKey: StorageLocationsFields.bucketName,
-        header: Messages.bucketName,
-      },
-      {
-        accessorKey: StorageLocationsFields.namespace,
-        header: Messages.namespace,
-      },
-      {
-        accessorKey: StorageLocationsFields.url,
-        header: Messages.url,
-        enableHiding: false,
+        id: 'status',
+        header: Messages.columns.status,
+        accessorFn: (row) => row.status.state,
+        Cell: ({ row }) => <StorageStatusCell status={row.original.status} />,
       },
     ],
     []
   );
 
-  const handleOpenCreateModal = () => {
-    setSelectedStorageLocation(undefined);
-    setOpenCreateEditModal(true);
-  };
-
-  const handleOpenEditModal = (storageLocation: BackupStorageTableElement) => {
-    setSelectedStorageLocation(storageLocation.raw);
-    setOpenCreateEditModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setSelectedStorageLocation(undefined);
-    setOpenCreateEditModal(false);
-  };
-
-  const handleEditBackupStorage = (data: BackupStorageFormValues) => {
-    const queryKey = getBackupStoragesQueryKey(clusterName, data.namespace);
-    editBackupStorage(data, {
-      onSuccess: (updatedLocation) => {
-        const updatedStorage = updatedLocation as BackupStorageCRD;
-        optimisticEditBy<BackupStorageCRD>(
-          queryClient,
-          queryKey,
-          updatedStorage,
-          (item) =>
-            item.metadata?.name === updatedStorage.metadata?.name &&
-            item.metadata?.namespace === updatedStorage.metadata?.namespace
-        );
-        handleCloseModal();
-      },
-    });
-  };
-
-  const handleCreateBackup = (data: BackupStorageFormValues) => {
-    const queryKey = getBackupStoragesQueryKey(clusterName, data.namespace);
-    createBackupStorage(data, {
-      onSuccess: (newLocation) => {
-        const createdStorage = newLocation as BackupStorageCRD;
-        optimisticCreateBy<BackupStorageCRD>(
-          queryClient,
-          queryKey,
-          createdStorage,
-          (item) =>
-            item.metadata?.name === createdStorage.metadata?.name &&
-            item.metadata?.namespace === createdStorage.metadata?.namespace
-        );
-        handleCloseModal();
-      },
-    });
-  };
-
-  const handleSubmit = (isEdit: boolean, data: BackupStorageFormValues) => {
-    if (isEdit) {
-      handleEditBackupStorage(data);
-    } else {
-      handleCreateBackup(data);
-    }
-  };
-
-  const handleDeleteBackup = (backupStorageName: string, namespace: string) => {
-    setSelectedStorageName(backupStorageName);
-    setSelectedStorageNamespace(namespace);
-    setOpenDeleteDialog(true);
-  };
-
-  const handleCloseDeleteDialog = () => {
-    setOpenDeleteDialog(false);
-  };
-
-  const handleConfirmDelete = (
-    backupStorageName: string,
-    namespace: string
-  ) => {
-    const queryKey = getBackupStoragesQueryKey(clusterName, namespace);
-    deleteBackupStorage(
-      {
-        backupStorageId: backupStorageName,
-        namespace,
-      },
-      {
-        onSuccess: () => {
-          optimisticDeleteBy<BackupStorageCRD>(
-            queryClient,
-            queryKey,
-            (item) =>
-              item.metadata?.name === backupStorageName &&
-              item.metadata?.namespace === namespace
-          );
-          handleCloseDeleteDialog();
-        },
-      }
-    );
-  };
-
   return (
     <>
       <Table
-        getRowId={(row) => row.name}
+        getRowId={(row) => `${row.namespace}/${row.name}`}
         tableName="storageLocations"
-        noDataMessage={Messages.noData}
         hideExpandAllIcon
-        state={{
-          columnVisibility: {
-            url: false,
-            accessKey: false,
-            secretKey: false,
-          },
-          isLoading: backupStoragesLoading,
-        }}
+        noDataMessage={Messages.noData}
+        data={rows}
         columns={columns}
-        data={tableData}
+        state={{ isLoading }}
+        enableRowActions
         renderTopToolbarCustomActions={() =>
-          canCreate.length > 0 && (
+          createNamespaces.length > 0 && (
             <Button
               size="small"
               startIcon={<Add />}
               data-testid="add-backup-storage"
               variant="outlined"
-              onClick={handleOpenCreateModal}
-              sx={{ display: 'flex' }}
+              onClick={() => setModal({})}
             >
-              {Messages.addStorageLocationButton}
+              {Messages.add}
             </Button>
           )
         }
-        enableRowActions
-        renderRowActions={({ row }) => {
-          const menuItems = StorageLocationsActionButtons(
-            row,
-            handleOpenEditModal,
-            handleDeleteBackup
-          );
-          return <TableActionsMenu menuItems={menuItems} />;
-        }}
+        renderRowActions={({ row }) => (
+          <StorageRowActions
+            row={row.original}
+            onEdit={({ namespace, name }) =>
+              setModal({ target: { namespace, name } })
+            }
+            onDelete={setDeletion}
+          />
+        )}
         renderDetailPanel={({ row }) => (
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'start',
-              alignItems: 'start',
-              gap: '50px',
-            }}
-          >
-            <Box>
-              <ExpandedRowInfoLine
-                label={Messages.url}
-                value={row.original.url}
-              />
-            </Box>
-            {/* TODO: uncomment when endpoint is ready
-            <Box>
-              <ExpandedRowInfoLine label="Access key" value={row.original.accessKey} />
-              <ExpandedRowInfoLine label="Secret key" value={row.original.secretKey} />
-            </Box>  */}
-          </Box>
+          <StorageDetails storage={row.original.raw} />
         )}
       />
-      {openCreateEditModal && (
-        <CreateEditModalStorage
-          open={openCreateEditModal}
-          handleCloseModal={handleCloseModal}
-          handleSubmitModal={handleSubmit}
-          selectedStorageLocation={selectedStorageLocation}
-          isLoading={creatingBackupStorage || editingBackupStorage}
+      {modal && (
+        <BackupStorageModal
+          target={modal.target}
+          onClose={() => setModal(undefined)}
         />
       )}
-      {openDeleteDialog && (
-        <ConfirmDialog
-          open={openDeleteDialog}
-          cancelMessage="Cancel"
-          selectedId={selectedStorageName}
-          selectedNamespace={selectedStorageNamespace}
-          closeModal={handleCloseDeleteDialog}
-          headerMessage={Messages.deleteDialog.header}
-          handleConfirmNamespace={handleConfirmDelete}
-          disabledButtons={deletingBackupStorage}
-        >
-          {Messages.deleteDialog.content(selectedStorageName)}
-        </ConfirmDialog>
+      {deletion && (
+        <DeleteStorageDialog
+          row={deletion}
+          isDeleting={isDeleting}
+          onClose={() => setDeletion(undefined)}
+          onConfirm={() =>
+            deleteStorage(
+              { namespace: deletion.namespace, name: deletion.name },
+              { onSuccess: () => setDeletion(undefined) }
+            )
+          }
+        />
       )}
     </>
   );

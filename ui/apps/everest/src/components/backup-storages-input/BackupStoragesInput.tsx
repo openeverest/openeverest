@@ -12,22 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Typography } from '@mui/material';
+import { useEffect, useMemo, useRef } from 'react';
+import { useFormContext } from 'react-hook-form';
+import { autocompleteClasses, Box, Typography } from '@mui/material';
 import { AutoCompleteAutoFill } from 'components/auto-complete-auto-fill/auto-complete-auto-fill';
 import { useBackupStoragesByNamespace } from 'hooks/api/backup-storages/useBackupStorages';
-import { useMemo } from 'react';
 import { BackupStorageCRD } from 'shared-types/backupStorages.types';
 import { Messages } from './backup-storages-input.messages';
-import { getAvailableStorages } from './backup-storages-input.utils';
+import {
+  getAvailableStorages,
+  getBackupStorageUnavailableReason,
+  getStoragesPollInterval,
+  withoutDeletedStorages,
+} from './backup-storages-input.utils';
 import {
   BackupStoragesInputProps,
   ScheduleWithStorage,
 } from './backup-storages-input.types';
+import { useUnchangedList } from './useUnchangedList';
 
 const BackupStoragesInput = ({
   name = 'storageLocation',
   namespace,
   autoFillProps,
+  backupClass,
   maxStorages,
   maxSchedulesPerStorage,
   ...rest
@@ -55,11 +63,22 @@ const BackupStoragesInput = ({
     };
   }, [rest]);
 
-  const { data: backupStorages = [], isFetching } =
-    useBackupStoragesByNamespace(namespace);
+  const { getValues, setValue, setError, trigger } = useFormContext();
+  const {
+    data: namespaceStorages = [],
+    isFetching,
+    isSuccess,
+  } = useBackupStoragesByNamespace(
+    namespace,
+    backupClass ? { backupClass } : undefined,
+    { refetchInterval: (query) => getStoragesPollInterval(query.state.data) }
+  );
+  const backupStorages = useUnchangedList(
+    withoutDeletedStorages(namespaceStorages, new Set(instanceStorageNames))
+  );
 
   const {
-    storagesToShow,
+    storagesToShow: availableStorages,
     activeStoragesCount,
     shouldDisable,
     inUseNames,
@@ -71,16 +90,91 @@ const BackupStoragesInput = ({
     maxSchedulesPerStorage,
     instanceStorageNames,
   });
+  // The first valid storage is filled in when the list changes. With a new
+  // list on each render, it would be filled back into a field the user just
+  // cleared.
+  const storagesToShow = useUnchangedList(availableStorages);
 
   const isDisabled = shouldDisable || autoFillProps?.disabled;
 
-  const helperText =
-    maxStorages !== undefined
+  const classHasNoStorages =
+    !!backupClass && isSuccess && namespaceStorages.length === 0;
+  const helperText = classHasNoStorages
+    ? Messages.noCompatibleStorages
+    : maxStorages !== undefined
       ? Messages.storageLimitHelperText(activeStoragesCount, maxStorages)
       : undefined;
 
   // Show "(in use)" label only when displaying the full namespace list (limit not reached)
   const showInUseHighlight = !limitReached && inUseNames.size > 0;
+
+  const fillsFirst = autoFillProps?.enableFillFirst ?? true;
+  const isPickFixedByCaller = !!autoFillProps?.disabled;
+
+  const isMounted = useRef(false);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  // A storage picked for another backup class may not work with this one:
+  // once the class's list lacks it, the first valid storage takes its place,
+  // as on a first fill. A pick the caller fixed, such as an existing
+  // schedule's, stays.
+  useEffect(() => {
+    const value: BackupStorageCRD | null | undefined = getValues(name);
+    const pickedName = value?.metadata?.name;
+    if (
+      isPickFixedByCaller ||
+      !isSuccess ||
+      !pickedName ||
+      backupStorages.some((storage) => storage.metadata?.name === pickedName)
+    ) {
+      return;
+    }
+    const replacement = fillsFirst
+      ? storagesToShow.find(
+          (storage) => !getBackupStorageUnavailableReason(storage)
+        )
+      : undefined;
+    if (replacement) {
+      setValue(name, replacement, { shouldValidate: true });
+      return;
+    }
+    setValue(name, null);
+    // A validation the backup class change started still sees the old pick
+    // and, settling after this, would leave the form valid with no storage.
+    // It has settled by the next task.
+    setTimeout(() => {
+      if (!isMounted.current || getValues(name)) {
+        return;
+      }
+      if (classHasNoStorages) {
+        // Says why the field is empty, where a required error would only
+        // say that it is.
+        setError(name, {
+          type: 'manual',
+          message: Messages.noCompatibleStorages,
+        });
+      } else {
+        trigger(name);
+      }
+    });
+  }, [
+    classHasNoStorages,
+    fillsFirst,
+    isPickFixedByCaller,
+    isSuccess,
+    backupStorages,
+    storagesToShow,
+    name,
+    getValues,
+    setValue,
+    setError,
+    trigger,
+  ]);
 
   return (
     <AutoCompleteAutoFill<BackupStorageCRD>
@@ -99,25 +193,57 @@ const BackupStoragesInput = ({
           option.metadata?.name === value.metadata?.name,
         getOptionLabel: (option) =>
           typeof option === 'string' ? option : (option.metadata?.name ?? ''),
-        ...(showInUseHighlight && {
-          renderOption: (props, option) => (
-            <li {...props} key={option.metadata?.name}>
-              {option.metadata?.name}
-              {inUseNames.has(option.metadata?.name ?? '') && (
+        getOptionDisabled: (option) =>
+          !!getBackupStorageUnavailableReason(option),
+        ...(backupClass && { noOptionsText: Messages.noCompatibleStorages }),
+        slotProps: {
+          listbox: {
+            // The reason stays readable: MUI fades a disabled option.
+            sx: {
+              [`& .${autocompleteClasses.option}[aria-disabled="true"]`]: {
+                opacity: 1,
+              },
+            },
+          },
+        },
+        renderOption: (props, option) => {
+          const storageName = option.metadata?.name ?? '';
+          const unavailableReason = getBackupStorageUnavailableReason(option);
+          return (
+            <Box component="li" {...props} key={storageName}>
+              <Box>
                 <Typography
                   component="span"
                   variant="body2"
-                  sx={{
-                    color: 'text.secondary',
-                    ml: 1,
-                  }}
+                  color={unavailableReason ? 'text.disabled' : undefined}
                 >
-                  {Messages.inUseLabel}
+                  {storageName}
                 </Typography>
-              )}
-            </li>
-          ),
-        }),
+                {showInUseHighlight && inUseNames.has(storageName) && (
+                  <Typography
+                    component="span"
+                    variant="body2"
+                    sx={{
+                      color: 'text.secondary',
+                      ml: 1,
+                    }}
+                  >
+                    {Messages.inUseLabel}
+                  </Typography>
+                )}
+                {unavailableReason && (
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'block' }}
+                  >
+                    {unavailableReason}
+                  </Typography>
+                )}
+              </Box>
+            </Box>
+          );
+        },
       }}
       disabled={isDisabled}
     />

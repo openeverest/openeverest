@@ -43,7 +43,9 @@ export const AuthorizerObservable = Object.freeze({
 });
 
 export type RBACStandardAction = 'read' | 'update' | 'delete' | 'create';
-export type RBACAction = RBACStandardAction | 'read-connection';
+// use: consuming something rather than managing it, e.g. a Secret's contents
+// through an object that names the Secret.
+export type RBACAction = RBACStandardAction | 'read-connection' | 'use';
 export type RBACResource =
   | 'namespaces'
   | 'database-engines'
@@ -52,6 +54,7 @@ export type RBACResource =
   | 'backup-classes'
   | 'instances'
   | 'backup-storages'
+  | 'backup-storage-classes'
   | 'monitoring-classes'
   | 'monitoring-destinations'
   | 'monitoring-bindings'
@@ -93,6 +96,7 @@ const RBAC_OBJECT_FORMATS: { [R in RBACResource]: RBACObjectFormat<R> } = {
   'backup-imports': 'cluster-namespaced',
   restores: 'cluster-namespaced',
   'backup-storages': 'cluster-namespaced',
+  'backup-storage-classes': 'cluster-scoped',
   'monitoring-destinations': 'cluster-namespaced',
   'monitoring-bindings': 'cluster-namespaced',
   'config-maps': 'cluster-namespaced',

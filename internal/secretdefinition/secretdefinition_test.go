@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
@@ -45,6 +46,7 @@ import (
 type fakeGetter struct {
 	providers map[string]*corev1alpha1.Provider
 	classes   map[string]*monitoringv1alpha1.MonitoringClass
+	storages  map[string]*backupv1alpha1.BackupStorageClass
 	err       error
 }
 
@@ -66,6 +68,16 @@ func (g fakeGetter) GetMonitoringClass(_ context.Context, key ctrlclient.ObjectK
 		return c, nil
 	}
 	return nil, k8serrors.NewNotFound(schema.GroupResource{Group: "monitoring.openeverest.io", Resource: "monitoringclasses"}, key.Name)
+}
+
+func (g fakeGetter) GetBackupStorageClass(_ context.Context, key ctrlclient.ObjectKey) (*backupv1alpha1.BackupStorageClass, error) {
+	if g.err != nil {
+		return nil, g.err
+	}
+	if c, ok := g.storages[key.Name]; ok {
+		return c, nil
+	}
+	return nil, k8serrors.NewNotFound(schema.GroupResource{Group: "backup.openeverest.io", Resource: "backupstorageclasses"}, key.Name)
 }
 
 func testGetter() fakeGetter {
@@ -108,6 +120,29 @@ func testGetter() fakeGetter {
 				},
 			},
 		},
+		storages: map[string]*backupv1alpha1.BackupStorageClass{
+			"s3": {
+				ObjectMeta: metav1.ObjectMeta{Name: "s3"},
+				Spec: backupv1alpha1.BackupStorageClassSpec{
+					AuthModes: []commonv1alpha1.AuthMode{
+						{
+							Name: "AccessKey",
+							Credentials: &commonv1alpha1.CredentialKeys{
+								Required: []string{"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"},
+							},
+						},
+						{Name: commonv1alpha1.AuthModeWorkloadIdentity},
+					},
+				},
+			},
+		},
+	}
+}
+
+func storageClassLabels(class, definition string) map[string]string {
+	return map[string]string{
+		common.OpenEverestBackupStorageClassLabel: class,
+		common.OpenEverestDefinitionLabel:         definition,
 	}
 }
 
@@ -147,12 +182,17 @@ func TestRefFromLabels(t *testing.T) {
 		{
 			name:    "no labels",
 			labels:  nil,
-			wantErr: "label the Secret with one of openeverest.io/provider, openeverest.io/monitoring-class, and with openeverest.io/definition",
+			wantErr: "label the Secret with one of openeverest.io/provider, openeverest.io/monitoring-class, openeverest.io/backup-storage-class, and with openeverest.io/definition",
 		},
 		{
 			name:    "definition without a source",
 			labels:  map[string]string{common.OpenEverestDefinitionLabel: "user"},
-			wantErr: `openeverest.io/definition "user" needs one of openeverest.io/provider, openeverest.io/monitoring-class; only "ca-bundle" needs none`,
+			wantErr: `openeverest.io/definition "user" needs one of openeverest.io/provider, openeverest.io/monitoring-class, openeverest.io/backup-storage-class; only "ca-bundle" needs none`,
+		},
+		{
+			name:   "backup storage class",
+			labels: storageClassLabels("s3", "AccessKey"),
+			want:   Ref{Kind: KindBackupStorageClass, Source: "s3", Definition: "AccessKey"},
 		},
 		{
 			name:   "core CA bundle without a source",
@@ -291,6 +331,49 @@ func TestValidate(t *testing.T) {
 			},
 			wantIs:  ErrSourceNotFound,
 			wantErr: `MonitoringClass "datadog"`,
+		},
+		{
+			name: "backup storage class credentials with the required keys",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Labels: storageClassLabels("s3", "AccessKey")},
+				StringData: map[string]string{"AWS_ACCESS_KEY_ID": "AKIA", "AWS_SECRET_ACCESS_KEY": "shh"},
+			},
+		},
+		{
+			name: "backup storage class credentials missing a required key",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Labels: storageClassLabels("s3", "AccessKey")},
+				StringData: map[string]string{"AWS_ACCESS_KEY_ID": "AKIA"},
+			},
+			wantIs:  ErrInvalidSecret,
+			wantErr: `missing key "AWS_SECRET_ACCESS_KEY" required by authentication mode "AccessKey"`,
+		},
+		{
+			name: "backup storage class without the mode",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Labels: storageClassLabels("s3", "AccountKey")},
+				StringData: map[string]string{"AZURE_STORAGE_ACCOUNT_KEY": "k"},
+			},
+			wantIs:  ErrInvalidSecret,
+			wantErr: `BackupStorageClass "s3" has no authentication mode "AccountKey"; it supports AccessKey, WorkloadIdentity`,
+		},
+		{
+			name: "backup storage class reserved mode takes no Secret",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Labels: storageClassLabels("s3", commonv1alpha1.AuthModeWorkloadIdentity)},
+				StringData: map[string]string{"token": "t"},
+			},
+			wantIs:  ErrInvalidSecret,
+			wantErr: `authentication mode "WorkloadIdentity" of BackupStorageClass "s3" takes no Secret`,
+		},
+		{
+			name: "unknown backup storage class",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Labels: storageClassLabels("azure", "AccountKey")},
+				StringData: map[string]string{"AZURE_STORAGE_ACCOUNT_KEY": "k"},
+			},
+			wantIs:  ErrSourceNotFound,
+			wantErr: `BackupStorageClass "azure"`,
 		},
 		{
 			name: "provider secret matching its definition",

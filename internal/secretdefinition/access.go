@@ -54,7 +54,8 @@ func Labelled(labels map[string]string) bool {
 
 // Tracked reports whether labels mark a Secret core tracks: a labelled Secret
 // that no Provider defines. Those are the Secrets the typed fields of core
-// kinds reference, such as a MonitoringDestination's credentials and CA.
+// kinds reference: the credentials and CA of a MonitoringDestination or a
+// BackupStorage.
 // Provider-defined Secrets are referenced from Instance parameters, which core
 // does not follow yet.
 func Tracked(labels map[string]string) bool {

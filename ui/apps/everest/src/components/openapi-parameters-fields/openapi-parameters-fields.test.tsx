@@ -17,6 +17,7 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@mui/material';
+import { Messages as ConstraintMessages } from 'components/ui-generator/utils/openapi-constraints/openapi-constraints.messages';
 import { TestWrapper } from 'utils/test';
 import { OpenApiParametersFields } from './openapi-parameters-fields';
 import {
@@ -26,6 +27,7 @@ import {
   toOpenApiParameterFormValues,
 } from './openapi-parameters-fields.utils';
 
+const DURATION_PATTERN = '^([0-9]+(ms|s|m|h|d|w|y))+$';
 // The Prometheus class's destinationParametersSchema, plus shapes the form
 // can't edit.
 const prometheusSchema = {
@@ -36,7 +38,11 @@ const prometheusSchema = {
       type: 'object',
       additionalProperties: { type: 'string' },
     },
-    interval: { type: 'string', description: 'Scrape interval' },
+    interval: {
+      type: 'string',
+      description: 'Scrape interval',
+      pattern: DURATION_PATTERN,
+    },
     replicas: { type: 'integer' },
     tls: { type: 'object', properties: { ca: { type: 'string' } } },
   },
@@ -58,6 +64,7 @@ describe('getOpenApiParameterFields', () => {
           kind: 'text',
           required: true,
           description: 'Scrape interval',
+          constraints: { required: true, pattern: DURATION_PATTERN },
         },
       ],
       skipped: ['replicas', 'tls'],
@@ -124,7 +131,7 @@ const Harness = ({ onSubmit }: { onSubmit: (v: unknown) => void }) => {
 };
 
 describe('OpenApiParametersFields', () => {
-  it('fills text and map parameters and enforces required ones', async () => {
+  it('fills text and map parameters and enforces what the schema asks', async () => {
     const onSubmit = vi.fn();
     render(
       <TestWrapper>
@@ -140,6 +147,13 @@ describe('OpenApiParametersFields', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
     expect(await screen.findByText('interval is required')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/interval/), {
+      target: { value: '15 seconds' },
+    });
+    expect(
+      await screen.findByText(ConstraintMessages.pattern)
+    ).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/interval/), {
       target: { value: '15s' },

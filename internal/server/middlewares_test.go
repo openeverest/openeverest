@@ -329,19 +329,15 @@ func TestDryRunDecidedForEveryWrite(t *testing.T) {
 
 		"CreateBackup":         true,
 		"CreateBackupImport":   true,
-		"CreateBackupStorage":  true,
 		"CreateConfigMap":      true,
 		"CreateInstancePreset": true,
 		"CreateRestore":        true,
 		"DeleteBackup":         true,
 		"DeleteBackupImport":   true,
-		"DeleteBackupStorage":  true,
 		"DeleteConfigMap":      true,
 		"DeleteInstance":       true,
 		"DeleteInstancePreset": true,
 		"DeleteRestore":        true,
-		"PatchBackupStorage":   true,
-		"UpdateBackupStorage":  true,
 		"UpdateInstancePreset": true,
 	}
 

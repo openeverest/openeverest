@@ -445,6 +445,22 @@ func TestListSecrets(t *testing.T) {
 			},
 		},
 		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "backup-storage-prod-credentials",
+				Namespace: namespace,
+				Labels: map[string]string{
+					common.OpenEverestBackupStorageClassLabel: "s3",
+					common.OpenEverestDefinitionLabel:         "AccessKey",
+					common.OpenEverestManagedLabel:            "true",
+				},
+			},
+			Type: corev1.SecretTypeOpaque,
+			Data: map[string][]byte{
+				"AWS_ACCESS_KEY_ID":     []byte("AKIA"),
+				"AWS_SECRET_ACCESS_KEY": []byte("shh"),
+			},
+		},
+		{
 			// Applied with kubectl or by Git: labelled, but not created through the API.
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pmm-credentials-from-git",
@@ -542,7 +558,7 @@ func TestListSecrets(t *testing.T) {
 	}{
 		{
 			name: "no filter lists labelled secrets, whoever created them",
-			want: []string{"corp-ca", "pmm-credentials", "pmm-credentials-from-git", "secret-data", "secret-stringdata"},
+			want: []string{"backup-storage-prod-credentials", "corp-ca", "pmm-credentials", "pmm-credentials-from-git", "secret-data", "secret-stringdata"},
 		},
 		{
 			name:   "by definition",
@@ -563,6 +579,11 @@ func TestListSecrets(t *testing.T) {
 			name:   "by monitoring class and definition",
 			filter: handlers.SecretFilter{MonitoringClass: "pmm", Definition: "ServiceAccountToken"},
 			want:   []string{"pmm-credentials", "pmm-credentials-from-git"},
+		},
+		{
+			name:   "by backup storage class and definition",
+			filter: handlers.SecretFilter{BackupStorageClass: "s3", Definition: "AccessKey"},
+			want:   []string{"backup-storage-prod-credentials"},
 		},
 		{
 			name:   "by another monitoring class",

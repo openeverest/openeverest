@@ -103,6 +103,20 @@ func EmitWaitSucceeded(pretty, asYAML bool, kind, name, namespace string) error 
 	return writeResult(name, namespace, true, asYAML)
 }
 
+// EmitDryRun reports a delete previewed with --dry-run (mode is client or
+// server): nothing was deleted, so "deleted" stays false.
+func EmitDryRun(pretty, asYAML bool, mode, kind, name, namespace string) error {
+	if pretty {
+		if mode == cli.DryRunServer {
+			_, _ = fmt.Fprint(os.Stdout, output.Success("Dry run for deleting %s %q accepted by the server, nothing deleted", kind, name))
+		} else {
+			_, _ = fmt.Fprint(os.Stdout, output.Info("Dry run for deleting %s %q in namespace %q, nothing sent", kind, name, namespace))
+		}
+		return nil
+	}
+	return writeResult(name, namespace, false, asYAML)
+}
+
 func writeResult(name, namespace string, deleted, asYAML bool) error {
 	result := struct {
 		Name      string `json:"name"`

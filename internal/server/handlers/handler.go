@@ -21,6 +21,8 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
+	eventsv1 "k8s.io/api/events/v1"
+	"k8s.io/apimachinery/pkg/watch"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
@@ -57,11 +59,23 @@ type Handler interface {
 	InstanceRestoreHandler
 	ConfigMapHandler
 	SecretHandler
+	EventHandler
 
 	GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error)
 	GetKubernetesClusterInfo(ctx context.Context) (*api.KubernetesClusterInfo, error)
 	GetUserPermissions(ctx context.Context) (*api.UserPermissions, error)
 	GetSettings(ctx context.Context) (*api.Settings, error)
+}
+
+// EventHandler provides the lifecycle events (see pkg/events).
+type EventHandler interface {
+	// ListEvents lists the lifecycle events in namespaces, or in all namespaces when
+	// namespaces is empty.
+	ListEvents(ctx context.Context, cluster string, namespaces []string, limit int64, continueToken string) (*eventsv1.EventList, error)
+	// WatchEvents streams the lifecycle events in namespaces, or in all namespaces when
+	// namespaces is empty, recorded after resourceVersion, or from now on when it is
+	// empty. Bookmark and error events are passed through.
+	WatchEvents(ctx context.Context, cluster string, namespaces []string, resourceVersion string) (watch.Interface, error)
 }
 
 // NamespacesHandler provides methods for handling operations on namespaces.
@@ -74,9 +88,11 @@ type BackupStorageHandler interface {
 	CreateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
 	UpdateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error)
 	PatchBackupStorage(ctx context.Context, cluster, namespace, name string, patch []byte) (*backupv1alpha1.BackupStorage, error)
-	ListBackupStorages(ctx context.Context, cluster, namespace string) (*backupv1alpha1.BackupStorageList, error)
+	ListBackupStorages(ctx context.Context, cluster, namespace string, params *api.ListBackupStoragesParams) (*backupv1alpha1.BackupStorageList, error)
 	GetBackupStorage(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.BackupStorage, error)
 	DeleteBackupStorage(ctx context.Context, cluster, namespace, name string) error
+	ListBackupStorageClasses(ctx context.Context, cluster string) (*backupv1alpha1.BackupStorageClassList, error)
+	GetBackupStorageClass(ctx context.Context, cluster, name string) (*backupv1alpha1.BackupStorageClass, error)
 }
 
 // ProviderHandler provides methods for handling operations on providers.
@@ -125,7 +141,7 @@ type ClusterHandler interface {
 
 // BackupClassHandler provides methods for handling operations on backup classes.
 type BackupClassHandler interface {
-	ListBackupClasses(ctx context.Context, cluster string) (*backupv1alpha1.BackupClassList, error)
+	ListBackupClasses(ctx context.Context, cluster, provider string) (*backupv1alpha1.BackupClassList, error)
 	GetBackupClass(ctx context.Context, cluster, name string) (*backupv1alpha1.BackupClass, error)
 }
 
@@ -204,7 +220,8 @@ type SecretHandler interface {
 // SecretFilter selects Secrets by the labels that name their definition.
 // Empty fields match any value.
 type SecretFilter struct {
-	Provider        string
-	MonitoringClass string
-	Definition      string
+	Provider           string
+	MonitoringClass    string
+	BackupStorageClass string
+	Definition         string
 }

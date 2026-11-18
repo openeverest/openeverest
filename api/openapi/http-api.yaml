@@ -43,6 +43,8 @@ tags:
     description: Everything related to backup storage
   - name: Monitoring
     description: Everything related to monitoring
+  - name: Events
+    description: Lifecycle events for auditing and integrations
 security:
   - BearerAuth: []
 paths:
@@ -915,6 +917,126 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/events':
+    x-everest-resource-name: platform-events
+    x-everest-additional-resource-names:
+      - installed-extensions
+    get:
+      tags:
+        - Events
+      summary: List or stream lifecycle events
+      description: |
+        Lists the lifecycle events of the cluster, or streams them as Server-Sent Events
+        when `watch=true`.
+
+        Lifecycle events are recorded for the objects OpenEverest manages (Instances,
+        Backups, Restores, BackupImports, BackupStorages, MonitoringDestinations, Plugins,
+        InstalledExtensions and managed Namespaces), whether they were changed through
+        this API, kubectl or a GitOps tool, and for logins and logouts. They use a small,
+        kind-independent set of reasons; `object.kind` tells what the event is about:
+
+        - `Created`, `Updated` (spec changed), `PhaseChanged` (with `phase.from` and
+          `phase.to`), `DeletionRequested` and `Deleted`.
+        - `LoginSucceeded`, `LoginFailed` and `Logout`, about the `User` the login was
+          for.
+
+        They are stored as Kubernetes Events, so they are kept for the event TTL of the
+        cluster: one hour by default, and not adjustable on most managed Kubernetes
+        services. A `since` cursor is served from the API server's watch cache, which
+        often holds only minutes of history, so it can expire well before the Events do;
+        relist when it does.
+
+        **Streaming.** To consume every retained event without gaps, list all pages using
+        `continue`, then stream with `since` set to the list `resourceVersion`. Pages in a
+        continued list share the same `resourceVersion`. Each streamed event carries its
+        `cursor`; to resume after a disconnect, stream again with `since` set to the last
+        cursor received. A `bookmark` event only advances the cursor. When the cursor is
+        too old for the cluster to resume from, the stream sends an `error` event with
+        code 410: relist all pages and stream from the new `resourceVersion`.
+
+        **Access.** The events about an object require `read-events` on the object's own
+        resource and RBAC object, e.g. `instances` for `{cluster}/{namespace}/{name}` or
+        `plugins` for `{cluster}/{name}`; InstalledExtensions use `installed-extensions`.
+        `read` does not imply `read-events`. Login and logout events require `read` on the
+        global `platform-events`. These checks use the object the Event is about, not the
+        namespace where Kubernetes stores the Event.
+      operationId: listEvents
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: namespaces
+          in: query
+          description: Comma-separated namespaces to return events from. All namespaces when empty.
+          schema:
+            type: string
+        - name: kinds
+          in: query
+          description: Comma-separated kinds of objects to return events about, e.g. `Instance,Backup`.
+          schema:
+            type: string
+        - name: reasons
+          in: query
+          description: Comma-separated reasons to return, e.g. `PhaseChanged`.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Maximum number of events to return in a list page. Defaults to 100.
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+            maximum: 1000
+        - name: continue
+          in: query
+          description: Opaque token from the previous page. Only used when listing.
+          schema:
+            type: string
+        - name: watch
+          in: query
+          description: Stream the events as Server-Sent Events instead of listing them.
+          schema:
+            type: boolean
+            default: false
+        - name: since
+          in: query
+          description: |
+            With `watch=true`, stream the events recorded after this cursor (an event
+            `cursor` or a list `resourceVersion`). Without it, only new events are streamed.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The lifecycle events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LifecycleEventList'
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Server-Sent Events. Each lifecycle event is sent with `id` set to its
+                  cursor, `event` set to its `type` and `data` set to the
+                  `LifecycleEvent` JSON. `bookmark` events carry only a newer cursor in
+                  `id`. An `error` event carries a JSON object with the HTTP status `code`
+                  and a `message`; the stream ends after it.
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/namespaces/{namespace}/instances':
     x-everest-resource-name: instances
     get:
@@ -1486,12 +1608,19 @@ paths:
       summary: List backup classes
       description: |
         This API lists all backup classes in the specified cluster.
+        Optionally filter by provider: only the classes that provider executes (`spec.providerManaged.providerRef`) are returned.
       operationId: listBackupClasses
       parameters:
         - name: cluster
           in: path
           required: true
           description: The name of the cluster
+          schema:
+            type: string
+        - name: provider
+          in: query
+          required: false
+          description: Return only the backup classes executed by the provider with this name
           schema:
             type: string
       responses:
@@ -2191,6 +2320,83 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/backup-storage-classes':
+    x-everest-resource-name: backup-storage-classes
+    get:
+      tags:
+        - Backup Storage
+      summary: List backup storage classes
+      description: |
+        This API lists the backup storage classes, the object storage technologies a backup storage can use, in the specified cluster.
+        Backup storage classes are installed with OpenEverest or an extension and are read-only over this API.
+      operationId: listBackupStorageClasses
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of backup storage classes
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupStorageClassList'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/backup-storage-classes/{name}':
+    x-everest-resource-name: backup-storage-classes
+    get:
+      tags:
+        - Backup Storage
+      summary: Get backup storage class
+      description: |
+        This API gets the backup storage class specified by the `name` in the specified `cluster`.
+      operationId: getBackupStorageClass
+      parameters:
+        - name: cluster
+          in: path
+          required: true
+          description: The name of the cluster
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The name of the backup storage class
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Backup storage class details
+          content:
+            application/json:
+              schema:
+                $ref: 'crds.gen.yaml#/components/schemas/BackupStorageClass'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Backup storage class not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   '/clusters/{cluster}/namespaces/{namespace}/backup-storages':
     x-everest-resource-name: backup-storages
     post:
@@ -2199,6 +2405,8 @@ paths:
       summary: Create backup storage
       description: |
         This API creates a new backup storage in the specified namespace and cluster.
+        Credentials are never part of the payload: create the Secret through the secrets API, labelled `openeverest.io/backup-storage-class: <class>` and `openeverest.io/definition: <mode>`, and reference it in `spec.authentication.credentialsSecretRef`. A CA bundle created through the secrets API is labelled `openeverest.io/definition: ca-bundle` and referenced in `spec.tls.ca.secretKeyRef`.
+        Creating a backup storage requires `read` on its backup storage class and `use` (`secrets:use`) on every Secret it references, since the storage hands their contents to whatever it is attached to; `read` on a Secret is not enough.
       operationId: createBackupStorage
       parameters:
         - name: cluster
@@ -2213,6 +2421,7 @@ paths:
           description: The namespace where the backup storage will be created
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '201':
           description: Successful operation
@@ -2275,6 +2484,18 @@ paths:
       summary: List backup storages
       description: |
         This API lists all backup storages in the specified namespace and cluster.
+
+        `backupStorageClass` and `secret` are field selectors passed through to Kubernetes, so they return the same storages as
+        `kubectl get backupstorages --field-selector <field>=<value>`:
+        - `backupStorageClass` returns the storages whose `spec.backupStorageClassRef.name` is that class;
+        - `secret` returns the storages that reference that Secret, either as their credentials
+          (`spec.authentication.credentialsSecretRef.name`) or as their CA bundle (`spec.tls.ca.secretKeyRef.name`),
+          each storage once.
+
+        `backupClass` returns the storages that backup class can write to, per its `spec.backupStorageClasses`.
+
+        When several are set, a storage must match all of them. Like any list, the result holds only the storages
+        the caller may read.
       operationId: listBackupStorages
       parameters:
         - name: cluster
@@ -2287,6 +2508,26 @@ paths:
           in: path
           required: true
           description: The namespace of the backup storages
+          schema:
+            type: string
+        - name: backupClass
+          in: query
+          required: false
+          description: Return only the backup storages this backup class can write to, per its `spec.backupStorageClasses`
+          schema:
+            type: string
+        - name: backupStorageClass
+          in: query
+          required: false
+          description: Return only the backup storages of the backup storage class with this name (`spec.backupStorageClassRef.name`)
+          schema:
+            type: string
+        - name: secret
+          in: query
+          required: false
+          description: |
+            Return only the backup storages that reference the Secret with this name, as their credentials
+            (`spec.authentication.credentialsSecretRef.name`) or as their CA bundle (`spec.tls.ca.secretKeyRef.name`)
           schema:
             type: string
       responses:
@@ -2368,8 +2609,9 @@ paths:
       description: |
         This API applies Merge Patch to the backup storage specified by the `name` in the specified `namespace` and `cluster`.
         Members absent from the patch keep their current value, and a member set to `null` is removed. A path that does not exist on the BackupStorage
-        is rejected rather than ignored. Include `metadata.resourceVersion` to make the patch conditional, which fails with 409 if the backup storage has changed.
-        `spec.s3.accessKeyId` and `spec.s3.secretAccessKey` are write-only: they are stored in the Secret named by `spec.s3.credentialsSecretRef` and never persisted on the object.
+        is rejected rather than ignored. The patch is conditional on `metadata.resourceVersion` when it includes one, and otherwise on the version the server checked it against; it fails with 409 if the backup storage has changed since.
+        Credentials are never part of the payload: update the Secret named by `spec.authentication.credentialsSecretRef` with `PATCH .../secrets/{name}` instead.
+        A patch that changes `spec` requires `use` (`secrets:use`) on every Secret the patched backup storage references, including those it already referenced, since changing parameters such as `endpointURL` sends their contents elsewhere. A patch of labels or annotations only needs no `use`.
       operationId: patchBackupStorage
       parameters:
         - name: cluster
@@ -2390,6 +2632,7 @@ paths:
           description: The name of the backup storage
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '200':
           description: Successful operation
@@ -2454,6 +2697,7 @@ paths:
       summary: Update backup storage
       description: |
         This API updates the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+        It requires `read` on the backup storage class and, when the update changes `spec`, `use` (`secrets:use`) on every Secret the updated backup storage references, including those it already referenced. An update of labels or annotations only needs no `use`.
       operationId: updateBackupStorage
       parameters:
         - name: cluster
@@ -2474,6 +2718,7 @@ paths:
           description: The name of the backup storage
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '200':
           description: Successful operation
@@ -2550,6 +2795,7 @@ paths:
           description: The name of the backup storage
           schema:
             type: string
+        - $ref: '#/components/parameters/DryRun'
       responses:
         '204':
           description: Backup storage deleted successfully
@@ -3327,6 +3573,7 @@ paths:
         |---|---|---|
         | `openeverest.io/provider: <provider>` | a key of the Provider's `spec.secrets` | the definition's `type` and `parametersSchema` |
         | `openeverest.io/monitoring-class: <class>` | an authentication mode of the MonitoringClass, e.g. `ServiceAccountToken` | type `Opaque` and the keys the mode requires |
+        | `openeverest.io/backup-storage-class: <class>` | an authentication mode of the BackupStorageClass, e.g. `AccessKey` | type `Opaque` and the keys the mode requires |
         | none | `ca-bundle`, the one definition core owns | type `Opaque`; key `ca.crt` present; every key holds PEM CA certificates and no other PEM block |
 
         A CA bundle is trust material, not a credential of any provider or class, so one bundle can be referenced from `spec.tls.ca.secretKeyRef` by any kind; list them with `?definition=ca-bundle`. It holds its certificates under `ca.crt`, so a reference to it always names that key; other keys may hold more certificates.
@@ -3431,6 +3678,12 @@ paths:
           in: query
           required: false
           description: Filter secrets by the MonitoringClass that defines them (`openeverest.io/monitoring-class`)
+          schema:
+            type: string
+        - name: backupStorageClass
+          in: query
+          required: false
+          description: Filter secrets by the BackupStorageClass that defines them (`openeverest.io/backup-storage-class`)
           schema:
             type: string
         - name: definition
@@ -3680,6 +3933,121 @@ components:
         type: string
       example: '299 - "secret \"db-credentials\" named by spec.userSecretRef not found"'
   schemas:
+    LifecycleEventList:
+      type: object
+      required:
+        - items
+        - resourceVersion
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LifecycleEvent'
+        resourceVersion:
+          type: string
+          description: Pass it as `since` with `watch=true` to stream the events recorded after the list.
+        continue:
+          type: string
+          description: Opaque token for the next page, if more events are available.
+    LifecycleEvent:
+      type: object
+      required:
+        - name
+        - cursor
+        - occurredAt
+        - type
+        - reason
+        - severity
+        - cluster
+        - object
+      properties:
+        name:
+          type: string
+          description: The name of the Kubernetes Event.
+        cursor:
+          type: string
+          description: Pass it as `since` with `watch=true` to resume streaming after this event.
+        occurredAt:
+          type: string
+          format: date-time
+        type:
+          type: string
+          description: The kind and reason of the event, e.g. `instance.phase-changed`.
+          example: instance.phase-changed
+        reason:
+          type: string
+          enum:
+            - Created
+            - Updated
+            - PhaseChanged
+            - DeletionRequested
+            - Deleted
+            - LoginSucceeded
+            - LoginFailed
+            - Logout
+        severity:
+          type: string
+          enum:
+            - Normal
+            - Warning
+        cluster:
+          type: string
+        namespace:
+          type: string
+        object:
+          $ref: '#/components/schemas/LifecycleEventObject'
+        actor:
+          $ref: '#/components/schemas/LifecycleEventActor'
+        phase:
+          $ref: '#/components/schemas/LifecycleEventPhase'
+        generation:
+          type: integer
+          format: int64
+          description: The new `metadata.generation` of an `Updated` event.
+        sourceIP:
+          type: string
+          description: The client IP of a login or logout.
+        message:
+          type: string
+    LifecycleEventPhase:
+      type: object
+      description: The previous and new phase of a `PhaseChanged` event.
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+    LifecycleEventObject:
+      type: object
+      description: The object the event is about.
+      required:
+        - kind
+        - name
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        name:
+          type: string
+        uid:
+          type: string
+    LifecycleEventActor:
+      type: object
+      description: |
+        Who caused the event: an OpenEverest `user` (`id` is their subject), an OpenEverest
+        component (`system`), or a Kubernetes client that changed the object directly
+        (`kubernetes-client`, `id` is its field manager, e.g. `kubectl-client-side-apply`).
+        Absent when unknown, e.g. for deletions made directly in Kubernetes.
+      properties:
+        type:
+          type: string
+          enum:
+            - user
+            - system
+            - kubernetes-client
+        id:
+          type: string
     Error:
       type: object
       description: Error response

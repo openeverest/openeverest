@@ -84,7 +84,7 @@ func init() {
 	updateCmd.Flags().StringVar(&updateOpts.Context, cli.FlagInstanceContext, "", "Context to use (default: current context)")
 	updateCmd.Flags().StringVarP(&updateOpts.ValuesFile, cli.FlagInstanceFile, "f", "", "Path to a YAML file with spec overrides (--set takes precedence)")
 	updateCmd.Flags().StringArrayVar(&updateOpts.Set, cli.FlagInstanceSet, nil, "Set a spec field: --set components.engine.replicas=3 or --set backup.enabled=true (repeatable)")
-	updateCmd.Flags().StringVar(&updateOpts.DryRun, cli.FlagInstanceDryRun, instancecli.DryRunNone,
+	updateCmd.Flags().StringVar(&updateOpts.DryRun, cli.FlagInstanceDryRun, cli.DryRunNone,
 		`"client" prints the fields the patch would change without sending it; "server" also has the server validate it, without persisting it`,
 	)
 

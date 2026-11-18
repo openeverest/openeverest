@@ -81,8 +81,8 @@ spec:
                     description: |-
                       ClassRef references the cluster-scoped BackupClass that the provider
                       should use to configure the engine. The class must have
-                      ExecutionMode=ProviderManaged and list the Instance's provider in its
-                      SupportedProviders.
+                      ExecutionMode=ProviderManaged and name the Instance's provider in
+                      providerManaged.providerRef.
                     properties:
                       name:
                         description: Name of the referenced object.
@@ -1588,7 +1588,7 @@ spec:
 
                   Only ProviderManaged BackupClasses are supported. The referenced Backup
                   must be in the same namespace, in Succeeded state, and its BackupClass
-                  must list the Instance's provider in SupportedProviders. Instance must
+                  must be executed by the Instance's provider. Instance must
                   also have backup enabled and include a storage entry that matches the
                   storage used by the source Backup so the provider can access the data.
                 properties:
@@ -1817,6 +1817,30 @@ spec:
                     - message: each MonitoringDestination may be listed at most once
                       rule: self.all(a, self.exists_one(b, b.destinationRef.name ==
                         a.destinationRef.name))
+                  sources:
+                    description: |-
+                      Sources configures the monitoring sources the Instance runs whether or
+                      not a destination needs them.
+                    properties:
+                      metrics:
+                        description: Metrics configures the Instance's OpenMetrics
+                          endpoints.
+                        properties:
+                          policy:
+                            default: OnDemand
+                            description: |-
+                              Policy says when the provider runs the exporters and turns on the
+                              optional metrics endpoints of the Instance's components. OnDemand runs
+                              them while a destination's class needs metrics. Always runs them
+                              without a destination, for scrapers that OpenEverest does not
+                              configure. The serving endpoints are listed in
+                              status.monitoring.sources.metrics.
+                            enum:
+                            - OnDemand
+                            - Always
+                            type: string
+                        type: object
+                    type: object
                 type: object
               parameters:
                 description: |-
@@ -1922,6 +1946,14 @@ spec:
                         InstanceBackupStorageStatus reports the observed backup state of a single
                         entry in spec.backup.storages.
                       properties:
+                        location:
+                          description: |-
+                            Location is the path in the storage's bucket under which the engine
+                            writes this Instance's backups.
+                          type: string
+                        message:
+                          description: Message explains Reason.
+                          type: string
                         name:
                           description: |-
                             Name is the BackupStorage name (matches
@@ -1961,6 +1993,12 @@ spec:
                               - Unavailable
                               type: string
                           type: object
+                        reason:
+                          description: |-
+                            Reason is why the entry is not configured on the engine as specified,
+                            empty when it is. An entry the engine already had keeps its last
+                            configuration meanwhile.
+                          type: string
                       required:
                       - name
                       type: object
