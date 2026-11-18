@@ -170,6 +170,7 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 	}
 
 	if controllerutil.AddFinalizer(backup, backupRuntimeFinalizer) {
+		claimInstanceUID(backup, instance)
 		if err := r.client.Update(ctx, backup); err != nil {
 			return reconcile.Result{}, err
 		}
