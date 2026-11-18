@@ -130,6 +130,31 @@ describe('AffinityRuleEditor', () => {
     expect(screen.getByText(/No affinity rules yet/i)).toBeInTheDocument();
   });
 
+  it('hides edit actions when disabled', () => {
+    const DisabledWrapper = () => {
+      const methods = useForm({
+        defaultValues: { spec: { affinity: nodeAffinity } },
+      });
+      return (
+        <FormProvider {...methods}>
+          <SchedulingComponentContext.Provider value={{ component: 'engine' }}>
+            <AffinityRuleEditor name="spec.affinity" item={item} disabled />
+          </SchedulingComponentContext.Provider>
+        </FormProvider>
+      );
+    };
+
+    render(<DisabledWrapper />);
+
+    expect(screen.getByText('disktype')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('edit-editable-item-button-affinity-group-0')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('delete-editable-item-button-affinity-group-0')
+    ).not.toBeInTheDocument();
+  });
+
   describe('empty label selector (matches all pods)', () => {
     it('survives deleting another group of the component', () => {
       render(<Wrapper initial={withAntiAffinity({})} />);

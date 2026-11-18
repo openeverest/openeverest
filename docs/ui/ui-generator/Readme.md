@@ -15,6 +15,7 @@
 - [Mode-Aware Overrides](#mode-aware-overrides)
   - [Component-level modes](#component-level-modes)
   - [FieldParams-level modes](#fieldparams-level-modes)
+  - [Group-level modes](#group-level-modes)
   - [Validation-level modes](#validation-level-modes)
 - Field Types
   - [Number Field](components/number-field.md)
@@ -169,6 +170,7 @@ A **ComponentGroup** allows you to group multiple components together with custo
 - **`groupType`** (optional). For a detailed description of the type of groups and their use, see [Groups](groups.md).
 - **`label`** (optional): Display label for the group.
 - **`description`** (optional): Description text for the group
+- **`modes`** (optional): Per-mode group overrides (`hidden` / `disabled`). See [Group-level modes](#group-level-modes).
 
 The label and description display format may look different for different groups. A detailed description can be found in [Groups](groups.md).
 
@@ -258,6 +260,38 @@ dbName:
       edit:
         disabled: true
         helperText: Name cannot be changed after creation
+```
+
+### Group-level modes
+
+Use a group's `modes` to hide or lock a whole section per form mode — without repeating the
+flag on every child. Applies to every `groupType` (`plain` / `line`, `bordered`, `accordion`,
+`toggleable`).
+
+| Flag       | Effect                                                                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hidden`   | Group and descendants are **not rendered**. Existing instance values are **passthrough** (kept as-is on submit).                            |
+| `disabled` | Group renders **read-only**; `disabled` **cascades** to every descendant field, widget, and the toggleable switch. Children cannot re-enable. |
+
+This is **not** the same as turning a `toggleable` group off: an off toggleable **removes** its
+paths from the payload; group `modes` only change visibility / editability and **keep** the data.
+
+```yaml
+monitoring:
+  uiType: group
+  groupType: bordered
+  label: Monitoring
+  modes:
+    restore: { hidden: true } # section + children not shown in restore
+    edit: { disabled: true } # section shown but read-only (children disabled)
+  components:
+    endpoint:
+      uiType: select
+      path: spec.monitoring.monitoringConfigName
+    interval:
+      uiType: number
+      path: spec.monitoring.scrapeIntervalSeconds
+  componentsOrder: [endpoint, interval]
 ```
 
 ### Validation-level modes

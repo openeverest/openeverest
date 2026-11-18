@@ -34,6 +34,7 @@ const UIGroup = ({ groupType, children, item }: UIGroupProps) => {
     <Component
       label={item?.label}
       description={item?.description}
+      disabled={item?.disabled}
       toggleable={item && getToggleableMeta(item)}
     >
       {children}

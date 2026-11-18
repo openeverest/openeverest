@@ -20,6 +20,9 @@ import {
   Component,
   ComponentGroup,
   FormMode,
+  WIDGET_UI_TYPE,
+  WidgetType,
+  isWidgetComponent,
 } from '../../ui-generator.types';
 
 const makeComponent = (overrides: Partial<Component> = {}): Component =>
@@ -252,5 +255,191 @@ describe('applyModeOverrides', () => {
     const result = applyModeOverrides(sections, FormMode.Edit);
     const comp = result.basic.components.name as Component;
     expect(comp.fieldParams?.autoFocus).toBe(true);
+  });
+
+  it('hides a group via group.modes and drops the subtree from rendering type', () => {
+    const group: ComponentGroup = {
+      uiType: 'group',
+      groupType: undefined,
+      modes: { [FormMode.Restore]: { hidden: true } },
+      components: {
+        endpoint: makeComponent({ path: 'spec.monitoring.endpoint' }),
+      },
+    };
+    const sections: Record<string, Section> = {
+      advanced: { components: { monitoring: group } },
+    };
+
+    const result = applyModeOverrides(sections, FormMode.Restore);
+    const hidden = result.advanced.components.monitoring as ComponentGroup;
+    expect(hidden.uiType).toBe('hidden');
+    expect(hidden.disabled).toBeUndefined();
+  });
+
+  it('does not hide a group when a different mode is active', () => {
+    const group: ComponentGroup = {
+      uiType: 'group',
+      modes: { [FormMode.Restore]: { hidden: true } },
+      components: {
+        endpoint: makeComponent({ path: 'spec.monitoring.endpoint' }),
+      },
+    };
+    const sections: Record<string, Section> = {
+      advanced: { components: { monitoring: group } },
+    };
+
+    const result = applyModeOverrides(sections, FormMode.Edit);
+    const visible = result.advanced.components.monitoring as ComponentGroup;
+    expect(visible.uiType).toBe('group');
+  });
+
+  it('disables a group via group.modes and cascades disabled to children', () => {
+    const group: ComponentGroup = {
+      uiType: 'group',
+      modes: { [FormMode.Edit]: { disabled: true } },
+      components: {
+        endpoint: makeComponent({ path: 'spec.monitoring.endpoint' }),
+        interval: makeComponent({
+          path: 'spec.monitoring.interval',
+          fieldParams: { label: 'Interval' },
+        }),
+      },
+    };
+    const sections: Record<string, Section> = {
+      advanced: { components: { monitoring: group } },
+    };
+
+    const result = applyModeOverrides(sections, FormMode.Edit);
+    const disabledGroup = result.advanced.components
+      .monitoring as ComponentGroup;
+    expect(disabledGroup.uiType).toBe('group');
+    expect(disabledGroup.disabled).toBe(true);
+    expect(
+      (disabledGroup.components.endpoint as Component).fieldParams?.disabled
+    ).toBe(true);
+    expect(
+      (disabledGroup.components.interval as Component).fieldParams?.disabled
+    ).toBe(true);
+  });
+
+  it('cascades disabled through nested groups', () => {
+    const inner: ComponentGroup = {
+      uiType: 'group',
+      components: {
+        cpu: makeComponent({ path: 'spec.resources.cpu' }),
+      },
+    };
+    const outer: ComponentGroup = {
+      uiType: 'group',
+      modes: { [FormMode.Edit]: { disabled: true } },
+      components: { resources: inner },
+    };
+    const sections: Record<string, Section> = {
+      basic: { components: { outer } },
+    };
+
+    const result = applyModeOverrides(sections, FormMode.Edit);
+    const outerResult = result.basic.components.outer as ComponentGroup;
+    const innerResult = outerResult.components.resources as ComponentGroup;
+    expect(outerResult.disabled).toBe(true);
+    expect(innerResult.disabled).toBe(true);
+    expect(
+      (innerResult.components.cpu as Component).fieldParams?.disabled
+    ).toBe(true);
+  });
+
+  it('group disabled wins over a child fieldParams.modes disabled: false', () => {
+    const group: ComponentGroup = {
+      uiType: 'group',
+      modes: { [FormMode.Edit]: { disabled: true } },
+      components: {
+        name: makeComponent({
+          fieldParams: {
+            label: 'Name',
+            modes: { [FormMode.Edit]: { disabled: false } },
+          },
+        }),
+      },
+    };
+    const sections: Record<string, Section> = {
+      basic: { components: { group } },
+    };
+
+    const result = applyModeOverrides(sections, FormMode.Edit);
+    const g = result.basic.components.group as ComponentGroup;
+    expect((g.components.name as Component).fieldParams?.disabled).toBe(true);
+  });
+
+  it('group hidden takes precedence over group disabled in the same mode', () => {
+    const group: ComponentGroup = {
+      uiType: 'group',
+      modes: { [FormMode.Edit]: { hidden: true, disabled: true } },
+      components: {
+        name: makeComponent(),
+      },
+    };
+    const sections: Record<string, Section> = {
+      basic: { components: { group } },
+    };
+
+    const result = applyModeOverrides(sections, FormMode.Edit);
+    const g = result.basic.components.group as ComponentGroup;
+    expect(g.uiType).toBe('hidden');
+    expect(g.disabled).toBeUndefined();
+    expect(
+      (g.components.name as Component).fieldParams?.disabled
+    ).toBeUndefined();
+  });
+
+  it('cascades disabled onto nested widgets', () => {
+    const group: ComponentGroup = {
+      uiType: 'group',
+      modes: { [FormMode.Edit]: { disabled: true } },
+      components: {
+        policy: {
+          uiType: WIDGET_UI_TYPE,
+          widgetType: WidgetType.PodSchedulingPolicy,
+        },
+      },
+    };
+    const sections: Record<string, Section> = {
+      advanced: { components: { scheduling: group } },
+    };
+
+    const result = applyModeOverrides(sections, FormMode.Edit);
+    const widget = (result.advanced.components.scheduling as ComponentGroup)
+      .components.policy;
+    expect(isWidgetComponent(widget) && widget.disabled).toBe(true);
+  });
+
+  it('nested group hidden overrides a parent disabled cascade for that subtree', () => {
+    const inner: ComponentGroup = {
+      uiType: 'group',
+      modes: { [FormMode.Edit]: { hidden: true } },
+      components: {
+        secret: makeComponent({ path: 'spec.secret' }),
+      },
+    };
+    const outer: ComponentGroup = {
+      uiType: 'group',
+      modes: { [FormMode.Edit]: { disabled: true } },
+      components: {
+        visible: makeComponent({ path: 'spec.visible' }),
+        nested: inner,
+      },
+    };
+    const sections: Record<string, Section> = {
+      basic: { components: { outer } },
+    };
+
+    const result = applyModeOverrides(sections, FormMode.Edit);
+    const outerResult = result.basic.components.outer as ComponentGroup;
+    const nested = outerResult.components.nested as ComponentGroup;
+    expect(outerResult.disabled).toBe(true);
+    expect(
+      (outerResult.components.visible as Component).fieldParams?.disabled
+    ).toBe(true);
+    expect(nested.uiType).toBe('hidden');
+    expect(nested.disabled).toBeUndefined();
   });
 });

@@ -52,7 +52,13 @@ const UIComponent: React.FC<ComponentProps> = ({ item, name }) => {
   // engine stays domain-free and skips its standard input pipeline.
   if (isWidgetComponent(item)) {
     const Widget = widgetRegistry?.[item.widgetType];
-    return Widget ? <Widget name={name} item={item} /> : null;
+    return Widget ? (
+      <Widget
+        name={name}
+        item={item}
+        disabled={!!item.disabled || !!loadingDefaultsForEdition}
+      />
+    ) : null;
   }
 
   const { uiType, fieldParams, validation } = item;

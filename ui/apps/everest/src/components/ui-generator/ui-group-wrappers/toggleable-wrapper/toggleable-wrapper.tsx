@@ -27,6 +27,7 @@ import { FOCUSABLE_FIELD } from './toggleable-wrapper.constants';
 export const ToggleableWrapper = ({
   label,
   description,
+  disabled,
   toggleable,
   children,
 }: ToggleableWrapperProps) => {
@@ -68,6 +69,7 @@ export const ToggleableWrapper = ({
             // schema editing) have no switch value; keep the Switch controlled.
             controllerProps={{ name: switchName, defaultValue: false }}
             switchFieldProps={{
+              disabled,
               onChange: (_event, checked) => {
                 enabledByUser.current = checked;
               },

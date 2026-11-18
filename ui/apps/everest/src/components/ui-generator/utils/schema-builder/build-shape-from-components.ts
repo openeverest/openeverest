@@ -50,8 +50,17 @@ export const buildShapeFromComponents = (
     const generatedName = basePath ? `${basePath}.${key}` : key;
     const fieldId = generateFieldId(item, generatedName);
 
-    // Handle groups recursively
-    if (item.uiType === 'group' && 'components' in item) {
+    // Groups (and mode-hidden containers) carry nested components — never treat
+    // them as leaf fields. A hidden container drops its subtree from validation;
+    // values still passthrough via form defaults + zod `.passthrough()`.
+    if (
+      (item.uiType === 'group' || item.uiType === 'hidden') &&
+      'components' in item
+    ) {
+      if (item.uiType === 'hidden') {
+        return;
+      }
+
       const toggleable = getToggleableMeta(item);
       if (toggleable) {
         schemaShape[TOGGLEABLE_SWITCHES_KEY] = toggleableSwitchesSchema;

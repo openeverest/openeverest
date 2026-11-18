@@ -36,6 +36,7 @@ flowchart TD
   G --> LD["label? / description?"]
   G --> GT["groupType?<br/>(accordion, line, bordered, toggleable, collapsible🛠️)"]
   G --> GP["groupParams?<br/>(Record&lt;string, unknown&gt;, GroupParams🛠️)"]
+  G --> MOD["modes?<br/>(hidden / disabled per FormMode)"]
   G --> CH["components / componentsOrder?"]
   CH --> GATE["child toggle: gate? 🛠️"]
 
@@ -43,7 +44,10 @@ flowchart TD
   class GATE planned;
 ```
 
-`gate` 🛠️ is a flag on a child `toggle` (part of the group-kernel proposal, tracked separately).
+- **`modes?`** — `{ [FormMode]: { hidden?, disabled? } }`. `hidden` drops the group from render
+  (passthrough data). `disabled` makes the group read-only and cascades `disabled` to every
+  descendant field (and the toggleable switch). Orthogonal to `groupType`.
+- `gate` 🛠️ is a flag on a child `toggle` (part of the group-kernel proposal, tracked separately).
 
 ## Level 2 — Component (leaf field)
 
@@ -77,6 +81,8 @@ flowchart TD
 ```
 
 - **Supported props:** `uiType: widget` and `widgetType`.
+- **`disabled?`** — resolved by group-level `modes` cascade (widgets have no `fieldParams`);
+  passed to the host renderer as `WidgetRendererProps.disabled`.
 - **`widgetType`** selects the renderer from the consumer's `WidgetRegistry` (edit) and
   `WidgetSummaryRegistry` (`label` + `View` + `digest` for the overview and wizard preview).
   Unknown types render nothing.
@@ -239,7 +245,7 @@ classDiagram
 
 | Concept                        | Meaning                                                                                                                                                                                                                          | Status      |
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| **FormMode**                   | `new · edit · restore · import` controls `modes` at three levels: component `uiType`, `fieldParams`, and `validation`                                                                                                            | implemented |
+| **FormMode**                   | `new · edit · restore · import` controls `modes` at four levels: component `uiType`, `fieldParams`, `validation`, and group `hidden` / `disabled`                                                                                 | implemented |
 | **multi-path**                 | `path: [a, b]` writes the same value to all targets                                                                                                                                                                              | implemented |
 | **dataSource / API providers** | `dataSource: { provider }` names an API-backed option source; preprocess dev-validates the provider key, and at runtime `DataSourceField` loads the options through the registry (`DataSourcePrefetcher` sets defaults on mount) | implemented |
 | **CEL validation**             | Cross-field validation rules declared via `celExpressions` (with an `original` namespace available in edit mode)                                                                                                                 | implemented |
@@ -257,4 +263,4 @@ classDiagram
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-13
+- Last updated: 2026-11-16

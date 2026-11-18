@@ -29,13 +29,12 @@ import { SchedulingPolicyTabs } from './scheduling-policy-tabs';
 import { SchedulingComponentContext } from './scheduling-component-context';
 import { Messages } from './pod-scheduling-policy-section.messages';
 
-const widgetRegistry: WidgetRegistry = {
-  [WidgetType.Affinity]: AffinityRuleEditor,
-};
-
 // Renders the podSchedulingPolicy marker: one affinity editor per component the
 // provider accepts it for (targets resolved by preprocess), one tab each.
-export const PodSchedulingPolicySection: WidgetRenderer = ({ item }) => {
+export const PodSchedulingPolicySection: WidgetRenderer = ({
+  item,
+  disabled,
+}) => {
   const { providerObject } = useUiGeneratorContext();
   const { control } = useFormContext();
   const targets = item._widgetTargets;
@@ -48,6 +47,17 @@ export const PodSchedulingPolicySection: WidgetRenderer = ({ item }) => {
     [targets]
   );
   const values = useWatch({ control, name: paths });
+
+  // Nested affinity editors are built outside applyModeOverrides; forward the
+  // marker's disabled flag so group-level modes still lock them.
+  const widgetRegistry: WidgetRegistry = useMemo(
+    () => ({
+      [WidgetType.Affinity]: (props) => (
+        <AffinityRuleEditor {...props} disabled={disabled || props.disabled} />
+      ),
+    }),
+    [disabled]
+  );
 
   if (!targets?.length) {
     return <Alert severity="info">{Messages.notAvailable}</Alert>;

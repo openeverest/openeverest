@@ -41,6 +41,18 @@ export type FieldParamsModeOverrides = Partial<
   >
 >;
 
+// Group-level per-FormMode overrides. Unlike field `modes` (which hide via
+// `uiType: hidden`), groups use explicit `hidden` / `disabled` flags.
+export type GroupModeOverrides = Partial<
+  Record<
+    FormMode,
+    {
+      hidden?: boolean;
+      disabled?: boolean;
+    }
+  >
+>;
+
 export type OpenAPIObjectProperties = {
   label?: string;
 };
@@ -273,6 +285,8 @@ export type WidgetComponent = ComponentCommonFields & {
   validation?: CommonValidation;
   // No widget type reads schema params yet; add per-widget params here when one does.
   fieldParams?: never;
+  // Set by group-level modes cascade (widgets have no fieldParams.disabled).
+  disabled?: boolean;
   // API paths a marker widget writes, resolved by preprocess from the provider.
   _widgetTargets?: WidgetTarget[];
   // A pure marker widget (e.g. podSchedulingPolicy) binds no value.
@@ -280,8 +294,9 @@ export type WidgetComponent = ComponentCommonFields & {
 
 export type Component = FieldComponent | WidgetComponent;
 
-export const isWidgetComponent = (item: Component): item is WidgetComponent =>
-  item.uiType === WIDGET_UI_TYPE;
+export const isWidgetComponent = (
+  item: Component | ComponentGroup
+): item is WidgetComponent => item.uiType === WIDGET_UI_TYPE;
 
 // Narrows an opaque API payload (e.g. a CRD's uiSchema) to a section.
 export const isSection = (value: unknown): value is Section =>
@@ -299,6 +314,8 @@ export type WidgetRendererProps = {
   // later migrate to plain schema fields without reworking name/path handling.
   name: string;
   item: WidgetComponent;
+  // True when a parent group's modes (or cascade) locked this widget read-only.
+  disabled?: boolean;
 };
 export type WidgetRenderer = ComponentType<WidgetRendererProps>;
 export type WidgetRegistry = Partial<Record<WidgetType, WidgetRenderer>>;
@@ -312,6 +329,8 @@ export type ComponentGroup = {
   groupParams?: Record<string, unknown>;
   components: { [key: string]: Component | ComponentGroup };
   componentsOrder?: string[];
+  modes?: GroupModeOverrides;
+  disabled?: boolean;
   _toggleable?: ToggleableMeta;
 };
 
@@ -327,6 +346,8 @@ export interface GroupWrapperProps {
   children: ReactNode;
   label?: string;
   description?: string;
+  // True when group-level modes (or a parent group) disabled this group.
+  disabled?: boolean;
   // Set only for an active toggleable group.
   toggleable?: ToggleableMeta;
 }

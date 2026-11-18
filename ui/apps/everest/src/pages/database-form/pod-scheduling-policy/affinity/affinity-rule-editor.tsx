@@ -25,7 +25,7 @@ import { GroupEditorDialog } from './group-editor-dialog/group-editor-dialog';
 // The form field holds the Kubernetes Affinity itself (what is submitted). The
 // editor derives the grouped UI model for display/editing and converts back on
 // every change, so the field always carries a valid payload.
-export const AffinityRuleEditor = ({ name }: WidgetRendererProps) => {
+export const AffinityRuleEditor = ({ name, disabled }: WidgetRendererProps) => {
   const { control } = useFormContext();
   const { component } = useSchedulingComponentContext();
   const { field } = useController({ name, control });
@@ -66,10 +66,14 @@ export const AffinityRuleEditor = ({ name }: WidgetRendererProps) => {
     <>
       <AffinityGroupList
         groups={groups}
-        actions={{ onAdd: openAdd, onEdit: openEdit, onRemove: remove }}
+        actions={
+          disabled
+            ? undefined
+            : { onAdd: openAdd, onEdit: openEdit, onRemove: remove }
+        }
       />
 
-      {dialogOpen && (
+      {!disabled && dialogOpen && (
         <GroupEditorDialog
           isOpen
           group={editingIndex !== undefined ? groups[editingIndex] : undefined}
