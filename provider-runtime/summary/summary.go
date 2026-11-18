@@ -218,6 +218,13 @@ type facts struct {
 // when Ready is True the other three are False. Tools that read Reconciling
 // and Stalled take the first of the two they find, so they must never both
 // be True.
+//
+// A summary condition that is True carries Ready's reason and message; only
+// Stalled may instead say that progress stopped. One that is False says why,
+// with no message: Reconciling and Stalled are Converged while Ready,
+// Reconciling is Stalled while stalled, Stalled is Reconciling while the
+// Instance is worked on, and NeedsAttention is NoProblems. CheckConditions
+// holds a status to these rules.
 func Compute(o Observation) Result {
 	if o.ProblemDeadline <= 0 {
 		o.ProblemDeadline = DefaultProblemDeadline
@@ -230,20 +237,21 @@ func Compute(o Observation) Result {
 	phase := o.phase(available.Status)
 	v := o.verdict(phase)
 
-	quiet := Cause{Reason: v1alpha1.ReasonNoProblems}
-	reconciling, stalled, attention := quiet, quiet, quiet
+	noProblems := Cause{Reason: v1alpha1.ReasonNoProblems}
+	var reconciling, stalled, attention Cause
 	readyStatus := metav1.ConditionFalse
 	switch v.outcome {
 	case outcomeReady:
 		readyStatus = metav1.ConditionTrue
+		converged := Cause{Reason: v1alpha1.ReasonConverged}
+		reconciling, stalled, attention = converged, converged, noProblems
 	case outcomeReconciling:
-		reconciling = v.cause
+		reconciling, stalled, attention = v.cause, Cause{Reason: v1alpha1.ReasonReconciling}, noProblems
 		if v.problem {
 			attention = v.cause
 		}
 	case outcomeStalled:
-		reconciling = Cause{Reason: v.stall.Reason}
-		stalled, attention = v.stall, v.cause
+		reconciling, stalled, attention = Cause{Reason: v1alpha1.ReasonStalled}, v.stall, v.cause
 	}
 
 	return Result{

@@ -147,18 +147,22 @@ func (in *instance) kstatus(deleting bool) kstatus.Status {
 }
 
 // requireInvariants checks what must hold for every result: the summary
-// conditions are all there and describe the current generation, a tool that
-// reads Reconciling and Stalled never finds both True, and a Ready Instance
-// has neither, nor a problem.
+// conditions are all there, describe the current generation and keep the
+// rules CheckConditions holds them to, a False one carries no message, and
+// NeedsAttention is True exactly while something is wrong.
 func requireInvariants(t *testing.T, o *Observation, res Result) {
 	t.Helper()
 
+	require.NoError(t, CheckConditions(res.Conditions))
 	status := make(map[string]metav1.ConditionStatus, len(res.Conditions))
 	for _, c := range res.Conditions {
 		status[c.Type] = c.Status
 		assert.Equal(t, o.Generation, c.ObservedGeneration, "%s must carry the generation it describes", c.Type)
 		assert.NotEmpty(t, c.Reason, "%s needs a reason", c.Type)
 		assert.False(t, c.LastTransitionTime.IsZero(), "%s needs a transition time", c.Type)
+		if c.Type != v1alpha1.ConditionAvailable && c.Type != v1alpha1.ConditionReady && c.Status == metav1.ConditionFalse {
+			assert.Empty(t, c.Message, "%s is False and says nothing more than its reason", c.Type)
+		}
 	}
 	require.Len(t, status, 5)
 	for _, condType := range []string{
@@ -1386,4 +1390,167 @@ func TestCompute_TransitionTimesMoveOnlyWithTheStatus(t *testing.T) {
 	ready = in.condition(v1alpha1.ConditionReady)
 	assert.Equal(t, int64(2), ready.ObservedGeneration, "the generation follows")
 	assert.Equal(t, converged, ready.LastTransitionTime.Time)
+}
+
+// A summary condition that is False says why, so that a person reading
+// Stalled=False on its own knows whether the Instance is Ready or still
+// being worked on.
+func TestCompute_FalseConditionsSayWhy(t *testing.T) {
+	t.Parallel()
+
+	type reading struct {
+		status metav1.ConditionStatus
+		reason string
+	}
+	converged := reading{no, v1alpha1.ReasonConverged}
+	noProblems := reading{no, v1alpha1.ReasonNoProblems}
+	notStalled := reading{no, v1alpha1.ReasonReconciling}
+	stalledNow := reading{no, v1alpha1.ReasonStalled}
+	secretMissing := func(in *instance, at time.Time) {
+		in.set(at, v1alpha1.ConditionReferencesResolved, no, v1alpha1.ReasonUserSecretNotFound, "secret app-users not found")
+	}
+	cleanupFailing := func(in *instance, at time.Time) {
+		in.set(at, v1alpha1.ConditionSynced, no, v1alpha1.ReasonReconcileError, "delete cluster: forbidden")
+	}
+
+	tests := []struct {
+		name                            string
+		story                           func(t *testing.T) *instance
+		reconciling, stalled, attention reading
+	}{
+		{
+			name: "ready",
+			story: func(t *testing.T) *instance {
+				t.Helper()
+
+				return provisioned(t)
+			},
+			reconciling: converged, stalled: converged, attention: noProblems,
+		},
+		{
+			name: "ready, while the engine resizes storage on its own",
+			story: func(t *testing.T) *instance {
+				t.Helper()
+				in := provisioned(t)
+				in.set(t0(), v1alpha1.ConditionStorageResizing, yes, "ExpansionTriggered", "Expanding volumes to 50Gi")
+				in.observe(t0(), Observation{Reported: true, Converged: true})
+
+				return in
+			},
+			reconciling: converged, stalled: converged, attention: noProblems,
+		},
+		{
+			name: "being created",
+			story: func(t *testing.T) *instance {
+				t.Helper()
+				in := newInstance(t)
+				in.observe(t0(), Observation{Reported: true})
+
+				return in
+			},
+			reconciling: reading{yes, v1alpha1.ReasonCreating}, stalled: notStalled, attention: noProblems,
+		},
+		{
+			name: "working on a problem",
+			story: func(t *testing.T) *instance {
+				t.Helper()
+				in := newInstance(t)
+				secretMissing(in, t0())
+				in.observe(t0(), Observation{})
+
+				return in
+			},
+			reconciling: reading{yes, v1alpha1.ReasonUserSecretNotFound},
+			stalled:     notStalled,
+			attention:   reading{yes, v1alpha1.ReasonUserSecretNotFound},
+		},
+		{
+			name: "stalled by a problem",
+			story: func(t *testing.T) *instance {
+				t.Helper()
+				in := newInstance(t)
+				secretMissing(in, t0())
+				in.observe(t0(), Observation{})
+				in.observe(t0().Add(DefaultProblemDeadline), Observation{})
+
+				return in
+			},
+			reconciling: stalledNow,
+			stalled:     reading{yes, v1alpha1.ReasonUserSecretNotFound},
+			attention:   reading{yes, v1alpha1.ReasonUserSecretNotFound},
+		},
+		{
+			name: "stalled by the progress deadline",
+			story: func(t *testing.T) *instance {
+				t.Helper()
+				in := newInstance(t)
+				in.observe(t0(), Observation{Reported: true})
+				in.observe(t0().Add(DefaultProgressDeadline), Observation{Reported: true})
+
+				return in
+			},
+			reconciling: stalledNow,
+			stalled:     reading{yes, v1alpha1.ReasonProgressDeadlineExceeded},
+			attention:   reading{yes, v1alpha1.ReasonProgressDeadlineExceeded},
+		},
+		{
+			name: "deleting",
+			story: func(t *testing.T) *instance {
+				t.Helper()
+				in := provisioned(t)
+				in.newGeneration(t0())
+				in.observe(t0(), Observation{Deleting: true})
+
+				return in
+			},
+			reconciling: reading{yes, v1alpha1.ReasonDeleting}, stalled: notStalled, attention: noProblems,
+		},
+		{
+			name: "a deletion past the progress deadline",
+			story: func(t *testing.T) *instance {
+				t.Helper()
+				in := provisioned(t)
+				in.newGeneration(t0())
+				in.observe(t0(), Observation{Deleting: true})
+				in.observe(t0().Add(DefaultProgressDeadline), Observation{Deleting: true})
+
+				return in
+			},
+			reconciling: stalledNow,
+			stalled:     reading{yes, v1alpha1.ReasonProgressDeadlineExceeded},
+			attention:   reading{yes, v1alpha1.ReasonProgressDeadlineExceeded},
+		},
+		{
+			name: "a deletion whose cleanup keeps failing",
+			story: func(t *testing.T) *instance {
+				t.Helper()
+				in := provisioned(t)
+				in.newGeneration(t0())
+				cleanupFailing(in, t0())
+				in.observe(t0(), Observation{Deleting: true})
+				in.observe(t0().Add(DefaultProblemDeadline), Observation{Deleting: true})
+
+				return in
+			},
+			reconciling: stalledNow,
+			stalled:     reading{yes, v1alpha1.ReasonReconcileError},
+			attention:   reading{yes, v1alpha1.ReasonReconcileError},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			in := tt.story(t)
+
+			for condType, want := range map[string]reading{
+				v1alpha1.ConditionReconciling:    tt.reconciling,
+				v1alpha1.ConditionStalled:        tt.stalled,
+				v1alpha1.ConditionNeedsAttention: tt.attention,
+			} {
+				c := in.condition(condType)
+				assert.Equal(t, want, reading{c.Status, c.Reason}, condType)
+			}
+		})
+	}
 }
