@@ -98,7 +98,7 @@ var eventPolicyCases = []struct {
 
 func allLifecycleEvents() []eventsv1.Event {
 	provider := lifecycleEvent("", "my-provider")
-	provider.ObjectMeta.Namespace = "default"
+	provider.Namespace = "default"
 	provider.Regarding.APIVersion = corev1alpha1.GroupVersion.String()
 	provider.Regarding.Kind = "Provider"
 	provider.Regarding.Namespace = ""
