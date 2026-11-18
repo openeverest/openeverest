@@ -24,15 +24,16 @@ import {
 import { DbCluster, Spec } from 'shared-types/dbCluster.types';
 import { ClusterStatusTableProps } from './types';
 import { useDbClusters } from 'hooks/api/db-clusters/useDbClusters';
-import StatusField from 'components/status-field';
+import { useDbInstanceList } from 'hooks/api/db-instances';
+import { InstanceStatus } from 'components/instance-status';
 import UpdateCrDialog from './update-cr-dialog';
 import UpdateEngineDialog from './update-engine-dialog';
-import { DB_INSTANCE_STATUS_TO_BASE_STATUS } from 'pages/databases/DbClusterView.constants';
-import { beautifyDbInstanceStatus } from 'pages/databases/DbClusterView.utils';
-import { DbInstancePhase } from 'shared-types/instance.types';
+import { Instance } from 'shared-types/api.types';
+import { getInstanceStatusDisplay } from 'utils/instance-status';
 
 type EnhancedDbList = OperatorUpgradePendingAction & {
   db?: DbCluster;
+  instance?: Instance;
 };
 
 const ClusterStatusTable = ({
@@ -46,6 +47,9 @@ const ClusterStatusTable = ({
       clusters.items.filter((cluster) =>
         dbNames.includes(cluster.metadata.name)
       ),
+    enabled: !!namespace && !!pendingActions.length,
+  });
+  const { data: instances = [] } = useDbInstanceList(namespace, {
     enabled: !!namespace && !!pendingActions.length,
   });
   const [openUpdateCrDialog, setOpenUpdateCrDialog] = useState(false);
@@ -62,9 +66,12 @@ const ClusterStatusTable = ({
         return {
           ...action,
           db,
+          instance: instances.find(
+            (instance) => instance.metadata?.name === action.name
+          ),
         };
       }),
-    [dbClusters, pendingActions]
+    [dbClusters, instances, pendingActions]
   );
 
   const onDbClick = useCallback(
@@ -137,18 +144,12 @@ const ClusterStatusTable = ({
       {
         id: 'status',
         header: 'Status',
-        accessorFn: (row) => row.db?.status?.status,
-        Cell: ({ cell }) => (
-          <StatusField
-            status={cell.getValue<DbInstancePhase>()}
-            statusMap={DB_INSTANCE_STATUS_TO_BASE_STATUS}
-          >
-            {beautifyDbInstanceStatus(
-              cell.getValue<DbInstancePhase>(),
-              cell.row?.original.db?.status?.conditions || []
-            )}
-          </StatusField>
-        ),
+        accessorFn: (row) =>
+          row.instance && getInstanceStatusDisplay(row.instance).label,
+        Cell: ({ row }) =>
+          row.original.instance && (
+            <InstanceStatus instance={row.original.instance} />
+          ),
       },
       {
         accessorKey: 'name',

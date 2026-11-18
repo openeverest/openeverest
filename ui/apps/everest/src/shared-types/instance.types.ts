@@ -14,62 +14,84 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Instance, PhaseType } from 'shared-types/api.types';
-
-export const DB_INSTANCE_UNKNOWN_PHASE = 'Unknown' as const;
-export type DbInstancePhase =
-  | Exclude<PhaseType, undefined>
-  | typeof DB_INSTANCE_UNKNOWN_PHASE;
-
-export const DbInstancePhaseStatus: Record<
-  string,
-  Exclude<PhaseType, undefined>
-> = {
-  Failed: 'Failed',
-  Initializing: 'Initializing',
-  Pending: 'Pending',
-  Provisioning: 'Provisioning',
-  Ready: 'Ready',
-  Restoring: 'Restoring',
-  Resuming: 'Resuming',
-  Suspended: 'Suspended',
-  Suspending: 'Suspending',
-  Terminating: 'Terminating',
-  Updating: 'Updating',
-} as const;
-
-export const DbInstancePhaseValues: readonly DbInstancePhase[] = [
-  ...Object.values(DbInstancePhaseStatus),
-  DB_INSTANCE_UNKNOWN_PHASE,
-];
+import { Instance } from 'shared-types/api.types';
 
 export type InstanceCondition = NonNullable<
   NonNullable<Instance['status']>['conditions']
 >[number];
 
-// Mirrors v1alpha1.ConditionPodsScheduled and ConditionPodsReady; condition types aren't in the generated contract.
-export const INSTANCE_CONDITION_PODS_SCHEDULED = 'PodsScheduled';
-export const INSTANCE_CONDITION_PODS_READY = 'PodsReady';
+// Mirrors the constants in api/core/v1alpha1/instance_types.go: condition
+// types aren't in the generated contract.
+export const InstanceConditionType = {
+  Available: 'Available',
+  Ready: 'Ready',
+  Stalled: 'Stalled',
+  NeedsAttention: 'NeedsAttention',
+  Suspended: 'Suspended',
+  // Written by core, never by a provider, while nobody attends to the
+  // Instance's current spec.
+  Unattended: 'Unattended',
+  ConnectionDetailsReady: 'ConnectionDetailsReady',
+  Restoring: 'Restoring',
+  Upgrading: 'Upgrading',
+  StorageResizing: 'StorageResizing',
+} as const;
 
-// NotReady is left out: pods are not ready while they start.
-export const PODS_ALERT_REASONS = [
-  'Unschedulable',
-  'CrashLoopBackOff',
-  'ImagePullBackOff',
-  'CreateContainerConfigError',
-] as const;
-export type PodsAlertReason = (typeof PODS_ALERT_REASONS)[number];
-export type PodsAlertCondition = InstanceCondition & {
-  reason: PodsAlertReason;
-};
+// Whether to wait or to act. It comes from condition statuses only, so a
+// reason this client has never seen still gets the right tone.
+export type InstanceTone =
+  | 'ok'
+  | 'progress'
+  | 'attention'
+  | 'error'
+  | 'stopped'
+  | 'deleting'
+  // Nobody can tell: the provider has stopped reporting on the Instance.
+  | 'unknown';
 
-const isPodsAlertCondition = (c: InstanceCondition): c is PodsAlertCondition =>
-  (c.type === INSTANCE_CONDITION_PODS_SCHEDULED ||
-    c.type === INSTANCE_CONDITION_PODS_READY) &&
-  c.status === 'False' &&
-  PODS_ALERT_REASONS.some((reason) => reason === c.reason);
+export type InstanceAvailability = 'Yes' | 'No' | 'Unknown';
 
-export const getPodsAlertConditions = (
-  instance?: Instance
-): PodsAlertCondition[] =>
-  (instance?.status?.conditions ?? []).filter(isPodsAlertCondition);
+// What the status is read from. Narrower than Instance in the status, so
+// anything shaped like one can be displayed, and wider in the metadata: the
+// generated ObjectMeta leaves out the generation the API returns.
+export interface InstanceStatusSource {
+  metadata?: {
+    generation?: number;
+    deletionTimestamp?: string;
+  };
+  status?: {
+    phase?: string;
+    observedGeneration?: number;
+    conditions?: {
+      type: string;
+      status: string;
+      reason?: string;
+      message?: string;
+    }[];
+  };
+}
+
+export interface InstanceStatusDisplay {
+  tone: InstanceTone;
+  // The status word as the API spells it: the Ready condition's reason,
+  // unless the status describes an older spec.
+  reason: string;
+  // The status word as a person reads it. everestctl shows the same one.
+  label: string;
+  available: InstanceAvailability;
+  // One sentence about the status word: the Ready condition's message. While
+  // stale it is what core says about nobody attending to the Instance, or
+  // empty, because the provider's message describes an older spec.
+  message: string;
+  // The status describes an older spec than the one stored.
+  stale: boolean;
+}
+
+export interface InstanceProblem {
+  reason: string;
+  label: string;
+  message: string;
+  // Whether waiting can still help. While nobody attends to the Instance,
+  // nothing is being retried and nothing has given up.
+  outlook: 'retrying' | 'stalled' | 'unattended';
+}

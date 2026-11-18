@@ -15,18 +15,15 @@
 import { Box, Tooltip } from '@mui/material';
 import { PendingIcon } from '@percona/ui-lib';
 import StatusField from 'components/status-field';
-import { DB_INSTANCE_STATUS_TO_BASE_STATUS } from 'pages/databases/DbClusterView.constants';
-import { beautifyDbInstanceStatus } from 'pages/databases/DbClusterView.utils';
-import type { Instance } from 'shared-types/api.types';
+import { InstanceStatusSource } from 'shared-types/instance.types';
 import {
-  DB_INSTANCE_UNKNOWN_PHASE,
-  DbInstancePhase,
-  getPodsAlertConditions,
-} from 'shared-types/instance.types';
-import { Messages } from './instance-status.messages';
+  getInstanceStatusDisplay,
+  getInstanceStatusText,
+} from 'utils/instance-status';
+import { TONE_TO_BASE_STATUS } from './instance-status.constants';
 
 interface InstanceStatusProps {
-  instance?: Instance;
+  instance?: InstanceStatusSource;
   dataTestId?: string;
 }
 
@@ -34,28 +31,18 @@ export const InstanceStatus = ({
   instance,
   dataTestId,
 }: InstanceStatusProps) => {
-  const phase: DbInstancePhase =
-    instance?.status?.phase ?? DB_INSTANCE_UNKNOWN_PHASE;
-  const hasPodsAlert = getPodsAlertConditions(instance).length > 0;
+  const status = getInstanceStatusDisplay(instance);
 
   return (
-    <Tooltip
-      title={hasPodsAlert ? Messages.podsNeedAttention : ''}
-      placement="right"
-      arrow
-    >
+    <Tooltip title={status.message} placement="right" arrow>
       <Box component="span" sx={{ display: 'inline-flex' }}>
         <StatusField
           dataTestId={dataTestId}
-          status={phase}
-          statusMap={
-            hasPodsAlert
-              ? { ...DB_INSTANCE_STATUS_TO_BASE_STATUS, [phase]: 'warning' }
-              : DB_INSTANCE_STATUS_TO_BASE_STATUS
-          }
+          status={status.tone}
+          statusMap={TONE_TO_BASE_STATUS}
           defaultIcon={PendingIcon}
         >
-          {beautifyDbInstanceStatus(phase)}
+          {getInstanceStatusText(instance, status)}
         </StatusField>
       </Box>
     </Tooltip>

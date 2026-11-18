@@ -16,7 +16,7 @@ import { useContext, useState } from 'react';
 import { Box, MenuItem } from '@mui/material';
 import { MenuButton } from '@percona/ui-lib';
 import { ScheduleModalContext } from '../../backups.context';
-import { DbInstancePhaseStatus } from 'shared-types/instance.types';
+import { isInstanceRestoring } from 'utils/instance-status';
 import ScheduledBackupsList from './scheduled-backups-list';
 import { StoragesList } from '../../storages-list';
 import { ExpandableSectionToggle } from 'components/expandable-section-toggle';
@@ -50,7 +50,7 @@ const BackupListTableHeader = ({
     (activeClass?.spec?.providerManaged?.supportsPITR ?? false) &&
     storagesNumber > 0;
 
-  const restoring = instance.status?.phase === DbInstancePhaseStatus.Restoring;
+  const restoring = isInstanceRestoring(instance);
 
   // TODO: v2 — schedule limit checking, uncomment when ready
   // const { data: backupClasses = [] } = useBackupClassesList(clusterName);

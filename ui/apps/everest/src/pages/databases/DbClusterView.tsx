@@ -20,14 +20,15 @@ import { InstanceStatus } from 'components/instance-status';
 import { type MRT_ColumnDef } from 'material-react-table';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { beautifyDbInstanceStatus } from './DbClusterView.utils';
 import { InstanceTableElement } from './dbClusterView.types';
 import { CreateDbButton } from 'components/create-db-button';
 import { ImportDbButton } from 'components/import-db-button';
 import EmptyStateDatabases from 'components/empty-state-databases/empty-state-databases';
 import EmptyStateNamespaces from 'components/empty-state-namespaces/empty-state-namespaces';
 import { DbActions } from 'components/db-actions/db-actions';
-import { DbInstancePhaseValues } from 'shared-types/instance.types';
+import { INSTANCE_TONES } from 'components/instance-status/instance-status.constants';
+import { Messages as StatusMessages } from 'components/instance-status/instance-status.messages';
+import { InstanceTone } from 'shared-types/instance.types';
 import { usePlugins } from 'contexts/plugins';
 import type { GlobalDashboardWidgetExtension } from '@openeverest/plugin-sdk';
 import PluginErrorBoundary from 'components/plugin-host/PluginErrorBoundary';
@@ -47,14 +48,19 @@ export const DbClusterView = () => {
   const columns = useMemo<MRT_ColumnDef<InstanceTableElement>[]>(
     () => [
       {
-        accessorKey: 'phase',
+        id: 'status',
+        // What the cell says, so that searching finds it.
+        accessorFn: ({ status }) => status.label,
         header: 'Status',
         filterVariant: 'multi-select',
-        filterSelectOptions: DbInstancePhaseValues.map((status) => ({
-          text: beautifyDbInstanceStatus(status),
-          value: status,
+        filterSelectOptions: INSTANCE_TONES.map((tone) => ({
+          label: StatusMessages.tones[tone],
+          value: tone,
         })),
-        maxSize: 120,
+        // The tones are a short, closed set; the status words are not.
+        filterFn: (row, _, tones?: InstanceTone[]) =>
+          !tones?.length || tones.includes(row.original.status.tone),
+        size: 220,
         Cell: ({ row }) => (
           <InstanceStatus
             instance={row.original.raw}

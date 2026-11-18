@@ -12,13 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { DbClusterDetails } from './db-cluster-details';
 import { DbInstanceContext } from './dbCluster.context';
 import type { DbInstanceContextProps } from './dbCluster.context.types';
-import { Messages as PodsAlertMessages } from './pods-alert/pods-alert.messages';
+import {
+  Messages as StatusAlertMessages,
+  REASON_HINTS,
+} from './status-alert/status-alert.messages';
 import type { Instance } from 'shared-types/api.types';
+import type { InstanceCondition } from 'shared-types/instance.types';
 
 vi.mock('components/db-actions/db-actions', () => ({
   default: () => <div data-testid="db-actions" />,
@@ -28,25 +32,56 @@ vi.mock('contexts/plugins', () => ({
   usePlugins: () => ({ plugins: [] }),
 }));
 
-const mockInstance: Instance = {
-  apiVersion: 'core.openeverest.io/v1alpha1',
-  kind: 'Instance',
-  metadata: { name: 'my-test-db' } as unknown as Record<string, never>,
-  spec: {
-    providerRef: { name: 'test-provider' },
-    topology: { type: 'ha' },
-  },
-  status: { phase: 'Ready' },
+const condition = (
+  type: string,
+  status: InstanceCondition['status'],
+  reason = type,
+  message = ''
+): InstanceCondition => ({
+  type,
+  status,
+  reason,
+  message,
+  lastTransitionTime: '2026-10-02T12:00:00Z',
+});
+
+const instanceWith = (
+  conditions: InstanceCondition[],
+  phase: NonNullable<Instance['status']>['phase'] = 'Provisioned',
+  generation = 1
+): Instance => {
+  // The API returns the generation; the generated metadata type leaves it out.
+  const metadata = { name: 'my-test-db', generation };
+
+  return {
+    apiVersion: 'core.openeverest.io/v1alpha1',
+    kind: 'Instance',
+    metadata,
+    spec: {
+      providerRef: { name: 'test-provider' },
+      topology: { type: 'ha' },
+    },
+    status: { phase, observedGeneration: 1, conditions },
+  };
 };
 
-const renderDetails = (contextValue?: Partial<DbInstanceContextProps>) => {
+const CRASH_LOOP_MESSAGE =
+  'engine: 1 of 3 pods keep crashing: container mongod last exited with OOMKilled (exit code 137)';
+
+const crashLoop = (stalled: boolean) => [
+  condition('Available', 'False', 'NoPrimary'),
+  condition('Ready', 'False', 'CrashLoopBackOff', CRASH_LOOP_MESSAGE),
+  condition('Stalled', stalled ? 'True' : 'False', 'CrashLoopBackOff'),
+  condition('NeedsAttention', 'True', 'CrashLoopBackOff', CRASH_LOOP_MESSAGE),
+];
+
+const renderDetails = (instance: Instance) => {
   const value: DbInstanceContextProps = {
-    instance: mockInstance,
+    instance,
     isLoading: false,
     instanceDeleted: false,
     canReadCredentials: true,
     isCredentialsPermissionLoading: false,
-    ...contextValue,
   };
 
   return render(
@@ -68,152 +103,127 @@ const renderDetails = (contextValue?: Partial<DbInstanceContextProps>) => {
 };
 
 describe('DbClusterDetails', () => {
-  it('renders the current db instance phase in the page header', () => {
-    renderDetails({
-      instance: {
-        ...mockInstance,
-        status: { phase: 'Restoring' },
-      },
-    });
+  it('says in the header that a database being upgraded is still online', () => {
+    renderDetails(
+      instanceWith([
+        condition('Available', 'True'),
+        condition('Ready', 'False', 'Upgrading'),
+        condition('Upgrading', 'True', 'RollingOutImage'),
+      ])
+    );
 
-    expect(screen.getByText('Restoring')).toBeInTheDocument();
+    expect(screen.getByTestId('my-test-db-status')).toHaveTextContent(
+      'Upgrading \u00b7 online'
+    );
+    expect(
+      screen.queryByTestId('instance-status-alert')
+    ).not.toBeInTheDocument();
   });
 
-  it('falls back to unknown status when phase is missing', () => {
-    renderDetails({
-      instance: {
-        ...mockInstance,
-        status: undefined,
-      },
-    });
+  it('does not call a database that has never been up offline', () => {
+    renderDetails(
+      instanceWith(
+        [
+          condition('Available', 'False', 'NotCreated'),
+          condition('Ready', 'False', 'Creating'),
+        ],
+        'Pending'
+      )
+    );
 
-    expect(screen.getByText('Unknown')).toBeInTheDocument();
+    expect(screen.getByTestId('my-test-db-status')).toHaveTextContent(
+      /^Creating$/
+    );
   });
 
-  it('warns about pods the scheduler cannot place, quoting the reason', () => {
-    const message =
-      "engine: 1 of 3 pods cannot be scheduled: 0/2 nodes are available: 2 node(s) didn't match pod anti-affinity rules.";
-    renderDetails({
-      instance: {
-        ...mockInstance,
-        status: {
-          phase: 'Initializing',
-          conditions: [
-            {
-              type: 'PodsScheduled',
-              status: 'False',
-              reason: 'Unschedulable',
-              message,
-              lastTransitionTime: '2026-10-02T12:00:00Z',
-            },
-          ],
-        },
-      },
-    });
+  it('warns about a problem that may still clear, with advice and the reported cause', () => {
+    renderDetails(instanceWith(crashLoop(false), 'Pending'));
+
+    const alert = within(screen.getByTestId('instance-status-alert'));
+    expect(alert.getByText('Crash loop')).toBeInTheDocument();
+    expect(alert.getByText(REASON_HINTS.CrashLoopBackOff)).toBeInTheDocument();
+    expect(
+      alert.getByText(StatusAlertMessages.outlook.retrying)
+    ).toBeInTheDocument();
+    expect(alert.getByText(CRASH_LOOP_MESSAGE)).toBeInTheDocument();
+  });
+
+  it('says that waiting no longer helps once the database is stalled', () => {
+    renderDetails(instanceWith(crashLoop(true), 'Pending'));
+
+    const alert = within(screen.getByTestId('instance-status-alert'));
+    expect(
+      alert.getByText(StatusAlertMessages.outlook.stalled)
+    ).toBeInTheDocument();
+    expect(
+      alert.queryByText(StatusAlertMessages.outlook.retrying)
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows a problem the UI has no advice for as the provider reported it', () => {
+    const message = 'spec.pause is set on the PerconaServerMongoDB object';
+    renderDetails(
+      instanceWith([
+        condition('Ready', 'False', 'PausedOutsideOpenEverest', message),
+        condition('Stalled', 'True', 'PausedOutsideOpenEverest'),
+        condition(
+          'NeedsAttention',
+          'True',
+          'PausedOutsideOpenEverest',
+          message
+        ),
+      ])
+    );
+
+    const alert = within(screen.getByTestId('instance-status-alert'));
+    expect(alert.getByText('Paused outside open everest')).toBeInTheDocument();
+    expect(alert.getByText(message)).toBeInTheDocument();
+  });
+
+  it('promises no retries for a database whose provider is not installed', () => {
+    const message = 'Provider "percona-server-mongodb" is not installed.';
+    renderDetails(
+      instanceWith(
+        [condition('Unattended', 'True', 'ProviderNotFound', message)],
+        'Pending',
+        2
+      )
+    );
+
+    const alert = within(screen.getByTestId('instance-status-alert'));
+    expect(alert.getByText('Provider not found')).toBeInTheDocument();
+    expect(alert.getByText(REASON_HINTS.ProviderNotFound)).toBeInTheDocument();
+    expect(alert.getByText(message)).toBeInTheDocument();
+    expect(
+      alert.queryByText(StatusAlertMessages.outlook.retrying)
+    ).not.toBeInTheDocument();
+  });
+
+  it('drops the alert about an older spec once a fix is pushed', () => {
+    renderDetails(instanceWith(crashLoop(true), 'Pending', 2));
 
     expect(
-      screen.getByText(PodsAlertMessages.alerts.Unschedulable.title)
-    ).toBeInTheDocument();
-    expect(screen.getByText(message)).toBeInTheDocument();
-  });
-
-  it('shows no scheduling warning once every pod has a node', () => {
-    renderDetails({
-      instance: {
-        ...mockInstance,
-        status: {
-          phase: 'Ready',
-          conditions: [
-            {
-              type: 'PodsScheduled',
-              status: 'True',
-              reason: 'Scheduled',
-              message: '',
-              lastTransitionTime: '2026-10-02T12:00:00Z',
-            },
-          ],
-        },
-      },
-    });
-
-    expect(screen.queryByTestId('pods-alert')).not.toBeInTheDocument();
-  });
-
-  it('warns about crashing pods, quoting the reason', () => {
-    const message =
-      'engine: 1 of 3 pods keep crashing: container mongod last exited with OOMKilled (exit code 137)';
-    renderDetails({
-      instance: {
-        ...mockInstance,
-        status: {
-          phase: 'Initializing',
-          conditions: [
-            {
-              type: 'PodsReady',
-              status: 'False',
-              reason: 'CrashLoopBackOff',
-              message,
-              lastTransitionTime: '2026-10-02T12:00:00Z',
-            },
-          ],
-        },
-      },
-    });
-
-    expect(
-      screen.getByText(PodsAlertMessages.alerts.CrashLoopBackOff.title)
-    ).toBeInTheDocument();
-    expect(screen.getByText(message)).toBeInTheDocument();
-  });
-
-  it('shows one banner per pods problem', () => {
-    renderDetails({
-      instance: {
-        ...mockInstance,
-        status: {
-          phase: 'Initializing',
-          conditions: [
-            {
-              type: 'PodsScheduled',
-              status: 'False',
-              reason: 'Unschedulable',
-              message: 'engine: 1 of 3 pods cannot be scheduled',
-              lastTransitionTime: '2026-10-02T12:00:00Z',
-            },
-            {
-              type: 'PodsReady',
-              status: 'False',
-              reason: 'CrashLoopBackOff',
-              message: 'engine: 1 of 3 pods keep crashing',
-              lastTransitionTime: '2026-10-02T12:00:00Z',
-            },
-          ],
-        },
-      },
-    });
-
-    expect(screen.getAllByTestId('pods-alert')).toHaveLength(2);
+      screen.queryByTestId('instance-status-alert')
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('my-test-db-status')).toHaveTextContent(
+      'Creating'
+    );
   });
 
   it('does not warn about pods that are only starting', () => {
-    renderDetails({
-      instance: {
-        ...mockInstance,
-        status: {
-          phase: 'Initializing',
-          conditions: [
-            {
-              type: 'PodsReady',
-              status: 'False',
-              reason: 'NotReady',
-              message: 'engine: 1 of 3 pods are not ready',
-              lastTransitionTime: '2026-10-02T12:00:00Z',
-            },
-          ],
-        },
-      },
-    });
+    renderDetails(
+      instanceWith(
+        [
+          condition('Ready', 'False', 'Creating'),
+          condition('NeedsAttention', 'False', 'NoProblems'),
+          condition('PodsReady', 'Unknown', 'NotReady'),
+        ],
+        'Pending'
+      )
+    );
 
-    expect(screen.queryByTestId('pods-alert')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('instance-status-alert')
+    ).not.toBeInTheDocument();
   });
 });

@@ -33,6 +33,7 @@ import {
   formatDisplayValue,
 } from 'components/ui-generator/utils/object-path/object-path';
 import { collectAllSchemaPaths } from 'components/ui-generator/utils/schema-walker';
+import { hasConnectionDetails } from 'utils/instance-status';
 
 export interface SchemaSectionCard {
   key: string;
@@ -54,10 +55,10 @@ export const useClusterOverviewData = () => {
     instanceName || '',
     namespace,
     {
+      // Published once and valid through later changes, so an upgrade
+      // doesn't hide them.
       enabled:
-        canReadCredentials &&
-        !!instanceName &&
-        instance?.status?.phase === 'Ready',
+        canReadCredentials && !!instanceName && hasConnectionDetails(instance),
     }
   );
 

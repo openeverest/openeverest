@@ -29,7 +29,7 @@ import { SectionEditModal } from './sections/section-edit-modal';
 import { MonitoringCard } from './sections/monitoring-card/monitoring-card';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
 import { isSectionEditable } from 'components/ui-generator/utils/section-editable';
-import { shouldDbActionsBeBlocked } from 'utils/db';
+import { areInstanceEditsBlocked } from 'utils/instance-status';
 import { usePlugins } from 'contexts/plugins';
 import type { ClusterCardExtension } from '@openeverest/plugin-sdk';
 import PluginErrorBoundary from 'components/plugin-host/PluginErrorBoundary';
@@ -71,7 +71,7 @@ export const ClusterOverview = () => {
     return null;
   }
 
-  const actionsBlocked = shouldDbActionsBeBlocked(instance?.status?.phase);
+  const actionsBlocked = areInstanceEditsBlocked(instance);
 
   return (
     <>
