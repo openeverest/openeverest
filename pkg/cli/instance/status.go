@@ -234,14 +234,7 @@ func printComponentTable(w io.Writer, inst *client.Instance) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(tw, "  NAME\tREADY")
 	for _, comp := range *inst.Status.Components {
-		var ready, replicas int32
-		if comp.ReadyReplicas != nil {
-			ready = *comp.ReadyReplicas
-		}
-		if comp.Replicas != nil {
-			replicas = *comp.Replicas
-		}
-		fmt.Fprintf(tw, "  %s\t%d/%d\n", comp.Name, ready, replicas)
+		fmt.Fprintf(tw, "  %s\t%s\n", comp.Name, instancestatus.CountReady(comp.ReadyReplicas, comp.Replicas, comp.DesiredReplicas))
 	}
 	tw.Flush() //nolint:errcheck,gosec
 }

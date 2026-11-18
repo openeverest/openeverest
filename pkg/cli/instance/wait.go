@@ -137,14 +137,8 @@ func componentSummary(inst *client.Instance) string {
 	}
 	parts := make([]string, 0, len(*inst.Status.Components))
 	for _, comp := range *inst.Status.Components {
-		var ready, replicas int32
-		if comp.ReadyReplicas != nil {
-			ready = *comp.ReadyReplicas
-		}
-		if comp.Replicas != nil {
-			replicas = *comp.Replicas
-		}
-		parts = append(parts, fmt.Sprintf("%s %d/%d ready", comp.Name, ready, replicas))
+		ready := instancestatus.CountReady(comp.ReadyReplicas, comp.Replicas, comp.DesiredReplicas)
+		parts = append(parts, fmt.Sprintf("%s %s ready", comp.Name, ready))
 	}
 	return strings.Join(parts, ", ")
 }

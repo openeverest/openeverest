@@ -14,7 +14,8 @@
 // limitations under the License.
 
 // Package instancestatus turns an Instance's status into what a person sees:
-// a status word with a tone, and whether the database is available.
+// a status word with a tone, whether the database is available, and how many
+// of each component's pods are ready.
 //
 // Everything written in Go that shows an Instance, or waits for one, reads
 // its status through this package, so that they all agree. The UI has the

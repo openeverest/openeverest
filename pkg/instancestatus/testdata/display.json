@@ -4,7 +4,8 @@
     "a tone, a status word and whether the database is available.",
     "The Go implementation (everestctl) and the TypeScript one (the UI) both run every case.",
     "'kstatus' is what kstatus-based tools (Flux, Helm 4) make of the same object,",
-    "and 'wait' is the outcome of everestctl's --wait."
+    "and 'wait' is the outcome of everestctl's --wait.",
+    "'components' are the cases for a component's ready count, such as 2/3, read from one entry of status.components."
   ],
   "labels": {
     "Ready": "Ready",
@@ -35,6 +36,117 @@
     "BackupStorageCredentialsNotFound": "Backup credentials not found",
     "NotPickedUp": "Not picked up by provider"
   },
+  "components": [
+    {
+      "name": "mid-rollout",
+      "about": "Growing from one member to three: two pods exist and are Ready, the third is not created yet. Without the desired count this would read 2/2.",
+      "component": {
+        "name": "engine",
+        "replicas": 2,
+        "readyReplicas": 2,
+        "desiredReplicas": 3
+      },
+      "want": {
+        "ready": 2,
+        "total": 3,
+        "totalIsDesired": true,
+        "text": "2/3"
+      }
+    },
+    {
+      "name": "scale-down",
+      "about": "Shrinking from four members to three while the pod to remove still runs. It reads 4/3, as kubectl shows a Deployment.",
+      "component": {
+        "name": "engine",
+        "replicas": 4,
+        "readyReplicas": 4,
+        "desiredReplicas": 3
+      },
+      "want": {
+        "ready": 4,
+        "total": 3,
+        "totalIsDesired": true,
+        "text": "4/3"
+      }
+    },
+    {
+      "name": "scaled-to-zero",
+      "about": "Scaled to zero on purpose. A desired count of 0 is reported like any other: read whether it is present, never whether it is zero.",
+      "component": {
+        "name": "engine",
+        "replicas": 0,
+        "readyReplicas": 0,
+        "desiredReplicas": 0
+      },
+      "want": {
+        "ready": 0,
+        "total": 0,
+        "totalIsDesired": true,
+        "text": "0/0"
+      }
+    },
+    {
+      "name": "not-reported",
+      "about": "The provider does not report desired replicas, or has not yet for this generation: the total falls back to the pods that exist.",
+      "component": {
+        "name": "engine",
+        "replicas": 2,
+        "readyReplicas": 2
+      },
+      "want": {
+        "ready": 2,
+        "total": 2,
+        "totalIsDesired": false,
+        "text": "2/2"
+      }
+    },
+    {
+      "name": "held-back",
+      "about": "Hidden members the provider holds back: none of their pods exists yet, but it reports the two it will create.",
+      "component": {
+        "name": "hidden",
+        "replicas": 0,
+        "readyReplicas": 0,
+        "desiredReplicas": 2
+      },
+      "want": {
+        "ready": 0,
+        "total": 2,
+        "totalIsDesired": true,
+        "text": "0/2"
+      }
+    },
+    {
+      "name": "ready-count-absent",
+      "about": "The pods are not counted, for example before the runtime watches them, but the provider reported three: an absent readyReplicas reads as 0.",
+      "component": {
+        "name": "engine",
+        "desiredReplicas": 3
+      },
+      "want": {
+        "ready": 0,
+        "total": 3,
+        "totalIsDesired": true,
+        "text": "0/3"
+      }
+    },
+    {
+      "name": "sharded",
+      "about": "A sharded engine of two shards of three members: the desired count sums every shard. It cannot tell whether each shard has a majority.",
+      "component": {
+        "name": "engine",
+        "replicas": 6,
+        "readyReplicas": 6,
+        "desiredReplicas": 6
+      },
+      "want": {
+        "ready": 6,
+        "total": 6,
+        "totalIsDesired": true,
+        "text": "6/6"
+      }
+    }
+  ],
   "cases": [
     {
       "name": "never-reconciled-fresh",
