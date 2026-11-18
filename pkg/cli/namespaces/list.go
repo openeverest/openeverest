@@ -154,12 +154,18 @@ func (nsL *NamespaceLister) getNamespaceOperators(ctx context.Context, ns *corev
 		}
 
 		for _, sub := range subList.Items {
+			if sub.Status.InstalledCSV == "" {
+				continue
+			}
 			csv, csvErr := nsL.kubeClient.GetClusterServiceVersion(ctx, types.NamespacedName{
 				Namespace: ns.GetName(),
 				Name:      sub.Status.InstalledCSV,
 			})
-			if csvErr != nil && client.IgnoreNotFound(csvErr) != nil {
-				return []string{}, fmt.Errorf("cannot list installed operators in namespace='%s': %w", ns.GetName(), csvErr)
+			if csvErr != nil {
+				if client.IgnoreNotFound(csvErr) != nil {
+					return []string{}, fmt.Errorf("cannot list installed operators in namespace='%s': %w", ns.GetName(), csvErr)
+				}
+				continue
 			}
 			v, err := goversion.NewVersion(csv.Spec.Version.FinalizeVersion())
 			if err != nil {
