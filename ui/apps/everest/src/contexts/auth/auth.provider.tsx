@@ -154,7 +154,7 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     }
 
     broadcastLogoutSync();
-    await setLogoutStatus();
+    await setLogoutStatus(true);
   };
 
   const setRedirectRoute = (route: string) => {
@@ -168,14 +168,18 @@ const AuthProvider = ({ children, isSsoEnabled }: AuthProviderProps) => {
     initializeAuthorizerFetchLoop(username);
   };
 
-  const setLogoutStatus = useCallback(async () => {
+  const setLogoutStatus = useCallback(async (clearRedirect = false) => {
     setAuthStatus('loggedOut');
     clearAccessToken();
     localStorage.removeItem('everestToken');
     sessionStorage.clear();
-    setRedirect(null);
+
+    if (clearRedirect) {
+      setRedirect(null);
+    }
     removeApiErrorInterceptor();
     removeApiAuthInterceptor();
+
     if (isSsoEnabled) {
       await userManager.clearStaleState();
       await userManager.removeUser();
