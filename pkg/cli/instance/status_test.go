@@ -98,7 +98,7 @@ Conditions:
   Available       True     Available            -
   Ready           False    Upgrading            Rolling out version 8.0.12 (1 of 3 pods updated)
   Reconciling     True     Upgrading            Rolling out version 8.0.12 (1 of 3 pods updated)
-  Stalled         False    NoProblems           -
+  Stalled         False    Reconciling          -
   NeedsAttention  False    NoProblems           -
   PodsReady       Unknown  NotReady             engine: 1 pod is not ready
   Upgrading       True     MinorVersionRolling  Rolling out version 8.0.12 (1 of 3 pods updated)
@@ -125,7 +125,7 @@ Conditions:
   TYPE            STATUS  REASON            MESSAGE
   Available       False   NotAvailable      No replica set member is primary
   Ready           False   CrashLoopBackOff  engine: container mongod last exited with Error (exit code 14)
-  Reconciling     False   CrashLoopBackOff  -
+  Reconciling     False   Stalled           -
   Stalled         True    CrashLoopBackOff  engine: container mongod last exited with Error (exit code 14)
   NeedsAttention  True    CrashLoopBackOff  engine: container mongod last exited with Error (exit code 14)
   PodsReady       False   CrashLoopBackOff  engine: container mongod last exited with Error (exit code 14)
@@ -149,7 +149,7 @@ Conditions:
   TYPE            STATUS  REASON            MESSAGE
   Available       False   NotCreated        The database has not been available yet
   Ready           False   ValidationFailed  spec.components.engine.replicas: must be odd
-  Reconciling     False   ValidationFailed  -
+  Reconciling     False   Stalled           -
   Stalled         True    ValidationFailed  spec.components.engine.replicas: must be odd
   NeedsAttention  True    ValidationFailed  spec.components.engine.replicas: must be odd
 `,
@@ -173,7 +173,7 @@ Conditions:
   TYPE            STATUS  REASON            MESSAGE
   Available       False   NotCreated        The database has not been available yet
   Ready           False   ValidationFailed  spec.components.engine.replicas: must be odd
-  Reconciling     False   ValidationFailed  -
+  Reconciling     False   Stalled           -
   Stalled         True    ValidationFailed  spec.components.engine.replicas: must be odd
   NeedsAttention  True    ValidationFailed  spec.components.engine.replicas: must be odd
 `,
@@ -219,8 +219,8 @@ func TestPrintInstanceStatus_AllSections(t *testing.T) {
 		"conditions":[
 			{"type":"Available","status":"True","reason":"Available","message":"","lastTransitionTime":"2026-02-01T12:00:00Z"},
 			{"type":"Ready","status":"True","reason":"StorageResizing","message":"Expanding volumes to 50Gi","lastTransitionTime":"2026-02-27T12:00:00Z"},
-			{"type":"Reconciling","status":"False","reason":"NoProblems","message":"","lastTransitionTime":"2026-02-27T12:00:00Z"},
-			{"type":"Stalled","status":"False","reason":"NoProblems","message":"","lastTransitionTime":"2026-02-27T12:00:00Z"},
+			{"type":"Reconciling","status":"False","reason":"Converged","message":"","lastTransitionTime":"2026-02-27T12:00:00Z"},
+			{"type":"Stalled","status":"False","reason":"Converged","message":"","lastTransitionTime":"2026-02-27T12:00:00Z"},
 			{"type":"NeedsAttention","status":"False","reason":"NoProblems","message":"","lastTransitionTime":"2026-02-27T12:00:00Z"},
 			{"type":"ReferencesResolved","status":"True","reason":"Resolved","message":"","lastTransitionTime":"2026-02-01T12:00:00Z"},
 			{"type":"Synced","status":"True","reason":"Synced","message":"","lastTransitionTime":"2026-02-01T12:00:00Z"},
@@ -270,8 +270,8 @@ Conditions:
   TYPE                      STATUS  REASON              MESSAGE
   Available                 True    Available           -
   Ready                     True    StorageResizing     Expanding volumes to 50Gi
-  Reconciling               False   NoProblems          -
-  Stalled                   False   NoProblems          -
+  Reconciling               False   Converged           -
+  Stalled                   False   Converged           -
   NeedsAttention            False   NoProblems          -
   ReferencesResolved        True    Resolved            -
   Synced                    True    Synced              -

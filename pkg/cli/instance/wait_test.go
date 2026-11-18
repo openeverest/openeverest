@@ -68,7 +68,7 @@ func creatingStatus() string {
 		conditionJSON("Available", "False", "NotCreated", "The database has not been available yet"),
 		conditionJSON("Ready", "False", "Creating", "Waiting for the replica set to initialise"),
 		conditionJSON("Reconciling", "True", "Creating", "Waiting for the replica set to initialise"),
-		conditionJSON("Stalled", "False", "NoProblems", ""),
+		conditionJSON("Stalled", "False", "Reconciling", ""),
 		conditionJSON("NeedsAttention", "False", "NoProblems", ""),
 	)
 }
@@ -79,8 +79,8 @@ func readyStatus() string {
 		"Provisioned",
 		conditionJSON("Available", "True", "Available", ""),
 		conditionJSON("Ready", "True", "Ready", "The instance is ready"),
-		conditionJSON("Reconciling", "False", "NoProblems", ""),
-		conditionJSON("Stalled", "False", "NoProblems", ""),
+		conditionJSON("Reconciling", "False", "Converged", ""),
+		conditionJSON("Stalled", "False", "Converged", ""),
 		conditionJSON("NeedsAttention", "False", "NoProblems", ""),
 	)
 }
@@ -91,7 +91,7 @@ func stalledStatus() string {
 		"Pending",
 		conditionJSON("Available", "False", "NotCreated", "The database has not been available yet"),
 		conditionJSON("Ready", "False", "ValidationFailed", "replicas must be odd"),
-		conditionJSON("Reconciling", "False", "ValidationFailed", ""),
+		conditionJSON("Reconciling", "False", "Stalled", ""),
 		conditionJSON("Stalled", "True", "ValidationFailed", "replicas must be odd"),
 		conditionJSON("NeedsAttention", "True", "ValidationFailed", "replicas must be odd"),
 	)
@@ -104,7 +104,7 @@ func missingSecretStatus() string {
 		"Pending",
 		conditionJSON("Ready", "False", "UserSecretNotFound", "secret s not found"),
 		conditionJSON("Reconciling", "True", "UserSecretNotFound", "secret s not found"),
-		conditionJSON("Stalled", "False", "NoProblems", ""),
+		conditionJSON("Stalled", "False", "Reconciling", ""),
 		conditionJSON("NeedsAttention", "True", "UserSecretNotFound", "secret s not found"),
 	)
 }

@@ -148,8 +148,8 @@ func TestDescribe(t *testing.T) {
 		return []metav1.Condition{
 			cond(corev1alpha1.ConditionAvailable, metav1.ConditionTrue, corev1alpha1.ReasonAvailable, 24*time.Hour),
 			cond(corev1alpha1.ConditionReady, metav1.ConditionTrue, corev1alpha1.ReasonReady, time.Hour),
-			cond(corev1alpha1.ConditionReconciling, metav1.ConditionFalse, corev1alpha1.ReasonNoProblems, time.Hour),
-			cond(corev1alpha1.ConditionStalled, metav1.ConditionFalse, corev1alpha1.ReasonNoProblems, time.Hour),
+			cond(corev1alpha1.ConditionReconciling, metav1.ConditionFalse, corev1alpha1.ReasonConverged, time.Hour),
+			cond(corev1alpha1.ConditionStalled, metav1.ConditionFalse, corev1alpha1.ReasonConverged, time.Hour),
 			cond(corev1alpha1.ConditionNeedsAttention, metav1.ConditionFalse, corev1alpha1.ReasonNoProblems, time.Hour),
 		}
 	}
