@@ -18,6 +18,7 @@ import (
 	"slices"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
@@ -36,34 +37,42 @@ import (
 
 // DefaultKinds are the kinds OpenEverest records lifecycle events for.
 func DefaultKinds() []Kind {
+	backupState := func(o *backupv1alpha1.Backup) string { return string(o.Status.State) }
+	restoreState := func(o *backupv1alpha1.Restore) string { return string(o.Status.State) }
+	importState := func(o *backupv1alpha1.BackupImport) string { return string(o.Status.State) }
+	extensionPhase := func(o *extensionsv1alpha1.InstalledExtension) string { return string(o.Status.Phase) }
+
 	return []Kind{
 		{
-			New:    func() client.Object { return &corev1alpha1.Instance{} },
-			Phase:  phaseOf(func(o *corev1alpha1.Instance) string { return string(o.Status.Phase) }),
-			Failed: is(string(corev1alpha1.InstancePhaseFailed)),
+			New: func() client.Object { return &corev1alpha1.Instance{} },
+			// The status word, the Ready condition's reason, is the state
+			// kubectl and the UI show. The phase only says Pending,
+			// Provisioned or Terminating.
+			Phase:  phaseOf(instanceStatusWord),
+			Failed: objectIs(instanceNeedsAttention),
 		},
 		{
 			New:    func() client.Object { return &backupv1alpha1.Backup{} },
-			Phase:  phaseOf(func(o *backupv1alpha1.Backup) string { return string(o.Status.State) }),
-			Failed: is(string(backupv1alpha1.BackupStateFailed), string(backupv1alpha1.BackupStateError)),
+			Phase:  phaseOf(backupState),
+			Failed: stateIn(backupState, string(backupv1alpha1.BackupStateFailed), string(backupv1alpha1.BackupStateError)),
 		},
 		{
 			New:    func() client.Object { return &backupv1alpha1.Restore{} },
-			Phase:  phaseOf(func(o *backupv1alpha1.Restore) string { return string(o.Status.State) }),
-			Failed: is(string(backupv1alpha1.RestoreStateFailed), string(backupv1alpha1.RestoreStateError)),
+			Phase:  phaseOf(restoreState),
+			Failed: stateIn(restoreState, string(backupv1alpha1.RestoreStateFailed), string(backupv1alpha1.RestoreStateError)),
 		},
 		{
 			New:    func() client.Object { return &backupv1alpha1.BackupImport{} },
-			Phase:  phaseOf(func(o *backupv1alpha1.BackupImport) string { return string(o.Status.State) }),
-			Failed: is(string(backupv1alpha1.BackupImportStateFailed), string(backupv1alpha1.BackupImportStateError)),
+			Phase:  phaseOf(importState),
+			Failed: stateIn(importState, string(backupv1alpha1.BackupImportStateFailed), string(backupv1alpha1.BackupImportStateError)),
 		},
 		{New: func() client.Object { return &backupv1alpha1.BackupStorage{} }},
 		{New: func() client.Object { return &monitoringv1alpha1.MonitoringDestination{} }},
 		{New: func() client.Object { return &extensionsv1alpha1.Plugin{} }},
 		{
 			New:    func() client.Object { return &extensionsv1alpha1.InstalledExtension{} },
-			Phase:  phaseOf(func(o *extensionsv1alpha1.InstalledExtension) string { return string(o.Status.Phase) }),
-			Failed: is(string(extensionsv1alpha1.InstalledExtensionPhaseFailed)),
+			Phase:  phaseOf(extensionPhase),
+			Failed: stateIn(extensionPhase, string(extensionsv1alpha1.InstalledExtensionPhaseFailed)),
 		},
 		{
 			New: func() client.Object { return &corev1.Namespace{} },
@@ -72,6 +81,21 @@ func DefaultKinds() []Kind {
 			},
 		},
 	}
+}
+
+// instanceStatusWord returns the reason of an Instance's Ready condition, or
+// "" before a provider has reported on it.
+func instanceStatusWord(o *corev1alpha1.Instance) string {
+	if ready := meta.FindStatusCondition(o.Status.Conditions, corev1alpha1.ConditionReady); ready != nil {
+		return ready.Reason
+	}
+	return ""
+}
+
+// instanceNeedsAttention reports whether something is wrong with an Instance
+// that a person may want to look at, stalled or not.
+func instanceNeedsAttention(o *corev1alpha1.Instance) bool {
+	return meta.IsStatusConditionTrue(o.Status.Conditions, corev1alpha1.ConditionNeedsAttention)
 }
 
 // phaseOf adapts a typed phase accessor to Kind.Phase.
@@ -85,8 +109,16 @@ func phaseOf[T client.Object](get func(T) string) func(client.Object) string {
 	}
 }
 
-func is(phases ...string) func(string) bool {
-	return func(phase string) bool {
-		return slices.Contains(phases, phase)
+// objectIs adapts a typed predicate to Kind.Failed.
+func objectIs[T client.Object](pred func(T) bool) func(client.Object) bool {
+	return func(o client.Object) bool {
+		obj, ok := o.(T)
+		return ok && pred(obj)
 	}
+}
+
+// stateIn returns a Kind.Failed that reports whether the state get returns
+// is one of states.
+func stateIn[T client.Object](get func(T) string, states ...string) func(client.Object) bool {
+	return objectIs(func(o T) bool { return slices.Contains(states, get(o)) })
 }
