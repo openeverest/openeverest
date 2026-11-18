@@ -3218,6 +3218,20 @@ type ClusterInstancePreset struct {
 			Name string `json:"name"`
 		} `json:"providerRef"`
 
+		// Suspend Suspend stops the Instance's compute while keeping its data. It is
+		// accepted only when the referenced Provider declares .spec.suspend.
+		Suspend *struct {
+			// Suspended Suspended asks the provider to stop the Instance's compute through the
+			// operator's own mechanism (e.g. spec.pause, hibernation). Volumes and
+			// data are kept, and setting it back to false resumes the Instance.
+			//
+			// While the Instance is suspended, and on the update that suspends or
+			// resumes it, no other spec field may change except deletionPolicy.
+			// Disruptive maintenance is held, scheduled backups do not run, and
+			// Backups and Restores that have not started wait until it resumes.
+			Suspended *bool `json:"suspended,omitempty"`
+		} `json:"suspend,omitempty"`
+
 		// Topology Topology defines the deployment topology and its configuration.
 		Topology *struct {
 			// Parameters Parameters contains topology-specific structured parameters, validated
@@ -4566,6 +4580,20 @@ type Instance struct {
 			// Name Name of the referenced object.
 			Name string `json:"name"`
 		} `json:"providerRef"`
+
+		// Suspend Suspend stops the Instance's compute while keeping its data. It is
+		// accepted only when the referenced Provider declares .spec.suspend.
+		Suspend *struct {
+			// Suspended Suspended asks the provider to stop the Instance's compute through the
+			// operator's own mechanism (e.g. spec.pause, hibernation). Volumes and
+			// data are kept, and setting it back to false resumes the Instance.
+			//
+			// While the Instance is suspended, and on the update that suspends or
+			// resumes it, no other spec field may change except deletionPolicy.
+			// Disruptive maintenance is held, scheduled backups do not run, and
+			// Backups and Restores that have not started wait until it resumes.
+			Suspended *bool `json:"suspended,omitempty"`
+		} `json:"suspend,omitempty"`
 
 		// Topology Topology defines the deployment topology and its configuration.
 		Topology *struct {
@@ -6163,6 +6191,20 @@ type InstancePreset struct {
 			Name string `json:"name"`
 		} `json:"providerRef"`
 
+		// Suspend Suspend stops the Instance's compute while keeping its data. It is
+		// accepted only when the referenced Provider declares .spec.suspend.
+		Suspend *struct {
+			// Suspended Suspended asks the provider to stop the Instance's compute through the
+			// operator's own mechanism (e.g. spec.pause, hibernation). Volumes and
+			// data are kept, and setting it back to false resumes the Instance.
+			//
+			// While the Instance is suspended, and on the update that suspends or
+			// resumes it, no other spec field may change except deletionPolicy.
+			// Disruptive maintenance is held, scheduled backups do not run, and
+			// Backups and Restores that have not started wait until it resumes.
+			Suspended *bool `json:"suspended,omitempty"`
+		} `json:"suspend,omitempty"`
+
 		// Topology Topology defines the deployment topology and its configuration.
 		Topology *struct {
 			// Parameters Parameters contains topology-specific structured parameters, validated
@@ -7171,6 +7213,11 @@ type Provider struct {
 			// UiSchema UISchema holds UI rendering hints for the secret creation form.
 			UiSchema *map[string]interface{} `json:"uiSchema,omitempty"`
 		} `json:"secrets,omitempty"`
+
+		// Suspend Suspend declares that the provider can suspend Instances through
+		// Instance.spec.suspend. Unset means it cannot, and Instances asking to
+		// be suspended are rejected.
+		Suspend    *map[string]interface{} `json:"suspend,omitempty"`
 		Topologies *map[string]struct {
 			Components *map[string]struct {
 				Optional *bool `json:"optional,omitempty"`

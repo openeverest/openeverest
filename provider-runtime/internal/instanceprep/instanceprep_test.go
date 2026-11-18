@@ -105,3 +105,34 @@ func TestPrepareForSyncDoesNotMutateTheInput(t *testing.T) {
 
 	assert.Empty(t, in.Spec.Components["engine"].Version)
 }
+
+func TestPrepareForSyncDisablesSchedulesWhileSuspended(t *testing.T) {
+	t.Parallel()
+
+	in := instanceWith(nil)
+	in.Spec.Backup = &v1alpha1.InstanceBackupSpec{
+		Enabled: true,
+		Storages: []v1alpha1.InstanceBackupStorage{{
+			Schedules: []v1alpha1.InstanceBackupSchedule{
+				{Name: "daily", Enabled: true, Cron: "0 0 * * *"},
+				{Name: "hourly", Cron: "0 * * * *"},
+			},
+			PITR: &v1alpha1.InstanceBackupStoragePITR{Enabled: true},
+		}},
+	}
+
+	running, _, err := instanceprep.PrepareForSync(&v1alpha1.ProviderSpec{}, in)
+	require.NoError(t, err)
+	assert.True(t, running.Spec.Backup.Storages[0].Schedules[0].Enabled)
+
+	in.Spec.Suspend = &v1alpha1.SuspendSpec{Suspended: true}
+	suspended, _, err := instanceprep.PrepareForSync(&v1alpha1.ProviderSpec{}, in)
+	require.NoError(t, err)
+
+	storage := suspended.Spec.Backup.Storages[0]
+	assert.False(t, storage.Schedules[0].Enabled)
+	assert.Equal(t, "0 0 * * *", storage.Schedules[0].Cron)
+	assert.False(t, storage.Schedules[1].Enabled)
+	assert.True(t, storage.PITR.Enabled, "PITR is left to the operator")
+	assert.True(t, in.Spec.Backup.Storages[0].Schedules[0].Enabled, "the stored Instance is not mutated")
+}

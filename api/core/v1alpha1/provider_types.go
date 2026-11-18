@@ -67,7 +67,18 @@ type ProviderSpec struct {
 	// integrations it renders itself and what each component type exposes.
 	// +optional
 	Monitoring *ProviderMonitoring `json:"monitoring,omitempty"`
+
+	// Suspend declares that the provider can suspend Instances through
+	// Instance.spec.suspend. Unset means it cannot, and Instances asking to
+	// be suspended are rejected.
+	// +optional
+	Suspend *ProviderSuspend `json:"suspend,omitempty"`
 }
+
+// ProviderSuspend describes how a provider supports suspending Instances.
+// An empty value declares support for suspending on request
+// (spec.suspend.suspended).
+type ProviderSuspend struct{}
 
 // Release identifies a provider release and its upgrade-path constraints.
 type Release struct {

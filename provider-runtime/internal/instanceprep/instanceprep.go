@@ -21,6 +21,8 @@
 package instanceprep
 
 import (
+	"slices"
+
 	v1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
@@ -41,7 +43,29 @@ func PrepareForSync(
 	if err != nil {
 		return nil, "", err
 	}
-	return prepared, bundleName, nil
+	return withSchedulesPausedWhileSuspended(prepared), bundleName, nil
+}
+
+// withSchedulesPausedWhileSuspended disables the backup schedules of a
+// suspended Instance, so the operator takes no scheduled backup of an engine
+// that is not running. The schedules, storages and PITR are otherwise kept as
+// they were, and the user's enabled flags apply again once it resumes.
+func withSchedulesPausedWhileSuspended(in *v1alpha1.Instance) *v1alpha1.Instance {
+	if !in.SuspendRequested() || in.Spec.Backup == nil ||
+		!slices.ContainsFunc(in.Spec.Backup.Storages, hasEnabledSchedule) {
+		return in
+	}
+	out := in.DeepCopy()
+	for i := range out.Spec.Backup.Storages {
+		for j := range out.Spec.Backup.Storages[i].Schedules {
+			out.Spec.Backup.Storages[i].Schedules[j].Enabled = false
+		}
+	}
+	return out
+}
+
+func hasEnabledSchedule(s v1alpha1.InstanceBackupStorage) bool {
+	return slices.ContainsFunc(s.Schedules, func(sch v1alpha1.InstanceBackupSchedule) bool { return sch.Enabled })
 }
 
 // applyVersionBundle fills in each component's Version from the named bundle,
