@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
@@ -42,11 +41,12 @@ const (
 	defaultBackupRequeue = 10 * time.Second
 )
 
-// backupRuntimeReconciler dispatches Backup CRs whose resolved BackupClass uses
-// executionMode "ProviderManaged" to the provider's BackupProvider implementation.
-// Backups whose class uses another execution mode or whose Instance is owned by a
-// different provider are skipped (returning nil) so multiple provider runtimes
-// can coexist in the same namespace without trampling each other.
+// backupRuntimeReconciler dispatches Backup CRs whose resolved BackupClass
+// names this provider in spec.providerManaged.providerRef to the provider's
+// BackupProvider implementation. Backups whose class is executed by anyone
+// else or whose Instance is owned by a different provider are skipped
+// (returning nil) so multiple provider runtimes, and other executors, can
+// coexist in the same namespace without trampling each other.
 type backupRuntimeReconciler struct {
 	client       client.Client
 	reader       client.Reader
@@ -69,11 +69,11 @@ func setupBackupReconciler(mgr ctrl.Manager, bp controller.BackupProvider, provi
 		).
 		Watches(&corev1alpha1.Instance{},
 			handler.EnqueueRequestsFromMapFunc(r.backupsForInstance),
-			builder.WithPredicates(predicate.Or(existenceChanged(), suspendChanged())),
+			builder.WithPredicates(existenceChanged()),
 		).
 		Watches(&backupv1alpha1.BackupStorage{},
 			handler.EnqueueRequestsFromMapFunc(r.backupsForStorage),
-			builder.WithPredicates(existenceChanged()),
+			builder.WithPredicates(acceptanceChanged()),
 		).
 		WatchesMetadata(&corev1.Secret{},
 			handler.EnqueueRequestsFromMapFunc(r.backupsForSecret),
@@ -140,7 +140,7 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return r.reconcileWithoutInstance(ctx, backup, bc)
 	}
 
-	inCtx := controller.NewContext(ctx, r.client, instance, r.providerName)
+	inCtx := newContext(ctx, r.client, instance, r.provider, r.providerName)
 
 	if !backup.DeletionTimestamp.IsZero() {
 		if !controllerutil.ContainsFinalizer(backup, backupRuntimeFinalizer) {
@@ -202,11 +202,19 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 		}
 	}
 
+	if backup.Status.Path == "" {
+		backup.Status.Path, err = instanceBackupPath(ctx, r.client, instance, backup.Spec.StorageRef.Name, inCtx.BackupPathStyle())
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
 	// A wait message the runtime set, e.g. while the Instance was suspended,
 	// is stale once the provider takes over.
 	if backupNotStarted(backup) {
 		backup.Status.Message = ""
 	}
+
 	exec, err := r.provider.SyncBackup(inCtx, backup)
 	if err != nil {
 		if controller.IsWaitError(err) {
@@ -244,14 +252,15 @@ func resolveBackupOwnership(
 		}
 		return nil, nil, false, fmt.Errorf("failed to get BackupClass: %w", err)
 	}
-	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
+	// Only the classes this provider claims are executed here; any other
+	// class is left to its executor, never rejected.
+	if bc.Spec.ExecutorProvider() != providerName {
 		return nil, bc, false, nil
 	}
 
-	// External backups have no Instance to fetch. Ownership is derived
-	// from the class's SupportedProviders.
+	// External backups have no Instance to fetch.
 	if backup.Spec.Origin.Type == backupv1alpha1.BackupOriginTypeExternal {
-		return nil, bc, bc.Spec.SupportedProviders.Has(providerName), nil
+		return nil, bc, true, nil
 	}
 
 	instance := &corev1alpha1.Instance{}
@@ -260,9 +269,9 @@ func resolveBackupOwnership(
 		Name:      backup.Spec.Origin.InstanceRef.Name,
 	}, instance); err != nil {
 		if apierrors.IsNotFound(err) {
-			// A ProviderManaged class lists exactly one provider, so it
-			// names the owner while the Instance is missing.
-			return nil, bc, bc.Spec.SupportedProviders.Has(providerName), nil
+			// The class names its executor, so it names the owner while
+			// the Instance is missing.
+			return nil, bc, true, nil
 		}
 		return nil, bc, false, fmt.Errorf("failed to get Instance: %w", err)
 	}

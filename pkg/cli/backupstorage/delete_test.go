@@ -23,6 +23,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	"github.com/openeverest/openeverest/v2/pkg/cli/confirm"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
@@ -52,6 +54,10 @@ func captureStdout(t *testing.T, fn func()) string {
 }
 
 func isTerminalFalse() bool { return false }
+
+// testStoredBackupStorage is a BackupStorage the server still holds.
+const testStoredBackupStorage = `{"metadata":{"name":"my-s3","namespace":"everest"},` +
+	`"spec":{"backupStorageClassRef":{"name":"s3"},"location":{"objectStore":{"bucket":"my-bucket"}},"authentication":{"mode":"AccessKey"}}}`
 
 // newDeleteServer fakes the backup storage DELETE (and optional GET) endpoint.
 func newDeleteServer(t *testing.T, deleteHandler, getHandler http.HandlerFunc) *httptest.Server {
@@ -146,7 +152,7 @@ func TestDelete_IgnoreNotFound_DeleteRaces404_ReportsNotDeleted(t *testing.T) {
 		func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"metadata":{"name":"my-s3","namespace":"everest"},"spec":{"type":"s3"}}`))
+			_, _ = w.Write([]byte(testStoredBackupStorage))
 		},
 	)
 	defer srv.Close()
@@ -342,7 +348,7 @@ func TestDelete_WaitTimesOut(t *testing.T) {
 			// Backup storage stays present (still referenced), so --wait times out.
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"metadata":{"name":"my-s3","namespace":"everest"},"spec":{"type":"s3"}}`))
+			_, _ = w.Write([]byte(testStoredBackupStorage))
 		},
 	)
 	defer srv.Close()
@@ -397,4 +403,128 @@ func TestDelete_IgnoreNotFound_AlreadyGone_JSONOutput(t *testing.T) {
 	require.NoError(t, runErr)
 	assert.False(t, deleteCalled)
 	assert.JSONEq(t, `{"name":"my-s3","namespace":"everest","deleted":false}`, out)
+}
+
+func TestDeleteCondition(t *testing.T) {
+	t.Parallel()
+
+	const fallback = "backup storage still exists — likely referenced by an Instance or Backup"
+	tests := []struct {
+		name        string
+		status      string
+		wantOutcome wait.Outcome
+		wantMsg     string
+	}{
+		{
+			name:        "no status yet",
+			wantOutcome: wait.Pending,
+			wantMsg:     fallback,
+		},
+		{
+			name: "waiting for referrers",
+			status: `{"conditions":[` +
+				`{"type":"Accepted","status":"True","reason":"Accepted","message":"","lastTransitionTime":"2026-10-31T00:00:00Z"},` +
+				`{"type":"Deleting","status":"True","reason":"WaitingForReferrers","message":"still referenced by Instance db1, Backup b1",` +
+				`"lastTransitionTime":"2026-10-31T00:00:00Z"}]}`,
+			wantOutcome: wait.Pending,
+			wantMsg:     "WaitingForReferrers: still referenced by Instance db1, Backup b1",
+		},
+		{
+			name: "Deleting condition no longer true",
+			status: `{"conditions":[{"type":"Deleting","status":"False","reason":"WaitingForReferrers","message":"",` +
+				`"lastTransitionTime":"2026-10-31T00:00:00Z"}]}`,
+			wantOutcome: wait.Pending,
+			wantMsg:     fallback,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			body := testStoredBackupStorage
+			if tt.status != "" {
+				body = body[:len(body)-1] + `,"status":` + tt.status + `}`
+			}
+
+			outcome, msg := deleteCondition(backupStorageFromJSON(t, body))
+
+			assert.Equal(t, tt.wantOutcome, outcome)
+			assert.Equal(t, tt.wantMsg, msg)
+		})
+	}
+
+	outcome, msg := deleteCondition(nil)
+	assert.Equal(t, wait.Succeeded, outcome)
+	assert.Equal(t, "backup storage deleted", msg)
+}
+
+//nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
+func TestDelete_ClientDryRun_SendsNothingAndDoesNotPrompt(t *testing.T) {
+	deleteHandler := func(w http.ResponseWriter, _ *http.Request) {
+		assert.Fail(t, "a client dry run must not send the delete")
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+	srv := newDeleteServer(t, deleteHandler, nil)
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	opts := DeleteOptions{
+		Name:       "my-s3",
+		Namespace:  "everest",
+		Cluster:    "main",
+		IsTerminal: isTerminalFalse,
+		DryRun:     cli.DryRunClient,
+	}
+
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = NewDeleter(Config{}, zap.NewNop().Sugar()).Run(context.Background(), opts, cfgPath)
+	})
+	require.NoError(t, runErr)
+	assert.JSONEq(t, `{"name":"my-s3","namespace":"everest","deleted":false}`, out)
+}
+
+// TestDelete_ServerDryRun_SendsDryRunAllWithoutPrompting runs without --yes
+// and without a terminal, which fails a real delete before it is sent.
+func TestDelete_ServerDryRun_SendsDryRunAllWithoutPrompting(t *testing.T) {
+	t.Parallel()
+
+	var called atomic.Bool
+	deleteHandler := func(w http.ResponseWriter, r *http.Request) {
+		called.Store(true)
+		assert.Equal(t, "All", r.URL.Query().Get("dryRun"))
+		w.WriteHeader(http.StatusNoContent)
+	}
+	srv := newDeleteServer(t, deleteHandler, nil)
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	opts := DeleteOptions{
+		Name:       "my-s3",
+		Namespace:  "everest",
+		Cluster:    "main",
+		IsTerminal: isTerminalFalse,
+		DryRun:     cli.DryRunServer,
+	}
+
+	err := NewDeleter(Config{}, zap.NewNop().Sugar()).Run(context.Background(), opts, cfgPath)
+	require.NoError(t, err)
+	assert.True(t, called.Load())
+}
+
+func TestDelete_DryRunWithWaitRejected(t *testing.T) {
+	t.Parallel()
+
+	opts := yesOpts()
+	opts.DryRun = cli.DryRunServer
+	opts.Wait = true
+
+	err := NewDeleter(Config{}, zap.NewNop().Sugar()).Run(context.Background(), opts, filepath.Join(t.TempDir(), "config.yaml"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--wait")
 }

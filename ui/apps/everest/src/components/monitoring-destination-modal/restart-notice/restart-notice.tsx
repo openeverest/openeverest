@@ -14,6 +14,7 @@
 
 import { Alert } from '@mui/material';
 import { useFormState } from 'react-hook-form';
+import { AuthenticationFormFields } from 'components/class-authentication';
 import {
   MonitoringClass,
   MonitoringDestination,
@@ -42,9 +43,9 @@ export const RestartNotice = ({
     name: [
       DestinationFormFields.spec,
       DestinationFormFields.fallbackParameters,
-      DestinationFormFields.authMode,
-      DestinationFormFields.existingSecretName,
-      DestinationFormFields.credentials,
+      AuthenticationFormFields.authMode,
+      AuthenticationFormFields.existingSecretName,
+      AuthenticationFormFields.credentials,
     ],
   });
   const readableInstances = useDestinationInstances(

@@ -62,9 +62,9 @@ func providerManagedBackupClass(name string) *backupv1alpha1.BackupClass {
 	return &backupv1alpha1.BackupClass{
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 		Spec: backupv1alpha1.BackupClassSpec{
-			ExecutionMode:      backupv1alpha1.BackupExecutionModeProviderManaged,
-			SupportedProviders: backupv1alpha1.ProviderNameList{testImportProvider},
-			SupportsImport:     true,
+			ExecutionMode:   backupv1alpha1.BackupExecutionModeProviderManaged,
+			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{ProviderRef: common.ObjectRef{Name: testImportProvider}},
+			SupportsImport:  true,
 		},
 	}
 }
@@ -105,6 +105,13 @@ func testStorage() *backupv1alpha1.BackupStorage {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: testImportNamespace,
 			Name:      "storage-1",
+		},
+		Status: backupv1alpha1.BackupStorageStatus{
+			Conditions: []metav1.Condition{{
+				Type:   backupv1alpha1.BackupStorageConditionAccepted,
+				Status: metav1.ConditionTrue,
+				Reason: backupv1alpha1.ReasonAccepted,
+			}},
 		},
 	}
 }

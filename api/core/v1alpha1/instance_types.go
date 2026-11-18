@@ -97,7 +97,7 @@ type InstanceSpec struct {
 	//
 	// Only ProviderManaged BackupClasses are supported. The referenced Backup
 	// must be in the same namespace, in Succeeded state, and its BackupClass
-	// must list the Instance's provider in SupportedProviders. Instance must
+	// must be executed by the Instance's provider. Instance must
 	// also have backup enabled and include a storage entry that matches the
 	// storage used by the source Backup so the provider can access the data.
 	// +optional
@@ -257,8 +257,8 @@ type InstanceBackupSpec struct {
 	Enabled bool `json:"enabled"`
 	// ClassRef references the cluster-scoped BackupClass that the provider
 	// should use to configure the engine. The class must have
-	// ExecutionMode=ProviderManaged and list the Instance's provider in its
-	// SupportedProviders.
+	// ExecutionMode=ProviderManaged and name the Instance's provider in
+	// providerManaged.providerRef.
 	// +kubebuilder:validation:Required
 	ClassRef common.ObjectRef `json:"classRef"`
 	// Storages registers BackupStorages on the engine. Each entry references
@@ -627,6 +627,18 @@ type InstanceBackupStorageStatus struct {
 	// spec.backup.storages[].storageRef.name).
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
+	// Location is the path in the storage's bucket under which the engine
+	// writes this Instance's backups.
+	// +optional
+	Location string `json:"location,omitempty"`
+	// Reason is why the entry is not configured on the engine as specified,
+	// empty when it is. An entry the engine already had keeps its last
+	// configuration meanwhile.
+	// +optional
+	Reason string `json:"reason,omitempty"`
+	// Message explains Reason.
+	// +optional
+	Message string `json:"message,omitempty"`
 	// PITR reports the point-in-time recovery window observed on this storage.
 	// Only populated when PITR is enabled for the storage.
 	// +optional
@@ -922,17 +934,59 @@ const (
 	ReasonBackupClassNotFound = "BackupClassNotFound"
 
 	// ReasonBackupClassIncompatible indicates the BackupClass named by
-	// spec.backup.classRef is not ProviderManaged or does not list the
-	// Instance's provider in spec.supportedProviders.
+	// spec.backup.classRef is Incompatible with the Instance's provider in
+	// its status.providers, or has no entry for it there.
 	ReasonBackupClassIncompatible = "BackupClassIncompatible"
+
+	// ReasonBackupClassPending indicates the compatibility of the BackupClass
+	// named by spec.backup.classRef with the Instance's provider is not
+	// published for the class's current generation yet, or is Pending, as
+	// while the provider has not claimed the class. The Instance is held
+	// until it is Compatible.
+	ReasonBackupClassPending = "BackupClassPending"
 
 	// ReasonBackupStorageNotFound indicates a BackupStorage named in
 	// spec.backup.storages does not exist in the Instance's namespace.
 	ReasonBackupStorageNotFound = "BackupStorageNotFound"
 
-	// ReasonBackupStorageCredentialsNotFound indicates the credentials
-	// Secret of a BackupStorage named in spec.backup.storages does not exist.
-	ReasonBackupStorageCredentialsNotFound = "BackupStorageCredentialsNotFound"
+	// ReasonBackupStorageNotAccepted indicates a BackupStorage named in
+	// spec.backup.storages is not Accepted by its BackupStorageClass.
+	ReasonBackupStorageNotAccepted = "BackupStorageNotAccepted"
+
+	// ReasonBackupStorageIncompatible indicates the Instance's BackupClass
+	// cannot write to a BackupStorage named in spec.backup.storages: the
+	// storage's verdict for the class in status.backupClasses is
+	// Incompatible.
+	ReasonBackupStorageIncompatible = "BackupStorageIncompatible"
+
+	// ReasonBackupStorageVerdictPending indicates the verdict of a
+	// BackupStorage named in spec.backup.storages for the Instance's
+	// BackupClass is Pending, or predates a change of the storage, the class
+	// or its BackupStorageClass. The entry is held until core publishes a
+	// current verdict.
+	ReasonBackupStorageVerdictPending = "BackupStorageVerdictPending"
+
+	// ReasonBackupStorageLocationChanged indicates the path a storage entry
+	// renders to differs from the one recorded in status.backup.storages,
+	// for example because the BackupStorage was recreated elsewhere.
+	ReasonBackupStorageLocationChanged = "BackupStorageLocationChanged"
+
+	// ReasonUnsupportedParameter indicates a BackupStorage sets a parameter
+	// the provider does not know or cannot honour.
+	ReasonUnsupportedParameter = "UnsupportedParameter"
+
+	// ReasonImplementationUnsupported indicates the engine does not support
+	// the implementation a BackupStorage names.
+	ReasonImplementationUnsupported = "ImplementationUnsupported"
+
+	// ReasonTLSOptionUnsupported indicates the engine cannot honour the TLS
+	// settings of a BackupStorage.
+	ReasonTLSOptionUnsupported = "TLSOptionUnsupported"
+
+	// ReasonBackupStoragesUnusable indicates more than one entry of
+	// spec.backup.storages is not configured; status.backup.storages names
+	// each entry's reason.
+	ReasonBackupStoragesUnusable = "BackupStoragesUnusable"
 )
 
 // Reasons for the MonitoringConfigured condition.
@@ -1006,9 +1060,14 @@ const (
 	ReasonDataSourceStorageMismatch = "StorageMismatch"
 
 	// ReasonDataSourceClassUnsupported indicates the source Backup's
-	// BackupClass either does not exist, is not ProviderManaged, or does not
-	// list the target Instance's provider in SupportedProviders.
+	// BackupClass either does not exist or is Incompatible with the target
+	// Instance's provider in its status.providers.
 	ReasonDataSourceClassUnsupported = "BackupClassUnsupported"
+
+	// ReasonDataSourceClassPending indicates the compatibility of the source
+	// Backup's BackupClass with the target Instance's provider is not
+	// published for the class's current generation yet, or is Pending.
+	ReasonDataSourceClassPending = "BackupClassPending"
 
 	// ReasonDataSourceUserSecretMismatch indicates the restore failed terminally
 	// because the credentials in the Secret named by spec.userSecretRef differ

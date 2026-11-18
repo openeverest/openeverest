@@ -33,6 +33,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/golang-jwt/jwt/v5"
 	echojwt "github.com/labstack/echo-jwt/v4"
@@ -301,15 +302,7 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	apiGroup := e.echo.Group(basePath)
 
 	// Use our validation middleware to check all requests against the OpenAPI schema.
-	apiGroup.Use(middleware.OapiRequestValidatorWithOptions(swagger, &middleware.Options{
-		SilenceServersWarning: true,
-		ErrorHandler:          validationErrorHandler,
-		// This field is required if a security scheme is specified.
-		// However, the actual authentication is handled by the JWT middleware, so we can use a noop function here.
-		Options: openapi3filter.Options{
-			AuthenticationFunc: openapi3filter.NoopAuthenticationFunc,
-		},
-	}))
+	apiGroup.Use(requestValidator(swagger))
 
 	// Setup and use JWT middleware.
 	jwtMW, err := e.jwtMiddleWare()
@@ -572,6 +565,20 @@ func (e *EverestServer) getBodyFromContext(ctx echo.Context, into any) error {
 func newGrantRateLimiter(limit int) *RateLimiterMemoryStore {
 	return NewRateLimiterMemoryStoreWithConfig(RateLimiterMemoryStoreConfig{
 		Rate: rate.Limit(limit),
+	})
+}
+
+// requestValidator checks requests against the OpenAPI schema. It also sets the
+// schema defaults of omitted parameters on the request.
+func requestValidator(swagger *openapi3.T) echo.MiddlewareFunc {
+	return middleware.OapiRequestValidatorWithOptions(swagger, &middleware.Options{
+		SilenceServersWarning: true,
+		ErrorHandler:          validationErrorHandler,
+		// This field is required if a security scheme is specified.
+		// However, the actual authentication is handled by the JWT middleware, so we can use a noop function here.
+		Options: openapi3filter.Options{
+			AuthenticationFunc: openapi3filter.NoopAuthenticationFunc,
+		},
 	})
 }
 

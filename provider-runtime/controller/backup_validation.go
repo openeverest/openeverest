@@ -93,8 +93,8 @@ const (
 	ErrBackupNotSucceeded referenceError = "backup not succeeded"
 
 	// ErrProviderUnsupported is the sentinel returned by
-	// ValidateClassSupportsProvider when a BackupClass does not list a provider
-	// in its SupportedProviders.
+	// ValidateClassSupportsProvider when core's published verdict on a
+	// BackupClass for a provider is Incompatible.
 	ErrProviderUnsupported referenceError = "provider not supported by backup class"
 
 	// ErrRestorePITRUnsupported is the sentinel returned by ValidateRestorePITR
@@ -116,6 +116,16 @@ const (
 	// ValidateInstanceNotSuspended when a Backup or Restore targets an
 	// Instance whose spec.suspend asks for it to be suspended.
 	ErrInstanceSuspended referenceError = "instance is suspended"
+
+	// ErrBackupClassIncompatible is a sentinel callers may wrap when the
+	// verdict core publishes on a BackupClass for the Provider that would
+	// execute an operation is Incompatible.
+	ErrBackupClassIncompatible referenceError = "backup class incompatible"
+
+	// ErrBackupStorageIncompatible is a sentinel callers may wrap when the
+	// verdict core publishes on a BackupStorage for the BackupClass that
+	// would read or write it is Incompatible.
+	ErrBackupStorageIncompatible referenceError = "backup storage incompatible"
 )
 
 // ValidateInstanceNotSuspended returns ErrInstanceSuspended when in is
@@ -204,12 +214,18 @@ func ValidateBackupSucceeded(backup *backupv1alpha1.Backup) error {
 	return nil
 }
 
-// ValidateClassSupportsProvider returns ErrProviderUnsupported unless bc
-// lists provider in its SupportedProviders. Callers are responsible for
-// fetching the BackupClass themselves.
+// ValidateClassSupportsProvider returns ErrProviderUnsupported when the
+// verdict core publishes on bc for provider (bc's status.providers, read
+// through CurrentProviderVerdict) is Incompatible. A Pending verdict passes:
+// the class may still become compatible on its own, and the provider holds
+// the operation until it does. The class's execution mode is not consulted,
+// so a mode this build does not know passes on a Compatible verdict. Callers
+// are responsible for fetching the BackupClass themselves.
 func ValidateClassSupportsProvider(bc *backupv1alpha1.BackupClass, provider string) error {
-	if !bc.Spec.SupportedProviders.Has(provider) {
-		return fmt.Errorf("%w: class '%s', provider '%s'", ErrProviderUnsupported, bc.GetName(), provider)
+	if v := backupclass.ProviderVerdict(bc, provider); v.Compatibility == backupv1alpha1.CompatibilityIncompatible {
+		return fmt.Errorf("%w: class '%s', provider '%s': %s",
+			ErrProviderUnsupported, bc.GetName(), provider, backupclass.VerdictDetail(v),
+		)
 	}
 	return nil
 }

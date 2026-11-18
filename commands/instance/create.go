@@ -112,7 +112,7 @@ func init() {
 	createCmd.Flags().StringArrayVar(&createOpts.Set, cli.FlagInstanceSet, nil, "Set a spec field: --set components.engine.replicas=3 or --set backup.enabled=true (repeatable)")
 	createCmd.Flags().BoolVar(&createOpts.Wait, cli.FlagInstanceWait, false, "Block until the instance reaches the Ready phase; exit non-zero if it fails or times out")
 	createCmd.Flags().DurationVar(&createOpts.Timeout, cli.FlagInstanceTimeout, 10*time.Minute, "Maximum time to wait (only valid with --wait); must be positive")
-	createCmd.Flags().StringVar(&createOpts.DryRun, cli.FlagInstanceDryRun, instancecli.DryRunNone,
+	createCmd.Flags().StringVar(&createOpts.DryRun, cli.FlagInstanceDryRun, cli.DryRunNone,
 		`"client" prints the instance without sending it; "server" has the server validate it, without creating it`,
 	)
 

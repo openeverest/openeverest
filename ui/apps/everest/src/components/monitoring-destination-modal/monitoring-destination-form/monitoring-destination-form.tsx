@@ -14,19 +14,26 @@
 
 import { useMemo, useState } from 'react';
 import { isAxiosError } from 'axios';
-import { Alert, MenuItem } from '@mui/material';
-import { AutoCompleteInput, SelectInput, TextInput } from '@percona/ui-lib';
+import { Alert } from '@mui/material';
+import { AutoCompleteInput, TextInput } from '@percona/ui-lib';
+import {
+  getCredentialsSecretErrorMessage,
+  getSecretUseProblem,
+  useCanUseSecret,
+  useSecretNamespacePermissions,
+} from 'components/class-authentication';
+import { ClassPicker } from 'components/class-picker';
 import { FormDialog } from 'components/form-dialog';
+import { TlsConfigFields } from 'components/tls-config-fields';
+import { useSaveMonitoringDestination } from 'hooks/api/monitoring-destinations';
 import {
   SecretAlreadyExistsError,
   SecretChangedMeanwhileError,
-  useSaveMonitoringDestination,
-} from 'hooks/api/monitoring-destinations';
-import { useNamespacePermissionsForResource } from 'hooks/rbac';
+} from 'hooks/api/secrets';
 import {
   getMonitoringClassName,
-  getMonitoringClassTitle,
   isMonitoringClassAccepted,
+  toMonitoringClassContract,
 } from 'utils/monitoring-classes';
 import { ClassFields } from '../class-fields/class-fields';
 import { buildMonitoringDestinationSchema } from '../monitoring-destination-modal-schema';
@@ -39,9 +46,7 @@ import {
 import {
   buildSaveRequest,
   getFormDefaults,
-  getSecretErrorMessage,
 } from '../monitoring-destination-modal.utils';
-import { TlsFields } from '../tls-fields/tls-fields';
 import { RestartNotice } from '../restart-notice/restart-notice';
 
 export const MonitoringDestinationForm = ({
@@ -55,15 +60,13 @@ export const MonitoringDestinationForm = ({
 }: MonitoringDestinationFormProps) => {
   const isEdit = !!original;
   const { mutate, isPending } = useSaveMonitoringDestination();
-  const [secretError, setSecretError] = useState<
-    SecretAlreadyExistsError | SecretChangedMeanwhileError
-  >();
-  const { canCreate, canRead, canUpdate, isPermissionsLoading } =
-    useNamespacePermissionsForResource('secrets');
-  const secretPermissions = useMemo(
-    () => ({ canCreate, canRead, canUpdate }),
-    [canCreate, canRead, canUpdate]
-  );
+  // Why the last save was refused before or while writing the Secret.
+  const [saveProblem, setSaveProblem] = useState<string>();
+  const {
+    permissions: secretPermissions,
+    isPermissionsLoading: secretPermissionsLoading,
+  } = useSecretNamespacePermissions();
+  const canUseSecret = useCanUseSecret();
 
   const schema = useMemo(
     () =>
@@ -87,44 +90,58 @@ export const MonitoringDestinationForm = ({
   // The class of an existing destination can't change, accepted or not.
   const selectableClasses = useMemo(
     () =>
-      classes.filter((monitoringClass) =>
-        original
-          ? getMonitoringClassName(monitoringClass) ===
-            original.spec.classRef.name
-          : isMonitoringClassAccepted(monitoringClass)
-      ),
+      classes
+        .filter((monitoringClass) =>
+          original
+            ? getMonitoringClassName(monitoringClass) ===
+              original.spec.classRef.name
+            : isMonitoringClassAccepted(monitoringClass)
+        )
+        .map(toMonitoringClassContract),
     [classes, original]
   );
 
-  const save = (values: MonitoringDestinationFormValues) => {
-    setSecretError(undefined);
-    mutate(
-      buildSaveRequest({
-        values,
-        monitoringClass: classes.find(
-          (c) => getMonitoringClassName(c) === values.className
-        ),
-        original,
-        secretPermissions,
-      }),
-      {
-        onSuccess: onClose,
-        onError: (error) => {
-          if (
-            error instanceof SecretAlreadyExistsError ||
-            error instanceof SecretChangedMeanwhileError
-          ) {
-            setSecretError(error);
-          } else if (
-            isEdit &&
-            isAxiosError(error) &&
-            error.response?.status === 409
-          ) {
-            onChangedMeanwhile();
-          }
-        },
-      }
-    );
+  const save = async (values: MonitoringDestinationFormValues) => {
+    const request = buildSaveRequest({
+      values,
+      monitoringClass: classes.find(
+        (c) => getMonitoringClassName(c) === values.className
+      ),
+      original,
+      secretPermissions,
+    });
+    const useProblem = await getSecretUseProblem({
+      spec: request.destination.spec,
+      savedSpec: original?.spec,
+      namespace: values.namespace,
+      canUseSecret: (name) => canUseSecret(values.namespace, name),
+    });
+    setSaveProblem(useProblem);
+    if (useProblem) {
+      return;
+    }
+    mutate(request, {
+      onSuccess: onClose,
+      onError: (error) => {
+        if (
+          error instanceof SecretAlreadyExistsError ||
+          error instanceof SecretChangedMeanwhileError
+        ) {
+          setSaveProblem(
+            getCredentialsSecretErrorMessage(
+              error,
+              Messages.authenticationNouns
+            )
+          );
+        } else if (
+          isEdit &&
+          isAxiosError(error) &&
+          error.response?.status === 409
+        ) {
+          onChangedMeanwhile();
+        }
+      },
+    });
   };
 
   return (
@@ -167,31 +184,22 @@ export const MonitoringDestinationForm = ({
           disabled={isEdit}
           isRequired
         />
-        <SelectInput
+        <ClassPicker
           name={DestinationFormFields.className}
           label={Messages.monitoringClass}
-          selectFieldProps={{ disabled: isEdit }}
-          isRequired
-        >
-          {selectableClasses.map((monitoringClass) => (
-            <MenuItem
-              key={getMonitoringClassName(monitoringClass)}
-              value={getMonitoringClassName(monitoringClass)}
-            >
-              {getMonitoringClassTitle(monitoringClass)}
-            </MenuItem>
-          ))}
-        </SelectInput>
+          classes={selectableClasses}
+          disabled={isEdit}
+        />
         <ClassFields
           classes={classes}
           original={original}
           secretPermissions={secretPermissions}
-          secretPermissionsLoading={isPermissionsLoading}
+          secretPermissionsLoading={secretPermissionsLoading}
         />
-        <TlsFields />
-        {secretError && (
+        <TlsConfigFields />
+        {saveProblem && (
           <Alert severity="error" sx={{ mt: 3 }}>
-            {getSecretErrorMessage(secretError)}
+            {saveProblem}
           </Alert>
         )}
       </>

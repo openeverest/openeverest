@@ -30,6 +30,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 )
 
 // newUpdateServer serves the provider, the instance GET and the instance PATCH.
@@ -323,7 +325,7 @@ func TestUpdate_DryRunDoesNotWrite(t *testing.T) {
 	defer srv.Close()
 
 	opts := baseUpdateOpts()
-	opts.DryRun = DryRunClient
+	opts.DryRun = cli.DryRunClient
 	opts.Set = []string{"components.engine.replicas=5"}
 	require.NoError(t, runUpdate(t, srv, opts))
 }
@@ -340,7 +342,7 @@ func TestUpdate_ServerDryRunSendsDryRunAll(t *testing.T) {
 	defer srv.Close()
 
 	opts := baseUpdateOpts()
-	opts.DryRun = DryRunServer
+	opts.DryRun = cli.DryRunServer
 	opts.Set = []string{"components.engine.replicas=5"}
 	require.NoError(t, runUpdate(t, srv, opts))
 	assert.True(t, patched.Load())

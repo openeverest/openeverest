@@ -207,6 +207,7 @@ func render(
 		Build()
 
 	ctx := controller.NewContext(context.Background(), cl, instance, cfg.Provider.Name())
+	ctx.SetBackupPathStyle(controller.BackupPathStyleOf(cfg.Provider))
 	if err := cfg.Provider.Sync(ctx); err != nil {
 		return obs, fmt.Errorf("sync: %w", err)
 	}

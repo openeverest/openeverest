@@ -28,7 +28,7 @@ import (
 )
 
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
-// +kubebuilder:rbac:groups=core.openeverest.io,resources=instances,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core.openeverest.io,resources=instances;providers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=backup.openeverest.io,resources=backups;restores;backupimports;backupstorages,verbs=get;list;watch
 // +kubebuilder:rbac:groups=extensions.openeverest.io,resources=plugins;installedextensions,verbs=get;list;watch
 // +kubebuilder:rbac:groups=monitoring.openeverest.io,resources=monitoringdestinations,verbs=get;list;watch
@@ -41,16 +41,28 @@ func DefaultKinds() []Kind {
 			New:    func() client.Object { return &corev1alpha1.Instance{} },
 			Phase:  phaseOf(func(o *corev1alpha1.Instance) string { return string(o.Status.Phase) }),
 			Failed: is(string(corev1alpha1.InstancePhaseFailed)),
+			Owner: ownerOf(func(o *corev1alpha1.Instance) (string, string) {
+				return o.Name, o.Spec.ProviderRef.Name
+			}),
 		},
 		{
 			New:    func() client.Object { return &backupv1alpha1.Backup{} },
 			Phase:  phaseOf(func(o *backupv1alpha1.Backup) string { return string(o.Status.State) }),
 			Failed: is(string(backupv1alpha1.BackupStateFailed), string(backupv1alpha1.BackupStateError)),
+			Owner: ownerOf(func(o *backupv1alpha1.Backup) (string, string) {
+				if o.Spec.Origin.InstanceRef == nil {
+					return "", ""
+				}
+				return o.Spec.Origin.InstanceRef.Name, ""
+			}),
 		},
 		{
 			New:    func() client.Object { return &backupv1alpha1.Restore{} },
 			Phase:  phaseOf(func(o *backupv1alpha1.Restore) string { return string(o.Status.State) }),
 			Failed: is(string(backupv1alpha1.RestoreStateFailed), string(backupv1alpha1.RestoreStateError)),
+			Owner: ownerOf(func(o *backupv1alpha1.Restore) (string, string) {
+				return o.Spec.InstanceRef.Name, ""
+			}),
 		},
 		{
 			New:    func() client.Object { return &backupv1alpha1.BackupImport{} },
@@ -59,6 +71,7 @@ func DefaultKinds() []Kind {
 		},
 		{New: func() client.Object { return &backupv1alpha1.BackupStorage{} }},
 		{New: func() client.Object { return &monitoringv1alpha1.MonitoringDestination{} }},
+		{New: func() client.Object { return &corev1alpha1.Provider{} }},
 		{New: func() client.Object { return &extensionsv1alpha1.Plugin{} }},
 		{
 			New:    func() client.Object { return &extensionsv1alpha1.InstalledExtension{} },
@@ -80,6 +93,17 @@ func phaseOf[T client.Object](get func(T) string) func(client.Object) string {
 		obj, ok := o.(T)
 		if !ok {
 			return ""
+		}
+		return get(obj)
+	}
+}
+
+// ownerOf adapts a typed owner accessor to Kind.Owner.
+func ownerOf[T client.Object](get func(T) (string, string)) func(client.Object) (string, string) {
+	return func(o client.Object) (string, string) {
+		obj, ok := o.(T)
+		if !ok {
+			return "", ""
 		}
 		return get(obj)
 	}

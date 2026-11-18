@@ -48,8 +48,12 @@ export const useImportSource = (
   const storageName = storage?.metadata?.name ?? '';
 
   const { namespaces, isLoading: isNamespacesLoading } = useImportNamespaces();
+  // The namespace's storages: the storage input itself offers only those the
+  // backup class can use.
   const { data: storages = [], isLoading: isStoragesLoading } =
-    useBackupStoragesByNamespace(namespace, { enabled: !!namespace });
+    useBackupStoragesByNamespace(namespace, undefined, {
+      enabled: !!namespace,
+    });
   const { data: importClasses, isLoading: isClassesLoading } =
     useImportBackupClasses(clusterName);
   const { data: providers = [], isLoading: isProvidersLoading } =
@@ -127,6 +131,5 @@ export const useImportSource = (
     isClassesLoading,
     selectedClass,
     classProviders,
-    selectStorage,
   };
 };

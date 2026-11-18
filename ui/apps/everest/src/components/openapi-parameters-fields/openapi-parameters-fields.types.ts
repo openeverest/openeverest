@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { KeyValuePair } from '@percona/ui-lib';
+import { OpenApiConstraints } from 'components/ui-generator/utils/openapi-constraints';
 
 export enum OpenApiParameterKind {
   Text = 'text',
@@ -24,6 +25,8 @@ export interface OpenApiParameterField {
   kind: OpenApiParameterKind;
   required: boolean;
   description?: string;
+  // What the schema asks of a text value beyond being set.
+  constraints?: OpenApiConstraints;
 }
 
 export interface OpenApiParameterFields {
