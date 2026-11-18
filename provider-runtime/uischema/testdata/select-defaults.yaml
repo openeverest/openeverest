@@ -1,0 +1,238 @@
+# Shared contract for the defaults of selects that read their options from the Provider.
+# Go: provider-runtime/uischema (Validate, given `provider`) reports `issues`.
+# UI: preprocessSchema never pre-selects a default named in `issues` and warns
+#     about that field in dev builds; every other field gets no warning.
+cases:
+  - name: the option named by defaultValuePath is a valid default
+    provider:
+      spec:
+        versions: [{ name: "8.0" }, { name: "8.4" }]
+        defaultVersion: "8.4"
+    uiSchema:
+      single:
+        sections:
+          base:
+            components:
+              version:
+                uiType: select
+                path: spec.version
+                fieldParams:
+                  label: Version
+                  optionsPath: spec.versions
+                  optionsPathConfig: { labelPath: name, valuePath: name, defaultValuePath: spec.defaultVersion }
+    issues: []
+
+  - name: a schema defaultValue that is an option is valid, also next to defaultValuePath
+    provider:
+      spec:
+        versions: [{ name: "8.0" }, { name: "8.4" }]
+        defaultVersion: "8.4"
+    uiSchema:
+      single:
+        sections:
+          base:
+            components:
+              version:
+                uiType: select
+                path: spec.version
+                fieldParams:
+                  label: Version
+                  defaultValue: "8.0"
+                  optionsPath: spec.versions
+                  optionsPathConfig: { labelPath: name, valuePath: name, defaultValuePath: spec.defaultVersion }
+    issues: []
+
+  - name: a schema defaultValue that is not an option is reported
+    provider:
+      spec:
+        versions: [{ name: "8.0" }, { name: "8.4" }]
+    uiSchema:
+      single:
+        sections:
+          base:
+            components:
+              version:
+                uiType: select
+                path: spec.version
+                fieldParams:
+                  label: Version
+                  defaultValue: "7.0"
+                  optionsPath: spec.versions
+                  optionsPathConfig: { labelPath: name, valuePath: name }
+    issues:
+      - { rule: select-default-not-an-option, topology: single, field: base.version }
+
+  - name: an unquoted defaultValue is a number, so it equals no option
+    provider:
+      spec:
+        versions: [{ name: "8.0" }, { name: "8.4" }]
+    uiSchema:
+      single:
+        sections:
+          base:
+            components:
+              version:
+                uiType: select
+                path: spec.version
+                fieldParams:
+                  label: Version
+                  defaultValue: 8.4
+                  optionsPath: spec.versions
+                  optionsPathConfig: { labelPath: name, valuePath: name }
+    issues:
+      - { rule: select-default-not-an-option, topology: single, field: base.version }
+
+  - name: an empty defaultValue is an explicitly empty selection
+    provider:
+      spec:
+        versions: [{ name: "8.0" }, { name: "8.4" }]
+    uiSchema:
+      single:
+        sections:
+          base:
+            components:
+              version:
+                uiType: select
+                path: spec.version
+                fieldParams:
+                  label: Version
+                  defaultValue: ""
+                  optionsPath: spec.versions
+                  optionsPathConfig: { labelPath: name, valuePath: name }
+    issues: []
+
+  - name: a Provider default that is not in the list is reported
+    provider:
+      spec:
+        versions: [{ name: "8.0" }, { name: "8.4" }]
+        defaultVersion: "9.9"
+    uiSchema:
+      single:
+        sections:
+          base:
+            components:
+              version:
+                uiType: select
+                path: spec.version
+                fieldParams:
+                  label: Version
+                  optionsPath: spec.versions
+                  optionsPathConfig: { labelPath: name, valuePath: name, defaultValuePath: spec.defaultVersion }
+    issues:
+      - { rule: select-provider-default-not-an-option, topology: single, field: base.version }
+
+  - name: a valuePath pointing at another field than the default names can never match
+    provider:
+      spec:
+        versions:
+          - { name: "8.0", components: { engine: 8.0.1-1 } }
+          - { name: "8.4", components: { engine: 8.4.1-1 } }
+        defaultVersion: "8.4"
+    uiSchema:
+      single:
+        sections:
+          base:
+            components:
+              version:
+                uiType: select
+                path: spec.version
+                fieldParams:
+                  label: Version
+                  optionsPath: spec.versions
+                  optionsPathConfig: { labelPath: name, valuePath: components.engine, defaultValuePath: spec.defaultVersion }
+    issues:
+      - { rule: select-provider-default-not-an-option, topology: single, field: base.version }
+
+  - name: a Provider that declares no default is valid
+    provider:
+      spec:
+        versions: [{ name: "8.0" }, { name: "8.4" }]
+    uiSchema:
+      single:
+        sections:
+          base:
+            components:
+              version:
+                uiType: select
+                path: spec.version
+                fieldParams:
+                  label: Version
+                  optionsPath: spec.versions
+                  optionsPathConfig: { labelPath: name, valuePath: name, defaultValuePath: spec.defaultVersion }
+    issues: []
+
+  - name: both defaults of one select are reported
+    provider:
+      spec:
+        versions: [{ name: "8.0" }, { name: "8.4" }]
+        defaultVersion: "9.9"
+    uiSchema:
+      single:
+        sections:
+          base:
+            components:
+              version:
+                uiType: select
+                path: spec.version
+                fieldParams:
+                  label: Version
+                  defaultValue: "7.0"
+                  optionsPath: spec.versions
+                  optionsPathConfig: { labelPath: name, valuePath: name, defaultValuePath: spec.defaultVersion }
+    issues:
+      - { rule: select-default-not-an-option, topology: single, field: base.version }
+      - { rule: select-provider-default-not-an-option, topology: single, field: base.version }
+
+  - name: selects inside groups are checked in every topology
+    provider:
+      spec:
+        versions: [{ name: "8.0" }, { name: "8.4" }]
+        defaultVersion: "8.4"
+    uiSchema:
+      replicaSet:
+        sections:
+          base:
+            components:
+              engine:
+                uiType: group
+                components:
+                  version:
+                    uiType: select
+                    path: spec.version
+                    fieldParams:
+                      label: Version
+                      defaultValue: "7.0"
+                      optionsPath: spec.versions
+                      optionsPathConfig: { labelPath: name, valuePath: name, defaultValuePath: spec.defaultVersion }
+      sharded:
+        sections:
+          base:
+            components:
+              version:
+                uiType: select
+                path: spec.version
+                fieldParams:
+                  label: Version
+                  optionsPath: spec.versions
+                  optionsPathConfig: { labelPath: name, valuePath: name, defaultValuePath: spec.defaultVersion }
+    issues:
+      - { rule: select-default-not-an-option, topology: replicaSet, field: base.engine.version }
+
+  - name: an optionsPath that resolves to no options is not checked
+    provider:
+      spec:
+        defaultVersion: "8.4"
+    uiSchema:
+      single:
+        sections:
+          base:
+            components:
+              version:
+                uiType: select
+                path: spec.version
+                fieldParams:
+                  label: Version
+                  defaultValue: "7.0"
+                  optionsPath: spec.versions
+                  optionsPathConfig: { labelPath: name, valuePath: name, defaultValuePath: spec.defaultVersion }
+    issues: []

@@ -15,9 +15,10 @@
 // Package uischema checks provider UI schemas (the `uiSchema` rendered by the
 // UI generator) against the rules documented in docs/ui/ui-generator.
 //
-// The UI applies the same rules at runtime (ui-generator utils/toggleable);
-// testdata/*.yaml is the shared contract both implementations are tested
-// against (see toggleable-shared-cases.test.ts in the UI), so keep them in sync.
+// The UI applies the same rules at runtime (ui-generator utils/toggleable and
+// utils/preprocess); testdata/*.yaml is the shared contract both
+// implementations are tested against (see the *-shared-cases.test.ts files in
+// the UI), so keep them in sync.
 package uischema
 
 import (
@@ -40,6 +41,9 @@ const (
 	RuleToggleableNested       Rule = "toggleable-nested"
 	RuleToggleableOverlap      Rule = "toggleable-overlap"
 	RuleToggleableCELUnguarded Rule = "toggleable-cel-unguarded"
+
+	RuleSelectDefaultNotAnOption         Rule = "select-default-not-an-option"
+	RuleSelectProviderDefaultNotAnOption Rule = "select-provider-default-not-an-option"
 )
 
 // Issue is a single problem found in a UI schema.
@@ -47,10 +51,11 @@ type Issue struct {
 	Rule     Rule
 	Topology string
 	// Group is the dotted key path of the toggleable group: section key followed
-	// by group keys, e.g. "advanced.monitoring".
+	// by group keys, e.g. "advanced.monitoring". Empty for the select rules.
 	Group string
-	// Field is the dotted key path of the field whose CEL rule reads the group;
-	// empty for rules about the group itself.
+	// Field is the dotted key path of the field the issue is about: the field
+	// whose CEL rule reads the group, or the select with the wrong default.
+	// Empty for rules about the group itself.
 	Field   string
 	Message string
 }
@@ -67,6 +72,10 @@ type Input struct {
 	// UISchema maps topology name to topology
 	// (`{sections: {<key>: {components: ...}}}`), as stored in Provider.spec.uiSchema.
 	UISchema map[string]any
+	// Provider is the Provider object the schema belongs to (`{spec: {...}}`),
+	// which `optionsPath` selects read their options from. The select rules are
+	// skipped when it is unset.
+	Provider map[string]any
 }
 
 // Validate checks a provider UI schema. Returned Issues are sorted by topology,
@@ -90,6 +99,9 @@ func Validate(in Input) []Issue {
 			continue
 		}
 		issues = append(issues, validateToggleables(topology, sections)...)
+		if in.Provider != nil {
+			issues = append(issues, validateSelectDefaults(topology, sections, in.Provider)...)
+		}
 	}
 	slices.SortStableFunc(issues, func(a, b Issue) int {
 		return cmp.Or(
