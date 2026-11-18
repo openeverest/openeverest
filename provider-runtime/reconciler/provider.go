@@ -111,6 +111,7 @@ type reconcilerOptions struct {
 	serverConfig       *server.ServerConfig
 	metricsBindAddress string
 	admissionCertDir   string // set by WithAdmission
+	leaderElection     bool
 }
 
 // WithServer enables the integrated HTTP server, which serves the health and
@@ -147,6 +148,16 @@ func WithServer(config server.ServerConfig) ReconcilerOption {
 func WithMetrics(bindAddress string) ReconcilerOption {
 	return func(o *reconcilerOptions) {
 		o.metricsBindAddress = bindAddress
+	}
+}
+
+// WithLeaderElection enables leader election for provider controllers.
+//
+// Health endpoints and admission webhooks still run on every replica. Only
+// reconciliation controllers are restricted to the elected leader.
+func WithLeaderElection() ReconcilerOption {
+	return func(o *reconcilerOptions) {
+		o.leaderElection = true
 	}
 }
 
@@ -194,6 +205,7 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 
 	// Configure manager options
 	mgrOpts := ctrl.Options{Scheme: scheme}
+	configureLeaderElection(&mgrOpts, p.Name(), options.leaderElection)
 	if options.metricsBindAddress != "" {
 		mgrOpts.Metrics = metricsserver.Options{
 			BindAddress: options.metricsBindAddress,
@@ -317,6 +329,16 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 	}
 
 	return r, nil
+}
+
+func configureLeaderElection(opts *ctrl.Options, providerName string, enabled bool) {
+	if !enabled {
+		return
+	}
+	opts.LeaderElection = true
+	opts.LeaderElectionID = providerName + ".provider.openeverest.io"
+	// Hand leadership to another replica promptly during rolling updates.
+	opts.LeaderElectionReleaseOnCancel = true
 }
 
 // GetManager returns the controller manager.
