@@ -18,6 +18,7 @@ package instance
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -149,9 +150,14 @@ func createRun(cmd *cobra.Command, _ []string) {
 	runErr := ic.Run(ctx, *createOpts, cfgPath)
 	// Release the signal handler before os.Exit (which skips defers).
 	stop()
+	timeoutMsg := fmt.Sprintf("timed out after %s waiting for instance %q to become ready", createOpts.Timeout, createOpts.Name)
+	if timedOut, ok := errors.AsType[*instancecli.TimeoutError](runErr); ok {
+		// It says what the instance's status read when the wait ended.
+		timeoutMsg = timedOut.Error()
+	}
 	os.Exit(waitcmd.ExitCode(runErr, logger.GetLogger(), createCfg.Pretty,
 		fmt.Sprintf("wait cancelled; instance %q is still provisioning — check with 'everestctl instance status'", createOpts.Name),
-		fmt.Sprintf("timed out after %s waiting for instance %q to become ready; it is still provisioning", createOpts.Timeout, createOpts.Name),
+		timeoutMsg,
 	))
 }
 

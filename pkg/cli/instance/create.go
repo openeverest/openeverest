@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -308,17 +309,22 @@ func (ic *InstanceCreator) waitForInstance(
 		}
 	}
 
-	if err := wait.Until(ctx, poll, instanceCondition, wait.Options{
+	err := wait.Until(ctx, poll, instanceCondition, wait.Options{
 		Timeout:  opts.Timeout,
 		OnUpdate: onUpdate,
 		OnRetry:  func(err error) { ic.l.Warnf("%v — retrying", err) },
-	}); err != nil {
-		return err
-	}
-
+	})
 	final := latest
 	if final == nil {
 		final = created
+	}
+	if errors.Is(err, wait.ErrTimeout) {
+		// The wait is over, the Instance's provisioning is not: say where
+		// it stands.
+		return timedOut(final, opts.Name, opts.Timeout)
+	}
+	if err != nil {
+		return err
 	}
 
 	if ic.config.Pretty {

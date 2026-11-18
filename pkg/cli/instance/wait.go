@@ -48,6 +48,37 @@ func instanceCondition(inst *client.Instance) (wait.Outcome, string) {
 	return wait.Pending, progressMessage(inst, shown)
 }
 
+// TimeoutError is what waiting for an Instance returns once the timeout
+// elapses. It says how the Instance's status read when it was last fetched,
+// and it is a wait.ErrTimeout.
+type TimeoutError struct {
+	// Name is the Instance's name.
+	Name string
+	// Timeout is how long the wait lasted.
+	Timeout time.Duration
+	// Status is the status word as a person reads it: "Creating",
+	// "Provider not responding".
+	Status string
+	// Message is the sentence about the status word, if there is one.
+	Message string
+}
+
+func (e *TimeoutError) Error() string {
+	msg := fmt.Sprintf("timed out after %s waiting for instance %q to become ready; its status is %q", e.Timeout, e.Name, e.Status)
+	if detail := strings.TrimSpace(e.Message); detail != "" {
+		msg += ": " + detail
+	}
+	return msg
+}
+
+func (e *TimeoutError) Unwrap() error { return wait.ErrTimeout }
+
+// timedOut describes the Instance as last seen for a wait that timed out.
+func timedOut(inst *client.Instance, name string, timeout time.Duration) *TimeoutError {
+	shown := instancestatus.Describe(statusInput(inst), time.Now())
+	return &TimeoutError{Name: name, Timeout: timeout, Status: shown.Label, Message: shown.Message}
+}
+
 // statusInput adapts the API client's Instance to the shared reading of an
 // Instance's status.
 func statusInput(inst *client.Instance) instancestatus.Input {

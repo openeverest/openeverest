@@ -18,6 +18,7 @@ package instance
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -120,6 +121,13 @@ func stoppedStatus() string {
 	)
 }
 
+// unattendedStatus is the status of a new Instance nobody has reported on,
+// with core's condition saying so.
+func unattendedStatus(status, reason, message string) string {
+	return fmt.Sprintf(`{"observedGeneration":-1,"phase":"Pending","conditions":[%s]}`,
+		conditionJSON("Unattended", status, reason, message))
+}
+
 // instanceJSON is an Instance at the given generation with the given status.
 func instanceJSON(generation int, status string) string {
 	return fmt.Sprintf(`{"metadata":{"name":"my-db","generation":%d},"status":%s}`, generation, status)
@@ -181,6 +189,18 @@ func TestInstanceCondition(t *testing.T) {
 			body:        instanceJSON(1, missingSecretStatus()),
 			wantOutcome: wait.Pending,
 			wantMsg:     "Secret not found",
+		},
+		{
+			name:        "a Provider that is not installed keeps waiting: it may be installed",
+			body:        instanceJSON(1, unattendedStatus("True", "ProviderNotFound", `Provider "psmdb" is not installed.`)),
+			wantOutcome: wait.Pending,
+			wantMsg:     "Provider not found",
+		},
+		{
+			name:        "a Provider that does not respond keeps waiting: it may come back",
+			body:        instanceJSON(1, unattendedStatus("Unknown", "NotResponding", `Provider "psmdb" has not picked this Instance up.`)),
+			wantOutcome: wait.Pending,
+			wantMsg:     "Provider not responding",
 		},
 		{
 			name:        "stopped on purpose has converged",
@@ -339,7 +359,29 @@ func TestRunWait(t *testing.T) {
 			getStatus:   http.StatusOK,
 			getStatuses: []string{creatingStatus()},
 			timeout:     40 * time.Millisecond,
-			wantErr:     func(t *testing.T, err error) { t.Helper(); require.ErrorIs(t, err, wait.ErrTimeout) },
+			wantErr: func(t *testing.T, err error) {
+				t.Helper()
+				require.ErrorIs(t, err, wait.ErrTimeout)
+				assert.EqualError(t, err, `timed out after 40ms waiting for instance "my-db" to become ready; `+
+					`its status is "Creating": Waiting for the replica set to initialise`)
+			},
+		},
+		{
+			name:      "a timeout says what the status read last",
+			getStatus: http.StatusOK,
+			getStatuses: []string{unattendedStatus("Unknown", "NotResponding",
+				`Provider "psmdb" has not picked this Instance up for 5 minutes; check that it is running.`)},
+			timeout: 40 * time.Millisecond,
+			wantErr: func(t *testing.T, err error) {
+				t.Helper()
+				require.ErrorIs(t, err, wait.ErrTimeout)
+				timedOut, ok := errors.AsType[*TimeoutError](err)
+				require.True(t, ok)
+				assert.Equal(t, "Provider not responding", timedOut.Status)
+				assert.EqualError(t, err, `timed out after 40ms waiting for instance "my-db" to become ready; `+
+					`its status is "Provider not responding": `+
+					`Provider "psmdb" has not picked this Instance up for 5 minutes; check that it is running.`)
+			},
 		},
 	}
 
