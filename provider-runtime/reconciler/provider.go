@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -528,7 +529,26 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	// Every way out from here goes through finish, which writes the status.
 	p := r.begin(in)
 
-	return r.finish(ctx, p, r.reconcileInstance(ctx, p, inCtx))
+	return r.finish(ctx, p, recovered(ctx, func() error { return r.reconcileInstance(ctx, p, inCtx) }))
+}
+
+// recovered runs step, a part of a pass that calls the provider, and turns a
+// panic in it into an error. The pass then ends through finish like a call
+// that failed, so the status says that the provider fails, where
+// controller-runtime's own recovery would only log the panic.
+func recovered(ctx context.Context, step func() error) (err error) {
+	defer func() {
+		if v := recover(); v != nil {
+			if cause, ok := v.(error); ok {
+				err = fmt.Errorf("panic: %w", cause)
+			} else {
+				err = fmt.Errorf("panic: %v", v)
+			}
+			log.FromContext(ctx).Error(err, "Recovered from a panic", "stack", string(debug.Stack()))
+		}
+	}()
+
+	return step()
 }
 
 // reconcileInstance runs one pass over an Instance that is not being
@@ -677,7 +697,9 @@ func (r *ProviderReconciler) sync(ctx context.Context, p *pass, syncCtx *control
 	r.setDeprecationCondition(ctx, in)
 
 	log.FromContext(ctx).Info("Running sync")
-	err := r.provider.Sync(syncCtx)
+	// A panic in Sync is a failed Sync: it counts towards the maintenance
+	// breaker like any other.
+	err := recovered(ctx, func() error { return r.provider.Sync(syncCtx) })
 	// What Sync found out about the seeding of a new Instance stands,
 	// however Sync returned.
 	p.flushDataSource(syncCtx)
@@ -902,7 +924,12 @@ func (r *ProviderReconciler) handleDeletion(
 	}
 
 	logger.Info("Running cleanup")
-	done, err := r.cleanup(ctx, p, inCtx, logger)
+	var done bool
+	err := recovered(ctx, func() error {
+		var err error
+		done, err = r.cleanup(ctx, p, inCtx, logger)
+		return err
+	})
 	if !done {
 		return r.finish(ctx, p, err)
 	}
