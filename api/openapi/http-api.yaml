@@ -991,7 +991,6 @@ paths:
             format: int64
             minimum: 1
             maximum: 1000
-            default: 100
         - name: continue
           in: query
           description: Opaque token from the previous page. Only used when listing.

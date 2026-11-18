@@ -169,3 +169,38 @@ func TestStreamEvents(t *testing.T) {
 	assert.Equal(t, "id: 45\nevent: bookmark\ndata: {}", frames[2])
 	assert.True(t, strings.HasPrefix(frames[3], "event: error\ndata: {\"code\":410,"), frames[3])
 }
+
+func TestListEventsRequestValidation(t *testing.T) {
+	t.Parallel()
+
+	swagger, err := api.GetSpec()
+	require.NoError(t, err)
+	e := echo.New()
+	g := e.Group("/v1")
+	g.Use(requestValidator(swagger))
+	g.GET("/clusters/:cluster/events", func(c echo.Context) error {
+		return c.String(http.StatusOK, c.QueryParam("limit"))
+	})
+
+	for name, tc := range map[string]struct {
+		query, limit string
+		code         int
+	}{
+		// The handler rejects limit with watch, so the validator must not default it.
+		"watch":              {query: "watch=true&since=42", code: http.StatusOK},
+		"list":               {query: "", code: http.StatusOK},
+		"list with a limit":  {query: "limit=5", limit: "5", code: http.StatusOK},
+		"limit out of range": {query: "limit=1001", code: http.StatusBadRequest},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/v1/clusters/main/events?"+tc.query, nil)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			require.Equal(t, tc.code, rec.Code, rec.Body.String())
+			if tc.code == http.StatusOK {
+				assert.Equal(t, tc.limit, rec.Body.String())
+			}
+		})
+	}
+}
