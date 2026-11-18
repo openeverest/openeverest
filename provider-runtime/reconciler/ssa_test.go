@@ -413,6 +413,14 @@ func TestRuntimeConditionCoversEverySetCondition(t *testing.T) {
 	}
 }
 
+// TestRuntimeConditionLeavesCoreConditions fails when the runtime would
+// apply a condition core writes: forcing ownership, it would take the
+// condition over from core, and then remove it.
+func TestRuntimeConditionLeavesCoreConditions(t *testing.T) {
+	t.Parallel()
+	assert.False(t, runtimeCondition(v1alpha1.ConditionUnattended))
+}
+
 // conditionTypeArg returns the condition type argument of a call that sets
 // an Instance condition: setCondition(in, type, ...), p.check(type, ...),
 // and the summary's o.condition(type, ...). It returns nil for any other

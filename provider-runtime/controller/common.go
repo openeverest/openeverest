@@ -1074,6 +1074,10 @@ const IndexRestoreInstanceName = "spec.instanceRef.name"
 // manages an Instance. Set automatically by the provider reconciler.
 const ProviderLabel = "core.openeverest.io/provider"
 
+// ProviderFinalizer is the finalizer the provider reconciler adds to an
+// Instance when it picks the Instance up, and removes once cleanup is done.
+const ProviderFinalizer = "everest.percona.com/provider-finalizer"
+
 // InstanceLabel and ComponentLabel identify the Instance and component a pod
 // belongs to. See Context.PodLabels.
 const (

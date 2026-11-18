@@ -58,7 +58,7 @@ import (
 	"github.com/openeverest/openeverest/v2/provider-runtime/validation"
 )
 
-const finalizerName = "everest.percona.com/provider-finalizer"
+const finalizerName = controller.ProviderFinalizer
 
 // conflictRequeue gives the cache time to catch up with the write that won
 // the optimistic lock.
