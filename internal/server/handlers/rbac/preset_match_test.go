@@ -41,7 +41,7 @@ func TestSpecDifferences(t *testing.T) {
 			Components: map[string]corev1alpha1.ComponentSpec{
 				"engine": {
 					Replicas:   new(int32(3)),
-					Parameters: &runtime.RawExtension{Raw: []byte(`{"maxConnections":100}`)},
+					Parameters: &runtime.RawExtension{Raw: []byte(`{"maxConnections":100,"logLevel":"info"}`)},
 					Resources: &corev1.ResourceRequirements{
 						Limits: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("1")},
 					},
@@ -92,6 +92,19 @@ func TestSpecDifferences(t *testing.T) {
 			desc: "parameters are named as a whole",
 			mutate: func(s *corev1alpha1.InstanceSpec) {
 				s.Components["engine"].Parameters.Raw = []byte(`{"maxConnections":900}`)
+			},
+			want: []string{"spec.components[engine].parameters"},
+		},
+		{
+			desc: "parameters that only differ in key order and spacing",
+			mutate: func(s *corev1alpha1.InstanceSpec) {
+				s.Components["engine"].Parameters.Raw = []byte("{\n  \"logLevel\": \"info\",\n  \"maxConnections\": 100\n}")
+			},
+		},
+		{
+			desc: "large integers in parameters are compared exactly",
+			mutate: func(s *corev1alpha1.InstanceSpec) {
+				s.Components["engine"].Parameters.Raw = []byte(`{"maxConnections":100,"logLevel":"info","bufferPoolSize":9007199254740993}`)
 			},
 			want: []string{"spec.components[engine].parameters"},
 		},

@@ -15,8 +15,11 @@
 package rbac
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"reflect"
 	"slices"
@@ -24,6 +27,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
@@ -101,8 +105,36 @@ func presetMismatch(instance *corev1alpha1.Instance, preset corev1alpha1.Instanc
 // from preset, in the order the fields are compared.
 func specDifferences(preset, spec corev1alpha1.InstanceSpec) []string {
 	r := &fieldPathReporter{}
-	cmp.Equal(preset, spec, cmp.Reporter(r))
+	cmp.Equal(preset, spec, cmp.Reporter(r), rawJSONEqual)
 	return r.paths
+}
+
+// rawJSONEqual compares parameters as JSON values rather than bytes: the
+// request body keeps the client's key order and spacing, so an exact copy of
+// a preset would otherwise be rejected.
+//
+//nolint:gochecknoglobals // immutable comparer
+var rawJSONEqual = cmp.Comparer(func(a, b runtime.RawExtension) bool {
+	if bytes.Equal(a.Raw, b.Raw) {
+		return true
+	}
+	x, errX := decodeJSONValue(a.Raw)
+	y, errY := decodeJSONValue(b.Raw)
+	return errX == nil && errY == nil && reflect.DeepEqual(x, y)
+})
+
+func decodeJSONValue(raw []byte) (any, error) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	// Numbers stay as written, so integers beyond float64 precision can't collide.
+	dec.UseNumber()
+	var v any
+	if err := dec.Decode(&v); err != nil {
+		return nil, err
+	}
+	if err := dec.Decode(new(any)); !errors.Is(err, io.EOF) {
+		return nil, errors.New("unexpected data after JSON value")
+	}
+	return v, nil
 }
 
 // fieldPathReporter records the JSON path of every value at which two
