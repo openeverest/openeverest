@@ -16,6 +16,7 @@
 package instance
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -28,6 +29,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 )
 
@@ -61,12 +63,67 @@ func newTestInstance(name, namespace, provider, phase, version string) testInsta
 	return inst
 }
 
+// The rows come from the fixtures shared with the other readers of an
+// Instance's status. STATUS says what is happening and AVAILABLE whether
+// clients can connect: a database can be up with a problem, or down while
+// nothing is wrong.
+func TestPrintInstanceTable_Fixtures(t *testing.T) {
+	t.Parallel()
+
+	names := []string{
+		"healthy",
+		"rolling-upgrade",
+		"in-place-restore",
+		"creating",
+		"change-availability-unknown",
+		"backup-storage-missing-stalled",
+		"crash-loop-all-replicas-stalled",
+		"reason-the-client-has-never-seen",
+		"never-reconciled-old",
+		"deleting",
+	}
+	instances := make([]client.Instance, 0, len(names))
+	var now time.Time
+	for _, name := range names {
+		fixture := displayFixtureNamed(t, name)
+		instances = append(instances, fixture.Instance)
+		now = fixture.Now
+	}
+	var out bytes.Buffer
+
+	printInstanceTable(&out, instances, now)
+
+	want := `NAME                              NAMESPACE  PROVIDER  VERSION  STATUS                     AVAILABLE  AGE
+healthy                           demo       -         -        Ready                      Yes        40d
+rolling-upgrade                   demo       -         -        Upgrading                  Yes        40d
+in-place-restore                  demo       -         -        Restoring                  No         40d
+creating                          demo       -         -        Creating                   No         40d
+change-availability-unknown       demo       -         -        Applying changes           -          40d
+backup-storage-missing-stalled    demo       -         -        Backup storage not found   Yes        40d
+crash-loop-all-replicas-stalled   demo       -         -        Crash loop                 No         40d
+reason-the-client-has-never-seen  demo       -         -        Rebalancing shards         Yes        40d
+never-reconciled-old              demo       -         -        Not picked up by provider  -          6m
+deleting                          demo       -         -        Deleting                   -          40d
+`
+	assert.Equal(t, want, trimLineEnds(out.String()))
+}
+
+// trimLineEnds drops the padding the table writer leaves after the last
+// column.
+func trimLineEnds(s string) string {
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimRight(line, " ")
+	}
+	return strings.Join(lines, "\n")
+}
+
 func TestInstanceList_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	items := []testInstance{
-		newTestInstance("my-mongo", "everest", "percona-server-mongodb", "Ready", "8.0.12"),
-		newTestInstance("my-postgres", "everest", "postgresql", "Initializing", "16.1"),
+		newTestInstance("my-mongo", "everest", "percona-server-mongodb", "Provisioned", "8.0.12"),
+		newTestInstance("my-postgres", "everest", "postgresql", "Pending", "16.1"),
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -92,8 +149,8 @@ func TestInstanceList_AllNamespaces(t *testing.T) {
 	t.Parallel()
 
 	nsInstances := map[string][]testInstance{
-		"everest":  {newTestInstance("my-mongo", "everest", "percona-server-mongodb", "Ready", "8.0.12")},
-		"everest2": {newTestInstance("my-postgres", "everest2", "postgresql", "Ready", "16.1")},
+		"everest":  {newTestInstance("my-mongo", "everest", "percona-server-mongodb", "Provisioned", "8.0.12")},
+		"everest2": {newTestInstance("my-postgres", "everest2", "postgresql", "Provisioned", "16.1")},
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -193,7 +250,7 @@ func TestInstanceList_JSONOutput(t *testing.T) {
 	t.Parallel()
 
 	items := []testInstance{
-		newTestInstance("my-mongo", "everest", "percona-server-mongodb", "Ready", "8.0.12"),
+		newTestInstance("my-mongo", "everest", "percona-server-mongodb", "Provisioned", "8.0.12"),
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

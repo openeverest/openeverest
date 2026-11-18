@@ -28,10 +28,10 @@ import (
 
 	"github.com/rodaine/table"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/openeverest/openeverest/v2/client"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
+	"github.com/openeverest/openeverest/v2/pkg/instancestatus"
 )
 
 // ListOptions holds the inputs for the list command.
@@ -90,7 +90,7 @@ func (il *ListRunner) Run(ctx context.Context, opts ListOptions, cfgPath string)
 	})
 
 	var buf bytes.Buffer
-	il.render(&buf, instances)
+	il.render(&buf, instances, time.Now())
 	fmt.Fprint(os.Stdout, buf.String())
 	return nil
 }
@@ -120,25 +120,30 @@ func (il *ListRunner) listInstances(ctx context.Context, c *client.ClientWithRes
 	return *resp.JSON200.Items, nil
 }
 
-func (il *ListRunner) render(w io.Writer, instances []client.Instance) {
+func (il *ListRunner) render(w io.Writer, instances []client.Instance, now time.Time) {
 	if !il.config.Pretty {
 		_ = json.NewEncoder(w).Encode(instances) //nolint:errchkjson
 		return
 	}
-	printInstanceTable(w, instances)
+	printInstanceTable(w, instances, now)
 }
 
-func printInstanceTable(w io.Writer, instances []client.Instance) {
-	tbl := table.New("NAME", "NAMESPACE", "PROVIDER", "VERSION", "PHASE", "AGE").WithWriter(w)
+// printInstanceTable shows an instance's status as two cells that answer two
+// questions: STATUS says what is happening, AVAILABLE whether clients can
+// connect.
+func printInstanceTable(w io.Writer, instances []client.Instance, now time.Time) {
+	tbl := table.New("NAME", "NAMESPACE", "PROVIDER", "VERSION", "STATUS", "AVAILABLE", "AGE").WithWriter(w)
 	for i := range instances {
 		inst := &instances[i]
+		shown := instancestatus.Describe(statusInput(inst), now)
 		tbl.AddRow(
 			instanceName(inst),
 			instanceNamespace(inst),
 			instanceProvider(inst),
 			instanceVersionValue(inst),
-			instancePhaseValue(inst),
-			instanceAge(inst),
+			shown.Label,
+			availableValue(shown.Available),
+			instanceAge(inst, now),
 		)
 	}
 	tbl.Print()
@@ -165,16 +170,18 @@ func instanceVersionValue(inst *client.Instance) string {
 	return *inst.Status.Version
 }
 
-func instancePhaseValue(inst *client.Instance) string {
-	if inst.Status == nil || inst.Status.Phase == nil {
+// availableValue is the AVAILABLE cell. When nobody can tell whether clients
+// can connect it is a dash, like any other missing value, and not a guess.
+func availableValue(available instancestatus.Availability) string {
+	if available == instancestatus.AvailableUnknown {
 		return "-"
 	}
-	return string(*inst.Status.Phase)
+	return string(available)
 }
 
-func instanceAge(inst *client.Instance) string {
+func instanceAge(inst *client.Instance, now time.Time) string {
 	if inst.Metadata == nil || inst.Metadata.CreationTimestamp.IsZero() {
 		return "-"
 	}
-	return duration.ShortHumanDuration(time.Since(inst.Metadata.CreationTimestamp.Time))
+	return age(inst.Metadata.CreationTimestamp.Time, now)
 }

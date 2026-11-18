@@ -64,7 +64,7 @@ type CreateOptions struct {
 	Context       string        // overrides the active context when set
 	ValuesFile    string        // path to a YAML values file with spec-level overrides (optional)
 	Set           []string      // dot-notation overrides e.g. "components.engine.replicas=3"; takes precedence over ValuesFile
-	Wait          bool          // block until the instance reaches the Ready phase
+	Wait          bool          // block until the instance is ready
 	Timeout       time.Duration // bounds --wait; must be positive
 	DryRun        string        // cli.DryRunClient prints the Instance without sending it, cli.DryRunServer sends it with dryRun=All
 }
@@ -280,8 +280,9 @@ func (ic *InstanceCreator) emitCreated(created *client.Instance, opts CreateOpti
 	return writeInstanceJSON(created)
 }
 
-// waitForInstance blocks until the instance reaches a terminal phase. Pretty
-// mode streams progress then the final status; JSON mode emits one final object.
+// waitForInstance blocks until the instance is ready or will not become
+// ready by waiting. Pretty mode streams progress then the final status; JSON
+// mode emits one final object.
 func (ic *InstanceCreator) waitForInstance(
 	ctx context.Context,
 	c *client.ClientWithResponses,
@@ -322,7 +323,7 @@ func (ic *InstanceCreator) waitForInstance(
 
 	if ic.config.Pretty {
 		var buf bytes.Buffer
-		printInstanceStatus(&buf, final, opts.Namespace)
+		printInstanceStatus(&buf, final, opts.Namespace, time.Now())
 		_, _ = fmt.Fprint(os.Stdout, buf.String())
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Instance %q is ready", opts.Name))
 		return nil
