@@ -14,7 +14,7 @@
 
 import { applyRuntimeOverrides } from './section-edit-modal.utils';
 import type { Instance } from 'shared-types/api.types';
-import type { KubernetesClusterInfo } from 'shared-types/kubernetes.types';
+import type { StorageClass } from 'shared-types/kubernetes.types';
 import {
   FieldType,
   type Section,
@@ -33,14 +33,16 @@ const makeInstance = (storageClass: string): Instance =>
     },
   }) as unknown as Instance;
 
-const makeClusterInfo = (
+const makeStorageClasses = (
   name: string,
   allowVolumeExpansion: boolean
-): KubernetesClusterInfo => ({
-  clusterType: 'k8s',
-  storageClassNames: [name],
-  storageClasses: [{ metadata: { name }, allowVolumeExpansion }],
-});
+): StorageClass[] => [
+  {
+    metadata: { name },
+    provisioner: 'rancher.io/local-path',
+    allowVolumeExpansion,
+  },
+];
 
 const makeSections = (): Record<string, Section> => ({
   resources: {
@@ -60,7 +62,7 @@ describe('applyRuntimeOverrides', () => {
     const result = applyRuntimeOverrides(
       makeSections(),
       makeInstance('standard'),
-      makeClusterInfo('standard', false)
+      makeStorageClasses('standard', false)
     );
 
     const component = result.resources.components.diskSize;
@@ -77,7 +79,7 @@ describe('applyRuntimeOverrides', () => {
     const result = applyRuntimeOverrides(
       sections,
       makeInstance('standard'),
-      makeClusterInfo('standard', true)
+      makeStorageClasses('standard', true)
     );
 
     // Should return the same reference (no enrichment needed)
@@ -89,7 +91,7 @@ describe('applyRuntimeOverrides', () => {
     const result = applyRuntimeOverrides(
       sections,
       makeInstance('unknown-class'),
-      makeClusterInfo('standard', false)
+      makeStorageClasses('standard', false)
     );
 
     expect(result).toBe(sections);
@@ -107,7 +109,7 @@ describe('applyRuntimeOverrides', () => {
     const result = applyRuntimeOverrides(
       sections,
       { spec: {} } as unknown as Instance,
-      makeClusterInfo('standard', false)
+      makeStorageClasses('standard', false)
     );
 
     expect(result).toBe(sections);

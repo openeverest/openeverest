@@ -42,6 +42,7 @@ import {
   mockBackupClasses,
   mockRestores,
   mockDbEngines,
+  mockStorageClasses,
 } from './data';
 import { mockProviders } from './providers.data';
 import {
@@ -49,7 +50,6 @@ import {
   mockVersion,
   mockSettings,
   mockPermissions,
-  mockClusterInfo,
   mockPlugins,
 } from './platform.data';
 
@@ -162,6 +162,12 @@ export const mockDbEnginesRoute = (page: Page) =>
     route.fulfill(json(mockDbEngines))
   );
 
+// GET clusters/main/storage-classes -> StorageClassList
+export const mockStorageClassesRoute = (page: Page) =>
+  page.route(/\/clusters\/[^/]+\/storage-classes$/, (route) =>
+    route.fulfill(json(mockStorageClasses))
+  );
+
 // GET clusters/main/providers -> ProviderList (drives the UIGenerator uiSchema)
 export const mockProvidersRoute = (page: Page) =>
   page.route(/\/clusters\/[^/]+\/providers$/, (route) =>
@@ -195,12 +201,6 @@ export const mockSettingsRoute = (page: Page) =>
 export const mockPermissionsRoute = (page: Page) =>
   page.route(/\/permissions$/, (route) => route.fulfill(json(mockPermissions)));
 
-// GET /v1/cluster-info
-export const mockClusterInfoRoute = (page: Page) =>
-  page.route(/\/cluster-info$/, (route) =>
-    route.fulfill(json(mockClusterInfo))
-  );
-
 // GET /v1/clusters/{cluster}/plugins (may carry a query string)
 export const mockPluginsRoute = (page: Page) =>
   page.route(/\/plugins(\?|$)/, (route) => route.fulfill(json(mockPlugins)));
@@ -210,7 +210,6 @@ export const installPlatformMocks = async (page: Page) => {
   await mockVersionRoute(page);
   await mockSettingsRoute(page);
   await mockPermissionsRoute(page);
-  await mockClusterInfoRoute(page);
   await mockPluginsRoute(page);
 };
 
@@ -223,6 +222,7 @@ export const installPlatformMocks = async (page: Page) => {
 export const installVisualMocks = async (page: Page) => {
   await mockNamespacesRoute(page);
   await mockProvidersRoute(page);
+  await mockStorageClassesRoute(page);
   await mockDbEnginesRoute(page);
   await mockInstancesListRoute(page);
   await mockInstanceDetail(page);

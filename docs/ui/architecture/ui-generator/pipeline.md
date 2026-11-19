@@ -162,6 +162,9 @@ schema, where `dataSource` fields have no static `options`. Once the options hav
 helper text explains an unavailable stored value (without claiming a cause) or an empty one (via the
 registry entry's `unsetValueHint`); it reads the current value with `useWatch`, so it clears as soon
 as the user picks another option.
+When the options are empty, the helper text is the provider's `emptyHint` — a reason only the
+provider knows, e.g. `storageClasses` returns one when the user lacks `storage-classes` read — or
+else the schema's `helperText`, or else the generic "No options available".
 A resource created from the provider's `emptyStateFallback` is a separate path: the fallback calls
 `onCreated(value)` once the refetched options include it, and `DataSourceField` sets it as a user
 change (`shouldDirty`) in every mode — the user picked it, so the edit rule doesn't apply. The
@@ -370,4 +373,4 @@ components:
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-11-16
+- Last updated: 2026-11-19
