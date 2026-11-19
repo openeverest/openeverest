@@ -75,6 +75,7 @@ function Table<T extends Record<string, any>>(props: TableProps<T>) {
     rowHoverAction = () => {},
     muiTableBodyRowProps,
     getRowId,
+    renderToolbarFilters,
     ...rest
   } = props;
   const [columnVisibility, setColumnVisibility] =
@@ -218,10 +219,16 @@ function Table<T extends Record<string, any>>(props: TableProps<T>) {
         ...muiTopToolbarRestProps,
       }}
       renderToolbarInternalActions={({ table }) => (
-        <Box className="percona-table-internal-actions">
-          <MRT_ToggleGlobalFilterButton table={table} />
-          <MRT_ToggleFiltersButton table={table} />
-          <MRT_ShowHideColumnsButton table={table} />
+        <Box
+          className="percona-table-internal-actions"
+          sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+        >
+          <Box>
+            <MRT_ToggleGlobalFilterButton table={table} />
+            <MRT_ToggleFiltersButton table={table} />
+            <MRT_ShowHideColumnsButton table={table} />
+          </Box>
+          {renderToolbarFilters?.({ table })}
         </Box>
       )}
       displayColumnDefOptions={{

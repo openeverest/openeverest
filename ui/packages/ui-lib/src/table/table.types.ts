@@ -14,7 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 import { AlertProps } from '@mui/material';
-import { MRT_Row, type MRT_TableOptions } from 'material-react-table';
+import {
+  MRT_Row,
+  type MRT_TableInstance,
+  type MRT_TableOptions,
+} from 'material-react-table';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface TableProps<T extends Record<string, any>>
@@ -27,4 +31,9 @@ export interface TableProps<T extends Record<string, any>>
   noDataAlertProps?: AlertProps;
   enableRowHoverAction?: boolean;
   rowHoverAction?: (row: MRT_Row<T>) => void;
+  // Quick filters, shown next to the table's own search, filter and column
+  // buttons.
+  renderToolbarFilters?: (props: {
+    table: MRT_TableInstance<T>;
+  }) => React.ReactNode;
 }
