@@ -219,7 +219,7 @@ function getNextScheduleMinute(incrementMinutes: number): string {
             timeout: TIMEOUTS.ThirtySeconds,
           });
           if (db !== 'postgresql' && db !== 'pxc') {
-            await waitForStatus(page, clusterName, 'Creating', 15000);
+            await waitForStatus(page, clusterName, 'Initializing', 15000);
           }
 
           if (db === 'pxc') {
@@ -431,7 +431,12 @@ function getNextScheduleMinute(incrementMinutes: number): string {
           // A PXC instance seeded from a backup reports Restoring from the moment
           // its engine exists, so it never shows Initializing.
           if (db !== 'postgresql' && db !== 'pxc') {
-            await waitForStatus(page, restoredClusterName, 'Creating', 15000);
+            await waitForStatus(
+              page,
+              restoredClusterName,
+              'Initializing',
+              15000
+            );
           }
           await waitForStatus(page, restoredClusterName, 'Restoring', 660000);
           await waitForStatus(
@@ -444,7 +449,12 @@ function getNextScheduleMinute(incrementMinutes: number): string {
 
         await test.step(`Delete primary database cluster`, async () => {
           await deleteDbCluster(page, clusterName);
-          await waitForStatus(page, clusterName, 'Deleting', 15000);
+          await waitForStatus(
+            page,
+            clusterName,
+            db === 'pxc' ? 'Terminating' : 'Deleting',
+            15000
+          );
           await waitForDelete(page, clusterName, 240000);
         });
 
@@ -578,7 +588,12 @@ function getNextScheduleMinute(incrementMinutes: number): string {
         page,
       }) => {
         await deleteDbCluster(page, restoredClusterName);
-        await waitForStatus(page, restoredClusterName, 'Deleting', 15000);
+        await waitForStatus(
+          page,
+          restoredClusterName,
+          db === 'pxc' ? 'Terminating' : 'Deleting',
+          15000
+        );
         await waitForDelete(page, restoredClusterName, 240000);
       });
     }

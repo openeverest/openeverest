@@ -53,19 +53,5 @@ export const releaseProject: PlaywrightTestProject[] = [
       storageState: CI_USER_STORAGE_STATE_FILE,
     },
   },
-  {
-    // Instance status golden (PSMDB): the status word, the alert and the
-    // gating of edits through creation, a warning, an error, an upgrade and
-    // deletion. The PSMDB provider must already be installed in the cluster.
-    // Not part of the `release` lane yet: the nightly installs the PXC
-    // provider only.
-    name: 'release:instance-status',
-    testDir: './release',
-    testMatch: /instance-status\.e2e\.ts/,
-    dependencies: ['global:auth:ci:setup'],
-    use: {
-      storageState: CI_USER_STORAGE_STATE_FILE,
-    },
-  },
   // ...sessionProject,
 ];

@@ -392,7 +392,7 @@ test.describe.serial(
           timeout: TIMEOUTS.ThirtySeconds,
         });
         try {
-          await waitForStatus(page, clusterName, 'Creating', 30000);
+          await waitForStatus(page, clusterName, 'Provisioning', 30000);
         } catch {
           // Transitional status can be short-lived; continue with readiness checks.
         }
@@ -579,12 +579,7 @@ test.describe.serial(
       await submitRestoreDialog(page, namespace);
 
       await page.goto('/databases');
-      await waitForStatus(
-        page,
-        clusterName,
-        'Restoring \u00b7 unavailable',
-        30000
-      );
+      await waitForStatus(page, clusterName, 'Restoring', 30000);
       await waitForStatus(page, clusterName, 'Ready', 900000);
 
       await gotoDbClusterRestores(page, clusterName);
@@ -670,12 +665,7 @@ test.describe.serial(
       await submitRestoreDialog(page, namespace);
 
       await page.goto('/databases');
-      await waitForStatus(
-        page,
-        clusterName,
-        'Restoring \u00b7 unavailable',
-        30000
-      );
+      await waitForStatus(page, clusterName, 'Restoring', 30000);
       await waitForStatus(page, clusterName, 'Ready', 900000);
 
       await gotoDbClusterRestores(page, clusterName);

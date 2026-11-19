@@ -87,7 +87,7 @@ export const mockInstance = {
     },
   },
   status: {
-    phase: 'Provisioned',
+    phase: 'Ready',
     components: [
       {
         pods: [{ name: `${DB_NAME}-0` }],
@@ -103,20 +103,6 @@ export const mockInstance = {
         reason: 'Ready',
         status: 'True',
         type: 'Ready',
-      },
-      {
-        lastTransitionTime: '2025-10-01T00:05:00Z',
-        message: '',
-        reason: 'Available',
-        status: 'True',
-        type: 'Available',
-      },
-      {
-        lastTransitionTime: '2025-10-01T00:05:00Z',
-        message: '',
-        reason: 'Available',
-        status: 'True',
-        type: 'ConnectionDetailsReady',
       },
     ],
     connectionSecretRef: { name: `${DB_NAME}-connection` },
