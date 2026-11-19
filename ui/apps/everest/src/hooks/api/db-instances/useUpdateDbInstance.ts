@@ -23,19 +23,18 @@ import { enqueueSnackbar } from 'notistack';
 import { updateDbInstanceFn } from 'api/instanceApi';
 import { Instance } from 'shared-types/api.types';
 import { getDbInstanceQueryKey, useDbInstance } from './useDbInstance';
+import { useClusterName } from '../useClusterName';
 
 const UPDATE_RETRY_TIMEOUT_MS = 5000;
 const UPDATE_RETRY_DELAY_MS = 200;
 
-// TODO change to global use of cluster name during implementing multicluster feature
-const CLUSTER_NAME = 'main';
-
 export const updateDbInstance = (
+  clusterName: string,
   namespace: string,
   instanceName: string,
   data: Instance
 ) =>
-  updateDbInstanceFn(CLUSTER_NAME, namespace, instanceName, data, {
+  updateDbInstanceFn(clusterName, namespace, instanceName, data, {
     // A 409 here is a resourceVersion conflict this hook retries with a fresh
     // copy, so suppress the interceptor's generic error toast for the transient
     // conflict and let the retry own the UX.
@@ -66,6 +65,7 @@ export const useUpdateDbInstanceWithConflictRetry = (
   const namespace: string = meta?.namespace ?? '';
 
   const queryClient = useQueryClient();
+  const clusterName = useClusterName();
   const watchStartTime = useRef<number | null>(null);
   const dataToBeSent = useRef<Instance | null>(null);
 
@@ -76,7 +76,7 @@ export const useUpdateDbInstanceWithConflictRetry = (
   const mutationMethods = useMutation<Instance, AxiosError, Instance, unknown>({
     mutationFn: (instance: Instance) => {
       dataToBeSent.current = instance;
-      return updateDbInstance(namespace, instanceName, instance);
+      return updateDbInstance(clusterName, namespace, instanceName, instance);
     },
     onError: async (error, vars, ctx) => {
       const status = error.response?.status ?? error.status;
@@ -128,7 +128,7 @@ export const useUpdateDbInstanceWithConflictRetry = (
     onSuccess: (data, vars, ctx) => {
       watchStartTime.current = null;
       queryClient.setQueryData<Instance>(
-        getDbInstanceQueryKey(namespace, instanceName, CLUSTER_NAME),
+        getDbInstanceQueryKey(namespace, instanceName, clusterName),
         () => data
       );
       ownOnSuccess?.(data, vars, ctx);

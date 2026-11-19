@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/openeverest/openeverest/v2/cmd/config"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 )
@@ -46,8 +47,8 @@ func TestKubernetesClusterEndpoints(t *testing.T) {
 		},
 		{
 			name:          "legacy resources",
-			cluster:       legacyDefaultCluster,
-			expectedLink:  "</v1/clusters/main/resources>; rel=\"successor-version\"",
+			cluster:       "local",
+			expectedLink:  "</v1/clusters/local/resources>; rel=\"successor-version\"",
 			expectedUsage: "resources",
 		},
 		{
@@ -58,8 +59,8 @@ func TestKubernetesClusterEndpoints(t *testing.T) {
 		},
 		{
 			name:          "legacy info",
-			cluster:       legacyDefaultCluster,
-			expectedLink:  "</v1/clusters/main/cluster-info>; rel=\"successor-version\"",
+			cluster:       "local",
+			expectedLink:  "</v1/clusters/local/cluster-info>; rel=\"successor-version\"",
 			expectedUsage: "info",
 		},
 	}
@@ -84,7 +85,11 @@ func TestKubernetesClusterEndpoints(t *testing.T) {
 				).Return(&api.KubernetesClusterInfo{}, nil).Once()
 			}
 
-			server := &EverestServer{handler: next, l: zap.NewNop().Sugar()}
+			server := &EverestServer{
+				config:  &config.EverestConfig{ClusterName: tc.cluster},
+				handler: next,
+				l:       zap.NewNop().Sugar(),
+			}
 			rec := httptest.NewRecorder()
 			ctx := echo.New().NewContext(
 				httptest.NewRequest(http.MethodGet, "/", nil),

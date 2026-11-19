@@ -83,7 +83,7 @@ finalizer.`,
 func init() {
 	deleteCmd.Flags().StringVar(&deleteOpts.Name, cli.FlagBackupName, "", "Backup name (required)")
 	deleteCmd.Flags().StringVarP(&deleteOpts.Namespace, cli.FlagBackupNamespace, "n", "", "Namespace the backup is in (required)")
-	deleteCmd.Flags().StringVar(&deleteOpts.Cluster, cli.FlagBackupCluster, "main", "Cluster name")
+	deleteCmd.Flags().StringVar(&deleteOpts.Cluster, cli.FlagBackupCluster, "", "Cluster name (auto-detected when only one cluster is registered)")
 	deleteCmd.Flags().StringVar(&deleteOpts.Context, cli.FlagBackupContext, "", "Context to use (default: current context)")
 	deleteCmd.Flags().BoolVarP(&deleteOpts.Yes, cli.FlagYes, "y", false, "Skip the confirmation prompt")
 	deleteCmd.Flags().BoolVar(&deleteOpts.Force, cli.FlagBackupForce, false, "Override the in-flight (Pending/Running/Error/no status yet) delete guard; does not skip the confirmation prompt")

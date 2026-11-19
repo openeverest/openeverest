@@ -25,6 +25,7 @@ import {
   Instance,
   InstanceConnectionDetails,
 } from 'shared-types/api.types';
+import { useClusterName } from '../useClusterName';
 
 export const DB_INSTANCES_QUERY_KEY = 'instances';
 export const DB_INSTANCE_CONNECTION_QUERY_KEY = 'instanceConnection';
@@ -55,8 +56,7 @@ export const useDbInstanceList = (
   namespace: string,
   options?: PerconaQueryOptions<GetInstances, unknown, Instance[]>
 ) => {
-  // TODO change to global use of cluster name during implementing multicluster feature
-  const clusterName = 'main';
+  const clusterName = useClusterName();
   return useQuery<GetInstances, unknown, Instance[]>({
     queryKey: getDbInstancesQueryKey(namespace, clusterName),
     queryFn: () => getDbInstancesFn(clusterName, namespace),
@@ -88,8 +88,7 @@ export const useInstancesForNamespaces = (
     options?: PerconaQueryOptions<GetInstances, unknown, Instance[]>;
   }>
 ) => {
-  // TODO change to global use of cluster name during implementing multicluster feature
-  const clusterName = 'main';
+  const clusterName = useClusterName();
 
   const queries = queryParams.map<
     UseQueryOptions<GetInstances, unknown, Instance[]>
@@ -123,8 +122,7 @@ export const useInstanceConnection = (
     InstanceConnectionDetails
   >
 ) => {
-  // TODO change to global use of cluster name during implementing multicluster feature
-  const clusterName = 'main';
+  const clusterName = useClusterName();
 
   return useQuery<
     InstanceConnectionDetails,

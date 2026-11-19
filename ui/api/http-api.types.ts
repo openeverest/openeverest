@@ -227,7 +227,8 @@ export interface paths {
         /**
          * Cluster resources (deprecated)
          * @deprecated
-         * @description Deprecated compatibility alias for `/clusters/main/resources`.
+         * @description Deprecated compatibility alias for the local cluster's
+         *     `/clusters/{cluster}/resources` route.
          *     Use the cluster-scoped endpoint for new integrations.
          */
         get: operations["getKubernetesClusterResources"];
@@ -249,7 +250,8 @@ export interface paths {
         /**
          * Cluster info (deprecated)
          * @deprecated
-         * @description Deprecated compatibility alias for `/clusters/main/cluster-info`.
+         * @description Deprecated compatibility alias for the local cluster's
+         *     `/clusters/{cluster}/cluster-info` route.
          *     Use the cluster-scoped endpoint for new integrations.
          */
         get: operations["getKubernetesClusterInfo"];

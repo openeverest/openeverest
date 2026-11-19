@@ -87,6 +87,10 @@ func (u *Updater) Run(ctx context.Context, opts UpdateOptions, cfgPath string) e
 	if err != nil {
 		return err
 	}
+	opts.Cluster, err = cli.ResolveCluster(ctx, c, opts.Cluster)
+	if err != nil {
+		return err
+	}
 
 	var params *client.PatchBackupStorageParams
 	if opts.DryRun == cli.DryRunServer {

@@ -75,7 +75,7 @@ func init() {
 	createCmd.Flags().StringVarP(&createOpts.Namespace, cli.FlagRestoreNamespace, "n", "", "Namespace the instance is located in (required)")
 	createCmd.Flags().StringVar(&createOpts.Backup, cli.FlagRestoreBackup, "", "Backup to restore from (required)")
 	createCmd.Flags().StringVar(&createOpts.Name, cli.FlagRestoreName, "", "Restore name (default: generated from instance name)")
-	createCmd.Flags().StringVar(&createOpts.Cluster, cli.FlagRestoreCluster, "main", "Cluster name")
+	createCmd.Flags().StringVar(&createOpts.Cluster, cli.FlagRestoreCluster, "", "Cluster name (auto-detected when only one cluster is registered)")
 	createCmd.Flags().StringVar(&createOpts.Context, cli.FlagRestoreContext, "", "Context to use (default: current context)")
 	createCmd.Flags().BoolVar(&createOpts.Wait, cli.FlagRestoreWait, false, "Block until the restore reaches a terminal state; exit non-zero if it fails or times out")
 	createCmd.Flags().DurationVar(&createOpts.Timeout, cli.FlagRestoreTimeout, 30*time.Minute, "Maximum time to wait (only valid with --wait); must be positive")

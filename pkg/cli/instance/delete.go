@@ -27,6 +27,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/confirm"
@@ -78,6 +79,10 @@ func (id *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 	}
 
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: id.config.Pretty}, id.l.Desugar().Sugar(), cfgPath, opts.Context)
+	if err != nil {
+		return err
+	}
+	opts.Cluster, err = cli.ResolveCluster(ctx, c, opts.Cluster)
 	if err != nil {
 		return err
 	}

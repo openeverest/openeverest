@@ -37,6 +37,7 @@ import { getEverestConfigs } from 'api/everestConfigs';
 import LoadingPageSkeleton from 'components/loading-page-skeleton/LoadingPageSkeleton';
 import UpgradeEverestProvider from 'contexts/upgrade-everest/upgrade-everest.provider';
 import { PluginProvider } from 'contexts/plugins';
+import { ClusterProvider } from 'contexts/clusters/cluster.context';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -140,13 +141,15 @@ const App = () => {
                   },
                 }}
               >
-                <DrawerContextProvider>
-                  <PluginProvider>
-                    <UpgradeEverestProvider>
-                      <RouterProvider router={router} />
-                    </UpgradeEverestProvider>
-                  </PluginProvider>
-                </DrawerContextProvider>
+                <ClusterProvider>
+                  <DrawerContextProvider>
+                    <PluginProvider>
+                      <UpgradeEverestProvider>
+                        <RouterProvider router={router} />
+                      </UpgradeEverestProvider>
+                    </PluginProvider>
+                  </DrawerContextProvider>
+                </ClusterProvider>
                 <ReactQueryDevtools initialIsOpen={false} />
               </AuthProvider>
             </QueryClientProvider>

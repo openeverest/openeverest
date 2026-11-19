@@ -31,6 +31,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 )
@@ -65,6 +66,10 @@ func NewInstanceStatusRunner(cfg Config, l *zap.SugaredLogger) *InstanceStatusRu
 // the instance is deleted, or token refresh fails.
 func (is *InstanceStatusRunner) Run(ctx context.Context, opts StatusOptions, cfgPath string) error {
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: is.config.Pretty}, is.l.Desugar().Sugar(), cfgPath, opts.Context)
+	if err != nil {
+		return err
+	}
+	opts.Cluster, err = cli.ResolveCluster(ctx, c, opts.Cluster)
 	if err != nil {
 		return err
 	}

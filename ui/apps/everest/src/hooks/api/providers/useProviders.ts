@@ -16,13 +16,16 @@ import { useQuery } from '@tanstack/react-query';
 import { getProvidersFn } from 'api/providers';
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import { GetProviders, Provider } from 'shared-types/api.types';
+import { useClusterName } from '../useClusterName';
 
 export const useProviders = (
   options?: PerconaQueryOptions<GetProviders, unknown, Provider[]>
 ) => {
+  const clusterName = useClusterName();
+
   return useQuery<GetProviders, unknown, Provider[]>({
-    queryKey: ['providers'],
-    queryFn: () => getProvidersFn(),
+    queryKey: ['providers', clusterName],
+    queryFn: () => getProvidersFn(clusterName),
     retry: 3,
     refetchInterval: 10 * 1000,
     ...options,

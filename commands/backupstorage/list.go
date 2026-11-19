@@ -70,7 +70,7 @@ func init() {
 	listCmd.Flags().BoolVarP(&listOpts.AllNamespaces, cli.FlagBackupStorageAllNamespaces, "A", false, "List backup storages across all namespaces")
 	listCmd.Flags().StringVar(&listOpts.BackupClass, cli.FlagBackupStorageBackupClass, "", "Only list the backup storages this BackupClass can write to")
 	listCmd.Flags().StringVar(&listOpts.Class, cli.FlagBackupStorageClass, "", "Only list the backup storages of this BackupStorageClass")
-	listCmd.Flags().StringVar(&listOpts.Cluster, cli.FlagBackupStorageCluster, "main", "Cluster name")
+	listCmd.Flags().StringVar(&listOpts.Cluster, cli.FlagBackupStorageCluster, "", "Cluster name (auto-detected when only one cluster is registered)")
 	listCmd.Flags().StringVar(&listOpts.Context, cli.FlagBackupStorageContext, "", "Context to use (default: current context)")
 
 	listCmd.MarkFlagsOneRequired(cli.FlagBackupStorageNamespace, cli.FlagBackupStorageAllNamespaces)

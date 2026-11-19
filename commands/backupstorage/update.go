@@ -72,7 +72,7 @@ delete-old, not an update.`,
 func init() {
 	updateCmd.Flags().StringVar(&updateOpts.Name, cli.FlagBackupStorageName, "", "Backup storage name (required)")
 	updateCmd.Flags().StringVarP(&updateOpts.Namespace, cli.FlagBackupStorageNamespace, "n", "", "Namespace the backup storage is in (required)")
-	updateCmd.Flags().StringVar(&updateOpts.Cluster, cli.FlagBackupStorageCluster, "main", "Cluster name")
+	updateCmd.Flags().StringVar(&updateOpts.Cluster, cli.FlagBackupStorageCluster, "", "Cluster name (auto-detected when only one cluster is registered)")
 	updateCmd.Flags().StringVar(&updateOpts.Context, cli.FlagBackupStorageContext, "", "Context to use (default: current context)")
 	updateCmd.Flags().StringVar(&updateOpts.DryRun, cli.FlagBackupStorageDryRun, cli.DryRunNone,
 		`"client" prints the patch without sending it; "server" has the server validate it, without persisting it`,

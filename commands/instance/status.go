@@ -67,7 +67,7 @@ or emits one JSON object per line (NDJSON) in --json mode.`,
 func init() {
 	statusCmd.Flags().StringVar(&statusOpts.Name, cli.FlagInstanceName, "", "Instance name (required)")
 	statusCmd.Flags().StringVarP(&statusOpts.Namespace, cli.FlagInstanceNamespace, "n", "", "Namespace the instance lives in (required)")
-	statusCmd.Flags().StringVar(&statusOpts.Cluster, cli.FlagInstanceCluster, "main", "Cluster name")
+	statusCmd.Flags().StringVar(&statusOpts.Cluster, cli.FlagInstanceCluster, "", "Cluster name (auto-detected when only one cluster is registered)")
 	statusCmd.Flags().StringVar(&statusOpts.Context, cli.FlagInstanceContext, "", "Context to use (default: current context)")
 	statusCmd.Flags().BoolVarP(&statusOpts.Watch, cli.FlagInstanceWatch, "w", false, "Poll continuously until Ctrl-C or token expiry")
 	statusCmd.Flags().DurationVar(&statusOpts.Interval, cli.FlagInstanceInterval, 2*time.Second, "Poll interval (only valid with --watch)")

@@ -12,10 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// TODO: Replace hardcoded cluster name when multi-cluster support is implemented.
-// This hook centralizes the cluster name so it can be swapped out in one place.
-const CLUSTER_NAME = 'main';
+import { ClusterContext } from 'contexts/clusters/cluster';
+import { useContext } from 'react';
 
 export const useClusterName = (): string => {
-  return CLUSTER_NAME;
+  const clusterName = useContext(ClusterContext);
+  if (clusterName === undefined) {
+    throw new Error('useClusterName must be used within a ClusterProvider');
+  }
+  return clusterName;
 };

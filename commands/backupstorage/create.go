@@ -109,7 +109,7 @@ func init() {
 	createCmd.Flags().StringVar(&createOpts.CAFile, cli.FlagBackupStorageCAFile, "", "PEM CA bundle to create the Secret backup-storage-<name>-ca from")
 	createCmd.Flags().StringVar(&createOpts.CASecret, cli.FlagBackupStorageCASecret, "", "Existing Secret holding the PEM CA bundle, as NAME[:KEY] (KEY defaults to ca.crt)")
 	createCmd.Flags().BoolVar(&createOpts.InsecureSkipTLSVerify, cli.FlagBackupStorageInsecureSkipTLSVerify, false, "Do not verify the server certificate of the store")
-	createCmd.Flags().StringVar(&createOpts.Cluster, cli.FlagBackupStorageCluster, "main", "Cluster name")
+	createCmd.Flags().StringVar(&createOpts.Cluster, cli.FlagBackupStorageCluster, "", "Cluster name (auto-detected when only one cluster is registered)")
 	createCmd.Flags().StringVar(&createOpts.Context, cli.FlagBackupStorageContext, "", "Context to use (default: current context)")
 	createCmd.Flags().StringVar(&createOpts.DryRun, cli.FlagBackupStorageDryRun, cli.DryRunNone,
 		`"client" prints the backup storage and the Secrets' keys without sending anything; "server" has the server validate them, without creating them`,

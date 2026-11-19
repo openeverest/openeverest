@@ -339,7 +339,8 @@ paths:
         - Kubernetes
       summary: Cluster resources (deprecated)
       description: |
-        Deprecated compatibility alias for `/clusters/main/resources`.
+        Deprecated compatibility alias for the local cluster's
+        `/clusters/{cluster}/resources` route.
         Use the cluster-scoped endpoint for new integrations.
       operationId: getKubernetesClusterResources
       deprecated: true
@@ -377,7 +378,8 @@ paths:
         - Kubernetes
       summary: Cluster info (deprecated)
       description: |
-        Deprecated compatibility alias for `/clusters/main/cluster-info`.
+        Deprecated compatibility alias for the local cluster's
+        `/clusters/{cluster}/cluster-info` route.
         Use the cluster-scoped endpoint for new integrations.
       operationId: getKubernetesClusterInfo
       deprecated: true

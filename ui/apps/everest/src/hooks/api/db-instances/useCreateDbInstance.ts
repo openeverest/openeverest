@@ -135,8 +135,7 @@ export const useDbInstanceCredentials = (
     InstanceConnectionDetails
   >
 ) => {
-  // TODO change to global use of cluster name during implementing multicluster feature
-  const clusterName = 'main';
+  const clusterName = useClusterName();
 
   return useQuery<
     GetDbInstanceConnectionPayload,

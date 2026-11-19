@@ -88,6 +88,10 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 	if err != nil {
 		return err
 	}
+	opts.Cluster, err = cli.ResolveCluster(ctx, c, opts.Cluster)
+	if err != nil {
+		return err
+	}
 
 	if opts.IgnoreNotFound && bd.backupStorageAlreadyGone(ctx, c, opts) {
 		return bd.emitAlreadyGone(opts)

@@ -76,7 +76,7 @@ is still pending server-side until those referrers are gone.`,
 func init() {
 	deleteCmd.Flags().StringVar(&deleteOpts.Name, cli.FlagBackupStorageName, "", "Backup storage name (required)")
 	deleteCmd.Flags().StringVarP(&deleteOpts.Namespace, cli.FlagBackupStorageNamespace, "n", "", "Namespace the backup storage is in (required)")
-	deleteCmd.Flags().StringVar(&deleteOpts.Cluster, cli.FlagBackupStorageCluster, "main", "Cluster name")
+	deleteCmd.Flags().StringVar(&deleteOpts.Cluster, cli.FlagBackupStorageCluster, "", "Cluster name (auto-detected when only one cluster is registered)")
 	deleteCmd.Flags().StringVar(&deleteOpts.Context, cli.FlagBackupStorageContext, "", "Context to use (default: current context)")
 	deleteCmd.Flags().BoolVarP(&deleteOpts.Yes, cli.FlagYes, "y", false, "Skip the confirmation prompt")
 	deleteCmd.Flags().BoolVar(&deleteOpts.IgnoreNotFound, cli.FlagBackupStorageIgnoreNotFound, false, "Treat \"backup storage already gone\" as a successful delete instead of an error")

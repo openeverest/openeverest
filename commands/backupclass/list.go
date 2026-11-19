@@ -57,7 +57,7 @@ as job specs, config schemas, and UI hints remain available via --json / --verbo
 )
 
 func init() {
-	listCmd.Flags().StringVar(&listOpts.Cluster, cli.FlagBackupClassCluster, "main", "Cluster name")
+	listCmd.Flags().StringVar(&listOpts.Cluster, cli.FlagBackupClassCluster, "", "Cluster name (auto-detected when only one cluster is registered)")
 	listCmd.Flags().StringVar(&listOpts.Context, cli.FlagBackupClassContext, "", "Context to use (default: current context)")
 }
 

@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 )
 
@@ -65,6 +66,10 @@ func NewListRunner(cfg Config, l *zap.SugaredLogger) *ListRunner {
 // or as raw JSON.
 func (pl *ListRunner) Run(ctx context.Context, opts ListOptions, cfgPath string) error {
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: pl.config.Pretty}, pl.l.Desugar().Sugar(), cfgPath, opts.Context)
+	if err != nil {
+		return err
+	}
+	opts.Cluster, err = cli.ResolveCluster(ctx, c, opts.Cluster)
 	if err != nil {
 		return err
 	}

@@ -77,7 +77,7 @@ confirm or wait for.`,
 func init() {
 	deleteCmd.Flags().StringVar(&deleteOpts.Name, cli.FlagRestoreName, "", "Restore name (required)")
 	deleteCmd.Flags().StringVarP(&deleteOpts.Namespace, cli.FlagRestoreNamespace, "n", "", "Namespace the restore is in (required)")
-	deleteCmd.Flags().StringVar(&deleteOpts.Cluster, cli.FlagRestoreCluster, "main", "Cluster name")
+	deleteCmd.Flags().StringVar(&deleteOpts.Cluster, cli.FlagRestoreCluster, "", "Cluster name (auto-detected when only one cluster is registered)")
 	deleteCmd.Flags().StringVar(&deleteOpts.Context, cli.FlagRestoreContext, "", "Context to use (default: current context)")
 	deleteCmd.Flags().BoolVarP(&deleteOpts.Yes, cli.FlagYes, "y", false, "Skip the confirmation prompt")
 	deleteCmd.Flags().BoolVar(&deleteOpts.Force, cli.FlagRestoreForce, false, "Override the in-flight (Pending/Running/no status yet) delete guard; does not skip the confirmation prompt")

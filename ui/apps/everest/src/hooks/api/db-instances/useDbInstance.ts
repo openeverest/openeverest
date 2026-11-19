@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getDbInstanceFn } from 'api/instanceApi';
 import { PerconaQueryOptions } from 'shared-types/query.types';
 import { GetDbInstancePayload, Instance } from 'shared-types/api.types';
+import { useClusterName } from '../useClusterName';
 
 export const DB_INSTANCE_QUERY_KEY = 'instance';
 
@@ -35,8 +36,7 @@ export const useDbInstance = (
   //     'database-clusters',
   //     `${namespace}/${dbClusterName}`
   //   );
-  // TODO change to global use of cluster name during implementing multicluster feature
-  const clusterName = 'main';
+  const clusterName = useClusterName();
 
   return useQuery<GetDbInstancePayload, unknown, Instance>({
     queryKey: getDbInstanceQueryKey(namespace, instanceName, clusterName),

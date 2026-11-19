@@ -24,6 +24,7 @@ import {
 import { useRBACAction } from 'hooks/rbac';
 import { DbInstanceContextProps } from './dbCluster.context.types';
 import { Instance } from 'shared-types/api.types';
+import { useClusterName } from 'hooks/api/useClusterName';
 
 export const DbInstanceContext = createContext<DbInstanceContextProps>({
   instance: {} as Instance,
@@ -43,7 +44,7 @@ export const DbInstanceContextProvider = ({
   children: React.ReactNode;
 }) => {
   const { instanceName = '', namespace = '' } = useParams();
-  const clusterName = 'main';
+  const clusterName = useClusterName();
   const defaultInterval = 5 * 1000;
   const [refetchInterval] = useState(defaultInterval);
   const [instanceDeleted, setInstanceDeleted] = useState(false);
@@ -103,7 +104,14 @@ export const DbInstanceContextProvider = ({
         queryKey: getDbInstanceQueryKey(namespace, instanceName, clusterName),
       });
     }
-  }, [instance?.status, error, namespace, instanceName, queryClient]);
+  }, [
+    instance?.status,
+    error,
+    namespace,
+    instanceName,
+    clusterName,
+    queryClient,
+  ]);
 
   return (
     <DbInstanceContext.Provider

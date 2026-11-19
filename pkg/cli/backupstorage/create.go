@@ -100,6 +100,10 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 	if err != nil {
 		return err
 	}
+	opts.Cluster, err = cli.ResolveCluster(ctx, c, opts.Cluster)
+	if err != nil {
+		return err
+	}
 
 	class, err := getStorageClass(ctx, c, opts.Cluster, opts.Class)
 	if err != nil {
