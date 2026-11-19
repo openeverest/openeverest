@@ -55,19 +55,5 @@ export const mockPermissions = {
   permissions: null,
 };
 
-// GET /v1/cluster-info (base64 annotations stripped)
-export const mockClusterInfo = {
-  clusterType: 'generic',
-  storageClassNames: ['local-path'],
-  storageClasses: [
-    {
-      allowVolumeExpansion: false,
-      metadata: {
-        name: 'local-path',
-      },
-    },
-  ],
-};
-
 // GET /v1/plugins
 export const mockPlugins = [];

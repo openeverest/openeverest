@@ -46,7 +46,7 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
   // here would write a value nobody chose into the spec on save.
   const shouldAutoSelect = formMode !== FormMode.Edit;
 
-  const { options, isLoading, error, isEmpty } = useProviderOptions(
+  const { options, isLoading, error, isEmpty, emptyHint } = useProviderOptions(
     dataSource.provider,
     {
       namespace: namespace ?? '',
@@ -110,7 +110,7 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
       : error
         ? Messages.loadFailed
         : isEmpty
-          ? (originalHelperText ?? Messages.noOptions)
+          ? (emptyHint ?? originalHelperText ?? Messages.noOptions)
           : (storedValueHint ?? originalHelperText);
 
     return {
@@ -131,6 +131,7 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
     isLoading,
     error,
     isEmpty,
+    emptyHint,
     storedValueHint,
   ]);
 
