@@ -163,13 +163,21 @@ const getConnectivityDuringWork = (
     ? available
     : undefined;
 
+// The word a status text starts with: what the Instance is doing above all.
+// Whatever a deletion waits for, the Instance is being deleted.
+export const getInstanceStatusWord = ({
+  tone,
+  label,
+}: Pick<InstanceStatusDisplay, 'tone' | 'label'>) =>
+  tone === 'deleting' ? getReasonLabel(REASON_DELETING) : label;
+
 // The status word, with what the word alone leaves out.
 const getStatusText = (
   instance: InstanceStatusSource | undefined,
   status: Omit<InstanceStatusDisplay, 'text'>
 ) => {
   if (status.tone === 'deleting') {
-    const deleting = getReasonLabel(REASON_DELETING);
+    const deleting = getInstanceStatusWord(status);
     const ready = getInstanceCondition(instance, InstanceConditionType.Ready);
     // The status word says what the deletion is waiting for, unless it dates
     // from before the deletion: an Instance that was ready is being deleted,

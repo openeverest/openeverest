@@ -26,14 +26,20 @@ import { ImportDbButton } from 'components/import-db-button';
 import EmptyStateDatabases from 'components/empty-state-databases/empty-state-databases';
 import EmptyStateNamespaces from 'components/empty-state-namespaces/empty-state-namespaces';
 import { DbActions } from 'components/db-actions/db-actions';
-import { InstanceTone } from 'shared-types/instance.types';
 import { usePlugins } from 'contexts/plugins';
 import type { GlobalDashboardWidgetExtension } from '@openeverest/plugin-sdk';
 import PluginErrorBoundary from 'components/plugin-host/PluginErrorBoundary';
 import LoadingPageSkeleton from 'components/loading-page-skeleton/LoadingPageSkeleton';
 import { useDatabasesView } from './hooks/useDatabasesView';
-import { INSTANCE_TONES } from './DbClusterView.constants';
-import { Messages } from './dbClusterView.messages';
+import { useNeedsAttentionFilter } from './hooks/useNeedsAttentionFilter';
+import { NeedsAttentionChip } from './needs-attention-chip';
+import {
+  getRowStatusWord,
+  getStatusFilterOptions,
+} from './DbClusterView.utils';
+
+// Stable, so that the hooks below don't recompute while the page loads.
+const NO_ROWS: InstanceTableElement[] = [];
 
 export const DbClusterView = () => {
   const navigate = useNavigate();
@@ -44,6 +50,12 @@ export const DbClusterView = () => {
     hasCreatePermission,
     canAddCluster,
   } = useDatabasesView();
+  const allRows = state.status === 'table' ? state.rows : NO_ROWS;
+  const needsAttention = useNeedsAttentionFilter(allRows);
+  const statusFilterOptions = useMemo(
+    () => getStatusFilterOptions(needsAttention.visibleRows),
+    [needsAttention.visibleRows]
+  );
 
   const columns = useMemo<MRT_ColumnDef<InstanceTableElement>[]>(
     () => [
@@ -53,13 +65,11 @@ export const DbClusterView = () => {
         accessorFn: ({ status }) => status.text,
         header: 'Status',
         filterVariant: 'multi-select',
-        filterSelectOptions: INSTANCE_TONES.map((tone) => ({
-          label: Messages.statusFilter[tone],
-          value: tone,
-        })),
-        // The tones are a short, closed set; the status words are not.
-        filterFn: (row, _, tones?: InstanceTone[]) =>
-          !tones?.length || tones.includes(row.original.status.tone),
+        // The words the column shows, without what follows them:
+        // "Upgrading · available" is offered as "Upgrading".
+        filterSelectOptions: statusFilterOptions,
+        filterFn: (row, _, words?: string[]) =>
+          !words?.length || words.includes(getRowStatusWord(row.original)),
         size: 220,
         Cell: ({ row }) => (
           <InstanceStatus
@@ -124,7 +134,7 @@ export const DbClusterView = () => {
       //   header: 'Kubernetes Cluster',
       // },
     ],
-    []
+    [statusFilterOptions]
   );
 
   // Collect plugin globalDashboardWidget extensions.
@@ -196,51 +206,60 @@ export const DbClusterView = () => {
         ) : state.status === 'empty' ? (
           <EmptyStateDatabases hasCreatePermission={hasCreatePermission} />
         ) : (
-          <Table
-            getRowId={(row) => row.instanceName}
-            tableName="dbClusterView"
-            state={{ isLoading: false }}
-            columns={columns}
-            data={state.rows}
-            enableRowActions
-            renderRowActions={({ row }) => {
-              return (
-                <DbActions dbInstance={row.original.raw} showDetailsAction />
-              );
-            }}
-            muiTableBodyRowProps={({ row, isDetailPanel }) => ({
-              onClick: (e) => {
-                if (
-                  !isDetailPanel &&
-                  e.currentTarget.contains(e.target as Node)
-                ) {
-                  navigate(
-                    `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
-                  );
-                }
-              },
-              sx: {
-                ...(!isDetailPanel && {
-                  cursor: 'pointer', // you might want to change the cursor too when adding an onClick
-                }),
-              },
-            })}
-            enableRowHoverAction
-            rowHoverAction={(row) =>
-              navigate(
-                `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
-              )
-            }
-            renderTopToolbarCustomActions={() =>
-              canAddCluster && (
-                <Box display="flex" gap={1} mb={1}>
-                  <ImportDbButton />
-                  <CreateDbButton />
-                </Box>
-              )
-            }
-            hideExpandAllIcon
-          />
+          <Stack sx={{ gap: 1 }}>
+            <Box>
+              <NeedsAttentionChip
+                count={needsAttention.count}
+                active={needsAttention.active}
+                onToggle={needsAttention.toggle}
+              />
+            </Box>
+            <Table
+              getRowId={(row) => row.instanceName}
+              tableName="dbClusterView"
+              state={{ isLoading: false }}
+              columns={columns}
+              data={needsAttention.visibleRows}
+              enableRowActions
+              renderRowActions={({ row }) => {
+                return (
+                  <DbActions dbInstance={row.original.raw} showDetailsAction />
+                );
+              }}
+              muiTableBodyRowProps={({ row, isDetailPanel }) => ({
+                onClick: (e) => {
+                  if (
+                    !isDetailPanel &&
+                    e.currentTarget.contains(e.target as Node)
+                  ) {
+                    navigate(
+                      `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
+                    );
+                  }
+                },
+                sx: {
+                  ...(!isDetailPanel && {
+                    cursor: 'pointer', // you might want to change the cursor too when adding an onClick
+                  }),
+                },
+              })}
+              enableRowHoverAction
+              rowHoverAction={(row) =>
+                navigate(
+                  `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
+                )
+              }
+              renderTopToolbarCustomActions={() =>
+                canAddCluster && (
+                  <Box display="flex" gap={1} mb={1}>
+                    <ImportDbButton />
+                    <CreateDbButton />
+                  </Box>
+                )
+              }
+              hideExpandAllIcon
+            />
+          </Stack>
         )}
       </Box>
     </Stack>

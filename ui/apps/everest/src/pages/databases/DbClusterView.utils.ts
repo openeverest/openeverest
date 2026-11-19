@@ -22,7 +22,14 @@ import {
   getBackupState,
 } from 'shared-types/backups.types';
 import { DbInstanceForNamespaceResult } from 'hooks/api/db-instances';
-import { getInstanceStatusDisplay } from 'utils/instance-status';
+import {
+  getInstanceStatusDisplay,
+  getInstanceStatusWord,
+} from 'utils/instance-status';
+import {
+  NEEDS_ATTENTION_TONES,
+  TONES_BY_URGENCY,
+} from './DbClusterView.constants';
 
 export const convertDbInstancesPayloadToTableFormat = (
   data: DbInstanceForNamespaceResult[]
@@ -151,4 +158,33 @@ export const sortBackupsByTime = (backups: Backup[]) => {
       : new Date();
     return date1.getTime() - date2.getTime();
   });
+};
+
+export const getRowStatusWord = ({ status }: InstanceTableElement) =>
+  getInstanceStatusWord(status);
+
+export const doesRowNeedAttention = ({ status }: InstanceTableElement) =>
+  NEEDS_ATTENTION_TONES.includes(status.tone);
+
+// The status words the rows show, so that the filter offers what the column
+// says. A word shown with more than one tone, such as a crash loop that may
+// clear and one that has stalled, sorts by its most urgent.
+export const getStatusFilterOptions = (rows: InstanceTableElement[]) => {
+  const urgencyByWord = new Map<string, number>();
+
+  rows.forEach((row) => {
+    const word = getRowStatusWord(row);
+    const urgency = TONES_BY_URGENCY.indexOf(row.status.tone);
+    urgencyByWord.set(
+      word,
+      Math.min(urgency, urgencyByWord.get(word) ?? urgency)
+    );
+  });
+
+  return [...urgencyByWord.entries()]
+    .sort(
+      ([wordA, urgencyA], [wordB, urgencyB]) =>
+        urgencyA - urgencyB || wordA.localeCompare(wordB)
+    )
+    .map(([word]) => ({ label: word, value: word }));
 };

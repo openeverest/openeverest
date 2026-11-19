@@ -13,7 +13,11 @@
 // limitations under the License.
 
 import { Instance } from 'shared-types/api.types';
-import { convertDbInstancesPayloadToTableFormat } from './DbClusterView.utils';
+import {
+  convertDbInstancesPayloadToTableFormat,
+  getStatusFilterOptions,
+} from './DbClusterView.utils';
+import { InstanceTone } from 'shared-types/instance.types';
 import { InstanceTableElement } from './dbClusterView.types';
 import { DbInstanceForNamespaceResult } from 'hooks/api/db-instances';
 
@@ -135,5 +139,76 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
 
     const result = convertDbInstancesPayloadToTableFormat(data);
     expect(result[0].provider).toBe('');
+  });
+});
+
+describe('getStatusFilterOptions', () => {
+  const row = (
+    tone: InstanceTone,
+    label: string,
+    text = label
+  ): InstanceTableElement => ({
+    namespace: 'ns-1',
+    instanceName: label,
+    provider: '',
+    topologyType: '',
+    status: {
+      tone,
+      reason: label,
+      label,
+      text,
+      available: 'Unknown',
+      message: '',
+      stale: false,
+    },
+    raw: {
+      apiVersion: 'core.openeverest.io/v1alpha1',
+      kind: 'Instance',
+      metadata: {},
+      spec: { providerRef: { name: '' } },
+    },
+  });
+  const words = (rows: InstanceTableElement[]) =>
+    getStatusFilterOptions(rows).map(({ value }) => value);
+
+  it('offers the words the rows show, the most urgent first', () => {
+    expect(
+      words([
+        row('ok', 'Ready'),
+        row('progress', 'Upgrading', 'Upgrading \u00b7 available'),
+        row('attention', 'Secret not found'),
+        row('error', 'Invalid configuration'),
+        row('progress', 'Creating'),
+      ])
+    ).toEqual([
+      'Invalid configuration',
+      'Secret not found',
+      'Creating',
+      'Upgrading',
+      'Ready',
+    ]);
+  });
+
+  it('offers a word shown with two tones once, as urgent as its worst', () => {
+    expect(
+      words([
+        row('attention', 'Secret not found'),
+        row('attention', 'Crash loop'),
+        row('error', 'Crash loop'),
+      ])
+    ).toEqual(['Crash loop', 'Secret not found']);
+  });
+
+  it('offers an Instance being deleted as Deleting, whatever it waits for', () => {
+    expect(
+      words([
+        row('deleting', 'Ready', 'Deleting'),
+        row(
+          'deleting',
+          'Waiting for backups',
+          'Deleting \u00b7 Waiting for backups'
+        ),
+      ])
+    ).toEqual(['Deleting']);
   });
 });
