@@ -104,7 +104,7 @@ func init() {
 	createCmd.Flags().StringVar(&createOpts.Preset, cli.FlagInstancePreset, "", "InstancePreset to bootstrap from; --provider is inferred from the preset when omitted; cannot be used with --clusterpreset ")
 	createCmd.Flags().StringVar(&createOpts.ClusterPreset, cli.FlagInstanceClusterPreset, "", "ClusterInstancePreset to bootstrap from; --provider is inferred from the preset when omitted; cannot be used with --preset")
 	createCmd.MarkFlagsMutuallyExclusive(cli.FlagInstancePreset, cli.FlagInstanceClusterPreset)
-	createCmd.Flags().StringVar(&createOpts.Cluster, cli.FlagInstanceCluster, "main", "Cluster name")
+	createCmd.Flags().StringVar(&createOpts.Cluster, cli.FlagInstanceCluster, "", "Cluster name (auto-detected when only one cluster is registered)")
 	createCmd.Flags().StringVar(&createOpts.Version, cli.FlagInstanceVersion, "", "Provider version bundle to use (default: taken from the preset if --preset or --clusterpreset is given, otherwise provider's default)")
 	createCmd.Flags().StringVar(&createOpts.Topology, cli.FlagInstanceTopology, "", "Topology name; cannot be used with --preset or --clusterpreset (default: provider's first topology)")
 	createCmd.Flags().StringVar(&createOpts.Context, cli.FlagInstanceContext, "", "Context to use (default: current context)")

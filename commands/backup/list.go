@@ -65,7 +65,7 @@ There is currently no API to list backups across an entire namespace, so
 func init() {
 	listCmd.Flags().StringVarP(&listOpts.Namespace, cli.FlagBackupNamespace, "n", "", "Namespace the instance is located in")
 	listCmd.Flags().StringVar(&listOpts.Instance, cli.FlagBackupInstance, "", "Instance to list backups for")
-	listCmd.Flags().StringVar(&listOpts.Cluster, cli.FlagBackupCluster, "main", "Cluster name")
+	listCmd.Flags().StringVar(&listOpts.Cluster, cli.FlagBackupCluster, "", "Cluster name (auto-detected when only one cluster is registered)")
 	listCmd.Flags().StringVar(&listOpts.Context, cli.FlagBackupContext, "", "Context to use (default: current context)")
 
 	_ = listCmd.MarkFlagRequired(cli.FlagBackupNamespace)

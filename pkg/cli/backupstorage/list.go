@@ -33,6 +33,7 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 )
@@ -73,6 +74,10 @@ func NewListRunner(cfg Config, l *zap.SugaredLogger) *ListRunner {
 // names the Secret that holds them.
 func (sl *ListRunner) Run(ctx context.Context, opts ListOptions, cfgPath string) error {
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: sl.config.Pretty}, sl.l.Desugar().Sugar(), cfgPath, opts.Context)
+	if err != nil {
+		return err
+	}
+	opts.Cluster, err = cli.ResolveCluster(ctx, c, opts.Cluster)
 	if err != nil {
 		return err
 	}

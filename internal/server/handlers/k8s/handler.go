@@ -11,17 +11,24 @@ import (
 type k8sHandler struct {
 	kubeConnector     kubernetes.KubernetesConnector
 	log               *zap.SugaredLogger
+	clusterName       string
 	versionServiceURL string
 }
 
 // New returns a new RBAC handler.
 //
 //nolint:ireturn
-func New(log *zap.SugaredLogger, kubeConnector kubernetes.KubernetesConnector, vsURL string) handlers.Handler {
+func New(
+	log *zap.SugaredLogger,
+	kubeConnector kubernetes.KubernetesConnector,
+	clusterName string,
+	vsURL string,
+) handlers.Handler {
 	l := log.With("handler", "k8s")
 	return &k8sHandler{
 		kubeConnector:     kubeConnector,
 		log:               l,
+		clusterName:       clusterName,
 		versionServiceURL: vsURL,
 	}
 }

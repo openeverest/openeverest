@@ -30,7 +30,7 @@ func (h *k8sHandler) ListClusters(ctx context.Context) (*api.ClusterList, error)
 	clustersList := &api.ClusterList{
 		Items: []api.Cluster{
 			{
-				Name:   "main",
+				Name:   h.clusterName,
 				Server: "https://kubernetes.default.svc",
 			},
 		},
@@ -43,12 +43,12 @@ func (h *k8sHandler) GetCluster(ctx context.Context, name string) (*api.Cluster,
 	// For now, we only support a single cluster, which is the Kubernetes
 	// cluster where Everest is running. When we add support for multiple
 	// clusters, this will need to be updated.
-	if name != "main" {
+	if name != h.clusterName {
 		return nil, fmt.Errorf("cluster not found: %s", name)
 	}
 
 	return &api.Cluster{
-		Name:   "main",
+		Name:   h.clusterName,
 		Server: "https://kubernetes.default.svc",
 	}, nil
 }

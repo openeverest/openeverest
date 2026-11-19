@@ -18,12 +18,11 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
 )
-
-const legacyDefaultCluster = "main"
 
 // GetKubernetesClusterResourcesForCluster returns all and available resources of a Kubernetes cluster.
 func (e *EverestServer) GetKubernetesClusterResourcesForCluster(ctx echo.Context, cluster string) error {
@@ -38,6 +37,9 @@ func (e *EverestServer) GetKubernetesClusterResourcesForCluster(ctx echo.Context
 // GetKubernetesClusterResources serves the deprecated unscoped endpoint.
 func (e *EverestServer) GetKubernetesClusterResources(ctx echo.Context) error {
 	ctx.Response().Header().Set("Deprecation", "true")
-	ctx.Response().Header().Set("Link", `</v1/clusters/main/resources>; rel="successor-version"`)
-	return e.GetKubernetesClusterResourcesForCluster(ctx, legacyDefaultCluster)
+	ctx.Response().Header().Set(
+		"Link",
+		fmt.Sprintf(`</v1/clusters/%s/resources>; rel="successor-version"`, e.config.ClusterName),
+	)
+	return e.GetKubernetesClusterResourcesForCluster(ctx, e.config.ClusterName)
 }

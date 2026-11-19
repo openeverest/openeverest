@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
@@ -68,6 +69,10 @@ func NewCreateRunner(cfg Config, l *zap.SugaredLogger) *CreateRunner {
 // cancelled (context.Canceled).
 func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath string) error {
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: cr.config.Pretty}, cr.l.Desugar().Sugar(), cfgPath, opts.Context)
+	if err != nil {
+		return err
+	}
+	opts.Cluster, err = cli.ResolveCluster(ctx, c, opts.Cluster)
 	if err != nil {
 		return err
 	}

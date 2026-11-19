@@ -75,6 +75,10 @@ func (iu *Updater) Run(ctx context.Context, opts UpdateOptions, cfgPath string) 
 	if err != nil {
 		return err
 	}
+	opts.Cluster, err = cli.ResolveCluster(ctx, c, opts.Cluster)
+	if err != nil {
+		return err
+	}
 
 	overrides, err := buildSpecOverrides(opts.ValuesFile, opts.Set)
 	if err != nil {

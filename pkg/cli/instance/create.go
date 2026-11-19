@@ -101,6 +101,10 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 	if err != nil {
 		return err
 	}
+	opts.Cluster, err = cli.ResolveCluster(ctx, c, opts.Cluster)
+	if err != nil {
+		return err
+	}
 
 	var (
 		presetSpecBase map[string]any

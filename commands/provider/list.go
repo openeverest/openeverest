@@ -57,7 +57,7 @@ version catalog, and schemas remain available via --json / --verbose.`,
 )
 
 func init() {
-	listCmd.Flags().StringVar(&listOpts.Cluster, cli.FlagProviderCluster, "main", "Cluster name")
+	listCmd.Flags().StringVar(&listOpts.Cluster, cli.FlagProviderCluster, "", "Cluster name (auto-detected when only one cluster is registered)")
 	listCmd.Flags().StringVar(&listOpts.Context, cli.FlagProviderContext, "", "Context to use (default: current context)")
 }
 

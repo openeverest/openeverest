@@ -22,9 +22,10 @@ import {
   useDeleteDbInstance,
 } from '../db-instances';
 import { GetDbInstancesPayload, Instance } from 'shared-types/api.types';
+import { useClusterName } from 'hooks/api/useClusterName';
 
 export const useDbInstanceActions = (dbInstance: Instance) => {
-  const clusterName = 'main';
+  const clusterName = useClusterName();
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
   const [openRestoreDialog, setOpenRestoreDialog] = useState(false);

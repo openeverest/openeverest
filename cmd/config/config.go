@@ -73,6 +73,8 @@ type EverestConfig struct {
 	// Namespace is the namespace where OpenEverest is installed.
 	// Must be provided via the NAMESPACE env var (set by the Helm chart).
 	Namespace string `envconfig:"NAMESPACE" required:"true"`
+	// ClusterName identifies the Kubernetes cluster in the OpenEverest API.
+	ClusterName string `default:"main" envconfig:"CLUSTER_NAME"`
 }
 
 // ParseConfig parses env vars and fills EverestConfig.

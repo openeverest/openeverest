@@ -14,6 +14,7 @@
 
 import { useMutation, UseMutationOptions } from '@tanstack/react-query';
 import { deleteDbInstanceFn } from 'api/instanceApi';
+import { useClusterName } from '../useClusterName';
 
 export type DeleteDbInstanceArgType = {
   dbInstanceName: string;
@@ -29,11 +30,10 @@ export const useDeleteDbInstance = (
     unknown
   >
 ) => {
-  // TODO change to global use of cluster name during implementing multicluster feature
-  const clusterName = 'main';
+  const clusterName = useClusterName();
 
   return useMutation({
-    mutationKey: ['deleteDbInstance', dbInstanceName],
+    mutationKey: ['deleteDbInstance', clusterName, dbInstanceName],
     mutationFn: ({
       namespace,
       dbInstanceName,

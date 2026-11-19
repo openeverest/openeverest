@@ -64,7 +64,7 @@ There is currently no API to list restores across an entire namespace, so
 func init() {
 	listCmd.Flags().StringVarP(&listOpts.Namespace, cli.FlagRestoreNamespace, "n", "", "Namespace the instance is located in")
 	listCmd.Flags().StringVar(&listOpts.Instance, cli.FlagRestoreInstance, "", "Instance to list restores for")
-	listCmd.Flags().StringVar(&listOpts.Cluster, cli.FlagRestoreCluster, "main", "Cluster name")
+	listCmd.Flags().StringVar(&listOpts.Cluster, cli.FlagRestoreCluster, "", "Cluster name (auto-detected when only one cluster is registered)")
 	listCmd.Flags().StringVar(&listOpts.Context, cli.FlagRestoreContext, "", "Context to use (default: current context)")
 
 	_ = listCmd.MarkFlagRequired(cli.FlagRestoreNamespace)

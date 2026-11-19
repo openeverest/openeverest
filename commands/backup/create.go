@@ -84,7 +84,7 @@ func init() {
 	createCmd.Flags().StringVar(&createOpts.Storage, cli.FlagBackupStorage, "", "BackupStorage to write the backup to (required)")
 	createCmd.Flags().StringVar(&createOpts.Name, cli.FlagBackupName, "", "Backup name (default: generated from instance name)")
 	createCmd.Flags().StringVar(&createOpts.DeletionPolicy, cli.FlagBackupDeletionPolicy, "", "Delete or Retain the underlying backup data when the Backup CR is deleted (default: Delete)")
-	createCmd.Flags().StringVar(&createOpts.Cluster, cli.FlagBackupCluster, "main", "Cluster name")
+	createCmd.Flags().StringVar(&createOpts.Cluster, cli.FlagBackupCluster, "", "Cluster name (auto-detected when only one cluster is registered)")
 	createCmd.Flags().StringVar(&createOpts.Context, cli.FlagBackupContext, "", "Context to use (default: current context)")
 	createCmd.Flags().BoolVar(&createOpts.Wait, cli.FlagBackupWait, false, "Block until the backup reaches a terminal state; exit non-zero if it fails or times out")
 	createCmd.Flags().DurationVar(&createOpts.Timeout, cli.FlagBackupTimeout, 30*time.Minute, "Maximum time to wait (only valid with --wait); must be positive")

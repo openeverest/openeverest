@@ -15,7 +15,9 @@
 import { api } from './api';
 import { GetProviders } from 'shared-types/api.types';
 
-export const getProvidersFn = async () => {
-  const response = await api.get<GetProviders>(`/clusters/main/providers`);
+export const getProvidersFn = async (clusterName: string) => {
+  const response = await api.get<GetProviders>(
+    `/clusters/${clusterName}/providers`
+  );
   return response.data;
 };

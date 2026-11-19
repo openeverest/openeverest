@@ -27,6 +27,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/confirm"
@@ -77,6 +78,10 @@ func NewDeleter(cfg Config, l *zap.SugaredLogger) *Deleter {
 // deletes, then waits. ctx stays plain so Ctrl-C during confirm declines.
 func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) error {
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: bd.config.Pretty}, bd.l.Desugar().Sugar(), cfgPath, opts.Context)
+	if err != nil {
+		return err
+	}
+	opts.Cluster, err = cli.ResolveCluster(ctx, c, opts.Cluster)
 	if err != nil {
 		return err
 	}

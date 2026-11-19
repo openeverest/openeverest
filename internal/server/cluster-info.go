@@ -15,6 +15,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -33,6 +34,9 @@ func (e *EverestServer) GetKubernetesClusterInfoForCluster(ctx echo.Context, clu
 // GetKubernetesClusterInfo serves the deprecated unscoped endpoint.
 func (e *EverestServer) GetKubernetesClusterInfo(ctx echo.Context) error {
 	ctx.Response().Header().Set("Deprecation", "true")
-	ctx.Response().Header().Set("Link", `</v1/clusters/main/cluster-info>; rel="successor-version"`)
-	return e.GetKubernetesClusterInfoForCluster(ctx, legacyDefaultCluster)
+	ctx.Response().Header().Set(
+		"Link",
+		fmt.Sprintf(`</v1/clusters/%s/cluster-info>; rel="successor-version"`, e.config.ClusterName),
+	)
+	return e.GetKubernetesClusterInfoForCluster(ctx, e.config.ClusterName)
 }

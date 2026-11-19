@@ -80,7 +80,7 @@ server applies:
 func init() {
 	updateCmd.Flags().StringVar(&updateOpts.Name, cli.FlagInstanceName, "", "Instance name (required)")
 	updateCmd.Flags().StringVarP(&updateOpts.Namespace, cli.FlagInstanceNamespace, "n", "", "Namespace the instance is in (required)")
-	updateCmd.Flags().StringVar(&updateOpts.Cluster, cli.FlagInstanceCluster, "main", "Cluster name")
+	updateCmd.Flags().StringVar(&updateOpts.Cluster, cli.FlagInstanceCluster, "", "Cluster name (auto-detected when only one cluster is registered)")
 	updateCmd.Flags().StringVar(&updateOpts.Context, cli.FlagInstanceContext, "", "Context to use (default: current context)")
 	updateCmd.Flags().StringVarP(&updateOpts.ValuesFile, cli.FlagInstanceFile, "f", "", "Path to a YAML file with spec overrides (--set takes precedence)")
 	updateCmd.Flags().StringArrayVar(&updateOpts.Set, cli.FlagInstanceSet, nil, "Set a spec field: --set components.engine.replicas=3 or --set backup.enabled=true (repeatable)")

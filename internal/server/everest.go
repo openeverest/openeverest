@@ -205,7 +205,7 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 	}
 	e.echo.HTTPErrorHandler = e.errorHandlerChain()
 
-	if err := e.setupHandlers(ctx, l, kubeConnector, c.VersionServiceURL); err != nil {
+	if err := e.setupHandlers(ctx, l, kubeConnector, c.ClusterName, c.VersionServiceURL); err != nil {
 		return nil, err
 	}
 
@@ -396,9 +396,10 @@ func (e *EverestServer) setupHandlers(
 	ctx context.Context,
 	log *zap.SugaredLogger,
 	kubeConnector kubernetes.KubernetesConnector,
+	clusterName string,
 	vsURL string,
 ) error {
-	k8sH := k8shandler.New(log, kubeConnector, vsURL)
+	k8sH := k8shandler.New(log, kubeConnector, clusterName, vsURL)
 	valH := valhandler.New(log, kubeConnector)
 	rbacH, err := rbachandler.New(ctx, log, kubeConnector)
 	if err != nil {
