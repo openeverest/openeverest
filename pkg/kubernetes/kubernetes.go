@@ -105,6 +105,15 @@ type Kubernetes struct {
 	discoveryOnce sync.Once
 }
 
+// RemoteClusterConfig describes an OpenEverest agent endpoint exposed by a
+// spoke cluster. The endpoint is Kubernetes API compatible.
+type RemoteClusterConfig struct {
+	Endpoint      string
+	BearerToken   string
+	CAData        []byte
+	TLSServerName string
+}
+
 // NewEmpty returns new empty Kubernetes object.
 // useful for testing.
 func NewEmpty(l *zap.SugaredLogger, namespace string) *Kubernetes {
@@ -137,7 +146,45 @@ func New(kubeconfigPath string, l *zap.SugaredLogger, namespace string) (Kuberne
 
 	restConfig.QPS = defaultQPSLimit
 	restConfig.Burst = defaultBurstLimit
-	k8client, err := ctrlclient.New(restConfig, getKubernetesClientOptions(nil))
+	k, err := newForConfig(restConfig, l, namespace)
+	if err != nil {
+		return nil, err
+	}
+	k.kubeconfig = path
+	return k, nil
+}
+
+// NewRemote creates a Kubernetes connector that talks to an OpenEverest agent.
+func NewRemote(
+	config RemoteClusterConfig,
+	l *zap.SugaredLogger,
+	namespace string,
+) (KubernetesConnector, error) {
+	if config.Endpoint == "" {
+		return nil, errors.New("remote endpoint is required")
+	}
+	if config.BearerToken == "" {
+		return nil, errors.New("remote bearer token is required")
+	}
+
+	return newForConfig(&rest.Config{
+		Host:        config.Endpoint,
+		BearerToken: config.BearerToken,
+		QPS:         defaultQPSLimit,
+		Burst:       defaultBurstLimit,
+		TLSClientConfig: rest.TLSClientConfig{
+			CAData:     config.CAData,
+			ServerName: config.TLSServerName,
+		},
+	}, l, namespace)
+}
+
+func newForConfig(
+	restConfig *rest.Config,
+	l *zap.SugaredLogger,
+	namespace string,
+) (*Kubernetes, error) {
+	k8sClient, err := ctrlclient.New(restConfig, getKubernetesClientOptions(nil))
 	if err != nil {
 		return nil, err
 	}
@@ -145,13 +192,11 @@ func New(kubeconfigPath string, l *zap.SugaredLogger, namespace string) (Kuberne
 	if err != nil {
 		return nil, err
 	}
-
 	return &Kubernetes{
-		k8sClient:   k8client,
+		k8sClient:   k8sClient,
 		watchClient: watchClient,
 		l:           l.With("component", "kubernetes"),
 		restConfig:  restConfig,
-		kubeconfig:  path,
 		namespace:   namespace,
 	}, nil
 }
