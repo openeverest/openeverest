@@ -24,16 +24,11 @@ import {
 import { DbCluster, Spec } from 'shared-types/dbCluster.types';
 import { ClusterStatusTableProps } from './types';
 import { useDbClusters } from 'hooks/api/db-clusters/useDbClusters';
-import { useDbInstanceList } from 'hooks/api/db-instances';
-import { InstanceStatus } from 'components/instance-status';
 import UpdateCrDialog from './update-cr-dialog';
 import UpdateEngineDialog from './update-engine-dialog';
-import { Instance } from 'shared-types/api.types';
-import { getInstanceStatusDisplay } from 'utils/instance-status';
 
 type EnhancedDbList = OperatorUpgradePendingAction & {
   db?: DbCluster;
-  instance?: Instance;
 };
 
 const ClusterStatusTable = ({
@@ -47,9 +42,6 @@ const ClusterStatusTable = ({
       clusters.items.filter((cluster) =>
         dbNames.includes(cluster.metadata.name)
       ),
-    enabled: !!namespace && !!pendingActions.length,
-  });
-  const { data: instances = [] } = useDbInstanceList(namespace, {
     enabled: !!namespace && !!pendingActions.length,
   });
   const [openUpdateCrDialog, setOpenUpdateCrDialog] = useState(false);
@@ -66,12 +58,9 @@ const ClusterStatusTable = ({
         return {
           ...action,
           db,
-          instance: instances.find(
-            (instance) => instance.metadata?.name === action.name
-          ),
         };
       }),
-    [dbClusters, instances, pendingActions]
+    [dbClusters, pendingActions]
   );
 
   const onDbClick = useCallback(
@@ -144,12 +133,9 @@ const ClusterStatusTable = ({
       {
         id: 'status',
         header: 'Status',
-        accessorFn: (row) =>
-          row.instance && getInstanceStatusDisplay(row.instance).text,
-        Cell: ({ row }) =>
-          row.original.instance && (
-            <InstanceStatus instance={row.original.instance} />
-          ),
+        // The v1 status as the API spells it: this screen predates
+        // Instances and reads database clusters only.
+        accessorFn: (row) => row.db?.status?.status,
       },
       {
         accessorKey: 'name',
