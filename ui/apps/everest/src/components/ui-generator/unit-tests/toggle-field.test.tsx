@@ -45,11 +45,20 @@ const getTestToggleSwitch = () =>
 const createTestSchema = (
   fieldParams: Partial<ToggleFieldParams> = {},
   componentOverrides: {
-    validation?: Extract<Component, { uiType: FieldType.Toggle }>['validation'];
-    modes?: Extract<Component, { uiType: FieldType.Toggle }>['modes'];
+    validation?: Extract<
+      Component,
+      { uiType: (typeof FieldType)['Toggle'] }
+    >['validation'];
+    modes?: Extract<
+      Component,
+      { uiType: (typeof FieldType)['Toggle'] }
+    >['modes'];
   } = {}
 ): TopologyUISchemas => {
-  const testToggle: Extract<Component, { uiType: FieldType.Toggle }> = {
+  const testToggle: Extract<
+    Component,
+    { uiType: (typeof FieldType)['Toggle'] }
+  > = {
     uiType: FieldType.Toggle,
     path: 'spec.testToggle',
     fieldParams: {

@@ -22,7 +22,10 @@ import {
 import { Provider } from 'shared-types/api.types';
 import { getValueByPath } from './get-value-by-path';
 
-type SelectComponent = Extract<Component, { uiType: FieldType.Select }>;
+type SelectComponent = Extract<
+  Component,
+  { uiType: (typeof FieldType)['Select'] }
+>;
 
 export const isSelectComponent = (item: Component): item is SelectComponent => {
   return item.uiType === FieldType.Select;

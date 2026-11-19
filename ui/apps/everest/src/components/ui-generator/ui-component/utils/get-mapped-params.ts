@@ -54,12 +54,12 @@ export const getMappedParams = <K extends keyof FieldParamsMap>(
     case 'number':
       return mapNumberFieldParams(
         fieldParams as NumberFieldParams,
-        validation as ValidationMap[FieldType.Number] | undefined
+        validation as ValidationMap[(typeof FieldType)['Number']] | undefined
       );
     case 'quantity':
       return mapQuantityFieldParams(
         fieldParams as QuantityFieldParams,
-        validation as ValidationMap[FieldType.Quantity] | undefined
+        validation as ValidationMap[(typeof FieldType)['Quantity']] | undefined
       );
     case 'text':
       return mapTextFieldParams(fieldParams as TextFieldParams);
@@ -74,7 +74,7 @@ export const getMappedParams = <K extends keyof FieldParamsMap>(
 
 const mapNumberFieldParams = (
   fieldParams: NumberFieldParams,
-  validation?: ValidationMap[FieldType.Number]
+  validation?: ValidationMap[(typeof FieldType)['Number']]
 ) => {
   const { disabled, helperText, badge, autoFocus, placeholder, step, ...rest } =
     fieldParams;
@@ -136,7 +136,7 @@ const mapNumberFieldParams = (
 // Same numeric input as number - adornment is unitLabel ?? unit (not badge).
 const mapQuantityFieldParams = (
   fieldParams: QuantityFieldParams,
-  validation?: ValidationMap[FieldType.Quantity]
+  validation?: ValidationMap[(typeof FieldType)['Quantity']]
 ) => {
   const { unit, unitLabel, step = 'any', ...rest } = fieldParams;
 

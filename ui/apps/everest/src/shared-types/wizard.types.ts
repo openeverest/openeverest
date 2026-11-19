@@ -19,4 +19,7 @@ export const WizardMode = FormMode;
 /** @deprecated Use FormMode from ui-generator types directly */
 export type WizardMode = FormMode;
 
-export type ScheduleWizardMode = Exclude<FormMode, FormMode.Restore>;
+export type ScheduleWizardMode = Exclude<
+  FormMode,
+  (typeof FormMode)['Restore']
+>;

@@ -28,7 +28,7 @@ import { TestWrapper } from 'utils/test';
 const buildSelectComponent = (
   fieldParams: SelectFieldParams,
   required = false
-): Extract<Component, { uiType: FieldType.Select }> => ({
+): Extract<Component, { uiType: (typeof FieldType)['Select'] }> => ({
   uiType: FieldType.Select,
   path: 'spec.engine',
   fieldParams: {

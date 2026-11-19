@@ -48,7 +48,7 @@ const createTestSchema = (
   fieldParams: Partial<TextFieldParams> = {},
   validation?: TextValidation
 ): TopologyUISchemas => {
-  const testText: Extract<Component, { uiType: FieldType.Text }> = {
+  const testText: Extract<Component, { uiType: (typeof FieldType)['Text'] }> = {
     uiType: FieldType.Text,
     path: 'spec.testText',
     fieldParams: {

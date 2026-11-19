@@ -16,16 +16,16 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { Affinity, AffinityOperator } from 'shared-types/affinity.types';
 import {
+  InternalWidgetType,
   WidgetComponent,
   WIDGET_UI_TYPE,
-  WidgetType,
 } from 'components/ui-generator/ui-generator.types';
 import { SchedulingComponentContext } from '../scheduling-component-context';
 import { AffinityRuleEditor } from './affinity-rule-editor';
 
 const item: WidgetComponent = {
   uiType: WIDGET_UI_TYPE,
-  widgetType: WidgetType.Affinity,
+  widgetType: InternalWidgetType.Affinity,
   path: 'spec.affinity',
 };
 
