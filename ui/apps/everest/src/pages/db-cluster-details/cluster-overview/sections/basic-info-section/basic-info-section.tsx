@@ -43,7 +43,7 @@ const BasicInfoSection = ({
     />
     <OverviewSectionRow
       label={Messages.fields.status}
-      content={getInstanceStatusDisplay(instance).label}
+      content={getInstanceStatusDisplay(instance).text}
     />
   </OverviewSection>
 );

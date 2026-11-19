@@ -76,6 +76,7 @@ describe('convertDbInstancesPayloadToTableFormat', () => {
         tone: 'ok',
         reason: 'Ready',
         label: 'Ready',
+        text: 'Ready',
         available: 'Unknown',
         message: 'The instance is ready',
         stale: false,

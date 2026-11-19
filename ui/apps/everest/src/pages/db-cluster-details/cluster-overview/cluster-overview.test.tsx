@@ -148,6 +148,21 @@ describe('ClusterOverview', () => {
     expect(screen.queryByTestId('cluster-overview')).not.toBeInTheDocument();
   });
 
+  it('names the status as the header does while a ready Instance is deleted', () => {
+    renderOverview('my-ns', 'my-test-db', {
+      instance: {
+        ...mockInstance,
+        metadata: {
+          name: 'my-test-db',
+          deletionTimestamp: '2026-03-21T10:00:00Z',
+        },
+      },
+    });
+
+    expect(screen.getByText('Deleting')).toBeInTheDocument();
+    expect(screen.queryByText('Ready')).not.toBeInTheDocument();
+  });
+
   it('queries credentials once connection details are published', () => {
     renderOverview('my-ns', 'my-test-db');
 

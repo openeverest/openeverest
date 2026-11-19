@@ -19,7 +19,6 @@ import { InstanceStatusSource } from 'shared-types/instance.types';
 import {
   areInstanceEditsBlocked,
   getInstanceStatusDisplay,
-  getInstanceStatusText,
   getReasonLabel,
   hasConnectionDetails,
   isInstanceDeleting,
@@ -86,9 +85,9 @@ describe('getInstanceStatusDisplay', () => {
   });
 });
 
-describe('getInstanceStatusText', () => {
+describe('status text', () => {
   const textOf = (source: InstanceStatusSource | undefined) =>
-    getInstanceStatusText(source, getInstanceStatusDisplay(source));
+    getInstanceStatusDisplay(source).text;
 
   it.each([
     ['rolling-upgrade', 'Upgrading \u00b7 available'],

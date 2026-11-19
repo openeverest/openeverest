@@ -78,6 +78,9 @@ export interface InstanceStatusDisplay {
   reason: string;
   // The status word as a person reads it. everestctl shows the same one.
   label: string;
+  // What the UI shows wherever it names the status: the label with what it
+  // leaves out, as in "Upgrading · available" or "Deleting".
+  text: string;
   available: InstanceAvailability;
   // One sentence about the status word: the Ready condition's message. While
   // stale it is what core says about nobody attending to the Instance, or

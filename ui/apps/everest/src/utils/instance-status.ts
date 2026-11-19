@@ -91,7 +91,7 @@ const toAvailability = (status: string | undefined): InstanceAvailability => {
 export const isInstanceDeleting = (instance?: InstanceStatusSource) =>
   !!instance?.metadata?.deletionTimestamp;
 
-// The phase is the only record of whether the database has ever been up.
+// The phase is the only record of whether the Instance has ever been up.
 const hasInstanceBeenAvailable = (instance?: InstanceStatusSource) =>
   instance?.status?.phase === PHASE_PROVISIONED;
 
@@ -150,8 +150,47 @@ const getTone = (
     : 'progress';
 };
 
+// Whether clients can connect is worth saying only while work is in flight on
+// an Instance that has been up. Before that it is not up by definition, and
+// outside of work the status word says it.
+const getConnectivityDuringWork = (
+  instance: InstanceStatusSource | undefined,
+  { tone, available }: Pick<InstanceStatusDisplay, 'tone' | 'available'>
+): Exclude<InstanceAvailability, 'Unknown'> | undefined =>
+  tone === 'progress' &&
+  hasInstanceBeenAvailable(instance) &&
+  available !== 'Unknown'
+    ? available
+    : undefined;
+
+// The status word, with what the word alone leaves out.
+const getStatusText = (
+  instance: InstanceStatusSource | undefined,
+  status: Omit<InstanceStatusDisplay, 'text'>
+) => {
+  if (status.tone === 'deleting') {
+    const deleting = getReasonLabel(REASON_DELETING);
+    const ready = getInstanceCondition(instance, InstanceConditionType.Ready);
+    // The status word says what the deletion is waiting for, unless it dates
+    // from before the deletion: an Instance that was ready is being deleted,
+    // not ready.
+    const predatesDeletion =
+      ready?.status === 'True' && ready.reason === status.reason;
+
+    return status.reason === REASON_DELETING || predatesDeletion
+      ? deleting
+      : Messages.withDetail(deleting, status.label);
+  }
+
+  const connectivity = getConnectivityDuringWork(instance, status);
+
+  return connectivity
+    ? Messages.withDetail(status.label, Messages.connectivity[connectivity])
+    : status.label;
+};
+
 // Turns an Instance's status into what a person is shown: a tone that says
-// whether to wait or act, one status word, and whether the database is up.
+// whether to wait or act, one status word, and whether the Instance is up.
 //
 // everestctl has the same function in Go (pkg/instancestatus), and both are
 // held to the same fixtures. Nothing is inferred from how long the status
@@ -175,7 +214,7 @@ export const getInstanceStatusDisplay = (
     reason = REASON_DELETING;
   }
 
-  return {
+  const status = {
     tone,
     reason,
     label: getReasonLabel(reason),
@@ -187,46 +226,8 @@ export const getInstanceStatusDisplay = (
     message: (unattended ? unattended.message : !stale && ready?.message) || '',
     stale,
   };
-};
 
-// Whether clients can connect is worth saying only while work is in flight on
-// a database that has been up. Before that it is not up by definition, and
-// outside of work the status word says it.
-const getConnectivityDuringWork = (
-  instance: InstanceStatusSource | undefined,
-  { tone, available }: Pick<InstanceStatusDisplay, 'tone' | 'available'>
-): Exclude<InstanceAvailability, 'Unknown'> | undefined =>
-  tone === 'progress' &&
-  hasInstanceBeenAvailable(instance) &&
-  available !== 'Unknown'
-    ? available
-    : undefined;
-
-// What a status badge says: the status word, with what the word alone leaves
-// out.
-export const getInstanceStatusText = (
-  instance: InstanceStatusSource | undefined,
-  status: InstanceStatusDisplay
-) => {
-  if (status.tone === 'deleting') {
-    const deleting = getReasonLabel(REASON_DELETING);
-    const ready = getInstanceCondition(instance, InstanceConditionType.Ready);
-    // The status word says what the deletion is waiting for, unless it dates
-    // from before the deletion: a database that was ready is being deleted,
-    // not ready.
-    const predatesDeletion =
-      ready?.status === 'True' && ready.reason === status.reason;
-
-    return status.reason === REASON_DELETING || predatesDeletion
-      ? deleting
-      : Messages.withDetail(deleting, status.label);
-  }
-
-  const connectivity = getConnectivityDuringWork(instance, status);
-
-  return connectivity
-    ? Messages.withDetail(status.label, Messages.connectivity[connectivity])
-    : status.label;
+  return { ...status, text: getStatusText(instance, status) };
 };
 
 // What is wrong with the Instance, if its status says something is. The

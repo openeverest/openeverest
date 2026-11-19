@@ -50,7 +50,7 @@ export const DbClusterView = () => {
       {
         id: 'status',
         // What the cell says, so that searching finds it.
-        accessorFn: ({ status }) => status.label,
+        accessorFn: ({ status }) => status.text,
         header: 'Status',
         filterVariant: 'multi-select',
         filterSelectOptions: INSTANCE_TONES.map((tone) => ({

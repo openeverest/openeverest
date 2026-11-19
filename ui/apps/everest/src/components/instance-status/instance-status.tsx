@@ -16,10 +16,7 @@ import { Box, Tooltip } from '@mui/material';
 import { PendingIcon } from '@percona/ui-lib';
 import StatusField from 'components/status-field';
 import { InstanceStatusSource } from 'shared-types/instance.types';
-import {
-  getInstanceStatusDisplay,
-  getInstanceStatusText,
-} from 'utils/instance-status';
+import { getInstanceStatusDisplay } from 'utils/instance-status';
 import { TONE_TO_BASE_STATUS } from './instance-status.constants';
 
 interface InstanceStatusProps {
@@ -42,7 +39,7 @@ export const InstanceStatus = ({
           statusMap={TONE_TO_BASE_STATUS}
           defaultIcon={PendingIcon}
         >
-          {getInstanceStatusText(instance, status)}
+          {status.text}
         </StatusField>
       </Box>
     </Tooltip>

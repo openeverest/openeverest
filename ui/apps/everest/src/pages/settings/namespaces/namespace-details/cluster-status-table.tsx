@@ -145,7 +145,7 @@ const ClusterStatusTable = ({
         id: 'status',
         header: 'Status',
         accessorFn: (row) =>
-          row.instance && getInstanceStatusDisplay(row.instance).label,
+          row.instance && getInstanceStatusDisplay(row.instance).text,
         Cell: ({ row }) =>
           row.original.instance && (
             <InstanceStatus instance={row.original.instance} />
