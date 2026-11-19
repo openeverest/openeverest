@@ -12,6 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export const Messages = {
-  podsNeedAttention: 'Some pods need attention.',
+import { BaseStatus } from 'components/status-field/status-field.types';
+import { InstanceTone } from 'shared-types/instance.types';
+
+export const TONE_TO_BASE_STATUS: Record<InstanceTone, BaseStatus> = {
+  ok: 'success',
+  progress: 'pending',
+  attention: 'warning',
+  error: 'error',
+  stopped: 'paused',
+  deleting: 'deleting',
+  unknown: 'unknown',
 };

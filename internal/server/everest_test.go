@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -38,6 +39,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/openeverest/openeverest/v2/internal/secretdefinition"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	rbachandler "github.com/openeverest/openeverest/v2/internal/server/handlers/rbac"
 	"github.com/openeverest/openeverest/v2/pkg/oidc"
 )
@@ -444,4 +446,42 @@ func TestEverestErrorHandler_Invalid(t *testing.T) {
 			assert.JSONEq(t, tt.want, rec.Body.String())
 		})
 	}
+}
+
+// TestRequestValidator_SystemMetadata pins that the object metadata fields
+// the API server populates stay out of readOnly in the OpenAPI schema. The
+// validator rejects readOnly properties in a request body, so an update that
+// sends back an Instance as it was read, generation included, would fail.
+func TestRequestValidator_SystemMetadata(t *testing.T) {
+	t.Parallel()
+
+	swagger, err := api.GetSpec()
+	require.NoError(t, err)
+	e := echo.New()
+	g := e.Group("/v1")
+	g.Use(requestValidator(swagger))
+	g.PUT("/clusters/:cluster/namespaces/:namespace/instances/:instance", func(c echo.Context) error {
+		return c.NoContent(http.StatusOK)
+	})
+
+	body := `{
+		"apiVersion": "core.openeverest.io/v1alpha1",
+		"kind": "Instance",
+		"metadata": {
+			"name": "orders",
+			"namespace": "everest",
+			"generation": 3,
+			"resourceVersion": "4821",
+			"uid": "fac71796-33d0-4b11-96fa-ce19ec150d80",
+			"creationTimestamp": "2026-11-18T13:39:44Z"
+		},
+		"spec": {"providerRef": {"name": "percona-server-mongodb"}}
+	}`
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPut,
+		"/v1/clusters/main/namespaces/everest/instances/orders", strings.NewReader(body),
+	)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 }

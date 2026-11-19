@@ -752,43 +752,19 @@ func (e InstanceStatusPendingMaintenanceSeverity) Valid() bool {
 
 // Defines values for InstanceStatusPhase.
 const (
-	InstanceStatusPhaseFailed       InstanceStatusPhase = "Failed"
-	InstanceStatusPhaseInitializing InstanceStatusPhase = "Initializing"
-	InstanceStatusPhasePending      InstanceStatusPhase = "Pending"
-	InstanceStatusPhaseProvisioning InstanceStatusPhase = "Provisioning"
-	InstanceStatusPhaseReady        InstanceStatusPhase = "Ready"
-	InstanceStatusPhaseRestoring    InstanceStatusPhase = "Restoring"
-	InstanceStatusPhaseResuming     InstanceStatusPhase = "Resuming"
-	InstanceStatusPhaseSuspended    InstanceStatusPhase = "Suspended"
-	InstanceStatusPhaseSuspending   InstanceStatusPhase = "Suspending"
-	InstanceStatusPhaseTerminating  InstanceStatusPhase = "Terminating"
-	InstanceStatusPhaseUpdating     InstanceStatusPhase = "Updating"
+	InstanceStatusPhasePending     InstanceStatusPhase = "Pending"
+	InstanceStatusPhaseProvisioned InstanceStatusPhase = "Provisioned"
+	InstanceStatusPhaseTerminating InstanceStatusPhase = "Terminating"
 )
 
 // Valid indicates whether the value is a known member of the InstanceStatusPhase enum.
 func (e InstanceStatusPhase) Valid() bool {
 	switch e {
-	case InstanceStatusPhaseFailed:
-		return true
-	case InstanceStatusPhaseInitializing:
-		return true
 	case InstanceStatusPhasePending:
 		return true
-	case InstanceStatusPhaseProvisioning:
-		return true
-	case InstanceStatusPhaseReady:
-		return true
-	case InstanceStatusPhaseRestoring:
-		return true
-	case InstanceStatusPhaseResuming:
-		return true
-	case InstanceStatusPhaseSuspended:
-		return true
-	case InstanceStatusPhaseSuspending:
+	case InstanceStatusPhaseProvisioned:
 		return true
 	case InstanceStatusPhaseTerminating:
-		return true
-	case InstanceStatusPhaseUpdating:
 		return true
 	default:
 		return false
@@ -3212,7 +3188,9 @@ type ClusterInstancePreset struct {
 		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 		// ProviderRef ProviderRef references the cluster-scoped Provider that manages this
-		// Instance (e.g., "percona-server-mongodb", "postgresql").
+		// Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+		// providerRef cannot be changed: the provider that picked it up owns its
+		// finalizer and engine resources, and only that provider cleans them up.
 		ProviderRef struct {
 			// Name Name of the referenced object.
 			Name string `json:"name"`
@@ -4561,7 +4539,9 @@ type Instance struct {
 		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 		// ProviderRef ProviderRef references the cluster-scoped Provider that manages this
-		// Instance (e.g., "percona-server-mongodb", "postgresql").
+		// Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+		// providerRef cannot be changed: the provider that picked it up owns its
+		// finalizer and engine resources, and only that provider cleans them up.
 		ProviderRef struct {
 			// Name Name of the referenced object.
 			Name string `json:"name"`
@@ -4651,6 +4631,20 @@ type Instance struct {
 
 		// Components Components reports how many pods each component has and how many are Ready.
 		Components *[]struct {
+			// DesiredReplicas DesiredReplicas is how many pods the component will have once the
+			// current generation has converged, as the provider reports it. It
+			// describes status.observedGeneration: it is absent until the provider
+			// reports for that generation, during deletion, and for providers that
+			// don't report it; clients then show readyReplicas over replicas. Zero is
+			// a real target, for example a model scaled to zero. A cluster paused
+			// outside OpenEverest keeps its target, so it reads 0 of N; one stopped
+			// through its spec has a target of zero.
+			//
+			// It is meant for display. When a component sums several groups, such as
+			// the replica sets of every shard, it cannot tell whether each group has
+			// a majority.
+			DesiredReplicas *int32 `json:"desiredReplicas,omitempty"`
+
 			// Name Name is a key of spec.components.
 			Name string `json:"name"`
 
@@ -4708,9 +4702,6 @@ type Instance struct {
 			// Name Name of the referenced Secret.
 			Name string `json:"name"`
 		} `json:"connectionSecretRef,omitempty"`
-
-		// Message Message is a custom user-facing message describing the current state of the instance.
-		Message *string `json:"message,omitempty"`
 
 		// Monitoring Monitoring is what the Instance exposes to monitoring (sources) and
 		// one read-only summary per spec.monitoring.destinations[] entry.
@@ -4909,7 +4900,8 @@ type Instance struct {
 
 		// ObservedGeneration ObservedGeneration is the metadata.generation the provider-runtime last
 		// reconciled. Status describes an older spec while it is lower than
-		// metadata.generation.
+		// metadata.generation. It defaults to -1, so an Instance no provider has
+		// reconciled reads as in progress, never as current.
 		ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
 
 		// PendingMaintenance PendingMaintenance lists the disruptive actions currently held awaiting
@@ -4930,7 +4922,10 @@ type Instance struct {
 			Severity InstanceStatusPendingMaintenanceSeverity `json:"severity"`
 		} `json:"pendingMaintenance,omitempty"`
 
-		// Phase Phase of the database cluster.
+		// Phase Phase is where the Instance is in its life: Pending until the database
+		// is first available, Provisioned afterwards, Terminating once deletion
+		// is requested. The CRD sets Pending at creation; only provider-runtime
+		// changes it. Read the conditions for everything else.
 		Phase *InstanceStatusPhase `json:"phase,omitempty"`
 
 		// Version Version is the effective version bundle that is currently applied to this
@@ -5069,7 +5064,10 @@ type InstanceStatusMonitoringSourcesMetricsScheme string
 // InstanceStatusPendingMaintenanceSeverity Severity is the action's observable database impact.
 type InstanceStatusPendingMaintenanceSeverity string
 
-// InstanceStatusPhase Phase of the database cluster.
+// InstanceStatusPhase Phase is where the Instance is in its life: Pending until the database
+// is first available, Provisioned afterwards, Terminating once deletion
+// is requested. The CRD sets Pending at creation; only provider-runtime
+// changes it. Read the conditions for everything else.
 type InstanceStatusPhase string
 
 // InstanceConnectionDetails ConnectionDetails holds the typed connection details for a database instance. These are written by the provider-runtime reconciler to a Kubernetes Secret and later read back by the API server to serve the connection endpoint. They follow the Service Binding well-known keys where applicable.
@@ -6157,7 +6155,9 @@ type InstancePreset struct {
 		Parameters *map[string]interface{} `json:"parameters,omitempty"`
 
 		// ProviderRef ProviderRef references the cluster-scoped Provider that manages this
-		// Instance (e.g., "percona-server-mongodb", "postgresql").
+		// Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+		// providerRef cannot be changed: the provider that picked it up owns its
+		// finalizer and engine resources, and only that provider cleans them up.
 		ProviderRef struct {
 			// Name Name of the referenced object.
 			Name string `json:"name"`

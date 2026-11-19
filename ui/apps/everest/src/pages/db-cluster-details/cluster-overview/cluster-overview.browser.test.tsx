@@ -32,7 +32,18 @@ const instance: Instance = {
   kind: 'Instance',
   metadata: {},
   spec: { providerRef: { name: 'test-provider' } },
-  status: { phase: 'Ready' },
+  status: {
+    phase: 'Provisioned',
+    conditions: [
+      {
+        lastTransitionTime: '2026-03-20T10:00:00Z',
+        message: 'The instance is ready',
+        reason: 'Ready',
+        status: 'True',
+        type: 'Ready',
+      },
+    ],
+  },
 };
 
 const card = (key: string, title: string, rows: number): SchemaSectionCard => ({
