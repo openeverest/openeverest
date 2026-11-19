@@ -197,28 +197,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/cluster-info": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Cluster info (deprecated)
-         * @deprecated
-         * @description Deprecated compatibility alias for `/clusters/main/cluster-info`.
-         *     Use the cluster-scoped endpoint for new integrations.
-         */
-        get: operations["getKubernetesClusterInfo"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/clusters": {
         parameters: {
             query?: never;
@@ -8609,48 +8587,6 @@ export interface operations {
             /** @description Successful operation */
             200: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KubernetesClusterInfo"];
-                };
-            };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getKubernetesClusterInfo: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful operation */
-            200: {
-                headers: {
-                    /** @description Marks the legacy unscoped endpoint as deprecated. */
-                    Deprecation?: string;
-                    /** @description Points to the cluster-scoped replacement. */
-                    Link?: string;
                     [name: string]: unknown;
                 };
                 content: {

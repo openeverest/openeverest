@@ -20,8 +20,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-const legacyDefaultCluster = "main"
-
 // GetKubernetesClusterInfoForCluster returns cluster type and storage classes.
 func (e *EverestServer) GetKubernetesClusterInfoForCluster(ctx echo.Context, cluster string) error {
 	result, err := e.handler.GetKubernetesClusterInfo(ctx.Request().Context(), cluster)
@@ -30,11 +28,4 @@ func (e *EverestServer) GetKubernetesClusterInfoForCluster(ctx echo.Context, clu
 		return err
 	}
 	return ctx.JSON(http.StatusOK, result)
-}
-
-// GetKubernetesClusterInfo serves the deprecated unscoped endpoint.
-func (e *EverestServer) GetKubernetesClusterInfo(ctx echo.Context) error {
-	ctx.Response().Header().Set("Deprecation", "true")
-	ctx.Response().Header().Set("Link", `</v1/clusters/main/cluster-info>; rel="successor-version"`)
-	return e.GetKubernetesClusterInfoForCluster(ctx, legacyDefaultCluster)
 }

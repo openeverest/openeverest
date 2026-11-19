@@ -28,60 +28,27 @@ import (
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 )
 
-func TestKubernetesClusterEndpoints(t *testing.T) {
+func TestKubernetesClusterInfoForCluster(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name         string
-		cluster      string
-		canonical    bool
-		expectedLink string
-	}{
-		{
-			name:      "cluster scoped info",
-			cluster:   "prod-us",
-			canonical: true,
-		},
-		{
-			name:         "legacy info",
-			cluster:      legacyDefaultCluster,
-			expectedLink: "</v1/clusters/main/cluster-info>; rel=\"successor-version\"",
-		},
-	}
+	const cluster = "prod-us"
+	next := &handlers.MockHandler{}
+	next.On(
+		"GetKubernetesClusterInfo",
+		mock.Anything,
+		cluster,
+	).Return(&api.KubernetesClusterInfo{}, nil).Once()
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+	server := &EverestServer{handler: next, l: zap.NewNop().Sugar()}
+	rec := httptest.NewRecorder()
+	ctx := echo.New().NewContext(
+		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil),
+		rec,
+	)
 
-			next := &handlers.MockHandler{}
-			next.On(
-				"GetKubernetesClusterInfo",
-				mock.Anything,
-				tc.cluster,
-			).Return(&api.KubernetesClusterInfo{}, nil).Once()
+	err := server.GetKubernetesClusterInfoForCluster(ctx, cluster)
 
-			server := &EverestServer{handler: next, l: zap.NewNop().Sugar()}
-			rec := httptest.NewRecorder()
-			ctx := echo.New().NewContext(
-				httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil),
-				rec,
-			)
-
-			var err error
-			switch {
-			case tc.canonical:
-				err = server.GetKubernetesClusterInfoForCluster(ctx, tc.cluster)
-			default:
-				err = server.GetKubernetesClusterInfo(ctx)
-			}
-
-			require.NoError(t, err)
-			require.Equal(t, http.StatusOK, rec.Code)
-			require.Equal(t, tc.expectedLink, rec.Header().Get("Link"))
-			if !tc.canonical {
-				require.Equal(t, "true", rec.Header().Get("Deprecation"))
-			}
-			next.AssertExpectations(t)
-		})
-	}
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+	next.AssertExpectations(t)
 }

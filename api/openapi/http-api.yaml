@@ -297,44 +297,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-  '/cluster-info':
-    get:
-      tags:
-        - Kubernetes
-      summary: Cluster info (deprecated)
-      description: |
-        Deprecated compatibility alias for `/clusters/main/cluster-info`.
-        Use the cluster-scoped endpoint for new integrations.
-      operationId: getKubernetesClusterInfo
-      deprecated: true
-      responses:
-        '200':
-          description: Successful operation
-          headers:
-            Deprecation:
-              description: Marks the legacy unscoped endpoint as deprecated.
-              schema:
-                type: string
-            Link:
-              description: Points to the cluster-scoped replacement.
-              schema:
-                type: string
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/KubernetesClusterInfo'
-        '400':
-          description: Unsuccessful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
   '/clusters':
     x-everest-resource-name: clusters
     get:
