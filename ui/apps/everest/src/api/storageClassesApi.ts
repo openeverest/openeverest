@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { api } from './api';
 import { StorageClassList } from 'shared-types/kubernetes.types';
+import { api } from './api';
 
 export const getStorageClassesFn = async (clusterName: string) => {
   const response = await api.get<StorageClassList>(

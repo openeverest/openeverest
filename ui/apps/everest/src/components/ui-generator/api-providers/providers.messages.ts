@@ -16,5 +16,5 @@ export const Messages = {
   storageClassesUnsetValueHint:
     "Not set — the cluster's default storage class applies.",
   storageClassesNoReadPermission:
-    "You don't have permission to view storage classes. Ask your administrator for read access to storage-classes.",
+    "You can't view storage classes, so the cluster's default will be used. To choose one, ask your administrator for read access.",
 };

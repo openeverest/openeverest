@@ -16,23 +16,10 @@
 
 import { APIRequestContext, expect } from '@playwright/test';
 
-type StorageClassItem = {
-  metadata?: {
-    name?: string;
-    creationTimestamp?: string;
-    annotations?: Record<string, string>;
-  };
-};
+type StorageClassItem = { metadata?: { name?: string } };
 
-const isDefault = ({ metadata }: StorageClassItem) =>
-  metadata?.annotations?.['storageclass.kubernetes.io/is-default-class'] ===
-  'true';
-
-const createdAt = ({ metadata }: StorageClassItem) =>
-  Date.parse(metadata?.creationTimestamp ?? '') || 0;
-
-// Returns the storage class names the way the removed /cluster-info did:
-// default class first (newest default first), so callers can pick [0].
+// Lists the cluster's storage class names in the shape the deprecated
+// /cluster-info returned, so existing callers keep working.
 export const getClusterDetailedInfo = async (
   token: string,
   request: APIRequestContext
@@ -45,14 +32,9 @@ export const getClusterDetailedInfo = async (
   expect(response.ok()).toBeTruthy();
   const { items = [] }: { items?: StorageClassItem[] } = await response.json();
 
-  const storageClassNames = [...items]
-    .sort((a, b) => {
-      if (isDefault(a) !== isDefault(b)) {
-        return isDefault(a) ? -1 : 1;
-      }
-      return isDefault(a) ? createdAt(b) - createdAt(a) : 0;
-    })
-    .flatMap(({ metadata }) => (metadata?.name ? [metadata.name] : []));
-
-  return { storageClassNames };
+  return {
+    storageClassNames: items.flatMap(({ metadata }) =>
+      metadata?.name ? [metadata.name] : []
+    ),
+  };
 };
