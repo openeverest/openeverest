@@ -206,60 +206,58 @@ export const DbClusterView = () => {
         ) : state.status === 'empty' ? (
           <EmptyStateDatabases hasCreatePermission={hasCreatePermission} />
         ) : (
-          <Stack sx={{ gap: 1 }}>
-            <Box>
+          <Table
+            getRowId={(row) => row.instanceName}
+            tableName="dbClusterView"
+            state={{ isLoading: false }}
+            columns={columns}
+            data={needsAttention.visibleRows}
+            enableRowActions
+            renderRowActions={({ row }) => {
+              return (
+                <DbActions dbInstance={row.original.raw} showDetailsAction />
+              );
+            }}
+            muiTableBodyRowProps={({ row, isDetailPanel }) => ({
+              onClick: (e) => {
+                if (
+                  !isDetailPanel &&
+                  e.currentTarget.contains(e.target as Node)
+                ) {
+                  navigate(
+                    `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
+                  );
+                }
+              },
+              sx: {
+                ...(!isDetailPanel && {
+                  cursor: 'pointer', // you might want to change the cursor too when adding an onClick
+                }),
+              },
+            })}
+            enableRowHoverAction
+            rowHoverAction={(row) =>
+              navigate(
+                `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
+              )
+            }
+            renderTopToolbarCustomActions={() =>
+              canAddCluster && (
+                <Box display="flex" gap={1} mb={1}>
+                  <ImportDbButton />
+                  <CreateDbButton />
+                </Box>
+              )
+            }
+            renderToolbarFilters={() => (
               <NeedsAttentionChip
                 count={needsAttention.count}
                 active={needsAttention.active}
                 onToggle={needsAttention.toggle}
               />
-            </Box>
-            <Table
-              getRowId={(row) => row.instanceName}
-              tableName="dbClusterView"
-              state={{ isLoading: false }}
-              columns={columns}
-              data={needsAttention.visibleRows}
-              enableRowActions
-              renderRowActions={({ row }) => {
-                return (
-                  <DbActions dbInstance={row.original.raw} showDetailsAction />
-                );
-              }}
-              muiTableBodyRowProps={({ row, isDetailPanel }) => ({
-                onClick: (e) => {
-                  if (
-                    !isDetailPanel &&
-                    e.currentTarget.contains(e.target as Node)
-                  ) {
-                    navigate(
-                      `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
-                    );
-                  }
-                },
-                sx: {
-                  ...(!isDetailPanel && {
-                    cursor: 'pointer', // you might want to change the cursor too when adding an onClick
-                  }),
-                },
-              })}
-              enableRowHoverAction
-              rowHoverAction={(row) =>
-                navigate(
-                  `/databases/${row.original.namespace}/${row.original.instanceName}/overview`
-                )
-              }
-              renderTopToolbarCustomActions={() =>
-                canAddCluster && (
-                  <Box display="flex" gap={1} mb={1}>
-                    <ImportDbButton />
-                    <CreateDbButton />
-                  </Box>
-                )
-              }
-              hideExpandAllIcon
-            />
-          </Stack>
+            )}
+            hideExpandAllIcon
+          />
         )}
       </Box>
     </Stack>

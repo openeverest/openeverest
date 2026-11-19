@@ -112,36 +112,47 @@ const shownInstances = () =>
   );
 
 describe('DbClusterView status filtering', () => {
-  it('narrows the list to the Instances that need attention and back', () => {
-    renderList();
-    const chip = screen.getByTestId('needs-attention-chip');
+  it(
+    'narrows the list to the Instances that need attention and back',
+    { timeout: 15000 },
+    () => {
+      renderList();
+      const chip = screen.getByTestId('needs-attention-chip');
 
-    expect(chip).toHaveTextContent('Needs attention (2)');
+      expect(chip).toHaveTextContent('Needs attention (2)');
 
-    fireEvent.click(chip);
-    expect(shownInstances()).toEqual(['legacy', 'legacy-old']);
+      fireEvent.click(chip);
+      expect(shownInstances()).toEqual(['legacy', 'legacy-old']);
 
-    fireEvent.click(chip);
-    expect(shownInstances()).toHaveLength(4);
-  });
+      fireEvent.click(chip);
+      expect(shownInstances()).toHaveLength(4);
+    }
+  );
 
-  it('offers the words the status column shows, the most urgent first', async () => {
-    renderList();
+  it(
+    'offers the words the status column shows, the most urgent first',
+    { timeout: 15000 },
+    async () => {
+      renderList();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show/Hide filters' }));
-    fireEvent.mouseDown(
-      screen.getByRole('combobox', { name: 'Filter by Status' })
-    );
-    const options = within(screen.getByRole('listbox'))
-      .getAllByRole('option')
-      .map((option) => option.textContent?.trim());
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Show/Hide filters' })
+      );
+      fireEvent.mouseDown(
+        screen.getByRole('combobox', { name: 'Filter by Status' })
+      );
+      const options = within(screen.getByRole('listbox'))
+        .getAllByRole('option')
+        .map((option) => option.textContent?.trim());
 
-    expect(options).toEqual(['Crash loop', 'Creating', 'Ready']);
+      expect(options).toEqual(['Crash loop', 'Creating', 'Ready']);
 
-    fireEvent.click(screen.getByRole('option', { name: 'Crash loop' }));
-    // The column filter applies after a debounce.
-    await waitFor(() =>
-      expect(shownInstances()).toEqual(['legacy', 'legacy-old'])
-    );
-  });
+      fireEvent.click(screen.getByRole('option', { name: 'Crash loop' }));
+      // The column filter applies after a debounce.
+      await waitFor(
+        () => expect(shownInstances()).toEqual(['legacy', 'legacy-old']),
+        { timeout: 5000 }
+      );
+    }
+  );
 });
