@@ -14,14 +14,13 @@
 
 import { InstanceTone } from 'shared-types/instance.types';
 
-export const Messages = {
-  tones: {
-    error: 'Error',
-    attention: 'Warning',
-    unknown: 'Unknown',
-    progress: 'In progress',
-    stopped: 'Stopped',
-    deleting: 'Deleting',
-    ok: 'OK',
-  } satisfies Record<InstanceTone, string>,
-};
+// The status filter's options, the most urgent first.
+export const INSTANCE_TONES: readonly InstanceTone[] = [
+  'error',
+  'attention',
+  'unknown',
+  'progress',
+  'stopped',
+  'deleting',
+  'ok',
+];

@@ -26,14 +26,14 @@ import { ImportDbButton } from 'components/import-db-button';
 import EmptyStateDatabases from 'components/empty-state-databases/empty-state-databases';
 import EmptyStateNamespaces from 'components/empty-state-namespaces/empty-state-namespaces';
 import { DbActions } from 'components/db-actions/db-actions';
-import { INSTANCE_TONES } from 'components/instance-status/instance-status.constants';
-import { Messages as StatusMessages } from 'components/instance-status/instance-status.messages';
 import { InstanceTone } from 'shared-types/instance.types';
 import { usePlugins } from 'contexts/plugins';
 import type { GlobalDashboardWidgetExtension } from '@openeverest/plugin-sdk';
 import PluginErrorBoundary from 'components/plugin-host/PluginErrorBoundary';
 import LoadingPageSkeleton from 'components/loading-page-skeleton/LoadingPageSkeleton';
 import { useDatabasesView } from './hooks/useDatabasesView';
+import { INSTANCE_TONES } from './DbClusterView.constants';
+import { Messages } from './dbClusterView.messages';
 
 export const DbClusterView = () => {
   const navigate = useNavigate();
@@ -54,7 +54,7 @@ export const DbClusterView = () => {
         header: 'Status',
         filterVariant: 'multi-select',
         filterSelectOptions: INSTANCE_TONES.map((tone) => ({
-          label: StatusMessages.tones[tone],
+          label: Messages.statusFilter[tone],
           value: tone,
         })),
         // The tones are a short, closed set; the status words are not.

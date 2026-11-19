@@ -24,14 +24,3 @@ export const TONE_TO_BASE_STATUS: Record<InstanceTone, BaseStatus> = {
   deleting: 'deleting',
   unknown: 'unknown',
 };
-
-// The most urgent first.
-export const INSTANCE_TONES: readonly InstanceTone[] = [
-  'error',
-  'attention',
-  'unknown',
-  'progress',
-  'stopped',
-  'deleting',
-  'ok',
-];
