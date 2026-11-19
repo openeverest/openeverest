@@ -25,6 +25,7 @@ import '@fontsource/roboto-mono/400.css';
 import {
   ComponentsOverrides,
   createTheme,
+  darken,
   PaletteMode,
   ThemeOptions,
 } from '@mui/material';
@@ -919,6 +920,22 @@ const baseThemeOptions = (mode: PaletteMode): ThemeOptions => ({
           // @ts-ignore
           backgroundColor: theme.palette[color]?.surface,
         }),
+        // A filled chip sits on the surface colour, so its hover can't be the
+        // colour's dark shade: the label is that shade too, and would vanish.
+        clickable: ({ theme, ownerState: { color, variant } }) => {
+          if (variant !== 'filled' || !color || color === 'default') {
+            return {};
+          }
+          const { surface } = theme.palette[color];
+
+          return surface
+            ? {
+                '&:hover, &.Mui-focusVisible': {
+                  backgroundColor: darken(surface, 0.08),
+                },
+              }
+            : {};
+        },
       },
       variants: [
         {
