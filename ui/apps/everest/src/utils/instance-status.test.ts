@@ -15,44 +15,69 @@
 // The cases everestctl's implementation of the status display runs too: one
 // file at the repository root keeps the two from drifting apart.
 import fixtures from '../../../../../pkg/instancestatus/testdata/display.json';
-import { InstanceStatusSource } from 'shared-types/instance.types';
 import {
-  areInstanceEditsBlocked,
-  getInstanceStatusDisplay,
-  getReasonLabel,
-  hasConnectionDetails,
-  isInstanceDeleting,
-  isInstanceRestoring,
-} from './instance-status';
+  InstanceCondition,
+  InstanceStatusSource,
+} from 'shared-types/instance.types';
+import { PhaseType } from 'shared-types/api.types';
+import { getInstanceStatusDisplay, getReasonLabel } from './instance-status';
+import { HEALTHY, condition, instance } from './instance-status.test-utils';
 import { REASON_LABELS } from './instance-status.messages';
 
-const condition = (type: string, status: string, reason = type) => ({
-  type,
-  status,
-  reason,
-  message: '',
-});
-
-const HEALTHY = [
-  condition('Available', 'True'),
-  condition('Ready', 'True'),
-  condition('ConnectionDetailsReady', 'True'),
+const CONDITION_STATUSES: InstanceCondition['status'][] = [
+  'True',
+  'False',
+  'Unknown',
+];
+const PHASES: NonNullable<PhaseType>[] = [
+  'Pending',
+  'Provisioned',
+  'Terminating',
 ];
 
-const instance = (
-  conditions: ReturnType<typeof condition>[],
-  metadata: InstanceStatusSource['metadata'] = {}
-): InstanceStatusSource => ({
-  metadata: { generation: 2, ...metadata },
-  status: { phase: 'Provisioned', observedGeneration: 2, conditions },
+// JSON gives plain strings; a value the contract doesn't know fails the test
+// rather than being let through.
+const knownValue = <T extends string>(known: T[], value: string): T => {
+  const match = known.find((item) => item === value);
+  if (!match) {
+    throw new Error(`"${value}" is not one of ${known.join(', ')}`);
+  }
+  return match;
+};
+
+type FixtureInstance = (typeof fixtures.cases)[number]['instance'];
+
+const fromFixture = ({
+  metadata,
+  status,
+}: FixtureInstance): InstanceStatusSource => ({
+  metadata,
+  status: {
+    observedGeneration: status.observedGeneration,
+    phase:
+      status.phase === undefined ? undefined : knownValue(PHASES, status.phase),
+    conditions: status.conditions?.map((item) => ({
+      ...item,
+      status: knownValue(CONDITION_STATUSES, item.status),
+    })),
+  },
 });
+
+const fixtureNamed = (name: string) => {
+  const fixture = fixtures.cases.find((item) => item.name === name);
+  if (!fixture) {
+    throw new Error(`no fixture named "${name}"`);
+  }
+  return fromFixture(fixture.instance);
+};
 
 describe('getInstanceStatusDisplay', () => {
   it.each(fixtures.cases.map((fixture) => [fixture.name, fixture] as const))(
     '%s',
     (_, { instance: fixtureInstance, want }) => {
-      const { tone, reason, label, available } =
-        getInstanceStatusDisplay(fixtureInstance);
+      const { tone, reason, label, available } = getInstanceStatusDisplay(
+        fromFixture(fixtureInstance)
+      );
 
       expect({ tone, reason, label, available }).toEqual({
         tone: want.tone,
@@ -100,9 +125,7 @@ describe('status text', () => {
     ['healthy', 'Ready'],
     ['crash-loop-all-replicas-stalled', 'Crash loop'],
   ])('%s reads "%s"', (name, text) => {
-    const fixture = fixtures.cases.find((item) => item.name === name);
-
-    expect(textOf(fixture?.instance)).toBe(text);
+    expect(textOf(fixtureNamed(name))).toBe(text);
   });
 
   it.each(
@@ -110,7 +133,7 @@ describe('status text', () => {
       .filter(({ want }) => want.tone === 'deleting')
       .map(({ name, instance: fixtureInstance, want }) => [
         name,
-        fixtureInstance,
+        fromFixture(fixtureInstance),
         want.sentence,
       ])
   )('%s reads what everestctl says', (_, fixtureInstance, sentence) => {
@@ -133,103 +156,5 @@ describe('getReasonLabel', () => {
     ['hasOwnProperty', 'has own property'],
   ])('spells the unknown reason %s as "%s"', (reason, label) => {
     expect(getReasonLabel(reason)).toBe(label);
-  });
-});
-
-describe('action gating', () => {
-  it.each<[string, InstanceStatusSource | undefined, boolean]>([
-    ['healthy', instance(HEALTHY), false],
-    [
-      'being deleted',
-      instance(HEALTHY, { deletionTimestamp: '2026-03-01T12:00:00Z' }),
-      true,
-    ],
-    ['restoring', instance([...HEALTHY, condition('Restoring', 'True')]), true],
-    ['upgrading', instance([...HEALTHY, condition('Upgrading', 'True')]), true],
-    [
-      'resizing its storage',
-      instance([...HEALTHY, condition('StorageResizing', 'True')]),
-      true,
-    ],
-    [
-      'restore finished',
-      instance([...HEALTHY, condition('Restoring', 'False')]),
-      false,
-    ],
-    [
-      'converging without a named operation',
-      instance([
-        condition('Available', 'True'),
-        condition('Ready', 'False', 'ApplyingChanges'),
-        condition('Reconciling', 'True'),
-      ]),
-      false,
-    ],
-    [
-      'stalled, so that it can be fixed',
-      instance([
-        condition('Ready', 'False', 'ValidationFailed'),
-        condition('Stalled', 'True'),
-        condition('NeedsAttention', 'True'),
-      ]),
-      false,
-    ],
-    ['not reported on by a provider', instance([]), true],
-    [
-      'attended by nobody',
-      instance([condition('Unattended', 'True', 'ProviderNotFound')]),
-      true,
-    ],
-    ['not loaded', undefined, true],
-  ])('blocks edits of an Instance that is %s: %s', (_, source, blocked) => {
-    expect(areInstanceEditsBlocked(source)).toBe(blocked);
-  });
-
-  it('leaves an Instance no provider has reported on deletable', () => {
-    const neverReconciled: InstanceStatusSource = {
-      metadata: { generation: 1 },
-      status: { phase: 'Pending', observedGeneration: -1 },
-    };
-
-    expect(areInstanceEditsBlocked(neverReconciled)).toBe(true);
-    // Deleting is held back only for an Instance already being deleted.
-    expect(isInstanceDeleting(neverReconciled)).toBe(false);
-  });
-
-  it('tells deletion from the deletion timestamp, not from the phase', () => {
-    expect(
-      isInstanceDeleting({
-        metadata: {},
-        status: { phase: 'Terminating' },
-      })
-    ).toBe(false);
-    expect(
-      isInstanceDeleting(
-        instance(HEALTHY, { deletionTimestamp: '2026-03-01T12:00:00Z' })
-      )
-    ).toBe(true);
-  });
-
-  it('keeps connection details through an upgrade', () => {
-    const upgrading = instance([
-      condition('Available', 'True'),
-      condition('Ready', 'False', 'Upgrading'),
-      condition('Upgrading', 'True'),
-      condition('ConnectionDetailsReady', 'True'),
-    ]);
-
-    expect(hasConnectionDetails(upgrading)).toBe(true);
-    expect(hasConnectionDetails(instance([condition('Ready', 'True')]))).toBe(
-      false
-    );
-  });
-
-  it('reads a running restore from its own condition', () => {
-    expect(
-      isInstanceRestoring(instance([condition('Restoring', 'True')]))
-    ).toBe(true);
-    expect(
-      isInstanceRestoring(instance([condition('Ready', 'False', 'Restoring')]))
-    ).toBe(false);
   });
 });

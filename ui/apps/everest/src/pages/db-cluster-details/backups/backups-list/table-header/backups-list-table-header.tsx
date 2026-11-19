@@ -16,7 +16,7 @@ import { useContext, useState } from 'react';
 import { Box, MenuItem } from '@mui/material';
 import { MenuButton } from '@percona/ui-lib';
 import { ScheduleModalContext } from '../../backups.context';
-import { isInstanceRestoring } from 'utils/instance-status';
+import { isInstanceRestoring } from 'utils/instance-gating';
 import ScheduledBackupsList from './scheduled-backups-list';
 import { StoragesList } from '../../storages-list';
 import { ExpandableSectionToggle } from 'components/expandable-section-toggle';

@@ -33,7 +33,7 @@ import {
   formatDisplayValue,
 } from 'components/ui-generator/utils/object-path/object-path';
 import { collectAllSchemaPaths } from 'components/ui-generator/utils/schema-walker';
-import { hasConnectionDetails } from 'utils/instance-status';
+import { hasConnectionDetails } from 'utils/instance-gating';
 
 export interface SchemaSectionCard {
   key: string;

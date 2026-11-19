@@ -51,23 +51,22 @@ export type InstanceTone =
 
 export type InstanceAvailability = 'Yes' | 'No' | 'Unknown';
 
-// What the status is read from. Narrower than Instance in the status, so
-// anything shaped like one can be displayed, and wider in the metadata: the
-// generated ObjectMeta leaves out the generation the API returns.
+// What the status is read from: the parts of an Instance the status depends
+// on, so that anything shaped like one can be displayed. Wider than Instance
+// in the metadata only: the generated ObjectMeta leaves out the generation
+// the API returns.
 export interface InstanceStatusSource {
-  metadata?: {
+  metadata?: Pick<NonNullable<Instance['metadata']>, 'deletionTimestamp'> & {
     generation?: number;
-    deletionTimestamp?: string;
   };
-  status?: {
-    phase?: string;
-    observedGeneration?: number;
-    conditions?: {
-      type: string;
-      status: string;
-      reason?: string;
-      message?: string;
-    }[];
+  status?: Pick<
+    NonNullable<Instance['status']>,
+    'phase' | 'observedGeneration'
+  > & {
+    conditions?: Pick<
+      InstanceCondition,
+      'type' | 'status' | 'reason' | 'message'
+    >[];
   };
 }
 
