@@ -44,7 +44,11 @@ func (h *validateHandler) CreateConfigMap(ctx context.Context, cluster, namespac
 	}
 
 	// Fetch the provider for validation.
-	provider, err := h.kubeConnector.GetProvider(ctx, ctrlclient.ObjectKey{Name: providerName})
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	provider, err := kubeConnector.GetProvider(ctx, ctrlclient.ObjectKey{Name: providerName})
 	if err != nil {
 		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("failed to get provider %q: %w", providerName, err))
 	}

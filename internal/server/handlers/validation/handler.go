@@ -12,6 +12,7 @@ type validateHandler struct {
 	log           *zap.SugaredLogger
 	next          handlers.Handler
 	kubeConnector kubernetes.KubernetesConnector
+	clusterName   string
 }
 
 // New returns a new RBAC handler.
@@ -20,11 +21,13 @@ type validateHandler struct {
 func New(
 	log *zap.SugaredLogger,
 	kubeConnector kubernetes.KubernetesConnector,
+	clusterName string,
 ) handlers.Handler {
 	l := log.With("handler", "validator")
 	return &validateHandler{
 		log:           l,
 		kubeConnector: kubeConnector,
+		clusterName:   clusterName,
 	}
 }
 

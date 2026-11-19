@@ -24,8 +24,12 @@ import (
 )
 
 // ListEvents lists the lifecycle events in namespaces, or in all namespaces when empty.
-func (h *k8sHandler) ListEvents(ctx context.Context, _ string, namespaces []string, limit int64, continueToken string) (*eventsv1.EventList, error) {
-	list, err := h.kubeConnector.ListLifecycleEvents(ctx, watchedNamespace(namespaces), limit, continueToken)
+func (h *k8sHandler) ListEvents(ctx context.Context, cluster string, namespaces []string, limit int64, continueToken string) (*eventsv1.EventList, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	list, err := kubeConnector.ListLifecycleEvents(ctx, watchedNamespace(namespaces), limit, continueToken)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list lifecycle events: %w", err)
 	}
@@ -41,9 +45,13 @@ func (h *k8sHandler) ListEvents(ctx context.Context, _ string, namespaces []stri
 //
 //nolint:ireturn // watch.Interface is the client-go streaming contract
 func (h *k8sHandler) WatchEvents(
-	ctx context.Context, _ string, namespaces []string, resourceVersion string,
+	ctx context.Context, cluster string, namespaces []string, resourceVersion string,
 ) (watch.Interface, error) {
-	w, err := h.kubeConnector.WatchLifecycleEvents(ctx, watchedNamespace(namespaces), resourceVersion)
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	w, err := kubeConnector.WatchLifecycleEvents(ctx, watchedNamespace(namespaces), resourceVersion)
 	if err != nil {
 		return nil, fmt.Errorf("failed to watch lifecycle events: %w", err)
 	}

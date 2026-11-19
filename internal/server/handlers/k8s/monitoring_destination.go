@@ -28,6 +28,7 @@ import (
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/pkg/events"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
 // ListMonitoringDestinations returns the monitoring destinations in a
@@ -36,7 +37,11 @@ import (
 // API server, as for kubectl get --field-selector. A Secret is referenced
 // through either of two fields, so it takes one list per field, merged
 // with each destination once.
-func (h *k8sHandler) ListMonitoringDestinations(ctx context.Context, _, namespace string, params *api.ListMonitoringDestinationsParams) (*monitoringv1alpha1.MonitoringDestinationList, error) {
+func (h *k8sHandler) ListMonitoringDestinations(ctx context.Context, cluster, namespace string, params *api.ListMonitoringDestinationsParams) (*monitoringv1alpha1.MonitoringDestinationList, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
 	if params == nil {
 		params = &api.ListMonitoringDestinationsParams{}
 	}
@@ -46,7 +51,7 @@ func (h *k8sHandler) ListMonitoringDestinations(ctx context.Context, _, namespac
 	}
 	secret := pointer.Get(params.Secret)
 	if secret == "" {
-		return h.listMonitoringDestinations(ctx, namespace, fields)
+		return h.listMonitoringDestinations(ctx, kubeConnector, namespace, fields)
 	}
 
 	withSecret := func(field string) ctrlclient.MatchingFields {
@@ -54,11 +59,11 @@ func (h *k8sHandler) ListMonitoringDestinations(ctx context.Context, _, namespac
 		selected[field] = secret
 		return selected
 	}
-	merged, err := h.listMonitoringDestinations(ctx, namespace, withSecret(monitoringv1alpha1.DestinationCredentialsSecretField))
+	merged, err := h.listMonitoringDestinations(ctx, kubeConnector, namespace, withSecret(monitoringv1alpha1.DestinationCredentialsSecretField))
 	if err != nil {
 		return nil, err
 	}
-	byCA, err := h.listMonitoringDestinations(ctx, namespace, withSecret(monitoringv1alpha1.DestinationCASecretField))
+	byCA, err := h.listMonitoringDestinations(ctx, kubeConnector, namespace, withSecret(monitoringv1alpha1.DestinationCASecretField))
 	if err != nil {
 		return nil, err
 	}
@@ -77,22 +82,35 @@ func (h *k8sHandler) ListMonitoringDestinations(ctx context.Context, _, namespac
 	return merged, nil
 }
 
-func (h *k8sHandler) listMonitoringDestinations(ctx context.Context, namespace string, fields ctrlclient.MatchingFields) (*monitoringv1alpha1.MonitoringDestinationList, error) {
+func (h *k8sHandler) listMonitoringDestinations(
+	ctx context.Context,
+	kubeConnector kubernetes.KubernetesConnector,
+	namespace string,
+	fields ctrlclient.MatchingFields,
+) (*monitoringv1alpha1.MonitoringDestinationList, error) {
 	opts := []ctrlclient.ListOption{ctrlclient.InNamespace(namespace)}
 	if len(fields) > 0 {
 		opts = append(opts, fields)
 	}
-	return h.kubeConnector.ListMonitoringDestinations(ctx, opts...)
+	return kubeConnector.ListMonitoringDestinations(ctx, opts...)
 }
 
 // GetMonitoringDestination returns a monitoring destination by name and namespace.
-func (h *k8sHandler) GetMonitoringDestination(ctx context.Context, _, namespace, name string) (*monitoringv1alpha1.MonitoringDestination, error) {
-	return h.kubeConnector.GetMonitoringDestination(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+func (h *k8sHandler) GetMonitoringDestination(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha1.MonitoringDestination, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.GetMonitoringDestination(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 }
 
 // CreateMonitoringDestination creates a monitoring destination in the namespace
 // from the path, built only from the members a client may author.
-func (h *k8sHandler) CreateMonitoringDestination(ctx context.Context, _, namespace string, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error) {
+func (h *k8sHandler) CreateMonitoringDestination(ctx context.Context, cluster, namespace string, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
 	authored := &monitoringv1alpha1.MonitoringDestination{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:         destination.GetName(),
@@ -104,14 +122,18 @@ func (h *k8sHandler) CreateMonitoringDestination(ctx context.Context, _, namespa
 		Spec: destination.Spec,
 	}
 	stampActor(ctx, authored)
-	return h.kubeConnector.CreateMonitoringDestination(ctx, authored)
+	return kubeConnector.CreateMonitoringDestination(ctx, authored)
 }
 
 // UpdateMonitoringDestination replaces the labels, annotations and spec of the
 // monitoring destination named by the path. Everything else, the server-stamped
 // annotations included, is kept from the stored object.
-func (h *k8sHandler) UpdateMonitoringDestination(ctx context.Context, _, namespace, name string, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error) {
-	stored, err := h.kubeConnector.GetMonitoringDestination(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+func (h *k8sHandler) UpdateMonitoringDestination(ctx context.Context, cluster, namespace, name string, destination *monitoringv1alpha1.MonitoringDestination) (*monitoringv1alpha1.MonitoringDestination, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	stored, err := kubeConnector.GetMonitoringDestination(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 	if err != nil {
 		return nil, err
 	}
@@ -123,12 +145,16 @@ func (h *k8sHandler) UpdateMonitoringDestination(ctx context.Context, _, namespa
 	stored.Annotations = withManagedAnnotations(destination.GetAnnotations(), stored.GetAnnotations())
 	stored.Spec = destination.Spec
 	stampActor(ctx, stored)
-	return h.kubeConnector.UpdateMonitoringDestination(ctx, stored)
+	return kubeConnector.UpdateMonitoringDestination(ctx, stored)
 }
 
 // DeleteMonitoringDestination deletes a monitoring destination.
-func (h *k8sHandler) DeleteMonitoringDestination(ctx context.Context, _, namespace, name string) error {
-	return h.kubeConnector.DeleteMonitoringDestination(ctx, &monitoringv1alpha1.MonitoringDestination{
+func (h *k8sHandler) DeleteMonitoringDestination(ctx context.Context, cluster, namespace, name string) error {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return err
+	}
+	return kubeConnector.DeleteMonitoringDestination(ctx, &monitoringv1alpha1.MonitoringDestination{
 		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
 	})
 }

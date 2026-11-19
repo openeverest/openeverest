@@ -6,6 +6,13 @@ import (
 	"context"
 
 	goversion "github.com/hashicorp/go-version"
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/accounts"
+	"github.com/openeverest/openeverest/v2/pkg/common"
+	"github.com/openeverest/openeverest/v2/pkg/events"
 	olmv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	enginefeaturesv1alpha1 "github.com/percona/everest-operator/api/enginefeatures.everest/v1alpha1"
 	everestv1alpha1 "github.com/percona/everest-operator/api/everest/v1alpha1"
@@ -19,14 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
-	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
-	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
-	"github.com/openeverest/openeverest/v2/pkg/accounts"
-	"github.com/openeverest/openeverest/v2/pkg/common"
-	"github.com/openeverest/openeverest/v2/pkg/events"
 )
 
 // KubernetesConnector ...
@@ -88,6 +87,14 @@ type KubernetesConnector interface {
 	CreateBackupImport(ctx context.Context, backupImport *backupv1alpha1.BackupImport) (*backupv1alpha1.BackupImport, error)
 	// DeleteBackupImport deletes backup import that matches the criteria.
 	DeleteBackupImport(ctx context.Context, obj *backupv1alpha1.BackupImport) error
+	// ListClusterConnections returns all registered remote clusters.
+	ListClusterConnections(ctx context.Context, opts ...ctrlclient.ListOption) (*extensionsv1alpha1.ClusterConnectionList, error)
+	// GetClusterConnection returns a registered remote cluster.
+	GetClusterConnection(ctx context.Context, key ctrlclient.ObjectKey) (*extensionsv1alpha1.ClusterConnection, error)
+	// CreateClusterConnection registers a remote cluster.
+	CreateClusterConnection(ctx context.Context, connection *extensionsv1alpha1.ClusterConnection) (*extensionsv1alpha1.ClusterConnection, error)
+	// DeleteClusterConnection unregisters a remote cluster.
+	DeleteClusterConnection(ctx context.Context, connection *extensionsv1alpha1.ClusterConnection) error
 	// GetCatalogSource returns catalog source that matches the criteria.
 	GetCatalogSource(ctx context.Context, key ctrlclient.ObjectKey) (*olmv1alpha1.CatalogSource, error)
 	// DeleteCatalogSource deletes catalog source that matches the criteria.

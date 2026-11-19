@@ -39,14 +39,27 @@ import (
 type pluginProxy struct {
 	kubeConnector kubernetes.KubernetesConnector
 	enforcer      casbin.IEnforcer
+	cluster       func(context.Context, string) (kubernetes.KubernetesConnector, error)
+	localCluster  string
 }
 
-func newPluginProxy(ctx context.Context, log *zap.SugaredLogger, kc kubernetes.KubernetesConnector) (*pluginProxy, error) {
+func newPluginProxy(
+	ctx context.Context,
+	log *zap.SugaredLogger,
+	kc kubernetes.KubernetesConnector,
+	cluster func(context.Context, string) (kubernetes.KubernetesConnector, error),
+	localCluster string,
+) (*pluginProxy, error) {
 	enf, err := rbac.NewEnforcerWithRefresh(ctx, kc, log)
 	if err != nil {
 		return nil, err
 	}
-	return &pluginProxy{kubeConnector: kc, enforcer: enf}, nil
+	return &pluginProxy{
+		kubeConnector: kc,
+		enforcer:      enf,
+		cluster:       cluster,
+		localCluster:  localCluster,
+	}, nil
 }
 
 // canUsePlugin returns true when the caller has the "use" verb on
@@ -107,7 +120,11 @@ func (pp *pluginProxy) authedProxyHandler(c echo.Context) error {
 func (pp *pluginProxy) doProxy(c echo.Context) error {
 	name := c.Param("name")
 
-	plugin, err := pp.kubeConnector.GetPlugin(c.Request().Context(), pluginKey(name))
+	kubeConnector, err := pp.cluster(c.Request().Context(), c.Param("cluster"))
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+	}
+	plugin, err := kubeConnector.GetPlugin(c.Request().Context(), pluginKey(name))
 	if err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{
 			"error": "plugin not found: " + name,
@@ -126,7 +143,10 @@ func (pp *pluginProxy) doProxy(c echo.Context) error {
 		})
 	}
 
-	targetURL, credToken, err := pp.resolveBackendURL(plugin.Spec.Backend)
+	targetURL, credToken, err := pp.resolveBackendURL(
+		c.Param("cluster"),
+		plugin.Spec.Backend,
+	)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "cannot resolve plugin backend: " + err.Error(),
@@ -165,8 +185,14 @@ func (pp *pluginProxy) doProxy(c echo.Context) error {
 
 // resolveBackendURL returns the base URL and optional bearer token for the plugin backend.
 // Priority: ServiceRef > ExternalURL.
-func (pp *pluginProxy) resolveBackendURL(backend *pluginv1alpha1.PluginBackend) (string, string, error) {
+func (pp *pluginProxy) resolveBackendURL(
+	cluster string,
+	backend *pluginv1alpha1.PluginBackend,
+) (string, string, error) {
 	if backend.ServiceRef != nil {
+		if cluster != pp.localCluster {
+			return "", "", fmt.Errorf("remote plugins must use externalUrl until agent service proxying is available")
+		}
 		ref := backend.ServiceRef
 		if ref.Namespace == "" || ref.Name == "" || ref.Port == 0 {
 			return "", "", fmt.Errorf("serviceRef is missing namespace, name, or port")

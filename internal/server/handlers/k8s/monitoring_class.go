@@ -24,8 +24,12 @@ import (
 
 // ListMonitoringClasses returns the monitoring classes, only those compatible with provider when it is set.
 // An entry of status.providers computed for another generation of the class is not trusted.
-func (h *k8sHandler) ListMonitoringClasses(ctx context.Context, _, provider string) (*monitoringv1alpha1.MonitoringClassList, error) {
-	list, err := h.kubeConnector.ListMonitoringClasses(ctx)
+func (h *k8sHandler) ListMonitoringClasses(ctx context.Context, cluster, provider string) (*monitoringv1alpha1.MonitoringClassList, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	list, err := kubeConnector.ListMonitoringClasses(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -43,6 +47,10 @@ func (h *k8sHandler) ListMonitoringClasses(ctx context.Context, _, provider stri
 }
 
 // GetMonitoringClass returns monitoring class that matches the criteria.
-func (h *k8sHandler) GetMonitoringClass(ctx context.Context, _, name string) (*monitoringv1alpha1.MonitoringClass, error) {
-	return h.kubeConnector.GetMonitoringClass(ctx, types.NamespacedName{Name: name})
+func (h *k8sHandler) GetMonitoringClass(ctx context.Context, cluster, name string) (*monitoringv1alpha1.MonitoringClass, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.GetMonitoringClass(ctx, types.NamespacedName{Name: name})
 }

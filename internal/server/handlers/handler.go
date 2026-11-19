@@ -28,6 +28,7 @@ import (
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
 // Handler provides an abstraction for the core business logic of the Everest API.
@@ -65,6 +66,7 @@ type Handler interface {
 	GetKubernetesClusterInfo(ctx context.Context, cluster string) (*api.KubernetesClusterInfo, error)
 	GetUserPermissions(ctx context.Context) (*api.UserPermissions, error)
 	GetSettings(ctx context.Context) (*api.Settings, error)
+	ClusterConnector(ctx context.Context, cluster string) (kubernetes.KubernetesConnector, error)
 }
 
 // EventHandler provides the lifecycle events (see pkg/events).
@@ -137,6 +139,8 @@ type InstancePresetHandler interface {
 type ClusterHandler interface {
 	ListClusters(ctx context.Context) (*api.ClusterList, error)
 	GetCluster(ctx context.Context, name string) (*api.Cluster, error)
+	RegisterCluster(ctx context.Context, registration *api.ClusterRegistration) (*api.Cluster, error)
+	DeleteCluster(ctx context.Context, name string) error
 }
 
 // BackupClassHandler provides methods for handling operations on backup classes.

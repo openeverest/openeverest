@@ -276,7 +276,11 @@ export interface paths {
          */
         get: operations["listClusters"];
         put?: never;
-        post?: never;
+        /**
+         * Register cluster
+         * @description Register a remote OpenEverest agent with the hub.
+         */
+        post: operations["registerCluster"];
         delete?: never;
         options?: never;
         head?: never;
@@ -297,7 +301,11 @@ export interface paths {
         get: operations["getCluster"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Unregister cluster
+         * @description Remove a remote cluster registration from the hub.
+         */
+        delete: operations["deleteCluster"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1853,6 +1861,18 @@ export interface components {
         Cluster: {
             name: string;
             server: string;
+        };
+        /** @description Credentials used by the hub to reach a spoke agent. */
+        ClusterRegistration: {
+            name: string;
+            /** Format: uri */
+            server: string;
+            bearerToken: string;
+            /**
+             * Format: byte
+             * @description Optional base64-encoded PEM CA certificate.
+             */
+            caData?: string;
         };
         ClusterList: {
             items: components["schemas"]["Cluster"][];
@@ -8812,6 +8832,60 @@ export interface operations {
             };
         };
     };
+    registerCluster: {
+        parameters: {
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClusterRegistration"];
+            };
+        };
+        responses: {
+            /** @description Cluster registered */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cluster"];
+                };
+            };
+            /** @description Invalid registration */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Cluster already registered */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getCluster: {
         parameters: {
             query?: never;
@@ -8835,6 +8909,57 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Cluster not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteCluster: {
+        parameters: {
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
+            header?: never;
+            path: {
+                /** @description Name of the cluster */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cluster unregistered */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid cluster */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

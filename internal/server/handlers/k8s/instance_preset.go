@@ -27,13 +27,17 @@ import (
 
 // ListInstancePresets returns namespace-scoped instance presets, optionally filtered by provider.
 // The provider filter is evaluated server-side via the CRD's selectable fields.
-func (h *k8sHandler) ListInstancePresets(ctx context.Context, _, namespace, provider string) (*corev1alpha1.InstancePresetList, error) {
+func (h *k8sHandler) ListInstancePresets(ctx context.Context, cluster, namespace, provider string) (*corev1alpha1.InstancePresetList, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
 	opts := []ctrlclient.ListOption{ctrlclient.InNamespace(namespace)}
 	if provider != "" {
 		opts = append(opts, ctrlclient.MatchingFields{"spec.providerRef.name": provider})
 	}
 
-	list, err := h.kubeConnector.ListInstancePresets(ctx, opts...)
+	list, err := kubeConnector.ListInstancePresets(ctx, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list instance presets: %w", err)
 	}
@@ -42,27 +46,43 @@ func (h *k8sHandler) ListInstancePresets(ctx context.Context, _, namespace, prov
 }
 
 // GetInstancePreset returns a namespace-scoped instance preset by name and namespace.
-func (h *k8sHandler) GetInstancePreset(ctx context.Context, _, namespace, name string) (*corev1alpha1.InstancePreset, error) {
-	return h.kubeConnector.GetInstancePreset(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+func (h *k8sHandler) GetInstancePreset(ctx context.Context, cluster, namespace, name string) (*corev1alpha1.InstancePreset, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.GetInstancePreset(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 }
 
 // CreateInstancePreset creates a namespace-scoped instance preset.
-func (h *k8sHandler) CreateInstancePreset(ctx context.Context, _ string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
-	return h.kubeConnector.CreateInstancePreset(ctx, preset)
+func (h *k8sHandler) CreateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.CreateInstancePreset(ctx, preset)
 }
 
 // UpdateInstancePreset updates a namespace-scoped instance preset.
-func (h *k8sHandler) UpdateInstancePreset(ctx context.Context, _ string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
-	return h.kubeConnector.UpdateInstancePreset(ctx, preset)
+func (h *k8sHandler) UpdateInstancePreset(ctx context.Context, cluster string, preset *corev1alpha1.InstancePreset) (*corev1alpha1.InstancePreset, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.UpdateInstancePreset(ctx, preset)
 }
 
 // DeleteInstancePreset deletes a namespace-scoped instance preset.
-func (h *k8sHandler) DeleteInstancePreset(ctx context.Context, _, namespace, name string) error {
+func (h *k8sHandler) DeleteInstancePreset(ctx context.Context, cluster, namespace, name string) error {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return err
+	}
 	preset := &corev1alpha1.InstancePreset{
 		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
 	}
 
-	if err := h.kubeConnector.DeleteInstancePreset(ctx, preset); ctrlclient.IgnoreNotFound(err) != nil {
+	if err := kubeConnector.DeleteInstancePreset(ctx, preset); ctrlclient.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to delete instance preset: %w", err)
 	}
 

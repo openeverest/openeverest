@@ -37,7 +37,11 @@ import (
 // finalizers and usage counts are not, since OpenEverest manages the
 // Secret's lifecycle and core alone counts its users. The response is the
 // Secret's secretView.
-func (h *k8sHandler) CreateSecret(ctx context.Context, _ string, namespace string, secret *corev1.Secret) (*corev1.Secret, error) {
+func (h *k8sHandler) CreateSecret(ctx context.Context, cluster string, namespace string, secret *corev1.Secret) (*corev1.Secret, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
 	if secret.Labels == nil {
 		secret.Labels = map[string]string{}
 	}
@@ -48,7 +52,7 @@ func (h *k8sHandler) CreateSecret(ctx context.Context, _ string, namespace strin
 	delete(secret.Annotations, common.AttachedDestinationsAnnotation)
 	delete(secret.Annotations, common.AttachedStoragesAnnotation)
 
-	res, err := h.kubeConnector.CreateSecret(ctx, secret)
+	res, err := kubeConnector.CreateSecret(ctx, secret)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +62,11 @@ func (h *k8sHandler) CreateSecret(ctx context.Context, _ string, namespace strin
 
 // ListSecrets lists the labelled Secrets matching the filter, each as its
 // secretView, whether or not they were created through the API.
-func (h *k8sHandler) ListSecrets(ctx context.Context, _ string, namespace string, filter handlers.SecretFilter) (*corev1.SecretList, error) {
+func (h *k8sHandler) ListSecrets(ctx context.Context, cluster string, namespace string, filter handlers.SecretFilter) (*corev1.SecretList, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
 	selector := ctrlclient.MatchingLabels{}
 	if filter.Provider != "" {
 		selector[common.OpenEverestProviderLabel] = filter.Provider
@@ -73,7 +81,7 @@ func (h *k8sHandler) ListSecrets(ctx context.Context, _ string, namespace string
 		selector[common.OpenEverestDefinitionLabel] = filter.Definition
 	}
 
-	list, err := h.kubeConnector.ListSecrets(ctx,
+	list, err := kubeConnector.ListSecrets(ctx,
 		ctrlclient.InNamespace(namespace),
 		ctrlclient.HasLabels{common.OpenEverestDefinitionLabel},
 		selector,
@@ -95,8 +103,12 @@ func (h *k8sHandler) ListSecrets(ctx context.Context, _ string, namespace string
 }
 
 // GetSecret returns the secretView of the labelled secret specified by name.
-func (h *k8sHandler) GetSecret(ctx context.Context, _ string, namespace, name string) (*corev1.Secret, error) {
-	secret, err := h.kubeConnector.GetSecret(ctx, ctrlclient.ObjectKey{
+func (h *k8sHandler) GetSecret(ctx context.Context, cluster string, namespace, name string) (*corev1.Secret, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	secret, err := kubeConnector.GetSecret(ctx, ctrlclient.ObjectKey{
 		Name:      name,
 		Namespace: namespace,
 	})
@@ -117,13 +129,17 @@ func (h *k8sHandler) GetSecret(ctx context.Context, _ string, namespace, name st
 // owned by no controller. The patch sent to Kubernetes holds that
 // precondition and the data keys, nothing else. The response is the patched
 // Secret's secretView.
-func (h *k8sHandler) PatchSecret(ctx context.Context, _ string, namespace, name string, patch []byte) (*corev1.Secret, error) {
+func (h *k8sHandler) PatchSecret(ctx context.Context, cluster string, namespace, name string, patch []byte) (*corev1.Secret, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
 	p, err := handlers.ParseSecretPatch(patch)
 	if err != nil {
 		return nil, errors.Join(ErrInvalidRequest, err)
 	}
 
-	stored, err := h.kubeConnector.GetSecret(ctx, ctrlclient.ObjectKey{
+	stored, err := kubeConnector.GetSecret(ctx, ctrlclient.ObjectKey{
 		Name:      name,
 		Namespace: namespace,
 	})
@@ -142,7 +158,7 @@ func (h *k8sHandler) PatchSecret(ctx context.Context, _ string, namespace, name 
 	if err != nil {
 		return nil, err
 	}
-	res, err := h.kubeConnector.PatchSecret(ctx,
+	res, err := kubeConnector.PatchSecret(ctx,
 		&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name}},
 		ctrlclient.RawPatch(types.MergePatchType, dataPatch),
 	)
@@ -157,8 +173,12 @@ func (h *k8sHandler) PatchSecret(ctx context.Context, _ string, namespace, name 
 // namespace, unless a controller owns it and would recreate it. A Secret the
 // API did not create can be deleted: leftovers of helm uninstall or of Git
 // would otherwise stay forever.
-func (h *k8sHandler) DeleteSecret(ctx context.Context, _ string, namespace, name string) error {
-	secret, err := h.kubeConnector.GetSecret(ctx, ctrlclient.ObjectKey{
+func (h *k8sHandler) DeleteSecret(ctx context.Context, cluster string, namespace, name string) error {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return err
+	}
+	secret, err := kubeConnector.GetSecret(ctx, ctrlclient.ObjectKey{
 		Name:      name,
 		Namespace: namespace,
 	})
@@ -173,7 +193,7 @@ func (h *k8sHandler) DeleteSecret(ctx context.Context, _ string, namespace, name
 		return err
 	}
 
-	return h.kubeConnector.DeleteSecret(ctx, secret)
+	return kubeConnector.DeleteSecret(ctx, secret)
 }
 
 // secretNotFound answers for a Secret the API does not serve, one without

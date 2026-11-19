@@ -34,7 +34,11 @@ func (h *validateHandler) GetBackupImport(ctx context.Context, cluster, namespac
 // CreateBackupImport rejects a BackupImport that cannot run, or that references an object that does not exist, before
 // creating it.
 func (h *validateHandler) CreateBackupImport(ctx context.Context, cluster string, backupImport *backupv1alpha1.BackupImport) (*backupv1alpha1.BackupImport, error) {
-	d, err := backupadmission.Import(ctx, h.kubeConnector, backupImport)
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	d, err := backupadmission.Import(ctx, kubeConnector, backupImport)
 	if err := admitOperation(ctx, d, err); err != nil {
 		return nil, err
 	}

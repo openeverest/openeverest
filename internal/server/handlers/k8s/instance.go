@@ -34,30 +34,50 @@ import (
 
 // ListInstances returns list of instances in a namespace.
 func (h *k8sHandler) ListInstances(ctx context.Context, cluster, namespace string) (*corev1alpha1.InstanceList, error) {
-	return h.kubeConnector.ListInstances(ctx, ctrlclient.InNamespace(namespace))
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.ListInstances(ctx, ctrlclient.InNamespace(namespace))
 }
 
 // GetInstance returns instance that matches the criteria.
 func (h *k8sHandler) GetInstance(ctx context.Context, cluster, namespace, name string) (*corev1alpha1.Instance, error) {
-	return h.kubeConnector.GetInstance(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.GetInstance(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 }
 
 // CreateInstance creates an instance.
 func (h *k8sHandler) CreateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
 	stampActor(ctx, instance)
-	return h.kubeConnector.CreateInstance(ctx, instance)
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.CreateInstance(ctx, instance)
 }
 
 // UpdateInstance updates an instance.
 func (h *k8sHandler) UpdateInstance(ctx context.Context, cluster string, instance *corev1alpha1.Instance) (*corev1alpha1.Instance, error) {
 	stampActor(ctx, instance)
-	return h.kubeConnector.UpdateInstance(ctx, instance)
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.UpdateInstance(ctx, instance)
 }
 
 // PatchInstance applies a merge patch to an instance, leaving the read-modify-write to the API server.
 // Strict validation is not optional: without it a misspelt path is pruned and returns 200 having changed nothing.
 // The actor is stamped into the patch document, since the patch bytes are the request body and annotations set on the object below are never sent.
-func (h *k8sHandler) PatchInstance(ctx context.Context, _ string, namespace, name string, patch []byte) (*corev1alpha1.Instance, error) {
+func (h *k8sHandler) PatchInstance(ctx context.Context, cluster, namespace, name string, patch []byte) (*corev1alpha1.Instance, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
 	var stamp metav1.ObjectMeta
 	if stampActor(ctx, &stamp) {
 		stampDoc, err := json.Marshal(map[string]any{
@@ -74,7 +94,7 @@ func (h *k8sHandler) PatchInstance(ctx context.Context, _ string, namespace, nam
 	instance := &corev1alpha1.Instance{
 		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
 	}
-	return h.kubeConnector.PatchInstance(ctx, instance,
+	return kubeConnector.PatchInstance(ctx, instance,
 		ctrlclient.RawPatch(types.MergePatchType, patch),
 		ctrlclient.FieldValidation(metav1.FieldValidationStrict),
 	)
@@ -84,7 +104,11 @@ func (h *k8sHandler) PatchInstance(ctx context.Context, _ string, namespace, nam
 // provided, the instance's spec.deletionPolicy is patched before deletion so
 // the controller sees the caller's intent (Cascade vs Orphan child resources).
 func (h *k8sHandler) DeleteInstance(ctx context.Context, cluster, namespace, name string, params *api.DeleteInstanceParams) error {
-	instance, err := h.kubeConnector.GetInstance(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return err
+	}
+	instance, err := kubeConnector.GetInstance(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 	if err != nil {
 		return err
 	}
@@ -102,20 +126,24 @@ func (h *k8sHandler) DeleteInstance(ctx context.Context, cluster, namespace, nam
 		}
 	}
 	if actorChanged || policyChanged {
-		updated, err := h.kubeConnector.UpdateInstance(ctx, instance)
+		updated, err := kubeConnector.UpdateInstance(ctx, instance)
 		if err != nil {
 			return err
 		}
 		instance = updated
 	}
 
-	return h.kubeConnector.DeleteInstance(ctx, instance)
+	return kubeConnector.DeleteInstance(ctx, instance)
 }
 
 // GetInstanceConnection returns connection details for an instance by reading
 // the connection Secret referenced in the Instance status.
 func (h *k8sHandler) GetInstanceConnection(ctx context.Context, cluster, namespace, name string) (*api.InstanceConnectionDetails, error) {
-	instance, err := h.kubeConnector.GetInstance(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	instance, err := kubeConnector.GetInstance(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +159,7 @@ func (h *k8sHandler) GetInstanceConnection(ctx context.Context, cluster, namespa
 		)
 	}
 
-	secret, err := h.kubeConnector.GetSecret(ctx, types.NamespacedName{Namespace: namespace, Name: secretName})
+	secret, err := kubeConnector.GetSecret(ctx, types.NamespacedName{Namespace: namespace, Name: secretName})
 	if err != nil {
 		return nil, err
 	}

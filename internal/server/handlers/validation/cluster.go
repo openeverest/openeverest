@@ -32,3 +32,14 @@ func (h *validateHandler) GetCluster(ctx context.Context, name string) (*api.Clu
 	// TODO: Add validation logic, then call next handler
 	return h.next.GetCluster(ctx, name)
 }
+
+func (h *validateHandler) RegisterCluster(
+	ctx context.Context,
+	registration *api.ClusterRegistration,
+) (*api.Cluster, error) {
+	return h.next.RegisterCluster(ctx, registration)
+}
+
+func (h *validateHandler) DeleteCluster(ctx context.Context, name string) error {
+	return h.next.DeleteCluster(ctx, name)
+}

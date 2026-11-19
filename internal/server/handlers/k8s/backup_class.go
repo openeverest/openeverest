@@ -26,8 +26,12 @@ import (
 
 // ListBackupClasses returns the backup classes, only those that provider
 // executes when it is set.
-func (h *k8sHandler) ListBackupClasses(ctx context.Context, _, provider string) (*backupv1alpha1.BackupClassList, error) {
-	list, err := h.kubeConnector.ListBackupClasses(ctx)
+func (h *k8sHandler) ListBackupClasses(ctx context.Context, cluster, provider string) (*backupv1alpha1.BackupClassList, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	list, err := kubeConnector.ListBackupClasses(ctx)
 	if err != nil || provider == "" {
 		return list, err
 	}
@@ -43,5 +47,9 @@ func (h *k8sHandler) ListBackupClasses(ctx context.Context, _, provider string) 
 
 // GetBackupClass returns backup class that matches the criteria.
 func (h *k8sHandler) GetBackupClass(ctx context.Context, cluster, name string) (*backupv1alpha1.BackupClass, error) {
-	return h.kubeConnector.GetBackupClass(ctx, types.NamespacedName{Name: name})
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.GetBackupClass(ctx, types.NamespacedName{Name: name})
 }

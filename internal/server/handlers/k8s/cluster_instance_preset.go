@@ -24,8 +24,12 @@ import (
 )
 
 // ListClusterInstancePresets returns list of cluster instance presets, optionally filtered by provider.
-func (h *k8sHandler) ListClusterInstancePresets(ctx context.Context, _, provider string) (*corev1alpha1.ClusterInstancePresetList, error) {
-	list, err := h.kubeConnector.ListClusterInstancePresets(ctx)
+func (h *k8sHandler) ListClusterInstancePresets(ctx context.Context, cluster, provider string) (*corev1alpha1.ClusterInstancePresetList, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	list, err := kubeConnector.ListClusterInstancePresets(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list cluster instance presets: %w", err)
 	}
@@ -44,6 +48,10 @@ func (h *k8sHandler) ListClusterInstancePresets(ctx context.Context, _, provider
 }
 
 // GetClusterInstancePreset returns a cluster instance preset that matches the criteria.
-func (h *k8sHandler) GetClusterInstancePreset(ctx context.Context, _, name string) (*corev1alpha1.ClusterInstancePreset, error) {
-	return h.kubeConnector.GetClusterInstancePreset(ctx, types.NamespacedName{Name: name})
+func (h *k8sHandler) GetClusterInstancePreset(ctx context.Context, cluster, name string) (*corev1alpha1.ClusterInstancePreset, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.GetClusterInstancePreset(ctx, types.NamespacedName{Name: name})
 }

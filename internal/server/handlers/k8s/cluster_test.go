@@ -15,15 +15,30 @@
 package k8s
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
+	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
 func TestClusterIdentityComesFromConfiguration(t *testing.T) {
 	t.Parallel()
 
-	handler := &k8sHandler{clusterName: "prod-eu"}
+	client := fakeclient.NewClientBuilder().WithScheme(kubernetes.CreateScheme()).Build()
+	handler := &k8sHandler{
+		clusterName:   "prod-eu",
+		kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), "everest-system").WithKubernetesClient(client),
+	}
 
 	list, err := handler.ListClusters(t.Context())
 	require.NoError(t, err)
@@ -35,5 +50,102 @@ func TestClusterIdentityComesFromConfiguration(t *testing.T) {
 	require.Equal(t, "prod-eu", cluster.Name)
 
 	_, err = handler.GetCluster(t.Context(), "other")
-	require.ErrorContains(t, err, "cluster not found")
+	require.ErrorContains(t, err, `cluster "other" not found`)
+}
+
+func TestRegisterAndDeleteCluster(t *testing.T) {
+	t.Parallel()
+
+	client := fakeclient.NewClientBuilder().WithScheme(kubernetes.CreateScheme()).Build()
+	handler := &k8sHandler{
+		clusterName:      "local",
+		kubeConnector:    kubernetes.NewEmpty(zap.NewNop().Sugar(), "everest-system").WithKubernetesClient(client),
+		remoteConnectors: make(map[string]cachedConnector),
+		log:              zap.NewNop().Sugar(),
+	}
+	token := "secret-token"
+
+	registered, err := handler.RegisterCluster(t.Context(), &api.ClusterRegistration{
+		Name:        "prod-eu",
+		Server:      "https://agent.example.test",
+		BearerToken: &token,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "prod-eu", registered.Name)
+
+	connection, err := handler.kubeConnector.GetClusterConnection(
+		t.Context(),
+		ctrlclient.ObjectKey{Name: "prod-eu"},
+	)
+	require.NoError(t, err)
+	secret, err := handler.kubeConnector.GetSecret(
+		t.Context(),
+		ctrlclient.ObjectKey{
+			Namespace: connection.Spec.CredentialsSecretRef.Namespace,
+			Name:      connection.Spec.CredentialsSecretRef.Name,
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, token, string(secret.Data["token"]))
+
+	require.NoError(t, handler.DeleteCluster(t.Context(), "prod-eu"))
+	_, err = handler.kubeConnector.GetClusterConnection(
+		t.Context(),
+		ctrlclient.ObjectKey{Name: "prod-eu"},
+	)
+	require.Error(t, err)
+	_, err = handler.kubeConnector.GetSecret(
+		t.Context(),
+		ctrlclient.ObjectKey{
+			Namespace: connection.Spec.CredentialsSecretRef.Namespace,
+			Name:      connection.Spec.CredentialsSecretRef.Name,
+		},
+	)
+	require.Error(t, err)
+}
+
+func TestConnectorResolvesRemoteRegistration(t *testing.T) {
+	t.Parallel()
+
+	objects := []ctrlclient.Object{
+		&extensionsv1alpha1.ClusterConnection{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "prod-eu",
+				ResourceVersion: "10",
+			},
+			Spec: extensionsv1alpha1.ClusterConnectionSpec{
+				Endpoint: "https://agent.example.test",
+				CredentialsSecretRef: common.NamespacedObjectRef{
+					Namespace: "everest-system",
+					Name:      "agent-credentials",
+				},
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:       "everest-system",
+				Name:            "agent-credentials",
+				ResourceVersion: "11",
+			},
+			Data: map[string][]byte{"token": []byte("hub-token")},
+		},
+	}
+	client := fakeclient.NewClientBuilder().
+		WithScheme(kubernetes.CreateScheme()).
+		WithObjects(objects...).
+		Build()
+	handler := &k8sHandler{
+		clusterName:      "local",
+		kubeConnector:    kubernetes.NewEmpty(zap.NewNop().Sugar(), "everest-system").WithKubernetesClient(client),
+		remoteConnectors: make(map[string]cachedConnector),
+		log:              zap.NewNop().Sugar(),
+	}
+
+	first, err := handler.ClusterConnector(context.Background(), "prod-eu")
+	require.NoError(t, err)
+	second, err := handler.ClusterConnector(context.Background(), "prod-eu")
+	require.NoError(t, err)
+	require.Same(t, first, second)
+	require.Equal(t, "https://agent.example.test", first.Config().Host)
+	require.Equal(t, "hub-token", first.Config().BearerToken)
 }

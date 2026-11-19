@@ -20,8 +20,16 @@ import (
 	"fmt"
 
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
 )
+
+func (h *rbacHandler) ClusterConnector(
+	ctx context.Context,
+	cluster string,
+) (kubernetes.KubernetesConnector, error) {
+	return h.next.ClusterConnector(ctx, cluster)
+}
 
 func (h *rbacHandler) GetKubernetesClusterResources(ctx context.Context, cluster string) (*api.KubernetesClusterResources, error) {
 	if err := h.enforce(ctx, rbac.ResourceClusters, rbac.ActionRead, cluster); err != nil {
