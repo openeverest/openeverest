@@ -26,7 +26,7 @@ export interface ProviderOptions {
   error: unknown;
   isEmpty: boolean;
   // Explains why the options are empty when the provider knows the reason
-  // (e.g. missing RBAC read access); shown in an Alert above the select.
+  // (e.g. missing RBAC read access); replaces the generic empty helper text.
   emptyHint?: string;
   rawData?: unknown;
 }
