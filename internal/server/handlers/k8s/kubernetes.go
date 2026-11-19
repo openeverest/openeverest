@@ -73,9 +73,9 @@ func (h *k8sHandler) GetKubernetesClusterInfo(ctx context.Context) (*api.Kuberne
 	}
 
 	// convert k8s storage class to api storage class
-	storagesListAPI := []api.StorageClass{}
+	storagesListAPI := []api.ClusterInfoStorageClass{}
 	for _, storageClass := range storagesList.Items {
-		apiObj := api.StorageClass{}
+		apiObj := api.ClusterInfoStorageClass{}
 		apiObj.FromCR(&storageClass)
 		storagesListAPI = append(storagesListAPI, apiObj)
 	}

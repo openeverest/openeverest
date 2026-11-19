@@ -15,6 +15,8 @@ import (
 
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 
+	storagev1 "k8s.io/api/storage/v1"
+
 	v1 "k8s.io/api/core/v1"
 
 	v1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
@@ -1089,6 +1091,36 @@ func (_m *MockHandler) GetSettings(ctx context.Context) (*api.Settings, error) {
 	return r0, r1
 }
 
+// GetStorageClass provides a mock function with given fields: ctx, cluster, name
+func (_m *MockHandler) GetStorageClass(ctx context.Context, cluster string, name string) (*storagev1.StorageClass, error) {
+	ret := _m.Called(ctx, cluster, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetStorageClass")
+	}
+
+	var r0 *storagev1.StorageClass
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*storagev1.StorageClass, error)); ok {
+		return rf(ctx, cluster, name)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *storagev1.StorageClass); ok {
+		r0 = rf(ctx, cluster, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*storagev1.StorageClass)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, cluster, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetUserPermissions provides a mock function with given fields: ctx
 func (_m *MockHandler) GetUserPermissions(ctx context.Context) (*api.UserPermissions, error) {
 	ret := _m.Called(ctx)
@@ -1712,6 +1744,36 @@ func (_m *MockHandler) ListSecrets(ctx context.Context, cluster string, namespac
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, string, SecretFilter) error); ok {
 		r1 = rf(ctx, cluster, namespace, filter)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListStorageClasses provides a mock function with given fields: ctx, cluster
+func (_m *MockHandler) ListStorageClasses(ctx context.Context, cluster string) (*storagev1.StorageClassList, error) {
+	ret := _m.Called(ctx, cluster)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListStorageClasses")
+	}
+
+	var r0 *storagev1.StorageClassList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*storagev1.StorageClassList, error)); ok {
+		return rf(ctx, cluster)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *storagev1.StorageClassList); ok {
+		r0 = rf(ctx, cluster)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*storagev1.StorageClassList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, cluster)
 	} else {
 		r1 = ret.Error(1)
 	}

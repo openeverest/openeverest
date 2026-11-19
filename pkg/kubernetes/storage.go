@@ -27,3 +27,12 @@ func (k *Kubernetes) ListStorageClasses(ctx context.Context, opts ...ctrlclient.
 	}
 	return result, nil
 }
+
+// GetStorageClass returns the storage class with the given key.
+func (k *Kubernetes) GetStorageClass(ctx context.Context, key ctrlclient.ObjectKey) (*storagev1.StorageClass, error) {
+	result := &storagev1.StorageClass{}
+	if err := k.k8sClient.Get(ctx, key, result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}

@@ -274,6 +274,14 @@ func TestLoadAdminPolicy(t *testing.T) {
 		}
 	})
 
+	t.Run("admin only reads storage classes", func(t *testing.T) {
+		t.Parallel()
+		enf.assertAllowed("admin-user", ResourceStorageClasses, ActionRead, "prod/standard")
+		for _, action := range []string{ActionCreate, ActionUpdate, ActionDelete} {
+			enf.assertDenied("admin-user", ResourceStorageClasses, action, "prod/standard")
+		}
+	})
+
 	t.Run("non-admin without policy is denied", func(t *testing.T) {
 		t.Parallel()
 		enf.assertDenied("random-user", ResourceClusters, ActionRead, "any-cluster")
