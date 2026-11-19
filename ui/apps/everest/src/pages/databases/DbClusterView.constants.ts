@@ -14,8 +14,9 @@
 
 import { InstanceTone } from 'shared-types/instance.types';
 
-// The status filter's options, the most urgent first.
-export const INSTANCE_TONES: readonly InstanceTone[] = [
+// The order status words are offered in by the status filter: the most urgent
+// first.
+export const TONES_BY_URGENCY: readonly InstanceTone[] = [
   'error',
   'attention',
   'unknown',
@@ -23,4 +24,12 @@ export const INSTANCE_TONES: readonly InstanceTone[] = [
   'stopped',
   'deleting',
   'ok',
+];
+
+// The Instances someone has to look at: the ones in trouble, and the ones no
+// provider answers for.
+export const NEEDS_ATTENTION_TONES: readonly InstanceTone[] = [
+  'error',
+  'attention',
+  'unknown',
 ];

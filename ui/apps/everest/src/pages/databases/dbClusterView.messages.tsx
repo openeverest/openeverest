@@ -14,19 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { InstanceTone } from 'shared-types/instance.types';
-
 export const Messages = {
   createDatabase: 'Create',
-  statusFilter: {
-    error: 'Error',
-    attention: 'Warning',
-    unknown: 'Unknown',
-    progress: 'In progress',
-    stopped: 'Stopped',
-    deleting: 'Deleting',
-    ok: 'OK',
-  } satisfies Record<InstanceTone, string>,
   statusProvider: {
     up: 'Up',
     down: 'Down',
