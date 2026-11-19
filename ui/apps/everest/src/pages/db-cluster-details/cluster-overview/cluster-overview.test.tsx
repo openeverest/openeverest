@@ -43,7 +43,25 @@ const mockInstance: Instance = {
     providerRef: { name: 'test-provider' },
     topology: { type: 'ha' },
   },
-  status: { phase: 'Ready' },
+  status: {
+    phase: 'Provisioned',
+    conditions: [
+      {
+        lastTransitionTime: '2026-03-20T10:00:00Z',
+        message: 'The instance is ready',
+        reason: 'Ready',
+        status: 'True',
+        type: 'Ready',
+      },
+      {
+        lastTransitionTime: '2026-03-20T10:00:00Z',
+        message: '',
+        reason: 'Available',
+        status: 'True',
+        type: 'ConnectionDetailsReady',
+      },
+    ],
+  },
 };
 
 const queryClient = new QueryClient({
@@ -130,7 +148,22 @@ describe('ClusterOverview', () => {
     expect(screen.queryByTestId('cluster-overview')).not.toBeInTheDocument();
   });
 
-  it('polls credentials when instance phase is ready', () => {
+  it('names the status as the header does while a ready Instance is deleted', () => {
+    renderOverview('my-ns', 'my-test-db', {
+      instance: {
+        ...mockInstance,
+        metadata: {
+          name: 'my-test-db',
+          deletionTimestamp: '2026-03-21T10:00:00Z',
+        },
+      },
+    });
+
+    expect(screen.getByText('Deleting')).toBeInTheDocument();
+    expect(screen.queryByText('Ready')).not.toBeInTheDocument();
+  });
+
+  it('queries credentials once connection details are published', () => {
     renderOverview('my-ns', 'my-test-db');
 
     expect(useDbInstanceCredentials).toHaveBeenCalledWith(
@@ -142,12 +175,11 @@ describe('ClusterOverview', () => {
     );
   });
 
-  // TODO recheck condition, probably we should show oriented on the plag int he conditions in status
-  it('does not query credentials before instance is ready', () => {
+  it('does not query credentials before connection details are published', () => {
     renderOverview('my-ns', 'my-test-db', {
       instance: {
         ...mockInstance,
-        status: { phase: 'Initializing' },
+        status: { phase: 'Pending', conditions: [] },
       },
     });
 
