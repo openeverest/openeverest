@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,13 +19,17 @@ import {
   GetKubernetesClusterResourcesInfoPayload,
   KubernetesClusterResourcesInfo,
 } from 'shared-types/kubernetes.types';
+import { useClusterName } from '../useClusterName';
 
-export const useKubernetesClusterResourcesInfo = () =>
-  useQuery<
+export const useKubernetesClusterResourcesInfo = () => {
+  const clusterName = useClusterName();
+
+  return useQuery<
     GetKubernetesClusterResourcesInfoPayload,
     unknown,
     KubernetesClusterResourcesInfo
   >({
-    queryKey: ['cluster-resources-info'],
-    queryFn: getKubernetesClusterResourcesInfo,
+    queryKey: ['cluster-resources-info', clusterName],
+    queryFn: () => getKubernetesClusterResourcesInfo(clusterName),
   });
+};

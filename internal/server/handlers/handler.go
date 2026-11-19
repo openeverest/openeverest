@@ -61,8 +61,8 @@ type Handler interface {
 	SecretHandler
 	EventHandler
 
-	GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error)
-	GetKubernetesClusterInfo(ctx context.Context) (*api.KubernetesClusterInfo, error)
+	GetKubernetesClusterResources(ctx context.Context, cluster string) (*api.KubernetesClusterResources, error)
+	GetKubernetesClusterInfo(ctx context.Context, cluster string) (*api.KubernetesClusterInfo, error)
 	GetUserPermissions(ctx context.Context) (*api.UserPermissions, error)
 	GetSettings(ctx context.Context) (*api.Settings, error)
 }

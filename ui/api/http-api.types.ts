@@ -177,7 +177,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/resources": {
+    "/clusters/{cluster}/resources": {
         parameters: {
             query?: never;
             header?: never;
@@ -187,6 +187,48 @@ export interface paths {
         /**
          * Cluster resources
          * @description This API gets the capacity and available resources of the Kubernetes cluster.
+         */
+        get: operations["getKubernetesClusterResourcesForCluster"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/cluster-info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cluster info
+         * @description This API gets the cluster type and the storage classes available in the cluster.
+         */
+        get: operations["getKubernetesClusterInfoForCluster"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cluster resources (deprecated)
+         * @deprecated
+         * @description Deprecated compatibility alias for `/clusters/main/resources`.
+         *     Use the cluster-scoped endpoint for new integrations.
          */
         get: operations["getKubernetesClusterResources"];
         put?: never;
@@ -205,8 +247,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Cluster info
-         * @description This API gets the cluster type and the storage classes available in the cluster.
+         * Cluster info (deprecated)
+         * @deprecated
+         * @description Deprecated compatibility alias for `/clusters/main/cluster-info`.
+         *     Use the cluster-scoped endpoint for new integrations.
          */
         get: operations["getKubernetesClusterInfo"];
         put?: never;
@@ -8571,6 +8615,88 @@ export interface operations {
             };
         };
     };
+    getKubernetesClusterResourcesForCluster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Name of the cluster */
+                cluster: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KubernetesClusterResources"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getKubernetesClusterInfoForCluster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Name of the cluster */
+                cluster: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KubernetesClusterInfo"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getKubernetesClusterResources: {
         parameters: {
             query?: never;
@@ -8583,6 +8709,10 @@ export interface operations {
             /** @description Successful operation */
             200: {
                 headers: {
+                    /** @description Marks the legacy unscoped endpoint as deprecated. */
+                    Deprecation?: string;
+                    /** @description Points to the cluster-scoped replacement. */
+                    Link?: string;
                     [name: string]: unknown;
                 };
                 content: {
@@ -8621,6 +8751,10 @@ export interface operations {
             /** @description Successful operation */
             200: {
                 headers: {
+                    /** @description Marks the legacy unscoped endpoint as deprecated. */
+                    Deprecation?: string;
+                    /** @description Points to the cluster-scoped replacement. */
+                    Link?: string;
                     [name: string]: unknown;
                 };
                 content: {

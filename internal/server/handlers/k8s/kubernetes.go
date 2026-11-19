@@ -39,7 +39,7 @@ const (
 	annotationStorageClassDefaultValue = "true"
 )
 
-func (h *k8sHandler) GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error) {
+func (h *k8sHandler) GetKubernetesClusterResources(ctx context.Context, _ string) (*api.KubernetesClusterResources, error) {
 	// Get cluster type
 	clusterType, err := h.kubeConnector.GetClusterType(ctx)
 	if err != nil {
@@ -62,7 +62,7 @@ func (h *k8sHandler) GetKubernetesClusterResources(ctx context.Context) (*api.Ku
 	return res, nil
 }
 
-func (h *k8sHandler) GetKubernetesClusterInfo(ctx context.Context) (*api.KubernetesClusterInfo, error) {
+func (h *k8sHandler) GetKubernetesClusterInfo(ctx context.Context, _ string) (*api.KubernetesClusterInfo, error) {
 	clusterType, err := h.kubeConnector.GetClusterType(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to GetClusterType: %w", err)

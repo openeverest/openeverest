@@ -789,9 +789,9 @@ func (_m *MockHandler) GetInstancePreset(ctx context.Context, cluster string, na
 	return r0, r1
 }
 
-// GetKubernetesClusterInfo provides a mock function with given fields: ctx
-func (_m *MockHandler) GetKubernetesClusterInfo(ctx context.Context) (*api.KubernetesClusterInfo, error) {
-	ret := _m.Called(ctx)
+// GetKubernetesClusterInfo provides a mock function with given fields: ctx, cluster
+func (_m *MockHandler) GetKubernetesClusterInfo(ctx context.Context, cluster string) (*api.KubernetesClusterInfo, error) {
+	ret := _m.Called(ctx, cluster)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetKubernetesClusterInfo")
@@ -799,19 +799,19 @@ func (_m *MockHandler) GetKubernetesClusterInfo(ctx context.Context) (*api.Kuber
 
 	var r0 *api.KubernetesClusterInfo
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (*api.KubernetesClusterInfo, error)); ok {
-		return rf(ctx)
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*api.KubernetesClusterInfo, error)); ok {
+		return rf(ctx, cluster)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) *api.KubernetesClusterInfo); ok {
-		r0 = rf(ctx)
+	if rf, ok := ret.Get(0).(func(context.Context, string) *api.KubernetesClusterInfo); ok {
+		r0 = rf(ctx, cluster)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*api.KubernetesClusterInfo)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, cluster)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -819,9 +819,9 @@ func (_m *MockHandler) GetKubernetesClusterInfo(ctx context.Context) (*api.Kuber
 	return r0, r1
 }
 
-// GetKubernetesClusterResources provides a mock function with given fields: ctx
-func (_m *MockHandler) GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error) {
-	ret := _m.Called(ctx)
+// GetKubernetesClusterResources provides a mock function with given fields: ctx, cluster
+func (_m *MockHandler) GetKubernetesClusterResources(ctx context.Context, cluster string) (*api.KubernetesClusterResources, error) {
+	ret := _m.Called(ctx, cluster)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetKubernetesClusterResources")
@@ -829,19 +829,19 @@ func (_m *MockHandler) GetKubernetesClusterResources(ctx context.Context) (*api.
 
 	var r0 *api.KubernetesClusterResources
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (*api.KubernetesClusterResources, error)); ok {
-		return rf(ctx)
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*api.KubernetesClusterResources, error)); ok {
+		return rf(ctx, cluster)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) *api.KubernetesClusterResources); ok {
-		r0 = rf(ctx)
+	if rf, ok := ret.Get(0).(func(context.Context, string) *api.KubernetesClusterResources); ok {
+		r0 = rf(ctx, cluster)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*api.KubernetesClusterResources)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(ctx)
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, cluster)
 	} else {
 		r1 = ret.Error(1)
 	}

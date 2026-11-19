@@ -263,17 +263,98 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Settings'
-  '/resources':
+  '/clusters/{cluster}/resources':
+    x-everest-resource-name: clusters
     get:
       tags:
         - Kubernetes
       summary: Cluster resources
       description: |
         This API gets the capacity and available resources of the Kubernetes cluster.
-      operationId: getKubernetesClusterResources
+      operationId: getKubernetesClusterResourcesForCluster
+      parameters:
+        - name: cluster
+          in: path
+          description: Name of the cluster
+          required: true
+          schema:
+            type: string
       responses:
         '200':
           description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesClusterResources'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/clusters/{cluster}/cluster-info':
+    x-everest-resource-name: clusters
+    get:
+      tags:
+        - Kubernetes
+      summary: Cluster info
+      description: |
+        This API gets the cluster type and the storage classes available in the cluster.
+      operationId: getKubernetesClusterInfoForCluster
+      parameters:
+        - name: cluster
+          in: path
+          description: Name of the cluster
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KubernetesClusterInfo'
+        '400':
+          description: Unsuccessful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  '/resources':
+    get:
+      tags:
+        - Kubernetes
+      summary: Cluster resources (deprecated)
+      description: |
+        Deprecated compatibility alias for `/clusters/main/resources`.
+        Use the cluster-scoped endpoint for new integrations.
+      operationId: getKubernetesClusterResources
+      deprecated: true
+      responses:
+        '200':
+          description: Successful operation
+          headers:
+            Deprecation:
+              description: Marks the legacy unscoped endpoint as deprecated.
+              schema:
+                type: string
+            Link:
+              description: Points to the cluster-scoped replacement.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -294,13 +375,24 @@ paths:
     get:
       tags:
         - Kubernetes
-      summary: Cluster info
+      summary: Cluster info (deprecated)
       description: |
-        This API gets the cluster type and the storage classes available in the cluster.
+        Deprecated compatibility alias for `/clusters/main/cluster-info`.
+        Use the cluster-scoped endpoint for new integrations.
       operationId: getKubernetesClusterInfo
+      deprecated: true
       responses:
         '200':
           description: Successful operation
+          headers:
+            Deprecation:
+              description: Marks the legacy unscoped endpoint as deprecated.
+              schema:
+                type: string
+            Link:
+              description: Points to the cluster-scoped replacement.
+              schema:
+                type: string
           content:
             application/json:
               schema:
