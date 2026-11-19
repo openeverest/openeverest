@@ -4,34 +4,65 @@ Groups allow you to organize multiple fields together with different layout opti
 
 ## Table of Contents
 
-- [Line Group](#line-group)
+- [Layout direction](#layout-direction)
 - [Accordion Group](#accordion-group)
 - [Bordered Group](#bordered-group)
 - [Toggleable Group](#toggleable-group)
 
 Related: [Number Field](components/number-field.md), [Select Field](components/select-field.md), [Text Field](components/text-field.md), [Validation](validation.md)
 
-## Line Group
+## Layout direction
 
-//TODO will be renamed, documentation should be checked before merging
-Displays components in a horizontal line (flex layout).
+`groupParams.direction` controls how a group lays out its **direct children**:
+
+| Value     | Behavior                                      |
+| --------- | --------------------------------------------- |
+| `column`  | Stack children vertically (default; may omit) |
+| `row`     | Place children in a horizontal line           |
+
+Names follow CSS `flex-direction` / MUI `Stack` `direction`. Direction composes with chrome `groupType` values (for example `bordered` + `row`).
 
 ```yaml
-resourceGroup:
+# row — children side by side (replaces the old `groupType: line`)
+cpuMem:
   uiType: group
-  groupType: line
+  groupParams: { direction: row }
+  components:
+    cpu: { uiType: number, path: spec.engine.resources.cpu }
+    memory: { uiType: number, path: spec.engine.resources.memory }
+  componentsOrder: [cpu, memory]
+
+# column is the default — omit direction
+resources:
+  uiType: group
   label: Resources
   components:
-    cpu: { ... }
-    memory: { ... }
-    disk: { ... }
-  componentsOrder:
-    - cpu
-    - memory
-    - disk
+    storageClass: { uiType: select, path: spec.engine.storage.class }
+    replicas: { uiType: number, path: spec.engine.replicas }
+  componentsOrder: [storageClass, replicas]
+
+# composes with other params — a bordered card whose body is a row
+storageSection:
+  uiType: group
+  groupType: bordered
+  groupParams: { direction: row }
+  label: Storage
+  components:
+    size: { uiType: number, path: spec.engine.storage.size }
+    class: { uiType: select, path: spec.engine.storage.class }
+  componentsOrder: [size, class]
 ```
 
-//TODO visual example
+### Migration (`line` → `direction`)
+
+```yaml
+# before
+resources: { uiType: group, groupType: line, components: { … } }
+# after
+resources: { uiType: group, groupParams: { direction: row }, components: { … } }
+```
+
+`groupType: line` is no longer accepted.
 
 ## Accordion Group
 
@@ -55,7 +86,7 @@ advancedSettings:
 A static bordered card around related fields. Visual only: it doesn't change where the fields are saved.
 
 - `label` and `description` are optional. Omit both for a plain box without a heading.
-- Can contain other groups, e.g. a `line` group.
+- Can contain other groups, or use `groupParams.direction: row` for a horizontal body.
 
 ```yaml
 storage:

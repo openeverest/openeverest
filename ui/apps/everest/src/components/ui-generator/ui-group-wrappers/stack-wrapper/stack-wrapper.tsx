@@ -13,19 +13,40 @@
 // limitations under the License.
 
 import { Stack } from '@mui/material';
+import { GroupDirection } from 'components/ui-generator/ui-generator.types';
 import { StackWrapperProps } from './stack-wrapper.types';
 
-const StackWrapper = ({ children }: StackWrapperProps) => {
+// Lays out a group's direct children. Row keeps equal-width flex children
+// (the former `groupType: line` behavior); column is the default stack.
+const StackWrapper = ({
+  children,
+  direction = GroupDirection.Column,
+  stackRef,
+}: StackWrapperProps) => {
+  if (direction === GroupDirection.Row) {
+    return (
+      <Stack
+        ref={stackRef}
+        direction="row"
+        spacing={2}
+        data-group-direction={GroupDirection.Row}
+        sx={{
+          alignItems: 'flex-start',
+          width: '100%',
+          flexWrap: 'nowrap',
+          '> *': { flex: '1 1 0', minWidth: 0 },
+        }}
+      >
+        {children}
+      </Stack>
+    );
+  }
+
   return (
     <Stack
-      direction="row"
+      ref={stackRef}
       spacing={2}
-      sx={{
-        alignItems: 'flex-start',
-        width: '100%',
-        flexWrap: 'nowrap',
-        '> *': { flex: '1 1 0', minWidth: 0 },
-      }}
+      data-group-direction={GroupDirection.Column}
     >
       {children}
     </Stack>

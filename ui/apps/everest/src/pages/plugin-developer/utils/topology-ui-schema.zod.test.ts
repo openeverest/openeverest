@@ -138,4 +138,81 @@ describe('topologyUISchemasSchema', () => {
     };
     expect(topologyUISchemasSchema.safeParse(ordered).success).toBe(true);
   });
+
+  it('accepts groupParams.direction row or column', () => {
+    const withDirection = {
+      t: {
+        sections: {
+          s: {
+            components: {
+              g: {
+                uiType: 'group',
+                groupParams: { direction: 'row' },
+                components: { cpu: { uiType: 'number' } },
+              },
+            },
+          },
+        },
+      },
+    };
+    expect(topologyUISchemasSchema.safeParse(withDirection).success).toBe(true);
+  });
+
+  it('accepts bordered with groupParams.direction', () => {
+    const borderedRow = {
+      t: {
+        sections: {
+          s: {
+            components: {
+              g: {
+                uiType: 'group',
+                groupType: 'bordered',
+                groupParams: { direction: 'row', defaultExpanded: true },
+                components: { cpu: { uiType: 'number' } },
+              },
+            },
+          },
+        },
+      },
+    };
+    expect(topologyUISchemasSchema.safeParse(borderedRow).success).toBe(true);
+  });
+
+  it('rejects groupType line', () => {
+    const line = {
+      t: {
+        sections: {
+          s: {
+            components: {
+              g: {
+                uiType: 'group',
+                groupType: 'line',
+                components: { cpu: { uiType: 'number' } },
+              },
+            },
+          },
+        },
+      },
+    };
+    expect(topologyUISchemasSchema.safeParse(line).success).toBe(false);
+  });
+
+  it('rejects an invalid groupParams.direction', () => {
+    const bad = {
+      t: {
+        sections: {
+          s: {
+            components: {
+              g: {
+                uiType: 'group',
+                groupParams: { direction: 'horizontal' },
+                components: { cpu: { uiType: 'number' } },
+              },
+            },
+          },
+        },
+      },
+    };
+    expect(topologyUISchemasSchema.safeParse(bad).success).toBe(false);
+  });
 });

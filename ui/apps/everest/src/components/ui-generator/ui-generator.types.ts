@@ -80,9 +80,17 @@ export const WIDGET_UI_TYPE = 'widget' as const;
 export enum GroupType {
   Accordion = 'accordion',
   Bordered = 'bordered',
-  Line = 'line',
   Toggleable = 'toggleable',
 }
+
+// Layout of a group's direct children (`groupParams.direction`).
+export const GroupDirection = {
+  Row: 'row',
+  Column: 'column',
+} as const;
+
+export type GroupDirection =
+  (typeof GroupDirection)[keyof typeof GroupDirection];
 
 interface CommonFieldParams {
   label?: string;
@@ -308,7 +316,7 @@ export type ComponentGroup = {
   label?: string;
   description?: string;
   groupType?: GroupType;
-  //TODO check groupParams is work
+  // Per-group settings (e.g. layout `direction`).
   groupParams?: Record<string, unknown>;
   components: { [key: string]: Component | ComponentGroup };
   componentsOrder?: string[];
@@ -327,6 +335,7 @@ export interface GroupWrapperProps {
   children: ReactNode;
   label?: string;
   description?: string;
+  groupParams?: Record<string, unknown>;
   // Set only for an active toggleable group.
   toggleable?: ToggleableMeta;
 }

@@ -22,7 +22,8 @@ replicaSet:
 
             resources:
               uiType: group
-              groupType: line
+              groupParams:
+                direction: row
               components:
                 cpu:
                   path: 'spec.components.engine.resources.limits.cpu'
@@ -139,7 +140,8 @@ sharded:
                 message: 'The number of nodes must be odd'
         nodesResources:
           uiType: group
-          groupType: line
+          groupParams:
+            direction: row
           components:
             cpu:
               path: 'spec.components.engine.resources.limits.cpu'
@@ -182,7 +184,8 @@ sharded:
             label: 'Number of routers'
         routersResources:
           uiType: group
-          groupType: line
+          groupParams:
+            direction: row
           components:
             cpu:
               path: 'spec.components.proxy.resources.limits.cpu'
