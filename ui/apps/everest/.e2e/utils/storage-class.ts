@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,15 +16,43 @@
 
 import { APIRequestContext, expect } from '@playwright/test';
 
+type StorageClassItem = {
+  metadata?: {
+    name?: string;
+    creationTimestamp?: string;
+    annotations?: Record<string, string>;
+  };
+};
+
+const isDefault = ({ metadata }: StorageClassItem) =>
+  metadata?.annotations?.['storageclass.kubernetes.io/is-default-class'] ===
+  'true';
+
+const createdAt = ({ metadata }: StorageClassItem) =>
+  Date.parse(metadata?.creationTimestamp ?? '') || 0;
+
+// Returns the storage class names the way the removed /cluster-info did:
+// default class first (newest default first), so callers can pick [0].
 export const getClusterDetailedInfo = async (
   token: string,
   request: APIRequestContext
-) => {
-  const clusterInfo = await request.get('/v1/cluster-info', {
+): Promise<{ storageClassNames: string[] }> => {
+  const response = await request.get('/v1/clusters/main/storage-classes', {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
-  expect(clusterInfo.ok()).toBeTruthy();
-  return clusterInfo.json();
+  expect(response.ok()).toBeTruthy();
+  const { items = [] }: { items?: StorageClassItem[] } = await response.json();
+
+  const storageClassNames = [...items]
+    .sort((a, b) => {
+      if (isDefault(a) !== isDefault(b)) {
+        return isDefault(a) ? -1 : 1;
+      }
+      return isDefault(a) ? createdAt(b) - createdAt(a) : 0;
+    })
+    .flatMap(({ metadata }) => (metadata?.name ? [metadata.name] : []));
+
+  return { storageClassNames };
 };
