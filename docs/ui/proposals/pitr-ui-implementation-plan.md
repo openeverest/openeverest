@@ -85,8 +85,9 @@ Common: PITR requires ≥1 backup schedule; toggle disabled otherwise.
 | **MySQL (PXC)**     | explicit toggle                                                     | **user-selectable** separate storage (`AutoCompleteAutoFill`)                                         | only provider with manual storage pick                          |
 | **PostgreSQL (PG)** | **auto**: enabled when ≥1 schedule; user can't toggle independently | auto, per-schedule                                                                                    | restore has a PG-specific "stuck in Restoring" limitation alert |
 
-Source: `pages/db-cluster-details/cluster-overview/old-cards/pitr-details/edit-pitr.tsx`,
-`pitr-storage.tsx`, `pages/common/pitr.messages.ts`, `modals/restore-db-modal/modal-content.tsx`.
+Source: `pages/common/pitr.messages.ts`, `modals/restore-db-modal/modal-content.tsx`, and the
+unreachable V1 `pages/db-cluster-details/cluster-overview/old-cards/pitr-details/edit-pitr.tsx` and
+`pitr-storage.tsx` (since removed; see git history).
 
 ### V2 declarative mapping
 
@@ -326,8 +327,8 @@ enabled. Reference: `on-demand-backup-modal.tsx`, Phase 4 `PitrConfigModal`.
 
 Remove legacy: `getPitrFn` (`api/backups.ts:100`), `useDbClusterPitr` (`useBackups.ts:161`),
 `DatabaseClusterPitr(Payload)` (`shared-types/backups.types.ts:72`), the `DatabaseClusterPitr`
-schema in `api/openapi/http-api.yaml:2645`, and the V1
-`pages/db-cluster-details/cluster-overview/old-cards/pitr-details/` directory.
+schema in `api/openapi/http-api.yaml:2645`. The V1
+`pages/db-cluster-details/cluster-overview/old-cards/pitr-details/` directory is already removed.
 
 ---
 
