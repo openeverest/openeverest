@@ -17,8 +17,19 @@ import { api } from './api';
 
 type ClusterList =
   HttpApi.paths['/clusters']['get']['responses']['200']['content']['application/json'];
+type ClusterRegistration =
+  HttpApi.paths['/clusters']['post']['requestBody']['content']['application/json'];
+type Cluster =
+  HttpApi.paths['/clusters']['post']['responses']['201']['content']['application/json'];
 
 export const getClustersFn = async (): Promise<ClusterList> => {
   const response = await api.get<ClusterList>('clusters');
+  return response.data;
+};
+
+export const registerClusterFn = async (
+  registration: ClusterRegistration
+): Promise<Cluster> => {
+  const response = await api.post<Cluster>('clusters', registration);
   return response.data;
 };

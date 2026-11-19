@@ -16,9 +16,9 @@ import { ClusterContext } from 'contexts/clusters/cluster';
 import { useContext } from 'react';
 
 export const useClusterName = (): string => {
-  const clusterName = useContext(ClusterContext);
-  if (clusterName === undefined) {
+  const context = useContext(ClusterContext);
+  if (context === undefined) {
     throw new Error('useClusterName must be used within a ClusterProvider');
   }
-  return clusterName;
+  return context.clusterName;
 };
