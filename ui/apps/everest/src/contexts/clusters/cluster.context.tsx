@@ -17,19 +17,45 @@ import { useQuery } from '@tanstack/react-query';
 import { getClustersFn } from 'api/clusters';
 import LoadingPageSkeleton from 'components/loading-page-skeleton/LoadingPageSkeleton';
 import AuthContext from 'contexts/auth/auth.context';
-import { ReactNode, useContext } from 'react';
+import { ReactNode, useContext, useEffect, useState } from 'react';
 import { ClusterContext } from './cluster';
+
+const SELECTED_CLUSTER_KEY = 'openeverest:selected-cluster';
 
 export const ClusterProvider = ({ children }: { children: ReactNode }) => {
   const { authStatus } = useContext(AuthContext);
-  const { data, error, isPending } = useQuery({
+  const { data, error, isPending, refetch } = useQuery({
     queryKey: ['clusters'],
     queryFn: getClustersFn,
     enabled: authStatus === 'loggedIn',
   });
+  const [selectedCluster, setSelectedCluster] = useState(
+    () => localStorage.getItem(SELECTED_CLUSTER_KEY) ?? ''
+  );
+
+  useEffect(() => {
+    if (!data?.items.length) {
+      return;
+    }
+    if (!data.items.some((cluster) => cluster.name === selectedCluster)) {
+      const fallback = data.items[0].name;
+      setSelectedCluster(fallback);
+      localStorage.setItem(SELECTED_CLUSTER_KEY, fallback);
+    }
+  }, [data, selectedCluster]);
+
+  const selectCluster = (clusterName: string) => {
+    setSelectedCluster(clusterName);
+    localStorage.setItem(SELECTED_CLUSTER_KEY, clusterName);
+  };
 
   const clusterName =
-    authStatus === 'loggedIn' ? (data?.items[0]?.name ?? '') : '';
+    authStatus === 'loggedIn'
+      ? (data?.items.find((cluster) => cluster.name === selectedCluster)
+          ?.name ??
+        data?.items[0]?.name ??
+        '')
+      : '';
 
   if (authStatus === 'loggedIn' && isPending) {
     return <LoadingPageSkeleton />;
@@ -46,7 +72,14 @@ export const ClusterProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <ClusterContext.Provider value={clusterName}>
+    <ClusterContext.Provider
+      value={{
+        clusterName,
+        clusters: data?.items ?? [],
+        selectCluster,
+        refreshClusters: refetch,
+      }}
+    >
       {children}
     </ClusterContext.Provider>
   );

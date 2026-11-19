@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { DrawerContext } from 'contexts/drawer/drawer.context';
 import AppBarHelpIcon from './help-icon/HelpIcon';
 import AppBarUserIcon from './user-icon/UserIcon';
+import ClusterSwitcher from './cluster-switcher/ClusterSwitcher';
 
 export const AppBar = () => {
   const { activeBreakpoint, toggleOpen } = useContext(DrawerContext);
@@ -35,7 +36,15 @@ export const AppBar = () => {
           <Link to="/">
             <EverestHorizontalIcon sx={{ height: '32px', width: 'auto' }} />
           </Link>
-          <Box sx={{ ml: 'auto' }}>
+          <Box
+            sx={{
+              ml: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+            }}
+          >
+            <ClusterSwitcher />
             <AppBarHelpIcon />
             <AppBarUserIcon />
           </Box>

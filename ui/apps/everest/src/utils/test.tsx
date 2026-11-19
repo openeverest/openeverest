@@ -19,7 +19,9 @@ import { MemoryRouter } from 'react-router-dom';
 import { ThemeContextProvider, everestThemeOptions } from '@percona/design';
 import { ClusterContext } from 'contexts/clusters/cluster';
 
-const TEST_CLUSTER_NAME = 'main';
+const testClusters = [
+  { name: 'main', server: 'https://kubernetes.default.svc' },
+];
 
 export const createMatchMedia = (width: number) => {
   return (query: string) => {
@@ -42,7 +44,14 @@ export const resizeScreenSize = (width: number) => {
 
 export const TestWrapper = ({ children }: { children: React.ReactNode }) => (
   <MemoryRouter>
-    <ClusterContext.Provider value={TEST_CLUSTER_NAME}>
+    <ClusterContext.Provider
+      value={{
+        clusterName: testClusters[0].name,
+        clusters: testClusters,
+        selectCluster: () => {},
+        refreshClusters: async () => {},
+      }}
+    >
       <ThemeContextProvider themeOptions={everestThemeOptions}>
         {children}
       </ThemeContextProvider>

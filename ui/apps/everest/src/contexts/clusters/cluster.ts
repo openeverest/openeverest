@@ -13,5 +13,17 @@
 // limitations under the License.
 
 import { createContext } from 'react';
+import type { HttpApi } from '@generated/api-types';
 
-export const ClusterContext = createContext<string | undefined>(undefined);
+type Cluster = HttpApi.components['schemas']['Cluster'];
+
+export type ClusterContextValue = {
+  clusterName: string;
+  clusters: Cluster[];
+  selectCluster: (clusterName: string) => void;
+  refreshClusters: () => Promise<unknown>;
+};
+
+export const ClusterContext = createContext<ClusterContextValue | undefined>(
+  undefined
+);
