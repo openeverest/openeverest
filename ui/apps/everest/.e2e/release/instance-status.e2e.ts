@@ -98,7 +98,7 @@ const changeVersion = async (
   }).toPass({ timeout: TIMEOUTS.ThirtySeconds });
 };
 
-// Pauses or resumes the database on the operator's own object, which is how
+// Pauses or resumes the Instance on the operator's own object, which is how
 // it gets paused behind OpenEverest's back.
 const setPausedOutsideOpenEverest = (name: string, paused: boolean) => {
   execSync(
@@ -106,7 +106,7 @@ const setPausedOutsideOpenEverest = (name: string, paused: boolean) => {
   );
 };
 
-// A database is otherwise gone within seconds of the request. The finalizer
+// An Instance is otherwise gone within seconds of the request. The finalizer
 // keeps it in deletion for as long as the test looks at it.
 const DELETION_HOLD = 'e2e.openeverest.io/hold-deletion';
 
@@ -191,7 +191,7 @@ test.describe.serial(
           { timeout: TIMEOUTS.FiveMinutes, intervals: [5000] }
         )
         .toBe(0);
-      // The volumes outlive the Instance by a moment, and a database created
+      // The volumes outlive the Instance by a moment, and an Instance created
       // under the same name would start from their data.
       await expect
         .poll(() => leftoverVolumes(), {
@@ -212,7 +212,7 @@ test.describe.serial(
       }
     });
 
-    test('A new database reads Creating, then Ready', async ({
+    test('A new Instance reads Creating, then Ready', async ({
       page,
       request,
     }) => {
@@ -263,12 +263,12 @@ test.describe.serial(
         await expect(alert).toContainText('Insufficient memory');
       });
 
-      await test.step('The database stays editable, which is how it gets fixed', async () => {
+      await test.step('The Instance stays editable, which is how it gets fixed', async () => {
         await expect(page.getByTestId('resources-edit-button')).toBeVisible();
       });
     });
 
-    test('A database paused outside OpenEverest is an error until it is resumed', async ({
+    test('An Instance paused outside OpenEverest is an error until it is resumed', async ({
       page,
     }) => {
       setPausedOutsideOpenEverest(dbName, true);
@@ -293,7 +293,7 @@ test.describe.serial(
       });
     });
 
-    test('An upgrade keeps the database available and holds edits back', async ({
+    test('An upgrade keeps the Instance available and holds edits back', async ({
       page,
       request,
     }) => {
@@ -331,7 +331,7 @@ test.describe.serial(
       });
     });
 
-    test('A database being deleted reads Deleting until it is gone', async ({
+    test('An Instance being deleted reads Deleting until it is gone', async ({
       page,
       request,
     }) => {

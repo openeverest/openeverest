@@ -22,7 +22,7 @@ interface StatusAlertProps {
   instance?: InstanceStatusSource;
 }
 
-// Says what is wrong with the database and whether waiting can still help.
+// Says what is wrong with the Instance and whether waiting can still help.
 export const StatusAlert = ({ instance }: StatusAlertProps) => {
   const problem = getInstanceProblem(instance);
 

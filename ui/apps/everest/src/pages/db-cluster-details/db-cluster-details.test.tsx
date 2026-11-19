@@ -103,7 +103,7 @@ const renderDetails = (instance: Instance) => {
 };
 
 describe('DbClusterDetails', () => {
-  it('says in the header that a database being upgraded is still available', () => {
+  it('says in the header that an Instance being upgraded is still available', () => {
     renderDetails(
       instanceWith([
         condition('Available', 'True'),
@@ -120,7 +120,7 @@ describe('DbClusterDetails', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('does not call a database that has never been up unavailable', () => {
+  it('does not call an Instance that has never been up unavailable', () => {
     renderDetails(
       instanceWith(
         [
@@ -148,7 +148,7 @@ describe('DbClusterDetails', () => {
     expect(alert.getByText(CRASH_LOOP_MESSAGE)).toBeInTheDocument();
   });
 
-  it('says that waiting no longer helps once the database is stalled', () => {
+  it('says that waiting no longer helps once the Instance is stalled', () => {
     renderDetails(instanceWith(crashLoop(true), 'Pending'));
 
     const alert = within(screen.getByTestId('instance-status-alert'));
@@ -180,7 +180,7 @@ describe('DbClusterDetails', () => {
     expect(alert.getByText(message)).toBeInTheDocument();
   });
 
-  it('promises no retries for a database whose provider is not installed', () => {
+  it('promises no retries for an Instance whose provider is not installed', () => {
     const message = 'Provider "percona-server-mongodb" is not installed.';
     renderDetails(
       instanceWith(

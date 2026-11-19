@@ -17,7 +17,7 @@ export const Messages = {
   // Whether waiting can still help.
   outlook: {
     retrying:
-      'OpenEverest keeps retrying, so this may clear by itself. If it lasts, the database is reported as stalled.',
+      'OpenEverest keeps retrying, so this may clear by itself. If it lasts, the instance is reported as stalled.',
     stalled: 'This will not clear by itself: someone has to fix the cause.',
   },
 };
@@ -35,16 +35,16 @@ export const REASON_HINTS: Record<string, string> = {
   CreateContainerConfigError:
     'A Secret or ConfigMap these pods use is missing or invalid. Restore it and the pods start on their own.',
   ValidationFailed:
-    'The provider cannot apply this configuration. Edit the database to correct it.',
+    'The provider cannot apply this configuration. Edit the instance to correct it.',
   ProviderNotFound:
-    'The provider this database belongs to is not installed. Install it and the database is picked up on its own.',
+    'The provider this instance belongs to is not installed. Install it and the instance is picked up on its own.',
   UserSecretNotFound:
-    'The Secret holding the database users does not exist. Create it and the database carries on.',
+    'The Secret holding the database users does not exist. Create it and the instance carries on.',
   InvalidReference:
-    'An object this database refers to exists but does not fit it. Correct that object or refer to another one.',
+    'An object this instance refers to exists but does not fit it. Correct that object or refer to another one.',
   BackupStorageNotFound:
-    "A backup storage this database uses does not exist. Create it again, or remove it from the database's backups.",
+    "A backup storage this instance uses does not exist. Create it again, or remove it from the instance's backups.",
   BackupStorageCredentialsNotFound:
-    'The credentials Secret of a backup storage this database uses does not exist. Create it again.',
-  BackupClassNotFound: 'The backup class this database uses is not installed.',
+    'The credentials Secret of a backup storage this instance uses does not exist. Create it again.',
+  BackupClassNotFound: 'The backup class this instance uses is not installed.',
 };
