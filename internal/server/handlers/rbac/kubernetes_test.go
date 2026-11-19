@@ -30,26 +30,26 @@ import (
 func TestRBAC_Kubernetes(t *testing.T) {
 	t.Parallel()
 
-	t.Run("cluster info requires cluster read permission", func(t *testing.T) {
+	t.Run("cluster info does not require cluster read permission", func(t *testing.T) {
 		t.Parallel()
 
 		ctx := testUserContext(rbac.User{Subject: "bob"})
-		enf, err := rbac.NewEnforcer(
-			ctx,
-			newConfigMapMock(newPolicy("p, bob, clusters, read, staging")),
-			zap.NewNop().Sugar(),
-		)
-		require.NoError(t, err)
+		expected := &api.KubernetesClusterInfo{ClusterType: "generic"}
+		next := &handlers.MockHandler{}
+		next.On(
+			"GetKubernetesClusterInfo",
+			mock.Anything,
+			"prod",
+		).Return(expected, nil).Once()
 
 		h := &rbacHandler{
-			next:       &handlers.MockHandler{},
-			log:        zap.NewNop().Sugar(),
-			enforcer:   enf,
-			userGetter: testUserGetter,
+			next: next,
 		}
 
-		_, err = h.GetKubernetesClusterInfo(ctx, "prod")
-		require.ErrorIs(t, err, ErrInsufficientPermissions)
+		info, err := h.GetKubernetesClusterInfo(ctx, "prod")
+		require.NoError(t, err)
+		require.Same(t, expected, info)
+		next.AssertExpectations(t)
 	})
 
 	data := func() *handlers.MockHandler {

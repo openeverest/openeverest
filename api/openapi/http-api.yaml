@@ -264,7 +264,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Settings'
   '/clusters/{cluster}/cluster-info':
-    x-everest-resource-name: clusters
     get:
       tags:
         - Kubernetes
