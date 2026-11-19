@@ -33,6 +33,8 @@ import (
 func TestK8s_StorageClasses(t *testing.T) {
 	t.Parallel()
 
+	reclaimPolicy := corev1.PersistentVolumeReclaimRetain
+	bindingMode := storagev1.VolumeBindingWaitForFirstConsumer
 	standard := &storagev1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "standard",
@@ -40,9 +42,9 @@ func TestK8s_StorageClasses(t *testing.T) {
 		},
 		Provisioner:          "ebs.csi.aws.com",
 		Parameters:           map[string]string{"type": "gp3"},
-		ReclaimPolicy:        new(corev1.PersistentVolumeReclaimRetain),
+		ReclaimPolicy:        &reclaimPolicy,
 		AllowVolumeExpansion: new(true),
-		VolumeBindingMode:    new(storagev1.VolumeBindingWaitForFirstConsumer),
+		VolumeBindingMode:    &bindingMode,
 	}
 	local := &storagev1.StorageClass{
 		ObjectMeta:  metav1.ObjectMeta{Name: "local-path"},
