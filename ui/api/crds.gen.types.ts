@@ -6154,6 +6154,11 @@ export interface components {
             deletionTimestamp?: string;
             /** @description GenerateName is an optional prefix, used by the server, to generate a unique name ONLY IF the Name field has not been provided. */
             generateName?: string;
+            /**
+             * Format: int64
+             * @description A sequence number representing a specific generation of the desired state. Populated by the system. Read-only.
+             */
+            generation?: number;
             /** @description Map of string keys and values that can be used to organize and categorize (scope and select) objects. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels */
             labels?: {
                 [key: string]: string;

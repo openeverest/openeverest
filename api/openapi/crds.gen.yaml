@@ -9320,6 +9320,11 @@ components:
           description: GenerateName is an optional prefix, used by the server, to
             generate a unique name ONLY IF the Name field has not been provided.
           type: string
+        generation:
+          description: A sequence number representing a specific generation of the
+            desired state. Populated by the system. Read-only.
+          format: int64
+          type: integer
         labels:
           additionalProperties:
             type: string
