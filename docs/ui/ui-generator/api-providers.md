@@ -69,7 +69,7 @@ A `dataSource` field is still a regular `select` — the only difference is that
 | No options     | hidden   | —                          | shown instead of select if provider has `emptyStateFallback` |
 | Options loaded | enabled  | first option auto-selected | not shown                                                    |
 
-Without a fallback, an empty select explains itself in the helper text: the provider's `emptyHint` if it returns one (e.g. `storageClasses` says the user has no `storage-classes` read permission), otherwise the schema's `helperText`, otherwise "No options available".
+Without a fallback, an empty select explains itself. If the provider returns an `emptyHint` (e.g. `storageClasses` says the user has no `storage-classes` read permission), it is shown in a warning alert above the select, so a validation error on the select can't hide it. Otherwise the helper text says why: the schema's `helperText`, or "No options available".
 
 In `edit` mode nothing is auto-selected: the field shows the stored value as-is, so saving another field never rewrites it. An empty value stays empty; a value no longer among the options is kept and listed in the select as `<value> (unavailable)`. Auto-selection applies only when creating (`new`, `restore`, `import`). A resource the user creates from the fallback is still selected in every mode — see below.
 
@@ -118,7 +118,7 @@ interface ProviderOptions {
   isLoading: boolean;
   error: unknown;
   isEmpty: boolean;
-  emptyHint?: string; // why the options are empty, when the provider knows (e.g. no RBAC read)
+  emptyHint?: string; // why the options are empty, when the provider knows (e.g. no RBAC read); shown in an alert
   rawData?: unknown;
 }
 ```
