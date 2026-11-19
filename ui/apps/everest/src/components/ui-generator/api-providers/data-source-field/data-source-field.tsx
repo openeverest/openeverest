@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import React, { useCallback, useEffect, useMemo } from 'react';
+import { Alert } from '@mui/material';
 import { get, useFormContext, useWatch } from 'react-hook-form';
 import { FormMode, type Component } from '../../ui-generator.types';
 import { providerRegistry, useProviderOptions } from '../registry';
@@ -105,12 +106,18 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
       baseComponent.fieldParams as Record<string, unknown>
     )?.helperText;
 
+    // An emptyHint is shown in an Alert instead: the select replaces its
+    // helper text with the validation error, which would hide the reason.
+    const emptyHelperText = emptyHint
+      ? originalHelperText
+      : (originalHelperText ?? Messages.noOptions);
+
     const helperText = isLoading
       ? Messages.loading
       : error
         ? Messages.loadFailed
         : isEmpty
-          ? (emptyHint ?? originalHelperText ?? Messages.noOptions)
+          ? emptyHelperText
           : (storedValueHint ?? originalHelperText);
 
     return {
@@ -140,6 +147,7 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
 
   const showFallback =
     isEmpty && !isLoading && !!FallbackComponent && !!namespace;
+  const showEmptyHint = isEmpty && !isLoading && !!emptyHint && !showFallback;
 
   // We always render the children (Select/Controller) and hide them with
   // display:none instead of conditionally unmounting. This keeps the RHF
@@ -156,6 +164,7 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
           onCreated={selectCreated}
         />
       )}
+      {showEmptyHint && <Alert severity="warning">{emptyHint}</Alert>}
       <div
         style={{
           display: showFallback ? 'none' : 'contents',

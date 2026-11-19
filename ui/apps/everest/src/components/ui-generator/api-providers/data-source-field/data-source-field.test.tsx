@@ -431,36 +431,59 @@ describe('DataSourceField', () => {
       expect(screen.getByTestId('child')).toBeInTheDocument();
     });
 
-    it('explains empty options with the provider emptyHint', () => {
-      mockUseProviderOptions.mockReturnValue({
+    describe('provider emptyHint', () => {
+      const EMPTY_WITH_HINT = {
         options: [],
         isLoading: false,
         error: null,
         isEmpty: true,
         emptyHint: 'No access',
-      });
-      mockRegistryGet.mockReturnValue({ emptyStateFallback: null });
-
-      const Harness = () => {
-        const methods = useForm({
-          defaultValues: { spec: { storageClass: '' } },
-        });
-        return (
-          <FormProvider {...methods}>
-            <DataSourceField item={makeItem()} name="spec.storageClass">
-              {(patched) => (
-                <p data-testid="helper-text">
-                  {patched.fieldParams?.helperText}
-                </p>
-              )}
-            </DataSourceField>
-          </FormProvider>
-        );
       };
 
-      render(<Harness />);
+      const renderEmptyWithHint = () => {
+        const Harness = () => {
+          const methods = useForm({
+            defaultValues: { spec: { storageClass: '' } },
+          });
+          return (
+            <FormProvider {...methods}>
+              <DataSourceField item={makeItem()} name="spec.storageClass">
+                {(patched) => (
+                  <p data-testid="helper-text">
+                    {patched.fieldParams?.helperText}
+                  </p>
+                )}
+              </DataSourceField>
+            </FormProvider>
+          );
+        };
 
-      expect(screen.getByTestId('helper-text')).toHaveTextContent('No access');
+        render(<Harness />);
+      };
+
+      // The select shows a validation error in place of its helper text, so
+      // the reason lives in an Alert that a failed "required" can't hide.
+      it('explains empty options in an alert, not in the helper text', () => {
+        mockUseProviderOptions.mockReturnValue(EMPTY_WITH_HINT);
+        mockRegistryGet.mockReturnValue({ emptyStateFallback: null });
+
+        renderEmptyWithHint();
+
+        expect(screen.getByRole('alert')).toHaveTextContent('No access');
+        expect(screen.getByTestId('helper-text')).toBeEmptyDOMElement();
+      });
+
+      it('shows the fallback instead of the alert when the provider has one', () => {
+        mockUseProviderOptions.mockReturnValue(EMPTY_WITH_HINT);
+        mockRegistryGet.mockReturnValue({
+          emptyStateFallback: { component: FallbackStub },
+        });
+
+        renderEmptyWithHint();
+
+        expect(screen.getByTestId('fallback')).toBeInTheDocument();
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      });
     });
 
     it('does not render fallback when options are loading', () => {
