@@ -19,6 +19,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -27,92 +28,109 @@ import (
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
-func TestSuspendAwarePhase(t *testing.T) {
+func TestSuspendAwareStatus(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
-		suspend     bool
-		previous    v1alpha1.InstancePhase
-		reported    v1alpha1.InstancePhase
-		message     string
-		wantPhase   v1alpha1.InstancePhase
-		wantMessage string
+		name       string
+		suspend    bool
+		wasStopped bool
+		reported   controller.Status
+		wantReason string
+		wantMsg    string
+		converged  bool
 	}{
 		{
-			name:      "running instance is untouched",
-			previous:  v1alpha1.InstancePhaseReady,
-			reported:  v1alpha1.InstancePhaseUpdating,
-			message:   "scaling",
-			wantPhase: v1alpha1.InstancePhaseUpdating, wantMessage: "scaling",
+			name:       "running instance is untouched",
+			reported:   controller.Progressing("scaling"),
+			wantReason: "",
+			wantMsg:    "scaling",
 		},
 		{
-			name:      "suspend requested, operator not stopped yet",
-			suspend:   true,
-			previous:  v1alpha1.InstancePhaseReady,
-			reported:  v1alpha1.InstancePhaseReady,
-			wantPhase: v1alpha1.InstancePhaseSuspending, wantMessage: suspendingMessage,
+			name:       "suspend requested, operator not stopped yet",
+			suspend:    true,
+			reported:   controller.Ready(),
+			wantReason: v1alpha1.ReasonSuspending,
+			wantMsg:    suspendingMessage,
 		},
 		{
-			name:      "provider's own suspending message is kept",
-			suspend:   true,
-			reported:  v1alpha1.InstancePhaseSuspending,
-			message:   "2 of 3 pods stopped",
-			wantPhase: v1alpha1.InstancePhaseSuspending, wantMessage: "2 of 3 pods stopped",
+			name:       "provider's own suspending message is kept",
+			suspend:    true,
+			reported:   controller.Progressing("2 of 3 pods stopped"),
+			wantReason: v1alpha1.ReasonSuspending,
+			wantMsg:    "2 of 3 pods stopped",
 		},
 		{
-			name:      "suspended",
-			suspend:   true,
-			previous:  v1alpha1.InstancePhaseSuspending,
-			reported:  v1alpha1.InstancePhaseSuspended,
-			wantPhase: v1alpha1.InstancePhaseSuspended,
+			name:       "suspended",
+			suspend:    true,
+			reported:   controller.Suspended(),
+			wantReason: v1alpha1.ReasonSuspended,
+			wantMsg:    "the engine is stopped",
+			converged:  true,
 		},
 		{
-			name:      "failure while suspending is reported",
-			suspend:   true,
-			reported:  v1alpha1.InstancePhaseFailed,
-			message:   "operator error",
-			wantPhase: v1alpha1.InstancePhaseFailed, wantMessage: "operator error",
+			name:       "failure while suspending is reported",
+			suspend:    true,
+			reported:   controller.Failed("operator error"),
+			wantReason: v1alpha1.ReasonSuspending,
+			wantMsg:    "operator error",
 		},
 		{
-			name:      "resume requested, operator still stopped",
-			previous:  v1alpha1.InstancePhaseSuspended,
-			reported:  v1alpha1.InstancePhaseSuspended,
-			wantPhase: v1alpha1.InstancePhaseResuming, wantMessage: resumingMessage,
+			name:       "resume requested, operator still stopped",
+			wasStopped: true,
+			reported:   controller.Suspended(),
+			wantReason: v1alpha1.ReasonResuming,
+			wantMsg:    resumingMessage,
 		},
 		{
-			name:      "starting after a suspension",
-			previous:  v1alpha1.InstancePhaseResuming,
-			reported:  v1alpha1.InstancePhaseInitializing,
-			message:   "1 of 3 pods ready",
-			wantPhase: v1alpha1.InstancePhaseResuming, wantMessage: "1 of 3 pods ready",
+			name:       "starting after a suspension",
+			wasStopped: true,
+			reported:   controller.Progressing("1 of 3 pods ready"),
+			wantReason: v1alpha1.ReasonResuming,
+			wantMsg:    "1 of 3 pods ready",
 		},
 		{
-			name:      "resumed",
-			previous:  v1alpha1.InstancePhaseResuming,
-			reported:  v1alpha1.InstancePhaseReady,
-			wantPhase: v1alpha1.InstancePhaseReady,
+			name:       "resumed",
+			wasStopped: true,
+			reported:   controller.Ready(),
+			converged:  true,
 		},
 		{
-			name:      "start-up of a new instance is not resuming",
-			previous:  v1alpha1.InstancePhasePending,
-			reported:  v1alpha1.InstancePhaseInitializing,
-			wantPhase: v1alpha1.InstancePhaseInitializing,
+			name:     "start-up of a new instance is not resuming",
+			reported: controller.Progressing("initializing"),
+			wantMsg:  "initializing",
+		},
+		{
+			name:     "stopped outside OpenEverest is a problem",
+			reported: controller.Suspended(),
+			wantMsg:  "the engine is stopped",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			in := &v1alpha1.Instance{Status: v1alpha1.InstanceStatus{Phase: tc.previous}}
+			in := &v1alpha1.Instance{}
 			if tc.suspend {
 				in.Spec.Suspend = &v1alpha1.SuspendSpec{Suspended: true}
 			}
+			if tc.wasStopped {
+				in.Status.Conditions = []metav1.Condition{{
+					Type:   v1alpha1.ConditionReady,
+					Status: metav1.ConditionTrue,
+					Reason: v1alpha1.ReasonSuspended,
+				}}
+			}
 
-			phase, message := suspendAwarePhase(in, tc.reported, tc.message)
+			status := suspendAwareStatus(in, tc.reported)
 
-			assert.Equal(t, tc.wantPhase, phase)
-			assert.Equal(t, tc.wantMessage, message)
+			assert.Equal(t, tc.wantReason, status.Reason)
+			assert.Equal(t, tc.wantMsg, status.Message)
+			assert.Equal(t, tc.converged, status.Converged)
+			if tc.name == "stopped outside OpenEverest is a problem" {
+				require.Len(t, status.Problems, 1)
+				assert.Equal(t, "StoppedOutsideOpenEverest", status.Problems[0].Reason)
+			}
 		})
 	}
 }
@@ -146,10 +164,62 @@ func TestReconcile_SuspendKeepsExhaustedRetries(t *testing.T) {
 	got, err := reconcileAndGet(t, r)
 	require.NoError(t, err)
 
-	assert.Equal(t, v1alpha1.InstancePhaseSuspended, got.Status.Phase)
+	ready := meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionReady)
+	require.NotNil(t, ready)
+	assert.Equal(t, metav1.ConditionTrue, ready.Status)
+	assert.Equal(t, v1alpha1.ReasonSuspended, ready.Reason)
 	assert.Equal(t, []string{"upgrade-to-0.3"}, r.breaker.blockedTokens(nn, "upgrade-to-0.3"),
 		"a suspended pass must not re-arm the retries of an exhausted action",
 	)
+}
+
+func TestReconcile_SuspendTransitionsUseStatusReasons(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		status controller.Status
+		mutate func(*v1alpha1.Instance)
+		reason string
+	}{
+		{
+			name:   "suspending",
+			status: controller.Ready(),
+			mutate: func(in *v1alpha1.Instance) {
+				in.Spec.Suspend = &v1alpha1.SuspendSpec{Suspended: true}
+			},
+			reason: v1alpha1.ReasonSuspending,
+		},
+		{
+			name:   "resuming",
+			status: controller.Progressing("1 of 3 pods ready"),
+			mutate: func(in *v1alpha1.Instance) {
+				in.Status.ObservedGeneration = in.Generation
+				in.Status.Phase = v1alpha1.InstancePhaseProvisioned
+				in.Status.Conditions = []metav1.Condition{{
+					Type:               v1alpha1.ConditionReady,
+					Status:             metav1.ConditionTrue,
+					Reason:             v1alpha1.ReasonSuspended,
+					ObservedGeneration: in.Generation,
+				}}
+			},
+			reason: v1alpha1.ReasonResuming,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			p := &readyTestProvider{status: tc.status}
+			provider := readyTestProviderObject()
+			provider.Spec.Suspend = &v1alpha1.ProviderSuspend{}
+			r := newReadyTestReconciler(p, provider, readyTestInstance(tc.mutate))
+
+			got, err := reconcileAndGet(t, r)
+			require.NoError(t, err)
+			requireReady(t, got, metav1.ConditionFalse, tc.reason)
+		})
+	}
 }
 
 func TestSuspendChanged(t *testing.T) {

@@ -21,7 +21,7 @@ import {
   ProxyExposeType,
 } from 'shared-types/dbCluster.types';
 import { DbEngineType } from 'shared-types/dbEngines.types';
-import { DbInstancePhase } from 'shared-types/instance.types';
+import { InstanceStatusDisplay } from 'shared-types/instance.types';
 import { Instance } from 'shared-types/api.types';
 
 export interface DbTypeIconProviderProps {
@@ -51,7 +51,7 @@ export interface DbClusterTableElement {
 export interface InstanceTableElement {
   namespace: string;
   instanceName: string;
-  phase: DbInstancePhase;
+  status: InstanceStatusDisplay;
   provider: string;
   topologyType: string;
   raw: Instance;

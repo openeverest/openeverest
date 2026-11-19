@@ -48,9 +48,9 @@ type Kind struct {
 	// Phase returns the phase (or state) of an object. Nil for kinds without one, which
 	// get no PhaseChanged events.
 	Phase func(client.Object) string
-	// Failed reports whether a phase is a failure. Changes to it are recorded as
-	// Warning events.
-	Failed func(phase string) bool
+	// Failed reports whether an object is in a failed state. Its phase
+	// changes are recorded as Warning events while it is.
+	Failed func(client.Object) bool
 	// Include, when set, limits the events to the objects it accepts.
 	Include func(client.Object) bool
 	// Owner, when set, returns the Instance an object belongs to and, when the object
@@ -194,7 +194,7 @@ func (r *Recorder) onUpdate(ctx context.Context, kind Kind, oldObj, newObj clien
 			r.record(ctx, kind, newObj, events.Record{
 				Reason:    events.ReasonPhaseChanged,
 				Note:      fmt.Sprintf("%s phase changed from %q to %q", r.describe(newObj), from, to),
-				Warning:   kind.Failed != nil && kind.Failed(to),
+				Warning:   kind.Failed != nil && kind.Failed(newObj),
 				Actor:     events.ControllerActor,
 				PhaseFrom: from,
 				PhaseTo:   to,

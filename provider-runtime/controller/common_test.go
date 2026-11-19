@@ -29,13 +29,163 @@ import (
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
-func TestStatus_ToV2Alpha1(t *testing.T) {
+func TestStatusHelpers(t *testing.T) {
 	t.Parallel()
 
-	status := Provisioning("waiting for cluster...").ToV2Alpha1()
+	details := ConnectionDetails{Type: "mongodb", Host: "db.example", Port: "27017"}
+	tests := []struct {
+		name string
+		got  Status
+		want Status
+	}{
+		{name: "Ready is converged", got: Ready(), want: Status{Converged: true}},
+		{
+			name: "ReadyWithConnectionDetails is converged, with how to connect",
+			got:  ReadyWithConnectionDetails(details),
+			want: Status{Converged: true, ConnectionDetails: details},
+		},
+		{
+			name: "Progressing says what it waits for and nothing about availability",
+			got:  Progressing("waiting for cluster..."),
+			want: Status{Message: "waiting for cluster..."},
+		},
+		{
+			name: "Failed reports a problem that may clear by itself",
+			got:  Failed("replica set has no primary"),
+			want: Status{
+				Message:  "replica set has no primary",
+				Problems: []Problem{{Reason: v1alpha1.ReasonEngineError, Message: "replica set has no primary"}},
+			},
+		},
+		{
+			name: "the With methods add facts",
+			got: Progressing("rolling out").
+				WithAvailable(Available).
+				WithOperation(v1alpha1.ConditionUpgrading, "MinorVersionRolling", "1 of 3 pods updated").
+				WithProblem("ReplicaLagging", "rs0-2 is 40s behind").
+				WithTerminalProblem("TopologyChangeUnsupported", "a replica set cannot become sharded"),
+			want: Status{
+				Message:   "rolling out",
+				Available: Available,
+				Operations: []Operation{{
+					Type: v1alpha1.ConditionUpgrading, Reason: "MinorVersionRolling", Message: "1 of 3 pods updated",
+				}},
+				Problems: []Problem{
+					{Reason: "ReplicaLagging", Message: "rs0-2 is 40s behind"},
+					{Reason: "TopologyChangeUnsupported", Message: "a replica set cannot become sharded", Terminal: true},
+				},
+			},
+		},
+		{
+			name: "WithUnavailable says why clients cannot connect",
+			got:  Progressing("electing").WithUnavailable("NoPrimary", "rs0 has no primary"),
+			want: Status{
+				Message: "electing", Available: Unavailable,
+				AvailableReason: "NoPrimary", AvailableMessage: "rs0 has no primary",
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, tc.want, tc.got)
+		})
+	}
+}
 
-	assert.Equal(t, v1alpha1.InstancePhaseProvisioning, status.Phase)
-	assert.Equal(t, "waiting for cluster...", status.Message)
+// TestStatusWithMethods_DoNotShareEntries derives two statuses from one base
+// whose lists have spare capacity. With a plain append on a value receiver,
+// the second derivation would overwrite the first one's new entry.
+func TestStatusWithMethods_DoNotShareEntries(t *testing.T) {
+	t.Parallel()
+
+	base := Progressing("rolling out")
+	base.Operations = make([]Operation, 0, 4)
+	base.Problems = make([]Problem, 0, 4)
+	base.DesiredReplicas = make([]ComponentReplicas, 0, 4)
+
+	a := base.WithOperation(v1alpha1.ConditionUpgrading, "RollingOutImage", "a").
+		WithProblem("EngineError", "a").
+		WithDesiredReplicas("engine", 3)
+	b := base.WithOperation(v1alpha1.ConditionRestoring, "Restoring", "b").
+		WithTerminalProblem("Paused", "b").
+		WithDesiredReplicas("engine", 5)
+
+	assert.Equal(t, "a", a.Operations[0].Message)
+	assert.Equal(t, "a", a.Problems[0].Message)
+	assert.Equal(t, []ComponentReplicas{{Component: "engine", Desired: 3}}, a.DesiredReplicas)
+	assert.Equal(t, "b", b.Operations[0].Message)
+	assert.Equal(t, []ComponentReplicas{{Component: "engine", Desired: 5}}, b.DesiredReplicas)
+	assert.Empty(t, base.Operations)
+	assert.Empty(t, base.DesiredReplicas)
+}
+
+func TestWithDesiredReplicas(t *testing.T) {
+	t.Parallel()
+
+	s := Ready().
+		WithDesiredReplicas("engine", 3).
+		WithDesiredReplicas("proxy", 2).
+		WithDesiredReplicas("engine", 6).
+		WithDesiredReplicas("hidden", 0)
+
+	assert.Equal(t, []ComponentReplicas{
+		{Component: "proxy", Desired: 2},
+		{Component: "engine", Desired: 6},
+		{Component: "hidden", Desired: 0},
+	}, s.DesiredReplicas,
+	)
+}
+
+func TestRestoring(t *testing.T) {
+	t.Parallel()
+
+	status := Restoring("restoring from nightly")
+
+	assert.False(t, status.Converged)
+	assert.Equal(t, "restoring from nightly", status.Message)
+	want := []Operation{{
+		Type: v1alpha1.ConditionRestoring, Reason: v1alpha1.ConditionRestoring, Message: "restoring from nightly",
+	}}
+	assert.Equal(t, want, status.Operations, "a restore is a named operation, so it may take as long as it needs")
+	assert.Empty(t, status.Problems)
+}
+
+// The deprecated helpers must keep compiling and mean ordinary progress.
+func TestDeprecatedStatusHelpers(t *testing.T) {
+	t.Parallel()
+
+	for name, helper := range map[string]func(string) Status{
+		"Pending":      Pending,
+		"Provisioning": Provisioning,
+		"Initializing": Initializing,
+		"Updating":     Updating,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, Progressing("waiting"), helper("waiting"))
+		})
+	}
+}
+
+func TestSuspendStatusHelpers(t *testing.T) {
+	t.Parallel()
+
+	suspending := Suspending("stopping")
+	assert.False(t, suspending.Converged)
+	assert.Equal(t, v1alpha1.ReasonSuspending, suspending.Reason)
+	assert.Equal(t, "stopping", suspending.Message)
+
+	suspended := Suspended()
+	assert.True(t, suspended.Converged)
+	assert.Equal(t, v1alpha1.ReasonSuspended, suspended.Reason)
+	assert.Equal(t, Unavailable, suspended.Available)
+	assert.Empty(t, suspended.Problems)
+
+	resuming := Resuming("starting")
+	assert.False(t, resuming.Converged)
+	assert.Equal(t, v1alpha1.ReasonResuming, resuming.Reason)
+	assert.Equal(t, "starting", resuming.Message)
 }
 
 func TestContext_PodLabels(t *testing.T) {

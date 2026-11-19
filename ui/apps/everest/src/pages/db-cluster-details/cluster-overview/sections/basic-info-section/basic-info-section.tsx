@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { getInstanceStatusDisplay } from 'utils/instance-status';
 import OverviewSection from '../../overview-section';
 import OverviewSectionRow from '../../overview-section-row';
 import { Messages } from '../../cluster-overview.messages';
@@ -42,7 +43,7 @@ const BasicInfoSection = ({
     />
     <OverviewSectionRow
       label={Messages.fields.status}
-      content={instance.status?.phase}
+      content={getInstanceStatusDisplay(instance).text}
     />
   </OverviewSection>
 );

@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlcontroller "sigs.k8s.io/controller-runtime/pkg/controller"
@@ -121,57 +122,118 @@ func podChanged(e event.TypedUpdateEvent[*corev1.Pod]) bool {
 	return observePod(e.ObjectOld) != observePod(e.ObjectNew)
 }
 
-// setPodStatus reports the pods of each labelled component on the Instance:
-// their counts and the PodsScheduled and PodsReady conditions. It returns how
-// soon to look again while a pod waits for a node within the grace period.
-// Until the pod watch runs it leaves the status untouched.
-func (r *ProviderReconciler) setPodStatus(ctx context.Context, in *v1alpha1.Instance, components []string, now time.Time) time.Duration {
+// setPodStatus reports on the Instance the pods of each labelled component,
+// and of each component the provider reported desired replicas for without
+// labelling its pods, such as members it holds back: their counts, the
+// desired replicas, and the PodsScheduled and PodsReady conditions, which
+// judge the labelled components only. desired holds components of the
+// Instance only. It returns how soon to look again because a verdict changes
+// with time alone: a pod that waits for a node within the grace period, a
+// back-off that is not a problem yet, or a crash loop that may have ended.
+// Until the pod watch runs it leaves the counts and the conditions untouched.
+func (r *ProviderReconciler) setPodStatus(
+	ctx context.Context, in *v1alpha1.Instance, labelled []string, desired map[string]int32, now time.Time,
+) time.Duration {
 	reader, ok := r.pods.Load().(client.Reader)
 	if !ok {
+		setDesiredReplicas(in.Status.Components, desired)
 		return 0
 	}
 
+	names := sets.New(labelled...)
+	for name := range desired {
+		names.Insert(name)
+	}
+	components := sets.List(names)
 	pods := make(map[string][]corev1.Pod, len(components))
 	statuses := make([]v1alpha1.ComponentStatus, 0, len(components))
 	for _, name := range components {
-		selector := labels.SelectorFromSet(labels.Set{controller.InstanceLabel: in.Name, controller.ComponentLabel: name})
-		list := &corev1.PodList{}
-		if err := reader.List(ctx, list, client.InNamespace(in.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
+		status, counted, err := componentPods(ctx, reader, in, name)
+		if err != nil {
 			log.FromContext(ctx).Error(err, "Failed to list the component's pods", "component", name)
+			setDesiredReplicas(in.Status.Components, desired)
 			return 0
 		}
-
-		var replicas, ready int32
-		for i := range list.Items {
-			if !podCounted(&list.Items[i]) {
-				continue
-			}
-			pods[name] = append(pods[name], list.Items[i])
-			replicas++
-			if podReady(&list.Items[i]) {
-				ready++
-			}
-		}
-		statuses = append(statuses, v1alpha1.ComponentStatus{
-			Name:          name,
-			Selector:      selector.String(),
-			Replicas:      &replicas,
-			ReadyReplicas: &ready,
-		})
+		pods[name] = counted
+		statuses = append(statuses, status)
 	}
+	setDesiredReplicas(statuses, desired)
 	in.Status.Components = statuses
 
-	if len(components) == 0 {
+	if len(labelled) == 0 {
 		meta.RemoveStatusCondition(&in.Status.Conditions, v1alpha1.ConditionPodsScheduled)
 		meta.RemoveStatusCondition(&in.Status.Conditions, v1alpha1.ConditionPodsReady)
 		return 0
 	}
-	scheduled, recheck := podsScheduled(components, pods, now)
+	scheduled, recheck := podsScheduled(labelled, pods, now)
 	setCondition(in, v1alpha1.ConditionPodsScheduled, scheduled.Status, scheduled.Reason, scheduled.Message, metav1.NewTime(now))
-	readiness := podsReady(components, pods)
+	readiness, readyRecheck := podsReady(labelled, pods, now)
 	setCondition(in, v1alpha1.ConditionPodsReady, readiness.Status, readiness.Reason, readiness.Message, metav1.NewTime(now))
 
-	return recheck
+	return soonest(recheck, readyRecheck)
+}
+
+// countPodsWhileDeleting recounts the pods of the components the status
+// lists, so the counts follow the pods as they go, and removes the desired
+// replicas, which no deletion has. PodsScheduled and PodsReady stay as they
+// were.
+func (r *ProviderReconciler) countPodsWhileDeleting(ctx context.Context, p *pass) {
+	reader, ok := r.pods.Load().(client.Reader)
+	for i := range p.in.Status.Components {
+		c := &p.in.Status.Components[i]
+		c.DesiredReplicas = nil
+		if !ok {
+			continue
+		}
+		counted, _, err := componentPods(ctx, reader, p.in, c.Name)
+		if err != nil {
+			log.FromContext(ctx).Error(err, "Failed to list the component's pods", "component", c.Name)
+			continue
+		}
+		c.Replicas, c.ReadyReplicas = counted.Replicas, counted.ReadyReplicas
+	}
+}
+
+// componentPods returns the status of a component with the counts of its
+// pods, and the pods it counted: those that are neither terminating nor
+// terminated.
+func componentPods(ctx context.Context, reader client.Reader, in *v1alpha1.Instance, name string) (v1alpha1.ComponentStatus, []corev1.Pod, error) {
+	selector := labels.SelectorFromSet(labels.Set{controller.InstanceLabel: in.Name, controller.ComponentLabel: name})
+	list := &corev1.PodList{}
+	if err := reader.List(ctx, list, client.InNamespace(in.Namespace), client.MatchingLabelsSelector{Selector: selector}); err != nil {
+		return v1alpha1.ComponentStatus{}, nil, fmt.Errorf("list the pods of component %s: %w", name, err)
+	}
+
+	var counted []corev1.Pod
+	var replicas, ready int32
+	for i := range list.Items {
+		if !podCounted(&list.Items[i]) {
+			continue
+		}
+		counted = append(counted, list.Items[i])
+		replicas++
+		if podReady(&list.Items[i]) {
+			ready++
+		}
+	}
+
+	return v1alpha1.ComponentStatus{
+		Name:          name,
+		Selector:      selector.String(),
+		Replicas:      &replicas,
+		ReadyReplicas: &ready,
+	}, counted, nil
+}
+
+// setDesiredReplicas sets the desired replicas of each component, and
+// removes those that are not known.
+func setDesiredReplicas(components []v1alpha1.ComponentStatus, desired map[string]int32) {
+	for i := range components {
+		components[i].DesiredReplicas = nil
+		if n, ok := desired[components[i].Name]; ok {
+			components[i].DesiredReplicas = &n
+		}
+	}
 }
 
 // podCounted reports whether the pod is neither terminating nor terminated.

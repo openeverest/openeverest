@@ -15,10 +15,14 @@
 package reconciler
 
 import (
+	"slices"
+
+	"k8s.io/apimachinery/pkg/api/meta"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 const (
@@ -26,45 +30,44 @@ const (
 	resumingMessage   = "Waiting for the instance to start"
 )
 
-// suspendAwarePhase reconciles the phase the provider reports with
-// spec.suspend, so a provider only has to report Suspended once the operator
-// has stopped the engine. While a suspend is requested, any phase other than
-// Suspended or Failed means the operator is still stopping it. After a
-// resume, a provider still reporting Suspending or Suspended, or a start-up
-// phase following a suspension, means the operator is still starting it.
-func suspendAwarePhase(in *v1alpha1.Instance, reported v1alpha1.InstancePhase, message string) (v1alpha1.InstancePhase, string) {
+// suspendAwareStatus reconciles the provider's report with spec.suspend, so a
+// provider only has to report Suspended once the operator has stopped the
+// engine.
+func suspendAwareStatus(in *v1alpha1.Instance, reported controller.Status) controller.Status {
 	if in.SuspendRequested() {
-		if reported == v1alpha1.InstancePhaseSuspended || reported == v1alpha1.InstancePhaseFailed {
-			return reported, message
+		if reported.Reason == v1alpha1.ReasonSuspended {
+			return reported
 		}
-		if reported != v1alpha1.InstancePhaseSuspending || message == "" {
-			message = suspendingMessage
+		reported.Converged = false
+		reported.Reason = v1alpha1.ReasonSuspending
+		if reported.Message == "" {
+			reported.Message = suspendingMessage
 		}
-		return v1alpha1.InstancePhaseSuspending, message
+		return reported
 	}
 
-	stillStopped := reported == v1alpha1.InstancePhaseSuspending || reported == v1alpha1.InstancePhaseSuspended
-	startingAfterSuspend := isSuspendPhase(in.Status.Phase) && isStartUpPhase(reported)
-	if stillStopped || startingAfterSuspend {
-		if stillStopped || message == "" {
-			message = resumingMessage
+	ready := meta.FindStatusCondition(in.Status.Conditions, v1alpha1.ConditionReady)
+	wasSuspended := ready != nil && ready.Reason == v1alpha1.ReasonSuspended
+	if wasSuspended && (reported.Reason == v1alpha1.ReasonSuspended || !reported.Converged) {
+		reported.Converged = false
+		reported.Reason = v1alpha1.ReasonResuming
+		if reported.Message == "" || reported.Available == controller.Unavailable {
+			reported.Message = resumingMessage
 		}
-		return v1alpha1.InstancePhaseResuming, message
+		return reported
 	}
-	return reported, message
-}
 
-func isStartUpPhase(phase v1alpha1.InstancePhase) bool {
-	return phase == v1alpha1.InstancePhasePending ||
-		phase == v1alpha1.InstancePhaseProvisioning ||
-		phase == v1alpha1.InstancePhaseInitializing ||
-		phase == v1alpha1.InstancePhaseUpdating
-}
+	if reported.Reason == v1alpha1.ReasonSuspended {
+		reported.Converged = false
+		reported.Reason = ""
+		reported.Problems = append(slices.Clip(reported.Problems), controller.Problem{
+			Reason:  "StoppedOutsideOpenEverest",
+			Message: "the engine was stopped outside OpenEverest",
+		})
+		return reported
+	}
 
-func isSuspendPhase(phase v1alpha1.InstancePhase) bool {
-	return phase == v1alpha1.InstancePhaseSuspending ||
-		phase == v1alpha1.InstancePhaseSuspended ||
-		phase == v1alpha1.InstancePhaseResuming
+	return reported
 }
 
 // suspendChanged passes Instance updates that suspend or resume it, so the

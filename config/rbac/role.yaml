@@ -88,6 +88,12 @@ rules:
   verbs:
   - update
 - apiGroups:
+  - core.openeverest.io
+  resources:
+  - instances/status
+  verbs:
+  - patch
+- apiGroups:
   - events.k8s.io
   resources:
   - events

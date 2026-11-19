@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -75,16 +76,33 @@ func newTestRecorder(t *testing.T) (*Recorder, *recordingEmitter) {
 	return r, emitter
 }
 
-func instance(generation int64, phase corev1alpha1.InstancePhase, createdAgo time.Duration) *corev1alpha1.Instance {
-	return &corev1alpha1.Instance{
+// instance returns an Instance whose status word, the reason of its Ready
+// condition, is status. An empty status means no provider reported on it.
+func instance(generation int64, status string, createdAgo time.Duration) *corev1alpha1.Instance {
+	in := &corev1alpha1.Instance{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "team-a", Name: "db1", UID: "uid-1", Generation: generation,
 			ResourceVersion:   "100",
 			CreationTimestamp: metav1.NewTime(now.Add(-createdAgo)),
 			Annotations:       map[string]string{events.AnnotationActorType: "user", events.AnnotationActorID: "alice"},
 		},
-		Status: corev1alpha1.InstanceStatus{Phase: phase},
 	}
+	if status != "" {
+		ready := metav1.ConditionFalse
+		if status == corev1alpha1.ReasonReady {
+			ready = metav1.ConditionTrue
+		}
+		meta.SetStatusCondition(&in.Status.Conditions, metav1.Condition{Type: corev1alpha1.ConditionReady, Status: ready, Reason: status})
+	}
+	return in
+}
+
+// needingAttention marks in as needing attention.
+func needingAttention(in *corev1alpha1.Instance) *corev1alpha1.Instance {
+	meta.SetStatusCondition(&in.Status.Conditions, metav1.Condition{
+		Type: corev1alpha1.ConditionNeedsAttention, Status: metav1.ConditionTrue, Reason: "CrashLoopBackOff",
+	})
+	return in
 }
 
 //nolint:ireturn // informers take client-go event handlers
@@ -135,7 +153,7 @@ func TestRecorder_Add(t *testing.T) {
 	t.Run("the initial list records deletions requested within the lookback", func(t *testing.T) {
 		t.Parallel()
 		r, emitter := newTestRecorder(t)
-		obj := instance(1, "Terminating", 2*DefaultLookback)
+		obj := instance(1, "Deleting", 2*DefaultLookback)
 		deletion := metav1.NewTime(now.Add(-time.Minute))
 		obj.DeletionTimestamp = &deletion
 		instanceHandler(t, r).OnAdd(obj, true)
@@ -162,12 +180,12 @@ func TestRecorder_Update(t *testing.T) {
 		r, emitter := newTestRecorder(t)
 		newObj := instance(1, "Ready", time.Hour)
 		newObj.ResourceVersion = "101"
-		instanceHandler(t, r).OnUpdate(instance(1, "Provisioning", time.Hour), newObj)
+		instanceHandler(t, r).OnUpdate(instance(1, "Creating", time.Hour), newObj)
 
 		require.Len(t, emitter.records, 1)
 		rec := emitter.records[0]
 		assert.Equal(t, events.ReasonPhaseChanged, rec.Reason)
-		assert.Equal(t, "Provisioning", rec.PhaseFrom)
+		assert.Equal(t, "Creating", rec.PhaseFrom)
 		assert.Equal(t, "Ready", rec.PhaseTo)
 		assert.Equal(t, "101", rec.Key)
 		assert.Equal(t, events.ControllerActor, rec.Actor)
@@ -177,9 +195,10 @@ func TestRecorder_Update(t *testing.T) {
 	t.Run("a failure is recorded as a warning", func(t *testing.T) {
 		t.Parallel()
 		r, emitter := newTestRecorder(t)
-		instanceHandler(t, r).OnUpdate(instance(1, "Ready", time.Hour), instance(1, "Failed", time.Hour))
+		instanceHandler(t, r).OnUpdate(instance(1, "Ready", time.Hour), needingAttention(instance(1, "CrashLoopBackOff", time.Hour)))
 		require.Len(t, emitter.records, 1)
 		assert.True(t, emitter.records[0].Warning)
+		assert.Equal(t, "CrashLoopBackOff", emitter.records[0].PhaseTo)
 	})
 
 	t.Run("a resync without changes records nothing", func(t *testing.T) {
@@ -217,9 +236,9 @@ func TestRecorder_Delete(t *testing.T) {
 
 	r, emitter := newTestRecorder(t)
 	handler := instanceHandler(t, r)
-	handler.OnDelete(instance(1, "Terminating", time.Hour))
+	handler.OnDelete(instance(1, "Deleting", time.Hour))
 	// A delete missed by the watch is delivered as a tombstone.
-	handler.OnDelete(toolscache.DeletedFinalStateUnknown{Key: "team-a/db1", Obj: instance(1, "Terminating", time.Hour)})
+	handler.OnDelete(toolscache.DeletedFinalStateUnknown{Key: "team-a/db1", Obj: instance(1, "Deleting", time.Hour)})
 	assert.Equal(t, []events.Reason{events.ReasonDeleted, events.ReasonDeleted}, emitter.reasons())
 }
 

@@ -1833,7 +1833,9 @@ spec:
               providerRef:
                 description: |-
                   ProviderRef references the cluster-scoped Provider that manages this
-                  Instance (e.g., "percona-server-mongodb", "postgresql").
+                  Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                  providerRef cannot be changed: the provider that picked it up owns its
+                  finalizer and engine resources, and only that provider cleans them up.
                 properties:
                   name:
                     description: Name of the referenced object.

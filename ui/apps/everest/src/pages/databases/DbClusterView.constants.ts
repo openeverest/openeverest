@@ -12,27 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { BaseStatus } from 'components/status-field/status-field.types';
-import { DbInstancePhase } from 'shared-types/instance.types';
+import { InstanceTone } from 'shared-types/instance.types';
 
-export const DB_INSTANCE_STATUS_TO_BASE_STATUS: Record<
-  DbInstancePhase,
-  BaseStatus
-> = {
-  Failed: 'error',
-  Initializing: 'pending',
-  Pending: 'pending',
-  Provisioning: 'pending',
-  Ready: 'success',
-  Restoring: 'pending',
-  Resuming: 'pending',
-  Suspended: 'paused',
-  Suspending: 'pending',
-  Terminating: 'deleting',
-  Updating: 'pending',
-  Unknown: 'unknown',
-  //   [DbClusterStatus.stopping]: 'pending',
-  //   [DbClusterStatus.resizingVolumes]: 'pending',
-  //   [DbClusterStatus.upgrading]: 'upgrading',
-  //   [DbClusterStatus.importing]: 'importing',
-};
+// The status filter's options, the most urgent first.
+export const INSTANCE_TONES: readonly InstanceTone[] = [
+  'error',
+  'attention',
+  'unknown',
+  'progress',
+  'stopped',
+  'deleting',
+  'ok',
+];
