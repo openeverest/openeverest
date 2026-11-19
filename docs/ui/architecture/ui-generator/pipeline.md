@@ -162,9 +162,8 @@ schema, where `dataSource` fields have no static `options`. Once the options hav
 helper text explains an unavailable stored value (without claiming a cause) or an empty one (via the
 registry entry's `unsetValueHint`); it reads the current value with `useWatch`, so it clears as soon
 as the user picks another option.
-If the options are empty and the provider returns an `emptyHint` (e.g. no `storage-classes` read),
-`DataSourceField` shows it in a warning `Alert` above the select, where a validation error can't
-hide it.
+When the options are empty, the provider's `emptyHint` (e.g. no `storage-classes` read), if any,
+replaces the generic empty helper text.
 A resource created from the provider's `emptyStateFallback` is a separate path: the fallback calls
 `onCreated(value)` once the refetched options include it, and `DataSourceField` sets it as a user
 change (`shouldDirty`) in every mode — the user picked it, so the edit rule doesn't apply. The
