@@ -20,6 +20,8 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+const legacyDefaultCluster = "main"
+
 // GetKubernetesClusterInfoForCluster returns cluster type and storage classes.
 func (e *EverestServer) GetKubernetesClusterInfoForCluster(ctx echo.Context, cluster string) error {
 	result, err := e.handler.GetKubernetesClusterInfo(ctx.Request().Context(), cluster)

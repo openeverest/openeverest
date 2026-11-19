@@ -34,19 +34,6 @@ export type GetKubernetesClusterInfoPayload = {
 
 export type KubernetesClusterInfo = GetKubernetesClusterInfoPayload;
 
-type Resource = {
-  cpuMillis: number;
-  memoryBytes: number;
-  diskSize: number;
-};
-export type GetKubernetesClusterResourcesInfoPayload = {
-  capacity: Resource;
-  available: Resource;
-};
-
-export type KubernetesClusterResourcesInfo =
-  GetKubernetesClusterResourcesInfoPayload;
-
 export type GetKubernetesClusterMonitoringInfoResponse = {
   clusterType: string;
   storageClassNames: string[];

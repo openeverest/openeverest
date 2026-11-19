@@ -30,7 +30,7 @@ import (
 func TestRBAC_Kubernetes(t *testing.T) {
 	t.Parallel()
 
-	t.Run("cluster endpoints require cluster read permission", func(t *testing.T) {
+	t.Run("cluster info requires cluster read permission", func(t *testing.T) {
 		t.Parallel()
 
 		ctx := testUserContext(rbac.User{Subject: "bob"})
@@ -49,9 +49,6 @@ func TestRBAC_Kubernetes(t *testing.T) {
 		}
 
 		_, err = h.GetKubernetesClusterInfo(ctx, "prod")
-		require.ErrorIs(t, err, ErrInsufficientPermissions)
-
-		_, err = h.GetKubernetesClusterResources(ctx, "prod")
 		require.ErrorIs(t, err, ErrInsufficientPermissions)
 	})
 

@@ -819,36 +819,6 @@ func (_m *MockHandler) GetKubernetesClusterInfo(ctx context.Context, cluster str
 	return r0, r1
 }
 
-// GetKubernetesClusterResources provides a mock function with given fields: ctx, cluster
-func (_m *MockHandler) GetKubernetesClusterResources(ctx context.Context, cluster string) (*api.KubernetesClusterResources, error) {
-	ret := _m.Called(ctx, cluster)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetKubernetesClusterResources")
-	}
-
-	var r0 *api.KubernetesClusterResources
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (*api.KubernetesClusterResources, error)); ok {
-		return rf(ctx, cluster)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) *api.KubernetesClusterResources); ok {
-		r0 = rf(ctx, cluster)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*api.KubernetesClusterResources)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, cluster)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetMonitoringBinding provides a mock function with given fields: ctx, cluster, namespace, name
 func (_m *MockHandler) GetMonitoringBinding(ctx context.Context, cluster string, namespace string, name string) (*monitoringv1alpha1.MonitoringBinding, error) {
 	ret := _m.Called(ctx, cluster, namespace, name)

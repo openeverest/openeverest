@@ -68,7 +68,6 @@ var resourcePathMap = map[string]string{
 	"/clusters/:cluster/plugins": "plugins",
 	"/clusters/:cluster/providers": "providers",
 	"/clusters/:cluster/providers/:provider": "providers",
-	"/clusters/:cluster/resources": "clusters",
 	"/clusters/:name": "clusters",
 }
 
@@ -78,7 +77,6 @@ var skipPaths = []string{
 	"/auth/token",
 	"/cluster-info",
 	"/permissions",
-	"/resources",
 	"/settings",
 	"/version",
 }

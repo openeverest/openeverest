@@ -14,24 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 import { api } from './api';
-import {
-  GetKubernetesClusterInfoPayload,
-  GetKubernetesClusterResourcesInfoPayload,
-} from 'shared-types/kubernetes.types';
+import { GetKubernetesClusterInfoPayload } from 'shared-types/kubernetes.types';
 
 export const getKubernetesClusterInfoFn = async (clusterName: string) => {
   const response = await api.get<GetKubernetesClusterInfoPayload>(
     `clusters/${clusterName}/cluster-info`
   );
 
-  return response.data;
-};
-
-export const getKubernetesClusterResourcesInfo = async (
-  clusterName: string
-) => {
-  const response = await api.get<GetKubernetesClusterResourcesInfoPayload>(
-    `clusters/${clusterName}/resources`
-  );
   return response.data;
 };

@@ -17,20 +17,8 @@ import {test, expect} from '@fixtures'
 import {checkError} from '@tests/utils/api';
 
 test.describe.parallel('K8S cluster tests', () => {
-
-  test('get resource usage', async ({request}) => {
-    const r = await request.get(`/v1/resources`),
-      resources = await r.json()
-
-    await checkError(r)
-
-    expect(resources).toBeTruthy()
-    expect(resources?.capacity).toBeTruthy()
-    expect(resources?.available).toBeTruthy()
-  })
-
   test('get cluster info', async ({request}) => {
-    const r = await request.get(`/v1/cluster-info`),
+    const r = await request.get(`/v1/clusters/main/cluster-info`),
       info = await r.json()
 
     await checkError(r)

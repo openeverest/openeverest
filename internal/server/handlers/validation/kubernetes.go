@@ -21,10 +21,6 @@ import (
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
-func (h *validateHandler) GetKubernetesClusterResources(ctx context.Context, cluster string) (*api.KubernetesClusterResources, error) {
-	return h.next.GetKubernetesClusterResources(ctx, cluster)
-}
-
 func (h *validateHandler) GetKubernetesClusterInfo(ctx context.Context, cluster string) (*api.KubernetesClusterInfo, error) {
 	return h.next.GetKubernetesClusterInfo(ctx, cluster)
 }

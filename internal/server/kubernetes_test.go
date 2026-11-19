@@ -32,35 +32,20 @@ func TestKubernetesClusterEndpoints(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name          string
-		cluster       string
-		canonical     bool
-		expectedLink  string
-		expectedUsage string
+		name         string
+		cluster      string
+		canonical    bool
+		expectedLink string
 	}{
 		{
-			name:          "cluster scoped resources",
-			cluster:       "prod-eu",
-			canonical:     true,
-			expectedUsage: "resources",
+			name:      "cluster scoped info",
+			cluster:   "prod-us",
+			canonical: true,
 		},
 		{
-			name:          "legacy resources",
-			cluster:       legacyDefaultCluster,
-			expectedLink:  "</v1/clusters/main/resources>; rel=\"successor-version\"",
-			expectedUsage: "resources",
-		},
-		{
-			name:          "cluster scoped info",
-			cluster:       "prod-us",
-			canonical:     true,
-			expectedUsage: "info",
-		},
-		{
-			name:          "legacy info",
-			cluster:       legacyDefaultCluster,
-			expectedLink:  "</v1/clusters/main/cluster-info>; rel=\"successor-version\"",
-			expectedUsage: "info",
+			name:         "legacy info",
+			cluster:      legacyDefaultCluster,
+			expectedLink: "</v1/clusters/main/cluster-info>; rel=\"successor-version\"",
 		},
 	}
 
@@ -69,20 +54,11 @@ func TestKubernetesClusterEndpoints(t *testing.T) {
 			t.Parallel()
 
 			next := &handlers.MockHandler{}
-			switch tc.expectedUsage {
-			case "resources":
-				next.On(
-					"GetKubernetesClusterResources",
-					mock.Anything,
-					tc.cluster,
-				).Return(&api.KubernetesClusterResources{}, nil).Once()
-			case "info":
-				next.On(
-					"GetKubernetesClusterInfo",
-					mock.Anything,
-					tc.cluster,
-				).Return(&api.KubernetesClusterInfo{}, nil).Once()
-			}
+			next.On(
+				"GetKubernetesClusterInfo",
+				mock.Anything,
+				tc.cluster,
+			).Return(&api.KubernetesClusterInfo{}, nil).Once()
 
 			server := &EverestServer{handler: next, l: zap.NewNop().Sugar()}
 			rec := httptest.NewRecorder()
@@ -93,10 +69,6 @@ func TestKubernetesClusterEndpoints(t *testing.T) {
 
 			var err error
 			switch {
-			case tc.expectedUsage == "resources" && tc.canonical:
-				err = server.GetKubernetesClusterResourcesForCluster(ctx, tc.cluster)
-			case tc.expectedUsage == "resources":
-				err = server.GetKubernetesClusterResources(ctx)
 			case tc.canonical:
 				err = server.GetKubernetesClusterInfoForCluster(ctx, tc.cluster)
 			default:
