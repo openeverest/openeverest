@@ -22,10 +22,8 @@ export const releaseProject: PlaywrightTestProject[] = [
   {
     name: 'release',
     testMatch: /.^/,
-    // Release lane runs the PITR golden plus restore-to-new-cluster for now.
-    // Restore the rest incrementally: 'pr', 'release:session:rate-limiting',
-    // ...sessionProject.
-    dependencies: ['release:pitr', 'release:restore-new-cluster'],
+    // Keep one live PXC golden while core lifecycle coverage runs with the test provider.
+    dependencies: ['release:pitr'],
   },
   {
     // Live PITR / restore-from-PITR golden (PXC). Auth is provided by the shared
