@@ -195,9 +195,9 @@ export const mockSettingsRoute = (page: Page) =>
 export const mockPermissionsRoute = (page: Page) =>
   page.route(/\/permissions$/, (route) => route.fulfill(json(mockPermissions)));
 
-// GET /v1/cluster-info
+// GET /v1/clusters/main/cluster-info
 export const mockClusterInfoRoute = (page: Page) =>
-  page.route(/\/cluster-info$/, (route) =>
+  page.route(/\/clusters\/main\/cluster-info$/, (route) =>
     route.fulfill(json(mockClusterInfo))
   );
 
