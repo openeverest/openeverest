@@ -242,6 +242,34 @@ func TestRecorder_Delete(t *testing.T) {
 	assert.Equal(t, []events.Reason{events.ReasonDeleted, events.ReasonDeleted}, emitter.reasons())
 }
 
+func TestRecorder_Provider(t *testing.T) {
+	t.Parallel()
+
+	r, emitter := newTestRecorder(t)
+	var providerKind Kind
+	for _, k := range DefaultKinds() {
+		if _, ok := k.New().(*corev1alpha1.Provider); ok {
+			providerKind = k
+			break
+		}
+	}
+	require.NotNil(t, providerKind.New)
+
+	handler := r.handlerFor(context.Background(), providerKind)
+	provider := &corev1alpha1.Provider{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "percona-server-mongodb",
+			UID:  "provider-uid",
+		},
+	}
+	handler.OnAdd(provider, false)
+	handler.OnDelete(provider)
+
+	assert.Equal(t, []events.Reason{events.ReasonCreated, events.ReasonDeleted}, emitter.reasons())
+	assert.Equal(t, "Provider", emitter.records[0].Regarding.Kind)
+	assert.Equal(t, "percona-server-mongodb", emitter.records[0].Regarding.Name)
+}
+
 func TestRecorder_Include(t *testing.T) {
 	t.Parallel()
 
