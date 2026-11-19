@@ -108,6 +108,7 @@ type tracked struct {
 	// and the problem only a person can resolve. They stand in on a pass
 	// that does not get to ask.
 	lastConverged bool
+	reason        string
 	message       string
 	terminal      *summary.Cause
 	// desired is how many pods the provider last said each component will
@@ -140,6 +141,9 @@ func (t *tracker) track(in *v1alpha1.Instance, now time.Time) *tracked {
 	ready := meta.FindStatusCondition(in.Status.Conditions, v1alpha1.ConditionReady)
 	converged := ready != nil && ready.Status == metav1.ConditionTrue && ready.ObservedGeneration == in.Generation
 	st := &tracked{uid: in.UID, generation: in.Generation, start: now, converged: converged, lastConverged: converged}
+	if converged {
+		st.reason = ready.Reason
+	}
 	if in.Status.ObservedGeneration == in.Generation {
 		st.desired = storedDesired(in)
 	}
@@ -293,12 +297,14 @@ func (p *pass) flushDataSource(syncCtx *controller.Context) {
 
 // reported records what the provider observes about the engine.
 func (p *pass) reported(ctx context.Context, status controller.Status) {
+	status.Reason = reasonOr(status.Reason, "")
 	p.report = &status
 	p.message = status.Message
 	p.providerRan = true
 
 	st := p.state
 	st.lastConverged = status.Converged
+	st.reason = status.Reason
 	st.message = status.Message
 	st.terminal = nil
 	st.desired = p.desiredReplicas(ctx, status.DesiredReplicas)
@@ -630,6 +636,7 @@ func (r *ProviderReconciler) summarize(p *pass) {
 			Message: p.report.AvailableMessage,
 		}
 	}
+	o.Reason = st.reason
 
 	res := summary.Compute(o)
 	in.Status.Phase = res.Phase

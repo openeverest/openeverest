@@ -105,6 +105,8 @@ func (p *MyProvider) Status(c *controller.Context) (controller.Status, error) {
 |---|---|
 | `Ready()`, `ReadyWithConnectionDetails(...)` | `Ready=True` once every check passes. The engine runs what the Instance asks for and the provider has nothing left to do. |
 | `Progressing(message)` | `Ready=False`, `Reconciling=True`, with the message. The status word is `Creating` until the database has first been available and `ApplyingChanges` afterwards. A wait with no named operation is reported as `Stalled` after 30 minutes. |
+| `Suspending(message)`, `Resuming(message)` | `Ready=False`, `Reconciling=True`, with `Suspending` or `Resuming` as the status word. |
+| `Suspended()` | `Ready=True` with `Suspended` as the status word once `spec.suspend.suspended` is fulfilled. `Available=False` because compute is stopped. The runtime reports an engine stopped without that request as a problem. |
 | `WithOperation(type, reason, message)` | The operation's condition (`Restoring`, `Upgrading`, `StorageResizing`) is True while reported, and its type is the status word. A named operation has no deadline, so name everything that can take long. |
 | `WithAvailable(...)`, `WithUnavailable(reason, message)` | The `Available` condition. A provider that does not say is assumed available once converged, not available until the database has first been available, and unknown otherwise. |
 | `WithProblem(reason, message)` | `EngineHealthy=False` and `NeedsAttention=True` at once, with the reason as the status word, and `Stalled=True` if the problem is still there after 10 minutes. |

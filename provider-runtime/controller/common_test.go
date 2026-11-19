@@ -151,8 +151,7 @@ func TestRestoring(t *testing.T) {
 	assert.Empty(t, status.Problems)
 }
 
-// The helpers that named a phase must keep compiling, and must not claim
-// anything the phase did not say: they all mean "not converged yet".
+// The deprecated helpers must keep compiling and mean ordinary progress.
 func TestDeprecatedStatusHelpers(t *testing.T) {
 	t.Parallel()
 
@@ -161,20 +160,32 @@ func TestDeprecatedStatusHelpers(t *testing.T) {
 		"Provisioning": Provisioning,
 		"Initializing": Initializing,
 		"Updating":     Updating,
-		"Suspending":   Suspending,
-		"Resuming":     Resuming,
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			assert.Equal(t, Progressing("waiting"), helper("waiting"))
 		})
 	}
+}
+
+func TestSuspendStatusHelpers(t *testing.T) {
+	t.Parallel()
+
+	suspending := Suspending("stopping")
+	assert.False(t, suspending.Converged)
+	assert.Equal(t, v1alpha1.ReasonSuspending, suspending.Reason)
+	assert.Equal(t, "stopping", suspending.Message)
 
 	suspended := Suspended()
-	assert.False(t, suspended.Converged)
+	assert.True(t, suspended.Converged)
+	assert.Equal(t, v1alpha1.ReasonSuspended, suspended.Reason)
 	assert.Equal(t, Unavailable, suspended.Available)
-	require.Len(t, suspended.Problems, 1)
-	assert.False(t, suspended.Problems[0].Terminal)
+	assert.Empty(t, suspended.Problems)
+
+	resuming := Resuming("starting")
+	assert.False(t, resuming.Converged)
+	assert.Equal(t, v1alpha1.ReasonResuming, resuming.Reason)
+	assert.Equal(t, "starting", resuming.Message)
 }
 
 func TestContext_PodLabels(t *testing.T) {

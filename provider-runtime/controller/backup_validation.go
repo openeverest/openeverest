@@ -112,6 +112,11 @@ const (
 	// backups.
 	ErrBackupImportUnsupported referenceError = "backup import is not supported"
 
+	// ErrInstanceSuspended is the sentinel returned by
+	// ValidateInstanceNotSuspended when a Backup or Restore targets an
+	// Instance whose spec.suspend asks for it to be suspended.
+	ErrInstanceSuspended referenceError = "instance is suspended"
+
 	// ErrBackupClassIncompatible is a sentinel callers may wrap when the
 	// verdict core publishes on a BackupClass for the Provider that would
 	// execute an operation is Incompatible.
@@ -122,6 +127,17 @@ const (
 	// would read or write it is Incompatible.
 	ErrBackupStorageIncompatible referenceError = "backup storage incompatible"
 )
+
+// ValidateInstanceNotSuspended returns ErrInstanceSuspended when in is
+// suspended, so no Backup or Restore starts against an engine that is not
+// running: the API rejects new ones and the runtime holds those that have not
+// started until the Instance resumes.
+func ValidateInstanceNotSuspended(in *corev1alpha1.Instance) error {
+	if in.SuspendRequested() {
+		return fmt.Errorf("%w: '%s'", ErrInstanceSuspended, in.GetName())
+	}
+	return nil
+}
 
 // ValidateInstanceBackupAgainstClass enforces the generic limits declared on
 // a ProviderManaged BackupClass against an Instance's backup configuration.

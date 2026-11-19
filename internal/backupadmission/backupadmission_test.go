@@ -152,6 +152,8 @@ func TestBackup(t *testing.T) {
 	t.Parallel()
 
 	db := instance("mongo", provider, nil)
+	suspendedDB := db.DeepCopy()
+	suspendedDB.Spec.Suspend = &corev1alpha1.SuspendSpec{Suspended: true}
 	pbm := class("pbm", backupv1alpha1.CompatibilityCompatible, "")
 	aws := storage("aws", pbm, backupv1alpha1.CompatibilityCompatible, "")
 	onDB := &common.ObjectRef{Name: db.Name}
@@ -172,6 +174,12 @@ func TestBackup(t *testing.T) {
 			name:    "compatible",
 			backup:  backup("b", "pbm", "aws", onDB),
 			objects: []client.Object{db, pbm, aws},
+		},
+		{
+			name:    "suspended instance",
+			backup:  backup("b", "pbm", "aws", onDB),
+			objects: []client.Object{suspendedDB, pbm, aws},
+			want:    outcome{denied: controller.ErrInstanceSuspended, reason: "instance is suspended: 'mongo'"},
 		},
 		{
 			name:    "class pending",
@@ -290,6 +298,8 @@ func TestRestore(t *testing.T) {
 	}
 	// The target writes with physical; the source Backup was written with pbm.
 	target := instance("mongo", provider, archiving("physical", "aws"))
+	suspendedTarget := target.DeepCopy()
+	suspendedTarget.Spec.Suspend = &corev1alpha1.SuspendSpec{Suspended: true}
 	succeeded := func(b *backupv1alpha1.Backup, state backupv1alpha1.BackupState) *backupv1alpha1.Backup {
 		b.Status.State = state
 		return b
@@ -332,6 +342,12 @@ func TestRestore(t *testing.T) {
 			name:    "the class the source backup was written with",
 			restore: fromBackup("old"),
 			objects: []client.Object{target, physical, pbm, succeeded(backup("old", "pbm", "aws", nil), backupv1alpha1.BackupStateSucceeded)},
+		},
+		{
+			name:    "target instance is suspended",
+			restore: fromBackup("old"),
+			objects: []client.Object{suspendedTarget, physical, pbm, succeeded(backup("old", "pbm", "aws", nil), backupv1alpha1.BackupStateSucceeded)},
+			want:    outcome{denied: controller.ErrInstanceSuspended, reason: "instance is suspended: 'mongo'"},
 		},
 		{
 			name:    "source backup's class incompatible",

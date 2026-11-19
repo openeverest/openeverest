@@ -81,6 +81,10 @@ type Context struct {
 	// pass because its retries were exhausted.
 	maintenanceBreakerHeld bool
 
+	// maintenanceSuspendHeld reports that at least one action was held this
+	// pass because the Instance is suspended.
+	maintenanceSuspendHeld bool
+
 	// maintenanceRequested reports that the provider invoked
 	// RequestMaintenance at least once this pass, so the staged pending set
 	// is authoritative even when Sync later fails.
@@ -620,6 +624,10 @@ type Status struct {
 	// Converged is true when the engine runs what the Instance asks for and
 	// the provider has nothing left to do.
 	Converged bool
+	// Reason is the status word to show while Converged is true or while the
+	// provider reports ordinary progress. Leave it empty for the runtime's
+	// generic status words.
+	Reason string
 	// Message says what the provider is waiting for while not converged.
 	Message string
 	// Available says whether clients can connect. Leave it unset if the
@@ -796,25 +804,28 @@ func Initializing(message string) Status { return Progressing(message) }
 // Deprecated: use Progressing, with WithOperation when the update has a name.
 func Updating(message string) Status { return Progressing(message) }
 
-// Suspending is Progressing.
-//
-// Deprecated: use Progressing.
-func Suspending(message string) Status { return Progressing(message) }
-
-// Suspended reports an engine that is not running and not converging.
-//
-// Deprecated: an Instance cannot ask to be suspended yet, so an engine found
-// stopped was stopped outside OpenEverest. Report that as a problem.
-func Suspended() Status {
-	return Progressing("the engine is stopped").
-		WithUnavailable("Stopped", "the engine is stopped").
-		WithProblem("StoppedOutsideOpenEverest", "the engine was stopped outside OpenEverest")
+// Suspending reports that an Instance is stopping.
+func Suspending(message string) Status {
+	return Status{Reason: v1alpha1.ReasonSuspending, Message: message}
 }
 
-// Resuming is Progressing.
-//
-// Deprecated: use Progressing.
-func Resuming(message string) Status { return Progressing(message) }
+// Suspended reports that an Instance has converged on its requested stopped
+// state.
+func Suspended() Status {
+	return Status{
+		Converged:        true,
+		Reason:           v1alpha1.ReasonSuspended,
+		Message:          "the engine is stopped",
+		Available:        Unavailable,
+		AvailableReason:  v1alpha1.ReasonSuspended,
+		AvailableMessage: "the engine is stopped",
+	}
+}
+
+// Resuming reports that a suspended Instance is starting.
+func Resuming(message string) Status {
+	return Status{Reason: v1alpha1.ReasonResuming, Message: message}
+}
 
 // =============================================================================
 // WAIT HELPERS

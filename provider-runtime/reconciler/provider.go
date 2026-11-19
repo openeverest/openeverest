@@ -708,8 +708,10 @@ func (r *ProviderReconciler) sync(ctx context.Context, p *pass, syncCtx *control
 	}
 
 	// A pass that merely held a tripped action succeeds trivially; resetting
-	// then would un-trip the breaker and restart the failure bursts.
-	if !syncCtx.MaintenanceBreakerHeld() {
+	// then would un-trip the breaker and restart the failure bursts. Neither
+	// does a pass of a suspended Instance, which holds every action before
+	// the breaker is consulted, prove that an approved action now works.
+	if !syncCtx.MaintenanceBreakerHeld() && !in.SuspendRequested() {
 		r.breaker.reset(client.ObjectKeyFromObject(in))
 	}
 	backupStorages, err := r.judgedBackupStorages(syncCtx, in)
@@ -784,6 +786,7 @@ func (r *ProviderReconciler) observe(ctx context.Context, p *pass, syncCtx *cont
 
 		return err
 	}
+	status = suspendAwareStatus(in, status)
 	p.reported(ctx, status)
 	labelled := syncCtx.LabelledComponents()
 	p.state.labelled = sets.New(labelled...)
@@ -1215,7 +1218,11 @@ func flushPendingMaintenance(syncCtx *controller.Context, in *v1alpha1.Instance)
 	if len(pending) > 0 {
 		reason := v1alpha1.ReasonAwaitingApproval
 		message := fmt.Sprintf("%d action(s) require approval to proceed", len(pending))
-		if syncCtx.MaintenanceBreakerHeld() {
+		switch {
+		case syncCtx.MaintenanceSuspendHeld():
+			reason = v1alpha1.ReasonSuspended
+			message = fmt.Sprintf("%d action(s) held while the instance is suspended; they are evaluated again once it resumes", len(pending))
+		case syncCtx.MaintenanceBreakerHeld():
 			reason = v1alpha1.ReasonRetriesExhausted
 			message = fmt.Sprintf(
 				"%d action(s) held; an approved action kept failing and is no longer retried — change spec.maintenance.approved (set it to the pending action's token, or clear and re-set it) to retry",

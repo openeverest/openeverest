@@ -176,6 +176,18 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	// A Backup that has not started waits while its Instance is suspended
+	// and continues once it resumes. A scheduled Backup mirrors an operator
+	// backup that already exists, so it is still synced for the provider to
+	// adopt.
+	if err := controller.ValidateInstanceNotSuspended(instance); err != nil &&
+		backup.Spec.ScheduleName == "" && backupNotStarted(backup) {
+		logger.Info("Holding backup", "reason", err.Error())
+		backup.Status.State = backupv1alpha1.BackupStatePending
+		backup.Status.Message = err.Error()
+		return reconcile.Result{}, r.updateStatus(ctx, backup, bc)
+	}
+
 	// A Backup that has not started waits for its storage; the watches
 	// enqueue it once the storage and its credentials exist.
 	if backup.Status.State == "" || backup.Status.State == backupv1alpha1.BackupStatePending {
@@ -195,6 +207,12 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+	}
+
+	// A wait message the runtime set, e.g. while the Instance was suspended,
+	// is stale once the provider takes over.
+	if backupNotStarted(backup) {
+		backup.Status.Message = ""
 	}
 
 	exec, err := r.provider.SyncBackup(inCtx, backup)
@@ -321,4 +339,12 @@ func applyBackupExecutionStatus(backup *backupv1alpha1.Backup, bc *backupv1alpha
 	if exec.Size != nil {
 		backup.Status.Size = exec.Size
 	}
+}
+
+// backupNotStarted reports whether the operator has not started the Backup,
+// whether or not the provider has already requested it.
+func backupNotStarted(backup *backupv1alpha1.Backup) bool {
+	state := backup.Status.State
+	waiting := state == "" || state == backupv1alpha1.BackupStatePending || state == backupv1alpha1.BackupStateError
+	return waiting && backup.Status.StartedAt == nil
 }

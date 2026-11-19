@@ -82,12 +82,14 @@ func Backup(ctx context.Context, r Reader, b *backupv1alpha1.Backup) (Decision, 
 	j := newJudge(r, "Backup", b.GetNamespace())
 
 	var provider string
+	var instance *corev1alpha1.Instance
 	if ref := b.Spec.Origin.InstanceRef; ref != nil {
 		in, err := j.instance(ctx, ref.Name)
 		if err != nil {
 			return Decision{}, err
 		}
 		if in != nil {
+			instance = in
 			provider = in.Spec.ProviderRef.Name
 		}
 	}
@@ -108,6 +110,11 @@ func Backup(ctx context.Context, r Reader, b *backupv1alpha1.Backup) (Decision, 
 	}
 	if provider != "" {
 		j.classFor(class, provider)
+	}
+	if instance != nil {
+		if err := controller.ValidateInstanceNotSuspended(instance); err != nil {
+			j.deny(err)
+		}
 	}
 	if storage != nil {
 		if err := j.storageFor(ctx, storage, class); err != nil {
@@ -156,6 +163,9 @@ func Restore(ctx context.Context, r Reader, rs *backupv1alpha1.Restore) (Decisio
 	}
 	if target != nil {
 		j.classFor(class, target.Spec.ProviderRef.Name)
+		if err := controller.ValidateInstanceNotSuspended(target); err != nil {
+			j.deny(err)
+		}
 	}
 	if storage != nil {
 		if err := j.storageFor(ctx, storage, class); err != nil {

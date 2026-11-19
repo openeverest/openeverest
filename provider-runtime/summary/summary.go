@@ -138,6 +138,10 @@ type Observation struct {
 	Reported bool
 	// Converged is true when the engine runs what the Instance asks for.
 	Converged bool
+	// Reason is a provider-specific status word for ordinary progress or a
+	// converged state. Gating checks, problems and named operations take
+	// precedence over it.
+	Reason string
 	// Message says what is being waited for, if anything.
 	Message string
 	// Available says whether clients can connect.
@@ -300,6 +304,9 @@ func (o *Observation) verdict(phase v1alpha1.InstancePhase) verdict {
 		// flap, and the operation supplies the status word.
 		return verdict{outcome: outcomeReady, cause: f.operation.orMessage(messageReady)}
 	default:
+		if o.Reason != "" {
+			return verdict{outcome: outcomeReady, cause: f.generic.orMessage(messageReady)}
+		}
 		return verdict{outcome: outcomeReady, cause: Cause{Reason: v1alpha1.ReasonReady, Message: messageReady}}
 	}
 }
@@ -367,14 +374,16 @@ func (o *Observation) generic(phase v1alpha1.InstancePhase, unknown *Cause) Caus
 	if o.Waiting != nil {
 		return *o.Waiting
 	}
-	var c Cause
-	switch phase {
-	case v1alpha1.InstancePhaseTerminating:
-		c = Cause{Reason: v1alpha1.ReasonDeleting, Message: messageDeleting}
-	case v1alpha1.InstancePhaseProvisioned:
-		c = Cause{Reason: v1alpha1.ReasonApplyingChanges, Message: messageApplying}
-	case v1alpha1.InstancePhasePending:
-		c = Cause{Reason: v1alpha1.ReasonCreating, Message: messageCreating}
+	c := Cause{Reason: o.Reason}
+	if c.Reason == "" {
+		switch phase {
+		case v1alpha1.InstancePhaseTerminating:
+			c = Cause{Reason: v1alpha1.ReasonDeleting, Message: messageDeleting}
+		case v1alpha1.InstancePhaseProvisioned:
+			c = Cause{Reason: v1alpha1.ReasonApplyingChanges, Message: messageApplying}
+		case v1alpha1.InstancePhasePending:
+			c = Cause{Reason: v1alpha1.ReasonCreating, Message: messageCreating}
+		}
 	}
 	inProgress := ""
 	if unknown != nil {
