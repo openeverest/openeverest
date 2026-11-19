@@ -21,6 +21,7 @@ package waitcmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -44,11 +45,22 @@ const (
 
 // ValidateWaitFlags rejects --timeout without --wait and non-positive timeouts.
 func ValidateWaitFlags(waitSet, timeoutChanged bool, timeout time.Duration) error {
-	if timeoutChanged && !waitSet {
-		return errors.New("--timeout is only valid together with --wait")
+	return validateGatedDuration(waitSet, timeoutChanged, timeout, "wait", "timeout", "10m")
+}
+
+// ValidatePollFlags rejects --interval without --watch and non-positive intervals.
+func ValidatePollFlags(watchSet, intervalChanged bool, interval time.Duration) error {
+	return validateGatedDuration(watchSet, intervalChanged, interval, "watch", "interval", "5s")
+}
+
+// validateGatedDuration rejects valueFlag being set without gateFlag, and a
+// non-positive value once gateFlag is set.
+func validateGatedDuration(gateSet, valueChanged bool, value time.Duration, gateFlag, valueFlag, example string) error {
+	if valueChanged && !gateSet {
+		return fmt.Errorf("--%s is only valid together with --%s", valueFlag, gateFlag)
 	}
-	if waitSet && timeout <= 0 {
-		return errors.New("--timeout must be a positive duration (use e.g. --timeout 10m)")
+	if gateSet && value <= 0 {
+		return fmt.Errorf("--%s must be a positive duration (use e.g. --%s %s)", valueFlag, valueFlag, example)
 	}
 	return nil
 }
