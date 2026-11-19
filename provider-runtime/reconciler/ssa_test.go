@@ -46,6 +46,7 @@ import (
 	"github.com/openeverest/openeverest/v2/config/crd/bases"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 	"github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
+	"github.com/openeverest/openeverest/v2/provider-runtime/summary"
 )
 
 // coreFieldOwner stands for core's field manager in these tests.
@@ -286,7 +287,7 @@ func TestReconcile_KeepsStatusOfOtherWriters(t *testing.T) {
 		ready := meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionReady)
 		require.NotNil(t, ready)
 		assert.Equal(t, metav1.ConditionTrue, ready.Status)
-		assert.Equal(t, v1alpha1.InstancePhaseReady, got.Status.Phase)
+		assert.Equal(t, v1alpha1.InstancePhaseProvisioned, got.Status.Phase)
 		wantOwners := []string{coreFieldOwner + "/Apply", controller.StatusFieldOwner("test-provider") + "/Apply"}
 		assert.Equal(t, wantOwners, statusOwners(got))
 	}
@@ -300,29 +301,29 @@ func TestReconcile_KeepsStatusOfOtherWriters(t *testing.T) {
 	assert.NotNil(t, meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionReady))
 }
 
-// TestReconcile_StatusApplyRemovesWhatItStopsSetting checks that a field the
-// runtime no longer sets is removed, as Update did.
-func TestReconcile_StatusApplyRemovesWhatItStopsSetting(t *testing.T) {
+// TestApplyStatus_RemovesWhatItStopsSetting checks that a field the runtime
+// no longer sets is removed, as Update did.
+func TestApplyStatus_RemovesWhatItStopsSetting(t *testing.T) {
 	t.Parallel()
 
 	in := readyTestInstance(nil)
 	c := newSSATestClient(t, testProviderCR(), in)
-	p := &readyTestProvider{status: controller.Status{Phase: v1alpha1.InstancePhaseProvisioning, Message: "creating pods"}}
-	r := &ProviderReconciler{provider: p, Client: c}
+	r := &ProviderReconciler{provider: &readyTestProvider{status: controller.Ready()}, Client: c}
 	key := client.ObjectKeyFromObject(in)
 
-	_, err := r.Reconcile(t.Context(), reconcile.Request{NamespacedName: key})
-	require.NoError(t, err)
 	got := &v1alpha1.Instance{}
 	require.NoError(t, c.Get(t.Context(), key, got))
-	assert.Equal(t, "creating pods", got.Status.Message)
-
-	p.status = controller.Ready()
-	_, err = r.Reconcile(t.Context(), reconcile.Request{NamespacedName: key})
-	require.NoError(t, err)
+	got.Status.Phase = v1alpha1.InstancePhaseProvisioned
+	setCondition(got, v1alpha1.ConditionUpgrading, metav1.ConditionTrue, "RollingOutImage", "Rolling out 8.0.8", metav1.Now())
+	require.NoError(t, r.applyStatus(t.Context(), got))
 	require.NoError(t, c.Get(t.Context(), key, got))
-	assert.Equal(t, v1alpha1.InstancePhaseReady, got.Status.Phase)
-	assert.Empty(t, got.Status.Message)
+	require.NotNil(t, meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionUpgrading))
+
+	meta.RemoveStatusCondition(&got.Status.Conditions, v1alpha1.ConditionUpgrading)
+	require.NoError(t, r.applyStatus(t.Context(), got))
+	require.NoError(t, c.Get(t.Context(), key, got))
+	assert.Nil(t, meta.FindStatusCondition(got.Status.Conditions, v1alpha1.ConditionUpgrading))
+	assert.Equal(t, v1alpha1.InstancePhaseProvisioned, got.Status.Phase)
 }
 
 func TestDefaultFieldManager(t *testing.T) {
@@ -342,6 +343,9 @@ func TestRuntimeConditionCoversEverySetCondition(t *testing.T) {
 	fset := token.NewFileSet()
 	names, err := filepath.Glob("*.go")
 	require.NoError(t, err)
+	summaryNames, err := filepath.Glob(filepath.Join("..", "summary", "*.go"))
+	require.NoError(t, err)
+	names = append(names, summaryNames...)
 	var files []*ast.File
 	// The v1alpha1 constants composite literals set each field to, such as
 	// monitoringRollUp.condType, for a condition type passed in a field.
@@ -375,13 +379,18 @@ func TestRuntimeConditionCoversEverySetCondition(t *testing.T) {
 			if !ok {
 				return true
 			}
-			if fn, ok := call.Fun.(*ast.Ident); !ok || fn.Name != "setCondition" || len(call.Args) < 2 {
+			typeArg := conditionTypeArg(call)
+			if typeArg == nil {
 				return true
 			}
 			calls++
 			pos := fset.Position(call.Pos())
-			sel, ok := call.Args[1].(*ast.SelectorExpr)
-			if !assert.True(t, ok, "%s: setCondition takes a v1alpha1 condition constant", pos) {
+			if _, forwarded := typeArg.(*ast.Ident); forwarded {
+				// A wrapper passes on its caller's type; the callers are checked.
+				return true
+			}
+			sel, ok := typeArg.(*ast.SelectorExpr)
+			if !assert.True(t, ok, "%s: the condition type is a v1alpha1 condition constant", pos) {
 				return true
 			}
 			types := []*ast.SelectorExpr{sel}
@@ -399,6 +408,35 @@ func TestRuntimeConditionCoversEverySetCondition(t *testing.T) {
 		})
 	}
 	assert.NotZero(t, calls)
+	for _, op := range summary.Operations() {
+		assert.True(t, runtimeCondition(op), "add v1alpha1.Condition%s to runtimeCondition", op)
+	}
+}
+
+// TestRuntimeConditionLeavesCoreConditions fails when the runtime would
+// apply a condition core writes: forcing ownership, it would take the
+// condition over from core, and then remove it.
+func TestRuntimeConditionLeavesCoreConditions(t *testing.T) {
+	t.Parallel()
+	assert.False(t, runtimeCondition(v1alpha1.ConditionUnattended))
+}
+
+// conditionTypeArg returns the condition type argument of a call that sets
+// an Instance condition: setCondition(in, type, ...), p.check(type, ...),
+// and the summary's o.condition(type, ...). It returns nil for any other
+// call.
+func conditionTypeArg(call *ast.CallExpr) ast.Expr {
+	switch fn := call.Fun.(type) {
+	case *ast.Ident:
+		if fn.Name == "setCondition" && len(call.Args) >= 2 {
+			return call.Args[1]
+		}
+	case *ast.SelectorExpr:
+		if (fn.Sel.Name == "check" || fn.Sel.Name == "condition") && len(call.Args) >= 3 {
+			return call.Args[0]
+		}
+	}
+	return nil
 }
 
 // isV1alpha1 reports whether sel names a member of the v1alpha1 package.

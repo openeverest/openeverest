@@ -35,7 +35,7 @@ func (r *ProviderReconciler) judgedBackupStorages(c *controller.Context, in *v1a
 
 // setBackupConfigured reports BackupConfigured: True when every storage entry
 // is configured, otherwise False naming each entry that is not.
-func setBackupConfigured(in *v1alpha1.Instance, storages []controller.ResolvedBackupStorage) {
+func setBackupConfigured(p *pass, storages []controller.ResolvedBackupStorage) {
 	var failing []controller.ResolvedBackupStorage
 	for _, s := range storages {
 		if !s.Apply() {
@@ -44,20 +44,20 @@ func setBackupConfigured(in *v1alpha1.Instance, storages []controller.ResolvedBa
 	}
 	switch len(failing) {
 	case 0:
-		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionTrue,
-			"Configured", "Backup configuration applied to engine", metav1.Now(),
+		p.check(v1alpha1.ConditionBackupConfigured, metav1.ConditionTrue,
+			"Configured", "Backup configuration applied to engine",
 		)
 	case 1:
-		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
-			failing[0].Reason, failing[0].Message, metav1.Now(),
+		p.check(v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
+			failing[0].Reason, failing[0].Message,
 		)
 	default:
 		messages := make([]string, 0, len(failing))
 		for _, s := range failing {
 			messages = append(messages, s.Reason+": "+s.Message)
 		}
-		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
-			v1alpha1.ReasonBackupStoragesUnusable, strings.Join(messages, "; "), metav1.Now(),
+		p.check(v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
+			v1alpha1.ReasonBackupStoragesUnusable, strings.Join(messages, "; "),
 		)
 	}
 }

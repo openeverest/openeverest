@@ -182,6 +182,10 @@ func TestObjectMetaSchemaMatchesType(t *testing.T) {
 	for propName, prop := range om.Properties {
 		goType, ok := fields[propName]
 		require.True(t, ok, "schema property %q does not exist on metav1.ObjectMeta", propName)
+		// The request validator rejects readOnly properties in a request
+		// body, so marking one would break updates that send back an object
+		// as it was read. The descriptions say "Read-only" instead.
+		assert.False(t, prop.Value.ReadOnly, "schema property %q must not be readOnly", propName)
 
 		switch {
 		case prop.Value.Format == "date-time":
@@ -190,6 +194,10 @@ func TestObjectMetaSchemaMatchesType(t *testing.T) {
 		case prop.Value.Type.Is(openapi3.TypeString):
 			assert.Equal(t, reflect.String, goType.Kind(),
 				"schema property %q is a string but the Go field is %s", propName, goType)
+		case prop.Value.Type.Is(openapi3.TypeInteger) && prop.Value.Format == "int64":
+			assert.Equal(t, reflect.Int64, goType.Kind(),
+				"schema property %q is an int64 but the Go field is %s", propName, goType,
+			)
 		case prop.Value.Type.Is(openapi3.TypeObject):
 			assert.Equal(t, reflect.TypeFor[map[string]string](), goType,
 				"schema property %q is a string map but the Go field is %s", propName, goType)

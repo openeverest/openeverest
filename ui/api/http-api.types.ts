@@ -1856,6 +1856,11 @@ export interface components {
             deletionTimestamp?: string;
             /** @description GenerateName is an optional prefix, used by the server, to generate a unique name ONLY IF the Name field has not been provided. */
             generateName?: string;
+            /**
+             * Format: int64
+             * @description A sequence number representing a specific generation of the desired state. Populated by the system. Read-only.
+             */
+            generation?: number;
             /** @description Map of string keys and values that can be used to organize and categorize (scope and select) objects. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels */
             labels?: {
                 [key: string]: string;
@@ -3112,7 +3117,9 @@ export interface components {
                 parameters?: Record<string, never>;
                 /**
                  * @description ProviderRef references the cluster-scoped Provider that manages this
-                 *     Instance (e.g., "percona-server-mongodb", "postgresql").
+                 *     Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                 *     providerRef cannot be changed: the provider that picked it up owns its
+                 *     finalizer and engine resources, and only that provider cleans them up.
                  */
                 providerRef: {
                     /** @description Name of the referenced object. */
@@ -4456,7 +4463,9 @@ export interface components {
                 parameters?: Record<string, never>;
                 /**
                  * @description ProviderRef references the cluster-scoped Provider that manages this
-                 *     Instance (e.g., "percona-server-mongodb", "postgresql").
+                 *     Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                 *     providerRef cannot be changed: the provider that picked it up owns its
+                 *     finalizer and engine resources, and only that provider cleans them up.
                  */
                 providerRef: {
                     /** @description Name of the referenced object. */
@@ -6126,7 +6135,9 @@ export interface components {
                 parameters?: Record<string, never>;
                 /**
                  * @description ProviderRef references the cluster-scoped Provider that manages this
-                 *     Instance (e.g., "percona-server-mongodb", "postgresql").
+                 *     Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                 *     providerRef cannot be changed: the provider that picked it up owns its
+                 *     finalizer and engine resources, and only that provider cleans them up.
                  */
                 providerRef: {
                     /** @description Name of the referenced object. */
@@ -6170,7 +6181,10 @@ export interface components {
                  */
                 version?: string;
             };
-            /** @description InstanceStatus defines the observed state of Instance. */
+            /**
+             * @description InstanceStatus defines the observed state of Instance.
+             * @default {}
+             */
             status?: {
                 /**
                  * @description Backup surfaces backup-related observability data reported by the
@@ -6232,6 +6246,22 @@ export interface components {
                 };
                 /** @description Components reports how many pods each component has and how many are Ready. */
                 components?: {
+                    /**
+                     * Format: int32
+                     * @description DesiredReplicas is how many pods the component will have once the
+                     *     current generation has converged, as the provider reports it. It
+                     *     describes status.observedGeneration: it is absent until the provider
+                     *     reports for that generation, during deletion, and for providers that
+                     *     don't report it; clients then show readyReplicas over replicas. Zero is
+                     *     a real target, for example a model scaled to zero. A cluster paused
+                     *     outside OpenEverest keeps its target, so it reads 0 of N; one stopped
+                     *     through its spec has a target of zero.
+                     *
+                     *     It is meant for display. When a component sums several groups, such as
+                     *     the replica sets of every shard, it cannot tell whether each group has
+                     *     a majority.
+                     */
+                    desiredReplicas?: number;
                     /** @description Name is a key of spec.components. */
                     name: string;
                     /**
@@ -6303,8 +6333,6 @@ export interface components {
                     /** @description Name of the referenced Secret. */
                     name: string;
                 };
-                /** @description Message is a custom user-facing message describing the current state of the instance. */
-                message?: string;
                 /**
                  * @description Monitoring is what the Instance exposes to monitoring (sources) and
                  *     one read-only summary per spec.monitoring.destinations[] entry.
@@ -6532,7 +6560,9 @@ export interface components {
                  * Format: int64
                  * @description ObservedGeneration is the metadata.generation the provider-runtime last
                  *     reconciled. Status describes an older spec while it is lower than
-                 *     metadata.generation.
+                 *     metadata.generation. It defaults to -1, so an Instance no provider has
+                 *     reconciled reads as in progress, never as current.
+                 * @default -1
                  */
                 observedGeneration?: number;
                 /**
@@ -6560,10 +6590,14 @@ export interface components {
                     severity: "NonDisruptive" | "RollingRestart" | "Downtime";
                 }[];
                 /**
-                 * @description Phase of the database cluster.
+                 * @description Phase is where the Instance is in its life: Pending until the database
+                 *     is first available, Provisioned afterwards, Terminating once deletion
+                 *     is requested. The CRD sets Pending at creation; only provider-runtime
+                 *     changes it. Read the conditions for everything else.
+                 * @default Pending
                  * @enum {string}
                  */
-                phase?: "Pending" | "Provisioning" | "Initializing" | "Ready" | "Updating" | "Terminating" | "Failed" | "Restoring" | "Suspending" | "Suspended" | "Resuming";
+                phase?: "Pending" | "Provisioned" | "Terminating";
                 /**
                  * @description Version is the effective version bundle that is currently applied to this
                  *     Instance. On the first reconciliation the provider-runtime writes the

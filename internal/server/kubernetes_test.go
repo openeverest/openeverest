@@ -63,7 +63,7 @@ func TestKubernetesClusterEndpoints(t *testing.T) {
 			server := &EverestServer{handler: next, l: zap.NewNop().Sugar()}
 			rec := httptest.NewRecorder()
 			ctx := echo.New().NewContext(
-				httptest.NewRequest(http.MethodGet, "/", nil),
+				httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil),
 				rec,
 			)
 
