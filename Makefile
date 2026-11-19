@@ -253,6 +253,10 @@ build-controller-helper: ensure-localbin
 build-controller: CONTROLLER_LD_FLAGS += -s -w
 build-controller: build-controller-helper	## Build Everest controller manager binary.
 
+.PHONY: build-agent
+build-agent: ensure-localbin ## Build the experimental multi-cluster Kubernetes API agent.
+	go build -o "$(LOCALBIN)/everest-agent" ./cmd/agent
+
 .PHONY: build-controller-debug
 build-controller-debug: CONTROLLER_BUILD_TAGS = -tags debug
 build-controller-debug: CONTROLLER_GC_FLAGS = -gcflags=all="-N -l"
