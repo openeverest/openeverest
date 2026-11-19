@@ -28,7 +28,11 @@ func (h *validateHandler) GetRestore(ctx context.Context, cluster, namespace, na
 
 // CreateRestore rejects a Restore that cannot run, or that references an object that does not exist, before creating it.
 func (h *validateHandler) CreateRestore(ctx context.Context, cluster string, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error) {
-	d, err := backupadmission.Restore(ctx, h.kubeConnector, restore)
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	d, err := backupadmission.Restore(ctx, kubeConnector, restore)
 	if err := admitOperation(ctx, d, err); err != nil {
 		return nil, err
 	}

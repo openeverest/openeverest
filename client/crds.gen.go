@@ -294,6 +294,27 @@ func (e BackupStorageStatusConditionsStatus) Valid() bool {
 	}
 }
 
+// Defines values for ClusterConnectionStatusConditionsStatus.
+const (
+	ClusterConnectionStatusConditionsStatusFalse   ClusterConnectionStatusConditionsStatus = "False"
+	ClusterConnectionStatusConditionsStatusTrue    ClusterConnectionStatusConditionsStatus = "True"
+	ClusterConnectionStatusConditionsStatusUnknown ClusterConnectionStatusConditionsStatus = "Unknown"
+)
+
+// Valid indicates whether the value is a known member of the ClusterConnectionStatusConditionsStatus enum.
+func (e ClusterConnectionStatusConditionsStatus) Valid() bool {
+	switch e {
+	case ClusterConnectionStatusConditionsStatusFalse:
+		return true
+	case ClusterConnectionStatusConditionsStatusTrue:
+		return true
+	case ClusterConnectionStatusConditionsStatusUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ClusterInstancePresetSpecBackupStoragesSchedulesRetentionType.
 const (
 	ClusterInstancePresetSpecBackupStoragesSchedulesRetentionTypeCount ClusterInstancePresetSpecBackupStoragesSchedulesRetentionType = "count"
@@ -2172,6 +2193,90 @@ type BackupStorageList struct {
 
 		// Namespace Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces
 		Namespace *string `json:"namespace,omitempty"`
+	} `json:"metadata,omitempty"`
+}
+
+// ClusterConnection ClusterConnection registers a spoke cluster with the OpenEverest hub.
+type ClusterConnection struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object.
+	// Servers should convert recognized schemas to the latest internal value, and
+	// may reject unrecognized values.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string `json:"apiVersion,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents.
+	// Servers may infer this from the endpoint the client submits requests to.
+	// Cannot be updated.
+	// In CamelCase.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind *string `json:"kind,omitempty"`
+
+	// Metadata ObjectMeta is the standard Kubernetes object metadata. Only the fields relevant to the Everest API are described; unknown fields are accepted but may be ignored by the server.
+	Metadata ObjectMeta `json:"metadata"`
+
+	// Spec ClusterConnectionSpec configures a remote OpenEverest agent connection.
+	Spec struct {
+		// CredentialsSecretRef CredentialsSecretRef references a Secret in the OpenEverest namespace.
+		// The Secret must contain "token" and may contain "ca.crt".
+		CredentialsSecretRef struct {
+			// Name Name of the referenced object.
+			Name string `json:"name"`
+
+			// Namespace Namespace of the referenced object.
+			Namespace string `json:"namespace"`
+		} `json:"credentialsSecretRef"`
+
+		// Endpoint Endpoint is the HTTPS URL of the remote OpenEverest agent.
+		Endpoint string `json:"endpoint"`
+	} `json:"spec"`
+
+	// Status ClusterConnectionStatus reports connectivity to the remote agent.
+	Status struct {
+		// Conditions Conditions contains the latest connectivity observations.
+		Conditions *[]struct {
+			// LastTransitionTime lastTransitionTime is the last time the condition transitioned from one status to another.
+			// This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+			LastTransitionTime time.Time `json:"lastTransitionTime"`
+
+			// Message message is a human readable message indicating details about the transition.
+			// This may be an empty string.
+			Message string `json:"message"`
+
+			// ObservedGeneration observedGeneration represents the .metadata.generation that the condition was set based upon.
+			// For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+			// with respect to the current state of the instance.
+			ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+			// Reason reason contains a programmatic identifier indicating the reason for the condition's last transition.
+			// Producers of specific condition types may define expected values and meanings for this field,
+			// and whether the values are considered a guaranteed API.
+			// The value should be a CamelCase string.
+			// This field may not be empty.
+			Reason string `json:"reason"`
+
+			// Status status of the condition, one of True, False, Unknown.
+			Status ClusterConnectionStatusConditionsStatus `json:"status"`
+
+			// Type type of condition in CamelCase or in foo.example.com/CamelCase.
+			Type string `json:"type"`
+		} `json:"conditions,omitempty"`
+	} `json:"status"`
+}
+
+// ClusterConnectionStatusConditionsStatus status of the condition, one of True, False, Unknown.
+type ClusterConnectionStatusConditionsStatus string
+
+// ClusterConnectionList ClusterConnectionList is an object that contains the list of the existing clusterconnections.
+type ClusterConnectionList struct {
+	// ApiVersion APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+	ApiVersion *string              `json:"apiVersion,omitempty"`
+	Items      *[]ClusterConnection `json:"items,omitempty"`
+
+	// Kind Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	Kind     *string `json:"kind,omitempty"`
+	Metadata *struct {
+		// Name Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names
+		Name *string `json:"name,omitempty"`
 	} `json:"metadata,omitempty"`
 }
 

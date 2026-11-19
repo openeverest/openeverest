@@ -1,6 +1,8 @@
 package k8s
 
 import (
+	"sync"
+
 	"go.uber.org/zap"
 
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
@@ -13,6 +15,8 @@ type k8sHandler struct {
 	log               *zap.SugaredLogger
 	clusterName       string
 	versionServiceURL string
+	remoteMu          sync.Mutex
+	remoteConnectors  map[string]cachedConnector
 }
 
 // New returns a new RBAC handler.
@@ -30,6 +34,7 @@ func New(
 		log:               l,
 		clusterName:       clusterName,
 		versionServiceURL: vsURL,
+		remoteConnectors:  make(map[string]cachedConnector),
 	}
 }
 

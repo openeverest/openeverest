@@ -29,6 +29,7 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
 // ListBackupStorages returns the backup storages in a namespace, only those
@@ -39,7 +40,11 @@ import (
 // through either of two fields, so it takes one list per field, merged with
 // each storage once. The backup class filter is computed here from the
 // class's spec.backupStorageClasses.
-func (h *k8sHandler) ListBackupStorages(ctx context.Context, _, namespace string, params *api.ListBackupStoragesParams) (*backupv1alpha1.BackupStorageList, error) {
+func (h *k8sHandler) ListBackupStorages(ctx context.Context, cluster, namespace string, params *api.ListBackupStoragesParams) (*backupv1alpha1.BackupStorageList, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
 	if params == nil {
 		params = &api.ListBackupStoragesParams{}
 	}
@@ -47,12 +52,12 @@ func (h *k8sHandler) ListBackupStorages(ctx context.Context, _, namespace string
 	if class := pointer.Get(params.BackupStorageClass); class != "" {
 		fields[backupv1alpha1.BackupStorageClassField] = class
 	}
-	list, err := h.listBackupStoragesReferencing(ctx, namespace, fields, pointer.Get(params.Secret))
+	list, err := h.listBackupStoragesReferencing(ctx, kubeConnector, namespace, fields, pointer.Get(params.Secret))
 	backupClass := pointer.Get(params.BackupClass)
 	if err != nil || backupClass == "" {
 		return list, err
 	}
-	class, err := h.kubeConnector.GetBackupClass(ctx, types.NamespacedName{Name: backupClass})
+	class, err := kubeConnector.GetBackupClass(ctx, types.NamespacedName{Name: backupClass})
 	if apierrors.IsNotFound(err) {
 		list.Items = []backupv1alpha1.BackupStorage{}
 		return list, nil
@@ -75,20 +80,26 @@ func (h *k8sHandler) ListBackupStorages(ctx context.Context, _, namespace string
 // the storages that reference the Secret as credentials and those that
 // reference it as CA bundle come from two lists, merged with each storage
 // once and sorted by name.
-func (h *k8sHandler) listBackupStoragesReferencing(ctx context.Context, namespace string, fields ctrlclient.MatchingFields, secret string) (*backupv1alpha1.BackupStorageList, error) {
+func (h *k8sHandler) listBackupStoragesReferencing(
+	ctx context.Context,
+	kubeConnector kubernetes.KubernetesConnector,
+	namespace string,
+	fields ctrlclient.MatchingFields,
+	secret string,
+) (*backupv1alpha1.BackupStorageList, error) {
 	if secret == "" {
-		return h.listBackupStorages(ctx, namespace, fields)
+		return h.listBackupStorages(ctx, kubeConnector, namespace, fields)
 	}
 	withSecret := func(field string) ctrlclient.MatchingFields {
 		selected := maps.Clone(fields)
 		selected[field] = secret
 		return selected
 	}
-	merged, err := h.listBackupStorages(ctx, namespace, withSecret(backupv1alpha1.BackupStorageCredentialsSecretField))
+	merged, err := h.listBackupStorages(ctx, kubeConnector, namespace, withSecret(backupv1alpha1.BackupStorageCredentialsSecretField))
 	if err != nil {
 		return nil, err
 	}
-	byCA, err := h.listBackupStorages(ctx, namespace, withSecret(backupv1alpha1.BackupStorageCASecretField))
+	byCA, err := h.listBackupStorages(ctx, kubeConnector, namespace, withSecret(backupv1alpha1.BackupStorageCASecretField))
 	if err != nil {
 		return nil, err
 	}
@@ -110,45 +121,70 @@ func (h *k8sHandler) listBackupStoragesReferencing(ctx context.Context, namespac
 	return merged, nil
 }
 
-func (h *k8sHandler) listBackupStorages(ctx context.Context, namespace string, fields ctrlclient.MatchingFields) (*backupv1alpha1.BackupStorageList, error) {
+func (h *k8sHandler) listBackupStorages(
+	ctx context.Context,
+	kubeConnector kubernetes.KubernetesConnector,
+	namespace string,
+	fields ctrlclient.MatchingFields,
+) (*backupv1alpha1.BackupStorageList, error) {
 	opts := []ctrlclient.ListOption{ctrlclient.InNamespace(namespace)}
 	if len(fields) > 0 {
 		opts = append(opts, fields)
 	}
-	return h.kubeConnector.ListBackupStorages(ctx, opts...)
+	return kubeConnector.ListBackupStorages(ctx, opts...)
 }
 
 // GetBackupStorage returns a backup storage by name and namespace.
-func (h *k8sHandler) GetBackupStorage(ctx context.Context, _, namespace, name string) (*backupv1alpha1.BackupStorage, error) {
-	return h.kubeConnector.GetBackupStorage(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+func (h *k8sHandler) GetBackupStorage(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.BackupStorage, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.GetBackupStorage(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 }
 
 // CreateBackupStorage creates a backup storage. Its credentials Secret is
 // created beforehand, through the Secrets API.
-func (h *k8sHandler) CreateBackupStorage(ctx context.Context, _ string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
-	return h.kubeConnector.CreateBackupStorage(ctx, bs)
+func (h *k8sHandler) CreateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.CreateBackupStorage(ctx, bs)
 }
 
 // UpdateBackupStorage updates a backup storage.
-func (h *k8sHandler) UpdateBackupStorage(ctx context.Context, _ string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
-	return h.kubeConnector.UpdateBackupStorage(ctx, bs)
+func (h *k8sHandler) UpdateBackupStorage(ctx context.Context, cluster string, bs *backupv1alpha1.BackupStorage) (*backupv1alpha1.BackupStorage, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.UpdateBackupStorage(ctx, bs)
 }
 
 // PatchBackupStorage applies a merge patch to a backup storage, leaving the read-modify-write to the API server.
 // Strict validation is not optional: without it a misspelt path is pruned and returns 200 having changed nothing.
-func (h *k8sHandler) PatchBackupStorage(ctx context.Context, _, namespace, name string, patch []byte) (*backupv1alpha1.BackupStorage, error) {
+func (h *k8sHandler) PatchBackupStorage(ctx context.Context, cluster, namespace, name string, patch []byte) (*backupv1alpha1.BackupStorage, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
 	bs := &backupv1alpha1.BackupStorage{
 		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
 	}
-	return h.kubeConnector.PatchBackupStorage(ctx, bs,
+	return kubeConnector.PatchBackupStorage(ctx, bs,
 		ctrlclient.RawPatch(types.MergePatchType, patch),
 		ctrlclient.FieldValidation(metav1.FieldValidationStrict),
 	)
 }
 
 // DeleteBackupStorage deletes a backup storage.
-func (h *k8sHandler) DeleteBackupStorage(ctx context.Context, _, namespace, name string) error {
-	bs, err := h.kubeConnector.GetBackupStorage(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+func (h *k8sHandler) DeleteBackupStorage(ctx context.Context, cluster, namespace, name string) error {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return err
+	}
+	bs, err := kubeConnector.GetBackupStorage(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 	if ctrlclient.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to get backup storage: %w", err)
 	}
@@ -158,7 +194,7 @@ func (h *k8sHandler) DeleteBackupStorage(ctx context.Context, _, namespace, name
 		return nil
 	}
 
-	if err := h.kubeConnector.DeleteBackupStorage(ctx, bs); ctrlclient.IgnoreNotFound(err) != nil {
+	if err := kubeConnector.DeleteBackupStorage(ctx, bs); ctrlclient.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to delete backup storage: %w", err)
 	}
 
@@ -166,11 +202,19 @@ func (h *k8sHandler) DeleteBackupStorage(ctx context.Context, _, namespace, name
 }
 
 // ListBackupStorageClasses returns the backup storage classes.
-func (h *k8sHandler) ListBackupStorageClasses(ctx context.Context, _ string) (*backupv1alpha1.BackupStorageClassList, error) {
-	return h.kubeConnector.ListBackupStorageClasses(ctx)
+func (h *k8sHandler) ListBackupStorageClasses(ctx context.Context, cluster string) (*backupv1alpha1.BackupStorageClassList, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.ListBackupStorageClasses(ctx)
 }
 
 // GetBackupStorageClass returns a backup storage class by name.
-func (h *k8sHandler) GetBackupStorageClass(ctx context.Context, _, name string) (*backupv1alpha1.BackupStorageClass, error) {
-	return h.kubeConnector.GetBackupStorageClass(ctx, types.NamespacedName{Name: name})
+func (h *k8sHandler) GetBackupStorageClass(ctx context.Context, cluster, name string) (*backupv1alpha1.BackupStorageClass, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.GetBackupStorageClass(ctx, types.NamespacedName{Name: name})
 }

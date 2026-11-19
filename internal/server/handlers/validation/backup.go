@@ -35,7 +35,11 @@ func (h *validateHandler) GetBackup(ctx context.Context, cluster, namespace, nam
 
 // CreateBackup rejects a Backup that cannot run, or that references an object that does not exist, before creating it.
 func (h *validateHandler) CreateBackup(ctx context.Context, cluster string, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error) {
-	d, err := backupadmission.Backup(ctx, h.kubeConnector, backup)
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	d, err := backupadmission.Backup(ctx, kubeConnector, backup)
 	if err := admitOperation(ctx, d, err); err != nil {
 		return nil, err
 	}

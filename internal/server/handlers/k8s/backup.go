@@ -29,7 +29,11 @@ import (
 
 // ListBackups returns backups in the namespace that match all provided filters.
 // Filters are evaluated server-side via the CRD's selectable fields.
-func (h *k8sHandler) ListBackups(ctx context.Context, _, namespace string, params *api.ListBackupsParams) (*backupv1alpha1.BackupList, error) {
+func (h *k8sHandler) ListBackups(ctx context.Context, cluster, namespace string, params *api.ListBackupsParams) (*backupv1alpha1.BackupList, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
 	if params == nil {
 		params = &api.ListBackupsParams{}
 	}
@@ -53,25 +57,37 @@ func (h *k8sHandler) ListBackups(ctx context.Context, _, namespace string, param
 		opts = append(opts, fields)
 	}
 
-	return h.kubeConnector.ListBackups(ctx, opts...)
+	return kubeConnector.ListBackups(ctx, opts...)
 }
 
 // GetBackup returns backup that matches the criteria.
 func (h *k8sHandler) GetBackup(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Backup, error) {
-	return h.kubeConnector.GetBackup(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.GetBackup(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 }
 
 // CreateBackup creates a backup.
 func (h *k8sHandler) CreateBackup(ctx context.Context, cluster string, backup *backupv1alpha1.Backup) (*backupv1alpha1.Backup, error) {
 	stampActor(ctx, backup)
-	return h.kubeConnector.CreateBackup(ctx, backup)
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.CreateBackup(ctx, backup)
 }
 
 // DeleteBackup deletes a backup. If the deletionPolicy query parameter is
 // provided, the backup's spec.deletionPolicy is patched before deletion so the
 // controller sees the caller's intent (Delete vs Retain S3 data).
 func (h *k8sHandler) DeleteBackup(ctx context.Context, cluster, namespace, name string, params *api.DeleteBackupParams) error {
-	backup, err := h.kubeConnector.GetBackup(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return err
+	}
+	backup, err := kubeConnector.GetBackup(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 	if err != nil {
 		return err
 	}
@@ -86,10 +102,10 @@ func (h *k8sHandler) DeleteBackup(ctx context.Context, cluster, namespace, name 
 		}
 	}
 	if actorChanged || policyChanged {
-		if _, err := h.kubeConnector.UpdateBackup(ctx, backup); err != nil {
+		if _, err := kubeConnector.UpdateBackup(ctx, backup); err != nil {
 			return err
 		}
 	}
 
-	return h.kubeConnector.DeleteBackup(ctx, backup)
+	return kubeConnector.DeleteBackup(ctx, backup)
 }

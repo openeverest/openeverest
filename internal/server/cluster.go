@@ -19,6 +19,8 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
 type APICluster struct {
@@ -48,4 +50,31 @@ func (e *EverestServer) GetCluster(ctx echo.Context, name string) error {
 		return err
 	}
 	return ctx.JSON(http.StatusOK, cluster)
+}
+
+// RegisterCluster handles POST /clusters.
+func (e *EverestServer) RegisterCluster(ctx echo.Context, _ api.RegisterClusterParams) error {
+	registration := &api.ClusterRegistration{}
+	if err := ctx.Bind(registration); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid cluster registration").SetInternal(err)
+	}
+	cluster, err := e.handler.RegisterCluster(ctx.Request().Context(), registration)
+	if err != nil {
+		e.l.Errorf("RegisterCluster failed: %v", err)
+		return err
+	}
+	return ctx.JSON(http.StatusCreated, cluster)
+}
+
+// DeleteCluster handles DELETE /clusters/{name}.
+func (e *EverestServer) DeleteCluster(
+	ctx echo.Context,
+	name string,
+	_ api.DeleteClusterParams,
+) error {
+	if err := e.handler.DeleteCluster(ctx.Request().Context(), name); err != nil {
+		e.l.Errorf("DeleteCluster failed: %v", err)
+		return err
+	}
+	return ctx.NoContent(http.StatusOK)
 }

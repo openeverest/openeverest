@@ -26,11 +26,19 @@ import (
 
 // ListProviders returns list of providers.
 func (h *k8sHandler) ListProviders(ctx context.Context, cluster string) (*corev1alpha1.ProviderList, error) {
-	return h.kubeConnector.ListProviders(ctx)
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.ListProviders(ctx)
 }
 
 // GetProvider returns provider that matches the criteria.
 func (h *k8sHandler) GetProvider(ctx context.Context, cluster, name string) (*corev1alpha1.Provider, error) {
 	// Providers are cluster-scoped, so no namespace
-	return h.kubeConnector.GetProvider(ctx, types.NamespacedName{Name: name})
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.GetProvider(ctx, types.NamespacedName{Name: name})
 }

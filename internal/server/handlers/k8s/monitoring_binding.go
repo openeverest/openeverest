@@ -27,17 +27,25 @@ import (
 
 // ListMonitoringBindings returns the monitoring bindings in the namespace,
 // only those to the given destination when one is set.
-func (h *k8sHandler) ListMonitoringBindings(ctx context.Context, _, namespace string, params *api.ListMonitoringBindingsParams) (*monitoringv1alpha1.MonitoringBindingList, error) {
+func (h *k8sHandler) ListMonitoringBindings(ctx context.Context, cluster, namespace string, params *api.ListMonitoringBindingsParams) (*monitoringv1alpha1.MonitoringBindingList, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
 	opts := []ctrlclient.ListOption{ctrlclient.InNamespace(namespace)}
 	if params != nil {
 		if destination := pointer.Get(params.Destination); destination != "" {
 			opts = append(opts, ctrlclient.MatchingLabels{monitoringv1alpha1.BindingDestinationLabel: destination})
 		}
 	}
-	return h.kubeConnector.ListMonitoringBindings(ctx, opts...)
+	return kubeConnector.ListMonitoringBindings(ctx, opts...)
 }
 
 // GetMonitoringBinding returns a monitoring binding by name and namespace.
-func (h *k8sHandler) GetMonitoringBinding(ctx context.Context, _, namespace, name string) (*monitoringv1alpha1.MonitoringBinding, error) {
-	return h.kubeConnector.GetMonitoringBinding(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+func (h *k8sHandler) GetMonitoringBinding(ctx context.Context, cluster, namespace, name string) (*monitoringv1alpha1.MonitoringBinding, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.GetMonitoringBinding(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 }

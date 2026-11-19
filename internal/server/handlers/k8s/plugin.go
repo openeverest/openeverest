@@ -27,7 +27,11 @@ import (
 // The cluster param follows the multi-cluster routing convention; today it only
 // shapes the asset URLs the descriptors point back to.
 func (h *k8sHandler) ListPlugins(ctx context.Context, cluster string) (api.PluginDescriptorList, error) {
-	plugins, err := h.kubeConnector.ListPlugins(ctx)
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	plugins, err := kubeConnector.ListPlugins(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -71,13 +75,17 @@ func (h *k8sHandler) ListPlugins(ctx context.Context, cluster string) (api.Plugi
 
 // GetPluginContext returns the calling user's identity and the namespaces they
 // can access in the cluster. Plugins use it to scope their queries per tenant.
-func (h *k8sHandler) GetPluginContext(ctx context.Context, _ string) (*api.PluginContext, error) {
+func (h *k8sHandler) GetPluginContext(ctx context.Context, cluster string) (*api.PluginContext, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
 	user, err := rbac.GetUser(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	nsList, err := h.kubeConnector.GetDBNamespaces(ctx)
+	nsList, err := kubeConnector.GetDBNamespaces(ctx)
 	if err != nil {
 		return nil, err
 	}

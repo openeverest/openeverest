@@ -29,6 +29,7 @@ import (
 
 	"github.com/openeverest/openeverest/v2/internal/secretdefinition"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
 // CreateSecret validates the secret request and proxies it to the next handler.
@@ -39,7 +40,11 @@ func (h *validateHandler) CreateSecret(ctx context.Context, cluster, namespace s
 		return nil, errors.Join(ErrInvalidRequest, fmt.Errorf("invalid name %q: %s", secret.GetName(), strings.Join(errs, "; ")))
 	}
 
-	if err := h.validateSecretDefinition(ctx, secret); err != nil {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	if err := h.validateSecretDefinition(ctx, kubeConnector, secret); err != nil {
 		return nil, err
 	}
 
@@ -55,7 +60,11 @@ func (h *validateHandler) PatchSecret(ctx context.Context, cluster, namespace, n
 		return nil, errors.Join(ErrInvalidRequest, err)
 	}
 
-	stored, err := h.kubeConnector.GetSecret(ctx, ctrlclient.ObjectKey{Namespace: namespace, Name: name})
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	stored, err := kubeConnector.GetSecret(ctx, ctrlclient.ObjectKey{Namespace: namespace, Name: name})
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +88,7 @@ func (h *validateHandler) PatchSecret(ctx context.Context, cluster, namespace, n
 	candidate := stored.DeepCopy()
 	candidate.Data = p.Apply(stored.Data)
 	candidate.StringData = nil
-	if err := h.validateSecretDefinition(ctx, candidate); err != nil {
+	if err := h.validateSecretDefinition(ctx, kubeConnector, candidate); err != nil {
 		return nil, err
 	}
 
@@ -106,8 +115,12 @@ func checkSecretPatchKeepsDefinition(stored *corev1.Secret, p *handlers.SecretPa
 
 // validateSecretDefinition checks secret against the definition its labels
 // name, as an invalid request when the labels or the Secret are at fault.
-func (h *validateHandler) validateSecretDefinition(ctx context.Context, secret *corev1.Secret) error {
-	if err := secretdefinition.Validate(ctx, h.kubeConnector, secret); err != nil {
+func (h *validateHandler) validateSecretDefinition(
+	ctx context.Context,
+	kubeConnector kubernetes.KubernetesConnector,
+	secret *corev1.Secret,
+) error {
+	if err := secretdefinition.Validate(ctx, kubeConnector, secret); err != nil {
 		if errors.Is(err, secretdefinition.ErrInvalidLabels) ||
 			errors.Is(err, secretdefinition.ErrSourceNotFound) ||
 			errors.Is(err, secretdefinition.ErrInvalidSecret) {

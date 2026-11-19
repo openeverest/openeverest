@@ -23,14 +23,22 @@ import (
 )
 
 // GetRestore returns a specific restore by namespace and name.
-func (h *k8sHandler) GetRestore(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Restore, error) { //nolint:revive
-	return h.kubeConnector.GetRestore(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+func (h *k8sHandler) GetRestore(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.Restore, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.GetRestore(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 }
 
 // CreateRestore creates a new restore.
-func (h *k8sHandler) CreateRestore(ctx context.Context, cluster string, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error) { //nolint:revive
+func (h *k8sHandler) CreateRestore(ctx context.Context, cluster string, restore *backupv1alpha1.Restore) (*backupv1alpha1.Restore, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
 	stampActor(ctx, restore)
-	return h.kubeConnector.CreateRestore(ctx, restore)
+	return kubeConnector.CreateRestore(ctx, restore)
 }
 
 // DeleteRestore deletes a restore by namespace and name. We don't restamp
@@ -38,9 +46,13 @@ func (h *k8sHandler) CreateRestore(ctx context.Context, cluster string, restore 
 // `restore.deleted` event and there is no UpdateRestore on the kube
 // connector (Restore is effectively immutable post-create). The actor
 // recorded at create time remains on the object.
-func (h *k8sHandler) DeleteRestore(ctx context.Context, cluster, namespace, name string) error { //nolint:revive
+func (h *k8sHandler) DeleteRestore(ctx context.Context, cluster, namespace, name string) error {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return err
+	}
 	restore := &backupv1alpha1.Restore{}
 	restore.Name = name
 	restore.Namespace = namespace
-	return h.kubeConnector.DeleteRestore(ctx, restore)
+	return kubeConnector.DeleteRestore(ctx, restore)
 }

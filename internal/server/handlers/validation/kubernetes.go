@@ -19,7 +19,26 @@ import (
 	"context"
 
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
+
+func (h *validateHandler) ClusterConnector(
+	ctx context.Context,
+	cluster string,
+) (kubernetes.KubernetesConnector, error) {
+	return h.next.ClusterConnector(ctx, cluster)
+}
+
+func (h *validateHandler) connector(
+	ctx context.Context,
+	cluster string,
+) (kubernetes.KubernetesConnector, error) {
+	// Directly constructed test handlers have no cluster identity.
+	if h.clusterName == "" || cluster == h.clusterName {
+		return h.kubeConnector, nil
+	}
+	return h.next.ClusterConnector(ctx, cluster)
+}
 
 func (h *validateHandler) GetKubernetesClusterResources(ctx context.Context, cluster string) (*api.KubernetesClusterResources, error) {
 	return h.next.GetKubernetesClusterResources(ctx, cluster)

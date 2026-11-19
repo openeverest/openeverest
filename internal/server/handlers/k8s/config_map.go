@@ -26,7 +26,11 @@ import (
 
 // CreateConfigMap creates a ConfigMap and labels it as managed by OpenEverest.
 // Provider and definition labels supplied by the caller are preserved.
-func (h *k8sHandler) CreateConfigMap(ctx context.Context, _ string, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+func (h *k8sHandler) CreateConfigMap(ctx context.Context, cluster string, namespace string, configMap *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
 	if configMap.Labels == nil {
 		configMap.Labels = map[string]string{}
 	}
@@ -34,12 +38,16 @@ func (h *k8sHandler) CreateConfigMap(ctx context.Context, _ string, namespace st
 	configMap.Labels[common.OpenEverestManagedLabel] = "true" //nolint:goconst
 	configMap.Namespace = namespace
 
-	return h.kubeConnector.CreateConfigMap(ctx, configMap)
+	return kubeConnector.CreateConfigMap(ctx, configMap)
 }
 
 // ListConfigMaps lists OpenEverest-managed ConfigMaps matching the optional provider and
 // definition filters.
-func (h *k8sHandler) ListConfigMaps(ctx context.Context, _ string, namespace, provider, definition string) (*corev1.ConfigMapList, error) {
+func (h *k8sHandler) ListConfigMaps(ctx context.Context, cluster string, namespace, provider, definition string) (*corev1.ConfigMapList, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
 	selector := ctrlclient.MatchingLabels{common.OpenEverestManagedLabel: "true"}
 	if provider != "" {
 		selector[common.OpenEverestProviderLabel] = provider
@@ -49,13 +57,17 @@ func (h *k8sHandler) ListConfigMaps(ctx context.Context, _ string, namespace, pr
 		selector[common.OpenEverestDefinitionLabel] = definition
 	}
 
-	return h.kubeConnector.ListConfigMaps(ctx, ctrlclient.InNamespace(namespace), selector)
+	return kubeConnector.ListConfigMaps(ctx, ctrlclient.InNamespace(namespace), selector)
 }
 
 // GetConfigMap returns the ConfigMap specified by name.
 // If the ConfigMap is not managed by OpenEverest, it returns ErrNotFound.
-func (h *k8sHandler) GetConfigMap(ctx context.Context, _ string, namespace, name string) (*corev1.ConfigMap, error) {
-	configMap, err := h.kubeConnector.GetConfigMap(ctx, ctrlclient.ObjectKey{
+func (h *k8sHandler) GetConfigMap(ctx context.Context, cluster string, namespace, name string) (*corev1.ConfigMap, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	configMap, err := kubeConnector.GetConfigMap(ctx, ctrlclient.ObjectKey{
 		Name:      name,
 		Namespace: namespace,
 	})
@@ -73,8 +85,12 @@ func (h *k8sHandler) GetConfigMap(ctx context.Context, _ string, namespace, name
 // DeleteConfigMap deletes the ConfigMap specified by name in the namespace.
 // It only allows deletion of OpenEverest-managed ConfigMaps.
 // If the ConfigMap is not managed by OpenEverest, it returns ErrNotFound.
-func (h *k8sHandler) DeleteConfigMap(ctx context.Context, _ string, namespace, name string) error {
-	configMap, err := h.kubeConnector.GetConfigMap(ctx, ctrlclient.ObjectKey{
+func (h *k8sHandler) DeleteConfigMap(ctx context.Context, cluster string, namespace, name string) error {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return err
+	}
+	configMap, err := kubeConnector.GetConfigMap(ctx, ctrlclient.ObjectKey{
 		Name:      name,
 		Namespace: namespace,
 	})
@@ -86,7 +102,7 @@ func (h *k8sHandler) DeleteConfigMap(ctx context.Context, _ string, namespace, n
 		return ErrNotFound
 	}
 
-	return h.kubeConnector.DeleteConfigMap(ctx, &corev1.ConfigMap{
+	return kubeConnector.DeleteConfigMap(ctx, &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,

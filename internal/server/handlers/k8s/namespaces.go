@@ -20,7 +20,11 @@ import (
 )
 
 func (h *k8sHandler) ListNamespaces(ctx context.Context, cluster string) ([]string, error) {
-	nsList, err := h.kubeConnector.GetDBNamespaces(ctx)
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	nsList, err := kubeConnector.GetDBNamespaces(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to GetDBNamespaces: %w", err)
 	}

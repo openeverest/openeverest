@@ -25,27 +25,43 @@ import (
 )
 
 // ListBackupImports returns a list of backup imports in a namespace.
-func (h *k8sHandler) ListBackupImports(ctx context.Context, cluster, namespace string) (*backupv1alpha1.BackupImportList, error) { //nolint:revive // cluster is unused until multi-cluster support is implemented
-	return h.kubeConnector.ListBackupImports(ctx, ctrlclient.InNamespace(namespace))
+func (h *k8sHandler) ListBackupImports(ctx context.Context, cluster, namespace string) (*backupv1alpha1.BackupImportList, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.ListBackupImports(ctx, ctrlclient.InNamespace(namespace))
 }
 
 // GetBackupImport returns a backup import by name and namespace.
-func (h *k8sHandler) GetBackupImport(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.BackupImport, error) { //nolint:revive // cluster is unused until multi-cluster support is implemented
-	return h.kubeConnector.GetBackupImport(ctx, types.NamespacedName{Namespace: namespace, Name: name})
+func (h *k8sHandler) GetBackupImport(ctx context.Context, cluster, namespace, name string) (*backupv1alpha1.BackupImport, error) {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.GetBackupImport(ctx, types.NamespacedName{Namespace: namespace, Name: name})
 }
 
 // CreateBackupImport creates a backup import.
-func (h *k8sHandler) CreateBackupImport(ctx context.Context, cluster string, backupImport *backupv1alpha1.BackupImport) (*backupv1alpha1.BackupImport, error) { //nolint:revive // cluster is unused until multi-cluster support is implemented
+func (h *k8sHandler) CreateBackupImport(ctx context.Context, cluster string, backupImport *backupv1alpha1.BackupImport) (*backupv1alpha1.BackupImport, error) {
 	stampActor(ctx, backupImport)
-	return h.kubeConnector.CreateBackupImport(ctx, backupImport)
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	return kubeConnector.CreateBackupImport(ctx, backupImport)
 }
 
 // DeleteBackupImport deletes a backup import by namespace and name.
-func (h *k8sHandler) DeleteBackupImport(ctx context.Context, cluster, namespace, name string) error { //nolint:revive // cluster is unused until multi-cluster support is implemented
+func (h *k8sHandler) DeleteBackupImport(ctx context.Context, cluster, namespace, name string) error {
+	kubeConnector, err := h.connector(ctx, cluster)
+	if err != nil {
+		return err
+	}
 	backupImport := &backupv1alpha1.BackupImport{}
 	backupImport.Name = name
 	backupImport.Namespace = namespace
-	if err := h.kubeConnector.DeleteBackupImport(ctx, backupImport); ctrlclient.IgnoreNotFound(err) != nil {
+	if err := kubeConnector.DeleteBackupImport(ctx, backupImport); ctrlclient.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("failed to delete backup import: %w", err)
 	}
 

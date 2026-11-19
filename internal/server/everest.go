@@ -325,7 +325,13 @@ func (e *EverestServer) initHTTPServer(ctx context.Context) error {
 	api.RegisterHandlers(apiGroup, e)
 
 	// Setup plugin proxy routes (outside OpenAPI validation).
-	pp, err := newPluginProxy(ctx, e.l, e.kubeConnector)
+	pp, err := newPluginProxy(
+		ctx,
+		e.l,
+		e.kubeConnector,
+		e.handler.ClusterConnector,
+		e.config.ClusterName,
+	)
 	if err != nil {
 		return err
 	}
@@ -400,7 +406,7 @@ func (e *EverestServer) setupHandlers(
 	vsURL string,
 ) error {
 	k8sH := k8shandler.New(log, kubeConnector, clusterName, vsURL)
-	valH := valhandler.New(log, kubeConnector)
+	valH := valhandler.New(log, kubeConnector, clusterName)
 	rbacH, err := rbachandler.New(ctx, log, kubeConnector)
 	if err != nil {
 		return errors.Join(err, errors.New("could not create rbac handler"))

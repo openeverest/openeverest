@@ -51,3 +51,19 @@ func (h *rbacHandler) GetCluster(ctx context.Context, name string) (*api.Cluster
 	}
 	return h.next.GetCluster(ctx, name)
 }
+
+// RegisterCluster registers a remote cluster if the caller can create clusters.
+func (h *rbacHandler) RegisterCluster(ctx context.Context, registration *api.ClusterRegistration) (*api.Cluster, error) {
+	if err := h.enforce(ctx, rbac.ResourceClusters, rbac.ActionCreate, registration.Name); err != nil {
+		return nil, err
+	}
+	return h.next.RegisterCluster(ctx, registration)
+}
+
+// DeleteCluster removes a remote cluster if the caller can delete it.
+func (h *rbacHandler) DeleteCluster(ctx context.Context, name string) error {
+	if err := h.enforce(ctx, rbac.ResourceClusters, rbac.ActionDelete, name); err != nil {
+		return err
+	}
+	return h.next.DeleteCluster(ctx, name)
+}
