@@ -3576,6 +3576,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 // RegisterHandlersWithOptions registers handlers using the supplied options,
 // including any per-operation middleware.
 func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options RegisterHandlersOptions) {
+
 	wrapper := ServerInterfaceWrapper{
 		Handler: si,
 	}
@@ -3650,6 +3651,7 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.GET(options.BaseURL+"/resources", wrapper.GetKubernetesClusterResources, options.OperationMiddlewares["getKubernetesClusterResources"]...)
 	router.GET(options.BaseURL+"/settings", wrapper.GetSettings, options.OperationMiddlewares["getSettings"]...)
 	router.GET(options.BaseURL+"/version", wrapper.VersionInfo, options.OperationMiddlewares["versionInfo"]...)
+
 }
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.

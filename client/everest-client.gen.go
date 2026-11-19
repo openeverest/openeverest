@@ -2678,6 +2678,7 @@ func NewListBackupClassesRequest(server string, cluster string, params *ListBack
 		var rawQueryFragments []string
 
 		if params.Provider != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "provider", *params.Provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -2685,6 +2686,7 @@ func NewListBackupClassesRequest(server string, cluster string, params *ListBack
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -2853,6 +2855,7 @@ func NewListClusterInstancePresetsRequest(server string, cluster string, params 
 		var rawQueryFragments []string
 
 		if params.Provider != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "provider", *params.Provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -2860,6 +2863,7 @@ func NewListClusterInstancePresetsRequest(server string, cluster string, params 
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -2953,6 +2957,7 @@ func NewListEventsRequest(server string, cluster string, params *ListEventsParam
 		var rawQueryFragments []string
 
 		if params.Namespaces != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "namespaces", *params.Namespaces, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -2960,9 +2965,11 @@ func NewListEventsRequest(server string, cluster string, params *ListEventsParam
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if params.Kinds != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "kinds", *params.Kinds, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -2970,9 +2977,11 @@ func NewListEventsRequest(server string, cluster string, params *ListEventsParam
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if params.Reasons != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "reasons", *params.Reasons, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -2980,9 +2989,11 @@ func NewListEventsRequest(server string, cluster string, params *ListEventsParam
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if params.Limit != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
 				return nil, err
 			} else {
@@ -2990,9 +3001,11 @@ func NewListEventsRequest(server string, cluster string, params *ListEventsParam
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if params.Continue != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "continue", *params.Continue, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -3000,9 +3013,11 @@ func NewListEventsRequest(server string, cluster string, params *ListEventsParam
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if params.Watch != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "watch", *params.Watch, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -3010,9 +3025,11 @@ func NewListEventsRequest(server string, cluster string, params *ListEventsParam
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if params.Since != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "since", *params.Since, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -3020,6 +3037,7 @@ func NewListEventsRequest(server string, cluster string, params *ListEventsParam
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -3072,6 +3090,7 @@ func NewListMonitoringClassesRequest(server string, cluster string, params *List
 		var rawQueryFragments []string
 
 		if params.Provider != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "provider", *params.Provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -3079,6 +3098,7 @@ func NewListMonitoringClassesRequest(server string, cluster string, params *List
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -3404,6 +3424,7 @@ func NewListBackupStoragesRequest(server string, cluster string, namespace strin
 		var rawQueryFragments []string
 
 		if params.BackupClass != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "backupClass", *params.BackupClass, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -3411,9 +3432,11 @@ func NewListBackupStoragesRequest(server string, cluster string, namespace strin
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if params.BackupStorageClass != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "backupStorageClass", *params.BackupStorageClass, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -3421,9 +3444,11 @@ func NewListBackupStoragesRequest(server string, cluster string, namespace strin
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if params.Secret != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "secret", *params.Secret, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -3431,6 +3456,7 @@ func NewListBackupStoragesRequest(server string, cluster string, namespace strin
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -3501,6 +3527,7 @@ func NewCreateBackupStorageRequestWithBody(server string, cluster string, namesp
 		var rawQueryFragments []string
 
 		if params.DryRun != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dryRun", *params.DryRun, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -3508,6 +3535,7 @@ func NewCreateBackupStorageRequestWithBody(server string, cluster string, namesp
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -3576,6 +3604,7 @@ func NewDeleteBackupStorageRequest(server string, cluster string, namespace stri
 		var rawQueryFragments []string
 
 		if params.DryRun != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dryRun", *params.DryRun, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -3583,6 +3612,7 @@ func NewDeleteBackupStorageRequest(server string, cluster string, namespace stri
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -3708,6 +3738,7 @@ func NewPatchBackupStorageRequestWithBody(server string, cluster string, namespa
 		var rawQueryFragments []string
 
 		if params.DryRun != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dryRun", *params.DryRun, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -3715,6 +3746,7 @@ func NewPatchBackupStorageRequestWithBody(server string, cluster string, namespa
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -3794,6 +3826,7 @@ func NewUpdateBackupStorageRequestWithBody(server string, cluster string, namesp
 		var rawQueryFragments []string
 
 		if params.DryRun != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dryRun", *params.DryRun, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -3801,6 +3834,7 @@ func NewUpdateBackupStorageRequestWithBody(server string, cluster string, namesp
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -3862,6 +3896,7 @@ func NewListBackupsRequest(server string, cluster string, namespace string, para
 		var rawQueryFragments []string
 
 		if params.BackupClass != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "backupClass", *params.BackupClass, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -3869,9 +3904,11 @@ func NewListBackupsRequest(server string, cluster string, namespace string, para
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if params.BackupStorage != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "backupStorage", *params.BackupStorage, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -3879,9 +3916,11 @@ func NewListBackupsRequest(server string, cluster string, namespace string, para
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if params.BackupOrigin != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "backupOrigin", *params.BackupOrigin, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -3889,6 +3928,7 @@ func NewListBackupsRequest(server string, cluster string, namespace string, para
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -4009,6 +4049,7 @@ func NewDeleteBackupRequest(server string, cluster string, namespace string, bac
 		var rawQueryFragments []string
 
 		if params.DeletionPolicy != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "deletionPolicy", *params.DeletionPolicy, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -4016,6 +4057,7 @@ func NewDeleteBackupRequest(server string, cluster string, namespace string, bac
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -4123,6 +4165,7 @@ func NewListConfigMapsRequest(server string, cluster string, namespace string, p
 		var rawQueryFragments []string
 
 		if params.Provider != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "provider", *params.Provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -4130,9 +4173,11 @@ func NewListConfigMapsRequest(server string, cluster string, namespace string, p
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if params.Definition != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "definition", *params.Definition, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -4140,6 +4185,7 @@ func NewListConfigMapsRequest(server string, cluster string, namespace string, p
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -4349,6 +4395,7 @@ func NewListInstancePresetsRequest(server string, cluster string, namespace stri
 		var rawQueryFragments []string
 
 		if params.Provider != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "provider", *params.Provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -4356,6 +4403,7 @@ func NewListInstancePresetsRequest(server string, cluster string, namespace stri
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -4678,6 +4726,7 @@ func NewCreateInstanceRequestWithBody(server string, cluster string, namespace s
 		var rawQueryFragments []string
 
 		if params.DryRun != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dryRun", *params.DryRun, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -4685,6 +4734,7 @@ func NewCreateInstanceRequestWithBody(server string, cluster string, namespace s
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -4753,6 +4803,7 @@ func NewDeleteInstanceRequest(server string, cluster string, namespace string, i
 		var rawQueryFragments []string
 
 		if params.DeletionPolicy != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "deletionPolicy", *params.DeletionPolicy, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -4760,6 +4811,7 @@ func NewDeleteInstanceRequest(server string, cluster string, namespace string, i
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -4885,6 +4937,7 @@ func NewPatchInstanceRequestWithBody(server string, cluster string, namespace st
 		var rawQueryFragments []string
 
 		if params.DryRun != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dryRun", *params.DryRun, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -4892,6 +4945,7 @@ func NewPatchInstanceRequestWithBody(server string, cluster string, namespace st
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -4971,6 +5025,7 @@ func NewUpdateInstanceRequestWithBody(server string, cluster string, namespace s
 		var rawQueryFragments []string
 
 		if params.DryRun != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dryRun", *params.DryRun, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -4978,6 +5033,7 @@ func NewUpdateInstanceRequestWithBody(server string, cluster string, namespace s
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -5183,6 +5239,7 @@ func NewListMonitoringBindingsRequest(server string, cluster string, namespace s
 		var rawQueryFragments []string
 
 		if params.Destination != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "destination", *params.Destination, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -5190,6 +5247,7 @@ func NewListMonitoringBindingsRequest(server string, cluster string, namespace s
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -5297,6 +5355,7 @@ func NewListMonitoringDestinationsRequest(server string, cluster string, namespa
 		var rawQueryFragments []string
 
 		if params.Class != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "class", *params.Class, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -5304,9 +5363,11 @@ func NewListMonitoringDestinationsRequest(server string, cluster string, namespa
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if params.Secret != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "secret", *params.Secret, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -5314,6 +5375,7 @@ func NewListMonitoringDestinationsRequest(server string, cluster string, namespa
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -5384,6 +5446,7 @@ func NewCreateMonitoringDestinationRequestWithBody(server string, cluster string
 		var rawQueryFragments []string
 
 		if params.DryRun != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dryRun", *params.DryRun, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -5391,6 +5454,7 @@ func NewCreateMonitoringDestinationRequestWithBody(server string, cluster string
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -5459,6 +5523,7 @@ func NewDeleteMonitoringDestinationRequest(server string, cluster string, namesp
 		var rawQueryFragments []string
 
 		if params.DryRun != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dryRun", *params.DryRun, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -5466,6 +5531,7 @@ func NewDeleteMonitoringDestinationRequest(server string, cluster string, namesp
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -5591,6 +5657,7 @@ func NewUpdateMonitoringDestinationRequestWithBody(server string, cluster string
 		var rawQueryFragments []string
 
 		if params.DryRun != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dryRun", *params.DryRun, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -5598,6 +5665,7 @@ func NewUpdateMonitoringDestinationRequestWithBody(server string, cluster string
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -5809,6 +5877,7 @@ func NewListSecretsRequest(server string, cluster string, namespace string, para
 		var rawQueryFragments []string
 
 		if params.Provider != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "provider", *params.Provider, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -5816,9 +5885,11 @@ func NewListSecretsRequest(server string, cluster string, namespace string, para
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if params.MonitoringClass != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "monitoringClass", *params.MonitoringClass, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -5826,9 +5897,11 @@ func NewListSecretsRequest(server string, cluster string, namespace string, para
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if params.BackupStorageClass != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "backupStorageClass", *params.BackupStorageClass, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -5836,9 +5909,11 @@ func NewListSecretsRequest(server string, cluster string, namespace string, para
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if params.Definition != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "definition", *params.Definition, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -5846,6 +5921,7 @@ func NewListSecretsRequest(server string, cluster string, namespace string, para
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -5916,6 +5992,7 @@ func NewCreateSecretRequestWithBody(server string, cluster string, namespace str
 		var rawQueryFragments []string
 
 		if params.DryRun != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dryRun", *params.DryRun, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -5923,6 +6000,7 @@ func NewCreateSecretRequestWithBody(server string, cluster string, namespace str
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -5991,6 +6069,7 @@ func NewDeleteSecretRequest(server string, cluster string, namespace string, nam
 		var rawQueryFragments []string
 
 		if params.DryRun != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dryRun", *params.DryRun, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -5998,6 +6077,7 @@ func NewDeleteSecretRequest(server string, cluster string, namespace string, nam
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -6123,6 +6203,7 @@ func NewPatchSecretRequestWithBody(server string, cluster string, namespace stri
 		var rawQueryFragments []string
 
 		if params.DryRun != nil {
+
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "dryRun", *params.DryRun, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else {
@@ -6130,6 +6211,7 @@ func NewPatchSecretRequestWithBody(server string, cluster string, namespace stri
 					rawQueryFragments = append(rawQueryFragments, qp)
 				}
 			}
+
 		}
 
 		if encoded := queryValues.Encode(); encoded != "" {
@@ -10360,6 +10442,7 @@ func ParseListNamespacesResponse(rsp *http.Response) (*ListNamespacesResponse, e
 			return nil, err
 		}
 		response.JSON200 = &dest
+
 	}
 
 	return response, nil
@@ -13091,6 +13174,7 @@ func ParseGetSettingsResponse(rsp *http.Response) (*GetSettingsResponse, error) 
 			return nil, err
 		}
 		response.JSON200 = &dest
+
 	}
 
 	return response, nil
@@ -13116,6 +13200,7 @@ func ParseVersionInfoResponse(rsp *http.Response) (*VersionInfoResponse, error) 
 			return nil, err
 		}
 		response.JSON200 = &dest
+
 	}
 
 	return response, nil
