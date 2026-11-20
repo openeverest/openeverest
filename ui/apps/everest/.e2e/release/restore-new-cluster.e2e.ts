@@ -23,6 +23,7 @@ import { getCITokenFromLocalStorage } from '@e2e/utils/localStorage';
 import { getClusterDetailedInfo } from '@e2e/utils/storage-class';
 import {
   moveForward,
+  passMonitoringStep,
   submitWizard,
   populateBasicInformation,
   populateResources,
@@ -154,6 +155,7 @@ function getNextScheduleMinute(incrementMinutes: number): string {
             null
           );
           await moveForward(page);
+          await passMonitoringStep(page);
         });
 
         await test.step('Populate resources', async () => {
@@ -189,11 +191,9 @@ function getNextScheduleMinute(incrementMinutes: number): string {
               page.getByTestId('text-input-monitoring-instance')
             ).toHaveValue(monitoringName);
           } else {
-            // TODO(monitoring): the PXC provider dropped the wizard Monitoring
-            // step and spec.components.monitoring in favour of
-            // MonitoringDestination (openeverest/provider-percona-xtradb-cluster#46),
-            // so the wizard goes straight to Proxy. Restore monitoring coverage
-            // once core and the UI support MonitoringDestination.
+            // PXC monitoring is the wizard's Monitoring step, passed after the
+            // basic information (covered by monitoring.e2e.ts), so this step
+            // is Proxy.
             await expect(page.getByTestId('step-header')).toHaveText('Proxy');
             await moveForward(page);
           }

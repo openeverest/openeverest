@@ -22,18 +22,20 @@ export const releaseProject: PlaywrightTestProject[] = [
   {
     name: 'release',
     testMatch: /.^/,
-    // Release lane runs the PITR golden plus restore-to-new-cluster for now.
-    // Restore the rest incrementally: 'pr', 'release:session:rate-limiting',
-    // ...sessionProject.
-    dependencies: ['release:pitr', 'release:restore-new-cluster'],
+    // Release lane runs the PITR, restore-to-new-cluster and monitoring
+    // goldens for now. Restore the rest incrementally: 'pr',
+    // 'release:session:rate-limiting', ...sessionProject.
+    dependencies: [
+      'release:pitr',
+      'release:restore-new-cluster',
+      'release:monitoring',
+    ],
   },
   {
     // Live PITR / restore-from-PITR golden (PXC). Auth is provided by the shared
     // fixture (@e2e/fixtures/auth); backup storage comes from the global setup
     // project. The PXC provider must already be installed in the cluster
     // (Helm: `make deploy-pxc-provider`) before this runs.
-    // TODO(monitoring): no monitoring setup until the release goldens cover
-    // MonitoringDestination (see the TODO in pitr.e2e.ts).
     name: 'release:pitr',
     testDir: './release',
     testMatch: /pitr\.e2e\.ts/,
@@ -49,6 +51,18 @@ export const releaseProject: PlaywrightTestProject[] = [
     testDir: './release',
     testMatch: /restore-new-cluster\.e2e\.ts/,
     dependencies: ['global:auth:ci:setup', 'global:backup-storage:setup'],
+    use: {
+      storageState: CI_USER_STORAGE_STATE_FILE,
+    },
+  },
+  {
+    // Monitoring golden (PXC + PMM). Needs the PMM monitoring class
+    // (`make deploy-monitoring-pmm`) and the PMM 3 server the .e2e
+    // `make deploy-monitoring` installs.
+    name: 'release:monitoring',
+    testDir: './release',
+    testMatch: /monitoring\.e2e\.ts/,
+    dependencies: ['global:auth:ci:setup'],
     use: {
       storageState: CI_USER_STORAGE_STATE_FILE,
     },
