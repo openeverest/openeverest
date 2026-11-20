@@ -206,7 +206,10 @@ export interface paths {
         };
         /**
          * Cluster info
+         * @deprecated
          * @description This API gets the cluster type and the storage classes available in the cluster.
+         *
+         *     Deprecated: use `GET /clusters/{cluster}/storage-classes` to list the storage classes of a cluster. This API will be removed in a future release.
          */
         get: operations["getKubernetesClusterInfo"];
         put?: never;
@@ -249,6 +252,47 @@ export interface paths {
          * @description Get a cluster by name.
          */
         get: operations["getCluster"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/storage-classes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List storage classes
+         * @description This API lists the Kubernetes storage classes (`storage.k8s.io/v1`) in the specified cluster, as stored in the cluster.
+         *     Storage classes are managed by the cluster administrator and are read-only over this API.
+         */
+        get: operations["listStorageClasses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/storage-classes/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get storage class
+         * @description This API gets the Kubernetes storage class specified by the `name` in the specified `cluster`.
+         */
+        get: operations["getStorageClass"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1649,7 +1693,7 @@ export interface components {
              *     ]
              */
             storageClassNames: string[];
-            storageClasses?: components["schemas"]["StorageClass"][];
+            storageClasses?: components["schemas"]["ClusterInfoStorageClass"][];
         };
         /** @description Everest version info */
         Version: {
@@ -1674,16 +1718,58 @@ export interface components {
         SizeLimit: components["schemas"]["Integer"] | components["schemas"]["String"];
         Integer: number;
         String: string;
+        /** @description ClusterInfoStorageClass is the subset of a storage class returned by the deprecated `/cluster-info` API. Use `StorageClass` instead. */
+        ClusterInfoStorageClass: {
+            /** @description allowVolumeExpansion shows whether the storage class allow volume expand. */
+            allowVolumeExpansion?: boolean;
+            /** @description Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata */
+            metadata?: Record<string, never>;
+        };
         /**
          * @description StorageClass describes the parameters for a class of storage for which PersistentVolumes can be dynamically provisioned.
          *
          *     StorageClasses are non-namespaced; the name of the storage class according to etcd is in ObjectMeta.Name.
          */
         StorageClass: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: components["schemas"]["ObjectMeta"];
+            /** @description provisioner indicates the type of the provisioner. */
+            provisioner: string;
+            /** @description parameters holds the parameters for the provisioner that should create volumes of this storage class. */
+            parameters?: {
+                [key: string]: string;
+            };
+            /** @description reclaimPolicy controls the reclaimPolicy for dynamically provisioned PersistentVolumes of this storage class. Defaults to Delete. */
+            reclaimPolicy?: string;
+            /** @description mountOptions controls the mountOptions for dynamically provisioned PersistentVolumes of this storage class. e.g. ["ro", "soft"]. Not validated - mount of the PVs will simply fail if one is invalid. */
+            mountOptions?: string[];
             /** @description allowVolumeExpansion shows whether the storage class allow volume expand. */
             allowVolumeExpansion?: boolean;
-            /** @description Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata */
-            metadata?: Record<string, never>;
+            /** @description volumeBindingMode indicates how PersistentVolumeClaims should be provisioned and bound. When unset, VolumeBindingImmediate is used. This field is only honored by servers that enable the VolumeScheduling feature. */
+            volumeBindingMode?: string;
+            /** @description allowedTopologies restrict the node topologies where volumes can be dynamically provisioned. Each volume plugin defines its own supported topology specifications. An empty TopologySelectorTerm list means there is no topology restriction. This field is only honored by servers that enable the VolumeScheduling feature. */
+            allowedTopologies?: {
+                /** @description A list of topology selector requirements by labels. */
+                matchLabelExpressions?: {
+                    /** @description The label key that the selector applies to. */
+                    key: string;
+                    /** @description An array of string values. One value must match the label to be selected. Each entry in Values is ORed. */
+                    values: string[];
+                }[];
+            }[];
+        };
+        /** @description StorageClassList is a collection of storage classes. */
+        StorageClassList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: components["schemas"]["io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"];
+            /** @description items is the list of StorageClasses */
+            items: components["schemas"]["StorageClass"][];
         };
         /** @description Status is a return value for calls that don't return other objects. */
         "io.k8s.apimachinery.pkg.apis.meta.v1.Status_v2": {
@@ -8751,6 +8837,90 @@ export interface operations {
             };
             /** @description Internal server error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listStorageClasses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of storage classes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageClassList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getStorageClass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The name of the storage class */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Storage class details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageClass"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Storage class not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };

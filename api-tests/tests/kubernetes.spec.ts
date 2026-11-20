@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -41,5 +42,31 @@ test.describe.parallel('K8S cluster tests', () => {
     expect(info?.storageClassNames).toHaveLength(1)
     expect(info?.storageClasses).toBeTruthy()
     expect(info?.storageClasses).toHaveLength(1)
+  })
+
+  test('list and get storage classes', async ({request}) => {
+    const r = await request.get(`/v1/clusters/main/storage-classes`),
+      list = await r.json(),
+      name = list?.items?.[0]?.metadata?.name,
+      g = await request.get(`/v1/clusters/main/storage-classes/${name}`),
+      got = await g.json(),
+      info = await (await request.get(`/v1/cluster-info`)).json()
+
+    await checkError(r)
+    await checkError(g)
+
+    expect(list?.items).toHaveLength(1)
+    expect(name).toBeTruthy()
+    expect(list.items[0]?.provisioner).toBeTruthy()
+    // The deprecated /cluster-info must agree until it is removed.
+    expect(list.items.map((sc: { metadata: { name: string } }) => sc.metadata.name)).toEqual(info.storageClassNames)
+    expect(got.metadata.name).toBe(name)
+    expect(got.provisioner).toBe(list.items[0].provisioner)
+  })
+
+  test('get missing storage class', async ({request}) => {
+    const r = await request.get(`/v1/clusters/main/storage-classes/does-not-exist`)
+
+    expect(r.status()).toBe(404)
   })
 });
