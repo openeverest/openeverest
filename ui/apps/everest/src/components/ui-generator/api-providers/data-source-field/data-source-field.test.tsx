@@ -431,6 +431,38 @@ describe('DataSourceField', () => {
       expect(screen.getByTestId('child')).toBeInTheDocument();
     });
 
+    it('explains empty options with the provider emptyHint', () => {
+      mockUseProviderOptions.mockReturnValue({
+        options: [],
+        isLoading: false,
+        error: null,
+        isEmpty: true,
+        emptyHint: 'No access',
+      });
+      mockRegistryGet.mockReturnValue({ emptyStateFallback: null });
+
+      const Harness = () => {
+        const methods = useForm({
+          defaultValues: { spec: { storageClass: '' } },
+        });
+        return (
+          <FormProvider {...methods}>
+            <DataSourceField item={makeItem()} name="spec.storageClass">
+              {(patched) => (
+                <p data-testid="helper-text">
+                  {patched.fieldParams?.helperText}
+                </p>
+              )}
+            </DataSourceField>
+          </FormProvider>
+        );
+      };
+
+      render(<Harness />);
+
+      expect(screen.getByTestId('helper-text')).toHaveTextContent('No access');
+    });
+
     it('does not render fallback when options are loading', () => {
       mockUseProviderOptions.mockReturnValue({
         options: [],

@@ -24,12 +24,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	toolscache "k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/events"
@@ -65,22 +69,40 @@ func newTestRecorder(t *testing.T) (*Recorder, *recordingEmitter) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, clientgoscheme.AddToScheme(scheme))
 	require.NoError(t, corev1alpha1.AddToScheme(scheme))
+	require.NoError(t, backupv1alpha1.AddToScheme(scheme))
 	emitter := &recordingEmitter{}
 	r := NewRecorder(nil, scheme, emitter, DefaultKinds(), logr.Discard())
 	r.now = func() time.Time { return now }
 	return r, emitter
 }
 
-func instance(generation int64, phase corev1alpha1.InstancePhase, createdAgo time.Duration) *corev1alpha1.Instance {
-	return &corev1alpha1.Instance{
+// instance returns an Instance whose status word, the reason of its Ready
+// condition, is status. An empty status means no provider reported on it.
+func instance(generation int64, status string, createdAgo time.Duration) *corev1alpha1.Instance {
+	in := &corev1alpha1.Instance{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "team-a", Name: "db1", UID: "uid-1", Generation: generation,
 			ResourceVersion:   "100",
 			CreationTimestamp: metav1.NewTime(now.Add(-createdAgo)),
 			Annotations:       map[string]string{events.AnnotationActorType: "user", events.AnnotationActorID: "alice"},
 		},
-		Status: corev1alpha1.InstanceStatus{Phase: phase},
 	}
+	if status != "" {
+		ready := metav1.ConditionFalse
+		if status == corev1alpha1.ReasonReady {
+			ready = metav1.ConditionTrue
+		}
+		meta.SetStatusCondition(&in.Status.Conditions, metav1.Condition{Type: corev1alpha1.ConditionReady, Status: ready, Reason: status})
+	}
+	return in
+}
+
+// needingAttention marks in as needing attention.
+func needingAttention(in *corev1alpha1.Instance) *corev1alpha1.Instance {
+	meta.SetStatusCondition(&in.Status.Conditions, metav1.Condition{
+		Type: corev1alpha1.ConditionNeedsAttention, Status: metav1.ConditionTrue, Reason: "CrashLoopBackOff",
+	})
+	return in
 }
 
 //nolint:ireturn // informers take client-go event handlers
@@ -131,7 +153,7 @@ func TestRecorder_Add(t *testing.T) {
 	t.Run("the initial list records deletions requested within the lookback", func(t *testing.T) {
 		t.Parallel()
 		r, emitter := newTestRecorder(t)
-		obj := instance(1, "Terminating", 2*DefaultLookback)
+		obj := instance(1, "Deleting", 2*DefaultLookback)
 		deletion := metav1.NewTime(now.Add(-time.Minute))
 		obj.DeletionTimestamp = &deletion
 		instanceHandler(t, r).OnAdd(obj, true)
@@ -158,12 +180,12 @@ func TestRecorder_Update(t *testing.T) {
 		r, emitter := newTestRecorder(t)
 		newObj := instance(1, "Ready", time.Hour)
 		newObj.ResourceVersion = "101"
-		instanceHandler(t, r).OnUpdate(instance(1, "Provisioning", time.Hour), newObj)
+		instanceHandler(t, r).OnUpdate(instance(1, "Creating", time.Hour), newObj)
 
 		require.Len(t, emitter.records, 1)
 		rec := emitter.records[0]
 		assert.Equal(t, events.ReasonPhaseChanged, rec.Reason)
-		assert.Equal(t, "Provisioning", rec.PhaseFrom)
+		assert.Equal(t, "Creating", rec.PhaseFrom)
 		assert.Equal(t, "Ready", rec.PhaseTo)
 		assert.Equal(t, "101", rec.Key)
 		assert.Equal(t, events.ControllerActor, rec.Actor)
@@ -173,9 +195,10 @@ func TestRecorder_Update(t *testing.T) {
 	t.Run("a failure is recorded as a warning", func(t *testing.T) {
 		t.Parallel()
 		r, emitter := newTestRecorder(t)
-		instanceHandler(t, r).OnUpdate(instance(1, "Ready", time.Hour), instance(1, "Failed", time.Hour))
+		instanceHandler(t, r).OnUpdate(instance(1, "Ready", time.Hour), needingAttention(instance(1, "CrashLoopBackOff", time.Hour)))
 		require.Len(t, emitter.records, 1)
 		assert.True(t, emitter.records[0].Warning)
+		assert.Equal(t, "CrashLoopBackOff", emitter.records[0].PhaseTo)
 	})
 
 	t.Run("a resync without changes records nothing", func(t *testing.T) {
@@ -213,10 +236,38 @@ func TestRecorder_Delete(t *testing.T) {
 
 	r, emitter := newTestRecorder(t)
 	handler := instanceHandler(t, r)
-	handler.OnDelete(instance(1, "Terminating", time.Hour))
+	handler.OnDelete(instance(1, "Deleting", time.Hour))
 	// A delete missed by the watch is delivered as a tombstone.
-	handler.OnDelete(toolscache.DeletedFinalStateUnknown{Key: "team-a/db1", Obj: instance(1, "Terminating", time.Hour)})
+	handler.OnDelete(toolscache.DeletedFinalStateUnknown{Key: "team-a/db1", Obj: instance(1, "Deleting", time.Hour)})
 	assert.Equal(t, []events.Reason{events.ReasonDeleted, events.ReasonDeleted}, emitter.reasons())
+}
+
+func TestRecorder_Provider(t *testing.T) {
+	t.Parallel()
+
+	r, emitter := newTestRecorder(t)
+	var providerKind Kind
+	for _, k := range DefaultKinds() {
+		if _, ok := k.New().(*corev1alpha1.Provider); ok {
+			providerKind = k
+			break
+		}
+	}
+	require.NotNil(t, providerKind.New)
+
+	handler := r.handlerFor(context.Background(), providerKind)
+	provider := &corev1alpha1.Provider{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "percona-server-mongodb",
+			UID:  "provider-uid",
+		},
+	}
+	handler.OnAdd(provider, false)
+	handler.OnDelete(provider)
+
+	assert.Equal(t, []events.Reason{events.ReasonCreated, events.ReasonDeleted}, emitter.reasons())
+	assert.Equal(t, "Provider", emitter.records[0].Regarding.Kind)
+	assert.Equal(t, "percona-server-mongodb", emitter.records[0].Regarding.Name)
 }
 
 func TestRecorder_Include(t *testing.T) {
@@ -246,4 +297,76 @@ func TestRecorder_Include(t *testing.T) {
 	handler.OnUpdate(namespace(nil), managed)
 	handler.OnUpdate(managed, namespace(nil))
 	assert.Equal(t, []events.Reason{events.ReasonCreated, events.ReasonCreated, events.ReasonDeleted}, emitter.reasons())
+}
+
+func kindOf[T client.Object](t *testing.T) Kind {
+	t.Helper()
+	for _, k := range DefaultKinds() {
+		if _, ok := k.New().(T); ok {
+			return k
+		}
+	}
+	var zero T
+	t.Fatalf("no kind for %T", zero)
+	return Kind{}
+}
+
+func TestRecorder_Owner(t *testing.T) {
+	t.Parallel()
+
+	backup := func(origin backupv1alpha1.BackupOrigin) *backupv1alpha1.Backup {
+		return &backupv1alpha1.Backup{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "b1", UID: "uid-b1"},
+			Spec:       backupv1alpha1.BackupSpec{Origin: origin},
+		}
+	}
+	fromDB1 := backupv1alpha1.BackupOrigin{
+		Type: backupv1alpha1.BackupOriginTypeInstance, InstanceRef: &commonv1alpha1.ObjectRef{Name: "db1"},
+	}
+	db1 := instance(1, "Ready", time.Hour)
+	db1.Spec.ProviderRef = commonv1alpha1.ObjectRef{Name: "percona-server-mysql"}
+
+	t.Run("an Instance carries its own name and provider, even once deleted", func(t *testing.T) {
+		t.Parallel()
+		r, emitter := newTestRecorder(t)
+		instanceHandler(t, r).OnDelete(db1.DeepCopy())
+		require.Len(t, emitter.records, 1)
+		assert.Equal(t, "db1", emitter.records[0].Instance)
+		assert.Equal(t, "percona-server-mysql", emitter.records[0].Provider)
+	})
+
+	t.Run("a Backup carries its Instance and the provider read from it", func(t *testing.T) {
+		t.Parallel()
+		r, emitter := newTestRecorder(t)
+		r.reader = fake.NewClientBuilder().WithScheme(r.scheme).WithObjects(db1.DeepCopy()).Build()
+		r.handlerFor(context.Background(), kindOf[*backupv1alpha1.Backup](t)).OnAdd(backup(fromDB1), false)
+		require.Len(t, emitter.records, 1)
+		assert.Equal(t, "db1", emitter.records[0].Instance)
+		assert.Equal(t, "percona-server-mysql", emitter.records[0].Provider)
+	})
+
+	t.Run("a Restore of a deleted Instance carries the Instance only", func(t *testing.T) {
+		t.Parallel()
+		r, emitter := newTestRecorder(t)
+		r.reader = fake.NewClientBuilder().WithScheme(r.scheme).Build()
+		restore := &backupv1alpha1.Restore{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "team-a", Name: "r1", UID: "uid-r1"},
+			Spec:       backupv1alpha1.RestoreSpec{InstanceRef: commonv1alpha1.ObjectRef{Name: "db1"}},
+		}
+		r.handlerFor(context.Background(), kindOf[*backupv1alpha1.Restore](t)).OnAdd(restore, false)
+		require.Len(t, emitter.records, 1)
+		assert.Equal(t, "db1", emitter.records[0].Instance)
+		assert.Empty(t, emitter.records[0].Provider)
+	})
+
+	t.Run("an imported Backup has no Instance", func(t *testing.T) {
+		t.Parallel()
+		r, emitter := newTestRecorder(t)
+		r.reader = fake.NewClientBuilder().WithScheme(r.scheme).WithObjects(db1.DeepCopy()).Build()
+		external := backupv1alpha1.BackupOrigin{Type: backupv1alpha1.BackupOriginTypeExternal}
+		r.handlerFor(context.Background(), kindOf[*backupv1alpha1.Backup](t)).OnAdd(backup(external), false)
+		require.Len(t, emitter.records, 1)
+		assert.Empty(t, emitter.records[0].Instance)
+		assert.Empty(t, emitter.records[0].Provider)
+	})
 }

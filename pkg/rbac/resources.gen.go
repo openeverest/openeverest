@@ -24,6 +24,7 @@ var AllResources = []string{
 	"providers",
 	"restores",
 	"secrets",
+	"storage-classes",
 }
 
 // resourcePathMap maps API paths to their resource names.
@@ -67,16 +68,16 @@ var resourcePathMap = map[string]string{
 	"/clusters/:cluster/plugins":                                              "plugins",
 	"/clusters/:cluster/providers":                                            "providers",
 	"/clusters/:cluster/providers/:provider":                                  "providers",
-	"/clusters/:name":                                                         "clusters",
+	"/clusters/:cluster/storage-classes":                                      "storage-classes",
+	"/clusters/:cluster/storage-classes/:name":                                "storage-classes",
+	"/clusters/:name": "clusters",
 }
 
 // skipPaths lists API paths that should skip RBAC checks.
 var skipPaths = []string{
 	"/auth/revoke",
 	"/auth/token",
-	"/cluster-info",
 	"/permissions",
-	"/resources",
 	"/settings",
 	"/version",
 }

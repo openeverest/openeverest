@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import type { Section } from 'components/ui-generator/ui-generator.types';
-import type { KubernetesClusterInfo } from 'shared-types/kubernetes.types';
+import type { StorageClass } from 'shared-types/kubernetes.types';
 import type { Instance } from 'shared-types/api.types';
 import {
   applyFieldOverrides,
@@ -29,23 +29,23 @@ const DISABLED_DISK_TOOLTIP =
   "You can't change the disk size as the selected storage class doesn't support volume expansion.";
 
 /**
- * Enriches sections with runtime field overrides based on cluster info.
+ * Enriches sections with runtime field overrides based on the cluster's storage classes.
  * Currently checks whether the instance's storage class supports volume expansion
  * and disables the storage size field with a tooltip if it does not.
  */
 export const applyRuntimeOverrides = (
   sections: Record<string, Section>,
   instance: Instance,
-  clusterInfo?: KubernetesClusterInfo
+  storageClasses: StorageClass[] = []
 ): Record<string, Section> =>
   applyFieldOverrides(
     sections,
-    buildStorageSizeOverrides(instance, clusterInfo)
+    buildStorageSizeOverrides(instance, storageClasses)
   );
 
 const buildStorageSizeOverrides = (
   instance: Instance,
-  clusterInfo?: KubernetesClusterInfo
+  storageClasses: StorageClass[]
 ): FieldOverrides => {
   const instanceData = instance as unknown as Record<string, unknown>;
   const storageClass = getByPath(instanceData, STORAGE_CLASS_PATH);
@@ -54,8 +54,8 @@ const buildStorageSizeOverrides = (
     return {};
   }
 
-  const storageClassInfo = (clusterInfo?.storageClasses ?? []).find(
-    (sc) => sc.metadata.name === storageClass
+  const storageClassInfo = storageClasses.find(
+    (sc) => sc.metadata?.name === storageClass
   );
 
   if (!storageClassInfo || storageClassInfo.allowVolumeExpansion !== false) {

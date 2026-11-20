@@ -54,6 +54,11 @@ type Record struct {
 	// Generation is the new metadata.generation of an Updated event.
 	Generation int64
 	SourceIP   string
+	// Instance is the Instance the object belongs to: the object itself, or the
+	// Instance a Backup or Restore refers to.
+	Instance string
+	// Provider is the provider of that Instance.
+	Provider string
 	// Key tells apart events with the same reason about the same object, such as two
 	// phase changes. For an object with a UID, an event with the same reason and key is
 	// written only once, so recording it again after a restart or a retry is safe.
@@ -114,6 +119,8 @@ func (e *Emitter) newEvent(r Record) *eventsv1.Event {
 	setIfNotEmpty(annotations, AnnotationPhaseFrom, r.PhaseFrom)
 	setIfNotEmpty(annotations, AnnotationPhaseTo, r.PhaseTo)
 	setIfNotEmpty(annotations, AnnotationSourceIP, r.SourceIP)
+	setIfNotEmpty(annotations, AnnotationInstance, r.Instance)
+	setIfNotEmpty(annotations, AnnotationProvider, r.Provider)
 	if r.Generation > 0 {
 		annotations[AnnotationGeneration] = strconv.FormatInt(r.Generation, 10)
 	}

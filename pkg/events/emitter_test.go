@@ -61,6 +61,7 @@ func TestEmitter(t *testing.T) {
 		require.NoError(t, e.Emit(context.Background(), Record{
 			Regarding: instance, Reason: ReasonPhaseChanged, Note: "phase changed", Warning: true,
 			Actor: ControllerActor, PhaseFrom: "Provisioning", PhaseTo: "Failed", Key: "1234",
+			Instance: "db1", Provider: "percona-server-mysql",
 		}))
 
 		items := listEvents(t, c)
@@ -77,6 +78,7 @@ func TestEmitter(t *testing.T) {
 		wantAnnotations := map[string]string{
 			AnnotationEventActorType: "system", AnnotationEventActorID: "controller",
 			AnnotationPhaseFrom: "Provisioning", AnnotationPhaseTo: "Failed",
+			AnnotationInstance: "db1", AnnotationProvider: "percona-server-mysql",
 		}
 		assert.Equal(t, wantAnnotations, ev.Annotations)
 	})

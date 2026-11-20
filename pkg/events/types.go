@@ -78,6 +78,10 @@ const (
 	AnnotationGeneration = "openeverest.io/generation"
 	// AnnotationSourceIP records the client IP of an authentication event.
 	AnnotationSourceIP = "openeverest.io/source-ip"
+	// AnnotationInstance records the Instance an event's object belongs to.
+	AnnotationInstance = "openeverest.io/instance"
+	// AnnotationProvider records the provider of that Instance.
+	AnnotationProvider = "openeverest.io/provider"
 )
 
 // Actor types.

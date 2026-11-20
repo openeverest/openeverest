@@ -95,6 +95,7 @@ func TestIsClusterScopedResource(t *testing.T) {
 		{ResourceProviders, true},
 		{ResourceBackupClasses, true},
 		{ResourceMonitoringClasses, true},
+		{ResourceStorageClasses, true},
 		{ResourceMonitoringDestinations, false},
 		{ResourceInstances, false},
 		{ResourceClusters, false},

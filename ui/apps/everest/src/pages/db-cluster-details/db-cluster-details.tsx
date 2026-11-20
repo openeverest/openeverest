@@ -29,10 +29,9 @@ import { useContext, useMemo } from 'react';
 import DbActions from 'components/db-actions/db-actions';
 import { Messages } from './db-cluster-details.messages';
 import { InstanceStatus } from 'components/instance-status';
-import { getPodsAlertConditions } from 'shared-types/instance.types';
 import { usePlugins } from 'contexts/plugins';
 import type { ClusterDetailTabExtension } from '@openeverest/plugin-sdk';
-import { PodsAlert } from './pods-alert';
+import { StatusAlert } from './status-alert';
 
 const WithPermissionDetails = ({
   instanceName,
@@ -43,7 +42,6 @@ const WithPermissionDetails = ({
 }) => {
   const { instance /*clusterDeleted */ } = useContext(DbInstanceContext);
   const navigate = useNavigate();
-  const podsAlerts = getPodsAlertConditions(instance);
 
   // TODO RBAC
   // useRBACPermissionRoute([
@@ -152,9 +150,7 @@ const WithPermissionDetails = ({
             {Messages.restoringDb}
           </Alert>
         )} */}
-        {podsAlerts.map((condition) => (
-          <PodsAlert key={condition.type} condition={condition} />
-        ))}
+        <StatusAlert instance={instance} />
         <Outlet />
       </Box>
     </>

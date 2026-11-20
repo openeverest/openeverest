@@ -121,7 +121,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
         const getStorageClassResp = page.waitForResponse(
           (resp) =>
             resp.request().method() === 'GET' &&
-            resp.url().includes('/v1/cluster-info') &&
+            resp.url().includes('/v1/clusters/main/storage-classes') &&
             resp.status() === 200
         );
 
@@ -180,7 +180,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
         const getStorageClassResp = page.waitForResponse(
           (resp) =>
             resp.request().method() === 'GET' &&
-            resp.url().includes('/v1/cluster-info') &&
+            resp.url().includes('/v1/clusters/main/storage-classes') &&
             resp.status() === 200,
           { timeout: TIMEOUTS.ThirtySeconds }
         );
@@ -238,7 +238,7 @@ test.describe.parallel('Policies Scheduling Policies', () => {
         const getStorageClassResp = page.waitForResponse(
           (resp) =>
             resp.request().method() === 'GET' &&
-            resp.url().includes('/v1/cluster-info') &&
+            resp.url().includes('/v1/clusters/main/storage-classes') &&
             resp.status() === 200,
           { timeout: TIMEOUTS.ThirtySeconds }
         );
