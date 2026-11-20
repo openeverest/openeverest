@@ -14,26 +14,31 @@
 
 import { render, screen } from '@testing-library/react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { ClusterInstancePreset } from 'shared-types/api.types';
 import { TestWrapper } from 'utils/test';
 import { PresetSelectCards } from './preset-select-cards';
 import {
   PresetSelectionContext,
   PresetSelectionContextType,
 } from '../preset-selection-context';
+import { PresetScope, SelectablePreset } from '../preset-selection.types';
+import { getClusterPresetId } from '../preset-selection.utils';
 
 const baseContext: PresetSelectionContextType = {
   presets: [],
   isLoadingPresets: false,
   isError: false,
-  presetName: '',
+  presetId: '',
   selectedPreset: null,
   presetSelected: false,
   presetPending: false,
+  presetUnavailable: false,
+  droppedPreset: null,
 };
 
-const preset: ClusterInstancePreset = {
-  metadata: { name: 'psmdb-x' },
+const preset: SelectablePreset = {
+  id: getClusterPresetId('psmdb-x'),
+  scope: PresetScope.Cluster,
+  name: 'psmdb-x',
   spec: {
     providerRef: { name: 'percona-server-mongodb' },
     version: '8.0.12',
@@ -51,7 +56,7 @@ const preset: ClusterInstancePreset = {
 const renderCards = (overrides: Partial<PresetSelectionContextType>) => {
   const value = { ...baseContext, ...overrides };
   const Harness = () => {
-    const methods = useForm({ defaultValues: { presetName: '' } });
+    const methods = useForm({ defaultValues: { presetId: '' } });
     return (
       <TestWrapper>
         <PresetSelectionContext.Provider value={value}>
@@ -99,6 +104,66 @@ describe('PresetSelectCards', () => {
     expect(screen.getByText(/Presets didn't load/i)).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Start from scratch/ })
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the loaded presets and says only some failed when one list fails', () => {
+    renderCards({ presets: [preset], isError: true });
+
+    expect(screen.getByText(/Some presets didn't load/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Browse all 1 presets/ })
+    ).toBeInTheDocument();
+  });
+
+  it('explains why a namespace preset was dropped after a namespace switch', () => {
+    renderCards({
+      presets: [preset],
+      droppedPreset: {
+        name: 'psmdb-x',
+        namespace: 'team-b',
+        presetNamespace: 'team-a',
+      },
+    });
+
+    // Names the owning namespace: "team-b" may have its own "psmdb-x".
+    expect(
+      screen.getByText(
+        "Preset “psmdb-x” belongs to namespace “team-a” and can't be used in “team-b”."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('still explains the drop when the new namespace offers no presets at all', () => {
+    renderCards({
+      presets: [],
+      droppedPreset: {
+        name: 'psmdb-x',
+        namespace: 'team-b',
+        presetNamespace: 'team-a',
+      },
+    });
+
+    expect(
+      screen.getByText(/belongs to namespace “team-a”/)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Start from scratch/ })
+    ).toBeInTheDocument();
+  });
+
+  it('says a preset is gone when it disappeared without a namespace switch', () => {
+    renderCards({
+      presets: [preset],
+      droppedPreset: {
+        name: 'psmdb-old',
+        namespace: 'team-a',
+        presetNamespace: 'team-a',
+      },
+    });
+
+    expect(
+      screen.getByText('Preset “psmdb-old” is no longer available.')
     ).toBeInTheDocument();
   });
 });

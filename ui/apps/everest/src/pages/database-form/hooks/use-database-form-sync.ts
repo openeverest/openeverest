@@ -21,14 +21,14 @@ import {
 import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import { mergeTopologyDefaults } from 'components/ui-generator/utils/default-values/merge-topology-defaults';
 import { dropOtherTopologyValues } from 'components/ui-generator/utils/topology-scope';
-import { ClusterInstancePreset } from 'shared-types/api.types';
-import { usePresetFormSync } from '../preset-selection';
+import { SelectablePreset, usePresetFormSync } from '../preset-selection';
 import { DbWizardType } from '../database-form-schema';
 
 interface PresetSource {
-  selectedPreset: ClusterInstancePreset | null;
-  presetName: string;
+  selectedPreset: SelectablePreset | null;
+  presetId: string;
   presetSelected: boolean;
+  presetUnavailable: boolean;
 }
 
 interface UseDatabaseFormSyncArgs {
@@ -58,14 +58,15 @@ export const useDatabaseFormSync = ({
   getValues,
 }: UseDatabaseFormSyncArgs) => {
   // Source 1 — preset: populates the form from the selected preset and reverts
-  // on clear. Owns topology while a preset is selected.
+  // on clear, or when the pick stops being available. Owns topology while a preset is selected.
   usePresetFormSync({
     mode,
     uiSchema,
     defaultValues,
     defaultTopology,
     selectedPreset: preset.selectedPreset,
-    presetName: preset.presetName,
+    presetId: preset.presetId,
+    presetUnavailable: preset.presetUnavailable,
     reset,
     getValues,
   });
