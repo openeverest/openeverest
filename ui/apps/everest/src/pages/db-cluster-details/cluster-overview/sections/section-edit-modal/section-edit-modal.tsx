@@ -30,7 +30,8 @@ import {
   stripBadgesFromData,
 } from 'components/ui-generator/utils/badge-to-api/badge-to-api';
 import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/useUpdateDbInstance';
-import { useKubernetesClusterInfo } from 'hooks/api/kubernetesClusters/useKubernetesClusterInfo';
+import { useStorageClassesList } from 'hooks/api/storage-classes/useStorageClasses';
+import { useClusterName } from 'hooks/api/useClusterName';
 import type { Instance } from 'shared-types/api.types';
 import { widgetRegistry } from 'pages/database-form/widget-registry';
 import type { SectionEditModalProps } from './section-edit-modal.types';
@@ -47,14 +48,13 @@ const SectionEditModal = ({
   onSuccess,
 }: SectionEditModalProps) => {
   const [submitting, setSubmitting] = useState(false);
-  const { data: clusterInfo } = useKubernetesClusterInfo([
-    'section-edit-cluster-info',
-  ]);
+  const clusterName = useClusterName();
+  const { data: storageClasses } = useStorageClassesList(clusterName);
 
   const editSections = useMemo(() => {
     const modeApplied = applyModeOverrides(sections, FormMode.Edit);
-    return applyRuntimeOverrides(modeApplied, instance, clusterInfo);
-  }, [sections, instance, clusterInfo]);
+    return applyRuntimeOverrides(modeApplied, instance, storageClasses);
+  }, [sections, instance, storageClasses]);
 
   const section = editSections[sectionKey];
 

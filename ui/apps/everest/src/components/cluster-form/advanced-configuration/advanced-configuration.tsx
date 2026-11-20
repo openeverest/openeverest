@@ -44,11 +44,11 @@ import {
   Typography,
 } from '@mui/material';
 import InfoIcon from '@mui/icons-material/InfoOutlined';
-import { useKubernetesClusterInfo } from 'hooks/api/kubernetesClusters/useKubernetesClusterInfo';
+import { useStorageClassesList } from 'hooks/api/storage-classes/useStorageClasses';
+import { useClusterName } from 'hooks/api/useClusterName';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   DbWizardFormFields,
-  EKS_DEFAULT_LOAD_BALANCER_CONFIG,
   EMPTY_LOAD_BALANCER_CONFIGURATION,
   EVEREST_READ_ONLY_FINALIZER,
 } from 'consts';
@@ -109,8 +109,16 @@ export const AdvancedConfigurationForm = ({
     AdvancedConfigurationFields.exposureMethod,
     AdvancedConfigurationFields.splitHorizonDNSEnabled,
   ]);
-  const { data: clusterInfo, isLoading: clusterInfoLoading } =
-    useKubernetesClusterInfo(['wizard-k8-info']);
+  const clusterName = useClusterName();
+  const { data: storageClasses, isLoading: storageClassesLoading } =
+    useStorageClassesList(clusterName);
+  const storageClassNames = useMemo(
+    () =>
+      (storageClasses ?? []).flatMap(({ metadata }) =>
+        metadata?.name ? [metadata.name] : []
+      ),
+    [storageClasses]
+  );
   const { data: policies = [], isLoading: fetchingPolicies } =
     usePodSchedulingPolicies(dbTypeToDbEngine(dbType), false, {
       refetchInterval: 2000,
@@ -121,8 +129,6 @@ export const AdvancedConfigurationForm = ({
   } = useSplitHorizonConfigs(namespace!, {
     enabled: !!namespace && showSplitHorizonDNS,
   });
-
-  const clusterType = clusterInfo?.clusterType;
 
   const exposureMethods = Object.values(ProxyExposeType);
   const splitHorizonDNSDomain = splitHorizonDNSConfigs.find(
@@ -158,29 +164,10 @@ export const AdvancedConfigurationForm = ({
     });
   };
 
-  const isEksDefault = useMemo(
-    () =>
-      clusterType &&
-      clusterType === 'eks' &&
-      !initialLbConfigName.current &&
-      loadBalancerConfigs?.items.some(
-        (config) => config.metadata.name === EKS_DEFAULT_LOAD_BALANCER_CONFIG
-      ),
-    [clusterType, loadBalancerConfigs?.items]
-  );
-
   const selectOptions: LoadBalancerConfig[] = [
     emtpyConfig,
     ...(loadBalancerConfigs?.items ?? []),
   ];
-
-  const selectDefaultValue = useMemo(
-    () =>
-      isEksDefault
-        ? EKS_DEFAULT_LOAD_BALANCER_CONFIG
-        : EMPTY_LOAD_BALANCER_CONFIGURATION,
-    [isEksDefault]
-  );
 
   useEffect(() => {
     if (
@@ -189,7 +176,7 @@ export const AdvancedConfigurationForm = ({
     ) {
       setValue(
         AdvancedConfigurationFields.loadBalancerConfigName,
-        selectDefaultValue
+        EMPTY_LOAD_BALANCER_CONFIGURATION
       );
     }
 
@@ -207,7 +194,6 @@ export const AdvancedConfigurationForm = ({
   }, [
     allowedFieldsToInitiallyLoadDefaults,
     getValues,
-    selectDefaultValue,
     setValue,
     splitHorizonDNSConfigs,
     dbType,
@@ -249,18 +235,15 @@ export const AdvancedConfigurationForm = ({
         AdvancedConfigurationFields.storageClass
       ) &&
       !storageClassTouched &&
-      clusterInfo?.storageClassNames &&
-      clusterInfo.storageClassNames.length > 0
+      storageClassNames.length > 0
     ) {
-      setValue(
-        DbWizardFormFields.storageClass,
-        clusterInfo?.storageClassNames[0],
-        { shouldValidate: true }
-      );
+      setValue(DbWizardFormFields.storageClass, storageClassNames[0], {
+        shouldValidate: true,
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    clusterInfo,
+    storageClassNames,
     allowedFieldsToInitiallyLoadDefaults,
     getFieldState,
     setValue,
@@ -337,8 +320,8 @@ export const AdvancedConfigurationForm = ({
         controlComponent={
           <AutoCompleteInput
             name={AdvancedConfigurationFields.storageClass}
-            loading={clusterInfoLoading}
-            options={clusterInfo?.storageClassNames || []}
+            loading={storageClassesLoading}
+            options={storageClassNames}
             disabled={
               !allowedFieldsToInitiallyLoadDefaults.includes('storageClass') ||
               loadingDefaultsForEdition

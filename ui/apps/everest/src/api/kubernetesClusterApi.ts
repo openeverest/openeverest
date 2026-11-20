@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,17 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 import { api } from './api';
-import {
-  GetKubernetesClusterInfoPayload,
-  GetKubernetesClusterResourcesInfoPayload,
-} from 'shared-types/kubernetes.types';
-
-export const getKubernetesClusterInfoFn = async () => {
-  const response =
-    await api.get<GetKubernetesClusterInfoPayload>(`cluster-info`);
-
-  return response.data;
-};
+import { GetKubernetesClusterResourcesInfoPayload } from 'shared-types/kubernetes.types';
 
 export const getKubernetesClusterResourcesInfo = async () => {
   const response =
