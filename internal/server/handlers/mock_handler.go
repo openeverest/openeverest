@@ -1971,8 +1971,7 @@ func (_m *MockHandler) WatchEvents(ctx context.Context, cluster string, namespac
 func NewMockHandler(t interface {
 	mock.TestingT
 	Cleanup(func())
-},
-) *MockHandler {
+}) *MockHandler {
 	mock := &MockHandler{}
 	mock.Mock.Test(t)
 
