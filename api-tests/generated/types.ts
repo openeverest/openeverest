@@ -177,49 +177,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/resources": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Cluster resources
-         * @description This API gets the capacity and available resources of the Kubernetes cluster.
-         */
-        get: operations["getKubernetesClusterResources"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/cluster-info": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Cluster info
-         * @deprecated
-         * @description This API gets the cluster type and the storage classes available in the cluster.
-         *
-         *     Deprecated: use `GET /clusters/{cluster}/storage-classes` to list the storage classes of a cluster. This API will be removed in a future release.
-         */
-        get: operations["getKubernetesClusterInfo"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/clusters": {
         parameters: {
             query?: never;
@@ -1668,33 +1625,6 @@ export interface components {
             /** @description indicates if there are pitr logs gaps detected after this backup was taken */
             gaps?: boolean;
         };
-        /** @description kubernetes cluster resources */
-        KubernetesClusterResources: {
-            capacity: {
-                cpuMillis?: number;
-                memoryBytes?: number;
-                diskSize?: number;
-            };
-            available: {
-                cpuMillis?: number;
-                memoryBytes?: number;
-                diskSize?: number;
-            };
-        };
-        /** @description kubernetes cluster info */
-        KubernetesClusterInfo: {
-            clusterType: string;
-            /**
-             * @deprecated
-             * @description List of storage class names that are available in the cluster.
-             * @example [
-             *       "gp2",
-             *       "gp3"
-             *     ]
-             */
-            storageClassNames: string[];
-            storageClasses?: components["schemas"]["ClusterInfoStorageClass"][];
-        };
         /** @description Everest version info */
         Version: {
             projectName: string;
@@ -1718,13 +1648,6 @@ export interface components {
         SizeLimit: components["schemas"]["Integer"] | components["schemas"]["String"];
         Integer: number;
         String: string;
-        /** @description ClusterInfoStorageClass is the subset of a storage class returned by the deprecated `/cluster-info` API. Use `StorageClass` instead. */
-        ClusterInfoStorageClass: {
-            /** @description allowVolumeExpansion shows whether the storage class allow volume expand. */
-            allowVolumeExpansion?: boolean;
-            /** @description Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata */
-            metadata?: Record<string, never>;
-        };
         /**
          * @description StorageClass describes the parameters for a class of storage for which PersistentVolumes can be dynamically provisioned.
          *
@@ -8687,82 +8610,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Settings"];
-                };
-            };
-        };
-    };
-    getKubernetesClusterResources: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful operation */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KubernetesClusterResources"];
-                };
-            };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getKubernetesClusterInfo: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful operation */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KubernetesClusterInfo"];
-                };
-            };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
                 };
             };
         };

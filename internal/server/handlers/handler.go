@@ -63,9 +63,6 @@ type Handler interface {
 	EventHandler
 	StorageClassHandler
 
-	GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error)
-	// GetKubernetesClusterInfo serves the deprecated /cluster-info API; StorageClassHandler replaces it.
-	GetKubernetesClusterInfo(ctx context.Context) (*api.KubernetesClusterInfo, error)
 	GetUserPermissions(ctx context.Context) (*api.UserPermissions, error)
 	GetSettings(ctx context.Context) (*api.Settings, error)
 }
