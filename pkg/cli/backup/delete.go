@@ -236,13 +236,13 @@ func deleteConfirmMessage(name, namespace, storage string, verified bool) string
 
 // emitDeleted prints success: a line in pretty mode, JSON otherwise.
 func (bd *Deleter) emitDeleted(opts DeleteOptions) error {
-	return deletion.EmitDeleted(bd.config.Pretty, "backup", opts.Name, opts.Namespace)
+	return deletion.EmitDeleted(bd.config.Pretty, bd.config.YAML, "backup", opts.Name, opts.Namespace)
 }
 
 // emitAlreadyGone reports the --ignore-not-found short-circuit: "deleted"
 // stays false since this run didn't actually delete anything.
 func (bd *Deleter) emitAlreadyGone(opts DeleteOptions) error {
-	return deletion.EmitAlreadyGone(bd.config.Pretty, "backup", opts.Name, opts.Namespace)
+	return deletion.EmitAlreadyGone(bd.config.Pretty, bd.config.YAML, "backup", opts.Name, opts.Namespace)
 }
 
 // waitForDeletion blocks until the backup is gone. The cancellable context
@@ -269,5 +269,5 @@ func (bd *Deleter) waitForDeletion(ctx context.Context, c *client.ClientWithResp
 		return err
 	}
 
-	return deletion.EmitWaitSucceeded(bd.config.Pretty, "backup", opts.Name, opts.Namespace)
+	return deletion.EmitWaitSucceeded(bd.config.Pretty, bd.config.YAML, "backup", opts.Name, opts.Namespace)
 }

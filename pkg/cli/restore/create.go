@@ -18,7 +18,6 @@ package restore
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -28,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
@@ -120,7 +120,7 @@ func (cr *CreateRunner) emitCreated(created *client.Restore, name string) error 
 	if created == nil {
 		return fmt.Errorf("restore %q was created but the server returned an unreadable response body", name)
 	}
-	return writeRestoreJSON(created)
+	return writeRestoreJSON(created, cr.config.YAML)
 }
 
 // waitForRestore blocks until the restore reaches a terminal state, streaming
@@ -161,14 +161,14 @@ func (cr *CreateRunner) waitForRestore(ctx context.Context, c *client.ClientWith
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Restore %q completed", name))
 		return nil
 	}
-	return writeRestoreJSON(final)
+	return writeRestoreJSON(final, cr.config.YAML)
 }
 
-func writeRestoreJSON(r *client.Restore) error {
+func writeRestoreJSON(r *client.Restore, asYAML bool) error {
 	if r == nil {
 		return nil
 	}
-	if err := json.NewEncoder(os.Stdout).Encode(r); err != nil {
+	if err := cli.Encode(os.Stdout, r, asYAML); err != nil {
 		return fmt.Errorf("failed to encode restore: %w", err)
 	}
 	return nil

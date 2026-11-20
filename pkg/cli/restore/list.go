@@ -19,7 +19,6 @@ package restore
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -32,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clientmeta"
 )
@@ -39,6 +39,7 @@ import (
 // Config holds the shared configuration for restore CLI runners.
 type Config struct {
 	Pretty bool
+	YAML   bool // --yaml: machine-readable YAML instead of JSON when Pretty is false
 }
 
 // ListOptions holds the inputs for the list command.
@@ -103,7 +104,7 @@ func (rl *ListRunner) listInstanceRestores(
 
 func (rl *ListRunner) render(w io.Writer, restores []client.Restore) {
 	if !rl.config.Pretty {
-		_ = json.NewEncoder(w).Encode(restores) //nolint:errchkjson
+		_ = cli.Encode(w, restores, rl.config.YAML)
 		return
 	}
 	printRestoreTable(w, restores)

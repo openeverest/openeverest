@@ -31,6 +31,7 @@ type (
 	globalFlags struct {
 		Verbose bool // Enable Verbose mode
 		JSON    bool // Set output type to JSON
+		YAML    bool // Set output type to YAML
 		// If set, we will print the Pretty output.
 		Pretty bool
 		// Path to a kubeconfig
@@ -52,6 +53,8 @@ var (
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&rootCmdFlags.Verbose, cli.FlagVerbose, "v", false, "Enable Verbose mode")
 	rootCmd.PersistentFlags().BoolVar(&rootCmdFlags.JSON, cli.FlagJSON, false, "Set output type to JSON")
+	rootCmd.PersistentFlags().BoolVar(&rootCmdFlags.YAML, cli.FlagYAML, false, "Set output type to YAML")
+	rootCmd.MarkFlagsMutuallyExclusive(cli.FlagJSON, cli.FlagYAML)
 
 	// Read KUBECONFIG ENV var first.
 	_ = envconfig.Process("", rootCmdFlags)
@@ -66,7 +69,7 @@ func rootPersistentPreRun(_ *cobra.Command, _ []string) {
 	// to be set within 30 seconds of the program initialization.
 	ctrlruntimelog.SetLogger(zapr.NewLogger(logger.GetLogger().Desugar()))
 
-	rootCmdFlags.Pretty = !rootCmdFlags.Verbose && !rootCmdFlags.JSON
+	rootCmdFlags.Pretty = !rootCmdFlags.Verbose && !rootCmdFlags.JSON && !rootCmdFlags.YAML
 	logger.GetLogger().Debug("Debug logging enabled")
 }
 

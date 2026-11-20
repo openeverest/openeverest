@@ -69,7 +69,8 @@ func init() {
 }
 
 func listPreRun(cmd *cobra.Command, _ []string) {
-	listCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
+	listCfg.Pretty = cli.IsPretty(cmd)
+	listCfg.YAML = cli.IsYAML(cmd)
 }
 
 func listRun(cmd *cobra.Command, _ []string) {

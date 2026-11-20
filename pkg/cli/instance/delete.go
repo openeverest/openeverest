@@ -217,12 +217,12 @@ func blastRadiusMessage(name, namespace, policy string, verified bool) string {
 
 // emitDeleted prints success: a line in pretty mode, JSON otherwise.
 func (id *Deleter) emitDeleted(opts DeleteOptions) error {
-	return deletion.EmitDeleted(id.config.Pretty, "instance", opts.Name, opts.Namespace)
+	return deletion.EmitDeleted(id.config.Pretty, id.config.YAML, "instance", opts.Name, opts.Namespace)
 }
 
 // emitAlreadyGone reports the --ignore-not-found short-circuit.
 func (id *Deleter) emitAlreadyGone(opts DeleteOptions) error {
-	return deletion.EmitAlreadyGone(id.config.Pretty, "instance", opts.Name, opts.Namespace)
+	return deletion.EmitAlreadyGone(id.config.Pretty, id.config.YAML, "instance", opts.Name, opts.Namespace)
 }
 
 // waitForDeletion blocks until the instance is gone, like instance create
@@ -250,5 +250,5 @@ func (id *Deleter) waitForDeletion(ctx context.Context, c *client.ClientWithResp
 		return err
 	}
 
-	return deletion.EmitWaitSucceeded(id.config.Pretty, "instance", opts.Name, opts.Namespace)
+	return deletion.EmitWaitSucceeded(id.config.Pretty, id.config.YAML, "instance", opts.Name, opts.Namespace)
 }

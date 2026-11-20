@@ -18,7 +18,6 @@ package backupstorage
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"maps"
 	"net/http"
@@ -353,15 +352,15 @@ func (cr *CreateRunner) emitCreated(created *client.BackupStorage, name string, 
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup storage %q created", name))
 		return nil
 	}
-	return writeBackupStorageJSON(created)
+	return writeBackupStorageJSON(created, cr.config.YAML)
 }
 
 // emitClientDryRun prints what create would send: the backup storage, as
 // YAML under the names and keys of the Secrets it would create (never their
-// values) in pretty mode, as JSON otherwise.
+// values) in pretty mode, as JSON/YAML otherwise.
 func (cr *CreateRunner) emitClientDryRun(opts CreateOptions, req createRequest) error {
 	if !cr.config.Pretty {
-		return writeBackupStorageJSON(&req.storage)
+		return writeBackupStorageJSON(&req.storage, cr.config.YAML)
 	}
 	out, err := yaml.Marshal(req.storage)
 	if err != nil {
@@ -381,7 +380,7 @@ func (cr *CreateRunner) emitClientDryRun(opts CreateOptions, req createRequest) 
 
 // emitServerDryRun reports a create the server accepted without persisting
 // anything: a line per object in pretty mode, the backup storage it would
-// have stored in JSON mode.
+// have stored in JSON/YAML mode.
 func (cr *CreateRunner) emitServerDryRun(created *client.BackupStorage, name string, secrets []string) error {
 	if cr.config.Pretty {
 		for _, secret := range secrets {
@@ -390,11 +389,11 @@ func (cr *CreateRunner) emitServerDryRun(created *client.BackupStorage, name str
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Dry run for backup storage %q accepted by the server, nothing created", name))
 		return nil
 	}
-	return writeBackupStorageJSON(created)
+	return writeBackupStorageJSON(created, cr.config.YAML)
 }
 
-func writeBackupStorageJSON(bs *client.BackupStorage) error {
-	if err := json.NewEncoder(os.Stdout).Encode(bs); err != nil {
+func writeBackupStorageJSON(bs *client.BackupStorage, asYAML bool) error {
+	if err := cli.Encode(os.Stdout, bs, asYAML); err != nil {
 		return fmt.Errorf("failed to encode backup storage: %w", err)
 	}
 	return nil

@@ -122,7 +122,8 @@ func init() {
 }
 
 func createPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
-	createCfg.Pretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	createCfg.Pretty = cli.IsPretty(cmd)
+	createCfg.YAML = cli.IsYAML(cmd)
 }
 
 func createRun(cmd *cobra.Command, _ []string) {

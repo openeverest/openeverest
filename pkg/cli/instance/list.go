@@ -18,7 +18,6 @@ package instance
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,6 +29,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/instancestatus"
 )
@@ -122,7 +122,7 @@ func (il *ListRunner) listInstances(ctx context.Context, c *client.ClientWithRes
 
 func (il *ListRunner) render(w io.Writer, instances []client.Instance, now time.Time) {
 	if !il.config.Pretty {
-		_ = json.NewEncoder(w).Encode(instances) //nolint:errchkjson
+		_ = cli.Encode(w, instances, il.config.YAML)
 		return
 	}
 	printInstanceTable(w, instances, now)

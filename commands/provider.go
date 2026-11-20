@@ -37,4 +37,5 @@ var providerCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(providerCmd)
 	providerCmd.AddCommand(provider.GetListCmd())
+	providerCmd.AddCommand(provider.GetGetCmd())
 }
