@@ -22,10 +22,14 @@ export const releaseProject: PlaywrightTestProject[] = [
   {
     name: 'release',
     testMatch: /.^/,
-    // Release lane runs the PITR golden plus restore-to-new-cluster for now.
-    // Restore the rest incrementally: 'pr', 'release:session:rate-limiting',
-    // ...sessionProject.
-    dependencies: ['release:pitr', 'release:restore-new-cluster'],
+    // Release lane runs the PITR, restore-to-new-cluster and pod scheduling
+    // policy goldens for now. Restore the rest incrementally: 'pr',
+    // 'release:session:rate-limiting', ...sessionProject.
+    dependencies: [
+      'release:pitr',
+      'release:restore-new-cluster',
+      'release:pod-scheduling-policy',
+    ],
   },
   {
     // Live PITR / restore-from-PITR golden (PXC). Auth is provided by the shared
@@ -49,6 +53,17 @@ export const releaseProject: PlaywrightTestProject[] = [
     testDir: './release',
     testMatch: /restore-new-cluster\.e2e\.ts/,
     dependencies: ['global:auth:ci:setup', 'global:backup-storage:setup'],
+    use: {
+      storageState: CI_USER_STORAGE_STATE_FILE,
+    },
+  },
+  {
+    // Affinity rules from the DB wizard and the overview edit, verified down
+    // to pod placement and the unschedulable-pods warning. Labels a worker node.
+    name: 'release:pod-scheduling-policy',
+    testDir: './release',
+    testMatch: /pod-scheduling-policy\.e2e\.ts/,
+    dependencies: ['global:auth:ci:setup'],
     use: {
       storageState: CI_USER_STORAGE_STATE_FILE,
     },
