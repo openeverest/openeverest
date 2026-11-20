@@ -27,7 +27,9 @@ import { AuthProvider } from 'contexts/auth';
 import {
   logAuthError,
   SSO_LOGIN_ERROR_KEY,
+  POST_LOGIN_REDIRECT_KEY,
   exchangeSsoToken,
+  getSafeRedirectPath,
 } from 'contexts/auth/auth.utils';
 import { DrawerContextProvider } from 'contexts/drawer/drawer.context';
 import router from 'router';
@@ -126,7 +128,11 @@ const App = () => {
                         );
                         localStorage.setItem('everestToken', everestToken);
                       }
-                      window.location.href = '/';
+                      const redirectTo = getSafeRedirectPath(
+                        sessionStorage.getItem(POST_LOGIN_REDIRECT_KEY)
+                      );
+                      sessionStorage.removeItem(POST_LOGIN_REDIRECT_KEY);
+                      window.location.href = redirectTo ?? '/';
                     } catch (error) {
                       logAuthError('SSO token exchange failed', error);
                       sessionStorage.setItem(SSO_LOGIN_ERROR_KEY, '1');

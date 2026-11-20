@@ -14,7 +14,7 @@ const ProtectedRoute = ({ children }: { children?: ReactNode }) => {
     // We initially save the location
     // If the user is logged out and then logs in, we take them back
     if (authStatus === 'unknown') {
-      setRedirectRoute(location.pathname);
+      setRedirectRoute(location.pathname + location.search);
     }
   }, [authStatus]);
 
