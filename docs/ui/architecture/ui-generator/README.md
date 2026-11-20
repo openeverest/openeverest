@@ -38,11 +38,12 @@ See [pipeline.md](./pipeline.md) for details.
 
 ## Documentation map
 
-| Doc                                              | About                                                                  |
-| ------------------------------------------------ | ---------------------------------------------------------------------- |
-| [schema-reference.md](./schema-reference.md)     | **Every prop** as a tree — what the schema can express                 |
-| [pipeline.md](./pipeline.md)                     | Modules, functions, and principles per pipeline stage                  |
-| [User-facing docs](../../ui-generator/Readme.md) | Schema authoring guide: field types, validation, groups, API providers |
+| Doc                                                    | About                                                                            |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| [schema-reference.md](./schema-reference.md)           | **Every prop** as a tree — what the schema can express                           |
+| [pipeline.md](./pipeline.md)                           | Modules, functions, and principles per pipeline stage                            |
+| [uischema-contract-adr.md](./uischema-contract-adr.md) | ADR: who owns the uiSchema contract, how it is versioned and where it is checked |
+| [User-facing docs](../../ui-generator/Readme.md)       | Schema authoring guide: field types, validation, groups, API providers           |
 
 ## Diagram legend
 
@@ -53,4 +54,4 @@ See [pipeline.md](./pipeline.md) for details.
 
 - Owner: UI
 - Status: current
-- Last updated: 2026-09-25
+- Last updated: 2026-11-20
