@@ -13,10 +13,15 @@
 // limitations under the License.
 
 import { pluralize } from '@percona/utils';
+import { PresetScope } from '../preset-selection.types';
 
 export const Messages = {
   scratchTitle: 'Start from scratch',
   scratchCaption: 'Configure everything manually.',
+  scope: {
+    [PresetScope.Cluster]: 'Cluster-wide',
+    [PresetScope.Namespace]: 'Namespace',
+  },
   summary: {
     nodes: (count: number) => pluralize(count, 'node'),
     cpu: (value: string) => `${value} CPU`,
@@ -29,5 +34,14 @@ export const Messages = {
   dialogTitle: 'Choose a preset',
   noMatches: (query: string) => `No presets match “${query}”.`,
   loadErrorTitle: "Presets didn't load",
+  partialLoadErrorTitle: "Some presets didn't load",
   loadErrorSubtitle: 'Check your connection and try again.',
+  presetUnavailable: (name: string) =>
+    `Preset “${name}” is no longer available.`,
+  presetFromOtherNamespace: (
+    name: string,
+    presetNamespace: string,
+    namespace: string
+  ) =>
+    `Preset “${name}” belongs to namespace “${presetNamespace}” and can't be used in “${namespace}”.`,
 };

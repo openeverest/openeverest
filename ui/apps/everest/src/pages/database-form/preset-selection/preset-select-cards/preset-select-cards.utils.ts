@@ -13,18 +13,22 @@
 // limitations under the License.
 
 import { CardPickerItem, flattenToSearchText } from '@percona/ui-lib';
-import { ClusterInstancePreset } from 'shared-types/api.types';
+import { DroppedPreset, SelectablePreset } from '../preset-selection.types';
 import { Messages } from './preset-select-cards.messages';
 
 const toText = (value: number | string | undefined): string | undefined =>
   value === undefined || value === null ? undefined : String(value);
 
-const getMeta = (preset: ClusterInstancePreset): string =>
-  [preset.spec?.topology?.type, preset.spec?.version]
+const getMeta = (preset: SelectablePreset): string =>
+  [
+    Messages.scope[preset.scope],
+    preset.spec?.topology?.type,
+    preset.spec?.version,
+  ]
     .filter(Boolean)
     .join(' · ');
 
-const getResources = (preset: ClusterInstancePreset): string => {
+const getResources = (preset: SelectablePreset): string => {
   const engine = preset.spec?.components?.engine;
   const limits = engine?.resources?.limits;
   const nodes = engine?.replicas;
@@ -42,18 +46,26 @@ const getResources = (preset: ClusterInstancePreset): string => {
     .join(' · ');
 };
 
-export const presetToCardItem = (
-  preset: ClusterInstancePreset
-): CardPickerItem => {
-  const name = preset.metadata?.name ?? '';
+export const presetToCardItem = (preset: SelectablePreset): CardPickerItem => {
   const subtitle = getMeta(preset);
   const detail = getResources(preset);
   return {
-    id: name,
-    title: name,
+    id: preset.id,
+    title: preset.name,
     subtitle,
     detail,
     // Search the whole spec (e.g. storageClass) — not just the displayed fields.
-    searchText: `${name} ${flattenToSearchText(preset.spec)}`,
+    searchText: `${preset.name} ${Messages.scope[preset.scope]} ${flattenToSearchText(preset.spec)}`,
   };
 };
+
+// A same-named preset may exist in the new namespace, so a namespace switch
+// names the namespace the dropped one belongs to.
+export const getDroppedPresetMessage = ({
+  name,
+  namespace,
+  presetNamespace,
+}: DroppedPreset): string =>
+  presetNamespace && presetNamespace !== namespace
+    ? Messages.presetFromOtherNamespace(name, presetNamespace, namespace)
+    : Messages.presetUnavailable(name);

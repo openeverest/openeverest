@@ -81,10 +81,12 @@ const presetSelectionValue: PresetSelectionContextType = {
   presets: [],
   isLoadingPresets: false,
   isError: false,
-  presetName: '',
+  presetId: '',
   selectedPreset: null,
   presetSelected: false,
   presetPending: false,
+  presetUnavailable: false,
+  droppedPreset: null,
 };
 
 interface WrapperProps {

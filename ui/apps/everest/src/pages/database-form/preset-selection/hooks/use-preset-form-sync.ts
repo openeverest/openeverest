@@ -20,31 +20,34 @@ import {
 } from 'components/ui-generator/ui-generator.types';
 import { getDefaultValues } from 'components/ui-generator/utils/default-values';
 import { extractInstanceValues } from 'components/ui-generator/utils/default-values/extract-instance-values';
-import { ClusterInstancePreset } from 'shared-types/api.types';
+import { extractWizardBackup } from 'pages/database-form/database-form-body/steps/backup-step/backup-step.utils';
 import { DbWizardType } from '../../database-form-schema';
+import { SelectablePreset } from '../preset-selection.types';
 
 interface UsePresetFormSyncArgs {
   mode: FormMode;
   uiSchema: TopologyUISchemas;
   defaultValues: Record<string, unknown>;
   defaultTopology: string;
-  selectedPreset: ClusterInstancePreset | null;
-  presetName: string;
+  selectedPreset: SelectablePreset | null;
+  presetId: string;
+  presetUnavailable: boolean;
   reset: UseFormReset<DbWizardType>;
   getValues: UseFormGetValues<DbWizardType>;
 }
 
 // Populates the wizard form from the picked preset (so preview/fields reflect
-// it) and reverts to defaults when the preset is cleared. New mode only, and
-// idempotent per preset so it never clobbers the user's dbName /
-// namespace or edits made outside preset mode.
+// it) and reverts to defaults when the preset is cleared or can no longer be
+// resolved. New mode only, and idempotent per preset so it never clobbers the
+// user's dbName / namespace or edits made outside preset mode.
 export const usePresetFormSync = ({
   mode,
   uiSchema,
   defaultValues,
   defaultTopology,
   selectedPreset,
-  presetName,
+  presetId,
+  presetUnavailable,
   reset,
   getValues,
 }: UsePresetFormSyncArgs) => {
@@ -53,16 +56,24 @@ export const usePresetFormSync = ({
   useEffect(() => {
     if (mode !== FormMode.New) return;
 
-    // Preset cleared → revert once to the pristine defaults.
-    if (!presetName) {
-      if (appliedRef.current) {
-        const { dbName, k8sNamespace, provider } = getValues();
+    // Preset cleared or gone → revert once to the pristine defaults. Dropping
+    // an unavailable pick here keeps the create from staying blocked on a
+    // spec that will never arrive.
+    if (!presetId || presetUnavailable) {
+      const {
+        dbName,
+        k8sNamespace,
+        provider,
+        presetId: presetIdInForm,
+      } = getValues();
+      // Checked against the form, not the prop, so the revert runs once.
+      if (appliedRef.current || presetIdInForm) {
         reset({
           ...defaultValues,
           provider,
           dbName,
           k8sNamespace,
-          presetName: '',
+          presetId: '',
         } as DbWizardType);
         appliedRef.current = null;
       }
@@ -72,7 +83,7 @@ export const usePresetFormSync = ({
     // Wait until the picked preset is present in the loaded list.
     if (!selectedPreset) return;
 
-    if (appliedRef.current === presetName) return;
+    if (appliedRef.current === presetId) return;
 
     const presetTopology =
       selectedPreset.spec?.topology?.type ?? defaultTopology;
@@ -92,22 +103,29 @@ export const usePresetFormSync = ({
     reset({
       ...baseDefaults,
       ...specValues,
-      backup: defaultValues.backup,
+      // Backups and monitoring are not ui-generator sections, so they are
+      // mapped onto the wizard's own form shape for the preview to show what
+      // the preset will actually deploy.
+      backup: extractWizardBackup({ spec: selectedPreset.spec }),
+      monitoring: {
+        destinations: selectedPreset.spec?.monitoring?.destinations ?? [],
+      },
       topology: { type: presetTopology },
       provider,
       dbName,
       k8sNamespace,
-      presetName,
+      presetId,
     } as unknown as DbWizardType);
 
-    appliedRef.current = presetName;
+    appliedRef.current = presetId;
   }, [
     mode,
     uiSchema,
     defaultValues,
     defaultTopology,
     selectedPreset,
-    presetName,
+    presetId,
+    presetUnavailable,
     reset,
     getValues,
   ]);

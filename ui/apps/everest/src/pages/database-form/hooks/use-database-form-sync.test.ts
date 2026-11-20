@@ -55,8 +55,9 @@ const uiSchema: TopologyUISchemas = {
 
 const NO_PRESET = {
   selectedPreset: null,
-  presetName: '',
+  presetId: '',
   presetSelected: false,
+  presetUnavailable: false,
 };
 
 const setup = () =>
