@@ -51,6 +51,90 @@ cases:
     issues:
       - { rule: toggleable-no-fields, topology: replicaSet, group: advanced.scheduling }
 
+  # `topologies` is the case's Provider.spec.topologies, from which marker
+  # widgets resolve the paths they write.
+  - name: a widget writes the affinity path of every component that accepts it
+    topologies:
+      declared:
+        components:
+          engine: { supportedFields: { openAPIV3Schema: { properties: { schedulingPolicy: { properties: { affinity: {} } } } } } }
+      wholePolicy:
+        components:
+          engine: { supportedFields: { openAPIV3Schema: { properties: { schedulingPolicy: {} } } } }
+      unconstrained:
+        components:
+          engine: {}
+    uiSchema:
+      declared: &engineAffinityWrittenOutside
+        sections:
+          advanced:
+            components:
+              scheduling:
+                uiType: group
+                groupType: toggleable
+                components:
+                  policy: { uiType: widget, widgetType: podSchedulingPolicy }
+              affinity: { uiType: text, path: spec.components.engine.schedulingPolicy.affinity, fieldParams: { label: Affinity } }
+      wholePolicy: *engineAffinityWrittenOutside
+      unconstrained: *engineAffinityWrittenOutside
+    issues:
+      - { rule: toggleable-overlap, topology: declared, group: advanced.scheduling }
+      - { rule: toggleable-overlap, topology: unconstrained, group: advanced.scheduling }
+      - { rule: toggleable-overlap, topology: wholePolicy, group: advanced.scheduling }
+
+  - name: a group holding only a widget switches off the paths the widget writes
+    topologies:
+      replicaSet:
+        components:
+          engine: { supportedFields: { openAPIV3Schema: { properties: { schedulingPolicy: { properties: { affinity: {} } } } } } }
+          backupAgent: { supportedFields: { openAPIV3Schema: { properties: {} } } }
+    uiSchema:
+      replicaSet:
+        sections:
+          advanced:
+            components:
+              scheduling:
+                uiType: group
+                groupType: toggleable
+                components:
+                  policy: { uiType: widget, widgetType: podSchedulingPolicy }
+              backupAgent: { uiType: text, path: spec.components.backupAgent.schedulingPolicy.affinity, fieldParams: { label: Backup agent } }
+    issues: []
+
+  - name: a widget writes nothing when no component accepts it, or for an unknown widgetType
+    topologies:
+      replicaSet:
+        components:
+          engine: { supportedFields: { openAPIV3Schema: { properties: { schedulingPolicy: { properties: { topologySpreadConstraints: {} } } } } } }
+          backupAgent: { supportedFields: { openAPIV3Schema: { properties: {} } } }
+      sharded:
+        components:
+          engine: {}
+    uiSchema:
+      replicaSet: &schedulingGroup
+        sections:
+          advanced:
+            components:
+              scheduling:
+                uiType: group
+                groupType: toggleable
+                components:
+                  policy: { uiType: widget, widgetType: podSchedulingPolicy }
+      noProviderTopology: *schedulingGroup
+      sharded:
+        sections:
+          advanced:
+            components:
+              scheduling:
+                uiType: group
+                groupType: toggleable
+                components:
+                  policy: { uiType: widget, widgetType: unknownWidget }
+    issues:
+      - { rule: toggleable-no-fields, topology: noProviderTopology, group: advanced.scheduling }
+      - { rule: toggleable-no-fields, topology: replicaSet, group: advanced.scheduling }
+      - { rule: toggleable-no-fields, topology: sharded, group: advanced.scheduling }
+
   - name: a toggleable nested in another toggleable degrades, the outer one stays
     uiSchema:
       replicaSet:
