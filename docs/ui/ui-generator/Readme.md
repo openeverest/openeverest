@@ -80,7 +80,9 @@ sharded:
 A **topology** is a top-level key representing a specific form configuration. Each topology contains:
 
 - **`sections`**: An object where each key is a section containing form components
-- **`sectionsOrder`** (optional): An array defining the order in which sections should be displayed
+- **`sectionsOrder`** (optional): An array defining the order in which sections should be displayed and reorderable static wizard steps should be displayed. Reserved static step IDs are `import`, `backups`, and `pod-scheduling`. `base` is always pinned first and cannot be reordered. Static steps omitted from `sectionsOrder` remain before generated schema sections. Generated sections omitted from `sectionsOrder` keep their schema-defined fallback order.
+
+  If a section key has the same name as a reserved static ID, the static step takes precedence and the colliding generated section is not rendered as a step. Unknown keys are ignored safely.
 
 Only the selected topology's fields are submitted. When the user switches topology, values bound only
 by the previous topology's paths (for example `spec.components.configServer` after switching from

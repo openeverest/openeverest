@@ -13,5 +13,13 @@
 // limitations under the License.
 
 export const BASE_STEP_ID = 'base';
+export const IMPORT_STEP_ID = 'import';
 export const BACKUP_STEP_ID = 'backups';
+export const POD_SCHEDULING_STEP_ID = 'pod-scheduling';
 export const MONITORING_STEP_ID = 'monitoring';
+
+export const RESERVED_STATIC_STEP_IDS = [
+  IMPORT_STEP_ID,
+  BACKUP_STEP_ID,
+  POD_SCHEDULING_STEP_ID,
+] as const;
