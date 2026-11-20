@@ -338,6 +338,8 @@ type KubernetesConnector interface {
 	// ListStorageClasses returns list of storage classes that match the criteria.
 	// This method returns a list of full objects (meta and spec).
 	ListStorageClasses(ctx context.Context, opts ...ctrlclient.ListOption) (*storagev1.StorageClassList, error)
+	// GetStorageClass returns the storage class with the given key.
+	GetStorageClass(ctx context.Context, key ctrlclient.ObjectKey) (*storagev1.StorageClass, error)
 	// CreateSplitHorizonDNSConfig creates a SplitHorizonDNSConfig resource in Kubernetes.
 	CreateSplitHorizonDNSConfig(ctx context.Context, shdc *enginefeaturesv1alpha1.SplitHorizonDNSConfig) (*enginefeaturesv1alpha1.SplitHorizonDNSConfig, error)
 	// UpdateSplitHorizonDNSConfig updates an existing SplitHorizonDNSConfig resource in Kubernetes.

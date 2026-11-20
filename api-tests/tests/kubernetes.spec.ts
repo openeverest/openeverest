@@ -18,17 +18,26 @@ import {test, expect} from '@fixtures'
 import {checkError} from '@tests/utils/api';
 
 test.describe.parallel('K8S cluster tests', () => {
-  test('get cluster info', async ({request}) => {
-    const r = await request.get(`/v1/clusters/main/cluster-info`),
-      info = await r.json()
+  test('list and get storage classes', async ({request}) => {
+    const r = await request.get(`/v1/clusters/main/storage-classes`),
+      list = await r.json(),
+      name = list?.items?.[0]?.metadata?.name,
+      g = await request.get(`/v1/clusters/main/storage-classes/${name}`),
+      got = await g.json()
 
     await checkError(r)
+    await checkError(g)
 
-    expect(info).toBeTruthy()
-    expect(info?.clusterType).toBeTruthy()
-    expect(info?.storageClassNames).toBeTruthy()
-    expect(info?.storageClassNames).toHaveLength(1)
-    expect(info?.storageClasses).toBeTruthy()
-    expect(info?.storageClasses).toHaveLength(1)
+    expect(list?.items).toHaveLength(1)
+    expect(name).toBeTruthy()
+    expect(list.items[0]?.provisioner).toBeTruthy()
+    expect(got.metadata.name).toBe(name)
+    expect(got.provisioner).toBe(list.items[0].provisioner)
+  })
+
+  test('get missing storage class', async ({request}) => {
+    const r = await request.get(`/v1/clusters/main/storage-classes/does-not-exist`)
+
+    expect(r.status()).toBe(404)
   })
 });

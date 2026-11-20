@@ -1,5 +1,3 @@
-// everest
-// Copyright (C) 2023 Percona LLC
 // Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,13 +11,21 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-import { api } from './api';
-import { GetKubernetesClusterInfoPayload } from 'shared-types/kubernetes.types';
 
-export const getKubernetesClusterInfoFn = async (clusterName: string) => {
-  const response = await api.get<GetKubernetesClusterInfoPayload>(
-    `clusters/${clusterName}/cluster-info`
-  );
+package validation
 
-  return response.data;
-};
+import (
+	"context"
+
+	storagev1 "k8s.io/api/storage/v1"
+)
+
+// ListStorageClasses proxies the request to the next handler.
+func (h *validateHandler) ListStorageClasses(ctx context.Context, cluster string) (*storagev1.StorageClassList, error) {
+	return h.next.ListStorageClasses(ctx, cluster)
+}
+
+// GetStorageClass proxies the request to the next handler.
+func (h *validateHandler) GetStorageClass(ctx context.Context, cluster, name string) (*storagev1.StorageClass, error) {
+	return h.next.GetStorageClass(ctx, cluster, name)
+}

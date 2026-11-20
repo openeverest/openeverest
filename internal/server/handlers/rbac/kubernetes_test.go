@@ -30,28 +30,6 @@ import (
 func TestRBAC_Kubernetes(t *testing.T) {
 	t.Parallel()
 
-	t.Run("cluster info does not require cluster read permission", func(t *testing.T) {
-		t.Parallel()
-
-		ctx := testUserContext(rbac.User{Subject: "bob"})
-		expected := &api.KubernetesClusterInfo{ClusterType: "generic"}
-		next := &handlers.MockHandler{}
-		next.On(
-			"GetKubernetesClusterInfo",
-			mock.Anything,
-			"prod",
-		).Return(expected, nil).Once()
-
-		h := &rbacHandler{
-			next: next,
-		}
-
-		info, err := h.GetKubernetesClusterInfo(ctx, "prod")
-		require.NoError(t, err)
-		require.Same(t, expected, info)
-		next.AssertExpectations(t)
-	})
-
 	data := func() *handlers.MockHandler {
 		next := handlers.MockHandler{}
 		next.On(
@@ -101,6 +79,7 @@ func TestRBAC_Kubernetes(t *testing.T) {
 					{"bob", "monitoring-bindings", "read", "*/*/*"},
 					{"bob", "config-maps", "*", "*/*/*"},
 					{"bob", "secrets", "*", "*/*/*"},
+					{"bob", "storage-classes", "read", "*/*"},
 					{"bob", "plugins", "*", "*/*"},
 					{"bob", "installed-extensions", "*", "*/*"},
 					{"bob", "platform-events", "read", "*"},

@@ -12,23 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { QueryKey, useQuery } from '@tanstack/react-query';
-import {
-  GetKubernetesClusterInfoPayload,
-  KubernetesClusterInfo,
-} from 'shared-types/kubernetes.types';
-import { getKubernetesClusterInfoFn } from 'api/kubernetesClusterApi';
-import { useClusterName } from '../useClusterName';
+import { StorageClassList } from 'shared-types/kubernetes.types';
+import { api } from './api';
 
-export const useKubernetesClusterInfo = (queryKey: QueryKey) => {
-  const clusterName = useClusterName();
+export const getStorageClassesFn = async (clusterName: string) => {
+  const response = await api.get<StorageClassList>(
+    `clusters/${clusterName}/storage-classes`
+  );
 
-  return useQuery<
-    GetKubernetesClusterInfoPayload,
-    unknown,
-    KubernetesClusterInfo
-  >({
-    queryKey: [...queryKey, clusterName],
-    queryFn: () => getKubernetesClusterInfoFn(clusterName),
-  });
+  return response.data;
 };

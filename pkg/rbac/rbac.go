@@ -78,6 +78,7 @@ const (
 	ResourceRestores               = "restores"
 	ResourceConfigMaps             = "config-maps"
 	ResourceSecrets                = "secrets"
+	ResourceStorageClasses         = "storage-classes"
 
 	// v2 monitoring resource names.
 
@@ -114,6 +115,7 @@ var ClusterScopedResources = []string{
 	ResourceClusterInstancePresets,
 	ResourceMonitoringClasses,
 	ResourceInstalledExtensions,
+	ResourceStorageClasses,
 }
 
 // ClusterNamespacedResources is a list of v2 resources scoped to cluster + namespace.
@@ -135,7 +137,8 @@ var ClusterNamespacedResources = []string{
 // resource, so the admin role is granted only read on it.
 func isReadOnlyResource(resource string) bool {
 	return resource == ResourceMonitoringClasses || resource == ResourceMonitoringBindings ||
-		resource == ResourceBackupStorageClasses || resource == ResourcePlatformEvents
+		resource == ResourceBackupStorageClasses || resource == ResourcePlatformEvents ||
+		resource == ResourceStorageClasses
 }
 
 // IsGlobalResource returns true if the given resource is a global (non-namespaced) Everest API resource.

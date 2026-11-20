@@ -15,6 +15,8 @@ import (
 
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 
+	storagev1 "k8s.io/api/storage/v1"
+
 	v1 "k8s.io/api/core/v1"
 
 	v1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
@@ -789,36 +791,6 @@ func (_m *MockHandler) GetInstancePreset(ctx context.Context, cluster string, na
 	return r0, r1
 }
 
-// GetKubernetesClusterInfo provides a mock function with given fields: ctx, cluster
-func (_m *MockHandler) GetKubernetesClusterInfo(ctx context.Context, cluster string) (*api.KubernetesClusterInfo, error) {
-	ret := _m.Called(ctx, cluster)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetKubernetesClusterInfo")
-	}
-
-	var r0 *api.KubernetesClusterInfo
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (*api.KubernetesClusterInfo, error)); ok {
-		return rf(ctx, cluster)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) *api.KubernetesClusterInfo); ok {
-		r0 = rf(ctx, cluster)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*api.KubernetesClusterInfo)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, cluster)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetMonitoringBinding provides a mock function with given fields: ctx, cluster, namespace, name
 func (_m *MockHandler) GetMonitoringBinding(ctx context.Context, cluster string, namespace string, name string) (*monitoringv1alpha1.MonitoringBinding, error) {
 	ret := _m.Called(ctx, cluster, namespace, name)
@@ -1052,6 +1024,36 @@ func (_m *MockHandler) GetSettings(ctx context.Context) (*api.Settings, error) {
 
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
 		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetStorageClass provides a mock function with given fields: ctx, cluster, name
+func (_m *MockHandler) GetStorageClass(ctx context.Context, cluster string, name string) (*storagev1.StorageClass, error) {
+	ret := _m.Called(ctx, cluster, name)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetStorageClass")
+	}
+
+	var r0 *storagev1.StorageClass
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) (*storagev1.StorageClass, error)); ok {
+		return rf(ctx, cluster, name)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *storagev1.StorageClass); ok {
+		r0 = rf(ctx, cluster, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*storagev1.StorageClass)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, cluster, name)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1689,6 +1691,36 @@ func (_m *MockHandler) ListSecrets(ctx context.Context, cluster string, namespac
 	return r0, r1
 }
 
+// ListStorageClasses provides a mock function with given fields: ctx, cluster
+func (_m *MockHandler) ListStorageClasses(ctx context.Context, cluster string) (*storagev1.StorageClassList, error) {
+	ret := _m.Called(ctx, cluster)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListStorageClasses")
+	}
+
+	var r0 *storagev1.StorageClassList
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*storagev1.StorageClassList, error)); ok {
+		return rf(ctx, cluster)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *storagev1.StorageClassList); ok {
+		r0 = rf(ctx, cluster)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*storagev1.StorageClassList)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, cluster)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // PatchBackupStorage provides a mock function with given fields: ctx, cluster, namespace, name, patch
 func (_m *MockHandler) PatchBackupStorage(ctx context.Context, cluster string, namespace string, name string, patch []byte) (*v1alpha1.BackupStorage, error) {
 	ret := _m.Called(ctx, cluster, namespace, name, patch)
@@ -1939,7 +1971,8 @@ func (_m *MockHandler) WatchEvents(ctx context.Context, cluster string, namespac
 func NewMockHandler(t interface {
 	mock.TestingT
 	Cleanup(func())
-}) *MockHandler {
+},
+) *MockHandler {
 	mock := &MockHandler{}
 	mock.Mock.Test(t)
 

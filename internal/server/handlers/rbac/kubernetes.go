@@ -22,10 +22,6 @@ import (
 	api "github.com/openeverest/openeverest/v2/internal/server/api"
 )
 
-func (h *rbacHandler) GetKubernetesClusterInfo(ctx context.Context, cluster string) (*api.KubernetesClusterInfo, error) {
-	return h.next.GetKubernetesClusterInfo(ctx, cluster)
-}
-
 func (h *rbacHandler) GetSettings(ctx context.Context) (*api.Settings, error) {
 	return h.next.GetSettings(ctx)
 }

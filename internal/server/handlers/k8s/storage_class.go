@@ -12,18 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package api
+package k8s
 
 import (
-	"github.com/AlekSi/pointer"
-	v1 "k8s.io/api/storage/v1"
+	"context"
+
+	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
-func (out *StorageClass) FromCR(in *v1.StorageClass) {
-	meta := make(map[string]interface{})
-	meta["name"] = in.GetName()
-	meta["annotations"] = in.GetAnnotations()
-	meta["labels"] = in.GetLabels()
-	out.Metadata = &meta
-	out.AllowVolumeExpansion = pointer.To(pointer.Get(in.AllowVolumeExpansion))
+// ListStorageClasses returns the storage classes.
+func (h *k8sHandler) ListStorageClasses(ctx context.Context, _ string) (*storagev1.StorageClassList, error) {
+	return h.kubeConnector.ListStorageClasses(ctx)
+}
+
+// GetStorageClass returns a storage class by name.
+func (h *k8sHandler) GetStorageClass(ctx context.Context, _, name string) (*storagev1.StorageClass, error) {
+	return h.kubeConnector.GetStorageClass(ctx, types.NamespacedName{Name: name})
 }

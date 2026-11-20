@@ -20,12 +20,22 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// GetKubernetesClusterInfoForCluster returns cluster type and storage classes.
-func (e *EverestServer) GetKubernetesClusterInfoForCluster(ctx echo.Context, cluster string) error {
-	result, err := e.handler.GetKubernetesClusterInfo(ctx.Request().Context(), cluster)
+// ListStorageClasses lists the Kubernetes storage classes in the cluster.
+func (e *EverestServer) ListStorageClasses(c echo.Context, cluster string) error {
+	result, err := e.handler.ListStorageClasses(c.Request().Context(), cluster)
 	if err != nil {
-		e.l.Errorf("GetKubernetesClusterInfo failed: %w", err)
+		e.l.Errorf("ListStorageClasses failed: %v", err)
 		return err
 	}
-	return ctx.JSON(http.StatusOK, result)
+	return c.JSON(http.StatusOK, result)
+}
+
+// GetStorageClass returns a specific Kubernetes storage class.
+func (e *EverestServer) GetStorageClass(c echo.Context, cluster, name string) error {
+	result, err := e.handler.GetStorageClass(c.Request().Context(), cluster, name)
+	if err != nil {
+		e.l.Errorf("GetStorageClass failed: %v", err)
+		return err
+	}
+	return c.JSON(http.StatusOK, result)
 }
