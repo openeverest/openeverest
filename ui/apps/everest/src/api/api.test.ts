@@ -18,7 +18,7 @@ import { api, addApiErrorInterceptor, removeApiErrorInterceptor } from './api';
 // Mock session-token module
 vi.mock('./session-token', () => ({
   getAuthToken: vi.fn(() => 'valid-token'),
-  refreshSession: vi.fn(),
+  renewSession: vi.fn(),
 }));
 
 // Mock notistack
@@ -26,7 +26,7 @@ vi.mock('notistack', () => ({
   enqueueSnackbar: vi.fn(),
 }));
 
-import { refreshSession } from './session-token';
+import { renewSession } from './session-token';
 import { enqueueSnackbar } from 'notistack';
 
 type AdapterConfig = {
@@ -79,7 +79,7 @@ describe('api interceptor', () => {
         response: { status: 401 },
       });
 
-      expect(refreshSession).not.toHaveBeenCalled();
+      expect(renewSession).not.toHaveBeenCalled();
     });
 
     it('does NOT attempt refresh when /auth/revoke returns 401', async () => {
@@ -91,13 +91,13 @@ describe('api interceptor', () => {
         response: { status: 401 },
       });
 
-      expect(refreshSession).not.toHaveBeenCalled();
+      expect(renewSession).not.toHaveBeenCalled();
     });
   });
 
   describe('retry for non-auth 401s', () => {
     it('attempts refresh and retries original request on 401', async () => {
-      vi.mocked(refreshSession).mockResolvedValueOnce('new-token');
+      vi.mocked(renewSession).mockResolvedValueOnce('new-token');
 
       // First call returns 401, retry (with refreshed token) returns 200.
       let calls = 0;
@@ -119,12 +119,12 @@ describe('api interceptor', () => {
 
       const response = await api.get('/version');
 
-      expect(refreshSession).toHaveBeenCalledTimes(1);
+      expect(renewSession).toHaveBeenCalledTimes(1);
       expect(response.data).toEqual({ version: '1.0.0' });
     });
 
     it('redirects to /logout when refresh fails', async () => {
-      vi.mocked(refreshSession).mockResolvedValueOnce(null);
+      vi.mocked(renewSession).mockResolvedValueOnce(null);
       adapterMock.mockImplementation((config: AdapterConfig) =>
         Promise.reject(buildAxiosError(config, 401, 'invalid or expired jwt'))
       );
@@ -136,7 +136,7 @@ describe('api interceptor', () => {
 
       await api.get('/version').catch(() => {});
 
-      expect(refreshSession).toHaveBeenCalledTimes(1);
+      expect(renewSession).toHaveBeenCalledTimes(1);
       expect(enqueueSnackbar).toHaveBeenCalledWith(
         'Your session has expired. Please sign in again.',
         { variant: 'info' }
@@ -146,7 +146,7 @@ describe('api interceptor', () => {
     });
 
     it('does NOT retry more than once (prevents infinite loops)', async () => {
-      vi.mocked(refreshSession).mockResolvedValue('still-bad-token');
+      vi.mocked(renewSession).mockResolvedValue('still-bad-token');
 
       // Both original and retried requests return 401.
       adapterMock.mockImplementation((config: AdapterConfig) =>
@@ -159,8 +159,8 @@ describe('api interceptor', () => {
 
       await api.get('/data').catch(() => {});
 
-      // refreshSession called only once (first 401), not on the retry's 401
-      expect(refreshSession).toHaveBeenCalledTimes(1);
+      // renewSession called only once (first 401), not on the retry's 401
+      expect(renewSession).toHaveBeenCalledTimes(1);
 
       locationSpy.mockRestore();
     });

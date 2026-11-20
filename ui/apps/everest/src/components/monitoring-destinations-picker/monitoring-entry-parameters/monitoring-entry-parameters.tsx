@@ -15,7 +15,7 @@
 import { Box, Typography } from '@mui/material';
 import { UIGenerator } from 'components/ui-generator/ui-generator';
 import { FormMode } from 'components/ui-generator/ui-generator.types';
-import type { SectionForm } from 'components/ui-generator/utils/section-form';
+import { SectionForm } from 'components/ui-generator/utils/section-form';
 import { MONITORING_DESTINATIONS_FIELD } from '../monitoring-destinations-picker.constants';
 import { Messages } from '../monitoring-destinations-picker.messages';
 

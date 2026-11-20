@@ -17,7 +17,7 @@ import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
-import type { SectionForm } from 'components/ui-generator/utils/section-form';
+import { SectionForm } from 'components/ui-generator/utils/section-form';
 
 export enum DestinationDisabledReason {
   LimitReached = 'limitReached',

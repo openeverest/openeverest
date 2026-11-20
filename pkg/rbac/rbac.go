@@ -72,17 +72,26 @@ const (
 	ResourceClusterInstancePresets = "cluster-instance-presets"
 	ResourceInstancePresets        = "instance-presets"
 	ResourceBackupClasses          = "backup-classes"
+	ResourceBackupStorageClasses   = "backup-storage-classes"
 	ResourceBackups                = "backups"
 	ResourceBackupImports          = "backup-imports"
 	ResourceRestores               = "restores"
 	ResourceConfigMaps             = "config-maps"
 	ResourceSecrets                = "secrets"
+	ResourceStorageClasses         = "storage-classes"
 
 	// v2 monitoring resource names.
 
 	ResourceMonitoringClasses      = "monitoring-classes"
 	ResourceMonitoringDestinations = "monitoring-destinations"
 	ResourceMonitoringBindings     = "monitoring-bindings"
+
+	// ResourceInstalledExtensions are the installed plugins and providers. The
+	// API serves only their lifecycle events.
+	ResourceInstalledExtensions = "installed-extensions"
+	// ResourcePlatformEvents are the login and logout events. They are about
+	// users, which have no resource of their own.
+	ResourcePlatformEvents = "platform-events"
 )
 
 // GlobalResources is a list of all Everest API resources that are considered global.
@@ -93,6 +102,7 @@ var GlobalResources = []string{
 	ResourceLoadBalancerConfigs,
 	ResourceDataImporters,
 	ResourceClusters,
+	ResourcePlatformEvents,
 }
 
 // ClusterScopedResources is a list of v2 resources scoped to a cluster (but not a namespace).
@@ -100,9 +110,12 @@ var ClusterScopedResources = []string{
 	ResourceNamespaces,
 	ResourceProviders,
 	ResourceBackupClasses,
+	ResourceBackupStorageClasses,
 	ResourcePlugins,
 	ResourceClusterInstancePresets,
 	ResourceMonitoringClasses,
+	ResourceInstalledExtensions,
+	ResourceStorageClasses,
 }
 
 // ClusterNamespacedResources is a list of v2 resources scoped to cluster + namespace.
@@ -123,7 +136,9 @@ var ClusterNamespacedResources = []string{
 // isReadOnlyResource returns true if the API serves no writes for the
 // resource, so the admin role is granted only read on it.
 func isReadOnlyResource(resource string) bool {
-	return resource == ResourceMonitoringClasses || resource == ResourceMonitoringBindings
+	return resource == ResourceMonitoringClasses || resource == ResourceMonitoringBindings ||
+		resource == ResourceBackupStorageClasses || resource == ResourcePlatformEvents ||
+		resource == ResourceStorageClasses
 }
 
 // IsGlobalResource returns true if the given resource is a global (non-namespaced) Everest API resource.
@@ -166,19 +181,24 @@ const (
 	//     without automatically granting broad read access to every user.
 	//   - on secrets, using a Secret's contents through an object that
 	//     references it: creating an object that names the Secret, such as a
-	//     MonitoringDestination, or changing the spec of one that does, since
-	//     the object sends the contents to, or trusts them for, the endpoint
-	//     its spec names. ActionRead does not imply it: read only shows a
-	//     Secret's metadata.
+	//     MonitoringDestination or a BackupStorage, or changing the spec of
+	//     one that does, since the object sends the contents to, or trusts
+	//     them for, the endpoint its spec names. ActionRead does not imply
+	//     it: read only shows a Secret's metadata.
 	ActionUse = "use"
-	// ActionDeploy allows creating instances with custom values that deviate
-	// from preset specifications. Users without this permission can only create
-	// instances that exactly match their referenced presets.
-	ActionDeploy = "deploy"
+	// ActionCreateFromPreset, on instances, allows creating an instance only as
+	// an exact copy of the preset it names: the preset's spec, and no metadata
+	// besides its name, namespace and the annotation naming the preset.
+	// ActionCreate is strictly stronger: it allows any instance, presets with
+	// changes included.
+	ActionCreateFromPreset = "create-from-preset"
 	// ActionReadConnection gates reading an instance's connection credentials.
 	// ActionRead does not imply it; only an explicit grant or ActionAll does.
 	ActionReadConnection = "read-connection"
-	ActionAll            = "*"
+	// ActionReadEvents gates reading the lifecycle events about an object.
+	// ActionRead does not imply it; only an explicit grant or ActionAll does.
+	ActionReadEvents = "read-events"
+	ActionAll        = "*"
 )
 
 const (
@@ -188,7 +208,9 @@ const (
 // SupportedActions is the list of all RBAC actions supported by Everest.
 //
 //nolint:gochecknoglobals // immutable lookup table
-var SupportedActions = []string{ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionUse, ActionDeploy, ActionReadConnection, ActionAll}
+var SupportedActions = []string{
+	ActionCreate, ActionRead, ActionUpdate, ActionDelete, ActionUse, ActionCreateFromPreset, ActionReadConnection, ActionReadEvents, ActionAll,
+}
 
 // User represents an authenticated subject and its groups for RBAC checks.
 type User struct {
@@ -351,8 +373,12 @@ func GetUser(ctx context.Context) (User, error) {
 		return User{}, errors.Join(err, errors.New("failed to get issuer from claims"))
 	}
 
+	// Built-in tokens carry sub="<user>:<capability>". SSO tokens carry the raw OIDC subject,
+	// which may itself contain colons and must not be truncated into another identity.
 	if issuer == session.SessionManagerClaimsIssuer {
-		subject = strings.Split(subject, ":")[0]
+		if _, isSSO := claims[session.OIDCIssuerClaim].(string); !isSSO {
+			subject = strings.Split(subject, ":")[0]
+		}
 	}
 
 	groups := getScopeValues(claims, []string{"groups"})

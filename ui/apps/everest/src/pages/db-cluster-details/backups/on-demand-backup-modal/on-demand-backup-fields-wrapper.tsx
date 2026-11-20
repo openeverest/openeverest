@@ -120,6 +120,7 @@ export const OnDemandBackupFieldsWrapper = () => {
       <BackupStoragesInput
         name={BackupFields.storageName}
         namespace={namespace}
+        backupClass={selectedClassName || undefined}
         instanceStorages={liveInstanceStorages}
         maxStorages={maxStorages}
         maxSchedulesPerStorage={maxSchedulesPerStorage}

@@ -31,13 +31,15 @@ import { Messages } from 'components/ui-generator/api-providers/data-source-fiel
 import { Messages as ProvidersMessages } from 'components/ui-generator/api-providers/providers.messages';
 import SectionEditModal from './section-edit-modal';
 
-const { mutate, clusterInfo } = vi.hoisted(() => {
-  const clusterInfoResult: { data?: { storageClassNames: string[] } } = {};
-  return { mutate: vi.fn(), clusterInfo: clusterInfoResult };
+const { mutate, storageClasses } = vi.hoisted(() => {
+  const storageClassesResult: {
+    data?: { metadata: { name: string }; provisioner: string }[];
+  } = {};
+  return { mutate: vi.fn(), storageClasses: storageClassesResult };
 });
 
-vi.mock('hooks/api/kubernetesClusters/useKubernetesClusterInfo', () => ({
-  useKubernetesClusterInfo: () => clusterInfo,
+vi.mock('hooks/api/storage-classes/useStorageClasses', () => ({
+  useStorageClassesList: () => storageClasses,
 }));
 
 vi.mock('hooks/api/db-instances/useUpdateDbInstance', () => ({
@@ -420,11 +422,13 @@ describe('SectionEditModal dataSource field disabled on edit', () => {
 
   beforeEach(() => {
     mutate.mockClear();
-    clusterInfo.data = { storageClassNames: ['standard'] };
+    storageClasses.data = [
+      { metadata: { name: 'standard' }, provisioner: 'rancher.io/local-path' },
+    ];
   });
 
   afterEach(() => {
-    clusterInfo.data = undefined;
+    storageClasses.data = undefined;
     vi.restoreAllMocks();
   });
 

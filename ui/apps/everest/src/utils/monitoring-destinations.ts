@@ -14,9 +14,8 @@
 
 import { isAxiosError } from 'axios';
 import { Section } from 'components/ui-generator/ui-generator.types';
-import { SECRET_DEFINITION_LABEL } from 'components/ui-generator/secret-field/secret-create-modal/secret-create-modal.constants';
 import { getByPath } from 'components/ui-generator/utils/object-path';
-import { APIError, Instance, Secret } from 'shared-types/api.types';
+import { APIError, Instance } from 'shared-types/api.types';
 import {
   MonitoringBinding,
   MonitoringClass,
@@ -65,32 +64,6 @@ const CREDENTIALS_SECRET_SUFFIX = '-credentials';
 // backup storage or an Instance with the same name.
 export const getDefaultCredentialsSecretName = (destinationName: string) =>
   `${CREDENTIALS_SECRET_PREFIX}${destinationName}${CREDENTIALS_SECRET_SUFFIX}`;
-
-export const MONITORING_CLASS_SECRET_LABEL = 'openeverest.io/monitoring-class';
-
-// The labels the Secrets API checks a credentials Secret against: the class
-// that defines it and the authentication mode whose keys it holds.
-export const getCredentialsSecretLabels = (
-  className: string,
-  mode: string
-): Record<string, string> => ({
-  [MONITORING_CLASS_SECRET_LABEL]: className,
-  [SECRET_DEFINITION_LABEL]: mode,
-});
-
-// Whether an existing Secret holds the credentials of the class and mode, so
-// that a destination can reuse it.
-export const isCredentialsSecretFor = (
-  secret: Secret,
-  className: string,
-  mode: string
-) => {
-  const labels = secret.metadata?.labels ?? {};
-  return (
-    labels[MONITORING_CLASS_SECRET_LABEL] === className &&
-    labels[SECRET_DEFINITION_LABEL] === mode
-  );
-};
 
 export const getCredentialsSecretName = (destination: MonitoringDestination) =>
   destination.spec.authentication?.credentialsSecretRef?.name;

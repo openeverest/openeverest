@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { setByPath } from 'components/ui-generator/utils/object-path';
+import { getToggleableMeta } from 'components/ui-generator/utils/toggleable/toggleable';
 import {
   InstanceMonitoringDestination,
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
+import { MONITORING_INSTANCE_SECTION_KEY } from './monitoring-destinations-picker.constants';
 import {
   DestinationDisabledReason,
   UnavailableEntryReason,
@@ -96,6 +99,23 @@ Reflect.set(pmmWithInstanceForm.spec, 'uiSchema', {
     },
   },
 });
+
+pmmWithInstanceForm.spec.instanceParametersSchema = {
+  openAPIV3Schema: {
+    type: 'object',
+    properties: {
+      resources: {
+        type: 'object',
+        properties: {
+          requests: {
+            type: 'object',
+            properties: { cpu: { type: 'string', pattern: '^[0-9]+m?$' } },
+          },
+        },
+      },
+    },
+  },
+};
 
 const instanceForms = buildInstanceFormsByDestination(
   [pmmWithInstanceForm, prometheus],
@@ -219,6 +239,29 @@ describe('buildMonitoringParametersSchema', () => {
     ]);
   });
 
+  it("reports a parameter the class's schema refuses at its entry", () => {
+    const result = schema.safeParse(
+      formWith([
+        {
+          ...entry('pmm-a'),
+          parameters: { resources: { requests: { cpu: 'half' } } },
+        },
+      ])
+    );
+
+    expect(result.error?.issues.map((issue) => issue.path)).toEqual([
+      [
+        'monitoring',
+        'destinations',
+        0,
+        'parameters',
+        'resources',
+        'requests',
+        'cpu',
+      ],
+    ]);
+  });
+
   it('accepts entries without a form or with valid parameters', () => {
     expect(
       schema.safeParse(
@@ -246,6 +289,54 @@ describe('finalizeMonitoringEntries', () => {
 
     expect(finalizeMonitoringEntries([pmmEntry], instanceForms)).toEqual([
       { ...entry('pmm-a'), parameters: { replicas: 2 } },
+    ]);
+  });
+
+  it("sends a switched-on group's parameters and drops a switched-off one's", () => {
+    const vm = makeClass('vm', 'ExtensionManaged');
+    Reflect.set(vm.spec, 'uiSchema', {
+      instance: {
+        components: {
+          scrape: {
+            uiType: 'group',
+            groupType: 'toggleable',
+            label: 'Custom scrape',
+            components: {
+              interval: {
+                path: 'parameters.scrape.interval',
+                uiType: 'text',
+                fieldParams: { label: 'Interval' },
+              },
+            },
+          },
+        },
+      },
+    });
+    const forms = buildInstanceFormsByDestination(
+      [vm],
+      [makeDestination('vm-a', 'vm')]
+    );
+    const group =
+      forms.get('vm-a')?.sections[MONITORING_INSTANCE_SECTION_KEY].components
+        .scrape;
+    const entries = (switchedOn: boolean) => {
+      const value = {
+        ...entry('vm-a'),
+        parameters: { scrape: { interval: '15s' } },
+      };
+      setByPath(
+        value,
+        (group && getToggleableMeta(group)?.switchName) ?? '',
+        switchedOn
+      );
+      return parseMonitoringDestinations([value]);
+    };
+
+    expect(finalizeMonitoringEntries(entries(true), forms)).toEqual([
+      { ...entry('vm-a'), parameters: { scrape: { interval: '15s' } } },
+    ]);
+    expect(finalizeMonitoringEntries(entries(false), forms)).toEqual([
+      entry('vm-a'),
     ]);
   });
 

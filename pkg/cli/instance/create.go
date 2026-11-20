@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -33,6 +34,7 @@ import (
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
@@ -46,25 +48,6 @@ const (
 	componentsKey = "components"
 	nullValue     = "null"
 )
-
-// Values of --dry-run, named as kubectl names them.
-const (
-	DryRunNone   = "none"
-	DryRunClient = "client" // print what would be sent, without sending it
-	DryRunServer = "server" // send with dryRun=All: the server runs every check but persists nothing
-)
-
-func checkDryRun(mode string) error {
-	switch mode {
-	case "", DryRunNone, DryRunClient, DryRunServer:
-		return nil
-	}
-	return fmt.Errorf("invalid --dry-run value %q: must be %q, %q or %q", mode, DryRunNone, DryRunClient, DryRunServer)
-}
-
-func isDryRun(mode string) bool {
-	return mode == DryRunClient || mode == DryRunServer
-}
 
 type Config struct {
 	Pretty bool
@@ -82,9 +65,9 @@ type CreateOptions struct {
 	Context       string        // overrides the active context when set
 	ValuesFile    string        // path to a YAML values file with spec-level overrides (optional)
 	Set           []string      // dot-notation overrides e.g. "components.engine.replicas=3"; takes precedence over ValuesFile
-	Wait          bool          // block until the instance reaches the Ready phase
+	Wait          bool          // block until the instance is ready
 	Timeout       time.Duration // bounds --wait; must be positive
-	DryRun        string        // DryRunClient prints the Instance without sending it, DryRunServer sends it with dryRun=All
+	DryRun        string        // cli.DryRunClient prints the Instance without sending it, cli.DryRunServer sends it with dryRun=All
 }
 
 type InstanceCreator struct {
@@ -108,10 +91,10 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 	if usesPreset && opts.Topology != "" {
 		return fmt.Errorf("--topology cannot be combined with --preset or --clusterpreset")
 	}
-	if err := checkDryRun(opts.DryRun); err != nil {
+	if err := cli.CheckDryRun(opts.DryRun); err != nil {
 		return err
 	}
-	if isDryRun(opts.DryRun) && opts.Wait {
+	if cli.IsDryRun(opts.DryRun) && opts.Wait {
 		return fmt.Errorf("--dry-run cannot be combined with --wait")
 	}
 
@@ -195,7 +178,7 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 	}
 
 	payload := buildPayload(opts.Name, opts.Provider, resolvedVersion, resolvedTopology, specOverrides, annotations)
-	if opts.DryRun == DryRunClient {
+	if opts.DryRun == cli.DryRunClient {
 		return ic.emitClientDryRun(payload, opts)
 	}
 
@@ -205,7 +188,7 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 	}
 
 	var params *client.CreateInstanceParams
-	if opts.DryRun == DryRunServer {
+	if opts.DryRun == cli.DryRunServer {
 		dryRun := client.CreateInstanceParamsDryRunAll
 		params = &client.CreateInstanceParams{DryRun: &dryRun}
 	}
@@ -242,7 +225,7 @@ func (ic *InstanceCreator) Run(ctx context.Context, opts CreateOptions, cfgPath 
 		created = resp.JSON200
 	}
 
-	if opts.DryRun == DryRunServer {
+	if opts.DryRun == cli.DryRunServer {
 		return ic.emitServerDryRun(created, opts)
 	}
 	ic.l.Infof("created instance %q in namespace %q", opts.Name, opts.Namespace)
@@ -298,8 +281,9 @@ func (ic *InstanceCreator) emitCreated(created *client.Instance, opts CreateOpti
 	return writeInstanceJSON(created)
 }
 
-// waitForInstance blocks until the instance reaches a terminal phase. Pretty
-// mode streams progress then the final status; JSON mode emits one final object.
+// waitForInstance blocks until the instance is ready or will not become
+// ready by waiting. Pretty mode streams progress then the final status; JSON
+// mode emits one final object.
 func (ic *InstanceCreator) waitForInstance(
 	ctx context.Context,
 	c *client.ClientWithResponses,
@@ -325,22 +309,27 @@ func (ic *InstanceCreator) waitForInstance(
 		}
 	}
 
-	if err := wait.Until(ctx, poll, instanceCondition, wait.Options{
+	err := wait.Until(ctx, poll, instanceCondition, wait.Options{
 		Timeout:  opts.Timeout,
 		OnUpdate: onUpdate,
 		OnRetry:  func(err error) { ic.l.Warnf("%v — retrying", err) },
-	}); err != nil {
-		return err
-	}
-
+	})
 	final := latest
 	if final == nil {
 		final = created
 	}
+	if errors.Is(err, wait.ErrTimeout) {
+		// The wait is over, the Instance's provisioning is not: say where
+		// it stands.
+		return timedOut(final, opts.Name, opts.Timeout)
+	}
+	if err != nil {
+		return err
+	}
 
 	if ic.config.Pretty {
 		var buf bytes.Buffer
-		printInstanceStatus(&buf, final, opts.Namespace)
+		printInstanceStatus(&buf, final, opts.Namespace, time.Now())
 		_, _ = fmt.Fprint(os.Stdout, buf.String())
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Instance %q is ready", opts.Name))
 		return nil

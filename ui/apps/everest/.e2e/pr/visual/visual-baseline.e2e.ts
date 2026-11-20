@@ -68,7 +68,7 @@ test.describe('Visual Baseline - Pages', () => {
   // --- SETTINGS: STORAGE LOCATIONS ---
   test('Settings - Storage Locations', async ({ page }) => {
     await goToUrl(page, '/settings/storage-locations');
-    await waitForTableContent(page, 'Bucket');
+    await waitForTableContent(page, 'Location');
     await expect(page).toHaveScreenshot(
       'settings-storage-locations.png',
       screenshotOpts
@@ -77,11 +77,15 @@ test.describe('Visual Baseline - Pages', () => {
 
   test('Settings - Storage Locations - Add modal', async ({ page }) => {
     await goToUrl(page, '/settings/storage-locations');
-    await waitForTableContent(page, 'Bucket');
     await page.getByTestId('add-backup-storage').click();
+    const dialog = page.getByRole('dialog');
+    await dialog.waitFor({ state: 'visible', timeout: 10000 });
+    // The type's forms make up most of the dialog.
+    await dialog.getByTestId('select-class-name-button').click();
     await page
-      .getByRole('dialog')
-      .waitFor({ state: 'visible', timeout: 10000 });
+      .getByRole('option', { name: 'S3-compatible object storage' })
+      .click();
+    await dialog.getByLabel('Access key ID').waitFor();
     await page.waitForTimeout(300);
     await expect(page).toHaveScreenshot(
       'settings-storage-add-modal.png',

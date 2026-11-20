@@ -18,16 +18,20 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -35,6 +39,9 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/openeverest/openeverest/v2/internal/secretdefinition"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
+	rbachandler "github.com/openeverest/openeverest/v2/internal/server/handlers/rbac"
+	"github.com/openeverest/openeverest/v2/pkg/oidc"
 )
 
 func TestEverestErrorHandler_Conflict(t *testing.T) {
@@ -127,6 +134,84 @@ func TestEverestErrorHandler_Conflict(t *testing.T) {
 			assert.JSONEq(t, tt.want, rec.Body.String())
 		})
 	}
+}
+
+func TestEverestErrorHandler_Forbidden(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{
+			name: "missing permission",
+			err:  rbachandler.ErrInsufficientPermissions,
+			want: `{"message": "insufficient permissions for performing the operation"}`,
+		},
+		{
+			name: "instance differs from its preset",
+			err: fmt.Errorf("create: %w", &rbachandler.PresetMismatchError{
+				PresetKind: "ClusterInstancePreset",
+				PresetName: "small",
+				Fields:     []string{"spec.version"},
+				Metadata:   []string{"metadata.labels[team]"},
+			}),
+			want: `{
+				"message": "instance does not match ClusterInstancePreset \"small\": it changes spec.version and sets metadata.labels[team]. instances:create-from-preset allows only an exact copy of the preset; changes need instances:create",
+				"reason": "PresetMismatch",
+				"causes": [
+					{"reason": "FieldValueForbidden", "message": "differs from ClusterInstancePreset \"small\"", "field": "spec.version"},
+					{"reason": "FieldValueForbidden", "message": "not allowed on an instance created from a preset", "field": "metadata.labels[team]"}
+				]
+			}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			e := echo.New()
+			rec := httptest.NewRecorder()
+			c := e.NewContext(httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/", nil), rec)
+
+			handler := everestErrorHandler(e.DefaultHTTPErrorHandler)
+			handler(tt.err, c)
+
+			require.Equal(t, http.StatusForbidden, rec.Code)
+			assert.JSONEq(t, tt.want, rec.Body.String())
+		})
+	}
+}
+
+func TestNewSSOTokenVerifier(t *testing.T) {
+	t.Parallel()
+
+	provider := func(clientID string) *oidc.ProviderConfig {
+		return &oidc.ProviderConfig{
+			Issuer:   "https://idp.example.com",
+			JWKSURL:  "https://idp.example.com/jwks",
+			ClientID: clientID,
+		}
+	}
+
+	t.Run("OIDC not configured disables SSO", func(t *testing.T) {
+		t.Parallel()
+		assert.Nil(t, newSSOTokenVerifier(t.Context(), zap.NewNop().Sugar(), nil))
+	})
+
+	t.Run("invalid OIDC settings disable SSO instead of failing the server", func(t *testing.T) {
+		t.Parallel()
+		core, logs := observer.New(zap.ErrorLevel)
+		assert.Nil(t, newSSOTokenVerifier(t.Context(), zap.New(core).Sugar(), provider("")))
+		assert.Equal(t, 1, logs.FilterMessageSnippet("SSO is disabled").Len())
+	})
+
+	t.Run("valid OIDC settings enable SSO", func(t *testing.T) {
+		t.Parallel()
+		assert.NotNil(t, newSSOTokenVerifier(t.Context(), zap.NewNop().Sugar(), provider("everest")))
+	})
 }
 
 func TestEverestErrorHandler_AdmissionDenial(t *testing.T) {
@@ -361,4 +446,42 @@ func TestEverestErrorHandler_Invalid(t *testing.T) {
 			assert.JSONEq(t, tt.want, rec.Body.String())
 		})
 	}
+}
+
+// TestRequestValidator_SystemMetadata pins that the object metadata fields
+// the API server populates stay out of readOnly in the OpenAPI schema. The
+// validator rejects readOnly properties in a request body, so an update that
+// sends back an Instance as it was read, generation included, would fail.
+func TestRequestValidator_SystemMetadata(t *testing.T) {
+	t.Parallel()
+
+	swagger, err := api.GetSpec()
+	require.NoError(t, err)
+	e := echo.New()
+	g := e.Group("/v1")
+	g.Use(requestValidator(swagger))
+	g.PUT("/clusters/:cluster/namespaces/:namespace/instances/:instance", func(c echo.Context) error {
+		return c.NoContent(http.StatusOK)
+	})
+
+	body := `{
+		"apiVersion": "core.openeverest.io/v1alpha1",
+		"kind": "Instance",
+		"metadata": {
+			"name": "orders",
+			"namespace": "everest",
+			"generation": 3,
+			"resourceVersion": "4821",
+			"uid": "fac71796-33d0-4b11-96fa-ce19ec150d80",
+			"creationTimestamp": "2026-11-18T13:39:44Z"
+		},
+		"spec": {"providerRef": {"name": "percona-server-mongodb"}}
+	}`
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPut,
+		"/v1/clusters/main/namespaces/everest/instances/orders", strings.NewReader(body),
+	)
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 }

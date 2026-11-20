@@ -14,11 +14,11 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
+import { AuthenticationFormFields } from 'components/class-authentication';
 import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
-import { getSectionFormDefaults } from 'components/ui-generator/utils/section-form';
 import { DestinationFormFields } from '../monitoring-destination-modal.constants';
 import {
   DestinationClassForms,
@@ -31,8 +31,8 @@ import {
 } from '../monitoring-destination-modal.utils';
 
 // The forms of the picked class and auth mode. Picking another class starts
-// its forms from their defaults (and preselects a class's only auth mode);
-// picking another mode clears the credentials typed for the previous one.
+// its forms from their defaults, and preselects a class's only auth mode; the
+// credentials block drops what was picked or typed for the previous one.
 export const useDestinationClassForms = (
   classes: MonitoringClass[],
   original: MonitoringDestination | undefined
@@ -44,7 +44,7 @@ export const useDestinationClassForms = (
     useFormContext<MonitoringDestinationFormValues>();
   const [className, authMode] = useWatch({
     control,
-    name: [DestinationFormFields.className, DestinationFormFields.authMode],
+    name: [DestinationFormFields.className, AuthenticationFormFields.authMode],
   });
   const monitoringClass = classes.find((c) => c.metadata?.name === className);
   const formMode = getFormMode(original);
@@ -60,7 +60,7 @@ export const useDestinationClassForms = (
     }
     previousClassName.current = className;
     const defaults = getNewDestinationClassDefaults(monitoringClass);
-    setValue(DestinationFormFields.authMode, defaults.authMode, {
+    setValue(AuthenticationFormFields.authMode, defaults.authMode, {
       shouldValidate: true,
     });
     setValue(DestinationFormFields.spec, defaults.spec);
@@ -69,18 +69,6 @@ export const useDestinationClassForms = (
       defaults.fallbackParameters
     );
   }, [className, monitoringClass, setValue]);
-
-  const previousAuthMode = useRef(authMode);
-  useEffect(() => {
-    if (previousAuthMode.current === authMode) {
-      return;
-    }
-    previousAuthMode.current = authMode;
-    setValue(
-      DestinationFormFields.credentials,
-      forms.credentials ? getSectionFormDefaults(forms.credentials) : {}
-    );
-  }, [authMode, forms.credentials, setValue]);
 
   return { monitoringClass, forms };
 };

@@ -24,7 +24,7 @@ import {
   getSectionFormDefaults,
   getSectionFormZodSchema,
   postprocessSectionForm,
-  type SectionForm,
+  SectionForm,
   toSectionForm,
 } from 'components/ui-generator/utils/section-form';
 import {
@@ -34,6 +34,7 @@ import {
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
 import { getDestinationName } from 'utils/monitoring-destinations';
+import { toParametersContract } from 'utils/class-contract';
 import {
   getMonitoringClassName,
   getMonitoringClassUiSchema,
@@ -280,7 +281,11 @@ export const buildInstanceFormsByDestination = (
         ? [
             [
               getMonitoringClassName(monitoringClass),
-              toSectionForm(MONITORING_INSTANCE_SECTION_KEY, instance),
+              toSectionForm(MONITORING_INSTANCE_SECTION_KEY, instance, {
+                contract: toParametersContract(
+                  monitoringClass.spec.instanceParametersSchema
+                ),
+              }),
             ],
           ]
         : [];
@@ -337,10 +342,13 @@ export const finalizeMonitoringEntries = (
   entries: InstanceMonitoringDestination[],
   formsByDestination: Map<string, SectionForm>
 ): InstanceMonitoringDestinationPayload[] =>
-  entries.map(({ name, destinationRef, parameters }) => {
+  entries.map((entry) => {
+    const { name, destinationRef, parameters } = entry;
     const form = formsByDestination.get(destinationRef.name);
+    // The whole entry: the switches of its toggleable groups, which decide
+    // what is sent, sit beside the parameters.
     const values = form
-      ? postprocessSectionForm({ parameters }, form)
+      ? postprocessSectionForm(form, entry)
       : removeEmptyFieldValues({ parameters });
     const cleaned = values.parameters;
     return {

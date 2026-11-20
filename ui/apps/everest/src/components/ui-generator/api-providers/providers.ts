@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { providerRegistry } from './registry';
-import { useStorageClassesOptions } from 'hooks/api/kubernetesClusters/useStorageClassesOptions';
+import { useStorageClassesOptions } from './storage-classes/useStorageClassesOptions';
 import { Messages } from './providers.messages';
 
 providerRegistry.register('storageClasses', {

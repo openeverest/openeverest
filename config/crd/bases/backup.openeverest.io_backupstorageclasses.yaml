@@ -138,6 +138,53 @@ spec:
                   authentication mode.
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
+              validations:
+                description: |-
+                  Validations are CEL rules every BackupStorage of the class must
+                  satisfy, for constraints parametersSchema cannot express, such as a
+                  naming rule on location.objectStore.bucket or a rule across parameters
+                  and tls. self is the BackupStorage's spec. A violation sets the
+                  storage's Accepted condition to False with the rule's reason,
+                  InvalidLocation or InvalidParameters, and its message.
+                items:
+                  description: |-
+                    ClassValidation is a CEL rule a class applies to the objects that reference
+                    it, for constraints its parameters schema cannot express: rules on typed
+                    fields of the object, or across them and its parameters. It is evaluated
+                    with the CEL library and cost limits of CRD validation rules.
+                  properties:
+                    expression:
+                      description: |-
+                        Expression is a CEL expression that is true for a valid object. self is
+                        the referencing object's spec, with its parameters typed by the class's
+                        parameters schema. oldSelf is not available.
+                      maxLength: 4096
+                      minLength: 1
+                      type: string
+                    message:
+                      description: Message explains a violation to the user.
+                      maxLength: 1024
+                      minLength: 1
+                      type: string
+                    reason:
+                      description: |-
+                        Reason is the reason of the condition a violation sets on the
+                        referencing object. Each class kind lists the reasons it accepts.
+                      maxLength: 64
+                      minLength: 1
+                      pattern: ^[A-Z][A-Za-z0-9]*$
+                      type: string
+                  required:
+                  - expression
+                  - message
+                  - reason
+                  type: object
+                maxItems: 16
+                type: array
+                x-kubernetes-list-type: atomic
+                x-kubernetes-validations:
+                - message: the reason of a validation must be InvalidLocation or InvalidParameters
+                  rule: self.all(v, v.reason in ['InvalidLocation', 'InvalidParameters'])
             required:
             - authModes
             type: object

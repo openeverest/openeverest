@@ -19,14 +19,11 @@ import {
   deleteMonitoringDestinationFn,
   updateMonitoringDestinationFn,
 } from 'api/monitoring-destinations';
-import {
-  createSecretFn,
-  deleteSecretFn,
-  getSecretFn,
-  patchSecretFn,
-} from 'api/secrets';
 import { MONITORING_BINDINGS_QUERY_KEY } from 'hooks/api/monitoring-bindings';
-import { SECRETS_QUERY_KEY } from 'hooks/api/secrets';
+import {
+  getCredentialsSecretRequests,
+  SECRETS_QUERY_KEY,
+} from 'hooks/api/secrets';
 import { useClusterName } from 'hooks/api/useClusterName';
 import { MonitoringDestination } from 'shared-types/monitoring-destinations.types';
 import { isDestinationInUseError } from 'utils/monitoring-destinations';
@@ -41,11 +38,7 @@ const toRequests = (
   cluster: string,
   namespace: string
 ): MonitoringDestinationRequests => ({
-  createSecret: (secret) => createSecretFn(cluster, namespace, secret),
-  getSecret: (name, quiet = false) =>
-    getSecretFn(cluster, namespace, name, quiet),
-  patchSecret: (name, patch) => patchSecretFn(cluster, namespace, name, patch),
-  deleteSecret: (name) => deleteSecretFn(cluster, namespace, name),
+  ...getCredentialsSecretRequests(cluster, namespace),
   createDestination: (destination) =>
     createMonitoringDestinationFn(cluster, namespace, destination),
   updateDestination: (destination) =>

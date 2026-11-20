@@ -12,29 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Keys the class's destination and credentials forms are prepared under.
+// Key the class's destination form is prepared under.
 export const DESTINATION_SECTION_KEY = 'destination';
-export const CREDENTIALS_SECTION_KEY = 'credentials';
 
+// The fields of the class's authentication and of TLS are those of
+// AuthenticationFormFields and TlsConfigFormFields.
 export enum DestinationFormFields {
   name = 'name',
   namespace = 'namespace',
   className = 'className',
-  authMode = 'authMode',
-  credentialsSource = 'credentialsSource',
-  credentialsSecretName = 'credentialsSecretName',
-  existingSecretName = 'existingSecretName',
-  // Root of the class credentials form: the Secret's keys.
-  credentials = 'credentials',
   // Root of the class destination form, whose paths are relative to the
   // destination spec (e.g. parameters.url).
   spec = 'spec',
   // Root of the form generated from destinationParametersSchema when the
   // class ships no destination form.
   fallbackParameters = 'fallbackParameters',
-  insecureSkipVerify = 'insecureSkipVerify',
-  caSecretName = 'caSecretName',
-  caSecretKey = 'caSecretKey',
 }
-
-export const MAX_SECRET_NAME_LENGTH = 253;

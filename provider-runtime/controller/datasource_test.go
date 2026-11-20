@@ -85,10 +85,11 @@ func TestReconcileDataSource(t *testing.T) {
 		expected   DataSourceStatus
 	}{
 		{
-			name: "waits for a missing source until seeded",
+			name: "waits for a missing source until seeded, and says it cannot go on",
 			expected: DataSourceStatus{
 				Done:    false,
 				State:   DataSourceStateWaiting,
+				Blocked: true,
 				Reason:  v1alpha1.ReasonDataSourceSourceBackupNotFound,
 				Message: `source Backup "deleted-with-its-instance" not found in namespace "ns"`,
 			},
@@ -114,6 +115,44 @@ func TestReconcileDataSource(t *testing.T) {
 			restores := &backupv1alpha1.RestoreList{}
 			require.NoError(t, c.Client().List(context.Background(), restores))
 			assert.Empty(t, restores.Items)
+		})
+	}
+}
+
+// A source Backup that is not finished may still finish, so seeding is in
+// progress. One that failed or is being deleted never will: seeding cannot
+// go on.
+func TestReconcileDataSource_SourceBackupNotSucceeded(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		state       backupv1alpha1.BackupState
+		wantBlocked bool
+	}{
+		{state: "", wantBlocked: false},
+		{state: backupv1alpha1.BackupStatePending, wantBlocked: false},
+		{state: backupv1alpha1.BackupStateRunning, wantBlocked: false},
+		{state: backupv1alpha1.BackupStateError, wantBlocked: false},
+		{state: backupv1alpha1.BackupStateFailed, wantBlocked: true},
+		{state: backupv1alpha1.BackupStateDeleting, wantBlocked: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(string(tc.state), func(t *testing.T) {
+			t.Parallel()
+
+			c := newDataSourceTestContext(t, seedingInstance())
+			require.NoError(t, c.Client().Create(context.Background(), &backupv1alpha1.Backup{
+				ObjectMeta: metav1.ObjectMeta{Name: "deleted-with-its-instance", Namespace: "ns"},
+				Status:     backupv1alpha1.BackupStatus{State: tc.state},
+			}))
+
+			got, err := c.ReconcileDataSource()
+
+			require.NoError(t, err)
+			assert.Equal(t, DataSourceStateWaiting, got.State)
+			assert.Equal(t, v1alpha1.ReasonDataSourceSourceBackupNotSucceeded, got.Reason)
+			assert.Equal(t, tc.wantBlocked, got.Blocked)
 		})
 	}
 }
@@ -152,6 +191,88 @@ func TestSetDataSourceStatus(t *testing.T) {
 
 			c.SetDataSourceStatus(waitingForCluster)
 			assert.Equal(t, &tc.expected, c.GetDataSourceStatus())
+		})
+	}
+}
+
+// TestReconcileDataSource_ClassVerdict checks that the source's class is
+// judged by the compatibility core publishes for the Instance's provider,
+// whatever its execution mode.
+func TestReconcileDataSource_ClassVerdict(t *testing.T) {
+	t.Parallel()
+
+	class := func(mode backupv1alpha1.BackupExecutionMode, providers ...backupv1alpha1.BackupClassProviderCompatibility) *backupv1alpha1.BackupClass {
+		return &backupv1alpha1.BackupClass{
+			ObjectMeta: metav1.ObjectMeta{Name: "pbm", Generation: 2},
+			Spec:       backupv1alpha1.BackupClassSpec{ExecutionMode: mode},
+			Status:     backupv1alpha1.BackupClassStatus{Providers: providers},
+		}
+	}
+	entry := func(c backupv1alpha1.Compatibility, reason string, generation int64) backupv1alpha1.BackupClassProviderCompatibility {
+		return backupv1alpha1.BackupClassProviderCompatibility{Name: "test-provider", Compatibility: c, Reason: reason, ClassGeneration: generation}
+	}
+
+	tests := []struct {
+		name     string
+		class    *backupv1alpha1.BackupClass
+		expected DataSourceStatus
+	}{
+		{
+			name:  "incompatible class fails",
+			class: class(backupv1alpha1.BackupExecutionModeProviderManaged, entry(backupv1alpha1.CompatibilityIncompatible, backupv1alpha1.ReasonSpecDrift, 2)),
+			expected: DataSourceStatus{
+				Done:    true,
+				State:   DataSourceStateFailed,
+				Reason:  v1alpha1.ReasonDataSourceClassUnsupported,
+				Message: `BackupClass "pbm" is incompatible with provider "test-provider": SpecDrift`,
+			},
+		},
+		{
+			name:  "pending class waits",
+			class: class(backupv1alpha1.BackupExecutionModeProviderManaged, entry(backupv1alpha1.CompatibilityCompatible, "", 1)),
+			expected: DataSourceStatus{
+				Done:   false,
+				State:  DataSourceStateWaiting,
+				Reason: v1alpha1.ReasonDataSourceClassPending,
+				Message: `BackupClass "pbm" is pending for provider "test-provider": VerdictPending: ` +
+					`the verdict on BackupClass "pbm" for Provider "test-provider" predates generation 2 of the class`,
+			},
+		},
+		{
+			name:  "compatible class of a mode the runtime does not know is not rejected",
+			class: class("Other", entry(backupv1alpha1.CompatibilityCompatible, "", 2)),
+			expected: DataSourceStatus{
+				Done:    false,
+				State:   DataSourceStateWaiting,
+				Blocked: true,
+				Reason:  v1alpha1.ReasonDataSourceStorageMismatch,
+				Message: `Instance.spec.backup.storages does not include storage "s3-prod" used by Backup "deleted-with-its-instance"`,
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := runtime.NewScheme()
+			require.NoError(t, v1alpha1.AddToScheme(s))
+			require.NoError(t, backupv1alpha1.AddToScheme(s))
+			in := seedingInstance()
+			source := &backupv1alpha1.Backup{
+				ObjectMeta: metav1.ObjectMeta{Name: "deleted-with-its-instance", Namespace: "ns"},
+				Spec: backupv1alpha1.BackupSpec{
+					ClassRef:   common.ObjectRef{Name: "pbm"},
+					StorageRef: common.ObjectRef{Name: "s3-prod"},
+				},
+				Status: backupv1alpha1.BackupStatus{State: backupv1alpha1.BackupStateSucceeded},
+			}
+			cl := fake.NewClientBuilder().WithScheme(s).WithObjects(in, source, tc.class).Build()
+			c := NewContext(context.Background(), cl, in, "test-provider")
+
+			got, err := c.ReconcileDataSource()
+			require.NoError(t, err)
+			assert.Equal(t, tc.expected, got)
 		})
 	}
 }

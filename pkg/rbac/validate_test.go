@@ -111,6 +111,12 @@ func TestCheckResourceNames(t *testing.T) {
 			},
 			valid: true,
 		},
+		{
+			policies: [][]string{
+				{"role:dev", "storage-classes", "read", "*/*"},
+			},
+			valid: true,
+		},
 	}
 
 	for i, tc := range testcases {
@@ -136,6 +142,18 @@ func TestCheckResourceNamesRejectsMonitoringConfigs(t *testing.T) {
 	})
 
 	require.EqualError(t, err, "resource name 'monitoring-configs' was removed; use 'monitoring-destinations' instead")
+}
+
+func TestCheckActionNamesRejectsDeploy(t *testing.T) {
+	t.Parallel()
+
+	err := checkActionNames([][]string{
+		{"role:deployer", "instance-presets", "read", "*/*/*"},
+		{"role:deployer", "instances", "deploy", "*/*/*"},
+	})
+
+	require.EqualError(t, err, "action 'deploy' was renamed; use 'create-from-preset' instead")
+	require.NoError(t, checkActionNames([][]string{{"role:deployer", "instances", "create-from-preset", "*/*/*"}}))
 }
 
 func TestCheckRoles(t *testing.T) {

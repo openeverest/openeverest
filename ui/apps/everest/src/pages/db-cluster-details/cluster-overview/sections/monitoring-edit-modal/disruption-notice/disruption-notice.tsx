@@ -14,7 +14,7 @@
 
 import { Alert, Typography } from '@mui/material';
 import { Instance } from 'shared-types/api.types';
-import type { SectionForm } from 'components/ui-generator/utils/section-form';
+import { SectionForm } from 'components/ui-generator/utils/section-form';
 import { useMonitoringDisruption } from '../hooks/use-monitoring-disruption';
 import { Messages } from '../monitoring-edit-modal.messages';
 

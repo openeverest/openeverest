@@ -19,7 +19,8 @@ import (
 	v1 "k8s.io/api/storage/v1"
 )
 
-func (out *StorageClass) FromCR(in *v1.StorageClass) {
+// FromCR fills the trimmed storage class of the deprecated /cluster-info API from in.
+func (out *ClusterInfoStorageClass) FromCR(in *v1.StorageClass) {
 	meta := make(map[string]interface{})
 	meta["name"] = in.GetName()
 	meta["annotations"] = in.GetAnnotations()

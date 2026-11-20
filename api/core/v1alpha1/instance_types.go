@@ -33,7 +33,9 @@ import (
 // +kubebuilder:validation:XValidation:rule="!has(oldSelf.userSecretRef) || (has(self.userSecretRef) && self.userSecretRef == oldSelf.userSecretRef)",message="spec.userSecretRef is immutable once set"
 type InstanceSpec struct {
 	// ProviderRef references the cluster-scoped Provider that manages this
-	// Instance (e.g., "percona-server-mongodb", "postgresql").
+	// Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+	// providerRef cannot be changed: the provider that picked it up owns its
+	// finalizer and engine resources, and only that provider cleans them up.
 	// +kubebuilder:validation:Required
 	ProviderRef common.ObjectRef `json:"providerRef"`
 
@@ -97,7 +99,7 @@ type InstanceSpec struct {
 	//
 	// Only ProviderManaged BackupClasses are supported. The referenced Backup
 	// must be in the same namespace, in Succeeded state, and its BackupClass
-	// must list the Instance's provider in SupportedProviders. Instance must
+	// must be executed by the Instance's provider. Instance must
 	// also have backup enabled and include a storage entry that matches the
 	// storage used by the source Backup so the provider can access the data.
 	// +optional
@@ -238,8 +240,8 @@ type InstanceBackupSpec struct {
 	Enabled bool `json:"enabled"`
 	// ClassRef references the cluster-scoped BackupClass that the provider
 	// should use to configure the engine. The class must have
-	// ExecutionMode=ProviderManaged and list the Instance's provider in its
-	// SupportedProviders.
+	// ExecutionMode=ProviderManaged and name the Instance's provider in
+	// providerManaged.providerRef.
 	// +kubebuilder:validation:Required
 	ClassRef common.ObjectRef `json:"classRef"`
 	// Storages registers BackupStorages on the engine. Each entry references
@@ -518,11 +520,18 @@ func (sr *SourceRanges) NormalizedSourceRanges() SourceRanges {
 type InstanceStatus struct {
 	// ObservedGeneration is the metadata.generation the provider-runtime last
 	// reconciled. Status describes an older spec while it is lower than
-	// metadata.generation.
+	// metadata.generation. It defaults to -1, so an Instance no provider has
+	// reconciled reads as in progress, never as current.
 	// +optional
+	// +kubebuilder:default=-1
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
-	// Phase of the database cluster.
+	// Phase is where the Instance is in its life: Pending until the database
+	// is first available, Provisioned afterwards, Terminating once deletion
+	// is requested. The CRD sets Pending at creation; only provider-runtime
+	// changes it. Read the conditions for everything else.
+	// +optional
+	// +kubebuilder:default=Pending
 	Phase InstancePhase `json:"phase,omitempty"`
 
 	// Version is the effective version bundle that is currently applied to this
@@ -559,9 +568,6 @@ type InstanceStatus struct {
 	// +listMapKey=name
 	Components []ComponentStatus `json:"components,omitempty"`
 
-	// Message is a custom user-facing message describing the current state of the instance.
-	// +optional
-	Message string `json:"message,omitempty"`
 	// Backup surfaces backup-related observability data reported by the
 	// provider, such as the latest restorable time for PITR-enabled storages.
 	// +optional
@@ -602,6 +608,18 @@ type InstanceBackupStorageStatus struct {
 	// spec.backup.storages[].storageRef.name).
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
+	// Location is the path in the storage's bucket under which the engine
+	// writes this Instance's backups.
+	// +optional
+	Location string `json:"location,omitempty"`
+	// Reason is why the entry is not configured on the engine as specified,
+	// empty when it is. An entry the engine already had keeps its last
+	// configuration meanwhile.
+	// +optional
+	Reason string `json:"reason,omitempty"`
+	// Message explains Reason.
+	// +optional
+	Message string `json:"message,omitempty"`
 	// PITR reports the point-in-time recovery window observed on this storage.
 	// Only populated when PITR is enabled for the storage.
 	// +optional
@@ -655,108 +673,121 @@ const (
 	PITRStateUnavailable PITRState = "Unavailable"
 )
 
-// InstancePhase represents the high-level, mutually exclusive lifecycle state
-// of an Instance. These phases are designed for human readability, providing an
-// immediate understanding of the instance's current lifecycle stage.
+// InstancePhase says where the Instance is in its life, and nothing else.
+// Health, availability and what is happening right now are conditions.
 //
-// +kubebuilder:validation:Enum=Pending;Provisioning;Initializing;Ready;Updating;Terminating;Failed;Restoring;Suspending;Suspended;Resuming
+// Only provider-runtime writes it, and it only moves forward. It can be
+// rebuilt from observation: an Instance whose status was lost starts at
+// Pending and becomes Provisioned the next time it is Available. Losing it
+// changes only wording, so nothing may decide behaviour on it.
+//
+// +kubebuilder:validation:Enum=Pending;Provisioned;Terminating
 type InstancePhase string
 
 const (
-	// --- Core Lifecycle Phases ---
-
-	// InstancePhasePending indicates the Instance CR has been accepted by the
-	// API server, but the provider has not yet begun provisioning (e.g.,
-	// waiting on resource quotas or prerequisite checks).
+	// InstancePhasePending indicates the database has not been available yet.
 	InstancePhasePending InstancePhase = "Pending"
 
-	// InstancePhaseProvisioning indicates the provider is actively creating the
-	// underlying Kubernetes infrastructure (StatefulSets, PVCs, Services,
-	// Secrets, ConfigMaps).
-	InstancePhaseProvisioning InstancePhase = "Provisioning"
+	// InstancePhaseProvisioned indicates the database has been brought up at
+	// least once. It says nothing about its health now.
+	InstancePhaseProvisioned InstancePhase = "Provisioned"
 
-	// InstancePhaseInitializing indicates the infrastructure exists and a fresh
-	// instance engine is booting. This covers operations such as bootstrap
-	// scripts, default user setup, or initial quorum establishment.
-	InstancePhaseInitializing InstancePhase = "Initializing"
-
-	// InstancePhaseReady indicates the instance is fully operational, healthy,
-	// and actively accepting client connections. This is the target steady
-	// state.
-	InstancePhaseReady InstancePhase = "Ready"
-
-	// InstancePhaseUpdating indicates the provider is actively rolling out a
-	// mutation (e.g., scaling resources, modifying configuration flags, or
-	// performing a version upgrade).
-	InstancePhaseUpdating InstancePhase = "Updating"
-
-	// InstancePhaseTerminating indicates the user has requested deletion. The
-	// instance is actively spinning down and resources are being reclaimed.
+	// InstancePhaseTerminating indicates deletion was requested.
 	InstancePhaseTerminating InstancePhase = "Terminating"
-
-	// InstancePhaseFailed indicates a terminal or semi-terminal error requiring
-	// human intervention (e.g., persistent CrashLoopBackOff or unrecoverable
-	// disk corruption).
-	InstancePhaseFailed InstancePhase = "Failed"
-
-	// --- Data Recovery Phase ---
-
-	// InstancePhaseRestoring indicates the instance is actively downloading and
-	// unpacking data from an external backup source (e.g., S3 bucket or volume
-	// snapshot). This phase is distinct from Initializing because it can take
-	// hours, has different failure domains (network/storage vs. compute), and
-	// is triggered by a spec.init.fromBackup directive or a Restore CR.
-	InstancePhaseRestoring InstancePhase = "Restoring"
-
-	// --- Cost-Saving (Compute-to-Zero) Phases ---
-
-	// InstancePhaseSuspending indicates the provider is gracefully shutting
-	// down the instance engine, flushing memory buffers to disk, and preparing
-	// to scale compute replicas to zero.
-	InstancePhaseSuspending InstancePhase = "Suspending"
-
-	// InstancePhaseSuspended indicates the instance compute is scaled to zero.
-	// The instance is completely offline and not incurring compute charges, but
-	// PersistentVolumes remain intact.
-	InstancePhaseSuspended InstancePhase = "Suspended"
-
-	// InstancePhaseResuming indicates the user has requested the instance to
-	// wake up. The provider is scaling compute back up, reattaching existing
-	// storage, and warming the instance engine. Once complete, the instance
-	// transitions to Ready.
-	InstancePhaseResuming InstancePhase = "Resuming"
 )
 
 // Condition types for Instance.
+//
+// The summary conditions answer the questions every reader has. Available:
+// can clients connect? Ready: has it converged, and with what status word?
+// Reconciling or Stalled: wait, or act? NeedsAttention: has a problem been
+// observed, even if it may still clear? The remaining conditions are checks
+// (True is fine, Unknown is in progress, False is a problem), operations
+// (True while a long operation runs) and notices (True when a decision is
+// wanted and nothing is broken).
 const (
-	// ConditionReady summarises the Instance for kubectl wait, Argo CD and
-	// Flux. It is False with reason ProviderNotFound, UserSecretNotFound or
-	// ValidationFailed while one of them blocks the Instance, whatever the
-	// phase. Otherwise it is True when the phase is Ready and neither
-	// BackupConfigured nor DataSourceReady is False; else it is False with the
-	// reason and message of the False condition, or with the phase as reason.
+	// ConditionAvailable is True while the published endpoint serves the
+	// engine's normal requests: for a database, reads and writes of all its
+	// data. It is Unknown when nobody can tell, and it is "as of the last
+	// observation". A highly available cluster stays Available through a
+	// rolling change.
+	ConditionAvailable = "Available"
+
+	// ConditionReady is True when the Instance has converged: the spec was
+	// applied, every check that gates it is True, no operation a user asked
+	// for is running and nothing is held. Its reason is the one status word
+	// every client shows (kubectl, everestctl, Argo CD, the UI), and it always
+	// names the cause behind whichever of Stalled and Reconciling is True. Its
+	// message is one sentence a person can act on.
 	ConditionReady = "Ready"
 
+	// ConditionReconciling is True while provider-runtime or the provider is
+	// working towards the spec: wait. kstatus reads it as in progress. While
+	// Ready is not True, exactly one of Reconciling and Stalled is True.
+	ConditionReconciling = "Reconciling"
+
+	// ConditionStalled is True when the Instance will not converge without a
+	// person: act. It is set at once only for causes nothing but a person can
+	// resolve, such as a rejected spec, and otherwise once a problem or an
+	// unnamed wait has outlasted its deadline. kstatus reads it as failed.
+	ConditionStalled = "Stalled"
+
+	// ConditionNeedsAttention is True while a problem is observed: a check
+	// that gates Ready is False, or Stalled is True. It lets a client warn
+	// before Stalled is set, without knowing which checks gate Ready. It
+	// carries the cause's reason and message, and its lastTransitionTime is
+	// when the problem began.
+	ConditionNeedsAttention = "NeedsAttention"
+
+	// ConditionUnattended is written by core, never by a provider. It is
+	// present only while nobody is reconciling the Instance's current spec,
+	// and removed as soon as a provider catches up: True with reason
+	// ProviderNotFound while the Provider named by spec.providerRef does not
+	// exist, Unknown with reason NotResponding while the Provider exists but
+	// has not reported on the current generation. Clients honour it only
+	// while status.observedGeneration is below metadata.generation.
+	ConditionUnattended = "Unattended"
+
+	// ConditionReferencesResolved is a check: False while the Provider, the
+	// user Secret or another object the Instance names is missing or does not
+	// fit. The provider is not called meanwhile.
+	ConditionReferencesResolved = "ReferencesResolved"
+
+	// ConditionSynced is a check: False once the provider's Sync or Status
+	// call has failed continuously for a minute, True again on the first
+	// success.
+	ConditionSynced = "Synced"
+
+	// ConditionEngineHealthy is a check: False while the provider reports a
+	// problem with the engine.
+	ConditionEngineHealthy = "EngineHealthy"
+
+	// ConditionRestoring is an operation: True while a restore is running,
+	// including the seeding of a new Instance from a backup.
+	ConditionRestoring = "Restoring"
+
 	// ConditionConnectionDetailsReady indicates whether the connection
-	// details Secret has been populated by the provider.
+	// details Secret has been populated by the provider. It does not gate
+	// Ready: an engine exposed only inside the cluster may publish none.
 	ConditionConnectionDetailsReady = "ConnectionDetailsReady"
 
-	// ConditionStorageResizing is a state-indicator condition that is True
-	// while a PVC volume expansion is in flight, and False when storage is in
-	// a steady state. Monitoring tools can use this to suppress disk I/O alerts
-	// during the storage controller's block metadata rewrite.
+	// ConditionStorageResizing is an operation: True while a PVC volume
+	// expansion is in flight, and False when storage is in a steady state.
+	// Monitoring tools can use this to suppress disk I/O alerts during the
+	// storage controller's block metadata rewrite.
 	ConditionStorageResizing = "StorageResizing"
 
-	// ConditionUpgrading is a state-indicator condition that is True while a
-	// version upgrade is in flight, and False when the instance is running its
-	// target version. External CI/CD pipelines can use this to block subsequent
+	// ConditionUpgrading is an operation: True while a version upgrade is in
+	// flight, and False when the instance is running its target version.
+	// External CI/CD pipelines can use this to block subsequent
 	// infrastructure changes until the upgrade completes.
 	ConditionUpgrading = "Upgrading"
 
-	// ConditionBackupConfigured indicates whether the provider has successfully
-	// configured the backup feature on the instance engine. This condition is
-	// only set when Backup.Enabled=true; it remains absent otherwise. When False,
-	// the reason and message explain the configuration failure (e.g., storage
+	// ConditionBackupConfigured is a check that gates Ready: it indicates
+	// whether the provider has successfully configured the backup feature on
+	// the instance engine. This condition is only set when
+	// Backup.Enabled=true; it remains absent otherwise. When False, the
+	// reason and message explain the configuration failure (e.g., storage
 	// resolution or PITR wiring error).
 	ConditionBackupConfigured = "BackupConfigured"
 
@@ -776,11 +807,12 @@ const (
 	// spec.monitoring has no destinations.
 	ConditionMonitoringReady = "MonitoringReady"
 
-	// ConditionDataSourceReady indicates the outcome of seeding an Instance
-	// from .spec.dataSource. The condition is set only when the Instance has
-	// a DataSource configured. Status=True means the source data has been
-	// fully restored into the new Instance; Status=False with the matching
-	// reason explains why the seeding is still in progress or has failed.
+	// ConditionDataSourceReady is a check that gates Ready: it indicates the
+	// outcome of seeding an Instance from .spec.dataSource. The condition is
+	// set only when the Instance has a DataSource configured. Status=True
+	// means the source data has been fully restored into the new Instance,
+	// Unknown that seeding is in progress, and False that it cannot proceed
+	// or has failed, with the reason.
 	// The condition is sticky: once True it remains True for the lifetime of
 	// the Instance.
 	ConditionDataSourceReady = "DataSourceReady"
@@ -799,25 +831,68 @@ const (
 	// condition is True — a held action never affects availability.
 	ConditionMaintenancePending = "MaintenancePending"
 
-	// ConditionPodsScheduled is False once a pod has waited more than a minute
-	// for a node, for example because a required anti-affinity needs more
-	// nodes than the cluster has. The message has one line per affected
-	// component and quotes the scheduler. Only set when the provider labels
-	// its pods.
+	// ConditionPodsScheduled is a check that gates Ready: False once a pod has
+	// waited more than a minute for a node, for example because a required
+	// anti-affinity needs more nodes than the cluster has. The message has
+	// one line per affected component and quotes the scheduler. Only set when
+	// the provider labels its pods.
 	ConditionPodsScheduled = "PodsScheduled"
 
-	// ConditionPodsReady is False while a pod is not Ready. The reason names
-	// the worst problem found: CrashLoopBackOff, ImagePullBackOff,
-	// CreateContainerConfigError, then NotReady. The message has one line per
-	// affected component. Only set when the provider labels its pods.
+	// ConditionPodsReady is a check that gates Ready. It is Unknown while a
+	// pod is merely not Ready yet (reason NotReady), and False while a pod is
+	// in a back-off: CrashLoopBackOff, ImagePullBackOff or
+	// CreateContainerConfigError. A crash loop is read from the pod's restart
+	// history, so the check does not flap between crashes. The message has
+	// one line per affected component. Only set when the provider labels its
+	// pods.
 	ConditionPodsReady = "PodsReady"
 )
 
-// Reasons for the Ready condition. Ready=True uses ReasonReady.
+// Reasons for the Ready condition. The reason is the status word clients show,
+// so besides the reasons below it takes the reason of the check that is False
+// (CrashLoopBackOff, Unschedulable, ...) or the type of the operation that is
+// running (Restoring, Upgrading, StorageResizing). The vocabulary is open:
+// clients must show a reason they do not know.
 const (
+	// ReasonCreating indicates the database is being brought up for the first
+	// time and nothing more specific is known.
+	ReasonCreating = "Creating"
+
+	// ReasonApplyingChanges indicates a database that has been up before is
+	// converging on its spec and no named operation is running.
+	ReasonApplyingChanges = "ApplyingChanges"
+
+	// ReasonDeleting indicates the Instance is being deleted.
+	ReasonDeleting = "Deleting"
+
+	// ReasonWaitingForBackups indicates the deletion of the Instance waits
+	// for its Backups, and any Restores, to be deleted first.
+	ReasonWaitingForBackups = "WaitingForBackups"
+
+	// ReasonWaitingForRestores indicates the deletion of the Instance waits
+	// for its Restores to be deleted first.
+	ReasonWaitingForRestores = "WaitingForRestores"
+
+	// ReasonReconcileError indicates the provider's Sync or Status call keeps
+	// failing.
+	ReasonReconcileError = "ReconcileError"
+
+	// ReasonProgressDeadlineExceeded indicates the Instance has been
+	// converging for longer than the progress deadline with no named
+	// operation running.
+	ReasonProgressDeadlineExceeded = "ProgressDeadlineExceeded"
+
+	// ReasonEngineError is the reason of a problem a provider reports without
+	// naming it.
+	ReasonEngineError = "EngineError"
+
 	// ReasonProviderNotFound indicates the Provider named by
 	// spec.providerRef does not exist. The provider is not called.
 	ReasonProviderNotFound = "ProviderNotFound"
+
+	// ReasonNotResponding is the reason of Unattended while the Provider
+	// exists but has not reported on the Instance's current generation.
+	ReasonNotResponding = "NotResponding"
 
 	// ReasonUserSecretNotFound indicates the Secret named by
 	// spec.userSecretRef does not exist. The provider is not called, so a new
@@ -832,6 +907,61 @@ const (
 	// its contents don't fit the Instance, such as a user Secret missing a key
 	// the provider needs. The provider is not called.
 	ReasonInvalidReference = "InvalidReference"
+)
+
+// Reasons for the Available condition.
+const (
+	// ReasonAvailable indicates the endpoint serves requests.
+	ReasonAvailable = "Available"
+
+	// ReasonNotAvailable indicates the endpoint does not serve requests and
+	// the provider gave no more specific reason.
+	ReasonNotAvailable = "NotAvailable"
+
+	// ReasonNotCreated indicates the database has never been available.
+	ReasonNotCreated = "NotCreated"
+
+	// ReasonNotReported indicates the provider cannot tell whether clients
+	// can connect while the Instance is converging.
+	ReasonNotReported = "NotReported"
+
+	// ReasonLoadingData indicates the Instance is being seeded from a backup,
+	// so anything written now would be overwritten.
+	ReasonLoadingData = "LoadingData"
+)
+
+// Reasons shared by the checks and the summary conditions.
+const (
+	// ReasonResolved indicates every object the Instance names exists and fits.
+	ReasonResolved = "Resolved"
+
+	// ReasonSynced indicates the provider's last Sync and Status calls succeeded.
+	ReasonSynced = "Synced"
+
+	// ReasonHealthy indicates the provider reports no problem with the engine.
+	ReasonHealthy = "Healthy"
+
+	// ReasonNoProblems is the reason of NeedsAttention while it is False: no
+	// problem is observed.
+	ReasonNoProblems = "NoProblems"
+
+	// ReasonConverged is the reason of Reconciling and Stalled while they are
+	// False because the Instance is Ready.
+	ReasonConverged = "Converged"
+
+	// ReasonReconciling is the reason of Stalled while it is False because
+	// the Instance is still being worked on.
+	ReasonReconciling = "Reconciling"
+
+	// ReasonStalled is the reason of Reconciling while it is False because
+	// the Instance is stalled.
+	ReasonStalled = "Stalled"
+
+	// ReasonSeeding indicates a new Instance is being seeded from a backup.
+	ReasonSeeding = "Seeding"
+
+	// ReasonSucceeded indicates an operation finished successfully.
+	ReasonSucceeded = "Succeeded"
 )
 
 // Reasons for the PodsScheduled condition.
@@ -893,17 +1023,59 @@ const (
 	ReasonBackupClassNotFound = "BackupClassNotFound"
 
 	// ReasonBackupClassIncompatible indicates the BackupClass named by
-	// spec.backup.classRef is not ProviderManaged or does not list the
-	// Instance's provider in spec.supportedProviders.
+	// spec.backup.classRef is Incompatible with the Instance's provider in
+	// its status.providers, or has no entry for it there.
 	ReasonBackupClassIncompatible = "BackupClassIncompatible"
+
+	// ReasonBackupClassPending indicates the compatibility of the BackupClass
+	// named by spec.backup.classRef with the Instance's provider is not
+	// published for the class's current generation yet, or is Pending, as
+	// while the provider has not claimed the class. The Instance is held
+	// until it is Compatible.
+	ReasonBackupClassPending = "BackupClassPending"
 
 	// ReasonBackupStorageNotFound indicates a BackupStorage named in
 	// spec.backup.storages does not exist in the Instance's namespace.
 	ReasonBackupStorageNotFound = "BackupStorageNotFound"
 
-	// ReasonBackupStorageCredentialsNotFound indicates the credentials
-	// Secret of a BackupStorage named in spec.backup.storages does not exist.
-	ReasonBackupStorageCredentialsNotFound = "BackupStorageCredentialsNotFound"
+	// ReasonBackupStorageNotAccepted indicates a BackupStorage named in
+	// spec.backup.storages is not Accepted by its BackupStorageClass.
+	ReasonBackupStorageNotAccepted = "BackupStorageNotAccepted"
+
+	// ReasonBackupStorageIncompatible indicates the Instance's BackupClass
+	// cannot write to a BackupStorage named in spec.backup.storages: the
+	// storage's verdict for the class in status.backupClasses is
+	// Incompatible.
+	ReasonBackupStorageIncompatible = "BackupStorageIncompatible"
+
+	// ReasonBackupStorageVerdictPending indicates the verdict of a
+	// BackupStorage named in spec.backup.storages for the Instance's
+	// BackupClass is Pending, or predates a change of the storage, the class
+	// or its BackupStorageClass. The entry is held until core publishes a
+	// current verdict.
+	ReasonBackupStorageVerdictPending = "BackupStorageVerdictPending"
+
+	// ReasonBackupStorageLocationChanged indicates the path a storage entry
+	// renders to differs from the one recorded in status.backup.storages,
+	// for example because the BackupStorage was recreated elsewhere.
+	ReasonBackupStorageLocationChanged = "BackupStorageLocationChanged"
+
+	// ReasonUnsupportedParameter indicates a BackupStorage sets a parameter
+	// the provider does not know or cannot honour.
+	ReasonUnsupportedParameter = "UnsupportedParameter"
+
+	// ReasonImplementationUnsupported indicates the engine does not support
+	// the implementation a BackupStorage names.
+	ReasonImplementationUnsupported = "ImplementationUnsupported"
+
+	// ReasonTLSOptionUnsupported indicates the engine cannot honour the TLS
+	// settings of a BackupStorage.
+	ReasonTLSOptionUnsupported = "TLSOptionUnsupported"
+
+	// ReasonBackupStoragesUnusable indicates more than one entry of
+	// spec.backup.storages is not configured; status.backup.storages names
+	// each entry's reason.
+	ReasonBackupStoragesUnusable = "BackupStoragesUnusable"
 )
 
 // Reasons for the MonitoringConfigured condition.
@@ -977,9 +1149,14 @@ const (
 	ReasonDataSourceStorageMismatch = "StorageMismatch"
 
 	// ReasonDataSourceClassUnsupported indicates the source Backup's
-	// BackupClass either does not exist, is not ProviderManaged, or does not
-	// list the target Instance's provider in SupportedProviders.
+	// BackupClass either does not exist or is Incompatible with the target
+	// Instance's provider in its status.providers.
 	ReasonDataSourceClassUnsupported = "BackupClassUnsupported"
+
+	// ReasonDataSourceClassPending indicates the compatibility of the source
+	// Backup's BackupClass with the target Instance's provider is not
+	// published for the class's current generation yet, or is Pending.
+	ReasonDataSourceClassPending = "BackupClassPending"
 
 	// ReasonDataSourceUserSecretMismatch indicates the restore failed terminally
 	// because the credentials in the Secret named by spec.userSecretRef differ
@@ -1069,19 +1246,36 @@ type ComponentStatus struct {
 	// ReadyReplicas is the number of those pods that are Ready.
 	// +optional
 	ReadyReplicas *int32 `json:"readyReplicas,omitempty"`
+	// DesiredReplicas is how many pods the component will have once the
+	// current generation has converged, as the provider reports it. It
+	// describes status.observedGeneration: it is absent until the provider
+	// reports for that generation, during deletion, and for providers that
+	// don't report it; clients then show readyReplicas over replicas. Zero is
+	// a real target, for example a model scaled to zero. A cluster paused
+	// outside OpenEverest keeps its target, so it reads 0 of N; one stopped
+	// through its spec has a target of zero.
+	//
+	// It is meant for display. When a component sums several groups, such as
+	// the replica sets of every shard, it cannot tell whether each group has
+	// a majority.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	DesiredReplicas *int32 `json:"desiredReplicas,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:shortName=in;inst
+// +kubebuilder:selectablefield:JSONPath=".status.phase"
 // +kubebuilder:printcolumn:name="Provider",type="string",JSONPath=".spec.providerRef.name"
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".status.version"
-// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase"
-// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
-// +kubebuilder:printcolumn:name="Reason",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"
+// +kubebuilder:printcolumn:name="Available",type="string",JSONPath=".status.conditions[?(@.type==\"Available\")].status"
+// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].reason"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",priority=1
+// +kubebuilder:printcolumn:name="Stalled",type="string",JSONPath=".status.conditions[?(@.type==\"Stalled\")].status",priority=1
 // +kubebuilder:printcolumn:name="Topology",type="string",JSONPath=".spec.topology.type",priority=1
-// +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.message",priority=1
+// +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message",priority=1
 
 // Instance is the Schema for the instances API
 type Instance struct {
@@ -1090,8 +1284,10 @@ type Instance struct {
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
 	// +required
+	// +kubebuilder:validation:XValidation:rule="self.providerRef == oldSelf.providerRef",message="spec.providerRef is immutable: delete the Instance and create it again with the provider you want"
 	Spec InstanceSpec `json:"spec"`
 	// +optional
+	// +kubebuilder:default={}
 	Status InstanceStatus `json:"status,omitzero"`
 }
 

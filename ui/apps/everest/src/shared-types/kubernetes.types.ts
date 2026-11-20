@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,6 +13,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+import { HttpApi } from '@generated/api-types';
+
 export type KubernetesCluster = {
   id: string;
   name: string;
@@ -19,20 +22,9 @@ export type KubernetesCluster = {
 
 export type KubernetesClusterList = KubernetesCluster[];
 
-export type StorageClass = {
-  allowVolumeExpansion: boolean;
-  metadata: {
-    name: string;
-  };
-};
-
-export type GetKubernetesClusterInfoPayload = {
-  clusterType: string;
-  storageClassNames: string[];
-  storageClasses?: StorageClass[];
-};
-
-export type KubernetesClusterInfo = GetKubernetesClusterInfoPayload;
+export type StorageClass = HttpApi.components['schemas']['StorageClass'];
+export type StorageClassList =
+  HttpApi.components['schemas']['StorageClassList'];
 
 type Resource = {
   cpuMillis: number;

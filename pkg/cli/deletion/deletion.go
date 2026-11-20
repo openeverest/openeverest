@@ -25,6 +25,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
@@ -101,6 +102,20 @@ func EmitWaitSucceeded(pretty bool, kind, name, namespace string) error {
 		return nil
 	}
 	return writeResultJSON(name, namespace, true)
+}
+
+// EmitDryRun reports a delete previewed with --dry-run (mode is client or
+// server): nothing was deleted, so "deleted" stays false.
+func EmitDryRun(pretty bool, mode, kind, name, namespace string) error {
+	if pretty {
+		if mode == cli.DryRunServer {
+			_, _ = fmt.Fprint(os.Stdout, output.Success("Dry run for deleting %s %q accepted by the server, nothing deleted", kind, name))
+		} else {
+			_, _ = fmt.Fprint(os.Stdout, output.Info("Dry run for deleting %s %q in namespace %q, nothing sent", kind, name, namespace))
+		}
+		return nil
+	}
+	return writeResultJSON(name, namespace, false)
 }
 
 func writeResultJSON(name, namespace string, deleted bool) error {

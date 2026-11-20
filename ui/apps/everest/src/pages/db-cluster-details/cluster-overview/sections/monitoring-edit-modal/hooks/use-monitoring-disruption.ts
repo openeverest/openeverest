@@ -26,7 +26,7 @@ import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
-import type { SectionForm } from 'components/ui-generator/utils/section-form';
+import { SectionForm } from 'components/ui-generator/utils/section-form';
 import { MonitoringDisruption } from '../monitoring-edit-modal.types';
 import {
   getMonitoringDisruption,

@@ -12,36 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import { AuthenticationFormValues } from 'components/class-authentication';
 import { OpenApiParameterFields } from 'components/openapi-parameters-fields';
+import { TlsConfigFormValues } from 'components/tls-config-fields';
+import { SectionForm } from 'components/ui-generator/utils/section-form';
 import {
   MonitoringClass,
   MonitoringDestination,
 } from 'shared-types/monitoring-destinations.types';
-import type { SectionForm } from 'components/ui-generator/utils/section-form';
 
-// Where the destination's credentials come from: its current Secret as it is
-// or with new credentials, a new Secret, or an existing one of the class.
-export enum CredentialsSource {
-  Keep = 'keep',
-  Update = 'update',
-  New = 'new',
-  Existing = 'existing',
-}
-
-export interface MonitoringDestinationFormValues {
+export interface MonitoringDestinationFormValues
+  extends AuthenticationFormValues,
+    TlsConfigFormValues {
   name: string;
   namespace: string;
   className: string;
-  authMode: string;
-  credentialsSource: CredentialsSource;
-  credentialsSecretName: string;
-  existingSecretName: string;
-  credentials: Record<string, unknown>;
   spec: Record<string, unknown>;
   fallbackParameters: Record<string, unknown>;
-  insecureSkipVerify: boolean;
-  caSecretName: string;
-  caSecretKey: string;
 }
 
 // The forms a class renders for a destination, for the chosen auth mode.
@@ -84,11 +71,4 @@ export interface MonitoringDestinationPermissions {
   createNamespaces: string[];
   updateNamespaces: string[];
   deleteNamespaces: string[];
-}
-
-// The namespaces the user may create, read and update Secrets in.
-export interface SecretNamespacePermissions {
-  canCreate: string[];
-  canRead: string[];
-  canUpdate: string[];
 }
