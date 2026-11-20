@@ -12,11 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { ClusterInstancePreset } from 'shared-types/api.types';
+import { PresetScope, SelectablePreset } from '../preset-selection.types';
+import { getNamespacePresetId } from '../preset-selection.utils';
 import { presetToCardItem } from './preset-select-cards.utils';
 
-const preset: ClusterInstancePreset = {
-  metadata: { name: 'psmdb-prod' },
+const preset: SelectablePreset = {
+  id: getNamespacePresetId('team-a', 'psmdb-prod'),
+  scope: PresetScope.Namespace,
+  name: 'psmdb-prod',
   spec: {
     providerRef: { name: 'percona-server-mongodb' },
     version: '8.0.12',
@@ -32,12 +35,13 @@ const preset: ClusterInstancePreset = {
 };
 
 describe('presetToCardItem', () => {
-  it('maps the id/title and the displayed meta + resources', () => {
+  it('maps the id/title and the displayed scope, meta + resources', () => {
     const item = presetToCardItem(preset);
 
-    expect(item.id).toBe('psmdb-prod');
+    // The id (not the name) is what the picker selects by: names can repeat.
+    expect(item.id).toBe(preset.id);
     expect(item.title).toBe('psmdb-prod');
-    expect(item.subtitle).toBe('replicaSet · 8.0.12');
+    expect(item.subtitle).toBe('Namespace · replicaSet · 8.0.12');
     expect(item.detail).toBe('3 nodes · 1 CPU · 4Gi RAM · 25Gi disk');
   });
 
@@ -48,5 +52,7 @@ describe('presetToCardItem', () => {
     expect(haystack).toContain('percona-server-mongodb');
     expect(haystack).toContain('providerref');
     expect(haystack).toContain('storage');
+    // The scope label is searchable, to narrow the list to one kind.
+    expect(haystack).toContain('namespace');
   });
 });

@@ -296,15 +296,16 @@ export const DatabasePage = () => {
     name: DbWizardFormFields.provider,
   });
 
-  const selectedPreset = useWatch({
+  const selectedPresetId = useWatch({
     control,
-    name: DbWizardFormFields.presetName,
+    name: DbWizardFormFields.presetId,
   });
 
   const presetSelection = usePresetSelection(
     clusterName,
     typeof selectedProvider === 'string' ? selectedProvider : undefined,
-    typeof selectedPreset === 'string' ? selectedPreset : ''
+    namespace || '',
+    typeof selectedPresetId === 'string' ? selectedPresetId : ''
   );
 
   // ── Monitoring step (shown when a class is compatible with the provider)
@@ -328,8 +329,9 @@ export const DatabasePage = () => {
     defaultNamespace,
     preset: {
       selectedPreset: presetSelection.selectedPreset,
-      presetName: presetSelection.presetName,
+      presetId: presetSelection.presetId,
       presetSelected: presetSelection.presetSelected,
+      presetUnavailable: presetSelection.presetUnavailable,
     },
     reset,
     getValues,
@@ -474,7 +476,6 @@ export const DatabasePage = () => {
             typeof selectedProvider === 'string' ? selectedProvider : '',
           dbName: data.dbName,
           k8sNamespace: data.k8sNamespace ?? '',
-          presetName: presetSelection.presetName,
         }),
         {
           onSuccess: () => {

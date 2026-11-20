@@ -52,7 +52,7 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
           topologies
         )
       : undefined;
-  const { presetSelected, presets, isError } = usePresetSelectionContext();
+  const { presetSelected, presets } = usePresetSelectionContext();
   const { watch, setValue, getFieldState } = useFormContext();
 
   // const dbType: DbType = watch(DbWizardFormFields.dbType);
@@ -139,7 +139,7 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
       <StepHeader
         pageTitle={Messages.pageTitle}
         pageDescription={
-          !isError && presets.length > 0
+          presets.length > 0
             ? Messages.pageDescriptionWithPresets
             : Messages.pageDescription
         }
