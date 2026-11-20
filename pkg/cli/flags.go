@@ -26,6 +26,8 @@ const (
 	FlagVerbose = "verbose"
 	// FlagJSON is the name of the json flag.
 	FlagJSON = "json"
+	// FlagYAML is the name of the yaml flag.
+	FlagYAML = "yaml"
 
 	// `install` flags.
 

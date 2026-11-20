@@ -45,6 +45,7 @@ func init() {
 func statusRun(cmd *cobra.Command, _ []string) {
 	statusCfg.Pretty = rootCmdFlags.Pretty
 	statusCfg.JSON = rootCmdFlags.JSON
+	statusCfg.YAML = rootCmdFlags.YAML
 	statusCfg.KubeconfigPath = rootCmdFlags.KubeconfigPath
 
 	op, err := status.NewStatus(statusCfg, logger.GetLogger())

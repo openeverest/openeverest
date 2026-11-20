@@ -96,8 +96,9 @@ func init() {
 }
 
 func deletePreRun(cmd *cobra.Command, _ []string) {
-	deleteCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
-	deleteOpts.JSON = cmd.Flag(cli.FlagJSON).Changed
+	deleteCfg.Pretty = cli.IsPretty(cmd)
+	deleteCfg.YAML = cli.IsYAML(cmd)
+	deleteOpts.JSON = cli.IsMachineReadable(cmd)
 }
 
 func deleteRun(cmd *cobra.Command, _ []string) {
