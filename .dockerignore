@@ -13,6 +13,7 @@
 !go.*
 !vendor
 !api
+!backupstorageclasses
 !model
 !public
 !pkg
