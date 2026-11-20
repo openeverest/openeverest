@@ -30,7 +30,6 @@ const DatabaseFormBody = ({
   steps,
   activeStep,
   isSubmitting,
-  disableNext,
   presetSelected,
   presetPending,
   onCancel,
@@ -66,6 +65,7 @@ const DatabaseFormBody = ({
         )}
       <Box>
         {(mode === WizardMode.New ||
+          mode === WizardMode.Import ||
           (mode === WizardMode.Restore &&
             dbClusterRequestStatus === 'success')) &&
           currentStep &&
@@ -82,7 +82,6 @@ const DatabaseFormBody = ({
           isValid,
         })}
         disableCancel={isSubmitting}
-        disableNext={disableNext}
         showSubmit={isLastStep || isFirstStep}
         showConfigMore={isFirstStep}
         disableConfigMore={presetSelected}

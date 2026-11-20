@@ -16,12 +16,10 @@ import { MongoIcon, MySqlIcon, PostgreSqlIcon } from '@percona/ui-lib';
 import { DbEngineType, DbType, ProxyType } from '@percona/types';
 import {
   DbCluster,
-  ManageableSchedules,
   Proxy,
   ProxyExposeType,
   Schedule,
 } from 'shared-types/dbCluster.types';
-import { can } from './rbac';
 import {
   Affinity,
   AffinityComponent,
@@ -49,7 +47,6 @@ import { Path, UseFormGetFieldState } from 'react-hook-form';
 import cronConverter from './cron-converter';
 import { EMPTY_LOAD_BALANCER_CONFIGURATION } from 'consts';
 import { mapDeprecatedExposeType } from 'components/cluster-form/advanced-configuration/advanced-configuration.utils';
-import { PhaseType } from 'shared-types/api.types';
 
 export const dbTypeToIcon = (dbType: DbType) => {
   switch (dbType) {
@@ -124,28 +121,6 @@ export const someErrorInStateFields = <T extends Record<string, unknown>>(
 
 export const isProxy = (proxy: Proxy): boolean => {
   return proxy && typeof proxy.expose === 'object';
-};
-export const transformSchedulesIntoManageableSchedules = async (
-  schedules: Schedule[],
-  namespace: string,
-  canCreateBackups: boolean,
-  canUpdateDb: boolean
-) => {
-  const transformedSchedules: ManageableSchedules[] = await Promise.all(
-    schedules.map(async (schedule) => ({
-      ...schedule,
-      canBeManaged:
-        (await can(
-          'read',
-          'backup-storages',
-          `${namespace}/${schedule.backupStorageName}`
-        )) &&
-        canCreateBackups &&
-        canUpdateDb,
-    }))
-  );
-
-  return transformedSchedules;
 };
 
 export const dbPayloadToAffinityRules = (
@@ -998,22 +973,6 @@ export const setDbClusterRestart = (dbCluster: DbCluster) => ({
     },
   },
 });
-
-// This does not apply to the delete action, which is only blocked when the db is being deleted itself
-export const shouldDbActionsBeBlocked = (status?: PhaseType): boolean => {
-  const targetStatuses: Array<Exclude<PhaseType, undefined>> = [
-    'Restoring',
-    'Terminating',
-    'Updating',
-  ];
-
-  if (status === undefined) {
-    return true;
-  }
-
-  // TODO check what will be in case if phase = unknown
-  return targetStatuses.includes(status);
-};
 
 export const mergeNewDbClusterData = (
   oldDbClusterData: DbCluster = {} as DbCluster,

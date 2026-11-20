@@ -1,0 +1,276 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: secret-reference
+spec:
+  # Two impersonated users may write MonitoringDestinations: no-secrets may
+  # get no Secret, credentials-only may get pmm-credentials but not pmm-ca.
+  steps:
+  - name: setup
+    try:
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: pmm-credentials
+          stringData:
+            username: admin
+            password: admin
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: pmm-ca
+          stringData:
+            ca.crt: not-a-certificate
+    - apply:
+        resource:
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: Role
+          metadata:
+            name: destination-editor
+          rules:
+          - apiGroups: ["monitoring.openeverest.io"]
+            resources: ["monitoringdestinations"]
+            verbs: ["get", "list", "watch", "create", "update", "patch"]
+    - apply:
+        resource:
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: Role
+          metadata:
+            name: credentials-reader
+          rules:
+          - apiGroups: [""]
+            resources: ["secrets"]
+            resourceNames: ["pmm-credentials"]
+            verbs: ["get"]
+    - apply:
+        resource:
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: RoleBinding
+          metadata:
+            name: destination-editors
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: Role
+            name: destination-editor
+          subjects:
+          - apiGroup: rbac.authorization.k8s.io
+            kind: User
+            name: no-secrets
+          - apiGroup: rbac.authorization.k8s.io
+            kind: User
+            name: credentials-only
+    - apply:
+        resource:
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: RoleBinding
+          metadata:
+            name: credentials-readers
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: Role
+            name: credentials-reader
+          subjects:
+          - apiGroup: rbac.authorization.k8s.io
+            kind: User
+            name: credentials-only
+    # Created by the test's own identity, which may get every Secret.
+    - apply:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: shared
+          spec:
+            classRef:
+              name: secret-reference-test
+            authentication:
+              mode: BasicAuth
+              credentialsSecretRef:
+                name: pmm-credentials
+            tls:
+              ca:
+                secretKeyRef:
+                  name: pmm-ca
+                  key: ca.crt
+            parameters:
+              url: https://pmm.example.com
+
+  - name: creating-a-reference-needs-get-on-the-secret
+    try:
+    - script:
+        content: |
+          kubectl create -n $NAMESPACE --as=no-secrets -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: borrowed
+          spec:
+            classRef:
+              name: secret-reference-test
+            authentication:
+              mode: BasicAuth
+              credentialsSecretRef:
+                name: pmm-credentials
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'you need get on Secret pmm-credentials to reference it or to change an object that uses it')): true
+    - script:
+        content: |
+          kubectl create -n $NAMESPACE --as=no-secrets -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: borrowed-ca
+          spec:
+            classRef:
+              name: secret-reference-test
+            tls:
+              ca:
+                secretKeyRef:
+                  name: pmm-ca
+                  key: ca.crt
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'you need get on Secret pmm-ca to reference it or to change an object that uses it')): true
+    # Every Secret the object names is checked, not only the first.
+    - script:
+        content: |
+          kubectl create -n $NAMESPACE --as=credentials-only -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: borrowed-ca
+          spec:
+            classRef:
+              name: secret-reference-test
+            authentication:
+              mode: BasicAuth
+              credentialsSecretRef:
+                name: pmm-credentials
+            tls:
+              ca:
+                secretKeyRef:
+                  name: pmm-ca
+                  key: ca.crt
+          EOF
+        check:
+          ($error != null): true
+          (contains($stderr, 'you need get on Secret pmm-ca to reference it or to change an object that uses it')): true
+    - error:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: borrowed
+    - error:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: borrowed-ca
+
+  - name: absent-references-are-not-checked
+    try:
+    # Neither credentialsSecretRef nor tls: both optional chains are empty.
+    - script:
+        content: |
+          kubectl create -n $NAMESPACE --as=no-secrets -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: anonymous
+          spec:
+            classRef:
+              name: secret-reference-test
+            parameters:
+              url: https://pmm.example.com
+          EOF
+        check:
+          ($error): ~
+    # Credentials the user may get, and no tls.
+    - script:
+        content: |
+          kubectl create -n $NAMESPACE --as=credentials-only -f - <<'EOF'
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: own
+          spec:
+            classRef:
+              name: secret-reference-test
+            authentication:
+              mode: BasicAuth
+              credentialsSecretRef:
+                name: pmm-credentials
+            parameters:
+              url: https://pmm.example.com
+          EOF
+        check:
+          ($error): ~
+
+  - name: metadata-only-updates-are-admitted
+    try:
+    - script:
+        content: |
+          set -e
+          kubectl annotate monitoringdestination shared -n $NAMESPACE --as=no-secrets example.com/owner=team-a
+          kubectl label monitoringdestination shared -n $NAMESPACE --as=no-secrets example.com/tier=gold
+        check:
+          ($error): ~
+    - assert:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: shared
+            annotations:
+              example.com/owner: team-a
+            labels:
+              example.com/tier: gold
+
+  - name: spec-changes-need-get-on-every-secret
+    try:
+    # Repointing the destination while it keeps its Secrets uses them.
+    - script:
+        content: kubectl patch monitoringdestination shared -n $NAMESPACE --as=no-secrets --type=merge -p '{"spec":{"parameters":{"url":"https://elsewhere.example.com"}}}'
+        check:
+          ($error != null): true
+          (contains($stderr, 'you need get on Secret pmm-credentials to reference it or to change an object that uses it')): true
+    # The CA is checked although the change does not touch it.
+    - script:
+        content: kubectl patch monitoringdestination shared -n $NAMESPACE --as=credentials-only --type=merge -p '{"spec":{"parameters":{"url":"https://elsewhere.example.com"}}}'
+        check:
+          ($error != null): true
+          (contains($stderr, 'you need get on Secret pmm-ca to reference it or to change an object that uses it')): true
+    - assert:
+        resource:
+          apiVersion: monitoring.openeverest.io/v1alpha1
+          kind: MonitoringDestination
+          metadata:
+            name: shared
+          spec:
+            parameters:
+              url: https://pmm.example.com
+    - script:
+        content: kubectl patch monitoringdestination own -n $NAMESPACE --as=credentials-only --type=merge -p '{"spec":{"parameters":{"url":"https://elsewhere.example.com"}}}'
+        check:
+          ($error): ~
+    - script:
+        content: kubectl patch monitoringdestination anonymous -n $NAMESPACE --as=no-secrets --type=merge -p '{"spec":{"parameters":{"url":"https://elsewhere.example.com"}}}'
+        check:
+          ($error): ~
+
+  catch:
+  - script:
+      content: kubectl get monitoringdestinations,roles,rolebindings -n $NAMESPACE -o yaml
+  - podLogs:
+      namespace: openeverest-system
+      selector: control-plane=controller-manager
+      tail: 100

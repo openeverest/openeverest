@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import {randomBytes} from 'node:crypto'
 import {expect} from '@playwright/test'
 import {EVEREST_CI_NAMESPACE, TIMEOUTS} from '@root/constants';
 
@@ -21,13 +22,7 @@ import {EVEREST_CI_NAMESPACE, TIMEOUTS} from '@root/constants';
 // --------------------- General helpers --------------------------------------------------
 // testPrefix is used to differentiate between several workers
 // running this test to avoid conflicts in instance names
-export const testPrefix = () => {
-  let result = '';
-  while (result.length < 16) {
-    result += Math.random().toString(36).substring(2);
-  }
-  return result.substring(0, 16);
-}
+export const testPrefix = () => randomBytes(8).toString('hex')
 
 export const suffixedName = (name: string) => {
   return `${name}-${testPrefix()}`
@@ -234,28 +229,65 @@ export const deleteDBClusterRaw = async (request, name) => {
 
 const CLUSTER_NAME = 'main'
 
+export const backupStorageCredentialsSecretName = (bsName: string) => `backup-storage-${bsName}-credentials`
+
+// The credentials of the s3 class's AccessKey mode, labelled so that the Secrets API checks them against it.
+export const getBackupStorageCredentialsPayload = (secretName: string) => {
+  return {
+    apiVersion: 'v1',
+    kind: 'Secret',
+    metadata: {
+      name: secretName,
+      labels: {
+        'openeverest.io/backup-storage-class': 's3',
+        'openeverest.io/definition': 'AccessKey',
+      },
+    },
+    type: 'Opaque',
+    stringData: {
+      AWS_ACCESS_KEY_ID: 'seaweedfsadmin',
+      AWS_SECRET_ACCESS_KEY: 'seaweedfsadmin',
+    },
+  }
+}
+
+export const createBackupStorageCredentials = async (request, secretName: string) => {
+  return await createSecretWithData(request, getBackupStorageCredentialsPayload(secretName))
+}
+
 export const getBackupStoragePayload = (bsName: string) => {
   return {
     metadata: {
       name: bsName,
     },
     spec: {
-      type: 's3',
-      s3: {
-        bucket: 'bucket-4',
+      backupStorageClassRef: {name: 's3'},
+      location: {
+        objectStore: {
+          bucket: 'bucket-4',
+          prefix: 'api-tests',
+        },
+      },
+      parameters: {
         region: 'us-east-1',
         endpointURL: 'https://seaweedfs.seaweedfs.svc',
-        credentialsSecretRef: { name: `${bsName}-creds` },
-        accessKeyId: 'seaweedfsadmin',
-        secretAccessKey: 'seaweedfsadmin',
         forcePathStyle: true,
-        verifyTLS: false,
+        implementation: 'other',
+      },
+      authentication: {
+        mode: 'AccessKey',
+        credentialsSecretRef: {name: backupStorageCredentialsSecretName(bsName)},
+      },
+      tls: {
+        insecureSkipVerify: true,
       },
     },
   }
 }
 
+// Creates the credentials Secret the payload references through the secrets API, then the backup storage.
 export const generateBackupStorage = async (request, data) => {
+  await createBackupStorageCredentials(request, data.spec.authentication.credentialsSecretRef.name)
   const response = await createBackupStorageRaw(request, data)
   await checkError(response)
   return (await response.json())
@@ -275,14 +307,14 @@ export const getBackupStorageRaw = async (request, name) => {
   return await request.get(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`)
 }
 
-export const listBackupStorages = async (request) => {
-  const response = await listBackupStoragesRaw(request)
+export const listBackupStorages = async (request, params: {backupClass?: string, backupStorageClass?: string, secret?: string} = {}) => {
+  const response = await listBackupStoragesRaw(request, params)
   await checkError(response)
   return (await response.json())
 }
 
-export const listBackupStoragesRaw = async (request) => {
-  return await request.get(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages`)
+export const listBackupStoragesRaw = async (request, params: {backupClass?: string, backupStorageClass?: string, secret?: string} = {}) => {
+  return await request.get(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages`, {params: params})
 }
 
 export const updateBackupStorage = async (request, name, data) => {
@@ -318,10 +350,33 @@ export const deleteBackupStorage = async (request, name) => {
     intervals: [1000],
     timeout: 60 * 1000,
   })
+  await deleteSecret(request, backupStorageCredentialsSecretName(name))
 }
 
 export const deleteBackupStorageRaw = async (request, name) => {
   return await request.delete(`/v1/clusters/${CLUSTER_NAME}/namespaces/${EVEREST_CI_NAMESPACE}/backup-storages/${name}`)
+}
+
+// --------------------- Backup Storage Class helpers -----------------------------------
+
+export const listBackupStorageClasses = async (request) => {
+  const response = await listBackupStorageClassesRaw(request)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const listBackupStorageClassesRaw = async (request) => {
+  return await request.get(`/v1/clusters/${CLUSTER_NAME}/backup-storage-classes`)
+}
+
+export const getBackupStorageClass = async (request, name) => {
+  const response = await getBackupStorageClassRaw(request, name)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const getBackupStorageClassRaw = async (request, name) => {
+  return await request.get(`/v1/clusters/${CLUSTER_NAME}/backup-storage-classes/${name}`)
 }
 
 // --------------------- Backup Import helpers ------------------------------------------
@@ -382,67 +437,6 @@ export const deleteBackupImport = async (request, name) => {
     intervals: [1000],
     timeout: 60 * 1000,
   })
-}
-
-// --------------------- Monitoring Config helpers (V2 - using new endpoints) -----
-
-export const createMonitoringConfigV2 = async (request, name) => {
-  const miData = {
-    type: 'pmm',
-    name: name,
-    url: `https://${process.env.PMM1_IP}`,
-    pmm: {
-      apiKey: `${process.env.PMM1_API_KEY}`,
-    },
-    verifyTLS: false,
-  }
-  return await createMonitoringConfigWithDataRawV2(request, miData)
-}
-
-export const createMonitoringConfigWithDataV2 = async (request, data) => {
-  const response = await createMonitoringConfigWithDataRawV2(request, data)
-  await checkError(response)
-  return (await response.json())
-}
-
-export const createMonitoringConfigWithDataRawV2 = async (request, data) => {
-  return await request.post(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-configs`, {data: data})
-}
-
-export const getMonitoringConfigV2 = async (request, name) => {
-  const response = await getMonitoringConfigRawV2(request, name)
-  await checkError(response)
-  return (await response.json())
-}
-
-export const getMonitoringConfigRawV2 = async (request, name) => {
-  return await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-configs/${name}`)
-}
-
-export const updateMonitoringConfigV2 = async (request, name, data) => {
-  const response = await updateMonitoringConfigRawV2(request, name, data)
-  await checkError(response)
-  return (await response.json())
-}
-
-export const updateMonitoringConfigRawV2 = async (request, name, data) => {
-  return await request.patch(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-configs/${name}`, {data: data})
-}
-
-export const deleteMonitoringConfigV2 = async (request, name) => {
-  // Wait for deletion mark.
-  await expect(async () => {
-    await deleteMonitoringConfigRawV2(request, name)
-    const res = await getMonitoringConfigRawV2(request, name)
-    await checkResourceDeletion(res)
-  }).toPass({
-    intervals: [1000],
-    timeout: 300 * 1000,
-  })
-}
-
-export const deleteMonitoringConfigRawV2 = async (request, name) => {
-  return await request.delete(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/monitoring-configs/${name}`)
 }
 
 // --------------------- ConfigMap helpers --------------------------------------------
@@ -545,6 +539,24 @@ export const listSecretsWithFiltersRaw = async (request, provider: string, defin
   return await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets?provider=${provider}&definition=${definition}`)
 }
 
+export const listSecretsByMonitoringClass = async (request, monitoringClass: string, definition: string) => {
+  const response = await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets?monitoringClass=${monitoringClass}&definition=${definition}`)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const listSecretsByDefinition = async (request, definition: string) => {
+  const response = await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets?definition=${definition}`)
+  await checkError(response)
+  return (await response.json())
+}
+
+export const listSecretsByBackupStorageClass = async (request, backupStorageClass: string, definition: string) => {
+  const response = await request.get(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets?backupStorageClass=${backupStorageClass}&definition=${definition}`)
+  await checkError(response)
+  return (await response.json())
+}
+
 export const deleteSecret = async (request, name) => {
   // Wait for deletion mark.
   await expect(async () => {
@@ -559,4 +571,23 @@ export const deleteSecret = async (request, name) => {
 
 export const deleteSecretRaw = async (request, name) => {
   return await request.delete(`/v1/clusters/main/namespaces/${EVEREST_CI_NAMESPACE}/secrets/${name}`)
+}
+
+// The annotations in which core counts the objects that use a Secret it tracks.
+export const secretUsageCountKeys = ['monitoring.openeverest.io/attached-destinations', 'backup.openeverest.io/attached-storages']
+
+// The Secret once core has counted the destinations that use it. Core counts a tracked Secret right after it is
+// created, so its resourceVersion moves once; from then on it stays put while nothing starts or stops using it.
+export const getCountedSecret = async (request, name, destinations = '0') => {
+  let secret
+
+  await expect(async () => {
+    secret = await getSecret(request, name)
+    expect(secret.metadata.annotations?.['monitoring.openeverest.io/attached-destinations']).toBe(destinations)
+  }).toPass({
+    intervals: [500],
+    timeout: 30 * 1000,
+  })
+
+  return secret
 }

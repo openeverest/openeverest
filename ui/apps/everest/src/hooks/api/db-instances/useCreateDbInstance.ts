@@ -135,11 +135,6 @@ export const useDbInstanceCredentials = (
     InstanceConnectionDetails
   >
 ) => {
-  // TODO implement RBAC
-  // const { canRead: canReadCredentials } = useRBACPermissions(
-  //     'database-instance-credentials',
-  //     `${namespace}/${dbInstanceName}`
-  //   );
   // TODO change to global use of cluster name during implementing multicluster feature
   const clusterName = 'main';
 
@@ -156,11 +151,6 @@ export const useDbInstanceCredentials = (
     queryFn: () =>
       getDbInstanceConnectionFn(clusterName, namespace, dbInstanceName),
     ...options,
-    // select: canReadCredentials
-    //   ? (creds) => creds
-    //   : () => ({ username: '', password: '' }),
-    // ...options,
-    // enabled: (options?.enabled ?? true) && canReadCredentials,
   });
 };
 

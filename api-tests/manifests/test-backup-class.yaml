@@ -5,5 +5,14 @@ metadata:
 spec:
   displayName: Test Backup Class
   executionMode: ProviderManaged
-  supportedProviders:
-    - test-provider
+  providerManaged:
+    providerRef:
+      name: test-provider
+  supportsImport: true
+  backupStorageClasses:
+    - name: s3
+      authModes: [AccessKey]
+      # The api-tests storages verify TLS against nothing (insecureSkipVerify).
+      tls:
+        customCA: Supported
+        insecureSkipVerify: Supported

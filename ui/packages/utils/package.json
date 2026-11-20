@@ -16,7 +16,8 @@
     "format": "prettier .  --write",
     "format-check": "prettier . --check",
     "rm-build-dir": "rm -rf dist",
-    "build": "rollup -c"
+    "build": "rollup -c",
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "",
@@ -35,6 +36,7 @@
     "rollup-plugin-dts": "^6.1.0",
     "rollup-plugin-peer-deps-external": "^2.2.4",
     "rollup-plugin-postcss": "^4.0.2",
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "vitest": "^4.0.18"
   }
 }

@@ -23,12 +23,14 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
@@ -550,6 +552,97 @@ func TestRun_HappyPath(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRun_PrintsAPIWarnings(t *testing.T) {
+	t.Parallel()
+
+	createHandler := func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Add("Warning", `299 - "secret \"db-creds\" named by spec.userSecretRef not found"`)
+		respondCreated(w)
+	}
+
+	srv := newRunServer(t, okProviderHandler, createHandler)
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	core, logs := observer.New(zap.WarnLevel)
+	opts := CreateOptions{
+		Name:      "my-db",
+		Namespace: "everest",
+		Provider:  "psmdb",
+		Cluster:   "main",
+	}
+	err := NewInstanceCreator(Config{}, zap.New(core).Sugar()).Run(context.Background(), opts, cfgPath)
+	require.NoError(t, err)
+	assert.Equal(t, 1, logs.FilterMessage(`secret "db-creds" named by spec.userSecretRef not found`).Len())
+}
+
+func TestRun_ClientDryRunSendsNothing(t *testing.T) {
+	t.Parallel()
+
+	srv := newRunServer(t, okProviderHandler, func(w http.ResponseWriter, _ *http.Request) {
+		assert.Fail(t, "a client dry run must not send the instance")
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	opts := CreateOptions{
+		Name:      "my-db",
+		Namespace: "everest",
+		Provider:  "psmdb",
+		Cluster:   "main",
+		DryRun:    cli.DryRunClient,
+	}
+	err := NewInstanceCreator(Config{}, zap.NewNop().Sugar()).Run(context.Background(), opts, cfgPath)
+	require.NoError(t, err)
+}
+
+func TestRun_ServerDryRunSendsDryRunAll(t *testing.T) {
+	t.Parallel()
+
+	var created atomic.Bool
+	srv := newRunServer(t, okProviderHandler, func(w http.ResponseWriter, r *http.Request) {
+		created.Store(true)
+		assert.Equal(t, "All", r.URL.Query().Get("dryRun"))
+		respondCreated(w)
+	})
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	opts := CreateOptions{
+		Name:      "my-db",
+		Namespace: "everest",
+		Provider:  "psmdb",
+		Cluster:   "main",
+		DryRun:    cli.DryRunServer,
+	}
+	err := NewInstanceCreator(Config{}, zap.NewNop().Sugar()).Run(context.Background(), opts, cfgPath)
+	require.NoError(t, err)
+	assert.True(t, created.Load())
+}
+
+func TestRun_DryRunWithWaitRejected(t *testing.T) {
+	t.Parallel()
+
+	opts := CreateOptions{
+		Name:      "my-db",
+		Namespace: "everest",
+		Provider:  "psmdb",
+		Cluster:   "main",
+		DryRun:    cli.DryRunServer,
+		Wait:      true,
+	}
+	err := NewInstanceCreator(Config{}, zap.NewNop().Sugar()).Run(context.Background(), opts, filepath.Join(t.TempDir(), "config.yaml"))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--wait")
+}
+
 func TestRun_ProviderNotFound(t *testing.T) {
 	t.Parallel()
 
@@ -744,14 +837,15 @@ func TestRun_UnknownContext(t *testing.T) {
 
 // ---- preset Run tests -------------------------------------------------------
 
-// newRunServerWithPreset extends newRunServer to also serve the preset resolve
-// endpoint at /v1/clusters/main/instance-presets/{name}/resolve.
-func newRunServerWithPreset(t *testing.T, providerHandler, createHandler, presetHandler http.HandlerFunc) *httptest.Server {
+// newRunServerWithPresets serves both preset kinds: clusterPresetHandler for
+// ClusterInstancePreset get and presetHandler for InstancePreset get.
+func newRunServerWithPresets(t *testing.T, providerHandler, createHandler, clusterPresetHandler, presetHandler http.HandlerFunc) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/clusters/main/providers/psmdb", providerHandler)
 	mux.HandleFunc("/v1/clusters/main/namespaces/", createHandler)
-	mux.HandleFunc("/v1/clusters/main/instance-presets/", presetHandler)
+	mux.HandleFunc("/v1/clusters/main/namespaces/{namespace}/instance-presets/{name}", presetHandler)
+	mux.HandleFunc("/v1/clusters/main/cluster-instance-presets/", clusterPresetHandler)
 	return httptest.NewServer(mux)
 }
 
@@ -780,9 +874,9 @@ func okProviderHandler(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-// TestRun_WithPreset_Payloads checks the full JSON payload submitted to the
+// TestRun_WithClusterInstancePreset_Payloads checks the full JSON payload submitted to the
 // create endpoint for various preset + override combinations.
-func TestRun_WithPreset_Payloads(t *testing.T) {
+func TestRun_WithClusterInstancePreset_Payloads(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -793,17 +887,17 @@ func TestRun_WithPreset_Payloads(t *testing.T) {
 		{
 			desc: "happy path: annotation stamped, version and topology from preset",
 			opts: CreateOptions{
-				Name:      "my-db",
-				Namespace: "everest",
-				Provider:  "psmdb",
-				Cluster:   "main",
-				Preset:    "my-preset",
+				Name:          "my-db",
+				Namespace:     "everest",
+				Provider:      "psmdb",
+				Cluster:       "main",
+				ClusterPreset: "my-preset",
 			},
 			wantPayload: `{
    "metadata":{
       "name":"my-db",
       "annotations":{
-         "openeverest.io/instance-preset":"my-preset"
+         "openeverest.io/cluster-instance-preset": "my-preset"
       }
    },
    "spec":{
@@ -823,18 +917,18 @@ func TestRun_WithPreset_Payloads(t *testing.T) {
 		{
 			desc: "set overrides preset; annotation still stamped",
 			opts: CreateOptions{
-				Name:      "my-db",
-				Namespace: "everest",
-				Provider:  "psmdb",
-				Cluster:   "main",
-				Preset:    "my-preset",
-				Set:       []string{"components.engine.replicas=5"},
+				Name:          "my-db",
+				Namespace:     "everest",
+				Provider:      "psmdb",
+				Cluster:       "main",
+				ClusterPreset: "my-preset",
+				Set:           []string{"components.engine.replicas=5"},
 			},
 			wantPayload: `{
    "metadata": {
       "name": "my-db",
       "annotations": {
-         "openeverest.io/instance-preset": "my-preset"
+         "openeverest.io/cluster-instance-preset": "my-preset"
       }
    },
    "spec": {
@@ -854,18 +948,18 @@ func TestRun_WithPreset_Payloads(t *testing.T) {
 		{
 			desc: "explicit version overrides preset version",
 			opts: CreateOptions{
-				Name:      "my-db",
-				Namespace: "everest",
-				Provider:  "psmdb",
-				Cluster:   "main",
-				Preset:    "my-preset",
-				Version:   "7.0",
+				Name:          "my-db",
+				Namespace:     "everest",
+				Provider:      "psmdb",
+				Cluster:       "main",
+				ClusterPreset: "my-preset",
+				Version:       "7.0",
 			},
 			wantPayload: `{
    "metadata": {
       "name": "my-db",
       "annotations": {
-         "openeverest.io/instance-preset": "my-preset"
+         "openeverest.io/cluster-instance-preset": "my-preset"
       }
    },
    "spec": {
@@ -885,16 +979,16 @@ func TestRun_WithPreset_Payloads(t *testing.T) {
 		{
 			desc: "provider derived from preset when omitted",
 			opts: CreateOptions{
-				Name:      "my-db",
-				Namespace: "everest",
-				Cluster:   "main",
-				Preset:    "my-preset",
+				Name:          "my-db",
+				Namespace:     "everest",
+				Cluster:       "main",
+				ClusterPreset: "my-preset",
 			},
 			wantPayload: `{
    "metadata": {
       "name": "my-db",
       "annotations": {
-         "openeverest.io/instance-preset": "my-preset"
+         "openeverest.io/cluster-instance-preset": "my-preset"
       }
    },
    "spec": {
@@ -921,13 +1015,16 @@ func TestRun_WithPreset_Payloads(t *testing.T) {
 				got     []byte
 				readErr error
 			)
-			srv := newRunServerWithPreset(t, okProviderHandler,
+			srv := newRunServerWithPresets(t, okProviderHandler,
 				func(w http.ResponseWriter, r *http.Request) {
 					got, readErr = io.ReadAll(r.Body)
 					assert.NoError(t, readErr)
 					respondCreated(w)
 				},
 				okPresetHandler,
+				func(_ http.ResponseWriter, _ *http.Request) {
+					t.Error("instance preset endpoint must not be called for --clusterpreset")
+				},
 			)
 			defer srv.Close()
 
@@ -941,8 +1038,8 @@ func TestRun_WithPreset_Payloads(t *testing.T) {
 	}
 }
 
-// TestRun_WithPreset_Errors checks that invalid preset usage returns the right errors.
-func TestRun_WithPreset_Errors(t *testing.T) {
+// TestRun_WithClusterInstancePreset_Errors checks that invalid preset usage returns the right errors.
+func TestRun_WithClusterInstancePreset_Errors(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -954,11 +1051,11 @@ func TestRun_WithPreset_Errors(t *testing.T) {
 		{
 			desc: "provider mismatch",
 			opts: CreateOptions{
-				Name:      "my-db",
-				Namespace: "everest",
-				Provider:  "postgresql",
-				Cluster:   "main",
-				Preset:    "my-preset",
+				Name:          "my-db",
+				Namespace:     "everest",
+				Provider:      "postgresql",
+				Cluster:       "main",
+				ClusterPreset: "my-preset",
 			},
 			presetStatus: http.StatusOK,
 			wantErr:      `does not match preset`,
@@ -966,11 +1063,11 @@ func TestRun_WithPreset_Errors(t *testing.T) {
 		{
 			desc: "preset not found",
 			opts: CreateOptions{
-				Name:      "my-db",
-				Namespace: "everest",
-				Provider:  "psmdb",
-				Cluster:   "main",
-				Preset:    "missing-preset",
+				Name:          "my-db",
+				Namespace:     "everest",
+				Provider:      "psmdb",
+				Cluster:       "main",
+				ClusterPreset: "missing-preset",
 			},
 			presetStatus: http.StatusNotFound,
 			wantErr:      "missing-preset",
@@ -978,15 +1075,15 @@ func TestRun_WithPreset_Errors(t *testing.T) {
 		{
 			desc: "topology flag rejected with preset",
 			opts: CreateOptions{
-				Name:      "my-db",
-				Namespace: "everest",
-				Provider:  "psmdb",
-				Cluster:   "main",
-				Preset:    "my-preset",
-				Topology:  "replicaset",
+				Name:          "my-db",
+				Namespace:     "everest",
+				Provider:      "psmdb",
+				Cluster:       "main",
+				ClusterPreset: "my-preset",
+				Topology:      "replicaset",
 			},
 			presetStatus: 0,
-			wantErr:      "--topology cannot be combined with --preset",
+			wantErr:      "--topology cannot be combined with --preset or --clusterpreset",
 		},
 		{
 			desc: "no provider and no preset",
@@ -1004,7 +1101,7 @@ func TestRun_WithPreset_Errors(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			srv := newRunServerWithPreset(t, okProviderHandler,
+			srv := newRunServerWithPresets(t, okProviderHandler,
 				func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusCreated) },
 				func(w http.ResponseWriter, _ *http.Request) {
 					if tc.presetStatus != 0 && tc.presetStatus != http.StatusOK {
@@ -1012,6 +1109,9 @@ func TestRun_WithPreset_Errors(t *testing.T) {
 						return
 					}
 					okPresetHandler(w, nil)
+				},
+				func(_ http.ResponseWriter, _ *http.Request) {
+					t.Error("instance preset endpoint must not be called for --clusterpreset")
 				},
 			)
 			defer srv.Close()
@@ -1025,15 +1125,18 @@ func TestRun_WithPreset_Errors(t *testing.T) {
 	}
 }
 
-func TestRun_WithPreset_ResolvePassesNamespace(t *testing.T) {
+func TestRun_WithClusterInstancePreset(t *testing.T) {
 	t.Parallel()
 
 	var capturedURL string
-	srv := newRunServerWithPreset(t, okProviderHandler,
+	srv := newRunServerWithPresets(t, okProviderHandler,
 		func(w http.ResponseWriter, _ *http.Request) { respondCreated(w) },
 		func(w http.ResponseWriter, r *http.Request) {
 			capturedURL = r.URL.String()
 			okPresetHandler(w, r)
+		},
+		func(_ http.ResponseWriter, _ *http.Request) {
+			t.Error("instance preset endpoint must not be called for --clusterpreset")
 		},
 	)
 	defer srv.Close()
@@ -1043,12 +1146,106 @@ func TestRun_WithPreset_ResolvePassesNamespace(t *testing.T) {
 
 	ic := NewInstanceCreator(Config{}, zap.NewNop().Sugar())
 	require.NoError(t, ic.Run(context.Background(), CreateOptions{
-		Name:      "my-db",
-		Namespace: "prod",
-		Provider:  "psmdb",
-		Cluster:   "main",
-		Preset:    "my-preset",
+		Name:          "my-db",
+		Namespace:     "prod",
+		Provider:      "psmdb",
+		Cluster:       "main",
+		ClusterPreset: "my-preset",
 	}, cfgPath))
 
-	assert.Contains(t, capturedURL, "/v1/clusters/main/instance-presets/my-preset/resolve?namespace=prod")
+	assert.Contains(t, capturedURL, "/v1/clusters/main/cluster-instance-presets/my-preset")
+}
+
+func TestRun_WithInstancePreset(t *testing.T) {
+	t.Parallel()
+
+	var (
+		got        []byte
+		presetPath string
+	)
+	srv := newRunServerWithPresets(
+		t, okProviderHandler,
+		func(w http.ResponseWriter, r *http.Request) {
+			var err error
+			got, err = io.ReadAll(r.Body)
+			assert.NoError(t, err)
+			respondCreated(w)
+		},
+		func(_ http.ResponseWriter, _ *http.Request) {
+			t.Error("cluster preset endpoint must not be called for --preset")
+		},
+		func(w http.ResponseWriter, r *http.Request) {
+			presetPath = r.URL.Path
+			okPresetHandler(w, r)
+		},
+	)
+	t.Cleanup(srv.Close)
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	ic := NewInstanceCreator(Config{}, zap.NewNop().Sugar())
+	opts := CreateOptions{
+		Name:      "my-db",
+		Namespace: "prod",
+		Cluster:   "main",
+		Preset:    "my-preset",
+	}
+	require.NoError(t, ic.Run(context.Background(), opts, cfgPath))
+
+	assert.Equal(t, "/v1/clusters/main/namespaces/prod/instance-presets/my-preset", presetPath)
+	want := `{
+   "metadata": {
+      "name": "my-db",
+      "annotations": {"openeverest.io/instance-preset": "my-preset"}
+   },
+   "spec": {
+      "providerRef": {"name": "psmdb"},
+      "version": "8.0",
+      "topology": {"type": "replicaset"},
+      "components": {"engine": {"replicas": 3}}
+   }
+}`
+	assert.JSONEq(t, want, string(got))
+}
+
+func TestRun_WithInstancePreset_Errors(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name    string
+		opts    CreateOptions
+		wantErr string
+	}{
+		{
+			name: "not found",
+			opts: CreateOptions{
+				Name:      "my-db",
+				Namespace: "prod",
+				Cluster:   "main",
+				Preset:    "missing-preset",
+			},
+			wantErr: `preset "missing-preset" not found in namespace "prod"`,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			srv := newRunServerWithPresets(
+				t, okProviderHandler,
+				func(w http.ResponseWriter, _ *http.Request) { respondCreated(w) },
+				okPresetHandler,
+				func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) },
+			)
+			t.Cleanup(srv.Close)
+
+			cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+			require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+			ic := NewInstanceCreator(Config{}, zap.NewNop().Sugar())
+			require.ErrorContains(t, ic.Run(context.Background(), tc.opts, cfgPath), tc.wantErr)
+		})
+	}
 }

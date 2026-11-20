@@ -19,33 +19,100 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/cli/deletion"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
+	"github.com/openeverest/openeverest/v2/pkg/instancestatus"
 )
 
-// instanceCondition classifies an Instance: Ready -> Succeeded,
-// Failed/Terminating -> Failed, anything else (incl. Suspended) -> Pending.
+// instanceCondition classifies an Instance for --wait. The verdict comes from
+// the same reading of the status that is displayed, so a wait ends when what
+// is shown says so: Ready for the current spec is success; Stalled for the
+// current spec, which nothing but a person resolves, and a deletion are
+// failures; anything else keeps waiting.
 func instanceCondition(inst *client.Instance) (wait.Outcome, string) {
-	phase := instancePhase(inst)
-	switch phase {
-	case string(client.InstanceStatusPhaseReady):
-		return wait.Succeeded, progressMessage(inst, phase)
-	case string(client.InstanceStatusPhaseFailed):
-		msg := instanceStatusMessage(inst)
-		if msg == "" {
-			msg = "instance entered the Failed phase"
-		} else {
-			msg = "instance entered the Failed phase: " + msg
-		}
-		return wait.Failed, msg
-	case string(client.InstanceStatusPhaseTerminating):
-		return wait.Failed, "instance is being deleted"
-	default:
-		return wait.Pending, progressMessage(inst, phase)
+	in := statusInput(inst)
+	shown := instancestatus.Describe(in, time.Now())
+	switch instancestatus.WaitOutcome(in) {
+	case instancestatus.Succeeded:
+		return wait.Succeeded, progressMessage(inst, shown)
+	case instancestatus.Failed:
+		return wait.Failed, failureMessage(inst, shown)
+	case instancestatus.Pending:
 	}
+	return wait.Pending, progressMessage(inst, shown)
+}
+
+// TimeoutError is what waiting for an Instance returns once the timeout
+// elapses. It says how the Instance's status read when it was last fetched,
+// and it is a wait.ErrTimeout.
+type TimeoutError struct {
+	// Name is the Instance's name.
+	Name string
+	// Timeout is how long the wait lasted.
+	Timeout time.Duration
+	// Status is the status word as a person reads it: "Creating",
+	// "Provider not responding".
+	Status string
+	// Message is the sentence about the status word, if there is one.
+	Message string
+}
+
+func (e *TimeoutError) Error() string {
+	msg := fmt.Sprintf("timed out after %s waiting for instance %q to become ready; its status is %q", e.Timeout, e.Name, e.Status)
+	if detail := strings.TrimSpace(e.Message); detail != "" {
+		msg += ": " + detail
+	}
+	return msg
+}
+
+func (e *TimeoutError) Unwrap() error { return wait.ErrTimeout }
+
+// timedOut describes the Instance as last seen for a wait that timed out.
+func timedOut(inst *client.Instance, name string, timeout time.Duration) *TimeoutError {
+	shown := instancestatus.Describe(statusInput(inst), time.Now())
+	return &TimeoutError{Name: name, Timeout: timeout, Status: shown.Label, Message: shown.Message}
+}
+
+// statusInput adapts the API client's Instance to the shared reading of an
+// Instance's status.
+func statusInput(inst *client.Instance) instancestatus.Input {
+	if inst == nil {
+		return instancestatus.Input{}
+	}
+	in := instancestatus.Input{Meta: inst.Metadata}
+	if inst.Status == nil {
+		return in
+	}
+	if inst.Status.ObservedGeneration != nil {
+		in.ObservedGeneration = *inst.Status.ObservedGeneration
+	}
+	if inst.Status.Phase != nil {
+		in.Phase = string(*inst.Status.Phase)
+	}
+	if inst.Status.Conditions == nil {
+		return in
+	}
+	in.Conditions = make([]metav1.Condition, 0, len(*inst.Status.Conditions))
+	for _, c := range *inst.Status.Conditions {
+		cond := metav1.Condition{
+			Type:               c.Type,
+			Status:             metav1.ConditionStatus(c.Status),
+			Reason:             c.Reason,
+			Message:            c.Message,
+			LastTransitionTime: metav1.NewTime(c.LastTransitionTime),
+		}
+		if c.ObservedGeneration != nil {
+			cond.ObservedGeneration = *c.ObservedGeneration
+		}
+		in.Conditions = append(in.Conditions, cond)
+	}
+	return in
 }
 
 // newInstancePoll returns a PollFunc for the instance; a 404 is terminal
@@ -73,31 +140,26 @@ func fetchInstance(c *client.ClientWithResponses, cluster, namespace, name strin
 	}
 }
 
-func instancePhase(inst *client.Instance) string {
-	if inst == nil || inst.Status == nil || inst.Status.Phase == nil {
-		return ""
+// failureMessage says why waiting for the Instance to become ready is over.
+func failureMessage(inst *client.Instance, shown instancestatus.Display) string {
+	if inst != nil && inst.Metadata != nil && inst.Metadata.DeletionTimestamp != nil {
+		return "instance is being deleted"
 	}
-	return string(*inst.Status.Phase)
+	msg := "instance will not become ready without intervention: " + shown.Label
+	if detail := strings.TrimSpace(shown.Message); detail != "" {
+		msg += ": " + detail
+	}
+	return msg
 }
 
-func instanceStatusMessage(inst *client.Instance) string {
-	if inst == nil || inst.Status == nil || inst.Status.Message == nil {
-		return ""
-	}
-	return strings.TrimSpace(*inst.Status.Message)
-}
-
-// progressMessage renders a one-line phase + component summary, e.g.
-// "Provisioning (engine 1/3 ready)".
-func progressMessage(inst *client.Instance, phase string) string {
-	if phase == "" {
-		phase = "-"
-	}
+// progressMessage renders a one-line status + component summary, e.g.
+// "Creating (engine 1/3 ready)".
+func progressMessage(inst *client.Instance, shown instancestatus.Display) string {
 	comps := componentSummary(inst)
 	if comps == "" {
-		return phase
+		return shown.Sentence
 	}
-	return fmt.Sprintf("%s (%s)", phase, comps)
+	return fmt.Sprintf("%s (%s)", shown.Sentence, comps)
 }
 
 func componentSummary(inst *client.Instance) string {
@@ -106,14 +168,8 @@ func componentSummary(inst *client.Instance) string {
 	}
 	parts := make([]string, 0, len(*inst.Status.Components))
 	for _, comp := range *inst.Status.Components {
-		var ready, replicas int32
-		if comp.ReadyReplicas != nil {
-			ready = *comp.ReadyReplicas
-		}
-		if comp.Replicas != nil {
-			replicas = *comp.Replicas
-		}
-		parts = append(parts, fmt.Sprintf("%s %d/%d ready", comp.Name, ready, replicas))
+		ready := instancestatus.CountReady(comp.ReadyReplicas, comp.Replicas, comp.DesiredReplicas)
+		parts = append(parts, fmt.Sprintf("%s %s ready", comp.Name, ready))
 	}
 	return strings.Join(parts, ", ")
 }
@@ -129,6 +185,6 @@ func newInstanceDeletePoll(
 
 func deleteCondition(inst *client.Instance) (wait.Outcome, string) {
 	return deletion.GoneCondition("instance deleted", func(v *client.Instance) string {
-		return progressMessage(v, instancePhase(v))
+		return progressMessage(v, instancestatus.Describe(statusInput(v), time.Now()))
 	})(inst)
 }

@@ -44,6 +44,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
@@ -89,10 +90,11 @@ const (
 
 // Kubernetes is a client for Kubernetes.
 type Kubernetes struct {
-	k8sClient  ctrlclient.Client
-	l          *zap.SugaredLogger
-	restConfig *rest.Config
-	kubeconfig string
+	k8sClient   ctrlclient.Client
+	watchClient ctrlclient.WithWatch
+	l           *zap.SugaredLogger
+	restConfig  *rest.Config
+	kubeconfig  string
 	// namespace is the namespace where OpenEverest is installed.
 	namespace string
 	// it is required for handling plain runtime.Objects (ApplyManifestFile)
@@ -139,13 +141,18 @@ func New(kubeconfigPath string, l *zap.SugaredLogger, namespace string) (Kuberne
 	if err != nil {
 		return nil, err
 	}
+	watchClient, err := ctrlclient.NewWithWatch(restConfig, getKubernetesClientOptions(nil))
+	if err != nil {
+		return nil, err
+	}
 
 	return &Kubernetes{
-		k8sClient:  k8client,
-		l:          l.With("component", "kubernetes"),
-		restConfig: restConfig,
-		kubeconfig: path,
-		namespace:  namespace,
+		k8sClient:   k8client,
+		watchClient: watchClient,
+		l:           l.With("component", "kubernetes"),
+		restConfig:  restConfig,
+		kubeconfig:  path,
+		namespace:   namespace,
 	}, nil
 }
 
@@ -173,16 +180,26 @@ func NewInCluster(ctx context.Context, l *zap.SugaredLogger, cacheOptions *cache
 		}()
 	}
 
-	k8sclient, err := ctrlclient.New(restConfig, getKubernetesClientOptions(k8sCache))
+	clientConfig := rest.CopyConfig(restConfig)
+	// Next is the warning logger ctrlclient.New installs when the config sets none.
+	clientConfig.WarningHandlerWithContext = CollectingWarningHandler{
+		Next: ctrllog.NewKubeAPIWarningLogger(ctrllog.KubeAPIWarningLoggerOptions{}),
+	}
+	k8sclient, err := ctrlclient.NewWithWatch(clientConfig, getKubernetesClientOptions(k8sCache))
+	if err != nil {
+		return nil, err
+	}
+	watchClient, err := ctrlclient.NewWithWatch(clientConfig, ctrlclient.Options{Scheme: CreateScheme()})
 	if err != nil {
 		return nil, err
 	}
 
 	return &Kubernetes{
-		k8sClient:  k8sclient,
-		l:          l.With("component", "kubernetes"),
-		restConfig: restConfig,
-		namespace:  namespace,
+		k8sClient:   withDryRun(k8sclient),
+		watchClient: watchClient,
+		l:           l.With("component", "kubernetes"),
+		restConfig:  restConfig,
+		namespace:   namespace,
 	}, nil
 }
 

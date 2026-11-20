@@ -43,6 +43,7 @@ export const FormDialog = <T extends FieldValues>({
   celDependencyGroups = [],
   defaultValues,
   values,
+  resetOptions,
   disableSubmit = false,
   onSubmit,
   cancelMessage = 'Cancel',
@@ -59,6 +60,7 @@ export const FormDialog = <T extends FieldValues>({
     resolver: zodResolver(schema),
     defaultValues,
     values,
+    resetOptions,
   });
   const {
     formState: { isDirty, isValid },
@@ -124,7 +126,13 @@ export const FormDialog = <T extends FieldValues>({
           </Typography>
         )}
         <FormProvider {...methods}>
-          <form onSubmit={methods.handleSubmit(handleSubmit)}>
+          <form
+            onSubmit={(e) => {
+              // React bubbles submit through the portal into any enclosing form (e.g. the wizard).
+              e.stopPropagation();
+              methods.handleSubmit(handleSubmit)(e);
+            }}
+          >
             <FormGroup>
               {typeof children === 'function' ? children(methods) : children}
             </FormGroup>

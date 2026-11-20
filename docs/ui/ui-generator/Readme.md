@@ -18,6 +18,8 @@
   - [Validation-level modes](#validation-level-modes)
 - Field Types
   - [Number Field](components/number-field.md)
+  - [Quantity Field](components/quantity-field.md)
+  - [Secret Field](components/secret-field.md)
   - [Select Field](components/select-field.md)
   - [Text Field](components/text-field.md)
   - [Toggle Field](components/toggle-field.md)
@@ -206,6 +208,32 @@ for UI that plain fields can't describe. See [Widgets](widgets.md) for the suppo
 
 ## Mode-Aware Overrides
 
+The form runs in one of four modes:
+
+| Mode      | When                                                             |
+| --------- | ---------------------------------------------------------------- |
+| `new`     | Creating a database                                              |
+| `edit`    | Changing an existing database                                    |
+| `restore` | Creating a database from a backup of another database            |
+| `import`  | Creating a database from a backup imported from a backup storage |
+
+### Component-level modes
+
+Use a component's `modes` to hide it in a mode with `uiType: hidden`. A hidden field isn't
+rendered or validated in that mode, and in `restore` it doesn't take the source instance's value.
+
+```yaml
+userSecret:
+  uiType: secret
+  path: spec.userSecretRef.name
+  fieldParams:
+    label: Database users
+    definition: user
+  modes:
+    restore:
+      uiType: hidden
+```
+
 ### FieldParams-level modes
 
 Use `fieldParams.modes` when the override belongs to the field presentation layer.
@@ -252,12 +280,25 @@ For [widgets](widgets.md), where the data lives is defined by each widget type.
 
 ### Path scoping
 
-A component's `path` is its form-field name and write target verbatim. Declare it
-**relative to the section's root** — the object the consumer merges the section into
-(e.g. a single storage's `pitr`) — and spell the real sub-structure, so the schema alone
-says where the value lands. The consumer only supplies the root; it never injects keys.
+A component's `path` is its write target, **relative to the section's root** — the object the
+schema describes. Spell the real sub-structure below that root, so the schema alone says where the
+value lands. The host supplies the root (the form field is `<root>.<path>`) and never injects keys
+between the root and the path.
 
-- ✅ `path: parameters.timeBetweenUploads` → `<root>.parameters.timeBetweenUploads`
+| Schema                                    | Root                                        | Example `path`                      |
+| ----------------------------------------- | ------------------------------------------- | ----------------------------------- |
+| Topology                                  | the Instance                                | `spec.components.engine.replicas`   |
+| Backup class `pitr`                       | one storage's `pitr`                        | `parameters.timeBetweenUploads`     |
+| Secret definition                         | the secret's data                           | `MONGODB_USER`                      |
+| Monitoring class `destination`            | the MonitoringDestination's `spec`          | `parameters.url`                    |
+| Monitoring class `credentials.<authMode>` | the credentials Secret's data               | `token`                             |
+| Monitoring class `instance`               | one entry of `spec.monitoring.destinations` | `parameters.resources.requests.cpu` |
+
+A monitoring class without a `destination` form gets text and key/value fields generated from the
+string and string-map properties of its `destinationParametersSchema`; without a
+`credentials.<authMode>` form, it gets one masked input per credential key the auth mode declares.
+Settings shows a destination's address only when the `destination` form writes `parameters.url`.
+
 - ❌ `path: spec.backup.storages[].pitr.parameters.timeBetweenUploads`
 
 No absolute paths and no array segments (`[]`): an empty `[]` has no index to bind to, and
@@ -319,6 +360,7 @@ uiSchema:
               optionsPathConfig:
                 labelPath: "version"
                 valuePath: "version"
+                defaultValuePath: "spec.componentTypes.mongod.defaultVersion"
             validation:
               required: true
       resources:
@@ -425,6 +467,7 @@ uiSchema:
               optionsPathConfig:
                 labelPath: "version"
                 valuePath: "version"
+                defaultValuePath: "spec.componentTypes.mongod.defaultVersion"
             validation:
               required: true
       resources:
@@ -435,9 +478,10 @@ uiSchema:
             uiType: number
             path: "spec.sharding.shards"
             fieldParams:
-              required: true
               label: "Nº of shards"
               defaultValue: 1
+            validation:
+              required: true
           numberOfnodes:
             path: "spec.components.engine.replicas"
             uiType: number
@@ -485,10 +529,10 @@ uiSchema:
                   defaultValue: 25
                   badge: "Gi"
                   badgeToApi: true
-                  validation:
-                    min: 1
-                    int: true
-                    required: true
+                validation:
+                  min: 1
+                  int: true
+                  required: true
           numberOfRouters:
             path: "spec.components.proxy.replicas"
             uiType: number

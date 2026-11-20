@@ -94,7 +94,7 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 		if resp.StatusCode() == http.StatusConflict {
 			return fmt.Errorf("restore %q already exists in namespace %q", opts.Name, opts.Namespace)
 		}
-		if msg, ok := clienterr.Message(resp.JSONDefault); ok {
+		if msg, ok := clienterr.Message(clienterr.FromAPIError(resp.JSON422), resp.JSONDefault); ok {
 			return fmt.Errorf("server error: %s", msg)
 		}
 		return fmt.Errorf("unexpected response creating restore: %s", resp.Status())

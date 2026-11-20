@@ -144,3 +144,57 @@ describe('DataSourcePrefetcher - toggleable groups', () => {
     expect(form.getValues('spec.monitoring.configName')).toBe('');
   });
 });
+
+describe('DataSourcePrefetcher - auto-selection switched off', () => {
+  const EMPTY_VALUES = {
+    [TOGGLEABLE_SWITCHES_KEY]: { 'advanced~monitoring': false },
+    spec: { monitoring: { configName: '' }, storage: { configName: '' } },
+  };
+
+  const renderWithAutoSelect = (autoSelect: boolean) => {
+    const formRef: { current?: UseFormReturn } = {};
+    const Harness = ({ autoSelect }: { autoSelect: boolean }) => {
+      const form = useForm<Record<string, unknown>>({
+        defaultValues: EMPTY_VALUES,
+      });
+      formRef.current = form;
+      return (
+        <FormProvider {...form}>
+          <DataSourcePrefetcher
+            sections={sharedProviderSections}
+            namespace="ns"
+            autoSelect={autoSelect}
+          />
+        </FormProvider>
+      );
+    };
+    const { rerender } = render(<Harness autoSelect={autoSelect} />);
+    const form = formRef.current;
+    if (!form) throw new Error('form not initialized');
+    return {
+      form,
+      setAutoSelect: (next: boolean) => rerender(<Harness autoSelect={next} />),
+    };
+  };
+
+  // A selected preset resets the form with its spec; the reset re-creates the
+  // toggleable switches, which re-runs the prefetch for the shared provider.
+  it('keeps values a reset left empty', async () => {
+    const { form } = renderWithAutoSelect(false);
+
+    act(() => form.reset(structuredClone(EMPTY_VALUES)));
+    await act(async () => {});
+
+    expect(form.getValues('spec.storage.configName')).toBe('');
+  });
+
+  it('preselects once auto-selection is switched back on', async () => {
+    const { form, setAutoSelect } = renderWithAutoSelect(false);
+
+    setAutoSelect(true);
+
+    await waitFor(() =>
+      expect(form.getValues('spec.storage.configName')).toBe('pmm')
+    );
+  });
+});

@@ -79,6 +79,43 @@ func TestValidateSecretSchema(t *testing.T) {
 			wantErr:      "providerSpec cannot be nil",
 		},
 		{
+			name: "secret type mismatch fails",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-secret",
+					Labels: map[string]string{
+						common.OpenEverestDefinitionLabel: "database-credentials",
+					},
+				},
+				Type: corev1.SecretTypeDockerConfigJson,
+				StringData: map[string]string{
+					"username": "admin",
+					"password": "secret",
+				},
+			},
+			providerSpec: providerSpec,
+			wantErr:      `secret type "kubernetes.io/dockerconfigjson" does not match definition "database-credentials" type "Opaque"`,
+		},
+		{
+			name: "dockerconfigjson type matches definition",
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-secret",
+					Labels: map[string]string{
+						common.OpenEverestDefinitionLabel: "registry",
+					},
+				},
+				Type: corev1.SecretTypeDockerConfigJson,
+			},
+			providerSpec: &corev1alpha1.ProviderSpec{
+				Secrets: map[string]corev1alpha1.SecretDefinition{
+					"registry": {
+						Type: corev1.SecretTypeDockerConfigJson,
+					},
+				},
+			},
+		},
+		{
 			name: "missing labels fails",
 			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{

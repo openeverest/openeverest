@@ -23,7 +23,7 @@ import { Messages } from './preset-select-cards.messages';
 // Thin preset-specific wrapper over the reusable CardPicker: maps presets to
 // card items (searchable by their whole spec) and binds selection to the form.
 export const PresetSelectCards = () => {
-  const { presets, presetName, isLoadingPresets, isError, resolveError } =
+  const { presets, presetName, isLoadingPresets, isError } =
     usePresetSelectionContext();
   const { setValue } = useFormContext();
 
@@ -55,7 +55,6 @@ export const PresetSelectCards = () => {
         subtitle: Messages.scratchCaption,
       }}
       statusCard={statusCard}
-      error={resolveError ?? undefined}
       messages={{
         searchPlaceholder: Messages.searchPlaceholder,
         searchAriaLabel: Messages.searchAriaLabel,

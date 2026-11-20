@@ -16,23 +16,26 @@ import { CrdsGen, HttpApi } from '@generated/api-types';
 
 export type GetProviders = CrdsGen.components['schemas']['ProviderList'];
 export type Provider = CrdsGen.components['schemas']['Provider'];
-export type MonitoringConfig =
-  CrdsGen.components['schemas']['MonitoringConfig'];
-export type MonitoringConfigList =
-  CrdsGen.components['schemas']['MonitoringConfigList'];
-export type MonitoringConfigCreateParams =
-  HttpApi.components['schemas']['MonitoringConfigCreateParams'];
-export type MonitoringConfigUpdateParams =
-  HttpApi.components['schemas']['MonitoringConfigUpdateParams'];
+export type Secret = HttpApi.components['schemas']['Secret'];
+// The Secrets API's PATCH: keys to set, guarded by the version they were read at.
+export type SecretDataPatch = Pick<Secret, 'stringData'> & {
+  metadata: { resourceVersion: string };
+};
+export type SecretList = HttpApi.components['schemas']['SecretList'];
+export type APIError = HttpApi.components['schemas']['APIError'];
+export type SecretListFilter = NonNullable<
+  HttpApi.operations['listSecrets']['parameters']['query']
+>;
 export type GetInstances = CrdsGen.components['schemas']['InstanceList'];
 export type Instance = CrdsGen.components['schemas']['Instance'];
 export type InstanceConnectionDetails =
   CrdsGen.components['schemas']['InstanceConnectionDetails'];
 export type PhaseType = NonNullable<Instance['status']>['phase'];
 
-export type InstancePreset = CrdsGen.components['schemas']['InstancePreset'];
-export type InstancePresetList =
-  CrdsGen.components['schemas']['InstancePresetList'];
+export type ClusterInstancePreset =
+  CrdsGen.components['schemas']['ClusterInstancePreset'];
+export type ClusterInstancePresetList =
+  CrdsGen.components['schemas']['ClusterInstancePresetList'];
 
 export type CreateDbInstancePayload =
   HttpApi.paths['/clusters/{cluster}/namespaces/{namespace}/instances']['post']['requestBody']['content']['application/json'];

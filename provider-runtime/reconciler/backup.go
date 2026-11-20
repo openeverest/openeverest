@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -40,13 +41,15 @@ const (
 	defaultBackupRequeue = 10 * time.Second
 )
 
-// backupRuntimeReconciler dispatches Backup CRs whose resolved BackupClass uses
-// executionMode "ProviderManaged" to the provider's BackupProvider implementation.
-// Backups whose class uses executionMode "Job" or whose Instance is owned by a
-// different provider are skipped (returning nil) so multiple provider runtimes
-// can coexist in the same namespace without trampling each other.
+// backupRuntimeReconciler dispatches Backup CRs whose resolved BackupClass
+// names this provider in spec.providerManaged.providerRef to the provider's
+// BackupProvider implementation. Backups whose class is executed by anyone
+// else or whose Instance is owned by a different provider are skipped
+// (returning nil) so multiple provider runtimes, and other executors, can
+// coexist in the same namespace without trampling each other.
 type backupRuntimeReconciler struct {
 	client       client.Client
+	reader       client.Reader
 	provider     controller.BackupProvider
 	providerName string
 }
@@ -54,11 +57,28 @@ type backupRuntimeReconciler struct {
 func setupBackupReconciler(mgr ctrl.Manager, bp controller.BackupProvider, providerName string) error {
 	r := &backupRuntimeReconciler{
 		client:       mgr.GetClient(),
+		reader:       mgr.GetAPIReader(),
 		provider:     bp,
 		providerName: providerName,
 	}
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&backupv1alpha1.Backup{}).
+		Watches(&backupv1alpha1.BackupClass{},
+			handler.EnqueueRequestsFromMapFunc(r.backupsForClass),
+			builder.WithPredicates(existenceChanged()),
+		).
+		Watches(&corev1alpha1.Instance{},
+			handler.EnqueueRequestsFromMapFunc(r.backupsForInstance),
+			builder.WithPredicates(existenceChanged()),
+		).
+		Watches(&backupv1alpha1.BackupStorage{},
+			handler.EnqueueRequestsFromMapFunc(r.backupsForStorage),
+			builder.WithPredicates(acceptanceChanged()),
+		).
+		WatchesMetadata(&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.backupsForSecret),
+			builder.WithPredicates(existenceChanged()),
+		).
 		Named(providerName + "-backup-controller")
 
 	if bw, ok := bp.(controller.BackupWatcher); ok {
@@ -116,7 +136,11 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return r.reconcileExternalBackup(ctx, backup, bc)
 	}
 
-	inCtx := controller.NewContext(ctx, r.client, instance, r.providerName)
+	if instance == nil {
+		return r.reconcileWithoutInstance(ctx, backup, bc)
+	}
+
+	inCtx := newContext(ctx, r.client, instance, r.provider, r.providerName)
 
 	if !backup.DeletionTimestamp.IsZero() {
 		if !controllerutil.ContainsFinalizer(backup, backupRuntimeFinalizer) {
@@ -150,6 +174,27 @@ func (r *backupRuntimeReconciler) Reconcile(ctx context.Context, req reconcile.R
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{Requeue: true}, nil
+	}
+
+	// A Backup that has not started waits for its storage; the watches
+	// enqueue it once the storage and its credentials exist.
+	if backup.Status.State == "" || backup.Status.State == backupv1alpha1.BackupStatePending {
+		missing, err := missingBackupStorage(ctx, r.client, backup.Namespace, backup.Spec.StorageRef.Name)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if missing.reason != "" {
+			backup.Status.State = backupv1alpha1.BackupStatePending
+			backup.Status.Message = missing.message
+			return reconcile.Result{}, r.updateStatus(ctx, backup, bc)
+		}
+	}
+
+	if backup.Status.Path == "" {
+		backup.Status.Path, err = instanceBackupPath(ctx, r.client, instance, backup.Spec.StorageRef.Name, inCtx.BackupPathStyle())
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	exec, err := r.provider.SyncBackup(inCtx, backup)
@@ -189,14 +234,15 @@ func resolveBackupOwnership(
 		}
 		return nil, nil, false, fmt.Errorf("failed to get BackupClass: %w", err)
 	}
-	if bc.Spec.ExecutionMode != backupv1alpha1.BackupExecutionModeProviderManaged {
+	// Only the classes this provider claims are executed here; any other
+	// class is left to its executor, never rejected.
+	if bc.Spec.ExecutorProvider() != providerName {
 		return nil, bc, false, nil
 	}
 
-	// External backups have no Instance to fetch. Ownership is derived
-	// from the class's SupportedProviders.
+	// External backups have no Instance to fetch.
 	if backup.Spec.Origin.Type == backupv1alpha1.BackupOriginTypeExternal {
-		return nil, bc, bc.Spec.SupportedProviders.Has(providerName), nil
+		return nil, bc, true, nil
 	}
 
 	instance := &corev1alpha1.Instance{}
@@ -205,7 +251,9 @@ func resolveBackupOwnership(
 		Name:      backup.Spec.Origin.InstanceRef.Name,
 	}, instance); err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil, bc, false, nil
+			// The class names its executor, so it names the owner while
+			// the Instance is missing.
+			return nil, bc, true, nil
 		}
 		return nil, bc, false, fmt.Errorf("failed to get Instance: %w", err)
 	}

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 import { render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { userEvent } from 'vitest/browser';
 import { TestWrapper } from 'utils/test';
 import { Instance } from 'shared-types/api.types';
@@ -31,7 +32,18 @@ const instance: Instance = {
   kind: 'Instance',
   metadata: {},
   spec: { providerRef: { name: 'test-provider' } },
-  status: { phase: 'Ready' },
+  status: {
+    phase: 'Provisioned',
+    conditions: [
+      {
+        lastTransitionTime: '2026-03-20T10:00:00Z',
+        message: 'The instance is ready',
+        reason: 'Ready',
+        status: 'True',
+        type: 'Ready',
+      },
+    ],
+  },
 };
 
 const card = (key: string, title: string, rows: number): SchemaSectionCard => ({
@@ -67,12 +79,19 @@ const mockOverview = (cards: SchemaSectionCard[]) =>
     selectedTopology: undefined,
   });
 
+// One client, so a rerender keeps the monitoring card's query state.
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false } },
+});
+
 const overview = (width: number) => (
-  <TestWrapper>
-    <div style={{ width }}>
-      <ClusterOverview />
-    </div>
-  </TestWrapper>
+  <QueryClientProvider client={queryClient}>
+    <TestWrapper>
+      <div style={{ width }}>
+        <ClusterOverview />
+      </div>
+    </TestWrapper>
+  </QueryClientProvider>
 );
 
 const CARD_IDS = [
@@ -165,25 +184,24 @@ describe('ClusterOverview layout', () => {
     mockOverview(providerCards(15));
     rerender(overview(1200));
 
-    await waitFor(() =>
-      expect(rectsById()['resources-details'].height).toBeGreaterThan(
-        before['resources-details'].height
-      )
-    );
-    const after = rectsById();
-    const growth =
-      after['resources-details'].height - before['resources-details'].height;
-    const resourcesLeft = before['resources-details'].left;
-    const resourcesTop = before['resources-details'].top;
+    // The masonry re-stacks from a ResizeObserver callback, after the card has grown.
+    await waitFor(() => {
+      const after = rectsById();
+      const growth =
+        after['resources-details'].height - before['resources-details'].height;
+      expect(growth).toBeGreaterThan(0);
+      const resourcesLeft = before['resources-details'].left;
+      const resourcesTop = before['resources-details'].top;
 
-    CARD_IDS.forEach((id) => {
-      expect(after[id].left).toBe(before[id].left);
-      const pushedDown =
-        before[id].left === resourcesLeft && before[id].top > resourcesTop;
-      expect(after[id].top).toBeCloseTo(
-        before[id].top + (pushedDown ? growth : 0),
-        0
-      );
+      CARD_IDS.forEach((id) => {
+        expect(after[id].left).toBe(before[id].left);
+        const pushedDown =
+          before[id].left === resourcesLeft && before[id].top > resourcesTop;
+        expect(after[id].top).toBeCloseTo(
+          before[id].top + (pushedDown ? growth : 0),
+          0
+        );
+      });
     });
     expect(hasOverlaps()).toBe(false);
   });

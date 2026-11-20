@@ -12,8 +12,53 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { BackupStorageCRD } from 'shared-types/backupStorages.types';
+import {
+  BackupStorageCRD,
+  BackupStorageState,
+} from 'shared-types/backupStorages.types';
+import {
+  describeBackupStorageStatus,
+  getBackupStorageStatus,
+} from 'utils/backup-storages';
+import { BackupStorageStateMessages } from 'utils/backup-storages.messages';
 import { ScheduleWithStorage } from './backup-storages-input.types';
+
+const PENDING_STORAGES_POLL_INTERVAL_MS = 5000;
+
+// Why backups can't be written to the storage now; none once it is valid.
+export const getBackupStorageUnavailableReason = (
+  storage: BackupStorageCRD
+): string | undefined => {
+  const status = getBackupStorageStatus(storage);
+  return status.state === BackupStorageState.Valid
+    ? undefined
+    : (describeBackupStorageStatus(status) ??
+        BackupStorageStateMessages[status.state]);
+};
+
+// Core checks a storage shortly after it is added; until then it is Pending
+// and can't be picked.
+export const getStoragesPollInterval = (
+  storages: BackupStorageCRD[] | undefined
+): number | false =>
+  storages?.some(
+    (storage) =>
+      getBackupStorageStatus(storage).state === BackupStorageState.Pending
+  )
+    ? PENDING_STORAGES_POLL_INTERVAL_MS
+    : false;
+
+// A storage being deleted is offered only where the instance already uses it,
+// so its current choice still shows.
+export const withoutDeletedStorages = (
+  storages: BackupStorageCRD[],
+  inUseNames: Set<string>
+) =>
+  storages.filter(
+    (storage) =>
+      getBackupStorageStatus(storage).state !== BackupStorageState.Deleting ||
+      inUseNames.has(storage.metadata?.name ?? '')
+  );
 
 export type GetAvailableStoragesParams = {
   backupStorages: BackupStorageCRD[];

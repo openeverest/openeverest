@@ -18,7 +18,6 @@ import { Messages } from './database-form.messages.ts';
 import { DbWizardFormFields } from 'consts.ts';
 import { rfc_123_schema } from 'utils/common-validation.ts';
 import { DbInstanceName } from './database-form.types.ts';
-import { importStepSchema } from 'components/cluster-form/import/import-schema.tsx';
 import { Instance } from 'shared-types/api.types.ts';
 
 const basicInfoFieldsSchema = z.object({
@@ -97,33 +96,33 @@ const basicInfoSchema = (dbInstances: DbInstanceName[]) =>
 
 export const getDBWizardSchema = (
   dbInstances: DbInstanceName[],
-  hasImportStep: boolean,
-  openApiValidationSchema?: z.ZodTypeAny
+  openApiValidationSchema?: z.ZodTypeAny,
+  // Validates fields the static steps render from other schemas, e.g. the
+  // monitoring entries' parameters.
+  stepsValidationSchema?: z.ZodTypeAny
 ) => {
   let combinedSchema: z.ZodTypeAny = basicInfoSchema(dbInstances);
 
-  if (hasImportStep) {
-    combinedSchema = combinedSchema.and(importStepSchema);
-  }
-
-  if (openApiValidationSchema) {
+  [openApiValidationSchema, stepsValidationSchema].forEach((schema) => {
+    if (!schema) {
+      return;
+    }
     // Using superRefine instead of .and() / ZodIntersection to avoid
     // "Intersection results could not be merged" errors caused by transforms
     // inside the openApiValidationSchema (e.g. z.coerce.number()) producing
     // a different type than the passthrough base schema, which makes Zod's
     // deep-merge step fail with invalid_intersection_types.
     combinedSchema = combinedSchema.superRefine((data, ctx) => {
-      const result = openApiValidationSchema.safeParse(data);
+      const result = schema.safeParse(data);
       if (!result.success) {
         result.error.issues.forEach((issue) => ctx.addIssue(issue));
       }
     });
-  }
+  });
 
   return combinedSchema;
 };
 
-export type ImportStepType = z.infer<typeof importStepSchema>;
 export type BasicInfoType = z.infer<typeof basicInfoFieldsSchema>;
 export type DbWizardFormSpec = Omit<NonNullable<Instance['spec']>, 'topology'>;
 
@@ -131,6 +130,4 @@ export type DbWizardTypeBase = BasicInfoType & {
   spec: DbWizardFormSpec;
 };
 
-export type DbWizardTypeWithPrestep = DbWizardTypeBase & ImportStepType;
-
-export type DbWizardType = DbWizardTypeBase | DbWizardTypeWithPrestep;
+export type DbWizardType = DbWizardTypeBase;

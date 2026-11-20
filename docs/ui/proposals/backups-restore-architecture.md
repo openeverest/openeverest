@@ -140,10 +140,10 @@ spec:
   displayName: "Percona Server for MongoDB Backups"
   description: "Physical and logical backups via PBM"
   executionMode: ProviderManaged
-  supportedProviders:
-    - percona-server-mongodb
 
   providerManaged:
+    providerRef:
+      name: percona-server-mongodb
     supportsPITR: true
     storageLimits:
       max: 3 # max storages per instance

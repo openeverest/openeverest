@@ -91,17 +91,31 @@ func TestCheckResourceNames(t *testing.T) {
 		{
 			policies: [][]string{
 				{"role:admin", "instances", "create", "*"},
-				{"role:admin", "monitoring-configs", "*", "*"},
+				{"role:admin", "monitoring-destinations", "*", "*"},
 			},
 			valid: true,
 		},
 		{
 			policies: [][]string{
 				{"role:admin", "instances", "create", "*"},
-				{"role:admin", "monitoring-configs", "*", "*"},
+				{"role:admin", "monitoring-destinations", "*", "*"},
 				{"role:admin", "does-not-exist", "*", "*"},
 			},
 			valid: false,
+		},
+		{
+			policies: [][]string{
+				{"role:ops", "monitoring-classes", "read", "*/*"},
+				{"role:ops", "monitoring-destinations", "*", "*/*/*"},
+				{"role:ops", "monitoring-bindings", "read", "*/*/*"},
+			},
+			valid: true,
+		},
+		{
+			policies: [][]string{
+				{"role:dev", "storage-classes", "read", "*/*"},
+			},
+			valid: true,
 		},
 	}
 
@@ -119,6 +133,29 @@ func TestCheckResourceNames(t *testing.T) {
 	}
 }
 
+func TestCheckResourceNamesRejectsMonitoringConfigs(t *testing.T) {
+	t.Parallel()
+
+	err := checkResourceNames([][]string{
+		{"role:ops", "instances", "read", "*/*/*"},
+		{"role:ops", "monitoring-configs", "*", "*/*/*"},
+	})
+
+	require.EqualError(t, err, "resource name 'monitoring-configs' was removed; use 'monitoring-destinations' instead")
+}
+
+func TestCheckActionNamesRejectsDeploy(t *testing.T) {
+	t.Parallel()
+
+	err := checkActionNames([][]string{
+		{"role:deployer", "instance-presets", "read", "*/*/*"},
+		{"role:deployer", "instances", "deploy", "*/*/*"},
+	})
+
+	require.EqualError(t, err, "action 'deploy' was renamed; use 'create-from-preset' instead")
+	require.NoError(t, checkActionNames([][]string{{"role:deployer", "instances", "create-from-preset", "*/*/*"}}))
+}
+
 func TestCheckRoles(t *testing.T) {
 	t.Parallel()
 	testcases := []struct {
@@ -130,7 +167,7 @@ func TestCheckRoles(t *testing.T) {
 			roles: []string{"role:admin", "role:viewer"},
 			policies: [][]string{
 				{"role:admin", "instances", "create", "*"},
-				{"role:admin", "monitoring-configs", "*", "*"},
+				{"role:admin", "monitoring-destinations", "*", "*"},
 			},
 			valid: true,
 		},
@@ -138,8 +175,8 @@ func TestCheckRoles(t *testing.T) {
 			roles: []string{"role:admin", "role:viewer"},
 			policies: [][]string{
 				{"role:admin", "instances", "create", "*"},
-				{"role:admin", "monitoring-configs", "*", "*"},
-				{"role:does-not-exist", "monitoring-configs", "*", "*"},
+				{"role:admin", "monitoring-destinations", "*", "*"},
+				{"role:does-not-exist", "monitoring-destinations", "*", "*"},
 			},
 			valid: false,
 		},

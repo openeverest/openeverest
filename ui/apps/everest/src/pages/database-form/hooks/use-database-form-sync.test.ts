@@ -54,10 +54,9 @@ const uiSchema: TopologyUISchemas = {
 };
 
 const NO_PRESET = {
-  resolvedPreset: null,
+  selectedPreset: null,
   presetName: '',
   presetSelected: false,
-  namespace: 'ns-1',
 };
 
 const setup = () =>

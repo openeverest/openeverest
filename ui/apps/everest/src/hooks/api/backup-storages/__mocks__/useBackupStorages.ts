@@ -16,21 +16,20 @@
 
 import { BackupStorageCRD } from 'shared-types/backupStorages.types';
 
-const storageDataObject = {
+const storageDataObject: BackupStorageCRD = {
   metadata: {
     name: 'backup-storage-1',
     namespace: 'the-dark-side',
   },
   spec: {
-    type: 's3',
-    s3: {
-      bucket: 'bucket-001',
-      region: 'Us',
+    backupStorageClassRef: { name: 's3' },
+    authentication: {
+      mode: 'AccessKey',
       credentialsSecretRef: { name: 'secret-1' },
-      endpointURL: 'http://localhost',
     },
+    location: { objectStore: { bucket: 'bucket-001' } },
   },
-} as unknown as BackupStorageCRD;
+};
 
 // was moved as separate object to avoid recreation since the original use of useQuery caches the data
 const backupStorageMockData = {
@@ -38,8 +37,6 @@ const backupStorageMockData = {
 };
 
 export const useBackupStorages = () => backupStorageMockData;
-
-export const useCreateBackupStorage = () => storageDataObject;
 
 export const useBackupStoragesByNamespace = (namespace: string) => {
   return {

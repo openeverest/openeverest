@@ -15,6 +15,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -61,6 +62,11 @@ type ProviderSpec struct {
 	// upgrade-path constraints. It is read by the pre-upgrade preflight.
 	// +optional
 	Release *Release `json:"release,omitempty"`
+
+	// Monitoring is the provider's monitoring contract: the operator-native
+	// integrations it renders itself and what each component type exposes.
+	// +optional
+	Monitoring *ProviderMonitoring `json:"monitoring,omitempty"`
 }
 
 // Release identifies a provider release and its upgrade-path constraints.
@@ -91,7 +97,22 @@ type VersionBundle struct {
 	Components map[string]string `json:"components,omitempty"`
 }
 
+// KindPattern validates every component kind. Kubebuilder markers cannot
+// reference constants, so the Pattern markers on ComponentType.Kind,
+// MetricsEndpoint.Kind, ConnectionEndpoint.Kind and the items of the
+// MonitoringClass requires.kinds must stay identical to it.
+const KindPattern = `^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
+
 type ComponentType struct {
+	// Kind is the shared classification of the software the component type
+	// runs (e.g. "mongodb", "mysql", "haproxy"), matched by monitoring class
+	// filters and set on the component's published monitoring endpoints.
+	// Databases use OpenTelemetry db.system.name values; unknown kinds are
+	// allowed. A type without a kind matches no kind filter.
+	// +kubebuilder:validation:Pattern=`^([a-z0-9.-]+/)?[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`
+	// +optional
+	Kind string `json:"kind,omitempty"`
+
 	// DefaultVersion names the entry in Versions used when neither the
 	// Instance nor a version bundle selects one.
 	// +optional
@@ -158,6 +179,12 @@ type TopologyComponent struct {
 
 // SecretDefinition describes a Secret type that a provider supports.
 type SecretDefinition struct {
+	// Type is the Kubernetes Secret type of secrets created for this
+	// definition. The clients use it to encode input into Secret data.
+	// +kubebuilder:default=Opaque
+	// +optional
+	Type corev1.SecretType `json:"type,omitempty"`
+
 	// UISchema holds UI rendering hints for the secret creation form.
 	// +optional
 	// +kubebuilder:pruning:PreserveUnknownFields

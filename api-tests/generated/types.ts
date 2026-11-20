@@ -22,6 +22,15 @@ export interface paths {
          *     - `password` — log in with username/password. The user must have the `login` capability.
          *     - `refresh_token` — exchange a refresh token for a new token pair. The presented
          *       refresh token is rotated (consumed and replaced).
+         *     - `urn:ietf:params:oauth:grant-type:token-exchange` — exchange an OIDC ID token that the
+         *       configured SSO provider issued to the Everest client for an Everest access JWT
+         *       (RFC 8693). The ID token must be signed by the provider, and its `iss` and `aud`
+         *       (and `azp`, when present) must match the configured issuer and client ID, and it must
+         *       have been issued within the last 5 minutes. Access tokens are not accepted, because
+         *       they don't prove which application they were issued to. No refresh token is issued:
+         *       the client renews its IdP session and exchanges the new ID token again, so a user
+         *       disabled in the IdP loses access at the latest 5 minutes plus one access JWT lifetime
+         *       later.
          *
          *     When `refresh_token_delivery` is set to `cookie`, the refresh token is returned in an
          *     `HttpOnly` cookie instead of the response body. For the `refresh_token` grant the
@@ -168,46 +177,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/resources": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Cluster resources
-         * @description This API gets the capacity and available resources of the Kubernetes cluster.
-         */
-        get: operations["getKubernetesClusterResources"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/cluster-info": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Cluster info
-         * @description This API gets the cluster type and the storage classes available in the cluster.
-         */
-        get: operations["getKubernetesClusterInfo"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/clusters": {
         parameters: {
             query?: never;
@@ -248,6 +217,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clusters/{cluster}/storage-classes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List storage classes
+         * @description This API lists the Kubernetes storage classes (`storage.k8s.io/v1`) in the specified cluster, as stored in the cluster.
+         *     Storage classes are managed by the cluster administrator and are read-only over this API.
+         */
+        get: operations["listStorageClasses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/storage-classes/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get storage class
+         * @description This API gets the Kubernetes storage class specified by the `name` in the specified `cluster`.
+         */
+        get: operations["getStorageClass"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clusters/{cluster}/namespaces": {
         parameters: {
             query?: never;
@@ -268,7 +278,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/clusters/{cluster}/instance-presets": {
+    "/clusters/{cluster}/cluster-instance-presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List cluster instance presets
+         * @description This API lists all cluster instance presets in the specified cluster.
+         *     Optionally filter by provider.
+         */
+        get: operations["listClusterInstancePresets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/cluster-instance-presets/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get cluster instance preset
+         * @description This API gets the cluster instance preset specified by the `name` in the specified `cluster`.
+         */
+        get: operations["getClusterInstancePreset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/namespaces/{namespace}/instance-presets": {
         parameters: {
             query?: never;
             header?: never;
@@ -277,19 +328,23 @@ export interface paths {
         };
         /**
          * List instance presets
-         * @description This API lists all instance presets in the specified cluster.
+         * @description This API lists all instance presets in the specified namespace and cluster.
          *     Optionally filter by provider.
          */
         get: operations["listInstancePresets"];
         put?: never;
-        post?: never;
+        /**
+         * Create instance preset
+         * @description This API creates a new instance preset in the specified namespace and cluster.
+         */
+        post: operations["createInstancePreset"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/clusters/{cluster}/instance-presets/{name}": {
+    "/clusters/{cluster}/namespaces/{namespace}/instance-presets/{name}": {
         parameters: {
             query?: never;
             header?: never;
@@ -298,35 +353,21 @@ export interface paths {
         };
         /**
          * Get instance preset
-         * @description This API gets the instance preset specified by the `name` in the specified `cluster`.
+         * @description This API gets the instance preset specified by the `name` in the specified `namespace` and `cluster`.
          */
         get: operations["getInstancePreset"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/clusters/{cluster}/instance-presets/{name}/resolve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
         /**
-         * Resolve instance preset with namespace defaults and default StorageClass of the cluster
-         * @description This API resolves the instance preset specified by the `name` in the specified `cluster`.
-         *     This endpoint is useful when creating instances from presets, as it provides a
-         *     fully-populated preset with all namespace defaults, and default StorageClass of the cluster
-         *     if it has empty StorageClass.
+         * Update instance preset
+         * @description This API updates the instance preset specified by the `name` in the specified `namespace` and `cluster`,
+         *     replacing the entire resource with the new one.
          */
-        get: operations["resolveInstancePreset"];
-        put?: never;
+        put: operations["updateInstancePreset"];
         post?: never;
-        delete?: never;
+        /**
+         * Delete instance preset
+         * @description This API deletes the instance preset specified by the `name` in the specified `namespace` and `cluster`.
+         */
+        delete: operations["deleteInstancePreset"];
         options?: never;
         head?: never;
         patch?: never;
@@ -416,6 +457,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clusters/{cluster}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List or stream lifecycle events
+         * @description Lists the lifecycle events of the cluster, or streams them as Server-Sent Events
+         *     when `watch=true`.
+         *
+         *     Lifecycle events are recorded for the objects OpenEverest manages (Instances,
+         *     Backups, Restores, BackupImports, BackupStorages, MonitoringDestinations, Plugins,
+         *     InstalledExtensions and managed Namespaces), whether they were changed through
+         *     this API, kubectl or a GitOps tool, and for logins and logouts. They use a small,
+         *     kind-independent set of reasons; `object.kind` tells what the event is about:
+         *
+         *     - `Created`, `Updated` (spec changed), `PhaseChanged` (with `phase.from` and
+         *       `phase.to`), `DeletionRequested` and `Deleted`.
+         *     - `LoginSucceeded`, `LoginFailed` and `Logout`, about the `User` the login was
+         *       for.
+         *
+         *     They are stored as Kubernetes Events, so they are kept for the event TTL of the
+         *     cluster: one hour by default, and not adjustable on most managed Kubernetes
+         *     services. A `since` cursor is served from the API server's watch cache, which
+         *     often holds only minutes of history, so it can expire well before the Events do;
+         *     relist when it does.
+         *
+         *     **Streaming.** To consume every retained event without gaps, list all pages using
+         *     `continue`, then stream with `since` set to the list `resourceVersion`. Pages in a
+         *     continued list share the same `resourceVersion`. Each streamed event carries its
+         *     `cursor`; to resume after a disconnect, stream again with `since` set to the last
+         *     cursor received. A `bookmark` event only advances the cursor. When the cursor is
+         *     too old for the cluster to resume from, the stream sends an `error` event with
+         *     code 410: relist all pages and stream from the new `resourceVersion`.
+         *
+         *     **Access.** The events about an object require `read-events` on the object's own
+         *     resource and RBAC object, e.g. `instances` for `{cluster}/{namespace}/{name}` or
+         *     `plugins` for `{cluster}/{name}`; InstalledExtensions use `installed-extensions`.
+         *     `read` does not imply `read-events`. Login and logout events require `read` on the
+         *     global `platform-events`. These checks use the object the Event is about, not the
+         *     namespace where Kubernetes stores the Event.
+         */
+        get: operations["listEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clusters/{cluster}/namespaces/{namespace}/instances": {
         parameters: {
             query?: never;
@@ -432,6 +526,10 @@ export interface paths {
         /**
          * Create instance
          * @description This API creates a new database instance in the specified namespace and cluster.
+         *     Every monitoring destination listed in `spec.monitoring.destinations` requires `read` on it; otherwise the request fails with 403.
+         *
+         *     `instances:create` allows any instance. Without it, `instances:create-from-preset` allows an instance only as an exact copy of the preset named by its `openeverest.io/instance-preset` or `openeverest.io/cluster-instance-preset` annotation, which also requires `read` on the preset: the preset's `spec`, and no metadata besides `name`, `generateName`, `namespace` and that annotation.
+         *     Any other difference fails with 403 and reason `PresetMismatch`, with a cause naming every field that differs; a 403 for a missing permission has no reason.
          */
         post: operations["createInstance"];
         delete?: never;
@@ -456,6 +554,7 @@ export interface paths {
          * Update instance
          * @description This API updates the database instance specified by the `instance` name in the specified `namespace` and `cluster`, replacing the entire resource with the new one.
          *     To change only specific fields, use PATCH instead.
+         *     Every monitoring destination added to `spec.monitoring.destinations` requires `read` on it; otherwise the request fails with 403. Destinations the instance already lists need no `read`.
          */
         put: operations["updateInstance"];
         post?: never;
@@ -471,6 +570,7 @@ export interface paths {
          * @description This API applies Merge Patch to the database instance specified by the `instance` name in the specified `namespace` and `cluster`.
          *     Members absent from the patch keep their current value, and a member set to `null` is removed. A path that does not exist on the Instance is
          *     rejected rather than ignored. Include `metadata.resourceVersion` to make the patch conditional, which fails with 409 if the instance has changed.
+         *     A patch setting `spec.monitoring.destinations` replaces the whole list, and every monitoring destination it adds requires `read` on it; otherwise the request fails with 403. Destinations the instance already lists need no `read`.
          */
         patch: operations["patchInstance"];
         trace?: never;
@@ -550,6 +650,7 @@ export interface paths {
         /**
          * List backup classes
          * @description This API lists all backup classes in the specified cluster.
+         *     Optionally filter by provider: only the classes that provider executes (`spec.providerManaged.providerRef`) are returned.
          */
         get: operations["listBackupClasses"];
         put?: never;
@@ -587,7 +688,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List backups
+         * @description This API lists all backups in the specified namespace and cluster.
+         *     Optionally filter by backup class, backup storage and backup origin.
+         */
+        get: operations["listBackups"];
         put?: never;
         /**
          * Create backup
@@ -718,6 +824,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clusters/{cluster}/backup-storage-classes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List backup storage classes
+         * @description This API lists the backup storage classes, the object storage technologies a backup storage can use, in the specified cluster.
+         *     Backup storage classes are installed with OpenEverest or an extension and are read-only over this API.
+         */
+        get: operations["listBackupStorageClasses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/backup-storage-classes/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get backup storage class
+         * @description This API gets the backup storage class specified by the `name` in the specified `cluster`.
+         */
+        get: operations["getBackupStorageClass"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/clusters/{cluster}/namespaces/{namespace}/backup-storages": {
         parameters: {
             query?: never;
@@ -728,12 +875,26 @@ export interface paths {
         /**
          * List backup storages
          * @description This API lists all backup storages in the specified namespace and cluster.
+         *
+         *     `backupStorageClass` and `secret` are field selectors passed through to Kubernetes, so they return the same storages as
+         *     `kubectl get backupstorages --field-selector <field>=<value>`:
+         *     - `backupStorageClass` returns the storages whose `spec.backupStorageClassRef.name` is that class;
+         *     - `secret` returns the storages that reference that Secret, either as their credentials
+         *       (`spec.authentication.credentialsSecretRef.name`) or as their CA bundle (`spec.tls.ca.secretKeyRef.name`),
+         *       each storage once.
+         *
+         *     `backupClass` returns the storages that backup class can write to, per its `spec.backupStorageClasses`.
+         *
+         *     When several are set, a storage must match all of them. Like any list, the result holds only the storages
+         *     the caller may read.
          */
         get: operations["listBackupStorages"];
         put?: never;
         /**
          * Create backup storage
          * @description This API creates a new backup storage in the specified namespace and cluster.
+         *     Credentials are never part of the payload: create the Secret through the secrets API, labelled `openeverest.io/backup-storage-class: <class>` and `openeverest.io/definition: <mode>`, and reference it in `spec.authentication.credentialsSecretRef`. A CA bundle created through the secrets API is labelled `openeverest.io/definition: ca-bundle` and referenced in `spec.tls.ca.secretKeyRef`.
+         *     Creating a backup storage requires `read` on its backup storage class and `use` (`secrets:use`) on every Secret it references, since the storage hands their contents to whatever it is attached to; `read` on a Secret is not enough.
          */
         post: operations["createBackupStorage"];
         delete?: never;
@@ -757,6 +918,7 @@ export interface paths {
         /**
          * Update backup storage
          * @description This API updates the backup storage specified by the `name` in the specified `namespace` and `cluster`.
+         *     It requires `read` on the backup storage class and, when the update changes `spec`, `use` (`secrets:use`) on every Secret the updated backup storage references, including those it already referenced. An update of labels or annotations only needs no `use`.
          */
         put: operations["updateBackupStorage"];
         post?: never;
@@ -771,13 +933,14 @@ export interface paths {
          * Patch backup storage
          * @description This API applies Merge Patch to the backup storage specified by the `name` in the specified `namespace` and `cluster`.
          *     Members absent from the patch keep their current value, and a member set to `null` is removed. A path that does not exist on the BackupStorage
-         *     is rejected rather than ignored. Include `metadata.resourceVersion` to make the patch conditional, which fails with 409 if the backup storage has changed.
-         *     `spec.s3.accessKeyId` and `spec.s3.secretAccessKey` are write-only: they are stored in the Secret named by `spec.s3.credentialsSecretRef` and never persisted on the object.
+         *     is rejected rather than ignored. The patch is conditional on `metadata.resourceVersion` when it includes one, and otherwise on the version the server checked it against; it fails with 409 if the backup storage has changed since.
+         *     Credentials are never part of the payload: update the Secret named by `spec.authentication.credentialsSecretRef` with `PATCH .../secrets/{name}` instead.
+         *     A patch that changes `spec` requires `use` (`secrets:use`) on every Secret the patched backup storage references, including those it already referenced, since changing parameters such as `endpointURL` sends their contents elsewhere. A patch of labels or annotations only needs no `use`.
          */
         patch: operations["patchBackupStorage"];
         trace?: never;
     };
-    "/clusters/{cluster}/namespaces/{namespace}/monitoring-configs": {
+    "/clusters/{cluster}/monitoring-classes": {
         parameters: {
             query?: never;
             header?: never;
@@ -785,27 +948,21 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List monitoring configs
-         * @description This API lists all monitoring configs in a given namespace.
+         * List monitoring classes
+         * @description This API lists all monitoring classes in the specified cluster.
+         *     Monitoring classes are installed with their extension and are read-only over this API.
+         *     Optionally filter by provider: only the classes whose `status.providers` entry for that provider carries a `mode` and was computed for the class's current generation (`classGeneration`) are returned, so the result is what an Instance of that provider can use.
          */
-        get: operations["listMonitoringConfigs"];
+        get: operations["listMonitoringClasses"];
         put?: never;
-        /**
-         * Create monitoring config
-         * @description This API creates a new monitoring config.
-         *
-         *     A monitoring config object requires `type` to be set.
-         *     Based on the `type` the respective key with configuration needs to be set.
-         *     Such as, if `type: pmm`, then `pmm` key needs to be provided with a configuration.
-         */
-        post: operations["createMonitoringConfig"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/clusters/{cluster}/namespaces/{namespace}/monitoring-configs/{name}": {
+    "/clusters/{cluster}/monitoring-classes/{name}": {
         parameters: {
             query?: never;
             header?: never;
@@ -813,24 +970,132 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get monitoring config
-         * @description This API gets the monitoring config specified by the `name`.
+         * Get monitoring class
+         * @description This API gets the monitoring class specified by the `name` in the specified `cluster`.
          */
-        get: operations["getMonitoringConfig"];
+        get: operations["getMonitoringClass"];
         put?: never;
         post?: never;
-        /**
-         * Delete monitoring config
-         * @description This API deletes the monitoring config specified by the `name`.
-         */
-        delete: operations["deleteMonitoringConfig"];
+        delete?: never;
         options?: never;
         head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/namespaces/{namespace}/monitoring-destinations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
-         * Update monitoring config
-         * @description This API updates the monitoring config specified by the `name`.
+         * List monitoring destinations
+         * @description This API lists all monitoring destinations in the specified namespace and cluster.
+         *
+         *     The filters are field selectors passed through to Kubernetes, so they return the same destinations as
+         *     `kubectl get monitoringdestinations --field-selector <field>=<value>`:
+         *     - `class` returns the destinations whose `spec.classRef.name` is that class;
+         *     - `secret` returns the destinations that reference that Secret, either as their credentials
+         *       (`spec.authentication.credentialsSecretRef.name`) or as their CA bundle (`spec.tls.ca.secretKeyRef.name`),
+         *       each destination once.
+         *
+         *     When both are set, a destination must match both. Like any list, the result holds only the destinations
+         *     the caller may read.
          */
-        patch: operations["updateMonitoringConfig"];
+        get: operations["listMonitoringDestinations"];
+        put?: never;
+        /**
+         * Create monitoring destination
+         * @description This API creates a new monitoring destination in the specified namespace and cluster.
+         *     Only `metadata.name`, `metadata.generateName`, `metadata.labels`, `metadata.annotations` and `spec` are taken from the request; the namespace is the one in the path.
+         *     Credentials are never part of the payload: create the Secret through the secrets API, labelled `openeverest.io/monitoring-class: <class>` and `openeverest.io/definition: <mode>`, and reference it in `spec.authentication.credentialsSecretRef`, together with the `spec.authentication.mode` of the monitoring class it holds the keys of. A CA bundle is referenced in `spec.tls.ca.secretKeyRef`. Referencing a Secret requires `use` on it (`secrets:use`), since the destination sends its contents to, or trusts them for, the endpoint it names; `read` is not enough.
+         *     `spec.classRef` requires `read` on the monitoring class it names.
+         */
+        post: operations["createMonitoringDestination"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/namespaces/{namespace}/monitoring-destinations/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get monitoring destination
+         * @description This API gets the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
+         */
+        get: operations["getMonitoringDestination"];
+        /**
+         * Update monitoring destination
+         * @description This API replaces the labels, annotations and `spec` of the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
+         *     Include `metadata.resourceVersion` from the object being replaced to make the update fail with 409 if the monitoring destination has changed since; without it, the destination is replaced whatever its current version, except that an update leaving `spec` unchanged is made against the version read to authorise it, so it fails with 409 if the destination changes in between.
+         *     `spec.classRef` is immutable and requires `read` on the monitoring class it names. Credentials are never part of the payload: update the Secret named by `spec.authentication.credentialsSecretRef` instead, with `PATCH .../secrets/{name}`.
+         *     An update that changes `spec` requires `use` (`secrets:use`) on every Secret the updated destination references, as credentials or as `spec.tls.ca.secretKeyRef`, including those it already referenced: pointing a destination at another endpoint while keeping its Secret sends the Secret's contents there. `read` is not enough. An update of labels or annotations only needs no `use`.
+         */
+        put: operations["updateMonitoringDestination"];
+        post?: never;
+        /**
+         * Delete monitoring destination
+         * @description This API deletes the monitoring destination specified by the `name` in the specified `namespace` and `cluster`.
+         *     It is refused with `409` and reason `InUse` while Instances that are not being deleted list the destination in `spec.monitoring.destinations` (`status.attachedInstances` above zero);
+         *     the message gives their number, and `GET .../monitoring-bindings?destination={name}` lists them.
+         *     With `dryRun=All` the answer is the same and nothing is deleted, so a client can ask before it deletes.
+         *     An Instance being deleted does not count, so a destination can be deleted right after the Instances that list it. Core counts their deletion within moments; until it has, the answer is still `409`, so a client deleting both retries briefly.
+         *     A deletion that is let through leaves the destination listed with `metadata.deletionTimestamp` set until no Instance lists it any more, those being deleted included; `status.attachedInstances` then counts them.
+         *     Deleting a destination that is already being deleted answers `204` again.
+         */
+        delete: operations["deleteMonitoringDestination"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/namespaces/{namespace}/monitoring-bindings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List monitoring bindings
+         * @description This API lists the monitoring bindings in the specified namespace and cluster.
+         *     A binding records that one Instance sends monitoring data to one monitoring destination; it is created from `Instance.spec.monitoring.destinations` and is read-only over this API.
+         *     Only the bindings of Instances the caller may read are returned. Optionally filter by destination name.
+         */
+        get: operations["listMonitoringBindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/clusters/{cluster}/namespaces/{namespace}/monitoring-bindings/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get monitoring binding
+         * @description This API gets the monitoring binding specified by the `name` in the specified `namespace` and `cluster`.
+         */
+        get: operations["getMonitoringBinding"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/clusters/{cluster}/namespaces/{namespace}/config-maps": {
@@ -892,16 +1157,31 @@ export interface paths {
         };
         /**
          * List secrets
-         * @description This API lists OpenEverest-managed Secrets in the specified namespace and cluster.
-         *     Only metadata is returned; secret data is never included.
-         *     Optionally filter by provider and definition.
+         * @description This API lists the labelled Secrets in the specified namespace and cluster: those carrying `openeverest.io/definition` and exactly one source label, or `openeverest.io/definition: ca-bundle` and no source label, as on create.
+         *     They are listed whether they were created through this API or applied with kubectl, by Git or by a secret manager; `openeverest.io/managed` tells which, and `metadata.ownerReferences` whether a controller owns the Secret. Only the Secrets the caller may `read` are listed.
+         *     Each Secret is returned as `GET .../secrets/{name}` returns it, never with its data.
+         *     Optionally filter by the labels that name the Secret's definition.
          */
         get: operations["listSecrets"];
         put?: never;
         /**
          * Create secret
          * @description This API creates a new Secret in the specified namespace and cluster.
-         *     The Secret is labeled as managed by OpenEverest.
+         *     The server adds the label `openeverest.io/managed: "true"`, which marks the Secret as created through this API: only such Secrets can be patched through it.
+         *
+         *     The Secret names the object that defines its shape with exactly one source label, and the definition within that source with `openeverest.io/definition`:
+         *
+         *     | Source label | `openeverest.io/definition` | Checked against |
+         *     |---|---|---|
+         *     | `openeverest.io/provider: <provider>` | a key of the Provider's `spec.secrets` | the definition's `type` and `parametersSchema` |
+         *     | `openeverest.io/monitoring-class: <class>` | an authentication mode of the MonitoringClass, e.g. `ServiceAccountToken` | type `Opaque` and the keys the mode requires |
+         *     | `openeverest.io/backup-storage-class: <class>` | an authentication mode of the BackupStorageClass, e.g. `AccessKey` | type `Opaque` and the keys the mode requires |
+         *     | none | `ca-bundle`, the one definition core owns | type `Opaque`; key `ca.crt` present; every key holds PEM CA certificates and no other PEM block |
+         *
+         *     A CA bundle is trust material, not a credential of any provider or class, so one bundle can be referenced from `spec.tls.ca.secretKeyRef` by any kind; list them with `?definition=ca-bundle`. It holds its certificates under `ca.crt`, so a reference to it always names that key; other keys may hold more certificates.
+         *
+         *     The name follows the Kubernetes rules for Secret names. Client-supplied owner references, finalizers and usage counts (`monitoring.openeverest.io/attached-destinations`, `backup.openeverest.io/attached-storages`) are dropped: core alone counts the objects that use a Secret. Secrets of type `kubernetes.io/service-account-token` or `bootstrap.kubernetes.io/token` are refused.
+         *     The response is the created Secret as `GET .../secrets/{name}` returns it, never with its data.
          */
         post: operations["createSecret"];
         delete?: never;
@@ -919,31 +1199,160 @@ export interface paths {
         };
         /**
          * Get secret
-         * @description This API gets OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`.
-         *     Note: Secret data is NOT included in the response for security reasons. Only metadata is returned.
+         * @description This API gets the labelled Secret specified by the `name` in the specified `namespace` and `cluster`, whoever created it. A Secret without the labels that name a definition (see list) is not found, with the same answer as a missing Secret, here and on patch and delete.
+         *     The response never carries the Secret's data. It holds `type`, `immutable` and these members of `metadata`: `name`, `namespace`, `uid`, `resourceVersion`, `creationTimestamp`, `deletionTimestamp`, `labels`, `ownerReferences` (without `blockOwnerDeletion`), and the annotations whose key is in the `openeverest.io` domain or one of its subdomains.
+         *     Any other metadata, such as `managedFields` and annotations written by kubectl or other tools, is left out because it can hold or reveal the data.
          */
         get: operations["getSecret"];
         put?: never;
         post?: never;
         /**
          * Delete secret
-         * @description This API deletes the OpenEverest-managed Secret specified by the `name` in the specified `namespace` and `cluster`.
+         * @description This API deletes the labelled Secret specified by the `name` in the specified `namespace` and `cluster`, whether or not it was created through this API, so leftovers of Git or `helm uninstall` can be removed. Whatever applied it may create it again.
+         *     A Secret with a controller owner reference, such as an ExternalSecret, is refused with 409, reason `ManagedByController` and the message "managed by <Kind>/<name>", since the controller would recreate it; delete it at its source.
+         *     A Secret objects use is refused with `409` and reason `InUse`. Core counts them on the credentials and CA bundle Secrets that monitoring destinations and backup storages reference, in the annotations `monitoring.openeverest.io/attached-destinations` and `backup.openeverest.io/attached-storages` the response of get carries; any count but `0` refuses the deletion. The message gives the counts and the `kubectl get monitoringdestinations,backupstorages --field-selector` command that lists the objects.
+         *     With `dryRun=All` the answer is the same and nothing is deleted, so a client can ask before it deletes.
+         *     An object being deleted does not count, so a Secret can be deleted right after the objects that use it. Core counts their deletion within moments; until it has, the answer is still `409`, so a client deleting both retries briefly.
+         *     A deletion that is let through while an object still uses the Secret, one being deleted for instance, leaves the Secret listed with `metadata.deletionTimestamp` set until none does; the counts then include objects being deleted. Deleting a Secret that is already being deleted answers `204` again.
          */
         delete: operations["deleteSecret"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Patch secret
+         * @description This API applies Merge Patch to the data of the labelled Secret specified by the `name` in the specified `namespace` and `cluster`, for instance to rotate credentials without renaming the Secret.
+         *     Only a Secret created through this API (`openeverest.io/managed: "true"`) that no controller owns can be patched; whatever else manages a Secret would revert the change. A Secret with a controller owner reference, such as an ExternalSecret, is refused with 409, reason `ManagedByController` and the message "managed by <Kind>/<name>"; any other Secret not created through this API with 409, reason `ManagedOutside`. Change those at their source.
+         *     Keys sent in `data` or `stringData` are set, keys left out keep their value, and `data: {"<key>": null}` removes a key. The patched data is checked against the Secret's definition, as on create.
+         *     `metadata.resourceVersion` is required: send the one returned when you read the Secret. The patch fails with 409 if the Secret has changed since, so a change made in between is never overwritten.
+         *     Only the data changes. `type`, `immutable` and `metadata.labels`, when sent, must match the stored Secret, and the rest of `metadata` is ignored, so a Secret returned by `GET` can be sent back as a patch and changes nothing.
+         *     A member a Secret does not have is rejected rather than ignored. A Secret marked `immutable` can't be patched. The response is the patched Secret as `GET .../secrets/{name}` returns it, never with its data.
+         */
+        patch: operations["patchSecret"];
         trace?: never;
     };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        LifecycleEventList: {
+            items: components["schemas"]["LifecycleEvent"][];
+            /** @description Pass it as `since` with `watch=true` to stream the events recorded after the list. */
+            resourceVersion: string;
+            /** @description Opaque token for the next page, if more events are available. */
+            continue?: string;
+        };
+        LifecycleEvent: {
+            /** @description The name of the Kubernetes Event. */
+            name: string;
+            /** @description Pass it as `since` with `watch=true` to resume streaming after this event. */
+            cursor: string;
+            /** Format: date-time */
+            occurredAt: string;
+            /**
+             * @description The kind and reason of the event, e.g. `instance.phase-changed`.
+             * @example instance.phase-changed
+             */
+            type: string;
+            /** @enum {string} */
+            reason: "Created" | "Updated" | "PhaseChanged" | "DeletionRequested" | "Deleted" | "LoginSucceeded" | "LoginFailed" | "Logout";
+            /** @enum {string} */
+            severity: "Normal" | "Warning";
+            cluster: string;
+            namespace?: string;
+            object: components["schemas"]["LifecycleEventObject"];
+            actor?: components["schemas"]["LifecycleEventActor"];
+            phase?: components["schemas"]["LifecycleEventPhase"];
+            /**
+             * Format: int64
+             * @description The new `metadata.generation` of an `Updated` event.
+             */
+            generation?: number;
+            /** @description The client IP of a login or logout. */
+            sourceIP?: string;
+            /** @description The Instance the object belongs to, in `namespace`. The object itself for an Instance, the referenced Instance for a Backup or Restore. */
+            instance?: string;
+            /** @description The provider of `instance`, when it was known at the time of the event. */
+            provider?: string;
+            message?: string;
+        };
+        /** @description The previous and new phase of a `PhaseChanged` event. */
+        LifecycleEventPhase: {
+            from?: string;
+            to?: string;
+        };
+        /** @description The object the event is about. */
+        LifecycleEventObject: {
+            apiVersion?: string;
+            kind: string;
+            name: string;
+            uid?: string;
+        };
+        /**
+         * @description Who caused the event: an OpenEverest `user` (`id` is their subject), an OpenEverest
+         *     component (`system`), or a Kubernetes client that changed the object directly
+         *     (`kubernetes-client`, `id` is its field manager, e.g. `kubectl-client-side-apply`).
+         *     Absent when unknown, e.g. for deletions made directly in Kubernetes.
+         */
+        LifecycleEventActor: {
+            /** @enum {string} */
+            type?: "user" | "system" | "kubernetes-client";
+            id?: string;
+        };
         /** @description Error response */
         Error: {
             message?: string;
         };
-        /** @description A list of OpenEverest-managed Secrets (metadata only). */
+        /**
+         * @description APIError exposes the `reason` and the offending `field` in addition
+         *     to the `message` for better programmatic handling of errors.
+         */
+        APIError: components["schemas"]["Error"] & {
+            /**
+             * @description Machine-readable reason for the error.
+             * @example AlreadyExists
+             */
+            reason: string;
+            /**
+             * @description The field path that caused the conflict.
+             * @example metadata.name
+             */
+            field?: string;
+            /** @description Every field that failed validation, on a 422. */
+            causes?: components["schemas"]["APIErrorCause"][];
+        };
+        /** @description One field that failed validation, or that the request may not set. */
+        APIErrorCause: {
+            /**
+             * @description Machine-readable kind of failure.
+             * @example FieldValueInvalid
+             */
+            reason?: string;
+            /**
+             * @description What is wrong with the field.
+             * @example Invalid value: 1: replicas in body should be a multiple of 2
+             */
+            message?: string;
+            /**
+             * @description The path of the field.
+             * @example spec.components[hidden].replicas
+             */
+            field?: string;
+        };
+        /**
+         * @description A 403. One answering a missing permission has only a `message`.
+         *     One answering a request the caller's permission covers only within limits has a `reason` and a cause for every field outside them:
+         *     `PresetMismatch` when `instances:create-from-preset` creates an instance that is not an exact copy of its preset.
+         */
+        ForbiddenError: components["schemas"]["Error"] & {
+            /**
+             * @description Machine-readable reason for the error; absent for a missing permission.
+             * @example PresetMismatch
+             */
+            reason?: string;
+            /** @description Every field outside what the permission allows. */
+            causes?: components["schemas"]["APIErrorCause"][];
+        };
+        /** @description A list of labelled Secrets (metadata only). */
         SecretList: {
             /** @example v1 */
             apiVersion?: string;
@@ -959,7 +1368,7 @@ export interface components {
         /** @description OAuth 2.0-style token request (RFC 6749, JSON-encoded) */
         AuthTokenRequest: {
             /** @enum {string} */
-            grant_type: "password" | "refresh_token";
+            grant_type: "password" | "refresh_token" | "urn:ietf:params:oauth:grant-type:token-exchange";
             /** @description The username. Required for the `password` grant. */
             username?: string;
             /** @description The password. Required for the `password` grant. */
@@ -969,6 +1378,17 @@ export interface components {
              *     May be omitted when the refresh token is carried by the refresh token cookie.
              */
             refresh_token?: string;
+            /**
+             * @description The OIDC ID token to exchange.
+             *     Required for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.
+             */
+            subject_token?: string;
+            /**
+             * @description The type of `subject_token`. Only OIDC ID tokens are supported.
+             *     Required for the `urn:ietf:params:oauth:grant-type:token-exchange` grant.
+             * @enum {string}
+             */
+            subject_token_type?: "urn:ietf:params:oauth:token-type:id_token";
             /**
              * @description How the refresh token is returned to the client.
              *     `body` returns it in the response body; `cookie` sets an HttpOnly cookie
@@ -1163,37 +1583,6 @@ export interface components {
         /** @description Monitoring instance information */
         MonitoringInstance: components["schemas"]["MonitoringInstanceBaseWithName"];
         MonitoringInstancesList: components["schemas"]["MonitoringInstance"][];
-        /** @description MonitoringConfigBase contains common fields for monitoring config */
-        MonitoringConfigBase: {
-            /** @enum {string} */
-            type?: "pmm";
-            url?: string;
-            /** @description VerifyTLS is set to ensure TLS/SSL verification. */
-            verifyTLS?: boolean;
-        };
-        /** @description MonitoringConfigBaseWithName contains common fields for monitoring config with name and namespace */
-        MonitoringConfigBaseWithName: components["schemas"]["MonitoringConfigBase"] & {
-            /**
-             * @description A user defined string name of the storage in the DNS name format https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-label-names
-             * @example pmm-instance
-             */
-            name?: string;
-        };
-        /** @description MonitoringConfigPMM contains PMM-specific fields for monitoring config */
-        MonitoringConfigPMM: {
-            pmm?: {
-                /** @example admin */
-                user?: string;
-                /** @example password */
-                password?: string;
-                /** @example apikey */
-                apiKey?: string;
-            };
-        };
-        /** @description MonitoringConfigCreateParams contains parameters for creating a monitoring config */
-        MonitoringConfigCreateParams: components["schemas"]["MonitoringConfigBaseWithName"] & components["schemas"]["MonitoringConfigPMM"];
-        /** @description MonitoringConfigUpdateParams contains parameters for updating a monitoring config */
-        MonitoringConfigUpdateParams: components["schemas"]["MonitoringConfigBase"] & components["schemas"]["MonitoringConfigPMM"];
         /** @description kubernetes object */
         DatabaseClusterCredential: {
             /** @example postgres://user:secret@100.100.100.100:5432 */
@@ -1236,33 +1625,6 @@ export interface components {
             /** @description indicates if there are pitr logs gaps detected after this backup was taken */
             gaps?: boolean;
         };
-        /** @description kubernetes cluster resources */
-        KubernetesClusterResources: {
-            capacity: {
-                cpuMillis?: number;
-                memoryBytes?: number;
-                diskSize?: number;
-            };
-            available: {
-                cpuMillis?: number;
-                memoryBytes?: number;
-                diskSize?: number;
-            };
-        };
-        /** @description kubernetes cluster info */
-        KubernetesClusterInfo: {
-            clusterType: string;
-            /**
-             * @deprecated
-             * @description List of storage class names that are available in the cluster.
-             * @example [
-             *       "gp2",
-             *       "gp3"
-             *     ]
-             */
-            storageClassNames: string[];
-            storageClasses?: components["schemas"]["StorageClass"][];
-        };
         /** @description Everest version info */
         Version: {
             projectName: string;
@@ -1292,10 +1654,45 @@ export interface components {
          *     StorageClasses are non-namespaced; the name of the storage class according to etcd is in ObjectMeta.Name.
          */
         StorageClass: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: components["schemas"]["ObjectMeta"];
+            /** @description provisioner indicates the type of the provisioner. */
+            provisioner: string;
+            /** @description parameters holds the parameters for the provisioner that should create volumes of this storage class. */
+            parameters?: {
+                [key: string]: string;
+            };
+            /** @description reclaimPolicy controls the reclaimPolicy for dynamically provisioned PersistentVolumes of this storage class. Defaults to Delete. */
+            reclaimPolicy?: string;
+            /** @description mountOptions controls the mountOptions for dynamically provisioned PersistentVolumes of this storage class. e.g. ["ro", "soft"]. Not validated - mount of the PVs will simply fail if one is invalid. */
+            mountOptions?: string[];
             /** @description allowVolumeExpansion shows whether the storage class allow volume expand. */
             allowVolumeExpansion?: boolean;
-            /** @description Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata */
-            metadata?: Record<string, never>;
+            /** @description volumeBindingMode indicates how PersistentVolumeClaims should be provisioned and bound. When unset, VolumeBindingImmediate is used. This field is only honored by servers that enable the VolumeScheduling feature. */
+            volumeBindingMode?: string;
+            /** @description allowedTopologies restrict the node topologies where volumes can be dynamically provisioned. Each volume plugin defines its own supported topology specifications. An empty TopologySelectorTerm list means there is no topology restriction. This field is only honored by servers that enable the VolumeScheduling feature. */
+            allowedTopologies?: {
+                /** @description A list of topology selector requirements by labels. */
+                matchLabelExpressions?: {
+                    /** @description The label key that the selector applies to. */
+                    key: string;
+                    /** @description An array of string values. One value must match the label to be selected. Each entry in Values is ORed. */
+                    values: string[];
+                }[];
+            }[];
+        };
+        /** @description StorageClassList is a collection of storage classes. */
+        StorageClassList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: components["schemas"]["io.k8s.apimachinery.pkg.apis.meta.v1.ListMeta"];
+            /** @description items is the list of StorageClasses */
+            items: components["schemas"]["StorageClass"][];
         };
         /** @description Status is a return value for calls that don't return other objects. */
         "io.k8s.apimachinery.pkg.apis.meta.v1.Status_v2": {
@@ -1331,8 +1728,7 @@ export interface components {
             immutable?: boolean;
             /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
             kind?: string;
-            /** @description Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata */
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
             /** @description stringData allows specifying non-binary secret data in string form. It is provided as a write-only input field for convenience. All keys and values are merged into the data field on write, overwriting any existing values. The stringData field is never output when reading from the API. */
             stringData?: {
                 [key: string]: string;
@@ -1356,8 +1752,7 @@ export interface components {
             immutable?: boolean;
             /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
             kind?: string;
-            /** @description Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata */
-            metadata?: Record<string, never>;
+            metadata?: components["schemas"]["ObjectMeta"];
         };
         /** @description A list of OpenEverest-managed ConfigMaps. */
         ConfigMapList: {
@@ -1481,6 +1876,11 @@ export interface components {
             deletionTimestamp?: string;
             /** @description GenerateName is an optional prefix, used by the server, to generate a unique name ONLY IF the Name field has not been provided. */
             generateName?: string;
+            /**
+             * Format: int64
+             * @description A sequence number representing a specific generation of the desired state. Populated by the system. Read-only.
+             */
+            generation?: number;
             /** @description Map of string keys and values that can be used to organize and categorize (scope and select) objects. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels */
             labels?: {
                 [key: string]: string;
@@ -1494,8 +1894,15 @@ export interface components {
             /** @description UID is the unique in time and space value for this object. Populated by the system. Read-only. */
             uid?: string;
         };
-        /** @description InstancePreset is the Schema for the instancepresets API */
-        InstancePreset: {
+        /**
+         * @description ClusterInstancePreset is a cluster-scoped template of provider-specific
+         *     defaults for creating Instances.
+         *
+         *     It is similar to an InstancePreset. But it is cluster-scoped and it is
+         *     used to create Instances in any namespace. Therefore it must not embed
+         *     any namespace-scoped reference.
+         */
+        ClusterInstancePreset: {
             /**
              * @description APIVersion defines the versioned schema of this representation of an object.
              *     Servers should convert recognized schemas to the latest internal value, and
@@ -1512,22 +1919,21 @@ export interface components {
              */
             kind?: string;
             metadata?: components["schemas"]["ObjectMeta"];
-            /** @description spec defines the desired state of InstancePreset */
+            /** @description spec defines the desired state of ClusterInstancePreset */
             spec: {
                 /**
                  * @description Backup configures the backup feature for this Instance. When enabled,
                  *     the provider's reconciler is given the resolved BackupClass and storage
                  *     list so it can configure the engine accordingly (sidecars, agent
-                 *     configuration, etc.). Required for ProviderManaged BackupClasses; Job
-                 *     classes do not need an entry here because they read directly from
-                 *     individual Backup CRs.
+                 *     configuration, etc.). Required to back up the Instance with its
+                 *     ProviderManaged BackupClass.
                  */
                 backup?: {
                     /**
                      * @description ClassRef references the cluster-scoped BackupClass that the provider
                      *     should use to configure the engine. The class must have
-                     *     ExecutionMode=ProviderManaged and list the Instance's provider in its
-                     *     SupportedProviders.
+                     *     ExecutionMode=ProviderManaged and name the Instance's provider in
+                     *     providerManaged.providerRef.
                      */
                     classRef: {
                         /** @description Name of the referenced object. */
@@ -2552,7 +2958,7 @@ export interface components {
                  *
                  *     Only ProviderManaged BackupClasses are supported. The referenced Backup
                  *     must be in the same namespace, in Succeeded state, and its BackupClass
-                 *     must list the Instance's provider in SupportedProviders. Instance must
+                 *     must be executed by the Instance's provider. Instance must
                  *     also have backup enabled and include a storage entry that matches the
                  *     storage used by the source Backup so the provider can access the data.
                  */
@@ -2666,6 +3072,63 @@ export interface components {
                     autoApproveUpTo: "NonDisruptive" | "RollingRestart" | "Downtime";
                 };
                 /**
+                 * @description Monitoring configures where this Instance sends monitoring data. Core
+                 *     creates one MonitoringBinding per destination; the resolved state is
+                 *     mirrored in status.monitoring.destinations[].
+                 */
+                monitoring?: {
+                    /**
+                     * @description Destinations lists the MonitoringDestinations this Instance sends to.
+                     *     Core creates one MonitoringBinding per entry.
+                     */
+                    destinations?: {
+                        /**
+                         * @description DestinationRef references the MonitoringDestination in the Instance's
+                         *     namespace.
+                         */
+                        destinationRef: {
+                            /**
+                             * @description Kind of the referenced object.
+                             * @default MonitoringDestination
+                             * @enum {string}
+                             */
+                            kind: "MonitoringDestination";
+                            /**
+                             * @description Name of the referenced object. At most 63 characters, since it is also
+                             *     a label value on the MonitoringBinding.
+                             */
+                            name: string;
+                        };
+                        /**
+                         * @description Name identifies the entry within the Instance; it is the key of
+                         *     status.monitoring.destinations[] and part of the MonitoringBinding name.
+                         */
+                        name: string;
+                        /** @description Parameters are validated against the class's instanceParametersSchema. */
+                        parameters?: Record<string, never>;
+                    }[];
+                    /**
+                     * @description Sources configures the monitoring sources the Instance runs whether or
+                     *     not a destination needs them.
+                     */
+                    sources?: {
+                        /** @description Metrics configures the Instance's OpenMetrics endpoints. */
+                        metrics?: {
+                            /**
+                             * @description Policy says when the provider runs the exporters and turns on the
+                             *     optional metrics endpoints of the Instance's components. OnDemand runs
+                             *     them while a destination's class needs metrics. Always runs them
+                             *     without a destination, for scrapers that OpenEverest does not
+                             *     configure. The serving endpoints are listed in
+                             *     status.monitoring.sources.metrics.
+                             * @default OnDemand
+                             * @enum {string}
+                             */
+                            policy: "OnDemand" | "Always";
+                        };
+                    };
+                };
+                /**
                  * @description Parameters contains structured parameters that apply to the Instance
                  *     as a whole, complementing the topology- and component-scoped
                  *     parameters. The payload is validated against the referenced Provider's
@@ -2674,7 +3137,1355 @@ export interface components {
                 parameters?: Record<string, never>;
                 /**
                  * @description ProviderRef references the cluster-scoped Provider that manages this
-                 *     Instance (e.g., "percona-server-mongodb", "postgresql").
+                 *     Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                 *     providerRef cannot be changed: the provider that picked it up owns its
+                 *     finalizer and engine resources, and only that provider cleans them up.
+                 */
+                providerRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
+                /** @description Topology defines the deployment topology and its configuration. */
+                topology?: {
+                    /**
+                     * @description Parameters contains topology-specific structured parameters, validated
+                     *     against the provider's topologies[].parametersSchema.
+                     *     Examples: shard count for sharded topology, replication factor, etc.
+                     */
+                    parameters?: Record<string, never>;
+                    /**
+                     * @description Type is the topology name (e.g., "sharded", "replicaset").
+                     *     The available topologies are defined by the provider.
+                     *     If omitted, the provider's default topology is used.
+                     */
+                    type?: string;
+                };
+                /**
+                 * @description UserSecretRef optionally seeds the engine's initial (bootstrap)
+                 *     credentials from a Secret in the same namespace, for providers whose
+                 *     engine supports setting initial credentials at creation time.
+                 *
+                 *     When omitted, the provider generates credentials automatically. The
+                 *     referenced Secret's required keys are provider-specific and validated
+                 *     by the referenced Provider. The field is immutable once set: initial
+                 *     credentials only apply at engine creation time, so changing it later
+                 *     would have no effect.
+                 */
+                userSecretRef?: {
+                    /** @description Name of the referenced Secret. */
+                    name: string;
+                };
+                /**
+                 * @description Version selects a provider-defined version bundle, resolving compatible
+                 *     versions for all components automatically. Per-component versions set
+                 *     in Components take precedence over the bundle.
+                 *     If omitted and the provider defines a default bundle, that bundle is used.
+                 */
+                version?: string;
+            };
+            /** @description status defines the observed state of ClusterInstancePreset */
+            status?: {
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+            };
+        };
+        /** @description ClusterInstancePresetList is an object that contains the list of the existing clusterinstancepresets. */
+        ClusterInstancePresetList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["ClusterInstancePreset"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+            };
+        };
+        /**
+         * @description InstancePreset is a namespace-scoped template for creating Instances
+         *     within a single namespace.
+         *
+         *     Because an InstancePreset lives in the same namespace as the Instances
+         *     it produces, it may reference namespace-scoped objects (Secrets, etc.)
+         *     directly by name. It is used for capturing a known-good configuration,
+         *     including concrete local references, and reuse it to create Instances
+         *     in that namespace.
+         *
+         *     It is similar to a ClusterInstancePreset, however it is scoped to a single
+         *     namespace and can therefore only be used to create Instances within that
+         *     same namespace.
+         */
+        InstancePreset: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: components["schemas"]["ObjectMeta"];
+            /** @description spec defines the desired state of InstancePreset */
+            spec: {
+                /**
+                 * @description Backup configures the backup feature for this Instance. When enabled,
+                 *     the provider's reconciler is given the resolved BackupClass and storage
+                 *     list so it can configure the engine accordingly (sidecars, agent
+                 *     configuration, etc.). Required to back up the Instance with its
+                 *     ProviderManaged BackupClass.
+                 */
+                backup?: {
+                    /**
+                     * @description ClassRef references the cluster-scoped BackupClass that the provider
+                     *     should use to configure the engine. The class must have
+                     *     ExecutionMode=ProviderManaged and name the Instance's provider in
+                     *     providerManaged.providerRef.
+                     */
+                    classRef: {
+                        /** @description Name of the referenced object. */
+                        name: string;
+                    };
+                    /**
+                     * @description Enabled toggles the backup feature for this Instance. When false the
+                     *     runtime skips ConfigureBackup() and the rest of this struct is ignored.
+                     */
+                    enabled: boolean;
+                    /**
+                     * @description Storages registers BackupStorages on the engine. Each entry references
+                     *     a BackupStorage resource in the same namespace; the BackupStorage name
+                     *     is also the storage key the engine uses and the value that Backup CRs
+                     *     target via .spec.storageRef. Schedules and PITR are configured per
+                     *     storage via the nested .schedules and .pitr fields.
+                     */
+                    storages?: {
+                        /**
+                         * @description PITR enables and configures point-in-time recovery writing to this
+                         *     storage. Requires the BackupClass to advertise PITR support via
+                         *     .spec.providerManaged. Engines that support only a single PITR stream
+                         *     (e.g. PSMDB, PXC) require at most one storage on the Instance to set
+                         *     .pitr.enabled=true; this is enforced by the provider, not by the
+                         *     core schema (PG legitimately archives WAL to every configured repo).
+                         */
+                        pitr?: {
+                            /** @description Enabled toggles PITR for this storage. */
+                            enabled: boolean;
+                            /**
+                             * @description Parameters holds provider-specific PITR options, validated against the
+                             *     BackupClass's .spec.providerManaged.pitrParametersSchema.
+                             */
+                            parameters?: Record<string, never>;
+                        };
+                        /**
+                         * @description Schedules registers recurring backup tasks that write to this storage.
+                         *     Schedules produce Backup CRs (via the provider's mirroring loop) using
+                         *     the operator-native scheduler — the runtime never spawns CronJobs for
+                         *     ProviderManaged BackupClasses. Schedule names must be unique across
+                         *     all storages on the Instance.
+                         */
+                        schedules?: {
+                            /**
+                             * @description Cron is a standard 5-field cron expression. The provider may reject
+                             *     expressions the engine does not support.
+                             */
+                            cron: string;
+                            /**
+                             * @description Enabled toggles the schedule. A disabled schedule is removed from
+                             *     the engine without losing its definition on the Instance.
+                             */
+                            enabled: boolean;
+                            /**
+                             * @description Name uniquely identifies the schedule. The provider uses it as the
+                             *     schedule key on the engine and as the value of Backup.spec.scheduleName
+                             *     on mirrored Backup CRs. Names must be unique across all storages on
+                             *     the Instance.
+                             */
+                            name: string;
+                            /**
+                             * @description Parameters is schedule-specific structured configuration validated
+                             *     against the BackupClass's .spec.parametersSchema. When unset the
+                             *     provider falls back to engine defaults. The schema is the same as for
+                             *     Backup.spec.parameters but applied per-schedule rather than
+                             *     per-backup-run.
+                             */
+                            parameters?: Record<string, never>;
+                            /**
+                             * @description Retention configures count-based or time-based backup retention for
+                             *     this schedule. Unset keeps all backups.
+                             */
+                            retention?: {
+                                /**
+                                 * Format: int32
+                                 * @description Count is the number of recent backups to keep when Type is count.
+                                 *     Required when Type is count (minimum 1). Forbidden when Type is time.
+                                 *     Omit Retention on the schedule to keep all backups.
+                                 */
+                                count?: number;
+                                /**
+                                 * @description Duration is the recovery window when Type is time, in the form
+                                 *     <positive-integer><unit> where unit is d (days), w (weeks), or m
+                                 *     (months) — e.g. "30d", "4w", "2m". Forbidden when Type is count.
+                                 */
+                                duration?: string;
+                                /**
+                                 * @description Type selects count-based or time-based retention.
+                                 * @default count
+                                 * @enum {string}
+                                 */
+                                type: "count" | "time";
+                            };
+                        }[];
+                        /**
+                         * @description StorageRef references a BackupStorage in the same namespace. The
+                         *     BackupStorage name doubles as the storage key on the engine, so it
+                         *     must be unique across all entries.
+                         */
+                        storageRef: {
+                            /** @description Name of the referenced object. */
+                            name: string;
+                        };
+                    }[];
+                };
+                /**
+                 * @description Components defines the component instances for this cluster.
+                 *     The keys are component names (e.g., "engine", "proxy", "backupAgent").
+                 *     Which components are valid depends on the selected topology.
+                 */
+                components?: {
+                    [key: string]: {
+                        /**
+                         * @description Image specifies an override for the image to use.
+                         *     When unspecified, it is autmatically set from the ComponentVersions
+                         *     based on the Version specified.
+                         */
+                        image?: string;
+                        /**
+                         * @description Parameters contains component-specific structured parameters, validated
+                         *     against the provider's components[].parametersSchema. Engine
+                         *     configuration file content is carried here as well, under the
+                         *     provider-declared "configuration" property.
+                         */
+                        parameters?: Record<string, never>;
+                        /**
+                         * Format: int32
+                         * @description Replicas specifies the number of replicas for this component.
+                         */
+                        replicas?: number;
+                        /** @description Resources requirements for this component. */
+                        resources?: {
+                            /**
+                             * @description Claims lists the names of resources, defined in spec.resourceClaims,
+                             *     that are used by this container.
+                             *
+                             *     This field depends on the
+                             *     DynamicResourceAllocation feature gate.
+                             *
+                             *     This field is immutable. It can only be set for containers.
+                             */
+                            claims?: {
+                                /**
+                                 * @description Name must match the name of one entry in pod.spec.resourceClaims of
+                                 *     the Pod where this field is used. It makes that resource available
+                                 *     inside a container.
+                                 */
+                                name: string;
+                                /**
+                                 * @description Request is the name chosen for a request in the referenced claim.
+                                 *     If empty, everything from the claim is made available, otherwise
+                                 *     only the result of this request.
+                                 */
+                                request?: string;
+                            }[];
+                            /**
+                             * @description Limits describes the maximum amount of compute resources allowed.
+                             *     More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                             */
+                            limits?: {
+                                [key: string]: number | string;
+                            };
+                            /**
+                             * @description Requests describes the minimum amount of compute resources required.
+                             *     If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                             *     otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                             *     More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                             */
+                            requests?: {
+                                [key: string]: number | string;
+                            };
+                        };
+                        /**
+                         * @description SchedulingPolicy controls where this component's pods run: node
+                         *     selection, pod co-location, anti-affinity, tolerations and topology
+                         *     spread.
+                         */
+                        schedulingPolicy?: {
+                            /**
+                             * @description Affinity constrains node selection, pod co-location and pod
+                             *     anti-affinity (spreading pods across nodes, zones or other topology
+                             *     domains for high availability).
+                             *     When omitted, the provider applies its default, which may require each
+                             *     replica on its own node; an empty affinity ({}) sets no constraints.
+                             */
+                            affinity?: {
+                                /** @description Describes node affinity scheduling rules for the pod. */
+                                nodeAffinity?: {
+                                    /**
+                                     * @description The scheduler will prefer to schedule pods to nodes that satisfy
+                                     *     the affinity expressions specified by this field, but it may choose
+                                     *     a node that violates one or more of the expressions. The node that is
+                                     *     most preferred is the one with the greatest sum of weights, i.e.
+                                     *     for each node that meets all of the scheduling requirements (resource
+                                     *     request, requiredDuringScheduling affinity expressions, etc.),
+                                     *     compute a sum by iterating through the elements of this field and adding
+                                     *     "weight" to the sum if the node matches the corresponding matchExpressions; the
+                                     *     node(s) with the highest sum are the most preferred.
+                                     */
+                                    preferredDuringSchedulingIgnoredDuringExecution?: {
+                                        /** @description A node selector term, associated with the corresponding weight. */
+                                        preference: {
+                                            /** @description A list of node selector requirements by node's labels. */
+                                            matchExpressions?: {
+                                                /** @description The label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description Represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description An array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. If the operator is Gt or Lt, the values
+                                                 *     array must have a single element, which will be interpreted as an integer.
+                                                 *     This array is replaced during a strategic merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /** @description A list of node selector requirements by node's fields. */
+                                            matchFields?: {
+                                                /** @description The label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description Represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description An array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. If the operator is Gt or Lt, the values
+                                                 *     array must have a single element, which will be interpreted as an integer.
+                                                 *     This array is replaced during a strategic merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                        };
+                                        /**
+                                         * Format: int32
+                                         * @description Weight associated with matching the corresponding nodeSelectorTerm, in the range 1-100.
+                                         */
+                                        weight: number;
+                                    }[];
+                                    /**
+                                     * @description If the affinity requirements specified by this field are not met at
+                                     *     scheduling time, the pod will not be scheduled onto the node.
+                                     *     If the affinity requirements specified by this field cease to be met
+                                     *     at some point during pod execution (e.g. due to an update), the system
+                                     *     may or may not try to eventually evict the pod from its node.
+                                     */
+                                    requiredDuringSchedulingIgnoredDuringExecution?: {
+                                        /** @description Required. A list of node selector terms. The terms are ORed. */
+                                        nodeSelectorTerms: {
+                                            /** @description A list of node selector requirements by node's labels. */
+                                            matchExpressions?: {
+                                                /** @description The label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description Represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description An array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. If the operator is Gt or Lt, the values
+                                                 *     array must have a single element, which will be interpreted as an integer.
+                                                 *     This array is replaced during a strategic merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /** @description A list of node selector requirements by node's fields. */
+                                            matchFields?: {
+                                                /** @description The label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description Represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description An array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. If the operator is Gt or Lt, the values
+                                                 *     array must have a single element, which will be interpreted as an integer.
+                                                 *     This array is replaced during a strategic merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                        }[];
+                                    };
+                                };
+                                /** @description Describes pod affinity scheduling rules (e.g. co-locate this pod in the same node, zone, etc. as some other pod(s)). */
+                                podAffinity?: {
+                                    /**
+                                     * @description The scheduler will prefer to schedule pods to nodes that satisfy
+                                     *     the affinity expressions specified by this field, but it may choose
+                                     *     a node that violates one or more of the expressions. The node that is
+                                     *     most preferred is the one with the greatest sum of weights, i.e.
+                                     *     for each node that meets all of the scheduling requirements (resource
+                                     *     request, requiredDuringScheduling affinity expressions, etc.),
+                                     *     compute a sum by iterating through the elements of this field and adding
+                                     *     "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                     *     node(s) with the highest sum are the most preferred.
+                                     */
+                                    preferredDuringSchedulingIgnoredDuringExecution?: {
+                                        /** @description Required. A pod affinity term, associated with the corresponding weight. */
+                                        podAffinityTerm: {
+                                            /**
+                                             * @description A label query over a set of resources, in this case pods.
+                                             *     If it's null, this PodAffinityTerm matches with no Pods.
+                                             */
+                                            labelSelector?: {
+                                                /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                                matchExpressions?: {
+                                                    /** @description key is the label key that the selector applies to. */
+                                                    key: string;
+                                                    /**
+                                                     * @description operator represents a key's relationship to a set of values.
+                                                     *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                     */
+                                                    operator: string;
+                                                    /**
+                                                     * @description values is an array of string values. If the operator is In or NotIn,
+                                                     *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                     *     the values array must be empty. This array is replaced during a strategic
+                                                     *     merge patch.
+                                                     */
+                                                    values?: string[];
+                                                }[];
+                                                /**
+                                                 * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                                 *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                                 *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                                 */
+                                                matchLabels?: {
+                                                    [key: string]: string;
+                                                };
+                                            };
+                                            /**
+                                             * @description MatchLabelKeys is a set of pod label keys to select which pods will
+                                             *     be taken into consideration. The keys are used to lookup values from the
+                                             *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+                                             *     to select the group of existing pods which pods will be taken into consideration
+                                             *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                             *     pod labels will be ignored. The default value is empty.
+                                             *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                             *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                             */
+                                            matchLabelKeys?: string[];
+                                            /**
+                                             * @description MismatchLabelKeys is a set of pod label keys to select which pods will
+                                             *     be taken into consideration. The keys are used to lookup values from the
+                                             *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+                                             *     to select the group of existing pods which pods will be taken into consideration
+                                             *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                             *     pod labels will be ignored. The default value is empty.
+                                             *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                             *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                             */
+                                            mismatchLabelKeys?: string[];
+                                            /**
+                                             * @description A label query over the set of namespaces that the term applies to.
+                                             *     The term is applied to the union of the namespaces selected by this field
+                                             *     and the ones listed in the namespaces field.
+                                             *     null selector and null or empty namespaces list means "this pod's namespace".
+                                             *     An empty selector ({}) matches all namespaces.
+                                             */
+                                            namespaceSelector?: {
+                                                /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                                matchExpressions?: {
+                                                    /** @description key is the label key that the selector applies to. */
+                                                    key: string;
+                                                    /**
+                                                     * @description operator represents a key's relationship to a set of values.
+                                                     *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                     */
+                                                    operator: string;
+                                                    /**
+                                                     * @description values is an array of string values. If the operator is In or NotIn,
+                                                     *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                     *     the values array must be empty. This array is replaced during a strategic
+                                                     *     merge patch.
+                                                     */
+                                                    values?: string[];
+                                                }[];
+                                                /**
+                                                 * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                                 *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                                 *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                                 */
+                                                matchLabels?: {
+                                                    [key: string]: string;
+                                                };
+                                            };
+                                            /**
+                                             * @description namespaces specifies a static list of namespace names that the term applies to.
+                                             *     The term is applied to the union of the namespaces listed in this field
+                                             *     and the ones selected by namespaceSelector.
+                                             *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+                                             */
+                                            namespaces?: string[];
+                                            /**
+                                             * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+                                             *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
+                                             *     whose value of the label with key topologyKey matches that of any node on which any of the
+                                             *     selected pods is running.
+                                             *     Empty topologyKey is not allowed.
+                                             */
+                                            topologyKey: string;
+                                        };
+                                        /**
+                                         * Format: int32
+                                         * @description weight associated with matching the corresponding podAffinityTerm,
+                                         *     in the range 1-100.
+                                         */
+                                        weight: number;
+                                    }[];
+                                    /**
+                                     * @description If the affinity requirements specified by this field are not met at
+                                     *     scheduling time, the pod will not be scheduled onto the node.
+                                     *     If the affinity requirements specified by this field cease to be met
+                                     *     at some point during pod execution (e.g. due to a pod label update), the
+                                     *     system may or may not try to eventually evict the pod from its node.
+                                     *     When there are multiple elements, the lists of nodes corresponding to each
+                                     *     podAffinityTerm are intersected, i.e. all terms must be satisfied.
+                                     */
+                                    requiredDuringSchedulingIgnoredDuringExecution?: {
+                                        /**
+                                         * @description A label query over a set of resources, in this case pods.
+                                         *     If it's null, this PodAffinityTerm matches with no Pods.
+                                         */
+                                        labelSelector?: {
+                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                            matchExpressions?: {
+                                                /** @description key is the label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description operator represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description values is an array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. This array is replaced during a strategic
+                                                 *     merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /**
+                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                             */
+                                            matchLabels?: {
+                                                [key: string]: string;
+                                            };
+                                        };
+                                        /**
+                                         * @description MatchLabelKeys is a set of pod label keys to select which pods will
+                                         *     be taken into consideration. The keys are used to lookup values from the
+                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+                                         *     to select the group of existing pods which pods will be taken into consideration
+                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                         *     pod labels will be ignored. The default value is empty.
+                                         *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                         *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                         */
+                                        matchLabelKeys?: string[];
+                                        /**
+                                         * @description MismatchLabelKeys is a set of pod label keys to select which pods will
+                                         *     be taken into consideration. The keys are used to lookup values from the
+                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+                                         *     to select the group of existing pods which pods will be taken into consideration
+                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                         *     pod labels will be ignored. The default value is empty.
+                                         *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                         *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                         */
+                                        mismatchLabelKeys?: string[];
+                                        /**
+                                         * @description A label query over the set of namespaces that the term applies to.
+                                         *     The term is applied to the union of the namespaces selected by this field
+                                         *     and the ones listed in the namespaces field.
+                                         *     null selector and null or empty namespaces list means "this pod's namespace".
+                                         *     An empty selector ({}) matches all namespaces.
+                                         */
+                                        namespaceSelector?: {
+                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                            matchExpressions?: {
+                                                /** @description key is the label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description operator represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description values is an array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. This array is replaced during a strategic
+                                                 *     merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /**
+                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                             */
+                                            matchLabels?: {
+                                                [key: string]: string;
+                                            };
+                                        };
+                                        /**
+                                         * @description namespaces specifies a static list of namespace names that the term applies to.
+                                         *     The term is applied to the union of the namespaces listed in this field
+                                         *     and the ones selected by namespaceSelector.
+                                         *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+                                         */
+                                        namespaces?: string[];
+                                        /**
+                                         * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+                                         *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
+                                         *     whose value of the label with key topologyKey matches that of any node on which any of the
+                                         *     selected pods is running.
+                                         *     Empty topologyKey is not allowed.
+                                         */
+                                        topologyKey: string;
+                                    }[];
+                                };
+                                /** @description Describes pod anti-affinity scheduling rules (e.g. avoid putting this pod in the same node, zone, etc. as some other pod(s)). */
+                                podAntiAffinity?: {
+                                    /**
+                                     * @description The scheduler will prefer to schedule pods to nodes that satisfy
+                                     *     the anti-affinity expressions specified by this field, but it may choose
+                                     *     a node that violates one or more of the expressions. The node that is
+                                     *     most preferred is the one with the greatest sum of weights, i.e.
+                                     *     for each node that meets all of the scheduling requirements (resource
+                                     *     request, requiredDuringScheduling anti-affinity expressions, etc.),
+                                     *     compute a sum by iterating through the elements of this field and subtracting
+                                     *     "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                     *     node(s) with the highest sum are the most preferred.
+                                     */
+                                    preferredDuringSchedulingIgnoredDuringExecution?: {
+                                        /** @description Required. A pod affinity term, associated with the corresponding weight. */
+                                        podAffinityTerm: {
+                                            /**
+                                             * @description A label query over a set of resources, in this case pods.
+                                             *     If it's null, this PodAffinityTerm matches with no Pods.
+                                             */
+                                            labelSelector?: {
+                                                /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                                matchExpressions?: {
+                                                    /** @description key is the label key that the selector applies to. */
+                                                    key: string;
+                                                    /**
+                                                     * @description operator represents a key's relationship to a set of values.
+                                                     *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                     */
+                                                    operator: string;
+                                                    /**
+                                                     * @description values is an array of string values. If the operator is In or NotIn,
+                                                     *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                     *     the values array must be empty. This array is replaced during a strategic
+                                                     *     merge patch.
+                                                     */
+                                                    values?: string[];
+                                                }[];
+                                                /**
+                                                 * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                                 *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                                 *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                                 */
+                                                matchLabels?: {
+                                                    [key: string]: string;
+                                                };
+                                            };
+                                            /**
+                                             * @description MatchLabelKeys is a set of pod label keys to select which pods will
+                                             *     be taken into consideration. The keys are used to lookup values from the
+                                             *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+                                             *     to select the group of existing pods which pods will be taken into consideration
+                                             *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                             *     pod labels will be ignored. The default value is empty.
+                                             *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                             *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                             */
+                                            matchLabelKeys?: string[];
+                                            /**
+                                             * @description MismatchLabelKeys is a set of pod label keys to select which pods will
+                                             *     be taken into consideration. The keys are used to lookup values from the
+                                             *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+                                             *     to select the group of existing pods which pods will be taken into consideration
+                                             *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                             *     pod labels will be ignored. The default value is empty.
+                                             *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                             *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                             */
+                                            mismatchLabelKeys?: string[];
+                                            /**
+                                             * @description A label query over the set of namespaces that the term applies to.
+                                             *     The term is applied to the union of the namespaces selected by this field
+                                             *     and the ones listed in the namespaces field.
+                                             *     null selector and null or empty namespaces list means "this pod's namespace".
+                                             *     An empty selector ({}) matches all namespaces.
+                                             */
+                                            namespaceSelector?: {
+                                                /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                                matchExpressions?: {
+                                                    /** @description key is the label key that the selector applies to. */
+                                                    key: string;
+                                                    /**
+                                                     * @description operator represents a key's relationship to a set of values.
+                                                     *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                     */
+                                                    operator: string;
+                                                    /**
+                                                     * @description values is an array of string values. If the operator is In or NotIn,
+                                                     *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                     *     the values array must be empty. This array is replaced during a strategic
+                                                     *     merge patch.
+                                                     */
+                                                    values?: string[];
+                                                }[];
+                                                /**
+                                                 * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                                 *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                                 *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                                 */
+                                                matchLabels?: {
+                                                    [key: string]: string;
+                                                };
+                                            };
+                                            /**
+                                             * @description namespaces specifies a static list of namespace names that the term applies to.
+                                             *     The term is applied to the union of the namespaces listed in this field
+                                             *     and the ones selected by namespaceSelector.
+                                             *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+                                             */
+                                            namespaces?: string[];
+                                            /**
+                                             * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+                                             *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
+                                             *     whose value of the label with key topologyKey matches that of any node on which any of the
+                                             *     selected pods is running.
+                                             *     Empty topologyKey is not allowed.
+                                             */
+                                            topologyKey: string;
+                                        };
+                                        /**
+                                         * Format: int32
+                                         * @description weight associated with matching the corresponding podAffinityTerm,
+                                         *     in the range 1-100.
+                                         */
+                                        weight: number;
+                                    }[];
+                                    /**
+                                     * @description If the anti-affinity requirements specified by this field are not met at
+                                     *     scheduling time, the pod will not be scheduled onto the node.
+                                     *     If the anti-affinity requirements specified by this field cease to be met
+                                     *     at some point during pod execution (e.g. due to a pod label update), the
+                                     *     system may or may not try to eventually evict the pod from its node.
+                                     *     When there are multiple elements, the lists of nodes corresponding to each
+                                     *     podAffinityTerm are intersected, i.e. all terms must be satisfied.
+                                     */
+                                    requiredDuringSchedulingIgnoredDuringExecution?: {
+                                        /**
+                                         * @description A label query over a set of resources, in this case pods.
+                                         *     If it's null, this PodAffinityTerm matches with no Pods.
+                                         */
+                                        labelSelector?: {
+                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                            matchExpressions?: {
+                                                /** @description key is the label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description operator represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description values is an array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. This array is replaced during a strategic
+                                                 *     merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /**
+                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                             */
+                                            matchLabels?: {
+                                                [key: string]: string;
+                                            };
+                                        };
+                                        /**
+                                         * @description MatchLabelKeys is a set of pod label keys to select which pods will
+                                         *     be taken into consideration. The keys are used to lookup values from the
+                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)`
+                                         *     to select the group of existing pods which pods will be taken into consideration
+                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                         *     pod labels will be ignored. The default value is empty.
+                                         *     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
+                                         *     Also, matchLabelKeys cannot be set when labelSelector isn't set.
+                                         */
+                                        matchLabelKeys?: string[];
+                                        /**
+                                         * @description MismatchLabelKeys is a set of pod label keys to select which pods will
+                                         *     be taken into consideration. The keys are used to lookup values from the
+                                         *     incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)`
+                                         *     to select the group of existing pods which pods will be taken into consideration
+                                         *     for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming
+                                         *     pod labels will be ignored. The default value is empty.
+                                         *     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
+                                         *     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
+                                         */
+                                        mismatchLabelKeys?: string[];
+                                        /**
+                                         * @description A label query over the set of namespaces that the term applies to.
+                                         *     The term is applied to the union of the namespaces selected by this field
+                                         *     and the ones listed in the namespaces field.
+                                         *     null selector and null or empty namespaces list means "this pod's namespace".
+                                         *     An empty selector ({}) matches all namespaces.
+                                         */
+                                        namespaceSelector?: {
+                                            /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                            matchExpressions?: {
+                                                /** @description key is the label key that the selector applies to. */
+                                                key: string;
+                                                /**
+                                                 * @description operator represents a key's relationship to a set of values.
+                                                 *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                                 */
+                                                operator: string;
+                                                /**
+                                                 * @description values is an array of string values. If the operator is In or NotIn,
+                                                 *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                                 *     the values array must be empty. This array is replaced during a strategic
+                                                 *     merge patch.
+                                                 */
+                                                values?: string[];
+                                            }[];
+                                            /**
+                                             * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                             *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                             *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                             */
+                                            matchLabels?: {
+                                                [key: string]: string;
+                                            };
+                                        };
+                                        /**
+                                         * @description namespaces specifies a static list of namespace names that the term applies to.
+                                         *     The term is applied to the union of the namespaces listed in this field
+                                         *     and the ones selected by namespaceSelector.
+                                         *     null or empty namespaces list and null namespaceSelector means "this pod's namespace".
+                                         */
+                                        namespaces?: string[];
+                                        /**
+                                         * @description This pod should be co-located (affinity) or not co-located (anti-affinity) with the pods matching
+                                         *     the labelSelector in the specified namespaces, where co-located is defined as running on a node
+                                         *     whose value of the label with key topologyKey matches that of any node on which any of the
+                                         *     selected pods is running.
+                                         *     Empty topologyKey is not allowed.
+                                         */
+                                        topologyKey: string;
+                                    }[];
+                                };
+                            };
+                            /**
+                             * @description NodeSelector must match a node's labels for the pods to be schedulable
+                             *     onto that node.
+                             */
+                            nodeSelector?: {
+                                [key: string]: string;
+                            };
+                            /**
+                             * @description SchedulerName selects the scheduler that dispatches the pods.
+                             *     When omitted the cluster's default scheduler is used.
+                             */
+                            schedulerName?: string;
+                            /**
+                             * @description Tolerations allow the pods to schedule onto nodes carrying matching
+                             *     taints, typically nodes reserved for database workloads.
+                             */
+                            tolerations?: {
+                                /**
+                                 * @description Effect indicates the taint effect to match. Empty means match all taint effects.
+                                 *     When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                                 */
+                                effect?: string;
+                                /**
+                                 * @description Key is the taint key that the toleration applies to. Empty means match all taint keys.
+                                 *     If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+                                 */
+                                key?: string;
+                                /**
+                                 * @description Operator represents a key's relationship to the value.
+                                 *     Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
+                                 *     Exists is equivalent to wildcard for value, so that a pod can
+                                 *     tolerate all taints of a particular category.
+                                 *     Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
+                                 */
+                                operator?: string;
+                                /**
+                                 * Format: int64
+                                 * @description TolerationSeconds represents the period of time the toleration (which must be
+                                 *     of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+                                 *     it is not set, which means tolerate the taint forever (do not evict). Zero and
+                                 *     negative values will be treated as 0 (evict immediately) by the system.
+                                 */
+                                tolerationSeconds?: number;
+                                /**
+                                 * @description Value is the taint value the toleration matches to.
+                                 *     If the operator is Exists, the value should be empty, otherwise just a regular string.
+                                 */
+                                value?: string;
+                            }[];
+                            /**
+                             * @description TopologySpreadConstraints describe how the pods spread across topology
+                             *     domains. A constraint with neither labelSelector nor matchLabelKeys counts
+                             *     this component's pods. When omitted, the provider applies its default; an
+                             *     empty list sets no constraints.
+                             */
+                            topologySpreadConstraints?: {
+                                /**
+                                 * @description LabelSelector is used to find matching pods.
+                                 *     Pods that match this label selector are counted to determine the number of pods
+                                 *     in their corresponding topology domain.
+                                 */
+                                labelSelector?: {
+                                    /** @description matchExpressions is a list of label selector requirements. The requirements are ANDed. */
+                                    matchExpressions?: {
+                                        /** @description key is the label key that the selector applies to. */
+                                        key: string;
+                                        /**
+                                         * @description operator represents a key's relationship to a set of values.
+                                         *     Valid operators are In, NotIn, Exists and DoesNotExist.
+                                         */
+                                        operator: string;
+                                        /**
+                                         * @description values is an array of string values. If the operator is In or NotIn,
+                                         *     the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                         *     the values array must be empty. This array is replaced during a strategic
+                                         *     merge patch.
+                                         */
+                                        values?: string[];
+                                    }[];
+                                    /**
+                                     * @description matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                     *     map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                     *     operator is "In", and the values array contains only "value". The requirements are ANDed.
+                                     */
+                                    matchLabels?: {
+                                        [key: string]: string;
+                                    };
+                                };
+                                /**
+                                 * @description MatchLabelKeys is a set of pod label keys to select the pods over which
+                                 *     spreading will be calculated. The keys are used to lookup values from the
+                                 *     incoming pod labels, those key-value labels are ANDed with labelSelector
+                                 *     to select the group of existing pods over which spreading will be calculated
+                                 *     for the incoming pod. The same key is forbidden to exist in both MatchLabelKeys and LabelSelector.
+                                 *     MatchLabelKeys cannot be set when LabelSelector isn't set.
+                                 *     Keys that don't exist in the incoming pod labels will
+                                 *     be ignored. A null or empty list means only match against labelSelector.
+                                 *
+                                 *     This is a beta field and requires the MatchLabelKeysInPodTopologySpread feature gate to be enabled (enabled by default).
+                                 */
+                                matchLabelKeys?: string[];
+                                /**
+                                 * Format: int32
+                                 * @description MaxSkew describes the degree to which pods may be unevenly distributed.
+                                 *     When `whenUnsatisfiable=DoNotSchedule`, it is the maximum permitted difference
+                                 *     between the number of matching pods in the target topology and the global minimum.
+                                 *     The global minimum is the minimum number of matching pods in an eligible domain
+                                 *     or zero if the number of eligible domains is less than MinDomains.
+                                 *     For example, in a 3-zone cluster, MaxSkew is set to 1, and pods with the same
+                                 *     labelSelector spread as 2/2/1:
+                                 *     In this case, the global minimum is 1.
+                                 *     | zone1 | zone2 | zone3 |
+                                 *     |  P P  |  P P  |   P   |
+                                 *     - if MaxSkew is 1, incoming pod can only be scheduled to zone3 to become 2/2/2;
+                                 *     scheduling it onto zone1(zone2) would make the ActualSkew(3-1) on zone1(zone2)
+                                 *     violate MaxSkew(1).
+                                 *     - if MaxSkew is 2, incoming pod can be scheduled onto any zone.
+                                 *     When `whenUnsatisfiable=ScheduleAnyway`, it is used to give higher precedence
+                                 *     to topologies that satisfy it.
+                                 *     It's a required field. Default value is 1 and 0 is not allowed.
+                                 */
+                                maxSkew: number;
+                                /**
+                                 * Format: int32
+                                 * @description MinDomains indicates a minimum number of eligible domains.
+                                 *     When the number of eligible domains with matching topology keys is less than minDomains,
+                                 *     Pod Topology Spread treats "global minimum" as 0, and then the calculation of Skew is performed.
+                                 *     And when the number of eligible domains with matching topology keys equals or greater than minDomains,
+                                 *     this value has no effect on scheduling.
+                                 *     As a result, when the number of eligible domains is less than minDomains,
+                                 *     scheduler won't schedule more than maxSkew Pods to those domains.
+                                 *     If value is nil, the constraint behaves as if MinDomains is equal to 1.
+                                 *     Valid values are integers greater than 0.
+                                 *     When value is not nil, WhenUnsatisfiable must be DoNotSchedule.
+                                 *
+                                 *     For example, in a 3-zone cluster, MaxSkew is set to 2, MinDomains is set to 5 and pods with the same
+                                 *     labelSelector spread as 2/2/2:
+                                 *     | zone1 | zone2 | zone3 |
+                                 *     |  P P  |  P P  |  P P  |
+                                 *     The number of domains is less than 5(MinDomains), so "global minimum" is treated as 0.
+                                 *     In this situation, new pod with the same labelSelector cannot be scheduled,
+                                 *     because computed skew will be 3(3 - 0) if new Pod is scheduled to any of the three zones,
+                                 *     it will violate MaxSkew.
+                                 */
+                                minDomains?: number;
+                                /**
+                                 * @description NodeAffinityPolicy indicates how we will treat Pod's nodeAffinity/nodeSelector
+                                 *     when calculating pod topology spread skew. Options are:
+                                 *     - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations.
+                                 *     - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
+                                 *
+                                 *     If this value is nil, the behavior is equivalent to the Honor policy.
+                                 */
+                                nodeAffinityPolicy?: string;
+                                /**
+                                 * @description NodeTaintsPolicy indicates how we will treat node taints when calculating
+                                 *     pod topology spread skew. Options are:
+                                 *     - Honor: nodes without taints, along with tainted nodes for which the incoming pod
+                                 *     has a toleration, are included.
+                                 *     - Ignore: node taints are ignored. All nodes are included.
+                                 *
+                                 *     If this value is nil, the behavior is equivalent to the Ignore policy.
+                                 */
+                                nodeTaintsPolicy?: string;
+                                /**
+                                 * @description TopologyKey is the key of node labels. Nodes that have a label with this key
+                                 *     and identical values are considered to be in the same topology.
+                                 *     We consider each <key, value> as a "bucket", and try to put balanced number
+                                 *     of pods into each bucket.
+                                 *     We define a domain as a particular instance of a topology.
+                                 *     Also, we define an eligible domain as a domain whose nodes meet the requirements of
+                                 *     nodeAffinityPolicy and nodeTaintsPolicy.
+                                 *     e.g. If TopologyKey is "kubernetes.io/hostname", each Node is a domain of that topology.
+                                 *     And, if TopologyKey is "topology.kubernetes.io/zone", each zone is a domain of that topology.
+                                 *     It's a required field.
+                                 */
+                                topologyKey: string;
+                                /**
+                                 * @description WhenUnsatisfiable indicates how to deal with a pod if it doesn't satisfy
+                                 *     the spread constraint.
+                                 *     - DoNotSchedule (default) tells the scheduler not to schedule it.
+                                 *     - ScheduleAnyway tells the scheduler to schedule the pod in any location,
+                                 *       but giving higher precedence to topologies that would help reduce the
+                                 *       skew.
+                                 *     A constraint is considered "Unsatisfiable" for an incoming pod
+                                 *     if and only if every possible node assignment for that pod would violate
+                                 *     "MaxSkew" on some topology.
+                                 *     For example, in a 3-zone cluster, MaxSkew is set to 1, and pods with the same
+                                 *     labelSelector spread as 3/1/1:
+                                 *     | zone1 | zone2 | zone3 |
+                                 *     | P P P |   P   |   P   |
+                                 *     If WhenUnsatisfiable is set to DoNotSchedule, incoming pod can only be scheduled
+                                 *     to zone2(zone3) to become 3/2/1(3/1/2) as ActualSkew(2-1) on zone2(zone3) satisfies
+                                 *     MaxSkew(1). In other words, the cluster can still be imbalanced, but scheduler
+                                 *     won't make it *more* imbalanced.
+                                 *     It's a required field.
+                                 */
+                                whenUnsatisfiable: string;
+                            }[];
+                        };
+                        /** @description Service defines how this component is exposed. */
+                        service?: {
+                            /**
+                             * @description Annotations is a map of key-value pairs for annotating the Service.
+                             *     Commonly used to configure cloud provider settings
+                             *     (e.g., AWS ELB annotations, GCP load balancer settings).
+                             */
+                            annotations?: {
+                                [key: string]: string;
+                            };
+                            /**
+                             * @description LoadBalancerService contains LoadBalancer-specific configuration.
+                             *     Only applicable for "LoadBalancer" ServiceType.
+                             */
+                            loadBalancerService?: {
+                                /**
+                                 * @description SourceRanges lists IP source ranges (CIDR notation) that are
+                                 *     allowed to access the load balancer.
+                                 *     If unset, there is no limitations.
+                                 */
+                                sourceRanges?: string[];
+                            };
+                            /**
+                             * @description ServiceType defines how the component is exposed.
+                             *     The provider ultimately decides and validates supported service types.
+                             * @default ClusterIP
+                             */
+                            serviceType: string;
+                        };
+                        /**
+                         * @description Storage requirements for this component.
+                         *     For stateless components, this is an optional field.
+                         */
+                        storage?: {
+                            size?: number | string;
+                            storageClass?: string;
+                        };
+                        /** @description Type of the component from the Provider. */
+                        type?: string;
+                        /** @description Version of the component from ComponentVersions. */
+                        version?: string;
+                    };
+                };
+                /**
+                 * @description DataSource allows creating a new Instance from an existing
+                 *     Backup CR of another Instance.
+                 *
+                 *     Only ProviderManaged BackupClasses are supported. The referenced Backup
+                 *     must be in the same namespace, in Succeeded state, and its BackupClass
+                 *     must be executed by the Instance's provider. Instance must
+                 *     also have backup enabled and include a storage entry that matches the
+                 *     storage used by the source Backup so the provider can access the data.
+                 */
+                dataSource?: {
+                    /** @description Backup identifies the backup to restore. Required when type=Backup. */
+                    backup?: {
+                        /** @description BackupRef references the Backup CR in the same namespace. */
+                        backupRef: {
+                            /** @description Name of the referenced object. */
+                            name: string;
+                        };
+                    };
+                    /**
+                     * @description PointInTime identifies the stream and the point to recover to.
+                     *     Required when type=PointInTime.
+                     */
+                    pointInTime?: {
+                        /**
+                         * Format: date-time
+                         * @description Date is the recovery point, RFC 3339 with an explicit UTC offset.
+                         *     Required when RecoveryTarget is "date", forbidden otherwise. Providers
+                         *     convert it to the engine's expected representation; several engines
+                         *     interpret timezone-less timestamps as node-local, so the offset is not
+                         *     optional.
+                         */
+                        date?: string;
+                        /**
+                         * @description RecoveryTarget selects date-based or latest recovery. This enum is
+                         *     deliberately closed: date and latest are the only recovery targets that
+                         *     are meaningful without knowing which engine is running. Engine-specific
+                         *     targets (GTID, LSN, XID, named restore points) are out of scope.
+                         * @enum {string}
+                         */
+                        recoveryTarget: "date" | "latest";
+                        /** @description Source identifies the backup stream to recover from. */
+                        source: {
+                            /**
+                             * @description InstanceRef names the Instance whose stream to recover. Defaults to the
+                             *     Restore's target Instance when omitted; required when seeding a new
+                             *     Instance via Instance.spec.dataSource, which has no stream of its own.
+                             */
+                            instanceRef?: {
+                                /** @description Name of the referenced object. */
+                                name: string;
+                            };
+                            /**
+                             * @description StorageRef selects which of the source Instance's registered
+                             *     BackupStorages to read the stream from. It must name a storage with
+                             *     .pitr.enabled=true on that Instance.
+                             */
+                            storageRef: {
+                                /** @description Name of the referenced object. */
+                                name: string;
+                            };
+                        };
+                    };
+                    /**
+                     * @description Type selects the restore intent.
+                     * @enum {string}
+                     */
+                    type: "Backup" | "PointInTime";
+                };
+                /**
+                 * @description DeletionPolicy controls what happens to Backup and Restore CRs that
+                 *     reference this Instance when the Instance is deleted.
+                 *     Cascade (default) instructs the runtime to delete every Backup and
+                 *     Restore in the Instance's namespace whose .spec.instanceRef matches
+                 *     this Instance before tearing down the engine. Each Backup's own
+                 *     .spec.deletionPolicy then independently controls whether its
+                 *     underlying data in the BackupStorage is purged or retained.
+                 *     Orphan instructs the runtime to leave Backup and Restore CRs in
+                 *     place; they survive the Instance deletion and can later be used to
+                 *     restore into a newly-created Instance.
+                 *
+                 *     The Instance is held in the Terminating phase until all referenced
+                 *     Backups/Restores have been deleted (Cascade) or until the engine
+                 *     resources have been torn down (both policies).
+                 *
+                 *     The field is mutable on a live Instance but is frozen once deletion
+                 *     has started: switching policies after .metadata.deletionTimestamp
+                 *     has been set is rejected so the cascade path cannot race with
+                 *     itself.
+                 * @default Cascade
+                 * @enum {string}
+                 */
+                deletionPolicy: "Cascade" | "Orphan";
+                /**
+                 * @description Maintenance governs how disruptive actions raised against this
+                 *     Instance (e.g. the convergence step after a provider upgrade) are
+                 *     authorized. It does NOT govern the deliberate engine-version upgrade
+                 *     flow (spec.version / spec.components[].version).
+                 */
+                maintenance?: {
+                    /**
+                     * @description Approved is a one-time authorization for an action above the standing
+                     *     tolerance: set it to the exact approvalToken of the held action from
+                     *     status.pendingMaintenance. It is matched literally, authorizes only
+                     *     that occurrence, and re-arms naturally — a later action carries a
+                     *     different token, so a stale value never authorizes it. It is NOT a
+                     *     provider version.
+                     */
+                    approved?: string;
+                    /**
+                     * @description AutoApproveUpTo is the standing disruption tolerance: any action at or
+                     *     below this impact applies automatically, anything above it is held on
+                     *     status.pendingMaintenance. It is cause-agnostic — the tolerance applies
+                     *     whether the action was raised by a provider upgrade or anything else.
+                     * @default NonDisruptive
+                     * @enum {string}
+                     */
+                    autoApproveUpTo: "NonDisruptive" | "RollingRestart" | "Downtime";
+                };
+                /**
+                 * @description Monitoring configures where this Instance sends monitoring data. Core
+                 *     creates one MonitoringBinding per destination; the resolved state is
+                 *     mirrored in status.monitoring.destinations[].
+                 */
+                monitoring?: {
+                    /**
+                     * @description Destinations lists the MonitoringDestinations this Instance sends to.
+                     *     Core creates one MonitoringBinding per entry.
+                     */
+                    destinations?: {
+                        /**
+                         * @description DestinationRef references the MonitoringDestination in the Instance's
+                         *     namespace.
+                         */
+                        destinationRef: {
+                            /**
+                             * @description Kind of the referenced object.
+                             * @default MonitoringDestination
+                             * @enum {string}
+                             */
+                            kind: "MonitoringDestination";
+                            /**
+                             * @description Name of the referenced object. At most 63 characters, since it is also
+                             *     a label value on the MonitoringBinding.
+                             */
+                            name: string;
+                        };
+                        /**
+                         * @description Name identifies the entry within the Instance; it is the key of
+                         *     status.monitoring.destinations[] and part of the MonitoringBinding name.
+                         */
+                        name: string;
+                        /** @description Parameters are validated against the class's instanceParametersSchema. */
+                        parameters?: Record<string, never>;
+                    }[];
+                    /**
+                     * @description Sources configures the monitoring sources the Instance runs whether or
+                     *     not a destination needs them.
+                     */
+                    sources?: {
+                        /** @description Metrics configures the Instance's OpenMetrics endpoints. */
+                        metrics?: {
+                            /**
+                             * @description Policy says when the provider runs the exporters and turns on the
+                             *     optional metrics endpoints of the Instance's components. OnDemand runs
+                             *     them while a destination's class needs metrics. Always runs them
+                             *     without a destination, for scrapers that OpenEverest does not
+                             *     configure. The serving endpoints are listed in
+                             *     status.monitoring.sources.metrics.
+                             * @default OnDemand
+                             * @enum {string}
+                             */
+                            policy: "OnDemand" | "Always";
+                        };
+                    };
+                };
+                /**
+                 * @description Parameters contains structured parameters that apply to the Instance
+                 *     as a whole, complementing the topology- and component-scoped
+                 *     parameters. The payload is validated against the referenced Provider's
+                 *     .spec.parametersSchema.
+                 */
+                parameters?: Record<string, never>;
+                /**
+                 * @description ProviderRef references the cluster-scoped Provider that manages this
+                 *     Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                 *     providerRef cannot be changed: the provider that picked it up owns its
+                 *     finalizer and engine resources, and only that provider cleans them up.
                  */
                 providerRef: {
                     /** @description Name of the referenced object. */
@@ -2767,6 +4578,8 @@ export interface components {
             metadata?: {
                 /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
                 name?: string;
+                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+                namespace?: string;
             };
         };
         /** @description Provider is the Schema for the providers API */
@@ -2796,6 +4609,14 @@ export interface components {
                          *     Instance nor a version bundle selects one.
                          */
                         defaultVersion?: string;
+                        /**
+                         * @description Kind is the shared classification of the software the component type
+                         *     runs (e.g. "mongodb", "mysql", "haproxy"), matched by monitoring class
+                         *     filters and set on the component's published monitoring endpoints.
+                         *     Databases use OpenTelemetry db.system.name values; unknown kinds are
+                         *     allowed. A type without a kind matches no kind filter.
+                         */
+                        kind?: string;
                         versions?: {
                             /**
                              * @description Deprecated marks a version as still supported but scheduled for
@@ -2851,6 +4672,87 @@ export interface components {
                  */
                 defaultVersion?: string;
                 /**
+                 * @description Monitoring is the provider's monitoring contract: the operator-native
+                 *     integrations it renders itself and what each component type exposes.
+                 */
+                monitoring?: {
+                    /**
+                     * @description ComponentTypes declares what each component type exposes, keyed by
+                     *     component type (the software), not by component name.
+                     */
+                    componentTypes?: {
+                        [key: string]: {
+                            /**
+                             * @description Connection states whether monitoring agents can connect to the
+                             *     component over its native protocol, with the monitor credential.
+                             * @default None
+                             * @enum {string}
+                             */
+                            connection: "Supported" | "None";
+                            /**
+                             * @description Metrics states how the component exposes OpenMetrics.
+                             * @default None
+                             * @enum {string}
+                             */
+                            metrics: "Native" | "Exporter" | "None";
+                            /**
+                             * @description PodMetadata states whether the provider renders the pod annotations
+                             *     monitoring classes request (Context.MonitoringPodAnnotations) into the
+                             *     pods of the component type.
+                             * @default None
+                             * @enum {string}
+                             */
+                            podMetadata: "Supported" | "None";
+                        };
+                    };
+                    /**
+                     * @description Integrations lists the operator-native monitoring integrations the
+                     *     provider renders itself, keyed by integration name (e.g. "pmm").
+                     */
+                    integrations?: {
+                        [key: string]: {
+                            /**
+                             * @description AgentVersions is the semver range of agent versions the provider can
+                             *     render (e.g. ">=3.0.0 <4.0.0").
+                             */
+                            agentVersions?: string;
+                            /**
+                             * @description AuthModes lists the authentication modes of the integration's
+                             *     MonitoringClass the provider can render. A destination whose mode is
+                             *     not listed is not bound.
+                             */
+                            authModes?: string[];
+                            /**
+                             * @description DestinationParametersSchema is the schema of MonitoringDestination
+                             *     parameters in the integration contract version the provider was built
+                             *     with, generated by provider-sdk. Core will check destination parameters
+                             *     against it as well as against the class.
+                             */
+                            destinationParametersSchema?: {
+                                /**
+                                 * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                                 *     parameters payload.
+                                 */
+                                openAPIV3Schema?: unknown;
+                            };
+                            /**
+                             * @description InstanceParametersSchema is the schema of
+                             *     Instance.spec.monitoring.destinations[].parameters in the integration
+                             *     contract version the provider was built with, generated by
+                             *     provider-sdk. Core will check entry parameters against it as well as
+                             *     against the class.
+                             */
+                            instanceParametersSchema?: {
+                                /**
+                                 * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                                 *     parameters payload.
+                                 */
+                                openAPIV3Schema?: unknown;
+                            };
+                        };
+                    };
+                };
+                /**
                  * @description ParametersSchema declares the OpenAPI v3 schema for the instance-wide
                  *     parameters payload (Instance.spec.parameters).
                  */
@@ -2892,6 +4794,12 @@ export interface components {
                              */
                             openAPIV3Schema?: unknown;
                         };
+                        /**
+                         * @description Type is the Kubernetes Secret type of secrets created for this
+                         *     definition. The clients use it to encode input into Secret data.
+                         * @default Opaque
+                         */
+                        type: string;
                         /** @description UISchema holds UI rendering hints for the secret creation form. */
                         uiSchema?: Record<string, never>;
                     };
@@ -3035,16 +4943,15 @@ export interface components {
                  * @description Backup configures the backup feature for this Instance. When enabled,
                  *     the provider's reconciler is given the resolved BackupClass and storage
                  *     list so it can configure the engine accordingly (sidecars, agent
-                 *     configuration, etc.). Required for ProviderManaged BackupClasses; Job
-                 *     classes do not need an entry here because they read directly from
-                 *     individual Backup CRs.
+                 *     configuration, etc.). Required to back up the Instance with its
+                 *     ProviderManaged BackupClass.
                  */
                 backup?: {
                     /**
                      * @description ClassRef references the cluster-scoped BackupClass that the provider
                      *     should use to configure the engine. The class must have
-                     *     ExecutionMode=ProviderManaged and list the Instance's provider in its
-                     *     SupportedProviders.
+                     *     ExecutionMode=ProviderManaged and name the Instance's provider in
+                     *     providerManaged.providerRef.
                      */
                     classRef: {
                         /** @description Name of the referenced object. */
@@ -4069,7 +5976,7 @@ export interface components {
                  *
                  *     Only ProviderManaged BackupClasses are supported. The referenced Backup
                  *     must be in the same namespace, in Succeeded state, and its BackupClass
-                 *     must list the Instance's provider in SupportedProviders. Instance must
+                 *     must be executed by the Instance's provider. Instance must
                  *     also have backup enabled and include a storage entry that matches the
                  *     storage used by the source Backup so the provider can access the data.
                  */
@@ -4183,6 +6090,63 @@ export interface components {
                     autoApproveUpTo: "NonDisruptive" | "RollingRestart" | "Downtime";
                 };
                 /**
+                 * @description Monitoring configures where this Instance sends monitoring data. Core
+                 *     creates one MonitoringBinding per destination; the resolved state is
+                 *     mirrored in status.monitoring.destinations[].
+                 */
+                monitoring?: {
+                    /**
+                     * @description Destinations lists the MonitoringDestinations this Instance sends to.
+                     *     Core creates one MonitoringBinding per entry.
+                     */
+                    destinations?: {
+                        /**
+                         * @description DestinationRef references the MonitoringDestination in the Instance's
+                         *     namespace.
+                         */
+                        destinationRef: {
+                            /**
+                             * @description Kind of the referenced object.
+                             * @default MonitoringDestination
+                             * @enum {string}
+                             */
+                            kind: "MonitoringDestination";
+                            /**
+                             * @description Name of the referenced object. At most 63 characters, since it is also
+                             *     a label value on the MonitoringBinding.
+                             */
+                            name: string;
+                        };
+                        /**
+                         * @description Name identifies the entry within the Instance; it is the key of
+                         *     status.monitoring.destinations[] and part of the MonitoringBinding name.
+                         */
+                        name: string;
+                        /** @description Parameters are validated against the class's instanceParametersSchema. */
+                        parameters?: Record<string, never>;
+                    }[];
+                    /**
+                     * @description Sources configures the monitoring sources the Instance runs whether or
+                     *     not a destination needs them.
+                     */
+                    sources?: {
+                        /** @description Metrics configures the Instance's OpenMetrics endpoints. */
+                        metrics?: {
+                            /**
+                             * @description Policy says when the provider runs the exporters and turns on the
+                             *     optional metrics endpoints of the Instance's components. OnDemand runs
+                             *     them while a destination's class needs metrics. Always runs them
+                             *     without a destination, for scrapers that OpenEverest does not
+                             *     configure. The serving endpoints are listed in
+                             *     status.monitoring.sources.metrics.
+                             * @default OnDemand
+                             * @enum {string}
+                             */
+                            policy: "OnDemand" | "Always";
+                        };
+                    };
+                };
+                /**
                  * @description Parameters contains structured parameters that apply to the Instance
                  *     as a whole, complementing the topology- and component-scoped
                  *     parameters. The payload is validated against the referenced Provider's
@@ -4191,7 +6155,9 @@ export interface components {
                 parameters?: Record<string, never>;
                 /**
                  * @description ProviderRef references the cluster-scoped Provider that manages this
-                 *     Instance (e.g., "percona-server-mongodb", "postgresql").
+                 *     Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                 *     providerRef cannot be changed: the provider that picked it up owns its
+                 *     finalizer and engine resources, and only that provider cleans them up.
                  */
                 providerRef: {
                     /** @description Name of the referenced object. */
@@ -4235,8 +6201,11 @@ export interface components {
                  */
                 version?: string;
             };
-            /** @description InstanceStatus defines the observed state of Instance. */
-            status?: {
+            /**
+             * @description InstanceStatus defines the observed state of Instance.
+             * @default {}
+             */
+            status: {
                 /**
                  * @description Backup surfaces backup-related observability data reported by the
                  *     provider, such as the latest restorable time for PITR-enabled storages.
@@ -4247,6 +6216,13 @@ export interface components {
                      *     name declared in spec.backup.storages.
                      */
                     storages?: {
+                        /**
+                         * @description Location is the path in the storage's bucket under which the engine
+                         *     writes this Instance's backups.
+                         */
+                        location?: string;
+                        /** @description Message explains Reason. */
+                        message?: string;
                         /**
                          * @description Name is the BackupStorage name (matches
                          *     spec.backup.storages[].storageRef.name).
@@ -4280,10 +6256,32 @@ export interface components {
                              */
                             state?: "Available" | "Unavailable";
                         };
+                        /**
+                         * @description Reason is why the entry is not configured on the engine as specified,
+                         *     empty when it is. An entry the engine already had keeps its last
+                         *     configuration meanwhile.
+                         */
+                        reason?: string;
                     }[];
                 };
                 /** @description Components reports how many pods each component has and how many are Ready. */
                 components?: {
+                    /**
+                     * Format: int32
+                     * @description DesiredReplicas is how many pods the component will have once the
+                     *     current generation has converged, as the provider reports it. It
+                     *     describes status.observedGeneration: it is absent until the provider
+                     *     reports for that generation, during deletion, and for providers that
+                     *     don't report it; clients then show readyReplicas over replicas. Zero is
+                     *     a real target, for example a model scaled to zero. A cluster paused
+                     *     outside OpenEverest keeps its target, so it reads 0 of N; one stopped
+                     *     through its spec has a target of zero.
+                     *
+                     *     It is meant for display. When a component sums several groups, such as
+                     *     the replica sets of every shard, it cannot tell whether each group has
+                     *     a majority.
+                     */
+                    desiredReplicas?: number;
                     /** @description Name is a key of spec.components. */
                     name: string;
                     /**
@@ -4355,8 +6353,238 @@ export interface components {
                     /** @description Name of the referenced Secret. */
                     name: string;
                 };
-                /** @description Message is a custom user-facing message describing the current state of the instance. */
-                message?: string;
+                /**
+                 * @description Monitoring is what the Instance exposes to monitoring (sources) and
+                 *     one read-only summary per spec.monitoring.destinations[] entry.
+                 *     Written only by provider-runtime.
+                 */
+                monitoring?: {
+                    /** @description Destinations has one entry per spec.monitoring.destinations[] entry. */
+                    destinations?: {
+                        /** @description Conditions are the entry's Configured and Ready conditions. */
+                        conditions?: {
+                            /**
+                             * Format: date-time
+                             * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                             *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                             */
+                            lastTransitionTime: string;
+                            /**
+                             * @description message is a human readable message indicating details about the transition.
+                             *     This may be an empty string.
+                             */
+                            message: string;
+                            /**
+                             * Format: int64
+                             * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                             *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                             *     with respect to the current state of the instance.
+                             */
+                            observedGeneration?: number;
+                            /**
+                             * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                             *     Producers of specific condition types may define expected values and meanings for this field,
+                             *     and whether the values are considered a guaranteed API.
+                             *     The value should be a CamelCase string.
+                             *     This field may not be empty.
+                             */
+                            reason: string;
+                            /**
+                             * @description status of the condition, one of True, False, Unknown.
+                             * @enum {string}
+                             */
+                            status: "True" | "False" | "Unknown";
+                            /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                            type: string;
+                        }[];
+                        /**
+                         * @description Mode is the resolved execution mode.
+                         * @enum {string}
+                         */
+                        mode?: "ProviderManaged" | "ExtensionManaged";
+                        /** @description Name matches spec.monitoring.destinations[].name. */
+                        name: string;
+                    }[];
+                    /**
+                     * @description Sources is the per-Instance publication of the provider's monitoring
+                     *     contract, consumed by ExtensionManaged class controllers.
+                     */
+                    sources?: {
+                        /**
+                         * @description Connections lists the endpoints monitoring agents connect to over the
+                         *     engine's native protocol (e.g. agents discovering databases through
+                         *     pod annotations), one per serving component.
+                         */
+                        connections?: {
+                            /**
+                             * @description Auth names the credential profile agents log in with, normally
+                             *     CredentialProfileMonitor.
+                             */
+                            auth?: {
+                                /** @description CredentialProfile matches MonitoringSources.credentials[].profile. */
+                                credentialProfile: string;
+                            };
+                            /** @description Component is the Instance component name (e.g. "engine"). */
+                            component: string;
+                            /**
+                             * @description Container is the name of the container serving the endpoint, for
+                             *     agents that address containers (e.g. Datadog Autodiscovery).
+                             */
+                            container?: string;
+                            /**
+                             * @description Kind is the kind of the component's type
+                             *     (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+                             *     A provider may leave it empty; an endpoint it computes with another
+                             *     kind is not published.
+                             */
+                            kind: string;
+                            /** @description PodSelector selects the pods serving the endpoint. */
+                            podSelector: {
+                                [key: string]: string;
+                            };
+                            /** @description Port is the container port, by name or number. */
+                            port: number | string;
+                            /**
+                             * @description TLS is set when the endpoint accepts TLS connections; absent means
+                             *     plaintext only.
+                             */
+                            tls?: {
+                                /**
+                                 * @description CA is the PEM bundle that verifies the server certificate. Server
+                                 *     certificates name Services, not pod IPs, so agents verify the chain
+                                 *     only.
+                                 */
+                                ca?: {
+                                    /** @description SecretKeyRef selects the Secret key holding the PEM bundle. */
+                                    secretKeyRef?: {
+                                        /** @description Key within the Secret. */
+                                        key: string;
+                                        /** @description Name of the referenced Secret. */
+                                        name: string;
+                                    };
+                                };
+                                /**
+                                 * @description ClientCertificateSecretRef references a kubernetes.io/tls Secret
+                                 *     (keys tls.crt and tls.key) agents present as a client certificate.
+                                 */
+                                clientCertificateSecretRef?: {
+                                    /** @description Name of the referenced Secret. */
+                                    name: string;
+                                };
+                                /** @description Required means the endpoint rejects connections without TLS. */
+                                required?: boolean;
+                            };
+                        }[];
+                        /**
+                         * @description Credentials lists the Instance-owned monitoring credential Secrets by
+                         *     profile.
+                         */
+                        credentials?: {
+                            /** @description Profile names the credential profile (e.g. "metrics"). */
+                            profile: string;
+                            /**
+                             * @description SecretRef references the Secret in the Instance's namespace holding
+                             *     the "username" and "password" keys.
+                             */
+                            secretRef: {
+                                /** @description Name of the referenced Secret. */
+                                name: string;
+                            };
+                        }[];
+                        /**
+                         * @description Identity carries the labels every monitoring class must attach so
+                         *     destinations can tell Instances and clusters apart. Stamped by the
+                         *     runtime.
+                         */
+                        identity?: {
+                            /** @description ClusterID is the UID of the kube-system namespace. */
+                            clusterId?: string;
+                            /**
+                             * @description Labels are the identity labels (openeverest_instance,
+                             *     openeverest_namespace, openeverest_provider, k8s_cluster_id).
+                             */
+                            labels?: {
+                                [key: string]: string;
+                            };
+                        };
+                        /** @description Metrics lists the OpenMetrics endpoints that are currently serving. */
+                        metrics?: {
+                            /** @description Auth names the credential profile the scraper must authenticate with. */
+                            auth?: {
+                                /** @description CredentialProfile matches MonitoringSources.credentials[].profile. */
+                                credentialProfile: string;
+                            };
+                            /** @description Component is the Instance component name (e.g. "engine", "proxy"). */
+                            component: string;
+                            /**
+                             * @description Kind is the kind of the component's type
+                             *     (Provider.spec.componentTypes.<type>.kind), set by provider-runtime.
+                             *     A provider may leave it empty; an endpoint it computes with another
+                             *     kind is not published.
+                             */
+                            kind: string;
+                            /** @description Params are extra scrape query parameters (e.g. target for /probe). */
+                            params?: {
+                                [key: string]: string[];
+                            };
+                            /**
+                             * @description Path is the HTTP path.
+                             * @default /metrics
+                             */
+                            path: string;
+                            /** @description PodSelector selects the pods serving the endpoint. */
+                            podSelector: {
+                                [key: string]: string;
+                            };
+                            /** @description Port is the container port, by name or number. */
+                            port: number | string;
+                            /**
+                             * @description Scheme is "http" or "https".
+                             * @default http
+                             * @enum {string}
+                             */
+                            scheme: "http" | "https";
+                            /** @description TLS describes how to verify an https endpoint. */
+                            tls?: {
+                                /**
+                                 * @description CA is the PEM bundle the server certificate is verified against,
+                                 *     instead of the system trust store.
+                                 */
+                                ca?: {
+                                    /** @description SecretKeyRef selects the Secret key holding the PEM bundle. */
+                                    secretKeyRef?: {
+                                        /** @description Key within the Secret. */
+                                        key: string;
+                                        /** @description Name of the referenced Secret. */
+                                        name: string;
+                                    };
+                                };
+                                /**
+                                 * @description ClientCertificateSecretRef references a kubernetes.io/tls Secret
+                                 *     (keys tls.crt and tls.key) the scraper presents as a client
+                                 *     certificate, for an endpoint that requires mutual TLS.
+                                 */
+                                clientCertificateSecretRef?: {
+                                    /** @description Name of the referenced Secret. */
+                                    name: string;
+                                };
+                                /** @description InsecureSkipVerify disables verification of the server certificate. */
+                                insecureSkipVerify?: boolean;
+                                /** @description ServerName overrides the expected server name. */
+                                serverName?: string;
+                            };
+                        }[];
+                    };
+                };
+                /**
+                 * Format: int64
+                 * @description ObservedGeneration is the metadata.generation the provider-runtime last
+                 *     reconciled. Status describes an older spec while it is lower than
+                 *     metadata.generation. It defaults to -1, so an Instance no provider has
+                 *     reconciled reads as in progress, never as current.
+                 * @default -1
+                 */
+                observedGeneration: number;
                 /**
                  * @description PendingMaintenance lists the disruptive actions currently held awaiting
                  *     approval. It is recomputed on every reconcile from the actions the
@@ -4382,10 +6610,14 @@ export interface components {
                     severity: "NonDisruptive" | "RollingRestart" | "Downtime";
                 }[];
                 /**
-                 * @description Phase of the database cluster.
+                 * @description Phase is where the Instance is in its life: Pending until the database
+                 *     is first available, Provisioned afterwards, Terminating once deletion
+                 *     is requested. The CRD sets Pending at creation; only provider-runtime
+                 *     changes it. Read the conditions for everything else.
+                 * @default Pending
                  * @enum {string}
                  */
-                phase?: "Pending" | "Provisioning" | "Initializing" | "Ready" | "Updating" | "Terminating" | "Failed" | "Restoring" | "Suspending" | "Suspended" | "Resuming";
+                phase: "Pending" | "Provisioned" | "Terminating";
                 /**
                  * @description Version is the effective version bundle that is currently applied to this
                  *     Instance. On the first reconciliation the provider-runtime writes the
@@ -4422,7 +6654,7 @@ export interface components {
             password?: string;
             /** @description Port is the port number to connect to */
             port?: string;
-            /** @description Provider is the provider that manages this instance */
+            /** @description Provider is the name of the Provider that manages this instance, as in the Instance's spec.providerRef.name. The provider-runtime reconciler writes it; a value set by the provider is replaced. */
             provider?: string;
             /** @description Type is the type of database (e.g., mongodb, postgresql, mysql) */
             type?: string;
@@ -4456,9 +6688,7 @@ export interface components {
                 /**
                  * @description ClassRef references the cluster-scoped BackupClass that defines how
                  *     this Backup is executed. The class's executionMode controls the runtime
-                 *     path: Job classes are reconciled by the in-cluster Backup job
-                 *     controller; ProviderManaged classes are reconciled by the provider's
-                 *     runtime.
+                 *     path; ProviderManaged classes are reconciled by the provider's runtime.
                  */
                 classRef: {
                     /** @description Name of the referenced object. */
@@ -4504,6 +6734,31 @@ export interface components {
                          *     is unique within its storage and is used for restore.
                          */
                         path: string;
+                        /**
+                         * @description SourceMetadata is engine-specific metadata that is used to make
+                         *     compatibility decisions for creating an Instance from this Backup.
+                         */
+                        sourceMetadata?: {
+                            /**
+                             * @description BackupType is the backup method recorded (e.g. "logical" or "physical"
+                             *     for PBM).
+                             */
+                            backupType?: string;
+                            /**
+                             * @description EngineVersion is the engine version recorded in the backup.
+                             *     Its granularity may be whatever the backup metadata records, so it
+                             *     may be a full version (e.g. a MongoDB server version like "8.0.12-4",
+                             *     a Percona XtraDB Cluster server version like "8.4.8-8.1") or only a
+                             *     major version (e.g. a PostgreSQL version like "18").
+                             */
+                            engineVersion?: string;
+                            /**
+                             * @description Topology names the source Instance's topology (e.g. "replicaSet" or
+                             *     "sharded" for PSMDB). Recorded only for backups taken by a
+                             *     ProviderManaged backup class.
+                             */
+                            topology?: string;
+                        };
                         /**
                          * Format: date-time
                          * @description StartedAt is the time when the backup started.
@@ -4597,16 +6852,7 @@ export interface components {
                  *     started. Recorded for observability.
                  * @enum {string}
                  */
-                executionMode?: "ProviderManaged" | "Job";
-                /**
-                 * @description JobRef references the Job that is running the backup.
-                 *     Populated only for Job classes. Empty for external backups, which run
-                 *     no Job.
-                 */
-                jobRef?: {
-                    /** @description Name of the referenced object. */
-                    name: string;
-                };
+                executionMode?: "ProviderManaged";
                 /**
                  * Format: int64
                  * @description LastObservedGeneration is the last observed generation of the Backup CR.
@@ -4632,10 +6878,43 @@ export interface components {
                     name: string;
                 };
                 /**
+                 * @description Path is the directory in the BackupStorage's bucket the source
+                 *     Instance writes its backups to, recorded when the backup starts so
+                 *     restores resolve after the Instance is gone. Empty for external
+                 *     backups, whose path is spec.origin.external.path.
+                 */
+                path?: string;
+                /**
                  * @description Size is the size of the backup data as reported by the engine.
                  *     Empty for external backups.
                  */
                 size?: string;
+                /**
+                 * @description SourceMetadata is the source Instance metadata recorded with the backup.
+                 *     For external backups this mirrors spec.origin.external.sourceMetadata;
+                 *     for Instance-origin backups the provider populates it from the engine.
+                 */
+                sourceMetadata?: {
+                    /**
+                     * @description BackupType is the backup method recorded (e.g. "logical" or "physical"
+                     *     for PBM).
+                     */
+                    backupType?: string;
+                    /**
+                     * @description EngineVersion is the engine version recorded in the backup.
+                     *     Its granularity may be whatever the backup metadata records, so it
+                     *     may be a full version (e.g. a MongoDB server version like "8.0.12-4",
+                     *     a Percona XtraDB Cluster server version like "8.4.8-8.1") or only a
+                     *     major version (e.g. a PostgreSQL version like "18").
+                     */
+                    engineVersion?: string;
+                    /**
+                     * @description Topology names the source Instance's topology (e.g. "replicaSet" or
+                     *     "sharded" for PSMDB). Recorded only for backups taken by a
+                     *     ProviderManaged backup class.
+                     */
+                    topology?: string;
+                };
                 /**
                  * Format: date-time
                  * @description StartedAt is the time when the backup started.
@@ -4751,8 +7030,8 @@ export interface components {
                 };
                 /**
                  * @description InstanceRef references the Instance to restore into. The Instance
-                 *     must already exist in the same namespace and use a provider listed in
-                 *     the BackupClass's SupportedProviders.
+                 *     must already exist in the same namespace and use the provider that
+                 *     executes the BackupClass.
                  */
                 instanceRef: {
                     /** @description Name of the referenced object. */
@@ -4813,15 +7092,7 @@ export interface components {
                  *     started. Recorded for observability.
                  * @enum {string}
                  */
-                executionMode?: "ProviderManaged" | "Job";
-                /**
-                 * @description JobRef references the Job that is running the restore.
-                 *     Populated only for Job classes.
-                 */
-                jobRef?: {
-                    /** @description Name of the referenced object. */
-                    name: string;
-                };
+                executionMode?: "ProviderManaged";
                 /**
                  * Format: int64
                  * @description LastObservedGeneration is the last observed generation of the Restore CR.
@@ -4891,15 +7162,69 @@ export interface components {
             metadata?: components["schemas"]["ObjectMeta"];
             /** @description BackupClassSpec defines the desired state of BackupClass. */
             spec: {
+                /**
+                 * @description BackupStorageClasses lists the BackupStorageClasses the class's executor
+                 *     can write to, each with the authentication modes it supports. A
+                 *     BackupStorage is usable with the class only when both its class and
+                 *     its authentication mode are listed.
+                 */
+                backupStorageClasses: {
+                    /**
+                     * @description AuthModes are the authentication modes of that class the executor
+                     *     supports.
+                     */
+                    authModes: string[];
+                    /** @description Name of the BackupStorageClass. */
+                    name: string;
+                    /**
+                     * @description ParametersSchema narrows the BackupStorageClass's parametersSchema to
+                     *     what the executor supports, typically the parameters of the contract
+                     *     version it was built with: a storage whose parameters it rejects
+                     *     cannot be used with the class. Absent adds no restriction.
+                     */
+                    parametersSchema?: {
+                        /**
+                         * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                         *     parameters payload.
+                         */
+                        openAPIV3Schema?: unknown;
+                    };
+                    /**
+                     * @description TLS declares which settings of BackupStorage.spec.tls the executor
+                     *     honours. Absent means None for each: a storage that uses a setting the
+                     *     executor does not support cannot be used with the class, and a
+                     *     storage without spec.tls always can.
+                     */
+                    tls?: {
+                        /**
+                         * @description CustomCA is whether the executor verifies the store against the CA
+                         *     bundle in spec.tls.ca.
+                         * @default None
+                         * @enum {string}
+                         */
+                        customCA: "Supported" | "None";
+                        /**
+                         * @description InsecureSkipVerify is whether the executor can turn certificate
+                         *     verification off, as spec.tls.insecureSkipVerify asks.
+                         * @default None
+                         * @enum {string}
+                         */
+                        insecureSkipVerify: "Supported" | "None";
+                    };
+                }[];
                 /** @description Description is the description of the backup class. */
                 description?: string;
                 /** @description DisplayName is a human-readable name for the backup class. */
                 displayName?: string;
                 /**
-                 * @description ExecutionMode selects between job-based and provider-managed execution.
+                 * @description ExecutionMode selects who executes the class's backup and restore
+                 *     operations, and discriminates the execution union: the member named
+                 *     after the mode is required, any other is forbidden. ProviderManaged is
+                 *     the only mode: the provider in providerManaged.providerRef executes
+                 *     them.
                  * @enum {string}
                  */
-                executionMode: "ProviderManaged" | "Job";
+                executionMode: "ProviderManaged";
                 /**
                  * @description InstanceConstraints defines compatibility requirements that must be
                  *     satisfied by an Instance before this backup class can be used with it.
@@ -4911,148 +7236,6 @@ export interface components {
                      *     For example, ".spec.engine.type" or ".spec.dataSource.dataImport.config.someField".
                      */
                     requiredFields?: string[];
-                };
-                /**
-                 * @description Job contains all execution detail for ExecutionMode="Job". Required
-                 *     when ExecutionMode is "Job"; must be unset when ExecutionMode is
-                 *     "ProviderManaged".
-                 */
-                job?: {
-                    /** @description Backup describes the job spawned per Backup CR. */
-                    backup: {
-                        /**
-                         * @description CleanupJobSpec is the optional specification of a cleanup job that runs
-                         *     when the parent Backup or Restore CR is deleted.
-                         */
-                        cleanupJobSpec?: {
-                            /** @description Command is the command to run the backup class. */
-                            command?: string[];
-                            /** @description Image is the image of the backup class. */
-                            image?: string;
-                        };
-                        /**
-                         * @description ClusterPermissions are cluster-scoped PolicyRules granted via a
-                         *     generated ClusterRole and ClusterRoleBinding.
-                         */
-                        clusterPermissions?: {
-                            /**
-                             * @description apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                             *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                             */
-                            apiGroups?: string[];
-                            /**
-                             * @description nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                             *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                             *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                             */
-                            nonResourceURLs?: string[];
-                            /** @description resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
-                            resourceNames?: string[];
-                            /** @description resources is a list of resources this rule applies to. '*' represents all resources. */
-                            resources?: string[];
-                            /** @description verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
-                            verbs: string[];
-                        }[];
-                        /** @description JobSpec is the specification of the backup or restore job. */
-                        jobSpec: {
-                            /** @description Command is the command to run the backup class. */
-                            command?: string[];
-                            /** @description Image is the image of the backup class. */
-                            image?: string;
-                        };
-                        /**
-                         * @description Permissions are namespace-scoped PolicyRules granted to the job pod via
-                         *     a generated Role and RoleBinding.
-                         */
-                        permissions?: {
-                            /**
-                             * @description apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                             *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                             */
-                            apiGroups?: string[];
-                            /**
-                             * @description nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                             *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                             *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                             */
-                            nonResourceURLs?: string[];
-                            /** @description resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
-                            resourceNames?: string[];
-                            /** @description resources is a list of resources this rule applies to. '*' represents all resources. */
-                            resources?: string[];
-                            /** @description verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
-                            verbs: string[];
-                        }[];
-                    };
-                    /**
-                     * @description Restore describes the job spawned per Restore CR. When unset, restores
-                     *     are not supported by this class.
-                     */
-                    restore?: {
-                        /**
-                         * @description CleanupJobSpec is the optional specification of a cleanup job that runs
-                         *     when the parent Backup or Restore CR is deleted.
-                         */
-                        cleanupJobSpec?: {
-                            /** @description Command is the command to run the backup class. */
-                            command?: string[];
-                            /** @description Image is the image of the backup class. */
-                            image?: string;
-                        };
-                        /**
-                         * @description ClusterPermissions are cluster-scoped PolicyRules granted via a
-                         *     generated ClusterRole and ClusterRoleBinding.
-                         */
-                        clusterPermissions?: {
-                            /**
-                             * @description apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                             *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                             */
-                            apiGroups?: string[];
-                            /**
-                             * @description nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                             *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                             *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                             */
-                            nonResourceURLs?: string[];
-                            /** @description resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
-                            resourceNames?: string[];
-                            /** @description resources is a list of resources this rule applies to. '*' represents all resources. */
-                            resources?: string[];
-                            /** @description verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
-                            verbs: string[];
-                        }[];
-                        /** @description JobSpec is the specification of the backup or restore job. */
-                        jobSpec: {
-                            /** @description Command is the command to run the backup class. */
-                            command?: string[];
-                            /** @description Image is the image of the backup class. */
-                            image?: string;
-                        };
-                        /**
-                         * @description Permissions are namespace-scoped PolicyRules granted to the job pod via
-                         *     a generated Role and RoleBinding.
-                         */
-                        permissions?: {
-                            /**
-                             * @description apiGroups is the name of the APIGroup that contains the resources.  If multiple API groups are specified, any action requested against one of
-                             *     the enumerated resources in any API group will be allowed. "" represents the core API group and "*" represents all API groups.
-                             */
-                            apiGroups?: string[];
-                            /**
-                             * @description nonResourceURLs is a set of partial urls that a user should have access to.  *s are allowed, but only as the full, final step in the path
-                             *     Since non-resource URLs are not namespaced, this field is only applicable for ClusterRoles referenced from a ClusterRoleBinding.
-                             *     Rules can either apply to API resources (such as "pods" or "secrets") or non-resource URL paths (such as "/api"),  but not both.
-                             */
-                            nonResourceURLs?: string[];
-                            /** @description resourceNames is an optional white list of names that the rule applies to.  An empty set means that everything is allowed. */
-                            resourceNames?: string[];
-                            /** @description resources is a list of resources this rule applies to. '*' represents all resources. */
-                            resources?: string[];
-                            /** @description verbs is a list of Verbs that apply to ALL the ResourceKinds contained in this rule. '*' represents all verbs. */
-                            verbs: string[];
-                        }[];
-                    };
                 };
                 /**
                  * @description ParametersSchema declares the OpenAPI v3 schema describing the
@@ -5067,11 +7250,9 @@ export interface components {
                     openAPIV3Schema?: unknown;
                 };
                 /**
-                 * @description ProviderManaged contains hints for ExecutionMode="ProviderManaged". The
-                 *     schema is intentionally open: providers may surface capability
-                 *     information (e.g., whether PITR is supported, schedule expression
-                 *     dialect) without forcing a CRD change. Must be unset when
-                 *     ExecutionMode is "Job".
+                 * @description ProviderManaged is the member of the execution union for
+                 *     ExecutionMode=ProviderManaged: the provider that executes the class and
+                 *     what it supports. Required for that mode, forbidden for any other.
                  */
                 providerManaged?: {
                     /**
@@ -5119,6 +7300,15 @@ export interface components {
                         openAPIV3Schema?: unknown;
                     };
                     /**
+                     * @description ProviderRef names the Provider that claims and executes the class. It
+                     *     is immutable: moving a class to another provider is delete and
+                     *     recreate.
+                     */
+                    providerRef: {
+                        /** @description Name of the referenced object. */
+                        name: string;
+                    };
+                    /**
                      * @description SupportsPITR indicates whether this class supports point-in-time recovery.
                      *     Used by Restore validation when Restore.spec.dataSource.pitr is set.
                      */
@@ -5137,11 +7327,10 @@ export interface components {
                     openAPIV3Schema?: unknown;
                 };
                 /**
-                 * @description SupportedProviders is the list of provider names that this backup class
-                 *     supports. The Instance.spec.provider must appear in this list for the
-                 *     class to be usable on that Instance.
+                 * @description SupportsImport indicates whether the owner of this class can discover and
+                 *     import restorable backups already sitting in a BackupStorage.
                  */
-                supportedProviders?: string[];
+                supportsImport?: boolean;
                 /**
                  * @description UISchema contains free-form rendering hints for the frontend forms that
                  *     configure backup, restore, and PITR for an Instance using this class.
@@ -5151,8 +7340,28 @@ export interface components {
                  */
                 uiSchema?: Record<string, never>;
             };
-            /** @description BackupClassStatus defines the observed state of BackupClass. */
-            status?: {
+            /**
+             * @description BackupClassStatus defines the observed state of BackupClass. It has two
+             *     writers, each applying only its own fields with server-side apply: the
+             *     executor that claims the class owns the Accepted condition and core owns
+             *     providers.
+             * @default {
+             *       "conditions": [
+             *         {
+             *           "lastTransitionTime": "1970-01-01T00:00:00Z",
+             *           "message": "Waiting for the executor to claim the class",
+             *           "reason": "Pending",
+             *           "status": "Unknown",
+             *           "type": "Accepted"
+             *         }
+             *       ]
+             *     }
+             */
+            status: {
+                /**
+                 * @description Conditions: Accepted, set by the class's executor when it claims the
+                 *     class, with the observedGeneration it judged.
+                 */
                 conditions?: {
                     /**
                      * Format: date-time
@@ -5187,6 +7396,31 @@ export interface components {
                     status: "True" | "False" | "Unknown";
                     /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
                     type: string;
+                }[];
+                /**
+                 * @description Providers is the compatibility of the class with each Provider that
+                 *     can execute it: for a ProviderManaged class, the Provider in
+                 *     providerManaged.providerRef. A Provider that is not listed is
+                 *     incompatible. Written by core.
+                 */
+                providers?: {
+                    /**
+                     * Format: int64
+                     * @description ClassGeneration is the generation of the class the entry was computed
+                     *     for. An entry for another generation counts as Pending.
+                     */
+                    classGeneration?: number;
+                    /**
+                     * @description Compatibility is whether Instances of the Provider can use the class.
+                     * @enum {string}
+                     */
+                    compatibility: "Compatible" | "Pending" | "Incompatible";
+                    /** @description Message is the human-readable detail of Reason. */
+                    message?: string;
+                    /** @description Name is the Provider name. */
+                    name: string;
+                    /** @description Reason is why the class is not Compatible. */
+                    reason?: string;
                 }[];
             };
         };
@@ -5302,7 +7536,7 @@ export interface components {
                  * @description State is the current state of the backup import.
                  * @enum {string}
                  */
-                state?: "Succeeded" | "Failed" | "Error";
+                state?: "Pending" | "Succeeded" | "Failed" | "Error";
             };
         };
         /** @description BackupImportList is an object that contains the list of the existing backupimports. */
@@ -5317,6 +7551,111 @@ export interface components {
                 name?: string;
                 /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
                 namespace?: string;
+            };
+        };
+        /**
+         * @description BackupStorageClass describes an object storage technology that
+         *     BackupStorages reference. It is pure data: the backup classes that can write
+         *     to it declare so in BackupClass.spec.backupStorageClasses. Its name is at
+         *     most 63 characters because a credentials Secret names its class in the
+         *     openeverest.io/backup-storage-class label.
+         */
+        BackupStorageClass: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: components["schemas"]["ObjectMeta"];
+            /**
+             * @description BackupStorageClassSpec describes one object storage technology: how a
+             *     BackupStorage of the technology is reached and how it authenticates.
+             */
+            spec: {
+                /**
+                 * @description AuthModes lists the authentication modes of the technology, each with
+                 *     the credentials Secret keys it needs.
+                 */
+                authModes: {
+                    /** @description Credentials lists the keys the credentials Secret must or may carry. */
+                    credentials?: {
+                        /** @description Optional keys are read when present. */
+                        optional?: string[];
+                        /** @description Required keys must be present and non-empty. */
+                        required: string[];
+                    };
+                    /** @description Name identifies the mode, in PascalCase (e.g. AccessKey, BasicAuth). */
+                    name: string;
+                }[];
+                /** @description Description of the technology. */
+                description?: string;
+                /** @description DisplayName is the human-readable name of the technology. */
+                displayName?: string;
+                /**
+                 * @description ParametersSchema validates BackupStorage.spec.parameters, the
+                 *     connection parameters of the technology. The bucket and prefix are
+                 *     BackupStorage.spec.location and transport trust is
+                 *     BackupStorage.spec.tls, so neither belongs in it.
+                 */
+                parametersSchema?: {
+                    /**
+                     * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                     *     parameters payload.
+                     */
+                    openAPIV3Schema?: unknown;
+                };
+                /**
+                 * @description UISchema holds rendering hints for the forms that create a
+                 *     BackupStorage of the class, grouped by form: "location" for
+                 *     spec.location, "storage" for spec.parameters and "credentials" keyed by
+                 *     authentication mode.
+                 */
+                uiSchema?: Record<string, never>;
+                /**
+                 * @description Validations are CEL rules every BackupStorage of the class must
+                 *     satisfy, for constraints parametersSchema cannot express, such as a
+                 *     naming rule on location.objectStore.bucket or a rule across parameters
+                 *     and tls. self is the BackupStorage's spec. A violation sets the
+                 *     storage's Accepted condition to False with the rule's reason,
+                 *     InvalidLocation or InvalidParameters, and its message.
+                 */
+                validations?: {
+                    /**
+                     * @description Expression is a CEL expression that is true for a valid object. self is
+                     *     the referencing object's spec, with its parameters typed by the class's
+                     *     parameters schema. oldSelf is not available.
+                     */
+                    expression: string;
+                    /** @description Message explains a violation to the user. */
+                    message: string;
+                    /**
+                     * @description Reason is the reason of the condition a violation sets on the
+                     *     referencing object. Each class kind lists the reasons it accepts.
+                     */
+                    reason: string;
+                }[];
+            };
+        };
+        /** @description BackupStorageClassList is an object that contains the list of the existing backupstorageclasss. */
+        BackupStorageClassList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["BackupStorageClass"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
             };
         };
         /** @description BackupStorage is the Schema for the backupstorages API. */
@@ -5338,69 +7677,169 @@ export interface components {
             kind?: string;
             metadata?: components["schemas"]["ObjectMeta"];
             /**
-             * @description BackupStorageSpec defines the desired state of a BackupStorage.
-             *
-             *     A BackupStorage is a reusable, namespaced reference to an object store
-             *     (today only S3-compatible) plus the credentials needed to talk to it.
-             *     It is referenced by name from:
-             *
-             *       - Instance.spec.backup.storages[].storageRef
-             *       - Backup.spec.storageRef
-             *
-             *     Decoupling storage from individual Backup CRs makes provider-managed
-             *     backups (e.g. PBM, pgBackRest) practical: the provider can register a
-             *     fixed set of storages on the engine without recomputing them from a
-             *     dynamic list of Backup CRs.
+             * @description BackupStorageSpec defines the desired state of a BackupStorage: an object
+             *     store, of the technology a BackupStorageClass describes, that backups are
+             *     written to. It is referenced by name from Instance.spec.backup.storages,
+             *     Backup.spec.storageRef, Restore point-in-time sources and BackupImports.
              */
             spec: {
                 /**
-                 * @description S3 contains S3-compatible storage configuration.
-                 *     Required when Type is "s3".
+                 * @description Authentication names one of the class's authModes and, for every mode
+                 *     but WorkloadIdentity, the Secret in the same namespace holding that
+                 *     mode's credentials keys.
                  */
-                s3?: {
+                authentication: {
                     /**
-                     * @description AccessKeyID is a write-only convenience input. When set, a webhook
-                     *     stores it in the Secret named by CredentialsSecretRef and clears
-                     *     this field. It is never persisted on the BackupStorage object.
+                     * @description CredentialsSecretRef references the Secret in the same namespace that
+                     *     holds the credentials keys of the mode.
                      */
-                    accessKeyId?: string;
-                    /** @description Bucket is the name of the S3 bucket. */
-                    bucket: string;
-                    /**
-                     * @description CredentialsSecretRef references the Secret in the same namespace
-                     *     that holds the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY keys.
-                     */
-                    credentialsSecretRef: {
+                    credentialsSecretRef?: {
                         /** @description Name of the referenced Secret. */
                         name: string;
                     };
-                    /** @description EndpointURL is the endpoint URL of the S3-compatible service. */
-                    endpointURL: string;
-                    /**
-                     * @description ForcePathStyle forces path-style URLs (bucket name in the path
-                     *     instead of the host). Defaults to false.
-                     * @default false
-                     */
-                    forcePathStyle: boolean;
-                    /** @description Region is the region of the S3 bucket. */
-                    region: string;
-                    /** @description SecretAccessKey is a write-only convenience input. See AccessKeyID. */
-                    secretAccessKey?: string;
-                    /**
-                     * @description VerifyTLS enables TLS certificate verification.
-                     *     Defaults to true.
-                     * @default true
-                     */
-                    verifyTLS: boolean;
+                    /** @description Mode names one of the class's authModes. */
+                    mode: string;
                 };
                 /**
-                 * @description Type is the object storage type. Today only "s3" is supported.
-                 * @enum {string}
+                 * @description BackupStorageClassRef names the BackupStorageClass, the object storage
+                 *     technology.
                  */
-                type: "s3";
+                backupStorageClassRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
+                /**
+                 * @description Location is where backups are kept. Engines treat it as their catalog,
+                 *     so it cannot change: create a new BackupStorage instead.
+                 */
+                location: {
+                    /** @description ObjectStore is a bucket, and a prefix within it, in an object store. */
+                    objectStore: {
+                        /**
+                         * @description Bucket is the bucket, or the container for technologies that call it
+                         *     so.
+                         */
+                        bucket: string;
+                        /**
+                         * @description Prefix is the path within the bucket under which backups are written,
+                         *     without leading or trailing slash.
+                         */
+                        prefix?: string;
+                    };
+                };
+                /**
+                 * @description Parameters are the connection parameters of the technology, validated
+                 *     against the class's parametersSchema.
+                 */
+                parameters?: Record<string, never>;
+                /**
+                 * @description TLS is how executors verify the server certificate of the store.
+                 *     Absent means the system trust store.
+                 */
+                tls?: {
+                    /**
+                     * @description CA is the PEM bundle the server certificate is verified against,
+                     *     instead of the system trust store.
+                     */
+                    ca?: {
+                        /** @description SecretKeyRef selects the Secret key holding the PEM bundle. */
+                        secretKeyRef?: {
+                            /** @description Key within the Secret. */
+                            key: string;
+                            /** @description Name of the referenced Secret. */
+                            name: string;
+                        };
+                    };
+                    /** @description InsecureSkipVerify disables verification of the server certificate. */
+                    insecureSkipVerify?: boolean;
+                };
             };
-            /** @description BackupStorageStatus defines the observed state of a BackupStorage. */
-            status?: Record<string, never>;
+            /**
+             * @description BackupStorageStatus defines the observed state of a BackupStorage. Core
+             *     writes all of it.
+             */
+            status?: {
+                /**
+                 * @description BackupClasses is whether each Accepted BackupClass can write to the
+                 *     storage. Read an entry through CurrentVerdict, which treats an entry
+                 *     computed from other objects than the current ones as Pending.
+                 */
+                backupClasses?: {
+                    /**
+                     * @description Compatibility is whether the class can write to the storage.
+                     * @enum {string}
+                     */
+                    compatibility: "Compatible" | "Pending" | "Incompatible";
+                    /** @description Message is the human-readable detail of Reason. */
+                    message?: string;
+                    /** @description Name is the BackupClass name. */
+                    name: string;
+                    /** @description Observed identifies the objects the verdict was computed from. */
+                    observed: {
+                        /**
+                         * Format: int64
+                         * @description ClassGeneration is the generation of the BackupClass.
+                         */
+                        classGeneration?: number;
+                        /** @description ClassUID is the UID of the BackupClass. */
+                        classUID?: string;
+                        /**
+                         * Format: int64
+                         * @description StorageClassGeneration is the generation of the storage's
+                         *     BackupStorageClass.
+                         */
+                        storageClassGeneration?: number;
+                        /** @description StorageClassUID is the UID of the storage's BackupStorageClass. */
+                        storageClassUID?: string;
+                        /**
+                         * Format: int64
+                         * @description StorageGeneration is the generation of the BackupStorage.
+                         */
+                        storageGeneration?: number;
+                    };
+                    /** @description Reason is why the class cannot write to the storage, or not yet. */
+                    reason?: string;
+                }[];
+                /**
+                 * @description Conditions: Accepted, and Deleting while a deleted storage waits for
+                 *     its referrers.
+                 */
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+            };
         };
         /** @description BackupStorageList is an object that contains the list of the existing backupstorages. */
         BackupStorageList: {
@@ -5416,8 +7855,11 @@ export interface components {
                 namespace?: string;
             };
         };
-        /** @description MonitoringConfig is the Schema for the monitoringconfigs API. */
-        MonitoringConfig: {
+        /**
+         * @description MonitoringClass is one monitoring technology, claimed by the out-of-tree
+         *     controller that serves it.
+         */
+        MonitoringClass: {
             /**
              * @description APIVersion defines the versioned schema of this representation of an object.
              *     Servers should convert recognized schemas to the latest internal value, and
@@ -5434,66 +7876,527 @@ export interface components {
              */
             kind?: string;
             metadata?: components["schemas"]["ObjectMeta"];
-            /** @description spec defines the desired state of MonitoringConfig */
+            /** @description MonitoringClassSpec defines the desired state of MonitoringClass. */
             spec: {
                 /**
-                 * @description PMM contains PMM-specific monitoring configuration.
-                 *     Required when type is "pmm".
+                 * @description AuthModes lists the authentication methods a MonitoringDestination of
+                 *     this class can use. A mode the class defines is Secret-backed and lists
+                 *     its credentials keys; WorkloadIdentity and Anonymous are reserved by
+                 *     core and take no Secret.
                  */
-                pmm?: {
+                authModes: {
+                    /** @description Credentials lists the keys the credentials Secret must or may carry. */
+                    credentials?: {
+                        /** @description Optional keys are read when present. */
+                        optional?: string[];
+                        /** @description Required keys must be present and non-empty. */
+                        required: string[];
+                    };
+                    /** @description Name identifies the mode, in PascalCase (e.g. AccessKey, BasicAuth). */
+                    name: string;
+                }[];
+                /**
+                 * @description ControllerName is the controller that claims the class and sets its
+                 *     Accepted condition, as GatewayClass.spec.controllerName: a
+                 *     domain-qualified path (e.g. "openeverest.io/monitoring-pmm"). One
+                 *     controller may claim several classes. Immutable.
+                 */
+                controllerName: string;
+                /** @description Description describes the monitoring technology. */
+                description?: string;
+                /** @description DestinationParametersSchema validates MonitoringDestination.spec.parameters. */
+                destinationParametersSchema?: {
                     /**
-                     * @description CredentialsSecretRef references the Secret in the same namespace
-                     *     containing the API key. It contains an `apiKey` key with the API key
-                     *     value.
+                     * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                     *     parameters payload.
                      */
-                    credentialsSecretRef: {
+                    openAPIV3Schema?: unknown;
+                };
+                /** @description DisplayName is a human-readable name for the monitoring technology. */
+                displayName?: string;
+                /**
+                 * @description ExtensionManaged declares that the class controller wires the backend
+                 *     from the provider's monitoring contract alone
+                 *     (Instance.status.monitoring.sources).
+                 */
+                extensionManaged?: {
+                    /**
+                     * @description PodMetadata lets the class controller request annotations on the
+                     *     pods of bound Instances (status.podMetadata of its bindings), for
+                     *     backends whose agents discover databases through pod annotations. The
+                     *     provider renders them into the pod templates, which rolls the pods.
+                     *     When set, only component types declaring podMetadata: Supported are
+                     *     eligible.
+                     */
+                    podMetadata?: {
+                        /**
+                         * @description AnnotationPrefixes are the annotation key prefixes the class
+                         *     controller may request, each a DNS subdomain followed by "/"
+                         *     (e.g. "coroot.com/"). Kubernetes and OpenEverest prefixes are
+                         *     reserved.
+                         */
+                        annotationPrefixes: string[];
+                    };
+                    /**
+                     * @description Requires lists the source capabilities a component must satisfy to
+                     *     be eligible for this class.
+                     */
+                    requires?: {
+                        /**
+                         * @description Connection requires the component to accept native-protocol
+                         *     connections from monitoring agents (connection: Supported).
+                         */
+                        connection?: boolean;
+                        /**
+                         * @description Kinds, when set, makes only the components whose type's kind
+                         *     (Provider.spec.componentTypes.<type>.kind) is listed eligible. Empty
+                         *     means any kind.
+                         */
+                        kinds?: string[];
+                        /**
+                         * @description Metrics requires the component to expose OpenMetrics
+                         *     (metrics: Native or Exporter).
+                         */
+                        metrics?: boolean;
+                    };
+                };
+                /**
+                 * @description InstanceParametersSchema validates
+                 *     Instance.spec.monitoring.destinations[].parameters.
+                 */
+                instanceParametersSchema?: {
+                    /**
+                     * @description OpenAPIV3Schema is the OpenAPI v3 schema describing the accepted
+                     *     parameters payload.
+                     */
+                    openAPIV3Schema?: unknown;
+                };
+                /**
+                 * @description ProviderManaged declares that providers whose engine operator natively
+                 *     integrates this technology render it themselves inside Sync. Matched
+                 *     against Provider.spec.monitoring.integrations.
+                 */
+                providerManaged?: {
+                    /**
+                     * @description AgentImage is the agent image the provider renders into the engine
+                     *     pods. It is admin-controlled: only class writers can change what runs
+                     *     next to the data volumes.
+                     */
+                    agentImage: string;
+                    /**
+                     * @description AgentVersion is the semantic version of AgentImage, matched against
+                     *     Provider.spec.monitoring.integrations.<integration>.agentVersions.
+                     */
+                    agentVersion: string;
+                    /**
+                     * @description Integration is the integration name providers declare in
+                     *     Provider.spec.monitoring.integrations (e.g. "pmm"). Immutable.
+                     */
+                    integration: string;
+                };
+                /**
+                 * @description UISchema holds free-form form-rendering hints consumed only by the UI,
+                 *     grouped by the form they decorate (destination, instance, and
+                 *     credentials keyed by authentication mode).
+                 */
+                uiSchema?: Record<string, never>;
+            };
+            /**
+             * @description MonitoringClassStatus defines the observed state of MonitoringClass. It
+             *     has two writers, each applying only its own fields: the claiming
+             *     controller owns the Accepted condition and core owns providers.
+             * @default {
+             *       "conditions": [
+             *         {
+             *           "lastTransitionTime": "1970-01-01T00:00:00Z",
+             *           "message": "Waiting for controller",
+             *           "reason": "Pending",
+             *           "status": "Unknown",
+             *           "type": "Accepted"
+             *         }
+             *       ]
+             *     }
+             */
+            status: {
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+                /**
+                 * @description Providers is the compatibility of this class with every installed
+                 *     Provider.
+                 */
+                providers?: {
+                    /**
+                     * Format: int64
+                     * @description ClassGeneration is the class's metadata.generation the entry was
+                     *     computed for. An entry computed for another generation is stale.
+                     */
+                    classGeneration?: number;
+                    /**
+                     * @description Disruption is the worst that enabling the class does to the pods of
+                     *     one of the Provider's Instances. Set when Mode is set.
+                     * @enum {string}
+                     */
+                    disruption?: "None" | "RollingRestart";
+                    /** @description Message is the human-readable detail for Reason. */
+                    message?: string;
+                    /**
+                     * @description Mode is the execution mode a binding of this class gets for the
+                     *     Provider's Instances. Empty when the Provider is incompatible.
+                     * @enum {string}
+                     */
+                    mode?: "ProviderManaged" | "ExtensionManaged";
+                    /** @description Name is the Provider name. */
+                    name: string;
+                    /** @description Reason explains an empty Mode. */
+                    reason?: string;
+                }[];
+            };
+        };
+        /** @description MonitoringClassList is an object that contains the list of the existing monitoringclasss. */
+        MonitoringClassList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["MonitoringClass"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+            };
+        };
+        /**
+         * @description MonitoringDestination is one place a namespace sends monitoring data to,
+         *     typed by a MonitoringClass. Instances send to it through
+         *     spec.monitoring.destinations[].
+         */
+        MonitoringDestination: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: components["schemas"]["ObjectMeta"];
+            /** @description MonitoringDestinationSpec defines the desired state of MonitoringDestination. */
+            spec: {
+                /**
+                 * @description Authentication names one of the class's authModes and, for every mode
+                 *     but WorkloadIdentity and Anonymous, the Secret in the same namespace
+                 *     holding that mode's credentials keys. Defaults to mode Anonymous, which
+                 *     only classes that list Anonymous accept.
+                 * @default {
+                 *       "mode": "Anonymous"
+                 *     }
+                 */
+                authentication: {
+                    /**
+                     * @description CredentialsSecretRef references the Secret in the same namespace that
+                     *     holds the credentials keys of the mode.
+                     */
+                    credentialsSecretRef?: {
                         /** @description Name of the referenced Secret. */
                         name: string;
                     };
-                    /** @description URL is the URL of the PMM server. */
-                    url: string;
-                    /**
-                     * @description VerifyTLS is set to ensure TLS/SSL verification.
-                     *     If unspecified, the default value is true.
-                     * @default true
-                     */
-                    verifyTLS: boolean;
+                    /** @description Mode names one of the class's authModes. */
+                    mode: string;
                 };
                 /**
-                 * @description Type is the name of monitoring tool (e.g., "pmm").
-                 * @enum {string}
+                 * @description ClassRef references the cluster-scoped MonitoringClass this destination
+                 *     belongs to. Immutable.
                  */
-                type: "pmm";
+                classRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
+                /**
+                 * @description Parameters are validated against
+                 *     MonitoringClass.spec.destinationParametersSchema.
+                 */
+                parameters?: Record<string, never>;
+                /** @description TLS is how the backend's certificate is verified. */
+                tls?: {
+                    /**
+                     * @description CA is the PEM bundle the server certificate is verified against,
+                     *     instead of the system trust store.
+                     */
+                    ca?: {
+                        /** @description SecretKeyRef selects the Secret key holding the PEM bundle. */
+                        secretKeyRef?: {
+                            /** @description Key within the Secret. */
+                            key: string;
+                            /** @description Name of the referenced Secret. */
+                            name: string;
+                        };
+                    };
+                    /** @description InsecureSkipVerify disables verification of the server certificate. */
+                    insecureSkipVerify?: boolean;
+                };
             };
             /**
-             * @description status defines the observed state of MonitoringConfig
+             * @description MonitoringDestinationStatus defines the observed state of
+             *     MonitoringDestination.
              * @default {
-             *       "inUse": false
+             *       "conditions": [
+             *         {
+             *           "lastTransitionTime": "1970-01-01T00:00:00Z",
+             *           "message": "Waiting for controller",
+             *           "reason": "Pending",
+             *           "status": "Unknown",
+             *           "type": "Ready"
+             *         }
+             *       ]
              *     }
              */
             status: {
                 /**
-                 * @description InUse is a flag that indicates if any Instance uses the monitoring config.
-                 * @default false
+                 * Format: int32
+                 * @description AttachedInstances is the number of Instances in this namespace whose
+                 *     spec.monitoring.destinations lists this destination, whatever the
+                 *     state of their binding. While the destination is not being deleted,
+                 *     Instances being deleted are left out, so an Instance and then its
+                 *     destination can be deleted right away; once the destination is being
+                 *     deleted, they count too, and the number is what its deletion waits
+                 *     for. Written by core; deleting the destination is refused while it is
+                 *     above zero.
                  */
-                inUse: boolean;
+                attachedInstances?: number;
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
                 /**
-                 * Format: int64
-                 * @description LastObservedGeneration is the most recent generation observed for this MonitoringConfig.
+                 * @description ServerVersion is the backend server version probed by the class
+                 *     controller.
                  */
-                lastObservedGeneration?: number;
-                /** @description PMM contains PMM-specific status information. */
-                pmm?: {
-                    /** @description ServerVersion shows the PMM server version. */
-                    serverVersion?: string;
-                };
+                serverVersion?: string;
             };
         };
-        /** @description MonitoringConfigList is an object that contains the list of the existing monitoringconfigs. */
-        MonitoringConfigList: {
+        /** @description MonitoringDestinationList is an object that contains the list of the existing monitoringdestinations. */
+        MonitoringDestinationList: {
             /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
             apiVersion?: string;
-            items?: components["schemas"]["MonitoringConfig"][];
+            items?: components["schemas"]["MonitoringDestination"][];
+            /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
+            kind?: string;
+            metadata?: {
+                /** @description Name must be unique within a namespace. Is required when creating resources, although some resources may allow a client to request the generation of an appropriate name automatically. Name is primarily intended for creation idempotence and configuration definition. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names#names */
+                name?: string;
+                /** @description Namespace defines the space within which each name must be unique. An empty namespace is equivalent to the "default" namespace, but "default" is the canonical representation. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces */
+                namespace?: string;
+            };
+        };
+        /**
+         * @description MonitoringBinding records that OpenEverest has configured one Instance to
+         *     send monitoring data to one MonitoringDestination. Created from
+         *     Instance.spec.monitoring.destinations[]; edit the Instance, not this object.
+         */
+        MonitoringBinding: {
+            /**
+             * @description APIVersion defines the versioned schema of this representation of an object.
+             *     Servers should convert recognized schemas to the latest internal value, and
+             *     may reject unrecognized values.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+             */
+            apiVersion?: string;
+            /**
+             * @description Kind is a string value representing the REST resource this object represents.
+             *     Servers may infer this from the endpoint the client submits requests to.
+             *     Cannot be updated.
+             *     In CamelCase.
+             *     More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+             */
+            kind?: string;
+            metadata?: components["schemas"]["ObjectMeta"];
+            /**
+             * @description MonitoringBindingSpec is written only by core. It is immutable except for
+             *     parameters; classRef and executionMode are set once, when the destination
+             *     and class first resolve.
+             */
+            spec: {
+                /** @description ClassRef is copied from the MonitoringDestination once it resolves. */
+                classRef?: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
+                /**
+                 * @description DestinationRef is copied from the Instance.spec.monitoring.destinations[]
+                 *     entry. Immutable.
+                 */
+                destinationRef: {
+                    /**
+                     * @description Kind of the referenced object.
+                     * @default MonitoringDestination
+                     * @enum {string}
+                     */
+                    kind: "MonitoringDestination";
+                    /**
+                     * @description Name of the referenced object. At most 63 characters, since it is also
+                     *     a label value on the MonitoringBinding.
+                     */
+                    name: string;
+                };
+                /**
+                 * @description ExecutionMode selects the executor that owns the Configured condition.
+                 *     Set once, at first successful resolution.
+                 * @enum {string}
+                 */
+                executionMode?: "ProviderManaged" | "ExtensionManaged";
+                /** @description InstanceRef references the Instance in the same namespace. Immutable. */
+                instanceRef: {
+                    /** @description Name of the referenced object. */
+                    name: string;
+                };
+                /**
+                 * @description Parameters are copied from the Instance.spec.monitoring.destinations[]
+                 *     entry.
+                 */
+                parameters?: Record<string, never>;
+            };
+            /**
+             * @description MonitoringBindingStatus is written per condition type by its owner.
+             * @default {
+             *       "conditions": [
+             *         {
+             *           "lastTransitionTime": "1970-01-01T00:00:00Z",
+             *           "message": "Waiting for executor",
+             *           "reason": "Pending",
+             *           "status": "Unknown",
+             *           "type": "Configured"
+             *         }
+             *       ]
+             *     }
+             */
+            status: {
+                conditions?: {
+                    /**
+                     * Format: date-time
+                     * @description lastTransitionTime is the last time the condition transitioned from one status to another.
+                     *     This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                     */
+                    lastTransitionTime: string;
+                    /**
+                     * @description message is a human readable message indicating details about the transition.
+                     *     This may be an empty string.
+                     */
+                    message: string;
+                    /**
+                     * Format: int64
+                     * @description observedGeneration represents the .metadata.generation that the condition was set based upon.
+                     *     For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                     *     with respect to the current state of the instance.
+                     */
+                    observedGeneration?: number;
+                    /**
+                     * @description reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                     *     Producers of specific condition types may define expected values and meanings for this field,
+                     *     and whether the values are considered a guaranteed API.
+                     *     The value should be a CamelCase string.
+                     *     This field may not be empty.
+                     */
+                    reason: string;
+                    /**
+                     * @description status of the condition, one of True, False, Unknown.
+                     * @enum {string}
+                     */
+                    status: "True" | "False" | "Unknown";
+                    /** @description type of condition in CamelCase or in foo.example.com/CamelCase. */
+                    type: string;
+                }[];
+                /**
+                 * @description PodMetadata is the pod metadata the class controller of an
+                 *     ExtensionManaged binding requests per component, written together
+                 *     with Configured. provider-runtime hands the annotations allowed by
+                 *     the class's spec.extensionManaged.podMetadata to the provider, which
+                 *     renders them on the component's pods.
+                 */
+                podMetadata?: {
+                    /** @description Annotations to set on the component's pods. */
+                    annotations?: {
+                        [key: string]: string;
+                    };
+                    /** @description Component is the Instance component name. */
+                    component: string;
+                }[];
+            };
+        };
+        /** @description MonitoringBindingList is an object that contains the list of the existing monitoringbindings. */
+        MonitoringBindingList: {
+            /** @description APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources */
+            apiVersion?: string;
+            items?: components["schemas"]["MonitoringBinding"][];
             /** @description Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds */
             kind?: string;
             metadata?: {
@@ -5505,9 +8408,19 @@ export interface components {
         };
     };
     responses: never;
-    parameters: never;
+    parameters: {
+        /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+        DryRun: "All";
+    };
     requestBodies: never;
-    headers: never;
+    headers: {
+        /**
+         * @description A warning Kubernetes returned while handling the request, such as an admission webhook reporting that a Secret the Instance names does not exist yet.
+         *     The header is repeated once per distinct warning, and each value has Kubernetes' warning format, `299 - "<text>"`, the `Warning` field of RFC 7234.
+         * @example 299 - "secret \"db-credentials\" named by spec.userSecretRef not found"
+         */
+        Warning: string;
+    };
     pathItems: never;
 }
 export type $defs = Record<string, never>;
@@ -5701,82 +8614,6 @@ export interface operations {
             };
         };
     };
-    getKubernetesClusterResources: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful operation */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KubernetesClusterResources"];
-                };
-            };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    getKubernetesClusterInfo: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful operation */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["KubernetesClusterInfo"];
-                };
-            };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
     listClusters: {
         parameters: {
             query?: never;
@@ -5827,6 +8664,15 @@ export interface operations {
                     "application/json": components["schemas"]["Cluster"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Cluster not found */
             404: {
                 headers: {
@@ -5838,6 +8684,90 @@ export interface operations {
             };
             /** @description Internal server error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listStorageClasses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of storage classes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageClassList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getStorageClass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The name of the storage class */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Storage class details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageClass"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Storage class not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5870,6 +8800,93 @@ export interface operations {
             };
         };
     };
+    listClusterInstancePresets: {
+        parameters: {
+            query?: {
+                /** @description Filter presets by provider name */
+                provider?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of cluster instance presets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClusterInstancePresetList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getClusterInstancePreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The name of the cluster instance preset */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cluster instance preset details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClusterInstancePreset"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Cluster instance preset not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listInstancePresets: {
         parameters: {
             query?: {
@@ -5880,6 +8897,8 @@ export interface operations {
             path: {
                 /** @description The name of the cluster */
                 cluster: string;
+                /** @description The namespace where instance presets are located */
+                namespace: string;
             };
             cookie?: never;
         };
@@ -5905,6 +8924,90 @@ export interface operations {
             };
         };
     };
+    createInstancePreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace where the instance preset will be created */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        /** @description The instance preset object to be created */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstancePreset"];
+            };
+        };
+        responses: {
+            /** @description Instance preset created successfully */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstancePreset"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getInstancePreset: {
         parameters: {
             query?: never;
@@ -5912,6 +9015,8 @@ export interface operations {
             path: {
                 /** @description The name of the cluster */
                 cluster: string;
+                /** @description The namespace where the instance preset is located */
+                namespace: string;
                 /** @description The name of the instance preset */
                 name: string;
             };
@@ -5926,6 +9031,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstancePreset"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Instance preset not found */
@@ -5948,30 +9062,52 @@ export interface operations {
             };
         };
     };
-    resolveInstancePreset: {
+    updateInstancePreset: {
         parameters: {
-            query: {
-                /** @description The namespace for which to resolve default values */
-                namespace: string;
-            };
+            query?: never;
             header?: never;
             path: {
                 /** @description The name of the cluster */
                 cluster: string;
+                /** @description The namespace where the instance preset is located */
+                namespace: string;
                 /** @description The name of the instance preset */
                 name: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        /** @description The instance preset object to be updated */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstancePreset"];
+            };
+        };
         responses: {
-            /** @description Resolved instance preset with namespace defaults */
+            /** @description Instance preset updated successfully */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["InstancePreset"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Instance preset not found */
@@ -5981,6 +9117,85 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteInstancePreset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace where the instance preset is located */
+                namespace: string;
+                /** @description The name of the instance preset */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Instance preset deleted successfully */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Instance preset not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -6047,6 +9262,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Provider"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Provider not found */
@@ -6133,6 +9357,66 @@ export interface operations {
             };
         };
     };
+    listEvents: {
+        parameters: {
+            query?: {
+                /** @description Comma-separated namespaces to return events from. All namespaces when empty. */
+                namespaces?: string;
+                /** @description Comma-separated kinds of objects to return events about, e.g. `Instance,Backup`. */
+                kinds?: string;
+                /** @description Comma-separated reasons to return, e.g. `PhaseChanged`. */
+                reasons?: string;
+                /** @description Maximum number of events to return in a list page. Defaults to 100. */
+                limit?: number;
+                /** @description Opaque token from the previous page. Only used when listing. */
+                continue?: string;
+                /** @description Stream the events as Server-Sent Events instead of listing them. */
+                watch?: boolean;
+                /**
+                 * @description With `watch=true`, stream the events recorded after this cursor (an event
+                 *     `cursor` or a list `resourceVersion`). Without it, only new events are streamed.
+                 */
+                since?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The lifecycle events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LifecycleEventList"];
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listInstances: {
         parameters: {
             query?: never;
@@ -6169,7 +9453,10 @@ export interface operations {
     };
     createInstance: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -6189,6 +9476,7 @@ export interface operations {
             /** @description Instance created successfully */
             200: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -6198,10 +9486,48 @@ export interface operations {
             /** @description Instance created successfully */
             201: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Instance"];
+                };
+            };
+            /** @description A permission is missing, or the instance is not an exact copy of its preset (reason `PresetMismatch`) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForbiddenError"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    Warning: components["headers"]["Warning"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -6240,6 +9566,15 @@ export interface operations {
                     "application/json": components["schemas"]["Instance"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Instance not found */
             404: {
                 headers: {
@@ -6262,7 +9597,10 @@ export interface operations {
     };
     updateInstance: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -6284,10 +9622,20 @@ export interface operations {
             /** @description Instance updated successfully */
             200: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Instance"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Instance not found */
@@ -6297,6 +9645,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    Warning: components["headers"]["Warning"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -6350,6 +9717,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Instance not found */
             404: {
                 headers: {
@@ -6357,6 +9733,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -6372,7 +9757,10 @@ export interface operations {
     };
     patchInstance: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -6396,10 +9784,20 @@ export interface operations {
             /** @description Instance patched successfully */
             200: {
                 headers: {
+                    Warning: components["headers"]["Warning"];
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Instance"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Instance not found */
@@ -6411,6 +9809,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description The Content-Type is not application/merge-patch+json */
             415: {
                 headers: {
@@ -6418,6 +9825,16 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    Warning: components["headers"]["Warning"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -6454,6 +9871,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstanceConnectionDetails"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Instance or connection details not found */
@@ -6501,8 +9927,8 @@ export interface operations {
                     "application/json": components["schemas"]["BackupList"];
                 };
             };
-            /** @description Unsuccessful operation */
-            400: {
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6546,8 +9972,8 @@ export interface operations {
                     "application/json": components["schemas"]["RestoreList"];
                 };
             };
-            /** @description Unsuccessful operation */
-            400: {
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6568,7 +9994,10 @@ export interface operations {
     };
     listBackupClasses: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return only the backup classes executed by the provider with this name */
+                provider?: string;
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -6621,8 +10050,67 @@ export interface operations {
                     "application/json": components["schemas"]["BackupClass"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Backup class not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listBackups: {
+        parameters: {
+            query?: {
+                /** @description Filter backups by backup class name */
+                backupClass?: string;
+                /** @description Filter backups by backup storage name */
+                backupStorage?: string;
+                /** @description Filter backups by origin type */
+                backupOrigin?: "Instance" | "External";
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the backups */
+                namespace: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of backups */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupList"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6669,6 +10157,42 @@ export interface operations {
                     "application/json": components["schemas"]["Backup"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -6703,6 +10227,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Backup"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Backup not found */
@@ -6765,6 +10298,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Backup not found */
             404: {
                 headers: {
@@ -6772,6 +10314,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -6856,6 +10407,42 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -6890,6 +10477,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BackupImport"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Backup import not found */
@@ -6935,6 +10531,24 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -6974,6 +10588,42 @@ export interface operations {
                     "application/json": components["schemas"]["Restore"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -7008,6 +10658,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Restore"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Restore not found */
@@ -7062,7 +10721,109 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Restore not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listBackupStorageClasses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of backup storage classes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupStorageClassList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getBackupStorageClass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The name of the backup storage class */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Backup storage class details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupStorageClass"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Backup storage class not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -7084,7 +10845,17 @@ export interface operations {
     };
     listBackupStorages: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return only the backup storages this backup class can write to, per its `spec.backupStorageClasses` */
+                backupClass?: string;
+                /** @description Return only the backup storages of the backup storage class with this name (`spec.backupStorageClassRef.name`) */
+                backupStorageClass?: string;
+                /**
+                 * @description Return only the backup storages that reference the Secret with this name, as their credentials
+                 *     (`spec.authentication.credentialsSecretRef.name`) or as their CA bundle (`spec.tls.ca.secretKeyRef.name`)
+                 */
+                secret?: string;
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -7103,15 +10874,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BackupStorageList"];
-                };
-            };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Internal server error */
@@ -7136,7 +10898,10 @@ export interface operations {
     };
     createBackupStorage: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -7169,6 +10934,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Internal server error */
@@ -7216,6 +11017,15 @@ export interface operations {
                     "application/json": components["schemas"]["BackupStorage"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Backup storage not found */
             404: {
                 headers: {
@@ -7238,7 +11048,10 @@ export interface operations {
     };
     updateBackupStorage: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -7275,6 +11088,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Backup storage not found */
             404: {
                 headers: {
@@ -7282,6 +11104,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Error */
@@ -7297,7 +11137,10 @@ export interface operations {
     };
     deleteBackupStorage: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -7327,6 +11170,24 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Error */
             default: {
                 headers: {
@@ -7340,7 +11201,10 @@ export interface operations {
     };
     patchBackupStorage: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -7379,6 +11243,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Backup storage not found */
             404: {
                 headers: {
@@ -7388,8 +11261,113 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description The Content-Type is not application/merge-patch+json */
             415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listMonitoringClasses: {
+        parameters: {
+            query?: {
+                /** @description Return only the monitoring classes compatible with the provider with this name, as published in `status.providers` */
+                provider?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of monitoring classes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitoringClassList"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getMonitoringClass: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The name of the monitoring class */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Monitoring class details */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitoringClass"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Monitoring class not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7408,14 +11386,22 @@ export interface operations {
             };
         };
     };
-    listMonitoringConfigs: {
+    listMonitoringDestinations: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return only the monitoring destinations of the monitoring class with this name (`spec.classRef.name`) */
+                class?: string;
+                /**
+                 * @description Return only the monitoring destinations that reference the Secret with this name, as their credentials
+                 *     (`spec.authentication.credentialsSecretRef.name`) or as their CA bundle (`spec.tls.ca.secretKeyRef.name`)
+                 */
+                secret?: string;
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
                 cluster: string;
-                /** @description Namespace of the monitoring configs */
+                /** @description The namespace of the monitoring destinations */
                 namespace: string;
             };
             cookie?: never;
@@ -7428,20 +11414,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MonitoringConfigList"];
+                    "application/json": components["schemas"]["MonitoringDestinationList"];
                 };
             };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Internal server error */
-            500: {
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7451,32 +11428,35 @@ export interface operations {
             };
         };
     };
-    createMonitoringConfig: {
+    createMonitoringDestination: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
                 cluster: string;
-                /** @description Namespace of the monitoring config */
+                /** @description The namespace where the monitoring destination will be created */
                 namespace: string;
             };
             cookie?: never;
         };
-        /** @description The Monitoring config object to be created */
+        /** @description The monitoring destination object to be created */
         requestBody: {
             content: {
-                "application/json": components["schemas"]["MonitoringConfigCreateParams"];
+                "application/json": components["schemas"]["MonitoringDestination"];
             };
         };
         responses: {
             /** @description Successful operation */
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MonitoringConfig"];
+                    "application/json": components["schemas"]["MonitoringDestination"];
                 };
             };
             /** @description Unsuccessful operation */
@@ -7488,8 +11468,8 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Internal server error */
-            500: {
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7497,43 +11477,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-        };
-    };
-    getMonitoringConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The name of the cluster */
-                cluster: string;
-                /** @description Name of the monitoring config */
-                name: string;
-                /** @description Namespace of the monitoring config */
-                namespace: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful operation */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MonitoringConfig"];
-                };
-            };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Monitoring config not found */
+            /** @description Namespace not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -7542,8 +11486,26 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Internal server error */
-            500: {
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7553,31 +11515,177 @@ export interface operations {
             };
         };
     };
-    deleteMonitoringConfig: {
+    getMonitoringDestination: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 /** @description The name of the cluster */
                 cluster: string;
-                /** @description Name of the monitoring config */
-                name: string;
-                /** @description Namespace of the monitoring config */
+                /** @description The namespace of the monitoring destination */
                 namespace: string;
+                /** @description The name of the monitoring destination */
+                name: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
             /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitoringDestination"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Monitoring destination not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    updateMonitoringDestination: {
+        parameters: {
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the monitoring destination */
+                namespace: string;
+                /** @description The name of the monitoring destination */
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** @description The monitoring destination object to be updated */
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MonitoringDestination"];
+            };
+        };
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitoringDestination"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Monitoring destination not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteMonitoringDestination: {
+        parameters: {
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the monitoring destination */
+                namespace: string;
+                /** @description The name of the monitoring destination */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Monitoring destination deleted successfully */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Unsuccessful operation */
-            400: {
+            /** @description Forbidden */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7585,7 +11693,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Monitoring config not found */
+            /** @description Monitoring destination not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -7594,8 +11702,17 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Internal server error */
-            500: {
+            /** @description Instances still use the destination (reason `InUse`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7605,26 +11722,22 @@ export interface operations {
             };
         };
     };
-    updateMonitoringConfig: {
+    listMonitoringBindings: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return only the bindings to the monitoring destination with this name. Empty means no filter; a value that is not a valid label value is rejected with 400. */
+                destination?: string;
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
                 cluster: string;
-                /** @description Name of the monitoring config */
-                name: string;
-                /** @description Namespace of the monitoring config */
+                /** @description The namespace of the monitoring bindings */
                 namespace: string;
             };
             cookie?: never;
         };
-        /** @description The monitoring config object to be updated. */
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MonitoringConfigUpdateParams"];
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful operation */
             200: {
@@ -7632,10 +11745,10 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MonitoringConfig"];
+                    "application/json": components["schemas"]["MonitoringBindingList"];
                 };
             };
-            /** @description Unsuccessful operation */
+            /** @description The destination filter is not a valid label value */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -7644,8 +11757,8 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Monitoring config not found */
-            404: {
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7653,8 +11766,44 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Internal server error */
-            500: {
+        };
+    };
+    getMonitoringBinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the monitoring binding */
+                namespace: string;
+                /** @description The name of the monitoring binding */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful operation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MonitoringBinding"];
+                };
+            };
+            /** @description Forbidden, or the monitoring binding does not exist */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7690,15 +11839,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConfigMapList"];
-                };
-            };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description Internal server error */
@@ -7749,6 +11889,42 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -7783,6 +11959,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConfigMap"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
             /** @description ConfigMap not found */
@@ -7828,6 +12013,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description ConfigMap not found */
             404: {
                 headers: {
@@ -7835,6 +12029,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Internal server error */
@@ -7851,9 +12054,13 @@ export interface operations {
     listSecrets: {
         parameters: {
             query?: {
-                /** @description Filter secrets by provider name */
+                /** @description Filter secrets by the provider that defines them (`openeverest.io/provider`) */
                 provider?: string;
-                /** @description Filter secrets by definition */
+                /** @description Filter secrets by the MonitoringClass that defines them (`openeverest.io/monitoring-class`) */
+                monitoringClass?: string;
+                /** @description Filter secrets by the BackupStorageClass that defines them (`openeverest.io/backup-storage-class`) */
+                backupStorageClass?: string;
+                /** @description Filter secrets by definition (`openeverest.io/definition`) */
                 definition?: string;
             };
             header?: never;
@@ -7876,15 +12083,6 @@ export interface operations {
                     "application/json": components["schemas"]["SecretList"];
                 };
             };
-            /** @description Unsuccessful operation */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
             /** @description Internal server error */
             500: {
                 headers: {
@@ -7898,7 +12096,10 @@ export interface operations {
     };
     createSecret: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -7931,6 +12132,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Namespace not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Internal server error */
@@ -7969,7 +12206,16 @@ export interface operations {
                     "application/json": components["schemas"]["Secret"];
                 };
             };
-            /** @description Secret not found */
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Secret not found, or not labelled */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -7991,7 +12237,10 @@ export interface operations {
     };
     deleteSecret: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
             header?: never;
             path: {
                 /** @description The name of the cluster */
@@ -8012,13 +12261,131 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Secret not found */
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Secret not found, or not labelled */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description A controller owns the Secret (reason `ManagedByController`), or objects use it (reason `InUse`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    patchSecret: {
+        parameters: {
+            query?: {
+                /** @description `All` runs the write through every check, admission webhooks included, and returns its result without persisting anything. */
+                dryRun?: components["parameters"]["DryRun"];
+            };
+            header?: never;
+            path: {
+                /** @description The name of the cluster */
+                cluster: string;
+                /** @description The namespace of the secret */
+                namespace: string;
+                /** @description The name of the secret */
+                name: string;
+            };
+            cookie?: never;
+        };
+        /** @description A partial Secret document with `metadata.resourceVersion` and the `data` or `stringData` keys to set or remove. */
+        requestBody: {
+            content: {
+                "application/merge-patch+json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Secret patched successfully (metadata only) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Secret"];
+                };
+            };
+            /** @description Unsuccessful operation */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Secret not found, or not labelled */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The Secret changed since `metadata.resourceVersion` (reason `Conflict`), a controller owns it (reason `ManagedByController`) or it was not created through this API (reason `ManagedOutside`) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+            /** @description The Content-Type is not application/merge-patch+json */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
             /** @description Internal server error */

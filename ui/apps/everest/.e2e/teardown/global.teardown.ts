@@ -15,37 +15,5 @@
 // limitations under the License.
 
 import { test as teardown } from '@playwright/test';
-import { getCITokenFromLocalStorage } from '../utils/localStorage';
-import { getBucketNamespacesMap } from '../constants';
-import {
-  deleteMonitoringConfig,
-  listMonitoringConfigs,
-} from '@e2e/utils/monitoring-config';
 
-teardown.describe.serial('Global teardown', () => {
-  // teardown('Delete Monitoring Configs', async ({ request }) => {
-  //   const token = await getCITokenFromLocalStorage();
-  //   const bucketNamespacesMap = getBucketNamespacesMap();
-  //   const allNamespaces = Array.from(
-  //     new Set(bucketNamespacesMap.map(([, namespaces]) => namespaces).flat())
-  //   );
-  //   const promises: Promise<any>[] = [];
-  //
-  //   for (const [idx, namespace] of allNamespaces.entries()) {
-  //     const monitoringConfigs = await listMonitoringConfigs(
-  //       request,
-  //       namespace,
-  //       token
-  //     );
-  //     for (const config of monitoringConfigs) {
-  //       promises.push(
-  //         await deleteMonitoringConfig(
-  //           request,
-  //           namespace,
-  //           config.name,
-  //           token
-  //         );
-  //     }
-  //   }
-  // });
-});
+teardown.describe.serial('Global teardown', () => {});

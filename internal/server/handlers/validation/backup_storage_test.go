@@ -69,7 +69,7 @@ func TestValidate_PatchBackupStorage(t *testing.T) {
 
 			if tc.wantErr {
 				require.ErrorIs(t, err, ErrInvalidRequest)
-				next.AssertNotCalled(t, "PatchBackupStorage")
+				next.AssertNotCalled(t, "PatchBackupStorage", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 				return
 			}
 			require.NoError(t, err)

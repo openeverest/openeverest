@@ -8,6 +8,7 @@
   - [Required](#required)
   - [Regex](#regex)
 - [Mode-Aware Validation](#mode-aware-validation)
+- [Class Parameters Schema](#class-parameters-schema)
 - [Groups](groups.md)
 
 ## Default Validation
@@ -157,6 +158,12 @@ validation:
 3. **`inheritShared: false`**: base rules are completely ignored; only the mode branch is used.
 4. If no mode branch exists for the current mode, only base rules apply.
 
+### Disabled Fields
+
+A field that is disabled, always or in the current mode (`fieldParams.modes.<mode>.disabled`), skips its own rules, including its `celExpressions`: the user can't change its value. Rules on other fields still read its value.
+
+So put a rule that links two fields on the one the user can edit. For example, if `version` is disabled in `restore`, a rule on `replicas` that reads `spec.version` still runs there, and its error shows under `replicas`.
+
 ### CEL Evaluation Context
 
 CEL expressions have access to the following variables:
@@ -208,3 +215,31 @@ In this example:
 
 - **All modes**: nodes must be ≥ 1, integer, and odd.
 - **Edit only**: scaling from >1 to 1 is blocked by comparing against `original`.
+
+## Class Parameters Schema
+
+A monitoring class's destination and instance forms write the parameters the API checks against the
+class's OpenAPI v3 schema for them (`destinationParametersSchema`, `instanceParametersSchema`). The
+UI checks every field of the form against that schema too, so a value the API would refuse shows an
+error on the field before saving. Nothing has to be repeated in `validation`:
+
+| Schema keyword            | Checked                                                                                                                                |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `required`                | when every object on the way to the field is required                                                                                  |
+| `pattern`                 | as the server's Go regexp reads it, as far as JavaScript can (an escaped punctuation character, such as `\_`, is the character itself) |
+| `minLength` / `maxLength` | in characters                                                                                                                          |
+| `enum`                    | the value must be one of the listed values                                                                                             |
+
+Map entries are checked against `additionalProperties`. The check runs on the value the API gets:
+with `badge: s` and `badgeToApi: true`, a field showing `30` is checked as `30s`.
+
+The server alone checks:
+
+- `anyOf`, `oneOf`, `allOf` and other keywords;
+- a `pattern` only Go reads, such as one with `\z` or `[[:alpha:]]`;
+- disabled and read-only fields, which the user can't change;
+- fields of a switched-off toggleable group;
+- what the schema requires that the form has no field for.
+
+A class without a destination form gets a form generated from `destinationParametersSchema`. Its
+text fields are checked against the same keywords.

@@ -22,9 +22,20 @@ print('Frontend Build enabled: {0}'.format(enable_frontend))
 enable_plugin_hub = config_yaml.get('enablePluginHub', True)
 print('Plugin Hub enabled: {0}'.format(enable_plugin_hub))
 
+# One-click install/upgrade/uninstall from the Plugin Hub UI (binds the
+# plugin-hub pod to cluster-admin). On by default; set to false to opt out.
+enable_plugin_hub_installer = config_yaml.get('enablePluginHubInstaller', True)
+if enable_plugin_hub:
+    print('Plugin Hub installer enabled: {0}'.format(enable_plugin_hub_installer))
+
 if os.path.exists(local_env_file):
     print ('Loading local .env file={0}'.format(local_env_file))
     dotenv(fn=local_env_file)
+
+k8s_context = os.getenv('K8S_CONTEXT', '')
+if k8s_context:
+    print('Using Kubernetes context: {0}'.format(k8s_context))
+    allow_k8s_contexts(k8s_context)
 
 cache_dir='{0}/.cache'.format(config.main_dir)
 local('mkdir -p "{0}"'.format(cache_dir), quiet=True)
@@ -63,10 +74,6 @@ everest_backend_build_env = os.getenv('EVEREST_BACKEND_BUILD_ENV', go_default_bu
 print('Using Everest server backend build ENV vars: {0}'.format(everest_backend_build_env))
 
 # External resources set up
-k8s_context = os.getenv('K8S_CONTEXT', '')
-if k8s_context:
-    print('Using Kubernetes context: {0}'.format(k8s_context))
-    allow_k8s_contexts(k8s_context)
 
 docker_registry_url = os.getenv('DOCKER_REGISTRY_URL', '')
 if docker_registry_url:
@@ -199,14 +206,13 @@ fi'''.format(
 everest_helm_set = [
     'telemetry=false',
     'upgrade.preflightChecks=false',
-    'createMonitoringResources=false',
-    'monitoring.crds.enabled=true',
-    'monitoring.crds.plain=false',
-    'monitoring.namespaceOverride={0}'.format(EVEREST_MONITORING_NAMESPACE),
+    'monitoringNamespace={0}'.format(EVEREST_MONITORING_NAMESPACE),
     'server.initialAdminPassword={0}'.format(UI_ADMIN_PASSWORD),
 ]
 if not enable_plugin_hub:
     everest_helm_set.append('plugins.hub.enabled=false')
+elif not enable_plugin_hub_installer:
+    everest_helm_set.append('plugin-hub.installer.enabled=false')
 
 everest_yaml = helm(
     everest_chart_dir,
@@ -266,75 +272,6 @@ everest_yaml=patch_everest_debug(everest_yaml)
 everest_yaml=patch_server_tilt_image(everest_yaml)
 everest_yaml=patch_controller_tilt_image(everest_yaml)
 k8s_yaml(everest_yaml)
-
-#################################
-####### Monitoring stack ########
-#################################
-
-k8s_resource(
-  objects=[
-    '{0}:namespace'.format(EVEREST_MONITORING_NAMESPACE)
-  ],
-  new_name='everest-monitoring-namespace',
-)
-k8s_resource(
-    workload='kube-state-metrics',
-    objects=[
-        'kube-state-metrics:serviceaccount:{0}'.format(EVEREST_MONITORING_NAMESPACE),
-        'kube-state-metrics:clusterrole',
-        'kube-state-metrics:clusterrolebinding',
-        'customresource-config-ksm:configmap'
-    ],
-    resource_deps = [
-      'everest-monitoring-namespace',
-      'helm-deps',
-    ],
-    new_name='kube-state-metrics-deploy',
-    labels=["everest-monitoring"]
-)
-k8s_resource(
-    objects = [
-        'vlogs.operator.victoriametrics.com:customresourcedefinition',
-        'vmagents.operator.victoriametrics.com:customresourcedefinition',
-        'vmalertmanagerconfigs.operator.victoriametrics.com:customresourcedefinition',
-        'vmalertmanagers.operator.victoriametrics.com:customresourcedefinition',
-        'vmalerts.operator.victoriametrics.com:customresourcedefinition',
-        'vmauths.operator.victoriametrics.com:customresourcedefinition',
-        'vmclusters.operator.victoriametrics.com:customresourcedefinition',
-        'vmnodescrapes.operator.victoriametrics.com:customresourcedefinition',
-        'vmpodscrapes.operator.victoriametrics.com:customresourcedefinition',
-        'vmprobes.operator.victoriametrics.com:customresourcedefinition',
-        'vmrules.operator.victoriametrics.com:customresourcedefinition',
-        'vmscrapeconfigs.operator.victoriametrics.com:customresourcedefinition',
-        'vmservicescrapes.operator.victoriametrics.com:customresourcedefinition',
-        'vmsingles.operator.victoriametrics.com:customresourcedefinition',
-        'vmstaticscrapes.operator.victoriametrics.com:customresourcedefinition',
-        'vmusers.operator.victoriametrics.com:customresourcedefinition',
-
-    ],
-    new_name='vm-crds',
-    labels=["everest-monitoring"]
-)
-k8s_resource(
-    workload='vm-operator',
-    objects = [
-        'vm-operator:serviceaccount',
-        'vm-operator:role',
-        'vm-operator:clusterrole',
-        "vm-operator-victoriametrics-admin:clusterrole",
-        "vm-operator-victoriametrics-view:clusterrole",
-        'vm-operator:clusterrolebinding',
-        'vm-operator:rolebinding'
-
-    ],
-    resource_deps = [
-      'everest-monitoring-namespace',
-      'vm-crds',
-      'helm-deps',
-    ],
-    new_name='vm-operator-deploy',
-    labels=["everest-monitoring"]
-)
 
 #################################
 ############ Everest ############
@@ -505,7 +442,6 @@ k8s_resource(
     'everest-controller-leader-election-rolebinding:rolebinding:{0}'.format(EVEREST_NAMESPACE),
     'everest-controller-manager-rolebinding:clusterrolebinding',
     'everest-controller-webhook-server-cert:secret:{0}'.format(EVEREST_NAMESPACE),
-    'everest-controller-validating-webhook-configuration:validatingwebhookconfiguration',
     ],
     resource_deps = [
       'everest-namespace',
@@ -559,13 +495,14 @@ if need_backup_storage:
     for namespace in config_yaml['namespaces']:
         ns_name = namespace['name']
         for storage_name in namespace.get('backupStorages', []):
+            secret_name = 'backup-storage-{0}-credentials'.format(storage_name)
             bs_objs=read_yaml_stream(bs_crd_path)
             for obj in bs_objs:
                 if obj['kind'] == 'Secret':
                     obj.update({
                         'metadata': {
                             'namespace': ns_name,
-                            'name': storage_name
+                            'name': secret_name
                         }
                     })
                 elif obj['kind'] == 'BackupStorage':
@@ -575,16 +512,14 @@ if need_backup_storage:
                             'name': storage_name
                         }
                     })
-                    obj['spec']['s3'].update({
-                            'bucket': '{0}'.format(storage_name),
-                            'credentialsSecretRef': {
-                                'name': storage_name,
-                            },
-                    })
+                    obj['spec']['location']['objectStore']['bucket'] = storage_name
+                    obj['spec']['authentication']['credentialsSecretRef'] = {
+                        'name': secret_name,
+                    }
             k8s_yaml(encode_yaml_stream(bs_objs))
             k8s_resource(
                 objects=[
-                    '{0}:Secret:{1}'.format(storage_name, ns_name),
+                    '{0}:Secret:{1}'.format(secret_name, ns_name),
                     '{0}:BackupStorage:{1}'.format(storage_name, ns_name),
                 ],
                 new_name='bs-{0}-{1}'.format(ns_name, storage_name),
@@ -604,9 +539,12 @@ k8s_resource(
   objects=[
     'backupclasses.backup.openeverest.io:customresourcedefinition',
     'backups.backup.openeverest.io:customresourcedefinition',
+    'backupstorageclasses.backup.openeverest.io:customresourcedefinition',
     'backupstorages.backup.openeverest.io:customresourcedefinition',
     'instances.core.openeverest.io:customresourcedefinition',
-    'monitoringconfigs.monitoring.openeverest.io:customresourcedefinition',
+    'monitoringclasses.monitoring.openeverest.io:customresourcedefinition',
+    'monitoringdestinations.monitoring.openeverest.io:customresourcedefinition',
+    'monitoringbindings.monitoring.openeverest.io:customresourcedefinition',
     'plugins.extensions.openeverest.io:customresourcedefinition',
     'installedextensions.extensions.openeverest.io:customresourcedefinition',
     'providers.core.openeverest.io:customresourcedefinition',
@@ -614,6 +552,18 @@ k8s_resource(
     'instancepresets.core.openeverest.io:customresourcedefinition'
   ],
   new_name='crds',
+  labels=["everest"]
+)
+
+k8s_yaml(kustomize('{0}/config/backupstorageclasses/'.format(backend_dir)))
+k8s_resource(
+  objects=[
+    's3:backupstorageclass',
+  ],
+  new_name='backup-storage-classes',
+  resource_deps=[
+    'crds',
+  ],
   labels=["everest"]
 )
 

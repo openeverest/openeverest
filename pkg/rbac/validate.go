@@ -89,6 +89,9 @@ func checkResourceNames(policies [][]string) error {
 			continue
 		}
 		if _, ok := knownResources[resourceName]; !ok {
+			if resourceName == "monitoring-configs" {
+				return fmt.Errorf("resource name '%s' was removed; use '%s' instead", resourceName, ResourceMonitoringDestinations)
+			}
 			return fmt.Errorf("unknown resource name '%s'", resourceName)
 		}
 	}
@@ -97,6 +100,9 @@ func checkResourceNames(policies [][]string) error {
 
 func checkActionNames(policies [][]string) error {
 	for _, policy := range policies {
+		if policy[2] == "deploy" {
+			return fmt.Errorf("action 'deploy' was renamed; use '%s' instead", ActionCreateFromPreset)
+		}
 		if !ValidateAction(policy[2]) {
 			return fmt.Errorf("unknown action '%s'", policy[2])
 		}

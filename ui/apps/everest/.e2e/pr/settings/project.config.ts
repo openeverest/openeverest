@@ -14,13 +14,22 @@
 
 import { PlaywrightTestProject } from '@playwright/test';
 
-export const settingsProject: PlaywrightTestProject[] = [
+// The options of the auth fixture (fixtures/auth.ts): who a worker logs in as.
+interface AuthWorkerOptions {
+  authUser: string;
+  authPassword: string;
+}
+
+export const settingsProject: PlaywrightTestProject<
+  object,
+  AuthWorkerOptions
+>[] = [
   {
     name: 'pr:settings',
     testMatch: /.^/,
     dependencies: [
-      'pr:settings:monitoring-config',
       'pr:settings:backup-storage',
+      'pr:settings:backup-storage-rbac',
       // 'pr:settings:namespace',
       // 'pr:settings:psp',
       // 'pr:settings:operator-upgrade',
@@ -29,15 +38,17 @@ export const settingsProject: PlaywrightTestProject[] = [
   {
     name: 'pr:settings:backup-storage',
     testDir: './pr/settings',
-    testMatch: /backup-storage\.e2e\.ts/,
+    testMatch: /backup-storage(-credentials|-checks)?\.e2e\.ts/,
   },
+  // Logs in as the RBAC user; the other tests keep running as the admin.
   {
-    name: 'pr:settings:monitoring-config',
+    name: 'pr:settings:backup-storage-rbac',
     testDir: './pr/settings',
-    testMatch: /monitoring-config\.e2e\.ts/,
-    // TODO(OE-2038): keep this project isolated from global:monitoring-config:setup.
-    // When pr:multinamespaces is re-enabled, preserve project ordering or namespace
-    // isolation so the fallback test still runs against an empty namespace.
+    testMatch: /backup-storage-rbac\.e2e\.ts/,
+    use: {
+      authUser: process.env.RBAC_USER ?? '',
+      authPassword: process.env.RBAC_PASSWORD ?? '',
+    },
   },
   // {
   //   name: 'pr:settings:namespace',

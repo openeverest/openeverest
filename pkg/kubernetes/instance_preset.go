@@ -1,5 +1,3 @@
-// everest
-// Copyright (C) 2023 Percona LLC
 // Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package kubernetes ...
+//nolint:dupl // per-resource client wrappers are intentionally similar
 package kubernetes
 
 import (
@@ -25,7 +23,7 @@ import (
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 )
 
-// ListInstancePresets returns list of instance presets that match the criteria.
+// ListInstancePresets returns list of namespace-scoped instance presets that match the criteria.
 func (k *Kubernetes) ListInstancePresets(ctx context.Context, opts ...ctrlclient.ListOption) (*v1alpha1.InstancePresetList, error) {
 	result := &v1alpha1.InstancePresetList{}
 	if err := k.k8sClient.List(ctx, result, opts...); err != nil {
@@ -34,11 +32,32 @@ func (k *Kubernetes) ListInstancePresets(ctx context.Context, opts ...ctrlclient
 	return result, nil
 }
 
-// GetInstancePreset returns instance preset that matches the criteria.
+// GetInstancePreset returns a namespace-scoped instance preset that matches the criteria.
 func (k *Kubernetes) GetInstancePreset(ctx context.Context, key ctrlclient.ObjectKey) (*v1alpha1.InstancePreset, error) {
 	result := &v1alpha1.InstancePreset{}
 	if err := k.k8sClient.Get(ctx, key, result); err != nil {
 		return nil, err
 	}
 	return result, nil
+}
+
+// CreateInstancePreset creates a namespace-scoped instance preset.
+func (k *Kubernetes) CreateInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) (*v1alpha1.InstancePreset, error) {
+	if err := k.k8sClient.Create(ctx, preset); err != nil {
+		return nil, err
+	}
+	return preset, nil
+}
+
+// UpdateInstancePreset updates a namespace-scoped instance preset.
+func (k *Kubernetes) UpdateInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) (*v1alpha1.InstancePreset, error) {
+	if err := k.k8sClient.Update(ctx, preset); err != nil {
+		return nil, err
+	}
+	return preset, nil
+}
+
+// DeleteInstancePreset deletes a namespace-scoped instance preset.
+func (k *Kubernetes) DeleteInstancePreset(ctx context.Context, preset *v1alpha1.InstancePreset) error {
+	return k.k8sClient.Delete(ctx, preset)
 }

@@ -37,10 +37,6 @@ export const Messages = {
       tooLong: errorMessages.tooLong('database'),
       duplicate: errorMessages.duplicate('database'),
     },
-    monitoringEndpoint: {
-      invalidOption:
-        'Invalid option. Please make sure you added a monitoring endpoint and select it from the dropdown',
-    },
     sharding: {
       invalid: 'Please fill in valid values for sharding',
       min: (val: number) => `The value cannot be less than ${val}`,

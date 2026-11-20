@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package controller is the API of the provider runtime: the interfaces a
+// provider implements and the Context it renders an Instance with.
 package controller
 
 // Implement the Provider interface to create a provider.
@@ -21,6 +23,7 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -38,17 +41,60 @@ type ProviderInterface interface {
 	// Types returns the scheme builder for registering provider-specific CRDs.
 	Types() func(*runtime.Scheme) error
 
-	// Validate checks if the Instance spec is valid.
-	Validate(c *Context) error
+	// Validate checks the Instance alone, without reading the cluster. The
+	// runtime calls it before every Sync, once the Instance matches the
+	// topologies, components, versions and schemas its Provider declares.
+	Validate(in ValidationInput) ValidationResult
 
-	// Sync ensures all required resources exist and are configured.
+	// Sync ensures all required resources exist and are configured. Return
+	// WaitFor to be called again later: the Instance then reads as in
+	// progress, with the reason as its message. Any other error is retried
+	// with backoff and reported as a problem once Sync or Status has kept
+	// failing for a minute.
 	Sync(c *Context) error
 
-	// Status computes the current status of the database.
+	// Status reports what the provider observes about the engine: whether it
+	// runs what the Instance asks for, whether clients can connect, and the
+	// operations and problems in progress. The runtime derives the
+	// Instance's phase, conditions and status word from it.
 	Status(c *Context) (Status, error)
 
 	// Cleanup handles deletion (called when deletion timestamp is set).
+	// Return WaitFor while something is still being deleted: the reason is
+	// shown as what the deletion waits for.
 	Cleanup(c *Context) error
+}
+
+// ValidationInput is everything Validate may read.
+type ValidationInput struct {
+	// Instance is the Instance as written by the user, before the runtime
+	// resolves its version bundle.
+	Instance *corev1alpha1.Instance
+	// Old is the previous Instance on an update at admission, and nil
+	// otherwise, so rules about transitions return nothing when it is nil.
+	Old *corev1alpha1.Instance
+	// Provider is the Provider the Instance names.
+	Provider *corev1alpha1.Provider
+}
+
+// ValidationResult is what Validate returns. Errors carry Instance field
+// paths, for example spec.components[configServer].replicas.
+type ValidationResult struct {
+	Errors   field.ErrorList
+	Warnings []string
+}
+
+// ReferenceValidator is an optional interface for rules about the contents of
+// other objects, such as the keys of the user Secret or the origin of the
+// source Backup. The runtime calls ValidateReferences after Validate passes and
+// before Sync. Whether a referent exists is checked by the runtime, not here.
+//
+// Errors carry the path of the Instance field that names the object, for
+// example spec.userSecretRef.name, and are reported with reason
+// InvalidReference. err is for a check that could not run, such as a failed
+// read; it is retried with backoff.
+type ReferenceValidator interface {
+	ValidateReferences(c *Context) (errs field.ErrorList, err error)
 }
 
 // =============================================================================
@@ -249,8 +295,9 @@ type FieldIndexProvider interface {
 //     restore.spec.instanceName so the provider can list backups/restores for
 //     a given Instance efficiently.
 //   - Starts ancillary reconcilers for Backup and Restore CRs that dispatch to
-//     SyncBackup/SyncRestore when the resolved BackupClass uses
-//     executionMode "ProviderManaged".
+//     SyncBackup/SyncRestore when the resolved BackupClass names this
+//     provider in spec.providerManaged.providerRef. Backups and Restores of
+//     classes executed by anyone else are ignored, never rejected.
 //
 // All methods receive the same *Context handle as ProviderInterface; helpers
 // such as Context.BackupStorage, Context.BackupClass and
@@ -345,6 +392,36 @@ type BackupMirror interface {
 	Mirror(ctx context.Context, c client.Client, operatorBackup client.Object) (*backupv1alpha1.Backup, error)
 }
 
+// BackupPathStyleProvider is an optional interface a provider implements
+// when its engine cannot write backups under the nested path the runtime
+// assigns to each storage entry,
+// <prefix>/backups/<namespace>/<instance>/<instance-uid>/<storage>. The
+// runtime then lays every backup path out in the returned style
+// (backupv1alpha1.BackupPathFlat: one folder at the root of the bucket, the
+// nested path with every "/" replaced by "_", for engines such as Medusa
+// that refuse a prefix containing "/"): ResolvedBackupStorage.Path, the
+// location it records in Instance.status.backup.storages, the
+// BackupStorageLocationChanged check, Backup.status.path, and
+// Context.BackupLocation. A location the runtime recorded in the nested
+// layout before the provider declared the flat one is read as its flat
+// form, so declaring it is not a location change. An import lists the keys
+// under backupv1alpha1.BackupKeyPrefix of the same style. Providers that do
+// not implement it, or return "", get backupv1alpha1.BackupPathNested.
+type BackupPathStyleProvider interface {
+	BackupPathStyle() backupv1alpha1.BackupPathStyle
+}
+
+// BackupPathStyleOf returns the BackupPathStyle of provider: the one it
+// declares through BackupPathStyleProvider, or BackupPathNested.
+func BackupPathStyleOf(provider any) backupv1alpha1.BackupPathStyle {
+	if p, ok := provider.(BackupPathStyleProvider); ok {
+		if style := p.BackupPathStyle(); style != "" {
+			return style
+		}
+	}
+	return backupv1alpha1.BackupPathNested
+}
+
 // =============================================================================
 // BACKUP IMPORTER (Optional interface for backup discovery / import)
 // =============================================================================
@@ -380,6 +457,80 @@ type UpgradeProvider interface {
 }
 
 // =============================================================================
+// MONITORING (Optional interfaces for the monitoring contract)
+// =============================================================================
+
+// MonitoringSourcesProvider is an optional interface a provider implements to
+// publish what an Instance exposes to monitoring (credentials, OpenMetrics
+// endpoints and native-protocol connection endpoints), which ExtensionManaged
+// MonitoringClasses consume.
+//
+// A provider whose component types declare connection: Supported publishes,
+// while RequiredSources().Connections asks for it, one connection endpoint
+// per serving component and an Instance-owned Secret with the read-only
+// monitoring user under the CredentialProfileMonitor profile. It also renders
+// Context.MonitoringPodAnnotations(component) into each component's pod
+// template on every Sync, for classes whose agents discover databases
+// through pod annotations.
+//
+// When a provider implements MonitoringSourcesProvider or
+// MonitoringIntegrationsProvider the runtime:
+//   - watches the Instances' MonitoringBindings and the MonitoringDestinations
+//     and MonitoringClasses they reference,
+//   - writes Instance.status.monitoring and the MonitoringConfigured condition
+//     after every successful Sync,
+//   - writes the Configured condition of ProviderManaged bindings.
+//
+// The provider's RBAC must then grant, e.g. as these markers in its
+// internal/provider/rbac.go (the namespaces get reads the kube-system UID that
+// identifies the cluster):
+//
+//	// +kubebuilder:rbac:groups=monitoring.openeverest.io,resources=monitoringclasses;monitoringdestinations;monitoringbindings,verbs=get;list;watch
+//	// +kubebuilder:rbac:groups=monitoring.openeverest.io,resources=monitoringbindings/status,verbs=patch
+//	// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get
+type MonitoringSourcesProvider interface {
+	// MonitoringSources returns the endpoints that are currently serving.
+	// The runtime drops duplicate credential profiles and credentials whose
+	// Secret is not controlled by the Instance; it drops endpoints of
+	// component types the Provider does not declare or declares with
+	// metrics None (connection None for connection endpoints), endpoints
+	// whose pod selector lacks the Instance label, metrics endpoints with a
+	// scheme other than http or https and endpoints naming a credential
+	// profile missing from credentials, and keeps at most 32 of each.
+	// Endpoints of a component type without a kind, or whose kind differs
+	// from the type's declared kind (Provider.spec.componentTypes.<type>.kind),
+	// are dropped too; an empty kind is set to the declared one. The runtime
+	// overwrites identity. Returning nil clears the published sources; an
+	// error keeps the previous ones.
+	MonitoringSources(c *Context) (*corev1alpha1.MonitoringSources, error)
+}
+
+// MonitoringIntegrationsProvider is an optional interface a provider
+// implements to fulfil ProviderManaged MonitoringClasses through its engine
+// operator's native integration (e.g. PMM).
+//
+// The provider renders the integration inside Sync, on the same Apply as the
+// rest of the engine CR, from the binding of Context.MonitoringBindings()
+// whose Apply is true. Whether the integration runs at all is gated on
+// Context.RequiredSources(): req.Integrations["pmm"].Else(livePMMEnabled),
+// so a live integration is held, not removed, while its requirement is
+// Unresolved. The runtime writes the bindings' Configured condition from
+// Sync success and from the results staged with
+// Context.SetMonitoringBindingResult, and RenderFailed for a binding whose
+// integration MonitoringIntegrations does not list. A binding that cannot be
+// rendered must be staged, never returned as a Sync error.
+//
+// The runtime re-runs Sync for an Instance when a destination it is bound to
+// changes, status included, and when that destination's credentials Secret
+// is created, changed or deleted, so a rotated token or a Secret created
+// after a RenderFailed is rendered without waiting for a resync.
+type MonitoringIntegrationsProvider interface {
+	// MonitoringIntegrations returns the integration names the provider
+	// renders, matching Provider.spec.monitoring.integrations.
+	MonitoringIntegrations() []string
+}
+
+// =============================================================================
 // BASE PROVIDER
 // =============================================================================
 
@@ -389,6 +540,65 @@ type BaseProvider struct {
 	ProviderName string
 	SchemeFuncs  []func(*runtime.Scheme) error
 	WatchConfigs []WatchConfig
+
+	shippedBackupClasses []backupv1alpha1.BackupClass
+}
+
+// StatusFieldOwner returns the server-side-apply field manager under which
+// the runtime of the named provider writes the status it shares with other
+// writers: the fields it owns on Instance.status and the Accepted condition
+// of the BackupClasses the provider claims.
+func StatusFieldOwner(provider string) string {
+	return "openeverest-provider/" + provider
+}
+
+// ShippedBackupClassesProvider is implemented by every provider that embeds
+// BaseProvider. When ShippedBackupClasses returns classes, the runtime claims
+// every BackupClass whose spec.providerManaged.providerRef names the
+// provider: it server-side-applies the class's Accepted
+// condition, with the class generation it judged, under StatusFieldOwner:
+//   - True (Accepted) when the provider ships a class of that name with the
+//     same capabilities: the whole spec except displayName, description and
+//     uiSchema, compared after the CRD's defaults, so a class the API server
+//     defaulted is not drifted;
+//   - False (UnknownClass) when it ships none of that name;
+//   - False (SpecDrift) when the capabilities differ, naming the fields;
+//   - Unknown (NewerDefinition or OlderDefinition) when the class is stamped
+//     with another provider release (backupv1alpha1.ProviderVersionAnnotation)
+//     than the shipped class, as during an upgrade. An unstamped class is
+//     compared by capabilities.
+//
+// Classes naming another provider are ignored. Core publishes the outcome
+// in BackupClass.status.providers, which the runtime then reads: an Instance
+// whose class is not Compatible there is held (BackupClassPending) or
+// rejected (BackupClassIncompatible).
+//
+// The provider's RBAC must then grant, e.g. as these markers in its
+// internal/provider/rbac.go (the runtime also reads the BackupStorageClass of
+// each storage, to check that a storage's published verdict is current):
+//
+//	// +kubebuilder:rbac:groups=backup.openeverest.io,resources=backupclasses;backupstorageclasses,verbs=get;list;watch
+//	// +kubebuilder:rbac:groups=backup.openeverest.io,resources=backupclasses/status,verbs=patch
+type ShippedBackupClassesProvider interface {
+	ShippedBackupClasses() []backupv1alpha1.BackupClass
+}
+
+// SetShippedBackupClasses records the BackupClasses the provider ships, the
+// classes provider-sdk generates from definition/backupclasses and embeds in
+// the binary. They are what the provider claims: a ProviderManaged class
+// naming the provider is Accepted when it matches one of them (see
+// ShippedBackupClassesProvider).
+func (b *BaseProvider) SetShippedBackupClasses(classes []backupv1alpha1.BackupClass) {
+	b.shippedBackupClasses = make([]backupv1alpha1.BackupClass, len(classes))
+	for i := range classes {
+		classes[i].DeepCopyInto(&b.shippedBackupClasses[i])
+	}
+}
+
+// ShippedBackupClasses returns the classes recorded by
+// SetShippedBackupClasses.
+func (b *BaseProvider) ShippedBackupClasses() []backupv1alpha1.BackupClass {
+	return b.shippedBackupClasses
 }
 
 func (b *BaseProvider) Name() string {

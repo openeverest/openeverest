@@ -18,7 +18,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -27,7 +29,10 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	toolscache "k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/events"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,16 +44,34 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	commonv1alpha1 "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 	"github.com/openeverest/openeverest/v2/provider-runtime/internal/instanceprep"
 	"github.com/openeverest/openeverest/v2/provider-runtime/server"
+	"github.com/openeverest/openeverest/v2/provider-runtime/summary"
+	"github.com/openeverest/openeverest/v2/provider-runtime/validation"
 )
 
-const finalizerName = "everest.percona.com/provider-finalizer"
+const finalizerName = controller.ProviderFinalizer
+
+// conflictRequeue gives the cache time to catch up with the write that won
+// the optimistic lock.
+const conflictRequeue = time.Second
+
+// referenceRecheck is how often an Instance with an invalid reference is
+// checked again: a referent's contents change without an event on the Instance.
+const referenceRecheck = time.Minute
+
+// childrenRecheck is how often a deletion that waits for the Instance's
+// Backups and Restores to go looks again.
+const childrenRecheck = 10 * time.Second
 
 // =============================================================================
 // PROVIDER RECONCILER - Works with both Interface and Builder providers
@@ -56,20 +79,35 @@ const finalizerName = "everest.percona.com/provider-finalizer"
 
 // ProviderReconciler reconciles Instance resources using a Provider.
 type ProviderReconciler struct {
-	provider     providerAdapter
-	manager      ctrl.Manager
-	serverConfig *server.ServerConfig
-	server       *server.Server
-	breaker      maintenanceBreaker
-	pods         atomic.Value // client.Reader, set once the pod watch runs
+	provider      providerAdapter
+	manager       ctrl.Manager
+	server        *server.Server
+	breaker       maintenanceBreaker
+	pods          atomic.Value // client.Reader, set once the pod watch runs
+	apiReader     client.Reader
+	kubeSystemUID atomic.Value // string, the cluster identity of monitoring sources
+	recorder      events.EventRecorder
+	warned        sync.Map // Instance UID -> the generation its warnings were recorded for
+	// legacyFieldManager is the field manager the runtime's status writes
+	// were recorded under before it applied them, whose fields it adopts.
+	legacyFieldManager string
+
+	tracker          tracker
+	problemDeadline  time.Duration
+	progressDeadline time.Duration
+	clock            func() time.Time         // time.Now unless a test sets it
+	requeue          atomic.Pointer[requeuer] // set once the controller's queue exists
 	client.Client
 }
+
+// requeuer queues an Instance to be reconciled again after a delay.
+type requeuer func(req reconcile.Request, after time.Duration)
 
 // providerAdapter is the internal interface that both provider types satisfy.
 type providerAdapter interface {
 	Name() string
 	Types() func(*runtime.Scheme) error
-	Validate(c *controller.Context) error
+	Validate(in controller.ValidationInput) controller.ValidationResult
 	Sync(c *controller.Context) error
 	Status(c *controller.Context) (controller.Status, error)
 	Cleanup(c *controller.Context) error
@@ -90,25 +128,37 @@ type ReconcilerOption func(*reconcilerOptions)
 type reconcilerOptions struct {
 	serverConfig       *server.ServerConfig
 	metricsBindAddress string
+	admissionCertDir   string // set by WithAdmission
+	problemDeadline    time.Duration
+	progressDeadline   time.Duration
 }
 
-// WithServer enables the integrated HTTP server for the validation webhook.
-//
-// The server provides:
-// - Validation webhook: Accepts validation requests and runs the provider's Validate() method
-// - Health/Ready endpoints: For Kubernetes probes
+// WithProblemDeadline sets how long a problem that may clear by itself, such
+// as a missing Secret or a crash loop, is observed on an Instance before the
+// Instance is reported as stalled. The default is 10 minutes.
+func WithProblemDeadline(d time.Duration) ReconcilerOption {
+	return func(o *reconcilerOptions) {
+		o.problemDeadline = d
+	}
+}
+
+// WithProgressDeadline sets how long an Instance may converge with no named
+// operation running before it is reported as stalled. The default is 30
+// minutes.
+func WithProgressDeadline(d time.Duration) ReconcilerOption {
+	return func(o *reconcilerOptions) {
+		o.progressDeadline = d
+	}
+}
+
+// WithServer enables the integrated HTTP server, which serves the health and
+// readiness endpoints for Kubernetes probes.
 //
 // Example:
 //
-//	r, err := reconciler.NewFromInterface(provider,
-//	    reconciler.WithServer(reconciler.ServerConfig{
-//	        Port:           8080,
-//	        ValidationPath: "/validate",
-//	    }),
+//	r, err := reconciler.New(ctx, provider,
+//	    reconciler.WithServer(reconciler.ServerConfig{Port: 8082}),
 //	)
-//
-// Validation is handled by the provider's Validate() method - the same validation
-// used during reconciliation is exposed via the webhook.
 func WithServer(config server.ServerConfig) ReconcilerOption {
 	return func(o *reconcilerOptions) {
 		o.serverConfig = &config
@@ -167,6 +217,10 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		return nil, fmt.Errorf("failed to add backup v1alpha1 scheme: %w", err)
 	}
 
+	if err := monitoringv1alpha1.AddToScheme(scheme); err != nil {
+		return nil, fmt.Errorf("failed to add monitoring v1alpha1 scheme: %w", err)
+	}
+
 	// Register provider-specific types
 	if typesFunc := p.Types(); typesFunc != nil {
 		if err := typesFunc(scheme); err != nil {
@@ -183,10 +237,27 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 			BindAddress: options.metricsBindAddress,
 		}
 	}
+	if options.admissionCertDir != "" {
+		if err := checkAdmissionCert(options.admissionCertDir); err != nil {
+			return nil, err
+		}
+		mgrOpts.WebhookServer = webhook.NewServer(webhook.Options{
+			Port:    AdmissionPort,
+			CertDir: options.admissionCertDir,
+		})
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create manager: %w", err)
+	}
+
+	if options.admissionCertDir != "" {
+		mgr.GetWebhookServer().Register(AdmissionPath, &webhook.Admission{Handler: &instanceAdmission{
+			provider: p,
+			client:   mgr.GetClient(),
+			decoder:  admission.NewDecoder(scheme),
+		}})
 	}
 
 	// Setup field indexes if provider implements FieldIndexProvider
@@ -226,18 +297,27 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		}
 	}
 
-	r := &ProviderReconciler{
-		provider:     p,
-		manager:      mgr,
-		serverConfig: options.serverConfig,
-		Client:       mgr.GetClient(),
+	if _, ok := p.(controller.MonitoringIntegrationsProvider); ok {
+		if err := mgr.GetFieldIndexer().IndexField(ctx, &monitoringv1alpha1.MonitoringDestination{},
+			indexDestinationSecrets, destinationSecrets,
+		); err != nil {
+			return nil, fmt.Errorf("failed to register monitoring destination credentials index: %w", err)
+		}
 	}
 
-	// Setup server if configured
+	r := &ProviderReconciler{
+		provider:           p,
+		manager:            mgr,
+		apiReader:          mgr.GetAPIReader(),
+		recorder:           mgr.GetEventRecorder(p.Name() + "-provider"),
+		legacyFieldManager: defaultFieldManager(mgr.GetConfig().UserAgent),
+		problemDeadline:    options.problemDeadline,
+		progressDeadline:   options.progressDeadline,
+		Client:             mgr.GetClient(),
+	}
+
 	if options.serverConfig != nil {
-		if err := r.setupServer(p); err != nil {
-			return nil, fmt.Errorf("failed to setup server: %w", err)
-		}
+		r.server = server.NewServer(*options.serverConfig)
 	}
 
 	if err := r.setup(); err != nil {
@@ -246,7 +326,7 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 
 	// Register the BackupProvider-aware ancillary reconcilers when the
 	// provider implements the optional interface. These dispatch to
-	// SyncBackup/SyncRestore for ProviderManaged BackupClasses.
+	// SyncBackup/SyncRestore for the BackupClasses this provider executes.
 	if bp, ok := p.(controller.BackupProvider); ok {
 		if err := setupBackupReconciler(mgr, bp, p.Name()); err != nil {
 			return nil, fmt.Errorf("failed to setup backup reconciler: %w", err)
@@ -268,30 +348,20 @@ func newReconciler(ctx context.Context, p providerAdapter, opts ...ReconcilerOpt
 		}
 	}
 
+	if sp, ok := p.(controller.ShippedBackupClassesProvider); ok {
+		if shipped := sp.ShippedBackupClasses(); len(shipped) > 0 {
+			if err := setupBackupClassClaimReconciler(mgr, p.Name(), shipped); err != nil {
+				return nil, fmt.Errorf("failed to setup backup class claim reconciler: %w", err)
+			}
+		}
+	}
+
 	return r, nil
 }
 
 // GetManager returns the controller manager.
 func (r *ProviderReconciler) GetManager() ctrl.Manager {
 	return r.manager
-}
-
-// setupServer initializes the HTTP server with a validation webhook.
-func (r *ProviderReconciler) setupServer(p providerAdapter) error {
-	// Create validator function that wraps the provider's Validate method
-	validator := func(ctx context.Context, c client.Client, in *v1alpha1.Instance) error {
-		if err := validateVersionBundle(ctx, c, in); err != nil {
-			return err
-		}
-		if err := validateInstanceBackupConfig(ctx, c, in); err != nil {
-			return err
-		}
-		inCtx := controller.NewContext(ctx, c, in, p.Name())
-		return p.Validate(inCtx)
-	}
-
-	r.server = server.NewServer(*r.serverConfig, validator)
-	return nil
 }
 
 // Start starts the reconciler and server (blocking).
@@ -323,7 +393,45 @@ func (r *ProviderReconciler) setup() error {
 
 	b := ctrl.NewControllerManagedBy(r.manager).
 		For(&v1alpha1.Instance{}, builder.WithPredicates(filter)).
+		Watches(&v1alpha1.Provider{},
+			handler.EnqueueRequestsFromMapFunc(r.instancesForProvider),
+			builder.WithPredicates(
+				predicate.NewPredicateFuncs(func(o client.Object) bool { return o.GetName() == r.provider.Name() }),
+				predicate.GenerationChangedPredicate{},
+			),
+		).
+		WatchesMetadata(&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.instancesForSecret),
+			builder.WithPredicates(existenceChanged()),
+		).
+		// The controller hands its queue to its sources when it starts. This
+		// one watches nothing: it keeps the queue, so that an Instance can be
+		// queued for the time its status is next due to change.
+		WatchesRawSource(source.Func(func(_ context.Context, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) error {
+			var again requeuer = queue.AddAfter
+			r.requeue.Store(&again)
+
+			return nil
+		})).
 		Named(r.provider.Name() + "-controller")
+
+	if r.isBackupProvider() {
+		b.Watches(&backupv1alpha1.BackupClass{},
+			handler.EnqueueRequestsFromMapFunc(r.instancesForBackupClass),
+			builder.WithPredicates(predicate.Or[client.Object](predicate.GenerationChangedPredicate{}, providersChanged())),
+		)
+		b.Watches(&backupv1alpha1.BackupStorage{},
+			handler.EnqueueRequestsFromMapFunc(r.instancesForBackupStorage),
+			builder.WithPredicates(predicate.Or[client.Object](
+				predicate.GenerationChangedPredicate{}, acceptanceChanged(), verdictsChanged(),
+			)),
+		)
+		// Engines that mirror a storage's Secrets re-mirror on any change.
+		b.WatchesMetadata(&corev1.Secret{},
+			handler.EnqueueRequestsFromMapFunc(r.instancesForBackupStorageSecret),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		)
+	}
 
 	// Configure watches if provider implements WatchProvider
 	if wp, ok := r.provider.(controller.WatchProvider); ok {
@@ -353,6 +461,10 @@ func (r *ProviderReconciler) setup() error {
 		}
 	}
 
+	if monitoringEnabled(r.provider) {
+		r.watchMonitoringBindings(b)
+	}
+
 	c, err := b.Build(r)
 	if err != nil {
 		return err
@@ -366,23 +478,30 @@ func (r *ProviderReconciler) setup() error {
 // Reconcile implements the reconciliation loop.
 func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	logger := log.FromContext(ctx).WithValues("provider", r.provider.Name())
+	ctx = log.IntoContext(ctx, logger)
 
 	// Fetch the Instance
 	in := &v1alpha1.Instance{}
 	if err := r.Client.Get(ctx, req.NamespacedName, in); err != nil {
+		if apierrors.IsNotFound(err) {
+			r.tracker.forget(req.NamespacedName)
+		}
+
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
 	// Create the Context handle
-	inCtx := controller.NewContext(ctx, r.Client, in, r.provider.Name())
+	inCtx := newContext(ctx, r.Client, in, r.provider, r.provider.Name())
 
 	// Handle deletion
 	if !in.GetDeletionTimestamp().IsZero() {
 		return r.handleDeletion(ctx, inCtx, in, logger)
 	}
 
-	// Ensure provider label and finalizer are present
+	// Ensure provider label and finalizer are present. A merge patch, unlike
+	// Update, cannot erase spec fields this binary's types do not know.
 	var needsUpdate bool
+	base := in.DeepCopy()
 	if in.Labels == nil {
 		in.Labels = make(map[string]string)
 	}
@@ -395,121 +514,213 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		needsUpdate = true
 	}
 	if needsUpdate {
-		if err := r.Client.Update(ctx, in); err != nil {
+		if err := r.Patch(ctx, in, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})); err != nil {
+			if apierrors.IsConflict(err) {
+				return reconcile.Result{RequeueAfter: conflictRequeue}, nil
+			}
 			return reconcile.Result{}, err
 		}
+		// Nothing is written to the status on this pass. Until the first
+		// write the Instance reads as in progress, because its
+		// status.observedGeneration defaults to -1.
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	// Run validation
-	if err := validateVersionBundle(ctx, r.Client, in); err != nil {
-		logger.Error(err, "Version bundle validation failed")
-		in.Status.Phase = v1alpha1.InstancePhaseFailed
-		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
-			logger.Error(updateErr, "Failed to update status after validation error")
+	// Every way out from here goes through finish, which writes the status.
+	p := r.begin(in)
+
+	return r.finish(ctx, p, recovered(ctx, func() error { return r.reconcileInstance(ctx, p, inCtx) }))
+}
+
+// recovered runs step, a part of a pass that calls the provider, and turns a
+// panic in it into an error. The pass then ends through finish like a call
+// that failed, so the status says that the provider fails, where
+// controller-runtime's own recovery would only log the panic.
+func recovered(ctx context.Context, step func() error) (err error) {
+	defer func() {
+		if v := recover(); v != nil {
+			if cause, ok := v.(error); ok {
+				err = fmt.Errorf("panic: %w", cause)
+			} else {
+				err = fmt.Errorf("panic: %v", v)
+			}
+			log.FromContext(ctx).Error(err, "Recovered from a panic", "stack", string(debug.Stack()))
 		}
-		return reconcile.Result{}, err
+	}()
+
+	return step()
+}
+
+// reconcileInstance runs one pass over an Instance that is not being
+// deleted, recording what it finds on p. It stops at the first step that
+// cannot go on; the status then says why.
+func (r *ProviderReconciler) reconcileInstance(ctx context.Context, p *pass, inCtx *controller.Context) error {
+	if ok, err := r.checkReferents(ctx, p); !ok {
+		return err
 	}
-	if err := validateInstanceBackupConfig(ctx, r.Client, in); err != nil {
-		logger.Error(err, "Backup configuration validation failed")
-		// Surface the violation on the BackupConfigured condition without
-		// marking the Instance Failed: the engine itself is healthy and the
-		// user can fix the configuration without a full redeploy.
-		reason := controller.LimitsExceededReason
-		if errors.Is(err, controller.ErrPITRConfigInvalid) {
-			reason = controller.PITRConfigInvalidReason
-		}
-		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
-			reason, err.Error(), metav1.Now())
-		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
-			logger.Error(updateErr, "Failed to update status after backup config violation")
-		}
-		return reconcile.Result{}, nil
+	if ok, err := r.checkSpec(ctx, p, inCtx); !ok {
+		return err
 	}
-	if err := r.provider.Validate(inCtx); err != nil {
-		logger.Error(err, "Validation failed")
-		// Update status to failed
-		in.Status.Phase = v1alpha1.InstancePhaseFailed
-		if updateErr := r.Client.Status().Update(ctx, in); updateErr != nil {
-			logger.Error(updateErr, "Failed to update status after validation error")
-		}
-		return reconcile.Result{}, err
+	syncCtx, err := r.syncContext(ctx, p)
+	if err != nil {
+		return err
+	}
+	if ok, err := r.sync(ctx, p, syncCtx); !ok {
+		return err
 	}
 
-	// The provider is handed a prepared copy, never the stored object.
+	return r.observe(ctx, p, syncCtx)
+}
+
+// checkReferents reports whether the objects the Instance names exist and
+// can be used. The provider is not called while one is missing; the watches
+// re-enqueue the Instance once it appears.
+func (r *ProviderReconciler) checkReferents(ctx context.Context, p *pass) (bool, error) {
+	logger := log.FromContext(ctx)
+	in := p.in
+
+	b, err := missingReferent(ctx, r.Client, in)
+	if err != nil {
+		return false, err
+	}
+	if b.reason != "" {
+		logger.Info("Waiting for a referent", "reason", b.reason, "message", b.message)
+		p.check(v1alpha1.ConditionReferencesResolved, metav1.ConditionFalse, b.reason, b.message)
+
+		return false, nil
+	}
+	p.referentsExist()
+
+	backupMiss, err := r.missingBackupReferent(ctx, in)
+	if err != nil {
+		return false, err
+	}
+	if backupMiss.reason != "" {
+		logger.Info("Waiting for a backup referent", "reason", backupMiss.reason, "message", backupMiss.message)
+		p.check(v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse, backupMiss.reason, backupMiss.message)
+
+		return false, nil
+	}
+
+	return true, nil
+}
+
+// checkSpec reports whether the spec can be handed to the provider. A
+// rejected spec waits for the Instance or the Provider to change, and both
+// enqueue the Instance, so it is not requeued. Only a person can change
+// them, which is why the Instance is reported as stalled at once.
+func (r *ProviderReconciler) checkSpec(ctx context.Context, p *pass, inCtx *controller.Context) (bool, error) {
+	logger := log.FromContext(ctx)
+	in := p.in
+
+	if err := validateInstanceBackupConfig(ctx, r.Client, in); err != nil {
+		var reason string
+		switch {
+		case errors.Is(err, controller.ErrPITRConfigInvalid):
+			reason = controller.PITRConfigInvalidReason
+		case errors.Is(err, controller.ErrBackupClassLimitsExceeded):
+			reason = controller.LimitsExceededReason
+		default:
+			return false, err
+		}
+		// The violation is also reported on BackupConfigured: the engine
+		// itself may be healthy, and the user can fix the configuration
+		// without a full redeploy.
+		logger.Info("Backup configuration rejected", "reason", reason, "message", err.Error())
+		p.check(v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse, reason, err.Error())
+		p.reject(reason, err.Error())
+
+		return false, nil
+	}
+	p.backupUsable = true
+
+	errs, err := r.validate(ctx, in)
+	if err != nil {
+		return false, err
+	}
+	if len(errs) > 0 {
+		message := validation.Summary(errs)
+		logger.Info("Validation failed", "errors", message)
+		p.reject(v1alpha1.ReasonValidationFailed, message)
+
+		return false, nil
+	}
+	if rv, ok := r.provider.(controller.ReferenceValidator); ok {
+		errs, err := rv.ValidateReferences(inCtx)
+		if err != nil {
+			logger.Error(err, "Reference validation could not run")
+
+			return false, err
+		}
+		if len(errs) > 0 {
+			message := validation.Summary(errs)
+			logger.Info("Reference validation failed", "errors", message)
+			p.check(v1alpha1.ConditionReferencesResolved, metav1.ConditionFalse, v1alpha1.ReasonInvalidReference, message)
+			p.lookAgainIn(referenceRecheck)
+
+			return false, nil
+		}
+	}
+	p.check(v1alpha1.ConditionReferencesResolved, metav1.ConditionTrue, v1alpha1.ReasonResolved, "")
+
+	return true, nil
+}
+
+// syncContext returns the context the provider is called with. The provider
+// is handed a prepared copy of the Instance, never the stored object.
+func (r *ProviderReconciler) syncContext(ctx context.Context, p *pass) (*controller.Context, error) {
+	in := p.in
 	resolvedIn, effectiveBundleName, err := r.prepareInstance(ctx, in)
 	if err != nil {
-		logger.Error(err, "Preparing the instance for sync failed")
-		return reconcile.Result{}, err
+		log.FromContext(ctx).Error(err, "Preparing the instance for sync failed")
+
+		return nil, err
 	}
-	syncCtx := controller.NewContext(ctx, r.Client, resolvedIn, r.provider.Name())
-	syncCtx.BlockMaintenance(r.breaker.blockedTokens(req.NamespacedName, approvedMaintenanceValue(in))...)
+	p.version = effectiveBundleName
+
+	syncCtx := newContext(ctx, r.Client, resolvedIn, r.provider, r.provider.Name())
+	syncCtx.BlockMaintenance(r.breaker.blockedTokens(client.ObjectKeyFromObject(in), approvedMaintenanceValue(in))...)
+	if ip, ok := r.provider.(controller.MonitoringIntegrationsProvider); ok {
+		syncCtx.SetMonitoringIntegrations(ip.MonitoringIntegrations()...)
+	}
+
+	return syncCtx, nil
+}
+
+// sync runs the provider's Sync and reports whether the provider can go on
+// to say what it observes.
+func (r *ProviderReconciler) sync(ctx context.Context, p *pass, syncCtx *controller.Context) (bool, error) {
+	in := p.in
 
 	// Passive warning for owners: flag effective component versions the
 	// installed catalog marks as deprecated, before any upgrade is attempted.
 	r.setDeprecationCondition(ctx, in)
 
-	// Run sync
-	logger.Info("Running sync")
-	if err := r.provider.Sync(syncCtx); err != nil {
-		if controller.IsWaitError(err) {
-			logger.Info("Sync waiting", "reason", err.Error())
-			return reconcile.Result{RequeueAfter: controller.GetWaitDuration(err)}, nil
-		}
-		// BackupConfigError means the engine is healthy but backup wiring failed.
-		// Surface it on the BackupConfigured condition without marking Instance Failed.
-		if bce := controller.AsBackupConfigError(err); bce != nil {
-			logger.Error(err, "Backup configuration failed")
-			setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse,
-				bce.Reason, bce.Message, metav1.Now())
-			// The provider got as far as declaring maintenance before failing,
-			// so the staged set is authoritative; without this the pending
-			// list and condition go stale until a fully successful pass.
-			if syncCtx.MaintenanceRequested() {
-				flushPendingMaintenance(syncCtx, in)
-			}
-			_ = r.Client.Status().Update(ctx, in)
-			return reconcile.Result{}, nil
-		}
-		// DataSourceConfigError means the engine is healthy but initial seeding
-		// cannot proceed (e.g., source credentials secret missing). Surface it on
-		// the DataSourceReady condition without marking Instance Failed.
-		if dse := controller.AsDataSourceConfigError(err); dse != nil {
-			logger.Error(err, "DataSource configuration failed")
-			setCondition(in, v1alpha1.ConditionDataSourceReady, metav1.ConditionFalse,
-				dse.Reason, dse.Message, metav1.Now())
-			if syncCtx.MaintenanceRequested() {
-				flushPendingMaintenance(syncCtx, in)
-			}
-			_ = r.Client.Status().Update(ctx, in)
-			return reconcile.Result{}, nil
-		}
-		logger.Error(err, "Sync failed")
-		r.breaker.recordFailure(req.NamespacedName, approvedMaintenanceValue(in), syncCtx.GetApprovedMaintenance())
-		return reconcile.Result{}, err
+	log.FromContext(ctx).Info("Running sync")
+	// A panic in Sync is a failed Sync: it counts towards the maintenance
+	// breaker like any other.
+	err := recovered(ctx, func() error { return r.provider.Sync(syncCtx) })
+	// What Sync found out about the seeding of a new Instance stands,
+	// however Sync returned.
+	p.flushDataSource(syncCtx)
+	if err != nil {
+		return false, r.syncStopped(ctx, p, syncCtx, err)
 	}
+
 	// A pass that merely held a tripped action succeeds trivially; resetting
 	// then would un-trip the breaker and restart the failure bursts.
 	if !syncCtx.MaintenanceBreakerHeld() {
-		r.breaker.reset(req.NamespacedName)
+		r.breaker.reset(client.ObjectKeyFromObject(in))
 	}
-	// Clear any stale BackupConfigured=False condition left from a previous failed Sync.
-	if _, ok := r.provider.(controller.BackupProvider); ok {
-		setCondition(in, v1alpha1.ConditionBackupConfigured, metav1.ConditionTrue,
-			"Configured", "Backup configuration applied to engine", metav1.Now())
-	}
+	backupStorages, err := r.judgedBackupStorages(syncCtx, in)
+	if err != nil {
+		log.FromContext(ctx).Error(err, "Judging the backup storages failed")
 
-	// Flush ConditionDataSourceReady when the provider invoked
-	// Context.ReconcileDataSource during Sync. Status=True when the seeding
-	// restore has Succeeded; Status=False otherwise with the staged reason
-	// and message explaining what the helper is waiting on.
-	if ds := syncCtx.GetDataSourceStatus(); ds != nil && ds.State != controller.DataSourceStateNone {
-		condStatus := metav1.ConditionFalse
-		if ds.State == controller.DataSourceStateSucceeded {
-			condStatus = metav1.ConditionTrue
-		}
-		setCondition(in, v1alpha1.ConditionDataSourceReady, condStatus,
-			ds.Reason, ds.Message, metav1.Now())
+		return false, err
+	}
+	p.backupStorages = backupStorages
+	if r.isBackupProvider() {
+		setBackupConfigured(p, backupStorages)
 	}
 
 	// Flush the actions Context.RequestMaintenance held during Sync. The
@@ -517,33 +728,83 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	// stale, while the approval stays durable in spec.
 	flushPendingMaintenance(syncCtx, in)
 
-	// Compute and update status
+	return true, nil
+}
+
+// syncStopped handles a Sync that did not complete. A Sync that waits, or
+// that could not configure backups or the seeding of a new Instance, ends
+// the pass without failing it: the status says what it waits for or what is
+// wrong, and the engine itself may be healthy.
+func (r *ProviderReconciler) syncStopped(ctx context.Context, p *pass, syncCtx *controller.Context, err error) error {
+	logger := log.FromContext(ctx)
+	in := p.in
+
+	if controller.IsWaitError(err) {
+		logger.Info("Sync waiting", "reason", err.Error())
+		p.wait(err)
+
+		return nil
+	}
+
+	bce, dse := controller.AsBackupConfigError(err), controller.AsDataSourceConfigError(err)
+	switch {
+	case bce != nil:
+		logger.Error(err, "Backup configuration failed")
+		p.check(v1alpha1.ConditionBackupConfigured, metav1.ConditionFalse, reasonOr(bce.Reason, v1alpha1.ReasonEngineError), bce.Message)
+	case dse != nil:
+		logger.Error(err, "DataSource configuration failed")
+		p.check(v1alpha1.ConditionDataSourceReady, metav1.ConditionFalse, reasonOr(dse.Reason, v1alpha1.ReasonDataSourceFailed), dse.Message)
+	default:
+		logger.Error(err, "Sync failed")
+		r.breaker.recordFailure(client.ObjectKeyFromObject(in), approvedMaintenanceValue(in), syncCtx.GetApprovedMaintenance())
+
+		return err
+	}
+	p.providerRan = true
+	// The provider got as far as declaring maintenance before failing, so
+	// the staged set is authoritative; without this the pending list and
+	// condition go stale until a fully successful pass.
+	if syncCtx.MaintenanceRequested() {
+		flushPendingMaintenance(syncCtx, in)
+	}
+
+	return nil
+}
+
+// observe asks the provider what it observes about the engine and records
+// what the runtime observes itself.
+func (r *ProviderReconciler) observe(ctx context.Context, p *pass, syncCtx *controller.Context) error {
+	logger := log.FromContext(ctx)
+	in := p.in
+
 	logger.Info("Computing status")
 	status, err := r.provider.Status(syncCtx)
 	if err != nil {
 		logger.Error(err, "Status computation failed")
-		return reconcile.Result{}, err
-	}
 
-	instanceStatus := status.ToV2Alpha1()
-	in.Status.Phase = instanceStatus.Phase
-	in.Status.Message = instanceStatus.Message
-	recheck := r.setPodStatus(ctx, in, syncCtx.LabelledComponents(), time.Now())
+		return err
+	}
+	p.reported(ctx, status)
+	labelled := syncCtx.LabelledComponents()
+	p.state.labelled = sets.New(labelled...)
+	p.lookAgainIn(r.setPodStatus(ctx, in, labelled, p.state.desired, p.now))
+	p.podsObserved = true
 
 	// Collect per-storage backup observability data (e.g. the latest
 	// restorable time for PITR) when the provider opts into reporting it.
 	// Failures here are logged but never fail the reconcile: this is
 	// observability data and the engine itself is healthy.
-	if reporter, ok := r.provider.(controller.InstanceBackupStatusReporter); ok {
-		storageStatuses, repErr := reporter.BackupStorageStatuses(syncCtx)
-		switch {
-		case repErr != nil:
+	var reported []v1alpha1.InstanceBackupStorageStatus
+	reporter, reports := r.provider.(controller.InstanceBackupStatusReporter)
+	if reports {
+		var repErr error
+		if reported, repErr = reporter.BackupStorageStatuses(syncCtx); repErr != nil {
 			logger.Error(repErr, "Failed to collect backup storage statuses")
-		case len(storageStatuses) > 0:
-			in.Status.Backup = &v1alpha1.InstanceBackupStatus{Storages: storageStatuses}
-		default:
-			in.Status.Backup = nil
+			reports = false
 		}
+	}
+	if reports || r.isBackupProvider() {
+		setBackupStatus(in, p.backupStorages, reported)
 	}
 
 	// Freeze the effective bundle name in status so it remains stable across
@@ -552,23 +813,20 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	// Provider's current default — preventing silent upgrades on existing
 	// Instances. GitOps tools exclude status from diff calculations by default
 	// so this field never causes spurious out-of-sync alerts.
-	if effectiveBundleName != "" {
-		in.Status.Version = effectiveBundleName
+	if p.version != "" {
+		in.Status.Version = p.version
 	}
+
+	r.reconcileMonitoring(ctx, syncCtx, in)
 
 	// Write connection details Secret and set the ConnectionDetailsReady condition.
 	if err := r.reconcileConnectionSecret(ctx, in, status); err != nil {
 		logger.Error(err, "Failed to reconcile connection secret")
-		return reconcile.Result{}, err
+
+		return err
 	}
 
-	if err := r.Client.Status().Update(ctx, in); err != nil {
-		logger.Error(err, "Failed to update status")
-		return reconcile.Result{}, err
-	}
-
-	logger.Info("Reconciliation complete", "phase", in.Status.Phase)
-	return reconcile.Result{RequeueAfter: recheck}, nil
+	return nil
 }
 
 // leaderElectionFree marks a Runnable as one that must run on every replica,
@@ -577,14 +835,15 @@ type leaderElectionFree struct{ manager.Runnable }
 
 func (leaderElectionFree) NeedLeaderElection() bool { return false }
 
-// startServer wires the validation server into the manager lifecycle. It is a
+// startServer wires the health server into the manager lifecycle. It is a
 // no-op when no server is configured.
 //
 // Readiness is gated on the manager's caches: the server is marked ready from a
-// manager Runnable only after the informers the validation path reads (Instance
-// and Provider) have synced, so /readyz reports ready only once the cache-backed
-// client is usable. This keeps probes from routing validation traffic to the
-// server before it can serve it. Readiness is cleared again on shutdown.
+// manager Runnable only after the Instance and Provider informers have synced,
+// so /readyz reports ready only once the cache-backed client is usable. This
+// keeps the Service from routing admission requests, which read the Provider
+// from that cache, to a pod before it can serve them. Readiness is cleared
+// again on shutdown.
 //
 // The Runnable is wrapped in leaderElectionFree so it runs on every replica, not
 // only the elected leader. Must be called before manager.Start.
@@ -593,7 +852,6 @@ func (r *ProviderReconciler) startServer(ctx context.Context) error {
 		return nil
 	}
 
-	r.server.SetClient(r.Client)
 	go func() {
 		if err := r.server.Start(ctx); err != nil {
 			log.FromContext(ctx).Error(err, "Server error")
@@ -601,9 +859,8 @@ func (r *ProviderReconciler) startServer(ctx context.Context) error {
 	}()
 
 	return r.manager.Add(leaderElectionFree{manager.RunnableFunc(func(runnableCtx context.Context) error {
-		// Report ready only once the informers the validation path reads have
-		// synced, so the cache-backed client is usable before /readyz turns
-		// green. Stay not-ready if the context is cancelled first (shutdown).
+		// Report ready only once the Instance and Provider informers have
+		// synced. Stay not-ready if the context is cancelled first (shutdown).
 		for _, obj := range []client.Object{&v1alpha1.Instance{}, &v1alpha1.Provider{}} {
 			if !r.waitForCacheSync(runnableCtx, obj) {
 				return nil
@@ -638,71 +895,141 @@ func (r *ProviderReconciler) waitForCacheSync(ctx context.Context, obj client.Ob
 	}
 }
 
+// handleDeletion cleans up after an Instance whose deletion was requested,
+// and removes the finalizer once nothing is left. Until then every pass
+// reports on the status what the deletion waits for.
 func (r *ProviderReconciler) handleDeletion(
 	ctx context.Context,
 	inCtx *controller.Context,
 	in *v1alpha1.Instance,
 	logger interface{ Info(string, ...interface{}) },
 ) (reconcile.Result, error) {
+	r.warned.Delete(in.UID)
 	if !controllerutil.ContainsFinalizer(in, finalizerName) {
 		return reconcile.Result{}, nil
 	}
 
-	logger.Info("Running cleanup")
+	p := r.begin(in)
+	p.deleting = true
+	r.countPodsWhileDeleting(ctx, p)
 
-	// Update status to deleting
+	// Say that the Instance is being deleted before cleanup starts, which can
+	// take long. Later passes write only at their end, once they know what
+	// cleanup waits for, so the status does not alternate between two
+	// reasons.
 	if in.Status.Phase != v1alpha1.InstancePhaseTerminating {
-		in.Status.Phase = v1alpha1.InstancePhaseTerminating
-		if err := r.Client.Status().Update(ctx, in); err != nil {
+		if err := r.writeStatus(ctx, p); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
-	// Cascade delete Backup/Restore CRs that reference this Instance before
-	// tearing down the engine. We only attempt this when the provider opts
-	// into BackupProvider (the case in which the Backup/Restore field
-	// indexes are registered and the user is expected to be creating
-	// Backup CRs against this Instance).
-	if _, isBackupProvider := r.provider.(controller.BackupProvider); isBackupProvider &&
-		in.Spec.DeletionPolicy == v1alpha1.InstanceDeletionPolicyCascade {
-		remaining, err := r.cascadeDeleteChildren(ctx, inCtx, logger)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		if remaining > 0 {
-			logger.Info("Waiting for child Backup/Restore CRs to terminate", "remaining", remaining)
-			return reconcile.Result{RequeueAfter: controller.GetWaitDuration(controller.WaitFor("waiting for child Backup/Restore CRs"))}, nil
-		}
-	}
-
-	// Run cleanup
-	if err := r.provider.Cleanup(inCtx); err != nil {
-		if controller.IsWaitError(err) {
-			logger.Info("Cleanup waiting", "reason", err.Error())
-			return reconcile.Result{RequeueAfter: controller.GetWaitDuration(err)}, nil
-		}
-		return reconcile.Result{}, err
+	logger.Info("Running cleanup")
+	var done bool
+	err := recovered(ctx, func() error {
+		var err error
+		done, err = r.cleanup(ctx, p, inCtx, logger)
+		return err
+	})
+	if !done {
+		return r.finish(ctx, p, err)
 	}
 
 	// Remove finalizer
+	base := in.DeepCopy()
 	controllerutil.RemoveFinalizer(in, finalizerName)
-	if err := r.Client.Update(ctx, in); err != nil {
+	if err := r.Patch(ctx, in, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{})); err != nil {
+		if apierrors.IsConflict(err) {
+			return reconcile.Result{RequeueAfter: conflictRequeue}, nil
+		}
 		return reconcile.Result{}, err
 	}
-	// Drop breaker state so a recreated Instance with the same name does not
-	// inherit this lifetime's failure counts.
+	// Drop what is remembered about the Instance, so a recreated Instance
+	// with the same name does not inherit this lifetime's failure counts.
 	r.breaker.reset(client.ObjectKeyFromObject(in))
+	r.tracker.forget(client.ObjectKeyFromObject(in))
 
 	logger.Info("Cleanup complete")
 	return reconcile.Result{}, nil
 }
 
+// cleanup deletes what the Instance leaves behind. It returns false while
+// something is still being deleted, having recorded on p what it waits for.
+func (r *ProviderReconciler) cleanup(
+	ctx context.Context,
+	p *pass,
+	inCtx *controller.Context,
+	logger interface {
+		Info(msg string, keysAndValues ...any)
+	},
+) (bool, error) {
+	// Cascade delete Backup/Restore CRs that reference this Instance before
+	// tearing down the engine. We only attempt this when the provider opts
+	// into BackupProvider (the case in which the Backup/Restore field
+	// indexes are registered and the user is expected to be creating
+	// Backup CRs against this Instance).
+	if r.isBackupProvider() && p.in.Spec.DeletionPolicy == v1alpha1.InstanceDeletionPolicyCascade {
+		backups, restores, err := r.cascadeDeleteChildren(ctx, inCtx, logger)
+		if err != nil {
+			return false, err
+		}
+		if backups+restores > 0 {
+			logger.Info("Waiting for child Backup/Restore CRs to terminate", "remaining", backups+restores)
+			p.waiting = waitingForChildren(backups, restores)
+			p.lookAgainIn(childrenRecheck)
+
+			return false, nil
+		}
+	}
+
+	if err := r.provider.Cleanup(inCtx); err != nil {
+		if controller.IsWaitError(err) {
+			logger.Info("Cleanup waiting", "reason", err.Error())
+			p.wait(err)
+
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	return true, nil
+}
+
+// waitingForChildren names the Backups and Restores a deletion waits for.
+func waitingForChildren(backups, restores int) *summary.Cause {
+	count := func(n int, noun string) string {
+		if n == 1 {
+			return "1 " + noun
+		}
+
+		return fmt.Sprintf("%d %ss", n, noun)
+	}
+	switch {
+	case backups == 0:
+		return &summary.Cause{
+			Reason:  v1alpha1.ReasonWaitingForRestores,
+			Message: fmt.Sprintf("Waiting for %s to be deleted", count(restores, "restore")),
+		}
+	case restores == 0:
+		return &summary.Cause{
+			Reason:  v1alpha1.ReasonWaitingForBackups,
+			Message: fmt.Sprintf("Waiting for %s to be deleted", count(backups, "backup")),
+		}
+	default:
+		return &summary.Cause{
+			Reason:  v1alpha1.ReasonWaitingForBackups,
+			Message: fmt.Sprintf("Waiting for %s and %s to be deleted", count(backups, "backup"), count(restores, "restore")),
+		}
+	}
+}
+
 // cascadeDeleteChildren issues Delete on every Backup and Restore CR in the
 // Instance's namespace where Backup.spec.origin.instanceRef.name or
 // Restore.spec.instanceRef.name matches this Instance, then
-// returns the number of CRs still present (counting both freshly-deleted ones
-// that have not yet been reaped by their own controllers and any older ones
-// still finalizing). The caller should requeue while remaining > 0.
+// returns the number of Backups and of Restores still present (counting both
+// freshly-deleted ones that have not yet been reaped by their own controllers
+// and any older ones still finalizing). The caller should requeue while any
+// remain.
 //
 // Each child Backup's own .spec.deletionPolicy controls whether the
 // underlying data in the BackupStorage is purged or retained — this function
@@ -711,10 +1038,10 @@ func (r *ProviderReconciler) cascadeDeleteChildren(
 	ctx context.Context,
 	inCtx *controller.Context,
 	logger interface{ Info(string, ...interface{}) },
-) (int, error) {
+) (int, int, error) {
 	backups, err := inCtx.BackupsForInstance()
 	if err != nil {
-		return 0, fmt.Errorf("list backups for cascade delete: %w", err)
+		return 0, 0, fmt.Errorf("list backups for cascade delete: %w", err)
 	}
 	for i := range backups {
 		b := &backups[i]
@@ -722,14 +1049,14 @@ func (r *ProviderReconciler) cascadeDeleteChildren(
 			continue
 		}
 		if err := r.Client.Delete(ctx, b); err != nil && !apierrors.IsNotFound(err) {
-			return 0, fmt.Errorf("delete child Backup %q: %w", b.Name, err)
+			return 0, 0, fmt.Errorf("delete child Backup %q: %w", b.Name, err)
 		}
 		logger.Info("Cascade delete: issued Delete on Backup", "name", b.Name)
 	}
 
 	restores, err := inCtx.RestoresForInstance()
 	if err != nil {
-		return 0, fmt.Errorf("list restores for cascade delete: %w", err)
+		return 0, 0, fmt.Errorf("list restores for cascade delete: %w", err)
 	}
 	for i := range restores {
 		rs := &restores[i]
@@ -737,16 +1064,18 @@ func (r *ProviderReconciler) cascadeDeleteChildren(
 			continue
 		}
 		if err := r.Client.Delete(ctx, rs); err != nil && !apierrors.IsNotFound(err) {
-			return 0, fmt.Errorf("delete child Restore %q: %w", rs.Name, err)
+			return 0, 0, fmt.Errorf("delete child Restore %q: %w", rs.Name, err)
 		}
 		logger.Info("Cascade delete: issued Delete on Restore", "name", rs.Name)
 	}
 
-	return len(backups) + len(restores), nil
+	return len(backups), len(restores), nil
 }
 
 // reconcileConnectionSecret creates or updates the connection details Secret
-// and sets the ConnectionDetailsReady condition on the Instance status.
+// and sets the ConnectionDetailsReady condition on the Instance status. The
+// Secret's "provider" entry is always the Provider name, whatever the provider
+// reported.
 func (r *ProviderReconciler) reconcileConnectionSecret(
 	ctx context.Context,
 	in *v1alpha1.Instance,
@@ -755,12 +1084,15 @@ func (r *ProviderReconciler) reconcileConnectionSecret(
 	now := metav1.Now()
 
 	if status.ConnectionDetails.IsEmpty() {
-		if status.Phase == v1alpha1.InstancePhaseReady {
+		if status.Converged {
 			setCondition(in, v1alpha1.ConditionConnectionDetailsReady, metav1.ConditionFalse,
 				"NotReported", "Provider did not report connection details", now)
 		}
 		return nil
 	}
+
+	details := status.ConnectionDetails
+	details.Provider = r.provider.Name()
 
 	secretName := in.Name + controller.ConnectionSecretSuffix
 
@@ -775,12 +1107,12 @@ func (r *ProviderReconciler) reconcileConnectionSecret(
 		},
 	}
 
-	if err := controllerutil.SetControllerReference(in, secret, r.manager.GetScheme()); err != nil {
+	if err := controllerutil.SetControllerReference(in, secret, r.Scheme()); err != nil {
 		return fmt.Errorf("failed to set owner reference on connection secret: %w", err)
 	}
 
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
-		secret.Data = status.ConnectionDetails.ToSecretData()
+		secret.Data = details.ToSecretData()
 		return nil
 	})
 	if err != nil {
@@ -927,30 +1259,6 @@ func (r *ProviderReconciler) prepareInstance(
 		return nil, "", fmt.Errorf("fetching provider for version resolution: %w", err)
 	}
 	return instanceprep.PrepareForSync(&providerObj.Spec, in)
-}
-
-// validateVersionBundle checks that spec.version (if set) exists in the
-// Provider's Versions map. This runs for both the reconciler and the webhook
-// so users get immediate feedback on an invalid version selection.
-func validateVersionBundle(ctx context.Context, c client.Client, in *v1alpha1.Instance) error {
-	if in.Spec.Version == "" {
-		return nil
-	}
-	providerObj := &v1alpha1.Provider{}
-	if err := c.Get(ctx, client.ObjectKey{Name: in.Spec.ProviderRef.Name}, providerObj); err != nil {
-		return fmt.Errorf("fetching provider for version validation: %w", err)
-	}
-	found := false
-	for _, b := range providerObj.Spec.Versions {
-		if b.Name == in.Spec.Version {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return fmt.Errorf("version %q is not defined by provider %q", in.Spec.Version, in.Spec.ProviderRef.Name)
-	}
-	return nil
 }
 
 // fetchBackupClassForInstance returns the BackupClass referenced by

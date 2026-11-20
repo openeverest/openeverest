@@ -12,16 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export type DatabaseFormStepControllersProps = {
-  disableBack?: boolean;
-  disableNext?: boolean;
-  disableSubmit?: boolean;
-  disableCancel?: boolean;
-  showSubmit?: boolean;
-  onPreviousClick: () => void;
-  onNextClick: () => void;
-  onCancel: () => void;
-  onSubmit: () => void;
-  showConfigMore?: boolean;
-  disableConfigMore?: boolean;
-};
+// A shown button needs its handler; a page without that button passes none.
+type BackControl =
+  | { disableBack?: boolean; onPreviousClick: () => void }
+  | { disableBack: true; onPreviousClick?: undefined };
+
+type SubmitControl =
+  | { showSubmit?: boolean; disableSubmit?: boolean; onSubmit: () => void }
+  | { showSubmit?: false; disableSubmit?: undefined; onSubmit?: undefined };
+
+export type DatabaseFormStepControllersProps = BackControl &
+  SubmitControl & {
+    disableNext?: boolean;
+    disableCancel?: boolean;
+    onNextClick: () => void;
+    onCancel: () => void;
+    showConfigMore?: boolean;
+    disableConfigMore?: boolean;
+  };

@@ -12,7 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import type { Section, TopologyUISchemas } from '../../ui-generator.types';
+import {
+  FieldType,
+  type Section,
+  type TopologyUISchemas,
+} from '../../ui-generator.types';
 import { walkLeafComponents, walkTopologyComponents } from '../schema-walker';
 import { getComponentTargetPaths } from '../preprocess/normalized-component';
 import { getByPath, setByPath, deepClone } from '../object-path';
@@ -30,6 +34,10 @@ export const extractBadgeMappings = (
   const badgeMappings: BadgeMapping[] = [];
 
   walkTopologyComponents(schema, selectedTopology, ({ component }) => {
+    // Quantity owns conversion via `unit`; never append a badge on top.
+    if (component.uiType === FieldType.Quantity) {
+      return;
+    }
     if (component.fieldParams?.badge && component.fieldParams?.badgeToApi) {
       getComponentTargetPaths(component).forEach((path) => {
         badgeMappings.push({
@@ -104,6 +112,9 @@ export const extractBadgeMappingsFromSections = (
   for (const section of Object.values(sections)) {
     if (!section?.components) continue;
     walkLeafComponents(section.components, ({ component }) => {
+      if (component.uiType === FieldType.Quantity) {
+        return;
+      }
       if (component.fieldParams?.badge && component.fieldParams?.badgeToApi) {
         getComponentTargetPaths(component).forEach((path) => {
           badgeMappings.push({ path, badge: component.fieldParams.badge! });

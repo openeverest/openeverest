@@ -8,7 +8,6 @@ IMAGE_TAG ?= 0.0.0
 IMG = $(IMAGE_PREFIX)/$(EVEREST_SERVER_DEV_IMAGE_NAME):$(IMAGE_TAG)
 EVEREST_CONTROLLER_IMG = $(IMAGE_PREFIX)/$(EVEREST_CONTROLLER_DEV_IMAGE_NAME):$(IMAGE_TAG)
 CONTROLLER_TOOLS_VERSION ?= v0.18.0
-VICTORIAMETRICS_OPERATOR_VERSION ?= 0.66.1
 
 .PHONY: default
 default: help
@@ -62,7 +61,7 @@ gen-openapi-ts-types: ## Generate TypeScript types from all OpenAPI YAML files i
 generate: gen
 
 .PHONY: gen
-gen: gen-crds-deepcopy gen-crds-manifests gen-crds-openapi gen-openapi-ts-types ## Generate code.
+gen: gen-crds-deepcopy gen-crds-manifests gen-backupstorageclasses gen-crds-openapi gen-openapi-ts-types ## Generate code.
 	go generate ./...
 	python3 hack/add_copyright.py \
 		internal/server/api/everest-server.gen.go \
@@ -89,6 +88,16 @@ check:                  ## Run checks/linters for the whole project.
 	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
 	go tool go-consistent -pedantic ./...
 	LOG_LEVEL=error go tool golangci-lint run
+
+.PHONY: check-pr
+check-pr: ## Run checks/linters against main branch.
+# We need to ensure that /public/dist/index.html exists before linting because
+# it's embedded into the binary and a missing file breaks typechecking.
+	mkdir -p ./public/dist && [ -f ./public/dist/index.html ] || touch ./public/dist/index.html
+	go tool go-consistent -pedantic ./... \
+	| { grep -v '/zz_generated\.' || true; } \
+	| go tool reviewdog -efm="%f:%l:%c: %m" -diff="git diff main" -reporter=local -filter-mode=added
+	LOG_LEVEL=error go tool golangci-lint run --new-from-rev=main
 
 .PHONY: copyright-check
 copyright-check: COPYRIGHT_FLAGS=--check
@@ -133,13 +142,10 @@ copyright-run:
 .PHONY: charts
 HELM=go tool helm
 charts:        ## Install Helm dependency charts for Everest CLI.
-	$(HELM) repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	$(HELM) repo add openeverest https://openeverest.github.io/helm-charts/
-	$(HELM) repo add vm https://victoriametrics.github.io/helm-charts
 	$(HELM) repo update
 
 ##@ Build
-export GOPRIVATE = github.com/percona,github.com/percona-platform,github.com/Percona-Lab
 # GOOS and GOARCH default to the host but may be overridden from the
 # environment (e.g. GOARCH=arm64 make release) for cross-compilation.
 export GOOS ?= $(shell go env GOHOSTOS)
@@ -370,20 +376,28 @@ add-shared-everest-namespace: ## Add shared Everest namespace with all operators
 PXC_PROVIDER_DIR ?= ../provider-percona-xtradb-cluster
 PXC_PROVIDER_IMG ?= ghcr.io/openeverest/provider-percona-xtradb-cluster-dev:latest
 PXC_PROVIDER_K3D_CLUSTER ?= everest-server-test
-# Matches the pxc-operator Helm dependency pinned in the provider chart.
-PXC_OPERATOR_VERSION ?= 1.20.0
 PXC_PROVIDER_NAMESPACE ?= provider-system
-PXC_OPERATOR_DEPLOYMENT ?= provider-percona-xtradb-cluster-operator
+PXC_PROVIDER_CHART_DIR ?= $(PXC_PROVIDER_DIR)/charts/provider-percona-xtradb-cluster
 .PHONY: deploy-pxc-provider
 deploy-pxc-provider: ## Build + Helm-install the PXC provider into the test cluster (needs the provider repo checked out at PXC_PROVIDER_DIR).
 	$(info Building and Helm-installing the PXC provider from $(PXC_PROVIDER_DIR))
 	$(MAKE) -C "$(PXC_PROVIDER_DIR)" docker-build IMG=$(PXC_PROVIDER_IMG)
 	$(MAKE) $(CLUSTER_PROVIDER)-upload-pxc-provider-image
-	$(MAKE) -C "$(PXC_PROVIDER_DIR)" install-crds deploy-provider-ci IMG=$(PXC_PROVIDER_IMG) PXC_OPERATOR_VERSION=$(PXC_OPERATOR_VERSION)
-	# deploy-provider-ci installs the native PXC operator scaled to zero; scale it
-	# up so PerconaXtraDBCluster CRs actually reconcile into running databases.
-	kubectl -n $(PXC_PROVIDER_NAMESPACE) scale deploy $(PXC_OPERATOR_DEPLOYMENT) --replicas=1
-	kubectl -n $(PXC_PROVIDER_NAMESPACE) rollout status deploy/$(PXC_OPERATOR_DEPLOYMENT) --timeout=180s
+	# Install the provider the way users do: on top of an already deployed
+	# Everest. OpenEverest CRDs come only from core (this checkout); the PXC
+	# operator CRDs come from the chart's pxc-operator dependency. Do not use the
+	# provider's `install-crds`: it applies the OpenEverest CRDs pinned in the
+	# provider's go.mod, which conflict with core's as soon as main changes a CRD.
+	$(HELM) repo add percona https://percona.github.io/percona-helm-charts/
+	$(HELM) dependency build "$(PXC_PROVIDER_CHART_DIR)"
+	$(HELM) upgrade --install provider-percona-xtradb-cluster "$(PXC_PROVIDER_CHART_DIR)" \
+		--create-namespace \
+		--namespace $(PXC_PROVIDER_NAMESPACE) \
+		--set image.repository=$(firstword $(subst :, ,$(PXC_PROVIDER_IMG))) \
+		--set image.tag=$(lastword $(subst :, ,$(PXC_PROVIDER_IMG))) \
+		--set image.pullPolicy=Never \
+		--set operator.replicaCount=1 \
+		--wait --timeout 5m
 
 .PHONY: k3d-upload-pxc-provider-image
 k3d-upload-pxc-provider-image:
@@ -529,6 +543,12 @@ gen-crds-deepcopy: controller-gen ## Generate code containing DeepCopy, DeepCopy
 gen-crds-manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	"$(CONTROLLER_GEN)" rbac:roleName=manager-role crd:allowDangerousTypes=true webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
+.PHONY: gen-backupstorageclasses
+gen-backupstorageclasses: controller-gen ## Generate the built-in BackupStorageClasses from their Go types.
+	@tmp=$$(mktemp -d) && trap 'rm -rf "$$tmp"' EXIT && \
+	"$(CONTROLLER_GEN)" crd paths=./hack/gen-backupstorageclasses/_schema output:crd:dir="$$tmp" && \
+	go run ./hack/gen-backupstorageclasses -crd-dir "$$tmp" -out config/backupstorageclasses
+
 ##@ Kustomize Deployment
 
 ifndef ignore-not-found
@@ -562,9 +582,9 @@ build-installer: gen-crds-manifests kustomize ## Generate a consolidated YAML wi
 
 .PHONY: deploy-test-controller
 deploy-test-controller: gen-crds-manifests kustomize deploy-cert-manager
-	kubectl apply -f https://raw.githubusercontent.com/VictoriaMetrics/operator/v$(VICTORIAMETRICS_OPERATOR_VERSION)/config/crd/overlay/crd.yaml
-	kubectl wait --for condition=established --timeout=10s crd vmagents.operator.victoriametrics.com
 	cd config/test && "$(KUSTOMIZE)" edit set image controller=${EVEREST_CONTROLLER_IMG}
+	"$(KUSTOMIZE)" build config/crd | kubectl apply -f -
+	kubectl wait --for condition=established --timeout=30s crd backupstorageclasses.backup.openeverest.io
 	"$(KUSTOMIZE)" build config/test | kubectl apply -f -
 	kubectl delete pod -n openeverest-system -l control-plane=controller-manager
 	$(MAKE) wait-test-controller

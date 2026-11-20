@@ -1,0 +1,49 @@
+# One MonitoringDestination per class in the my-special-place namespace of
+# dev/config.yaml.example. Core sets Accepted (class found, parameters valid,
+# authentication mode and credentials present); the class controller sets Ready
+# once it reached the backend.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pmm-dev-credentials
+  namespace: my-special-place
+type: Opaque
+stringData:
+  # A PMM 3 service account token.
+  token: replace-with-a-pmm-service-account-token
+---
+apiVersion: monitoring.openeverest.io/v1alpha1
+kind: MonitoringDestination
+metadata:
+  name: pmm-dev
+  namespace: my-special-place
+spec:
+  classRef: {name: pmm}
+  parameters:
+    url: https://monitoring-service.pmm.svc.cluster.local
+  authentication:
+    mode: ServiceAccountToken
+    credentialsSecretRef: {name: pmm-dev-credentials}
+  tls: {insecureSkipVerify: true}
+---
+apiVersion: monitoring.openeverest.io/v1alpha1
+kind: MonitoringDestination
+metadata:
+  name: prometheus-dev
+  namespace: my-special-place
+spec:
+  classRef: {name: prometheus}
+  parameters:
+    podMonitorLabels: {release: kube-prometheus-stack}
+    interval: 30s
+---
+apiVersion: monitoring.openeverest.io/v1alpha1
+kind: MonitoringDestination
+metadata:
+  name: victoriametrics-dev
+  namespace: my-special-place
+spec:
+  classRef: {name: victoriametrics}
+  parameters:
+    vmPodScrapeLabels: {app.kubernetes.io/instance: vmagent}
+    interval: 30s

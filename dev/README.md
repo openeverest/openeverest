@@ -117,6 +117,9 @@ Copy file dev/config.yaml.example to dev/config.yaml and:
 - Set the needed DB namespaces that will be created automatically.
 - (Mostly for FE devs) If you want to disable the Tilt frontend build, save time and avoid FE rebuilds (and, therefore, BE rebuilds), keeping the dev flow of using Vite, set `enableFrontendBuild: false`
 - Set `enablePluginHub: false` to skip deploying the OpenEverest Plugin Hub.
+- Set `enablePluginHubInstaller: false` to keep the Plugin Hub browse-only: this disables
+  one-click install/upgrade/uninstall of plugins from the UI (on by default) and drops the
+  plugin-hub cluster-admin binding.
 
 3. (Optional) If you want to debug the Everest Server remotely, set the following environment variable in .env file or in the terminal:
 ```sh
@@ -190,7 +193,7 @@ database operator), so they run side by side without conflicting.
 
 ### Some pods can't reach Service ClusterIPs (DNS times out)
 
-An instance hangs in `Provisioning` with replicas restarting on liveness probe
+An instance never becomes `Ready` (its status stays `Creating`), with replicas restarting on liveness probe
 timeouts, and which pods are affected changes on every `make dev-up`. This
 means `br_netfilter` is not loaded on the host (Linux only), so kube-proxy's
 DNAT is bypassed for traffic that stays on one node's bridge — pods sharing a

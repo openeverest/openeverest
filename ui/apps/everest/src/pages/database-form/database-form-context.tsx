@@ -28,6 +28,7 @@ type DatabaseFormContextType = {
   sectionsOrder?: string[];
   providerObject?: Provider;
   hasBackupStep: boolean;
+  hasMonitoringStep: boolean;
 };
 
 const DatabaseFormContext = createContext<DatabaseFormContextType | null>(null);

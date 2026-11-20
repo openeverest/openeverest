@@ -27,7 +27,32 @@ export const mockDbInstance: Instance = {
     providerRef: { name: 'aws-provider' },
     topology: { type: 'ha' },
   },
-  status: { phase: 'Ready' },
+  status: {
+    phase: 'Provisioned',
+    conditions: [
+      {
+        lastTransitionTime: '2026-03-20T10:00:00Z',
+        message: 'The instance is ready',
+        reason: 'Ready',
+        status: 'True',
+        type: 'Ready',
+      },
+      {
+        lastTransitionTime: '2026-03-20T10:00:00Z',
+        message: '',
+        reason: 'Available',
+        status: 'True',
+        type: 'Available',
+      },
+      {
+        lastTransitionTime: '2026-03-20T10:00:00Z',
+        message: '',
+        reason: 'Available',
+        status: 'True',
+        type: 'ConnectionDetailsReady',
+      },
+    ],
+  },
 };
 
 export const useDbInstance = () => ({

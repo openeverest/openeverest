@@ -18,6 +18,7 @@ package instance
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -48,8 +49,11 @@ to override any Instance spec field using dot-notation paths rooted at the spec
 		Example: `  # Minimal: server defaults for all components
   everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb
 
-  # Bootstrap from a preset (provider inferred; version/topology/components from preset)
+  # Bootstrap from a namespace-scoped InstancePreset (provider inferred; version/topology/components from preset)
   everestctl instance create --name my-mongo --namespace everest --preset mongodb-production
+
+  # Bootstrap from a cluster-wide ClusterInstancePreset
+  everestctl instance create --name my-mongo --namespace everest --clusterpreset mongodb-default
 
   # Preset as base, override a field on top
   everestctl instance create --name my-mongo --namespace everest --preset mongodb-production \
@@ -77,12 +81,16 @@ to override any Instance spec field using dot-notation paths rooted at the spec
   everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb \
     --version 8.0.12 --topology sharded
 
+  # Print the instance that would be sent, or have the server validate it without creating it
+  everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb --dry-run=client
+  everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb --dry-run=server
+
   # Block until the instance is ready (Ctrl-C only stops waiting; the instance keeps provisioning)
   everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb --wait
 
-  # Bounded wait for CI, then grab the phase
+  # Bounded wait for CI, then check that clients can connect
   everestctl instance create --name my-mongo --namespace everest --provider percona-server-mongodb \
-    --wait --timeout 15m --json | jq '.status.phase'`,
+    --wait --timeout 15m --json | jq -r '.status.conditions[] | select(.type == "Available") | .status'`,
 		PreRun: createPreRun,
 		Run:    createRun,
 	}
@@ -93,16 +101,21 @@ to override any Instance spec field using dot-notation paths rooted at the spec
 func init() {
 	createCmd.Flags().StringVar(&createOpts.Name, cli.FlagInstanceName, "", "Instance name (required)")
 	createCmd.Flags().StringVarP(&createOpts.Namespace, cli.FlagInstanceNamespace, "n", "", "Namespace to create the instance in (required)")
-	createCmd.Flags().StringVar(&createOpts.Provider, cli.FlagInstanceProvider, "", "Provider name, e.g. percona-server-mongodb (required unless --preset is given)")
-	createCmd.Flags().StringVar(&createOpts.Preset, cli.FlagInstancePreset, "", "InstancePreset name to bootstrap from; --provider is inferred from the preset when omitted")
+	createCmd.Flags().StringVar(&createOpts.Provider, cli.FlagInstanceProvider, "", "Provider name, e.g. percona-server-mongodb (required unless --preset or --clusterpreset is given)")
+	createCmd.Flags().StringVar(&createOpts.Preset, cli.FlagInstancePreset, "", "InstancePreset to bootstrap from; --provider is inferred from the preset when omitted; cannot be used with --clusterpreset ")
+	createCmd.Flags().StringVar(&createOpts.ClusterPreset, cli.FlagInstanceClusterPreset, "", "ClusterInstancePreset to bootstrap from; --provider is inferred from the preset when omitted; cannot be used with --preset")
+	createCmd.MarkFlagsMutuallyExclusive(cli.FlagInstancePreset, cli.FlagInstanceClusterPreset)
 	createCmd.Flags().StringVar(&createOpts.Cluster, cli.FlagInstanceCluster, "main", "Cluster name")
-	createCmd.Flags().StringVar(&createOpts.Version, cli.FlagInstanceVersion, "", "Provider version bundle to use (default: taken from preset if --preset is given, otherwise provider's default)")
-	createCmd.Flags().StringVar(&createOpts.Topology, cli.FlagInstanceTopology, "", "Topology name; cannot be used with --preset (default: provider's first topology)")
+	createCmd.Flags().StringVar(&createOpts.Version, cli.FlagInstanceVersion, "", "Provider version bundle to use (default: taken from the preset if --preset or --clusterpreset is given, otherwise provider's default)")
+	createCmd.Flags().StringVar(&createOpts.Topology, cli.FlagInstanceTopology, "", "Topology name; cannot be used with --preset or --clusterpreset (default: provider's first topology)")
 	createCmd.Flags().StringVar(&createOpts.Context, cli.FlagInstanceContext, "", "Context to use (default: current context)")
 	createCmd.Flags().StringVarP(&createOpts.ValuesFile, cli.FlagInstanceFile, "f", "", "Path to a YAML file with component overrides (--set takes precedence)")
 	createCmd.Flags().StringArrayVar(&createOpts.Set, cli.FlagInstanceSet, nil, "Set a spec field: --set components.engine.replicas=3 or --set backup.enabled=true (repeatable)")
-	createCmd.Flags().BoolVar(&createOpts.Wait, cli.FlagInstanceWait, false, "Block until the instance reaches the Ready phase; exit non-zero if it fails or times out")
+	createCmd.Flags().BoolVar(&createOpts.Wait, cli.FlagInstanceWait, false, "Block until the instance is ready; exit non-zero if it will not become ready without intervention, is deleted, or the wait times out")
 	createCmd.Flags().DurationVar(&createOpts.Timeout, cli.FlagInstanceTimeout, 10*time.Minute, "Maximum time to wait (only valid with --wait); must be positive")
+	createCmd.Flags().StringVar(&createOpts.DryRun, cli.FlagInstanceDryRun, cli.DryRunNone,
+		`"client" prints the instance without sending it; "server" has the server validate it, without creating it`,
+	)
 
 	_ = createCmd.MarkFlagRequired(cli.FlagInstanceName)
 	_ = createCmd.MarkFlagRequired(cli.FlagInstanceNamespace)
@@ -137,9 +150,14 @@ func createRun(cmd *cobra.Command, _ []string) {
 	runErr := ic.Run(ctx, *createOpts, cfgPath)
 	// Release the signal handler before os.Exit (which skips defers).
 	stop()
+	timeoutMsg := fmt.Sprintf("timed out after %s waiting for instance %q to become ready", createOpts.Timeout, createOpts.Name)
+	if timedOut, ok := errors.AsType[*instancecli.TimeoutError](runErr); ok {
+		// It says what the instance's status read when the wait ended.
+		timeoutMsg = timedOut.Error()
+	}
 	os.Exit(waitcmd.ExitCode(runErr, logger.GetLogger(), createCfg.Pretty,
 		fmt.Sprintf("wait cancelled; instance %q is still provisioning — check with 'everestctl instance status'", createOpts.Name),
-		fmt.Sprintf("timed out after %s waiting for instance %q to become ready; it is still provisioning", createOpts.Timeout, createOpts.Name),
+		timeoutMsg,
 	))
 }
 

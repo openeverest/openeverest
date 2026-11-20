@@ -64,10 +64,13 @@ type BackupImportStatus struct {
 
 // BackupImportState is a type representing the state of a backup import request.
 //
-// +kubebuilder:validation:Enum=Succeeded;Failed;Error
+// +kubebuilder:validation:Enum=Pending;Succeeded;Failed;Error
 type BackupImportState string
 
 const (
+	// BackupImportStatePending indicates the import waits for its backup class
+	// or backup storage to exist; Status.Message names the missing object.
+	BackupImportStatePending BackupImportState = "Pending"
 	// BackupImportStateSucceeded indicates the import completed and the
 	// corresponding Backup CRs have been created.
 	BackupImportStateSucceeded BackupImportState = "Succeeded"

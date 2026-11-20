@@ -50,6 +50,16 @@ const memoryMultipliers: Record<kubernetesUnit, number> = {
 export const isKubernetesMemoryUnit = (unit: string): unit is kubernetesUnit =>
   Object.prototype.hasOwnProperty.call(memoryMultipliers, unit);
 
+export const convertBytesToMemoryUnit = (
+  bytes: number,
+  unit: kubernetesUnit
+): number => bytes / memoryMultipliers[unit];
+
+export const convertMemoryUnitToBytes = (
+  value: number,
+  unit: kubernetesUnit
+): number => value * memoryMultipliers[unit];
+
 export const cpuParser = (input: string) => {
   const milliMatch = input.match(/^([0-9]+)m$/);
 

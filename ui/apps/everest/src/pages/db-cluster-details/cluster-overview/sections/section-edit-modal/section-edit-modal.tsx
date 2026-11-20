@@ -21,13 +21,17 @@ import { buildSectionZodSchema } from 'components/ui-generator/utils/schema-buil
 import { extractInstanceValues } from 'components/ui-generator/utils/default-values/extract-instance-values';
 import { applyModeOverrides } from 'components/ui-generator/utils/preprocess/apply-mode-overrides';
 import { mergeSectionEdit } from 'components/ui-generator/utils/postprocess/merge-section-edit';
-import { deepClone } from 'components/ui-generator/utils/object-path/object-path';
+import {
+  deepClone,
+  deepMerge,
+} from 'components/ui-generator/utils/object-path/object-path';
 import {
   extractBadgeMappingsFromSections,
   stripBadgesFromData,
 } from 'components/ui-generator/utils/badge-to-api/badge-to-api';
 import { useUpdateDbInstanceWithConflictRetry } from 'hooks/api/db-instances/useUpdateDbInstance';
-import { useKubernetesClusterInfo } from 'hooks/api/kubernetesClusters/useKubernetesClusterInfo';
+import { useStorageClassesList } from 'hooks/api/storage-classes/useStorageClasses';
+import { useClusterName } from 'hooks/api/useClusterName';
 import type { Instance } from 'shared-types/api.types';
 import { widgetRegistry } from 'pages/database-form/widget-registry';
 import type { SectionEditModalProps } from './section-edit-modal.types';
@@ -44,35 +48,15 @@ const SectionEditModal = ({
   onSuccess,
 }: SectionEditModalProps) => {
   const [submitting, setSubmitting] = useState(false);
-  const { data: clusterInfo } = useKubernetesClusterInfo([
-    'section-edit-cluster-info',
-  ]);
+  const clusterName = useClusterName();
+  const { data: storageClasses } = useStorageClassesList(clusterName);
 
   const editSections = useMemo(() => {
     const modeApplied = applyModeOverrides(sections, FormMode.Edit);
-    return applyRuntimeOverrides(modeApplied, instance, clusterInfo);
-  }, [sections, instance, clusterInfo]);
+    return applyRuntimeOverrides(modeApplied, instance, storageClasses);
+  }, [sections, instance, storageClasses]);
 
   const section = editSections[sectionKey];
-
-  // Strip badge suffixes (e.g. "25Gi" → 25) from the original instance so that
-  // CEL numeric comparisons like `size >= original.size` work correctly.
-  const originalDataForCel = useMemo(() => {
-    const badgeMappings = extractBadgeMappingsFromSections(editSections);
-    return stripBadgesFromData(
-      instance as unknown as Record<string, unknown>,
-      badgeMappings
-    );
-  }, [editSections, instance]);
-
-  const { schema: zodSchema, celDependencyGroups } = useMemo(
-    () =>
-      buildSectionZodSchema(sectionKey, editSections, {
-        formMode: FormMode.Edit,
-        originalData: originalDataForCel,
-      }),
-    [sectionKey, editSections, originalDataForCel]
-  );
 
   const defaultValues = useMemo(
     () =>
@@ -82,6 +66,30 @@ const SectionEditModal = ({
         FormMode.Edit
       ),
     [editSections, instance]
+  );
+
+  // CEL compares the form with `original`, so both are read the same way
+  // ("10240Mi" → 10, "500m" → 0.5). Legacy badgeToApi fields still read as
+  // strings ("10"), hence the badge strip on top.
+  const originalDataForCel = useMemo(
+    () =>
+      stripBadgesFromData(
+        deepMerge(
+          instance as unknown as Record<string, unknown>,
+          defaultValues
+        ),
+        extractBadgeMappingsFromSections(editSections)
+      ),
+    [instance, defaultValues, editSections]
+  );
+
+  const { schema: zodSchema, celDependencyGroups } = useMemo(
+    () =>
+      buildSectionZodSchema(sectionKey, editSections, {
+        formMode: FormMode.Edit,
+        originalData: originalDataForCel,
+      }),
+    [sectionKey, editSections, originalDataForCel]
   );
 
   const { mutate } = useUpdateDbInstanceWithConflictRetry(instance, {

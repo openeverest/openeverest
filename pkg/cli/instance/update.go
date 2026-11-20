@@ -25,8 +25,10 @@ import (
 	"strings"
 
 	"go.uber.org/zap"
+	utilnet "k8s.io/apimachinery/pkg/util/net"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clienterr"
 	"github.com/openeverest/openeverest/v2/pkg/output"
@@ -40,7 +42,7 @@ type UpdateOptions struct {
 	Context    string   // overrides the active context when set
 	ValuesFile string   // path to a YAML values file with spec-level overrides
 	Set        []string // dot-notation overrides e.g. "components.engine.replicas=3"; takes precedence over ValuesFile
-	DryRun     bool     // print the paths the patch names, without writing
+	DryRun     string   // cli.DryRunClient prints the patch without sending it, cli.DryRunServer sends it with dryRun=All
 }
 
 // Updater implements `instance update` business logic.
@@ -65,6 +67,9 @@ func (iu *Updater) Run(ctx context.Context, opts UpdateOptions, cfgPath string) 
 	if opts.ValuesFile == "" && len(opts.Set) == 0 {
 		return fmt.Errorf("at least one of --set or -f/--file is required")
 	}
+	if err := cli.CheckDryRun(opts.DryRun); err != nil {
+		return err
+	}
 
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: iu.config.Pretty}, iu.l.Desugar().Sugar(), cfgPath, opts.Context)
 	if err != nil {
@@ -80,7 +85,7 @@ func (iu *Updater) Run(ctx context.Context, opts UpdateOptions, cfgPath string) 
 	// --dry-run's current values, so it is skipped when neither needs it.
 	components := patchedComponents(overrides)
 	var inst *client.Instance
-	if opts.DryRun || len(components) > 0 {
+	if cli.IsDryRun(opts.DryRun) || len(components) > 0 {
 		if inst, err = getInstance(ctx, c, opts.Cluster, opts.Namespace, opts.Name); err != nil {
 			return err
 		}
@@ -92,13 +97,16 @@ func (iu *Updater) Run(ctx context.Context, opts UpdateOptions, cfgPath string) 
 	}
 
 	patch := map[string]any{specKey: overrides}
-	if opts.DryRun {
+	if opts.DryRun == cli.DryRunClient {
 		return iu.emitDryRun(inst, overrides, patch, opts)
 	}
 
 	updated, err := iu.patch(ctx, c, opts, patch)
 	if err != nil {
 		return err
+	}
+	if opts.DryRun == cli.DryRunServer {
+		return iu.emitDryRun(inst, overrides, updated, opts)
 	}
 	return iu.emitUpdated(updated, opts)
 }
@@ -158,11 +166,21 @@ func getInstance(ctx context.Context, c *client.ClientWithResponses, cluster, na
 }
 
 func (iu *Updater) patch(ctx context.Context, c *client.ClientWithResponses, opts UpdateOptions, patch map[string]any) (*client.Instance, error) {
+	var params *client.PatchInstanceParams
+	if opts.DryRun == cli.DryRunServer {
+		dryRun := client.PatchInstanceParamsDryRunAll
+		params = &client.PatchInstanceParams{DryRun: &dryRun}
+	}
 	resp, err := c.PatchInstanceWithApplicationMergePatchPlusJSONBodyWithResponse(
-		ctx, opts.Cluster, opts.Namespace, opts.Name, patch,
+		ctx, opts.Cluster, opts.Namespace, opts.Name, params, patch,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("patch instance request failed: %w", err)
+	}
+
+	warnings, _ := utilnet.ParseWarningHeaders(resp.HTTPResponse.Header.Values("Warning"))
+	for _, w := range warnings {
+		output.PrintWarn(w.Text, iu.l, iu.config.Pretty)
 	}
 
 	switch resp.StatusCode() {
@@ -171,7 +189,7 @@ func (iu *Updater) patch(ctx context.Context, c *client.ClientWithResponses, opt
 	case http.StatusNotFound:
 		return nil, fmt.Errorf("instance %q not found in namespace %q", opts.Name, opts.Namespace)
 	default:
-		if msg, ok := clienterr.Message(resp.JSON415, resp.JSONDefault); ok {
+		if msg, ok := clienterr.Message(resp.JSON415, clienterr.FromAPIError(resp.JSON422), resp.JSONDefault); ok {
 			return nil, fmt.Errorf("server error: %s", msg)
 		}
 		return nil, fmt.Errorf("unexpected response updating instance %q: %s", opts.Name, resp.Status())
@@ -239,11 +257,12 @@ func specToMap(spec any) (map[string]any, error) {
 }
 
 // emitDryRun lists the paths the patch names with their current and new values,
-// which is a patch's whole contract. JSON mode emits the patch document itself.
-func (iu *Updater) emitDryRun(inst *client.Instance, overrides, patch map[string]any, opts UpdateOptions) error {
+// which is a patch's whole contract. JSON mode emits result: the patch document
+// of a client dry run, or the instance the server would have stored.
+func (iu *Updater) emitDryRun(inst *client.Instance, overrides map[string]any, result any, opts UpdateOptions) error {
 	if !iu.config.Pretty {
-		if err := json.NewEncoder(os.Stdout).Encode(patch); err != nil {
-			return fmt.Errorf("failed to encode patch: %w", err)
+		if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
+			return fmt.Errorf("failed to encode dry run result: %w", err)
 		}
 		return nil
 	}
@@ -253,7 +272,11 @@ func (iu *Updater) emitDryRun(inst *client.Instance, overrides, patch map[string
 		return err
 	}
 
-	_, _ = fmt.Fprint(os.Stdout, output.Info("Dry run for instance %q, no changes written", opts.Name))
+	if opts.DryRun == cli.DryRunServer {
+		_, _ = fmt.Fprint(os.Stdout, output.Info("Dry run for instance %q accepted by the server, no changes written", opts.Name))
+	} else {
+		_, _ = fmt.Fprint(os.Stdout, output.Info("Dry run for instance %q, no changes written", opts.Name))
+	}
 	_, _ = fmt.Fprint(os.Stdout, renderChanges(changedPaths(current, overrides, "")))
 	return nil
 }

@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -202,7 +203,6 @@ test.describe.parallel('DB Cluster Restore to the new cluster', () => {
                 sourceRange: '192.168.1.1/32',
               },
             ],
-            monitoringConfigName: 'pmm',
           },
           EVEREST_CI_NAMESPACES.PG_ONLY
         );

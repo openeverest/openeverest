@@ -25,6 +25,7 @@ import {
 import { useContext, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
+import { enqueueSnackbar } from 'notistack';
 import { CreateBackupPayload } from 'shared-types/backups.types.ts';
 import { Instance } from 'shared-types/api.types.ts';
 import { removeEmptyFieldValues } from 'components/ui-generator/utils/postprocess/postprocess-schema.ts';
@@ -34,6 +35,7 @@ import {
   defaultValuesFc,
   schema,
 } from './on-demand-backup-modal.types.ts';
+import { Messages } from './on-demand-backup-modal.messages.ts';
 import { ScheduleModalContext } from '../backups.context.ts';
 import { CircularProgress, Typography } from '@mui/material';
 import { useClusterName } from 'hooks/api/useClusterName.ts';
@@ -128,6 +130,7 @@ export const OnDemandBackupModal = () => {
               instanceName
             ),
           });
+          enqueueSnackbar(Messages.backupStarted, { variant: 'success' });
           setOpenOnDemandModal(false);
         },
       }

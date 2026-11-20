@@ -26,6 +26,7 @@ import {
   InstanceOverview,
   // Components,
   DatabasePage,
+  DatabaseImportPage,
   DbDetails,
   DbClusterView,
   // LoadBalancerConfigDetails,
@@ -34,7 +35,7 @@ import {
   LoginCallbackLoader,
   Logout,
   // Logs,
-  MonitoringEndpoints,
+  MonitoringDestinations,
   NamespaceDetails,
   Namespaces,
   NoMatch,
@@ -79,6 +80,10 @@ const router = createBrowserRouter([
       {
         path: 'databases/new',
         element: withSuspense(<DatabasePage />),
+      },
+      {
+        path: 'databases/import',
+        element: withSuspense(<DatabaseImportPage />),
       },
       {
         path: 'databases/:namespace/:instanceName',
@@ -132,8 +137,8 @@ const router = createBrowserRouter([
             element: withSuspense(<StorageLocations />),
           },
           {
-            path: SettingsTabs.monitoringEndpoints,
-            element: withSuspense(<MonitoringEndpoints />),
+            path: SettingsTabs.monitoringDestinations,
+            element: withSuspense(<MonitoringDestinations />),
           },
           {
             path: SettingsTabs.namespaces,

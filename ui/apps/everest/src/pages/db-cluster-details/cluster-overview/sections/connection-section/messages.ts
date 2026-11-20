@@ -14,4 +14,5 @@
 
 export const ConnectionSectionMessages = {
   waitingForInstance: 'Waiting for instance to be ready...',
+  noPermission: 'You do not have permission to view connection details.',
 };

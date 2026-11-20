@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package main is the entry point for the Everest controller manager.
+// Package main is the entry point for the Everest controller manager, and
+// for its uninstall-check subcommand.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"os"
 
-	vmv1beta1 "github.com/VictoriaMetrics/operator/api/operator/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -41,8 +42,12 @@ import (
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	backupcontroller "github.com/openeverest/openeverest/v2/internal/controller/backup"
 	plugincontroller "github.com/openeverest/openeverest/v2/internal/controller/extension"
+	instancecontroller "github.com/openeverest/openeverest/v2/internal/controller/instance"
+	"github.com/openeverest/openeverest/v2/internal/controller/lifecycleevents"
 	monitoringcontroller "github.com/openeverest/openeverest/v2/internal/controller/monitoring"
-	webhookmonitoringv1alpha1 "github.com/openeverest/openeverest/v2/internal/webhook/monitoring/v1alpha1"
+	"github.com/openeverest/openeverest/v2/internal/controller/secretusage"
+	webhookbackupv1alpha1 "github.com/openeverest/openeverest/v2/internal/webhook/backup/v1alpha1"
+	"github.com/openeverest/openeverest/v2/pkg/events"
 )
 
 var (
@@ -57,12 +62,15 @@ func init() {
 	utilruntime.Must(extensionsv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(backupv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(monitoringv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(vmv1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
 // nolint:gocyclo
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == uninstallCheckCommand {
+		os.Exit(runUninstallCheck(os.Args[2:], os.Stdout, os.Stderr))
+	}
+
 	var metricsAddr string
 	var metricsCertPath, metricsCertName, metricsCertKey string
 	var webhookCertPath, webhookCertName, webhookCertKey string
@@ -70,7 +78,7 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
-	var monitoringNamespace string
+	var secretProtection bool
 	var tlsOpts []func(*tls.Config)
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -89,8 +97,11 @@ func main() {
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	flag.StringVar(&monitoringNamespace, "monitoring-namespace", os.Getenv("MONITORING_NAMESPACE"),
-		"The namespace where the VMAgent and monitoring resources are managed.")
+	flag.String("monitoring-namespace", "", "Deprecated and ignored; still accepted because the Helm chart passes it.")
+	flag.BoolVar(&secretProtection, secretProtectionFlag, true,
+		"Hold the openeverest.io/in-use-protection finalizer and usage counts on the Secrets objects use, so the "+
+			"secret-in-use admission policy refuses deleting them. With --secret-protection=false the controller removes "+
+			"them from every Secret at start instead.")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -173,17 +184,11 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "d5bfff76.openeverest.io",
-		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
-		// when the Manager ends. This requires the binary to immediately end when the
-		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
-		// speeds up voluntary leader transitions as the new leader don't have to wait
-		// LeaseDuration time first.
-		//
-		// In the default scaffold provided, the program ends immediately after
-		// the manager stops, so would be fine to enable this option. However,
-		// if you are doing or is intended to do any operation such as perform cleanups
-		// after the manager stops then its usage might be unsafe.
-		// LeaderElectionReleaseOnCancel: true,
+		// The leader steps down when the Manager ends, so a rolling update of
+		// several replicas hands the controllers over at once instead of after
+		// LeaseDuration. This is safe because the program ends as soon as the
+		// Manager stops: nothing runs after mgr.Start returns.
+		LeaderElectionReleaseOnCancel: true,
 	})
 	if err != nil {
 		setupLog.Error(err, "Failed to start manager")
@@ -214,12 +219,57 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := (&monitoringcontroller.MonitoringConfigReconciler{
-		Client:              mgr.GetClient(),
-		Scheme:              mgr.GetScheme(),
-		MonitoringNamespace: monitoringNamespace,
+	if err := (&backupcontroller.BackupClassReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Failed to create controller", "controller", "MonitoringConfig")
+		setupLog.Error(err, "Failed to create controller", "controller", "BackupClass")
+		os.Exit(1)
+	}
+
+	if err := (&backupcontroller.BackupImportReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "BackupImport")
+		os.Exit(1)
+	}
+
+	if err := monitoringcontroller.SetupIndexes(context.Background(), mgr); err != nil {
+		setupLog.Error(err, "Failed to register monitoring indexes")
+		os.Exit(1)
+	}
+
+	if err := (&monitoringcontroller.DestinationReconciler{
+		Client:    mgr.GetClient(),
+		APIReader: mgr.GetAPIReader(),
+		Recorder:  mgr.GetEventRecorder("openeverest-monitoringdestination"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "MonitoringDestination")
+		os.Exit(1)
+	}
+
+	// One registry entry per kind that references Secrets; BackupStorage
+	// joins with its own.
+	if err := setupSecretProtection(mgr, secretProtection, []secretusage.Referrer{
+		monitoringcontroller.SecretReferrer(),
+	}); err != nil {
+		setupLog.Error(err, "Failed to set up Secret protection", "enabled", secretProtection)
+		os.Exit(1)
+	}
+
+	if err := (&monitoringcontroller.BindingReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "MonitoringBinding")
+		os.Exit(1)
+	}
+
+	if err := (&monitoringcontroller.ClassCompatibilityReconciler{
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "MonitoringClassCompatibility")
 		os.Exit(1)
 	}
 
@@ -239,10 +289,30 @@ func main() {
 		os.Exit(1)
 	}
 
-	// nolint:goconst
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err := webhookmonitoringv1alpha1.SetupMonitoringConfigWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "Failed to create webhook", "webhook", "MonitoringConfig")
+	if err := (&instancecontroller.UnattendedReconciler{
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "InstanceUnattended")
+		os.Exit(1)
+	}
+
+	if err := setupLifecycleEvents(mgr); err != nil {
+		setupLog.Error(err, "Failed to set up lifecycle events")
+		os.Exit(1)
+	}
+
+	enableWebhooks := os.Getenv("ENABLE_WEBHOOKS") != "false"
+	if enableWebhooks {
+		if err := webhookbackupv1alpha1.SetupBackupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "Backup")
+			os.Exit(1)
+		}
+		if err := webhookbackupv1alpha1.SetupRestoreWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "Restore")
+			os.Exit(1)
+		}
+		if err := webhookbackupv1alpha1.SetupBackupImportWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "Failed to create webhook", "webhook", "BackupImport")
 			os.Exit(1)
 		}
 	}
@@ -256,10 +326,30 @@ func main() {
 		setupLog.Error(err, "Failed to set up ready check")
 		os.Exit(1)
 	}
+	// The webhook server runs on every replica, leader or not, so a replica is
+	// ready to receive admission requests once it serves them.
+	if enableWebhooks {
+		if err := mgr.AddReadyzCheck("webhook", mgr.GetWebhookServer().StartedChecker()); err != nil {
+			setupLog.Error(err, "Failed to set up webhook ready check")
+			os.Exit(1)
+		}
+	}
 
 	setupLog.Info("Starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "Failed to run manager")
 		os.Exit(1)
 	}
+}
+
+func setupLifecycleEvents(mgr ctrl.Manager) error {
+	reportingInstance, err := os.Hostname()
+	if err != nil {
+		return err
+	}
+	emitter := events.NewEmitter(mgr.GetClient(), reportingInstance)
+	return mgr.Add(lifecycleevents.NewRecorder(
+		mgr.GetCache(), mgr.GetScheme(), emitter, lifecycleevents.DefaultKinds(),
+		ctrl.Log.WithName("lifecycle-events"),
+	))
 }

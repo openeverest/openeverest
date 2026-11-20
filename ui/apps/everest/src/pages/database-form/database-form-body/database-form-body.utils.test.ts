@@ -15,7 +15,7 @@
 import { isSubmitDisabled } from './database-form-body.utils';
 
 describe('isSubmitDisabled', () => {
-  it('blocks a picked preset until it resolves, ignoring form validity', () => {
+  it('blocks a picked preset until its spec is available, ignoring form validity', () => {
     expect(
       isSubmitDisabled({
         isSubmitting: false,
@@ -27,7 +27,7 @@ describe('isSubmitDisabled', () => {
   });
 
   it('allows a one-click preset deploy even when the form is invalid', () => {
-    // Preset resolved: the server validates the spec, so form validity must not
+    // Preset spec available: the server validates the spec, so form validity must not
     // gate the deploy.
     expect(
       isSubmitDisabled({

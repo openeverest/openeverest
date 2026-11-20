@@ -77,7 +77,7 @@ export const useInstanceRestores = (
   options?: PerconaQueryOptions<GetRestorePayload, unknown, Restore[]>
 ) => {
   const { canRead } = useRBACPermissions(
-    'database-cluster-restores',
+    'restores',
     `${namespace}/${instanceName}`
   );
 

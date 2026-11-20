@@ -35,9 +35,11 @@ var (
 		Short:   "List instances",
 		Long: `List Instance resources via the Everest API.
 
-Displays a table with NAME, NAMESPACE, PROVIDER, VERSION, PHASE, and AGE.
-Pass --json / --verbose to get the raw API response instead of the formatted
-table.`,
+Displays a table with NAME, NAMESPACE, PROVIDER, VERSION, STATUS, AVAILABLE,
+and AGE. STATUS says what is happening to the instance (Ready, Creating,
+Upgrading, Crash loop, ...) and AVAILABLE whether clients can connect to it
+(Yes, No, or - when that is not known). Pass --json / --verbose to get the raw
+API response instead of the formatted table.`,
 		Example: `  # List instances in a namespace
   everestctl instance list --namespace everest
 

@@ -39,15 +39,13 @@ func TestRBAC_BackupImport(t *testing.T) {
 		h.On("ListBackupImports", mock.Anything, mock.Anything, mock.Anything).Return(
 			&backupv1alpha1.BackupImportList{
 				Items: []backupv1alpha1.BackupImport{
-					{ObjectMeta: metav1.ObjectMeta{Name: "import-1", Namespace: "ns1"}},
-					{ObjectMeta: metav1.ObjectMeta{Name: "import-2", Namespace: "ns1"}},
+					newBackupImport("import-1", "storage-1"),
+					newBackupImport("import-2", "storage-2"),
 				},
 			}, nil,
 		)
-		h.On("GetBackupImport", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(
-			&backupv1alpha1.BackupImport{ObjectMeta: metav1.ObjectMeta{Name: "import-1", Namespace: "ns1"}},
-			nil,
-		)
+		bi := newBackupImport("import-1", "storage-1")
+		h.On("GetBackupImport", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(&bi, nil)
 		h.On("CreateBackupImport", mock.Anything, mock.Anything, mock.Anything).Return(
 			&backupv1alpha1.BackupImport{ObjectMeta: metav1.ObjectMeta{Name: "import-1", Namespace: "ns1"}},
 			nil,
@@ -91,10 +89,11 @@ func TestRBAC_BackupImport(t *testing.T) {
 				},
 			},
 			{
-				desc:    "all backup imports in namespace",
+				desc:    "all backup imports and storages in namespace",
 				cluster: "prod",
 				policy: newPolicy(
 					"p, role:test, backup-imports, read, prod/ns1/*",
+					"p, role:test, backup-storages, read, prod/ns1/*",
 					"g, bob, role:test",
 				),
 				assert: func(list *backupv1alpha1.BackupImportList) bool {
@@ -106,6 +105,7 @@ func TestRBAC_BackupImport(t *testing.T) {
 				cluster: "prod",
 				policy: newPolicy(
 					"p, role:test, backup-imports, read, prod/ns1/import-1",
+					"p, role:test, backup-storages, read, prod/ns1/*",
 					"g, bob, role:test",
 				),
 				assert: func(list *backupv1alpha1.BackupImportList) bool {
@@ -113,10 +113,34 @@ func TestRBAC_BackupImport(t *testing.T) {
 				},
 			},
 			{
+				desc:    "all backup imports but specific storage",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backup-imports, read, prod/ns1/*",
+					"p, role:test, backup-storages, read, prod/ns1/storage-2",
+					"g, bob, role:test",
+				),
+				assert: func(list *backupv1alpha1.BackupImportList) bool {
+					return len(list.Items) == 1 && list.Items[0].Name == "import-2"
+				},
+			},
+			{
+				desc:    "backup imports without storage read",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backup-imports, read, prod/ns1/*",
+					"g, bob, role:test",
+				),
+				assert: func(list *backupv1alpha1.BackupImportList) bool {
+					return len(list.Items) == 0
+				},
+			},
+			{
 				desc:    "wrong cluster",
 				cluster: "prod",
 				policy: newPolicy(
 					"p, role:test, backup-imports, read, staging/ns1/*",
+					"p, role:test, backup-storages, read, staging/ns1/*",
 					"g, bob, role:test",
 				),
 				assert: func(list *backupv1alpha1.BackupImportList) bool {
@@ -170,6 +194,7 @@ func TestRBAC_BackupImport(t *testing.T) {
 				cluster: "prod",
 				policy: newPolicy(
 					"p, role:test, backup-imports, read, prod/ns1/import-1",
+					"p, role:test, backup-storages, read, prod/ns1/storage-1",
 					"g, bob, role:test",
 				),
 			},
@@ -178,14 +203,44 @@ func TestRBAC_BackupImport(t *testing.T) {
 				cluster: "prod",
 				policy: newPolicy(
 					"p, role:test, backup-imports, read, prod/ns1/*",
+					"p, role:test, backup-storages, read, prod/ns1/*",
 					"g, bob, role:test",
 				),
+			},
+			{
+				desc:    "backup import read without storage read",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backup-imports, read, prod/ns1/import-1",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "read on different storage",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backup-imports, read, prod/ns1/import-1",
+					"p, role:test, backup-storages, read, prod/ns1/storage-2",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "storage read without backup import read",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backup-storages, read, prod/ns1/storage-1",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
 			},
 			{
 				desc:    "wrong cluster",
 				cluster: "prod",
 				policy: newPolicy(
 					"p, role:test, backup-imports, read, staging/ns1/import-1",
+					"p, role:test, backup-storages, read, staging/ns1/storage-1",
 					"g, bob, role:test",
 				),
 				wantErr: ErrInsufficientPermissions,
@@ -233,18 +288,49 @@ func TestRBAC_BackupImport(t *testing.T) {
 				),
 			},
 			{
-				desc:    "has create permission",
+				desc:    "namespace-wide create and storage read",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backup-imports, create, prod/ns1/*",
+					"p, role:test, backup-storages, read, prod/ns1/storage-1",
+					"g, bob, role:test",
+				),
+			},
+			{
+				desc:    "create on specific name only",
 				cluster: "prod",
 				policy: newPolicy(
 					"p, role:test, backup-imports, create, prod/ns1/import-1",
+					"p, role:test, backup-storages, read, prod/ns1/storage-1",
 					"g, bob, role:test",
 				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "create without storage read",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backup-imports, create, prod/ns1/*",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
+			},
+			{
+				desc:    "create with read on different storage",
+				cluster: "prod",
+				policy: newPolicy(
+					"p, role:test, backup-imports, create, prod/ns1/*",
+					"p, role:test, backup-storages, read, prod/ns1/storage-2",
+					"g, bob, role:test",
+				),
+				wantErr: ErrInsufficientPermissions,
 			},
 			{
 				desc:    "has read but not create",
 				cluster: "prod",
 				policy: newPolicy(
-					"p, role:test, backup-imports, read, prod/ns1/import-1",
+					"p, role:test, backup-imports, read, prod/ns1/*",
+					"p, role:test, backup-storages, read, prod/ns1/storage-1",
 					"g, bob, role:test",
 				),
 				wantErr: ErrInsufficientPermissions,
@@ -264,14 +350,8 @@ func TestRBAC_BackupImport(t *testing.T) {
 				t.Parallel()
 				h := newHandler(tc.policy)
 
-				backupImport := &backupv1alpha1.BackupImport{
-					ObjectMeta: metav1.ObjectMeta{Name: "import-1", Namespace: "ns1"},
-					Spec: backupv1alpha1.BackupImportSpec{
-						ClassRef:   common.ObjectRef{Name: "s3-standard"},
-						StorageRef: common.ObjectRef{Name: "storage-1"},
-					},
-				}
-				result, err := h.CreateBackupImport(ctx, tc.cluster, backupImport)
+				backupImport := newBackupImport("import-1", "storage-1")
+				result, err := h.CreateBackupImport(ctx, tc.cluster, &backupImport)
 				if tc.wantErr != nil {
 					require.ErrorIs(t, err, tc.wantErr)
 				} else {
@@ -339,4 +419,14 @@ func TestRBAC_BackupImport(t *testing.T) {
 			})
 		}
 	})
+}
+
+func newBackupImport(name, storage string) backupv1alpha1.BackupImport {
+	return backupv1alpha1.BackupImport{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns1"},
+		Spec: backupv1alpha1.BackupImportSpec{
+			ClassRef:   common.ObjectRef{Name: "s3-standard"},
+			StorageRef: common.ObjectRef{Name: storage},
+		},
+	}
 }

@@ -31,6 +31,9 @@ export const isEmptyFieldValue = (value: unknown): boolean =>
 export const isSameOrNestedPath = (a: string, b: string): boolean =>
   a === b || a.startsWith(`${b}.`) || b.startsWith(`${a}.`);
 
+export const joinPath = (base: string | undefined, path: string): string =>
+  base ? `${base}.${path}` : path;
+
 export const deepClone = <T>(value: T): T => {
   if (typeof structuredClone === 'function') {
     return structuredClone(value);

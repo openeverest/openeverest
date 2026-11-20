@@ -53,7 +53,7 @@ vi.mock('../../../hooks/use-database-page-mode', () => ({
   useDatabasePageMode: vi.fn(() => WizardMode.New),
 }));
 
-const schema = getDBWizardSchema([], false);
+const schema = getDBWizardSchema([]);
 
 const defaultValues = {
   [DbWizardFormFields.provider]: 'psmdb',
@@ -71,6 +71,7 @@ const contextValue = {
   sectionsOrder: [],
   providerObject: undefined,
   hasBackupStep: false,
+  hasMonitoringStep: false,
 };
 
 const presetSelectionValue: PresetSelectionContextType = {
@@ -78,9 +79,7 @@ const presetSelectionValue: PresetSelectionContextType = {
   isLoadingPresets: false,
   isError: false,
   presetName: '',
-  resolvedPreset: null,
-  isResolving: false,
-  resolveError: null,
+  selectedPreset: null,
   presetSelected: false,
   presetPending: false,
 };

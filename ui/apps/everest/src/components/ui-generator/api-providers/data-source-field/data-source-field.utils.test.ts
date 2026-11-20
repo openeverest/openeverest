@@ -13,7 +13,11 @@
 // limitations under the License.
 
 import { describe, expect, it } from 'vitest';
-import { getReconciledDataSourceValue } from './data-source-field.utils';
+import {
+  getReconciledDataSourceValue,
+  getStoredValueHint,
+} from './data-source-field.utils';
+import { Messages } from './data-source-field.messages';
 
 describe('getReconciledDataSourceValue', () => {
   const options = [
@@ -51,5 +55,42 @@ describe('getReconciledDataSourceValue', () => {
 
   it('returns first option when current value is non-string and options are available', () => {
     expect(getReconciledDataSourceValue(123, options)).toBe('first');
+  });
+});
+
+describe('getStoredValueHint', () => {
+  const options = [{ value: 'standard' }];
+  const base = {
+    storedValue: 'deleted-class',
+    options,
+    isLocked: false,
+    unsetValueHint: 'Not set',
+  };
+
+  it.each([
+    ['an empty value', { currentValue: '' }, 'Not set'],
+    [
+      'an empty value without an unset hint',
+      { currentValue: '', unsetValueHint: undefined },
+      undefined,
+    ],
+    ['a value among the options', { currentValue: 'standard' }, undefined],
+    [
+      'a newly picked value not among the options yet',
+      { currentValue: 'just-created' },
+      undefined,
+    ],
+    [
+      'a stored value missing from the options',
+      { currentValue: 'deleted-class' },
+      Messages.unavailableValueHint,
+    ],
+    [
+      'a stored value missing from the options in a locked field',
+      { currentValue: 'deleted-class', isLocked: true },
+      Messages.unavailableLockedValueHint,
+    ],
+  ])('for %s', (_case, input, expected) => {
+    expect(getStoredValueHint({ ...base, ...input })).toBe(expected);
   });
 });

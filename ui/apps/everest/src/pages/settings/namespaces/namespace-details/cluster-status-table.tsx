@@ -24,12 +24,8 @@ import {
 import { DbCluster, Spec } from 'shared-types/dbCluster.types';
 import { ClusterStatusTableProps } from './types';
 import { useDbClusters } from 'hooks/api/db-clusters/useDbClusters';
-import StatusField from 'components/status-field';
 import UpdateCrDialog from './update-cr-dialog';
 import UpdateEngineDialog from './update-engine-dialog';
-import { DB_INSTANCE_STATUS_TO_BASE_STATUS } from 'pages/databases/DbClusterView.constants';
-import { beautifyDbInstanceStatus } from 'pages/databases/DbClusterView.utils';
-import { DbInstancePhase } from 'shared-types/instance.types';
 
 type EnhancedDbList = OperatorUpgradePendingAction & {
   db?: DbCluster;
@@ -137,18 +133,9 @@ const ClusterStatusTable = ({
       {
         id: 'status',
         header: 'Status',
+        // The v1 status as the API spells it: this screen predates
+        // Instances and reads database clusters only.
         accessorFn: (row) => row.db?.status?.status,
-        Cell: ({ cell }) => (
-          <StatusField
-            status={cell.getValue<DbInstancePhase>()}
-            statusMap={DB_INSTANCE_STATUS_TO_BASE_STATUS}
-          >
-            {beautifyDbInstanceStatus(
-              cell.getValue<DbInstancePhase>(),
-              cell.row?.original.db?.status?.conditions || []
-            )}
-          </StatusField>
-        ),
       },
       {
         accessorKey: 'name',

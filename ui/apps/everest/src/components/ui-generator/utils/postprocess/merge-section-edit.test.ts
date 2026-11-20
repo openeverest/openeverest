@@ -77,6 +77,46 @@ describe('mergeSectionEdit', () => {
     });
   });
 
+  it('keeps an untouched quantity as stored on section edit', () => {
+    const { sections: quantitySections } = preprocessSchema({
+      replicaSet: {
+        sections: {
+          resources: {
+            components: {
+              cpu: {
+                uiType: FieldType.Quantity,
+                path: 'spec.resources.cpu',
+                fieldParams: { label: 'CPU', unitLabel: 'cores' },
+              },
+              memory: {
+                uiType: FieldType.Quantity,
+                path: 'spec.resources.memory',
+                fieldParams: { label: 'Memory', unit: 'Gi' },
+              },
+            },
+          },
+        },
+      },
+    }).replicaSet;
+
+    const result = mergeSectionEdit({
+      spec: {
+        resources: { cpu: '500m', memory: '10240Mi' },
+        backup: { enabled: true },
+      },
+      sections: quantitySections,
+      sectionKey: 'resources',
+      topology: 'replicaSet',
+      // Form numbers match the stored quantities — must not rewrite them.
+      formData: { spec: { resources: { cpu: 0.5, memory: 10 } } },
+    });
+
+    expect(result).toEqual({
+      resources: { cpu: '500m', memory: '10240Mi' },
+      backup: { enabled: true },
+    });
+  });
+
   it('does not mutate the saved spec', () => {
     const spec = savedSpec();
     merge(false, spec);

@@ -8,7 +8,6 @@ rules:
   - ""
   resources:
   - namespaces
-  - pods
   verbs:
   - get
   - list
@@ -17,19 +16,16 @@ rules:
   - ""
   resources:
   - secrets
-  - serviceaccounts
   verbs:
-  - create
-  - delete
   - get
   - list
   - patch
-  - update
   - watch
 - apiGroups:
   - backup.openeverest.io
   resources:
   - backupclasses
+  - backupstorageclasses
   verbs:
   - get
   - list
@@ -37,8 +33,20 @@ rules:
 - apiGroups:
   - backup.openeverest.io
   resources:
+  - backupclasses/status
+  - backupimports/status
+  - backups/status
+  - backupstorages/status
+  - restores/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - backup.openeverest.io
+  resources:
+  - backupimports
   - backups
-  - backupstorages
   - restores
   verbs:
   - create
@@ -51,41 +59,47 @@ rules:
 - apiGroups:
   - backup.openeverest.io
   resources:
-  - backups/finalizers
-  - backupstorages/finalizers
-  - restores/finalizers
+  - backupstorages
   verbs:
-  - update
-- apiGroups:
-  - backup.openeverest.io
-  resources:
-  - backups/status
-  - backupstorages/status
-  - restores/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - batch
-  resources:
-  - jobs
-  verbs:
-  - create
-  - delete
   - get
   - list
   - patch
   - update
   - watch
+- apiGroups:
+  - backup.openeverest.io
+  resources:
+  - backupstorages/finalizers
+  verbs:
+  - update
 - apiGroups:
   - core.openeverest.io
   resources:
   - instances
+  - providers
   verbs:
   - get
   - list
   - watch
+- apiGroups:
+  - core.openeverest.io
+  resources:
+  - instances/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - core.openeverest.io
+  resources:
+  - instances/status
+  verbs:
+  - patch
+- apiGroups:
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
 - apiGroups:
   - extensions.openeverest.io
   resources:
@@ -118,65 +132,42 @@ rules:
 - apiGroups:
   - monitoring.openeverest.io
   resources:
-  - monitoringconfigs
+  - monitoringbindings
   verbs:
   - create
   - delete
   - get
   - list
-  - patch
   - update
   - watch
 - apiGroups:
   - monitoring.openeverest.io
   resources:
-  - monitoringconfigs/finalizers
+  - monitoringbindings/status
+  - monitoringclasses/status
+  - monitoringdestinations/status
   verbs:
-  - update
+  - patch
 - apiGroups:
   - monitoring.openeverest.io
   resources:
-  - monitoringconfigs/status
+  - monitoringclasses
   verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - operator.victoriametrics.com
-  resources:
-  - vmagents
-  verbs:
-  - create
-  - delete
   - get
   - list
-  - update
   - watch
 - apiGroups:
-  - rbac.authorization.k8s.io
+  - monitoring.openeverest.io
   resources:
-  - clusterrolebindings
-  - rolebindings
+  - monitoringdestinations
   verbs:
-  - create
-  - delete
   - get
   - list
   - patch
-  - update
   - watch
 - apiGroups:
-  - rbac.authorization.k8s.io
+  - monitoring.openeverest.io
   resources:
-  - clusterroles
-  - roles
+  - monitoringdestinations/finalizers
   verbs:
-  - bind
-  - create
-  - delete
-  - escalate
-  - get
-  - list
-  - patch
   - update
-  - watch

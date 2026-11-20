@@ -1,0 +1,45 @@
+# Refuses deleting a MonitoringDestination while Instances list it. The core
+# controller keeps status.attachedInstances up to date, leaving out Instances
+# being deleted, and holds the monitoring.openeverest.io/in-use-protection
+# finalizer until no Instance lists the destination, those being deleted
+# included, and for a deletion admitted before the count caught up. Two
+# deletions are exempt:
+# - a repeated one of a destination already being deleted: its deletion was
+#   admitted before, and the count now states what it waits for;
+# - one in a namespace being deleted: no Instance can be added to it, and
+#   the finalizer still waits for its Instances to go.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: monitoringdestination-in-use.monitoring.openeverest.io
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ["monitoring.openeverest.io"]
+      apiVersions: ["*"]
+      operations: ["DELETE"]
+      resources: ["monitoringdestinations"]
+  variables:
+  - name: attached
+    expression: oldObject.?status.?attachedInstances.orValue(0)
+  validations:
+  - expression: >-
+      variables.attached == 0 ||
+      oldObject.metadata.?deletionTimestamp.hasValue() ||
+      namespaceObject.metadata.?deletionTimestamp.hasValue()
+    messageExpression: >-
+      'in use by ' + string(variables.attached) +
+      (variables.attached == 1 ? ' database' : ' databases') +
+      '; remove the destination from them first (kubectl get monitoringbindings -n ' +
+      oldObject.metadata.namespace + ' -l monitoring.openeverest.io/destination=' +
+      oldObject.metadata.name + ')'
+    reason: Forbidden
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: monitoringdestination-in-use.monitoring.openeverest.io
+spec:
+  policyName: monitoringdestination-in-use.monitoring.openeverest.io
+  validationActions: ["Deny"]

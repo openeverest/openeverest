@@ -23,6 +23,7 @@ import {
   isWidgetComponent,
 } from 'components/ui-generator/ui-generator.types';
 import { getValueByPath } from 'components/ui-generator/ui-component/utils/get-value-by-path';
+import { formatQuantity } from 'components/ui-generator/utils/quantity';
 import {
   getToggleableMeta,
   isToggleableOn,
@@ -114,6 +115,13 @@ export const renderComponent = (
     displayValue = value ? Messages.enabled : Messages.disabled;
   } else if (typeof value === 'object' && !Array.isArray(value)) {
     displayValue = JSON.stringify(value);
+  } else if (leafComponent.uiType === FieldType.Quantity) {
+    displayValue =
+      formatQuantity(
+        value,
+        leafComponent.fieldParams.unit,
+        leafComponent.fieldParams.unitLabel
+      ) ?? '-';
   } else {
     displayValue = String(value);
   }

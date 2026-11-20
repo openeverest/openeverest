@@ -201,6 +201,26 @@ describe('UIGenerator - Text Field Basic Rendering', () => {
 
     expect(screen.getByText('Some helper text')).toBeInTheDocument();
   });
+
+  it('should keep browsers from autofilling saved passwords', () => {
+    const schema = createTestSchema({ type: 'password' });
+
+    render(
+      <TestWrapper>
+        <FormWrapper schema={schema} onSubmit={vi.fn()}>
+          <UIGenerator
+            sections={schema.testTopology!.sections}
+            sectionKey="basicInfo"
+          />
+        </FormWrapper>
+      </TestWrapper>
+    );
+
+    expect(screen.getByLabelText('Test Text Field')).toHaveAttribute(
+      'autocomplete',
+      'new-password'
+    );
+  });
 });
 
 describe('UIGenerator - Text Field Multiline', () => {

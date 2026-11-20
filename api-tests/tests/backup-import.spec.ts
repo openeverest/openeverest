@@ -91,6 +91,76 @@ test.describe.parallel('Backup Import tests', () => {
     }
   })
 
+  test('create: warns while the backup class is not claimed', async ({request}) => {
+    // No provider runtime claims test-backup-class here, so its verdict stays Pending.
+    const bsName = th.limitedSuffixedName(testPrefix + '-pend-s3'),
+      biName = th.limitedSuffixedName(testPrefix + '-pend')
+
+    try {
+      await th.generateBackupStorage(request, th.getBackupStoragePayload(bsName))
+
+      const response = await th.createBackupImportRaw(request, th.getBackupImportPayload(biName, bsName)),
+        warnings: string[] = (response.headersArray() as {name: string, value: string}[])
+          .filter((h) => h.name.toLowerCase() === 'warning')
+          .map((h) => h.value)
+
+      await th.checkError(response)
+      expect(warnings.some((w) => w.includes('test-backup-class') && w.includes('is Pending for Provider'))).toBeTruthy()
+    } finally {
+      await th.deleteBackupImportRaw(request, biName)
+      await th.deleteBackupStorage(request, bsName)
+    }
+  })
+
+  test('create: rejected when the backup class is incompatible', async ({request, cli}) => {
+    const className = th.limitedSuffixedName(testPrefix + '-drift'),
+      bsName = th.limitedSuffixedName(testPrefix + '-drift-s3'),
+      biName = th.limitedSuffixedName(testPrefix + '-drift-imp'),
+      backupClass = {
+        apiVersion: 'backup.openeverest.io/v1alpha1',
+        kind: 'BackupClass',
+        metadata: {name: className},
+        spec: {
+          executionMode: 'ProviderManaged',
+          providerManaged: {providerRef: {name: 'test-provider'}},
+          supportsImport: true,
+          backupStorageClasses: [{name: 's3', authModes: ['AccessKey']}],
+        },
+      },
+      // What the class's provider reports when the class differs from the one it ships.
+      specDrift = {
+        status: {
+          conditions: [{
+            type: 'Accepted',
+            status: 'False',
+            reason: 'SpecDrift',
+            message: 'edited by the test',
+            observedGeneration: 1,
+            lastTransitionTime: '2026-01-01T00:00:00Z',
+          }],
+        },
+      }
+
+    try {
+      await (await cli.execSilent(`echo '${JSON.stringify(backupClass)}' | kubectl apply -f -`)).assertSuccess()
+      await (await cli.execSilent(
+        `kubectl patch backupclass ${className} --subresource=status --type=merge -p '${JSON.stringify(specDrift)}'`,
+      )).assertSuccess()
+      await (await cli.execSilent(
+        `kubectl wait backupclass/${className} --for=jsonpath='{.status.providers[0].compatibility}'=Incompatible --timeout=60s`,
+      )).assertSuccess()
+      await th.generateBackupStorage(request, th.getBackupStoragePayload(bsName))
+
+      const response = await th.createBackupImportRaw(request, th.getBackupImportPayload(biName, bsName, className))
+
+      expect(response.status()).toBe(400)
+      expect(await response.text()).toContain('(SpecDrift)')
+    } finally {
+      await th.deleteBackupStorage(request, bsName)
+      await cli.execSilent(`kubectl delete backupclass ${className} --ignore-not-found`)
+    }
+  })
+
   test('get: backup import not found', async ({request}) => {
     const response = await th.getBackupImportRaw(request, th.limitedSuffixedName(testPrefix + '-404'))
     expect(response.status()).toBe(404)

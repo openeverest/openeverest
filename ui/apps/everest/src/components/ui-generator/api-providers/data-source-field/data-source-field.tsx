@@ -12,28 +12,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import React, { useEffect, useMemo } from 'react';
-import { useFormContext } from 'react-hook-form';
-import type { Component } from '../../ui-generator.types';
+import React, { useCallback, useEffect, useMemo } from 'react';
+import { get, useFormContext, useWatch } from 'react-hook-form';
+import { FormMode, type Component } from '../../ui-generator.types';
 import { providerRegistry, useProviderOptions } from '../registry';
 import { useUiGeneratorContext } from '../../ui-generator-context';
+import { isSelectComponent } from '../../ui-component/utils/select-component-handler';
 import { useClusterName } from 'hooks/api/useClusterName';
 import type { DataSourceFieldProps } from './data-source-field.types';
-import { getReconciledDataSourceValue } from './data-source-field.utils';
+import { Messages } from './data-source-field.messages';
+import {
+  getReconciledDataSourceValue,
+  getStoredValueHint,
+  withStoredValueOption,
+} from './data-source-field.utils';
 
 export const DataSourceField: React.FC<DataSourceFieldProps> = ({
   item,
   name,
   children,
 }) => {
-  const { namespace } = useUiGeneratorContext();
+  const { namespace, formMode } = useUiGeneratorContext();
   const cluster = useClusterName();
-  const { getValues, setValue } = useFormContext();
+  const {
+    getValues,
+    setValue,
+    formState: { defaultValues },
+  } = useFormContext();
   const { dataSource, ...baseComponent } = item;
 
   const hasValidContext = !!namespace && !!cluster;
+  // Edit shows the stored spec as-is, like extractInstanceValues: auto-selecting
+  // here would write a value nobody chose into the spec on save.
+  const shouldAutoSelect = formMode !== FormMode.Edit;
 
-  const { options, isLoading, error, isEmpty } = useProviderOptions(
+  const { options, isLoading, error, isEmpty, emptyHint } = useProviderOptions(
     dataSource.provider,
     {
       namespace: namespace ?? '',
@@ -43,33 +56,71 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
   );
 
   useEffect(() => {
-    if (isLoading || !name) return;
+    if (isLoading || !name || !shouldAutoSelect) return;
 
     const nextValue = getReconciledDataSourceValue(getValues(name), options);
 
     if (nextValue !== null) {
       setValue(name, nextValue, { shouldValidate: true });
     }
-  }, [isLoading, options, name, getValues, setValue]);
+  }, [isLoading, shouldAutoSelect, options, name, getValues, setValue]);
+
+  const selectCreated = useCallback(
+    (value: string) => {
+      if (!name) return;
+      setValue(name, value, { shouldDirty: true, shouldValidate: true });
+    },
+    [name, setValue]
+  );
+
+  const storedValue =
+    shouldAutoSelect || !name ? undefined : get(defaultValues, name);
+  const optionsResolved = !isLoading && !error;
+  const displayOptions = useMemo(
+    () => withStoredValueOption(options, storedValue, optionsResolved),
+    [options, storedValue, optionsResolved]
+  );
+
+  const registryEntry = useMemo(
+    () => providerRegistry.get(dataSource.provider),
+    [dataSource.provider]
+  );
+  const currentValue = useWatch({ name });
+  const isLocked =
+    isSelectComponent(item) &&
+    !!(item.fieldParams.disabled || item.fieldParams.readOnly);
+  const storedValueHint =
+    shouldAutoSelect || !optionsResolved
+      ? undefined
+      : getStoredValueHint({
+          currentValue,
+          storedValue,
+          options,
+          isLocked,
+          unsetValueHint: registryEntry?.unsetValueHint,
+        });
 
   const patchedItem = useMemo(() => {
     const originalHelperText = (
       baseComponent.fieldParams as Record<string, unknown>
     )?.helperText;
 
+    // An empty list doesn't change what the spec holds, so in edit the stored
+    // value's hint wins over the text explaining why there are no options.
     const helperText = isLoading
-      ? 'Loading...'
+      ? Messages.loading
       : error
-        ? 'Failed to load options'
-        : isEmpty
-          ? (originalHelperText ?? 'No options available')
-          : originalHelperText;
+        ? Messages.loadFailed
+        : (storedValueHint ??
+          (isEmpty
+            ? (emptyHint ?? originalHelperText ?? Messages.noOptions)
+            : originalHelperText));
 
     return {
       ...baseComponent,
       fieldParams: {
         ...baseComponent.fieldParams,
-        options,
+        options: displayOptions,
         disabled:
           isLoading ||
           !!error ||
@@ -77,12 +128,18 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
         ...(helperText !== undefined ? { helperText } : {}),
       },
     } as Component;
-  }, [baseComponent, options, isLoading, error, isEmpty]);
+  }, [
+    baseComponent,
+    displayOptions,
+    isLoading,
+    error,
+    isEmpty,
+    emptyHint,
+    storedValueHint,
+  ]);
 
-  const FallbackComponent = useMemo(() => {
-    const entry = providerRegistry.get(dataSource.provider);
-    return entry?.emptyStateFallback?.component ?? null;
-  }, [dataSource.provider]);
+  const FallbackComponent =
+    registryEntry?.emptyStateFallback?.component ?? null;
 
   const showFallback =
     isEmpty && !isLoading && !!FallbackComponent && !!namespace;
@@ -96,7 +153,11 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
   return (
     <>
       {showFallback && (
-        <FallbackComponent namespace={namespace!} cluster={cluster} />
+        <FallbackComponent
+          namespace={namespace!}
+          cluster={cluster}
+          onCreated={selectCreated}
+        />
       )}
       <div
         style={{

@@ -76,6 +76,27 @@ describe('extractInstanceValues', () => {
     expect(result).toEqual({ spec: { name: 'default-name' } });
   });
 
+  it('falls back past a schema default on a secret field', () => {
+    const sections: Record<string, Section> = {
+      basic: {
+        components: {
+          userSecret: makeComponent('spec.userSecretRef.name', {
+            uiType: FieldType.Secret,
+            fieldParams: {
+              label: 'Users',
+              definition: 'user',
+              defaultValue: 'creds',
+            },
+          } as unknown as Partial<Component>),
+        },
+      },
+    };
+
+    const result = extractInstanceValues(sections, { spec: {} }, FormMode.New);
+
+    expect(result).toEqual({ spec: { userSecretRef: { name: '' } } });
+  });
+
   it('extracts values from multiple sections', () => {
     const sections: Record<string, Section> = {
       basic: {
@@ -144,6 +165,62 @@ describe('extractInstanceValues', () => {
     expect(result).toEqual({
       spec: { resources: { disk: '25' } },
     });
+  });
+
+  it('reads quantity fields into a number in unit (CPU millicores → cores)', () => {
+    const sections: Record<string, Section> = {
+      resources: {
+        components: {
+          cpu: {
+            uiType: FieldType.Quantity,
+            path: 'spec.resources.cpu',
+            fieldParams: { label: 'CPU', unitLabel: 'cores', step: 0.1 },
+            _normalized: {
+              sourcePath: 'spec.resources.cpu',
+              targetPaths: ['spec.resources.cpu'],
+            },
+          } as Component,
+        },
+      },
+    };
+
+    const result = extractInstanceValues(sections, {
+      spec: { resources: { cpu: '500m' } },
+    });
+
+    expect(result).toEqual({
+      spec: { resources: { cpu: 0.5 } },
+    });
+  });
+
+  it('reads quantity fields into a number in unit (memory across units)', () => {
+    const sections: Record<string, Section> = {
+      resources: {
+        components: {
+          memory: {
+            uiType: FieldType.Quantity,
+            path: 'spec.resources.memory',
+            fieldParams: { label: 'Memory', unit: 'Gi' },
+            _normalized: {
+              sourcePath: 'spec.resources.memory',
+              targetPaths: ['spec.resources.memory'],
+            },
+          } as Component,
+        },
+      },
+    };
+
+    expect(
+      extractInstanceValues(sections, {
+        spec: { resources: { memory: '10240Mi' } },
+      })
+    ).toEqual({ spec: { resources: { memory: 10 } } });
+
+    expect(
+      extractInstanceValues(sections, {
+        spec: { resources: { memory: '644245094400m' } },
+      })
+    ).toEqual({ spec: { resources: { memory: 0.6 } } });
   });
 
   it('returns empty object for empty sections', () => {

@@ -25,12 +25,18 @@ export interface ProviderOptions {
   isLoading: boolean;
   error: unknown;
   isEmpty: boolean;
+  // Explains why the options are empty when the provider knows the reason
+  // (e.g. missing RBAC read access); replaces the generic empty helper text.
+  emptyHint?: string;
   rawData?: unknown;
 }
 
 export interface EmptyStateFallbackProps {
   namespace: string;
   cluster: string;
+  // Selects the resource the user just created; call it once the refetched
+  // options include the value. Works in every form mode, unlike auto-selection.
+  onCreated?: (value: string) => void;
 }
 
 export interface EmptyStateFallback {
@@ -41,6 +47,8 @@ export interface ProviderRegistryEntry {
   useOptions: (params: ProviderParams) => ProviderOptions;
   description: string;
   emptyStateFallback: EmptyStateFallback | null;
+  // Shown in edit mode when the field is empty, to say what an unset value means.
+  unsetValueHint?: string;
   // TODO: Add lifecycle hooks — beforeFetch, afterFetch, onError
   // TODO: Add optional `validate` callback for dev-time schema validation
 }

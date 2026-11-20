@@ -48,7 +48,7 @@ export const useDatabasesView = (): DatabasesView => {
   );
   const { data: providers = [], isLoading: loadingProviders } = useProviders();
   const { canCreate, isPermissionsLoading } =
-    useNamespacePermissionsForResource('database-clusters');
+    useNamespacePermissionsForResource('instances');
   const { isLoading: catalogLoading } = useExtensionCatalog();
 
   const instancesResults = useInstancesForNamespaces(

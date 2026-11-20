@@ -19,8 +19,8 @@ interface SubmitDisabledInput {
   isValid: boolean;
 }
 
-// A one-click preset deploy is gated only by the preset resolving (the server
-// validates the resolved spec), so form validity must NOT block it. Manual
+// A one-click preset deploy is gated only by the preset spec being available
+// (the server validates it), so form validity must NOT block it. Manual
 // (no-preset) creation still requires a valid form.
 export const isSubmitDisabled = ({
   isSubmitting,

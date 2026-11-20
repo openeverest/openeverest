@@ -20,9 +20,11 @@ import {
   ListItemIcon,
   ListItemText,
   Tooltip,
+  Typography,
 } from '@mui/material';
-import React from 'react';
+import React, { useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
+import { OverflowTooltip } from '@percona/ui-lib';
 import { NavItemProps } from './NavItem.types';
 
 export const NavItem = ({
@@ -34,6 +36,7 @@ export const NavItem = ({
   ...listItemProps
 }: NavItemProps) => {
   const navigate = useNavigate();
+  const labelRef = useRef<HTMLElement>(null);
 
   const redirect = (redirectUrl: string) => {
     navigate(redirectUrl);
@@ -43,32 +46,46 @@ export const NavItem = ({
   return (
     <ListItem disablePadding sx={{ display: 'block' }} {...listItemProps}>
       {open ? (
-        <ListItemButton
-          component={NavLink}
-          to={to}
-          sx={{
-            minHeight: 48,
-            justifyContent: 'initial',
-            px: 2.5,
-          }}
-          onClick={onClick}
+        <OverflowTooltip
+          title={text}
+          placement="right"
+          arrow
+          measureRef={labelRef}
         >
-          <ListItemIcon
+          <ListItemButton
+            component={NavLink}
+            to={to}
             sx={{
-              minWidth: 0,
-              mr: 3,
-              justifyContent: 'center',
+              minHeight: 48,
+              justifyContent: 'initial',
+              px: 2.5,
             }}
+            onClick={onClick}
           >
-            {typeof icon === 'string' ? (
-              <img src={icon} alt="" width={24} height={24} />
-            ) : (
-              React.createElement(icon)
-            )}
-          </ListItemIcon>
+            <ListItemIcon
+              sx={{
+                minWidth: 0,
+                mr: 3,
+                justifyContent: 'center',
+              }}
+            >
+              {typeof icon === 'string' ? (
+                <img src={icon} alt="" width={24} height={24} />
+              ) : (
+                React.createElement(icon)
+              )}
+            </ListItemIcon>
 
-          <ListItemText primary={text} />
-        </ListItemButton>
+            <ListItemText
+              disableTypography
+              primary={
+                <Typography ref={labelRef} noWrap>
+                  {text}
+                </Typography>
+              }
+            />
+          </ListItemButton>
+        </OverflowTooltip>
       ) : (
         <Box
           sx={{

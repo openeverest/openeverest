@@ -14,6 +14,7 @@
 
 import {
   BackupList,
+  BackupListFilter,
   CreateBackupPayload,
   CreateBackupResponse,
   DeleteBackupPayload,
@@ -70,6 +71,19 @@ export const getBackupsListFn = async (
 ): Promise<BackupList> => {
   const response = await api.get<BackupList>(
     `clusters/${clusterName}/namespaces/${namespace}/instances/${instanceName}/backups`
+  );
+
+  return response.data;
+};
+
+export const getNamespaceBackupsFn = async (
+  clusterName: string,
+  namespace: string,
+  filter: BackupListFilter
+): Promise<BackupList> => {
+  const response = await api.get<BackupList>(
+    `clusters/${clusterName}/namespaces/${namespace}/backups`,
+    { params: filter }
   );
 
   return response.data;

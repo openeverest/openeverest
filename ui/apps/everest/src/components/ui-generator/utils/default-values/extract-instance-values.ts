@@ -15,6 +15,7 @@
 import {
   Component,
   ComponentGroup,
+  FieldType,
   FormMode,
   Section,
   isWidgetComponent,
@@ -30,6 +31,8 @@ import {
   isToggleableOnInInstance,
 } from '../toggleable/toggleable';
 import { getWidgetTargets } from '../widget-targets';
+import { getSchemaDefault } from './get-schema-default';
+import { readQuantity } from '../quantity';
 
 /*
  Walks schema components across all sections and extracts current values
@@ -85,12 +88,19 @@ const extractFlat = (
     if (sourcePath) {
       const instanceValue = getByPath(instance, sourcePath);
       if (instanceValue !== undefined) {
-        result[fieldId] = stripBadgeFromValue(
-          instanceValue,
-          component.fieldParams?.badgeToApi
-            ? component.fieldParams.badge
-            : undefined
-        );
+        if (component.uiType === FieldType.Quantity) {
+          result[fieldId] = readQuantity(
+            instanceValue,
+            component.fieldParams.unit
+          );
+        } else {
+          result[fieldId] = stripBadgeFromValue(
+            instanceValue,
+            component.fieldParams?.badgeToApi
+              ? component.fieldParams.badge
+              : undefined
+          );
+        }
         continue;
       }
     }
@@ -101,8 +111,9 @@ const extractFlat = (
     }
 
     // Fallback to schema default, then type default
-    if (component.fieldParams?.defaultValue !== undefined) {
-      result[fieldId] = component.fieldParams.defaultValue;
+    const schemaDefault = getSchemaDefault(component);
+    if (schemaDefault !== undefined) {
+      result[fieldId] = schemaDefault;
     } else if (isWidgetComponent(component)) {
       // Widget components manage their own default value.
     } else {

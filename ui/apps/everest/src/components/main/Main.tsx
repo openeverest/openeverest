@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import ReplayIcon from '@mui/icons-material/Replay';
-import { Box, Button, Stack, Toolbar, Typography } from '@mui/material';
-import { useKubernetesClusterInfo } from 'hooks/api/kubernetesClusters/useKubernetesClusterInfo';
+import { Box, Toolbar } from '@mui/material';
 import useLocalStorage from 'hooks/utils/useLocalStorage';
 import { GenericError } from 'pages/generic-error/GenericError';
 import { useContext } from 'react';
@@ -24,8 +22,6 @@ import { ErrorContextProvider } from 'utils/ErrorBoundaryProvider';
 import { AppBar } from '../app-bar/AppBar';
 import { Drawer } from '../drawer/Drawer';
 import { WelcomeDialog } from '../welcome-dialog/welcome-dialog';
-import { Messages } from './Main.messages';
-import LoadingPageSkeleton from 'components/loading-page-skeleton/LoadingPageSkeleton';
 import UpgradeEverestReloadDialog from 'modals/upgrade-reload-everest-dialog';
 import { UpgradeEverestContext } from 'contexts/upgrade-everest';
 
@@ -37,16 +33,9 @@ export const Main = () => {
   const { apiVersion, openReloadDialog, setOpenReloadDialog } = useContext(
     UpgradeEverestContext
   );
-  const { isFetching, isError, refetch } = useKubernetesClusterInfo([
-    'initial-k8-info',
-  ]);
 
   const handleCloseWelcomeDialog = () => {
     setOpenWelcomeDialogLS(false);
-  };
-
-  const handleClick = () => {
-    refetch();
   };
 
   return (
@@ -65,29 +54,7 @@ export const Main = () => {
             }}
           >
             <Toolbar />
-            {isFetching ? (
-              <LoadingPageSkeleton />
-            ) : isError ? (
-              <Stack
-                sx={{
-                  alignItems: 'center',
-                }}
-              >
-                <Typography variant="subtitle1">
-                  {Messages.somethingWrong}
-                </Typography>
-                <Button
-                  onClick={handleClick}
-                  variant="outlined"
-                  endIcon={<ReplayIcon />}
-                  sx={{ mt: 1 }}
-                >
-                  {Messages.retry}
-                </Button>
-              </Stack>
-            ) : (
-              <Outlet />
-            )}
+            <Outlet />
             {openWelcomeDialogLS && (
               <WelcomeDialog
                 open={openWelcomeDialogLS}

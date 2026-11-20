@@ -24,8 +24,8 @@ import (
 // RestoreSpec defines the desired state of Restore.
 type RestoreSpec struct {
 	// InstanceRef references the Instance to restore into. The Instance
-	// must already exist in the same namespace and use a provider listed in
-	// the BackupClass's SupportedProviders.
+	// must already exist in the same namespace and use the provider that
+	// executes the BackupClass.
 	// +kubebuilder:validation:Required
 	InstanceRef common.ObjectRef `json:"instanceRef"`
 	// DataSource identifies the data to restore from. The same type is used
@@ -177,10 +177,6 @@ type RestoreStatus struct {
 	// for ProviderManaged classes.
 	// +optional
 	OperatorRestoreRef *common.TypedObjectRef `json:"operatorRestoreRef,omitempty"`
-	// JobRef references the Job that is running the restore.
-	// Populated only for Job classes.
-	// +optional
-	JobRef *common.ObjectRef `json:"jobRef,omitempty"`
 	// StartedAt is the time when the restore started.
 	// +optional
 	StartedAt *metav1.Time `json:"startedAt,omitempty"`

@@ -14,6 +14,7 @@
 
 import { ComponentType, ReactNode } from 'react';
 import { Provider } from 'shared-types/api.types';
+import type { kubernetesUnit } from 'utils/k8ResourceParser';
 
 export enum FormMode {
   New = 'new',
@@ -55,10 +56,12 @@ export interface DataSource {
 
 export enum FieldType {
   Number = 'number',
+  Quantity = 'quantity',
   Select = 'select',
   Text = 'text',
   Toggle = 'toggle',
   Hidden = 'hidden',
+  Secret = 'secret',
 }
 
 export enum WidgetType {
@@ -99,6 +102,22 @@ export interface NumberFieldParams extends CommonFieldParams {
   placeholder?: string;
 }
 
+// Kubernetes resource quantity (CPU / memory / disk). Prefer `unit` /
+// `unitLabel` over badge / badgeToApi — the quantity codec owns conversion.
+export interface QuantityFieldParams
+  extends Omit<CommonFieldParams, 'badge' | 'badgeToApi'> {
+  // Not supported: quantity owns conversion via `unit` / `unitLabel`.
+  badge?: never;
+  badgeToApi?: never;
+  // Target unit for form values and API writes (e.g. Gi). Omit for CPU (cores).
+  unit?: kubernetesUnit;
+  // End-adornment / display label falls back to `unit` (e.g. "cores").
+  unitLabel?: string;
+  // Omit to accept "any" fractional value.
+  step?: number;
+  placeholder?: string;
+}
+
 type SelectOptionsItem = { label: string; value: string };
 
 type SelectFieldParamsBase = CommonFieldParams & {
@@ -116,11 +135,26 @@ export type SelectFieldParams =
     })
   | (SelectFieldParamsBase & {
       optionsPath: string;
-      optionsPathConfig: { labelPath: string; valuePath: string };
+      optionsPathConfig: {
+        labelPath: string;
+        valuePath: string;
+        // Provider path (e.g. spec.defaultVersion) whose value names the option
+        // pre-selected on create. Written by `provider-sdk generate`.
+        defaultValuePath?: string;
+      };
       options?: never;
     });
 
 export type ToggleFieldParams = CommonFieldParams;
+
+export interface SecretFieldParams extends CommonFieldParams {
+  // Key of the provider's spec.secrets entry the selectable secrets belong to.
+  definition: string;
+  readOnly?: boolean;
+  createLabel?: string;
+  // A Secret is namespaced, so a cluster-wide schema can't name a default one.
+  defaultValue?: never;
+}
 
 export interface TextFieldParams extends CommonFieldParams {
   placeholder?: string;
@@ -148,10 +182,12 @@ export type ToggleValidation = Omit<CommonValidation, 'required'> & {
 
 export type FieldParamsMap = {
   [FieldType.Number]: NumberFieldParams;
+  [FieldType.Quantity]: QuantityFieldParams;
   [FieldType.Select]: SelectFieldParams;
   [FieldType.Text]: TextFieldParams;
   [FieldType.Toggle]: ToggleFieldParams;
   [FieldType.Hidden]: CommonFieldParams;
+  [FieldType.Secret]: SecretFieldParams;
 };
 
 type PathOrId =
@@ -198,10 +234,12 @@ export type NumberValidation = CommonValidation & {
 
 export type ValidationMap = {
   [FieldType.Number]: NumberValidation;
+  [FieldType.Quantity]: NumberValidation;
   [FieldType.Text]: TextValidation;
   [FieldType.Select]: CommonValidation;
   [FieldType.Toggle]: ToggleValidation;
   [FieldType.Hidden]: CommonValidation;
+  [FieldType.Secret]: CommonValidation;
 };
 
 type ComponentCommonFields = {
@@ -244,6 +282,14 @@ export type Component = FieldComponent | WidgetComponent;
 
 export const isWidgetComponent = (item: Component): item is WidgetComponent =>
   item.uiType === WIDGET_UI_TYPE;
+
+// Narrows an opaque API payload (e.g. a CRD's uiSchema) to a section.
+export const isSection = (value: unknown): value is Section =>
+  typeof value === 'object' &&
+  value !== null &&
+  'components' in value &&
+  typeof value.components === 'object' &&
+  value.components !== null;
 
 export type WidgetRendererProps = {
   // Engine-resolved RHF field key. A widget is a first-class component: it flows
@@ -309,6 +355,8 @@ export type TopologyUISchemas = {
 export type UIGeneratorProps = {
   sectionKey: string;
   sections: { [key: string]: Section };
+  // Form path the host mounts the section's own object at; schema paths stay relative to it.
+  root?: string;
   providerObject?: Provider;
   loadingDefaultsForEdition?: boolean;
   formMode?: FormMode;

@@ -1,3 +1,17 @@
+// Copyright (C) 2026 The OpenEverest Contributors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import { Button } from '@mui/material';
 import { TextInput } from '@percona/ui-lib';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -121,5 +135,31 @@ describe('FormDialog', () => {
     fireEvent.click(backdrop!);
 
     expect(closeModal).not.toHaveBeenCalled();
+  });
+
+  it('submits only its own form when opened inside another form', async () => {
+    const parentSubmit = vi.fn((e: React.FormEvent) => e.preventDefault());
+    const onSubmit = vi.fn();
+
+    render(
+      <form onSubmit={parentSubmit}>
+        <FormDialog
+          isOpen
+          closeModal={vi.fn()}
+          headerMessage="Nested"
+          onSubmit={onSubmit}
+          schema={schema}
+          defaultValues={defaultValues}
+          submitMessage="Add"
+        >
+          <TextInput name={DataFields.name} label="Name" isRequired />
+        </FormDialog>
+      </form>
+    );
+
+    fireEvent.submit(screen.getByRole('textbox', { name: 'Name' }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(parentSubmit).not.toHaveBeenCalled();
   });
 });

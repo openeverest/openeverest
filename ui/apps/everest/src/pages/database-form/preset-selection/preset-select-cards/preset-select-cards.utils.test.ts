@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { InstancePreset } from 'shared-types/api.types';
+import { ClusterInstancePreset } from 'shared-types/api.types';
 import { presetToCardItem } from './preset-select-cards.utils';
 
-const preset: InstancePreset = {
+const preset: ClusterInstancePreset = {
   metadata: { name: 'psmdb-prod' },
   spec: {
     providerRef: { name: 'percona-server-mongodb' },

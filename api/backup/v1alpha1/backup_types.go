@@ -31,9 +31,7 @@ type BackupSpec struct {
 	Origin BackupOrigin `json:"origin"`
 	// ClassRef references the cluster-scoped BackupClass that defines how
 	// this Backup is executed. The class's executionMode controls the runtime
-	// path: Job classes are reconciled by the in-cluster Backup job
-	// controller; ProviderManaged classes are reconciled by the provider's
-	// runtime.
+	// path; ProviderManaged classes are reconciled by the provider's runtime.
 	// +kubebuilder:validation:Required
 	ClassRef common.ObjectRef `json:"classRef"`
 	// StorageRef references a BackupStorage in the same namespace that
@@ -148,6 +146,33 @@ type BackupOriginExternal struct {
 	// CompletedAt is the time when the backup completed.
 	// +kubebuilder:validation:Required
 	CompletedAt metav1.Time `json:"completedAt"`
+	// SourceMetadata is engine-specific metadata that is used to make
+	// compatibility decisions for creating an Instance from this Backup.
+	// +optional
+	SourceMetadata *BackupSourceMetadata `json:"sourceMetadata,omitempty"`
+}
+
+// BackupSourceMetadata describes the source Instance at the time the Backup
+// was taken, used to decide compatibility when creating an Instance from it.
+// Fields have an engine-neutral shape but engine-specific values, and are
+// best-effort, so any may be empty.
+type BackupSourceMetadata struct {
+	// EngineVersion is the engine version recorded in the backup.
+	// Its granularity may be whatever the backup metadata records, so it
+	// may be a full version (e.g. a MongoDB server version like "8.0.12-4",
+	// a Percona XtraDB Cluster server version like "8.4.8-8.1") or only a
+	// major version (e.g. a PostgreSQL version like "18").
+	// +optional
+	EngineVersion string `json:"engineVersion,omitempty"`
+	// BackupType is the backup method recorded (e.g. "logical" or "physical"
+	// for PBM).
+	// +optional
+	BackupType string `json:"backupType,omitempty"`
+	// Topology names the source Instance's topology (e.g. "replicaSet" or
+	// "sharded" for PSMDB). Recorded only for backups taken by a
+	// ProviderManaged backup class.
+	// +optional
+	Topology string `json:"topology,omitempty"`
 }
 
 // BackupStatus defines the observed state of Backup.
@@ -160,17 +185,18 @@ type BackupStatus struct {
 	// Empty for external backups.
 	// +optional
 	Size *string `json:"size,omitempty"`
+	// Path is the directory in the BackupStorage's bucket the source
+	// Instance writes its backups to, recorded when the backup starts so
+	// restores resolve after the Instance is gone. Empty for external
+	// backups, whose path is spec.origin.external.path.
+	// +optional
+	Path string `json:"path,omitempty"`
 	// OperatorBackupRef points at the operator-native backup resource the
 	// provider created (e.g., PerconaServerMongoDBBackup). Populated only
 	// for ProviderManaged classes. Empty for external backups, which have no
 	// operator-native backup object.
 	// +optional
 	OperatorBackupRef *common.TypedObjectRef `json:"operatorBackupRef,omitempty"`
-	// JobRef references the Job that is running the backup.
-	// Populated only for Job classes. Empty for external backups, which run
-	// no Job.
-	// +optional
-	JobRef *common.ObjectRef `json:"jobRef,omitempty"`
 	// StartedAt is the time when the backup started.
 	// For external backups this mirrors spec.origin.external.startedAt.
 	// +optional
@@ -179,6 +205,11 @@ type BackupStatus struct {
 	// For external backups this mirrors spec.origin.external.completedAt.
 	// +optional
 	CompletedAt *metav1.Time `json:"completedAt,omitempty"`
+	// SourceMetadata is the source Instance metadata recorded with the backup.
+	// For external backups this mirrors spec.origin.external.sourceMetadata;
+	// for Instance-origin backups the provider populates it from the engine.
+	// +optional
+	SourceMetadata *BackupSourceMetadata `json:"sourceMetadata,omitempty"`
 	// LastObservedGeneration is the last observed generation of the Backup CR.
 	// +optional
 	LastObservedGeneration int64 `json:"lastObservedGeneration,omitempty"`
@@ -223,6 +254,9 @@ const (
 // +kubebuilder:printcolumn:name="Instance",type="string",JSONPath=".spec.origin.instanceRef.name"
 // +kubebuilder:printcolumn:name="Storage",type="string",JSONPath=".spec.storageRef.name"
 // +kubebuilder:printcolumn:name="State",type="string",JSONPath=".status.state"
+// +kubebuilder:selectablefield:JSONPath=".spec.classRef.name"
+// +kubebuilder:selectablefield:JSONPath=".spec.storageRef.name"
+// +kubebuilder:selectablefield:JSONPath=".spec.origin.type"
 
 // Backup is the Schema for the backups API.
 type Backup struct {

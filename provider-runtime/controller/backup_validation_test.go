@@ -72,6 +72,9 @@ func mkClass(limits *backupv1alpha1.BackupClassLimits) *backupv1alpha1.BackupCla
 	}
 }
 
+// otherMode is an execution mode the provider runtime does not execute.
+const otherMode = backupv1alpha1.BackupExecutionMode("Other")
+
 func TestValidateInstanceBackupAgainstClass(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -92,9 +95,9 @@ func TestValidateInstanceBackupAgainstClass(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "job-mode class is ignored",
+			name:    "class of another execution mode is ignored",
 			in:      mkInstance(mkStorage("a", false, 0), mkStorage("b", false, 0)),
-			bc:      &backupv1alpha1.BackupClass{Spec: backupv1alpha1.BackupClassSpec{ExecutionMode: backupv1alpha1.BackupExecutionModeJob}},
+			bc:      &backupv1alpha1.BackupClass{Spec: backupv1alpha1.BackupClassSpec{ExecutionMode: otherMode}},
 			wantErr: false,
 		},
 		{
@@ -217,9 +220,9 @@ func TestValidateInstanceBackupPITRParameters(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "job-mode class is ignored",
+			name:    "class of another execution mode is ignored",
 			in:      mkInstance(withPITRParameters(mkStorage("a", true, 0), `{"bogus": true}`)),
-			bc:      &backupv1alpha1.BackupClass{Spec: backupv1alpha1.BackupClassSpec{ExecutionMode: backupv1alpha1.BackupExecutionModeJob}},
+			bc:      &backupv1alpha1.BackupClass{Spec: backupv1alpha1.BackupClassSpec{ExecutionMode: otherMode}},
 			wantErr: false,
 		},
 		{
@@ -327,15 +330,81 @@ func TestValidateBackupSucceeded(t *testing.T) {
 func TestValidateClassSupportsProvider(t *testing.T) {
 	t.Parallel()
 
-	bc := &backupv1alpha1.BackupClass{
-		ObjectMeta: metav1.ObjectMeta{Name: "bc"},
-		Spec:       backupv1alpha1.BackupClassSpec{SupportedProviders: backupv1alpha1.ProviderNameList{"postgresql"}},
+	// The verdict is what core publishes; the class's spec is not consulted.
+	class := func(mode backupv1alpha1.BackupExecutionMode, verdicts ...backupv1alpha1.BackupClassProviderCompatibility) *backupv1alpha1.BackupClass {
+		bc := &backupv1alpha1.BackupClass{
+			ObjectMeta: metav1.ObjectMeta{Name: "bc", Generation: 2},
+			Spec:       backupv1alpha1.BackupClassSpec{ExecutionMode: mode},
+			Status:     backupv1alpha1.BackupClassStatus{Providers: verdicts},
+		}
+		if mode == backupv1alpha1.BackupExecutionModeProviderManaged {
+			bc.Spec.ProviderManaged = &backupv1alpha1.ProviderManagedSpec{ProviderRef: common.ObjectRef{Name: "postgresql"}}
+		}
+		return bc
 	}
+	verdict := func(provider string, c backupv1alpha1.Compatibility, reason string) backupv1alpha1.BackupClassProviderCompatibility {
+		return backupv1alpha1.BackupClassProviderCompatibility{
+			Name: provider, Compatibility: c, Reason: reason, ClassGeneration: 2,
+		}
+	}
+	managed := backupv1alpha1.BackupExecutionModeProviderManaged
 
-	require.NoError(t, ValidateClassSupportsProvider(bc, "postgresql"))
-
-	err := ValidateClassSupportsProvider(bc, "mongodb")
-	require.ErrorIs(t, err, ErrProviderUnsupported)
+	tests := []struct {
+		name     string
+		bc       *backupv1alpha1.BackupClass
+		provider string
+		wantText string
+	}{
+		{
+			name:     "compatible passes",
+			bc:       class(managed, verdict("postgresql", backupv1alpha1.CompatibilityCompatible, "")),
+			provider: "postgresql",
+		},
+		{
+			name:     "not judged yet is pending and passes",
+			bc:       class(managed),
+			provider: "mongodb",
+		},
+		{
+			name: "a verdict for another generation is pending and passes",
+			bc: func() *backupv1alpha1.BackupClass {
+				bc := class(managed, verdict("postgresql", backupv1alpha1.CompatibilityIncompatible, backupv1alpha1.ReasonSpecDrift))
+				bc.Status.Providers[0].ClassGeneration = 1
+				return bc
+			}(),
+			provider: "postgresql",
+		},
+		{
+			name:     "a provider absent from a current list fails",
+			bc:       class(managed, verdict("postgresql", backupv1alpha1.CompatibilityCompatible, "")),
+			provider: "mongodb",
+			wantText: backupv1alpha1.ReasonProviderUnsupported,
+		},
+		{
+			name:     "the executor's own incompatible verdict fails",
+			bc:       class(managed, verdict("postgresql", backupv1alpha1.CompatibilityIncompatible, backupv1alpha1.ReasonSpecDrift)),
+			provider: "postgresql",
+			wantText: backupv1alpha1.ReasonSpecDrift,
+		},
+		{
+			// Only the verdict decides, so a later execution mode is additive.
+			name:     "an execution mode this build does not know passes on a compatible verdict",
+			bc:       class("Job", verdict("postgresql", backupv1alpha1.CompatibilityCompatible, "")),
+			provider: "postgresql",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			err := ValidateClassSupportsProvider(tc.bc, tc.provider)
+			if tc.wantText == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorIs(t, err, ErrProviderUnsupported)
+			require.ErrorContains(t, err, tc.wantText)
+		})
+	}
 }
 
 func mkPITRRestore(pitr *backupv1alpha1.DataSourcePointInTime) *backupv1alpha1.Restore {
@@ -371,8 +440,8 @@ func TestValidateRestorePITR(t *testing.T) {
 			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{SupportsPITR: false},
 		},
 	}
-	jobMode := &backupv1alpha1.BackupClass{
-		Spec: backupv1alpha1.BackupClassSpec{ExecutionMode: backupv1alpha1.BackupExecutionModeJob},
+	otherModeClass := &backupv1alpha1.BackupClass{
+		Spec: backupv1alpha1.BackupClassSpec{ExecutionMode: otherMode},
 	}
 
 	tests := []struct {
@@ -425,9 +494,9 @@ func TestValidateRestorePITR(t *testing.T) {
 			wantUnsupErr: true,
 		},
 		{
-			name:    "job-mode class is not gated",
+			name:    "class of another execution mode is not gated",
 			restore: mkPITRRestore(&backupv1alpha1.DataSourcePointInTime{RecoveryTarget: backupv1alpha1.RecoveryTargetLatest}),
-			bc:      jobMode,
+			bc:      otherModeClass,
 			wantErr: false,
 		},
 		{

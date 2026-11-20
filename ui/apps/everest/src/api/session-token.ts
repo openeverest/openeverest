@@ -19,8 +19,9 @@
 // set by the API server (never accessible to JS). On page reload the access
 // token is recovered with a silent refresh against /v1/auth/token.
 //
-// OIDC (SSO) sessions are unaffected: they keep using the 'everestToken'
-// localStorage entry managed by oidc-react.
+// OIDC (SSO) sessions keep the Everest JWT obtained from the token-exchange
+// grant in the 'everestToken' localStorage entry. No refresh token is issued for
+// them; they are renewed through the IdP session (see setSsoTokenRefresher).
 
 import axios from 'axios';
 import type { HttpApi } from '@generated/api-types';
@@ -83,4 +84,38 @@ export const refreshSession = (): Promise<string | null> => {
       });
   }
   return refreshPromise;
+};
+
+// Returns a fresh Everest token, or null if the session can no longer be renewed.
+type TokenRefresher = () => Promise<string | null>;
+
+let ssoTokenRefresher: TokenRefresher | null = null;
+let ssoRefreshPromise: Promise<string | null> | null = null;
+
+// Registered by the auth provider when SSO is enabled, so that SSO sessions
+// renew their short-lived Everest JWT through the IdP instead of logging out.
+export const setSsoTokenRefresher = (fn: TokenRefresher | null) => {
+  ssoTokenRefresher = fn;
+};
+
+// Renews whichever session is active after the API rejected `rejectedToken`:
+// internal sessions through the refresh token cookie, SSO sessions through the
+// registered IdP renewal (single-flight).
+export const renewSession = (
+  rejectedToken?: string
+): Promise<string | null> => {
+  if (accessToken || !ssoTokenRefresher) {
+    return refreshSession();
+  }
+  // Another tab or an earlier renewal may already have replaced the rejected token.
+  const currentToken = localStorage.getItem('everestToken');
+  if (currentToken && rejectedToken && currentToken !== rejectedToken) {
+    return Promise.resolve(currentToken);
+  }
+  if (!ssoRefreshPromise) {
+    ssoRefreshPromise = ssoTokenRefresher().finally(() => {
+      ssoRefreshPromise = null;
+    });
+  }
+  return ssoRefreshPromise;
 };

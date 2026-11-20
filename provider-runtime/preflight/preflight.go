@@ -21,9 +21,6 @@
 // provider-spec.yaml the release applies — so the catalog has a single source
 // of truth and the provider image needs no embedded definition files.
 //
-// Design background: spec 009 (provider upgrades) in the openeverest/specs
-// repository.
-//
 // Providers wire it into their main:
 //
 //	if *preflightSpecFile != "" {
