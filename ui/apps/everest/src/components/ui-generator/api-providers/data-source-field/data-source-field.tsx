@@ -105,13 +105,16 @@ export const DataSourceField: React.FC<DataSourceFieldProps> = ({
       baseComponent.fieldParams as Record<string, unknown>
     )?.helperText;
 
+    // An empty list doesn't change what the spec holds, so in edit the stored
+    // value's hint wins over the text explaining why there are no options.
     const helperText = isLoading
       ? Messages.loading
       : error
         ? Messages.loadFailed
-        : isEmpty
-          ? (emptyHint ?? originalHelperText ?? Messages.noOptions)
-          : (storedValueHint ?? originalHelperText);
+        : (storedValueHint ??
+          (isEmpty
+            ? (emptyHint ?? originalHelperText ?? Messages.noOptions)
+            : originalHelperText));
 
     return {
       ...baseComponent,

@@ -13,8 +13,8 @@
 // limitations under the License.
 
 import { renderHook } from '@testing-library/react';
-import { Messages } from 'components/ui-generator/api-providers/providers.messages';
 import type { StorageClass } from 'shared-types/kubernetes.types';
+import { Messages } from '../providers.messages';
 import { useStorageClassesOptions } from './useStorageClassesOptions';
 
 // RBAC and the query are mocked here to reach branches the providers
@@ -33,7 +33,7 @@ const { storageClassesQuery, permissions } = vi.hoisted(() => {
   };
 });
 
-vi.mock('./useStorageClasses', () => ({
+vi.mock('hooks/api/storage-classes/useStorageClasses', () => ({
   useStorageClassesList: () => storageClassesQuery,
 }));
 

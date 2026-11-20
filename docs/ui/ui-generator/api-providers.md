@@ -73,7 +73,7 @@ If the provider knows why the list is empty (e.g. `storageClasses` when the user
 
 In `edit` mode nothing is auto-selected: the field shows the stored value as-is, so saving another field never rewrites it. An empty value stays empty; a value no longer among the options is kept and listed in the select as `<value> (unavailable)`. Auto-selection applies only when creating (`new`, `restore`, `import`). A resource the user creates from the fallback is still selected in every mode — see below.
 
-Once the options have loaded, edit mode also explains such a value in the helper text, replacing the schema's `helperText` while it applies:
+Once the options have loaded, edit mode also explains such a value in the helper text, replacing the schema's `helperText` and the empty-list text (generic or the provider's reason) while it applies:
 
 - **Unavailable stored value** (still selected): the UI only knows the value isn't among the options — it may have been deleted or hidden by RBAC — so the text doesn't claim a cause. It says the value is kept, and offers picking another one only when the field isn't `disabled`/`readOnly`.
 - **Empty value**: what "unset" means depends on the resource, so the registry entry provides it via `unsetValueHint` (e.g. `storageClasses`: the cluster's default storage class applies). Without it, no hint is shown.
@@ -84,12 +84,12 @@ Once the user creates a resource in the fallback, the fallback calls `onCreated(
 
 ## Adding a New Provider in https://github.com/openeverest/openeverest
 
-1. Create a `useXxxOptions` hook in `hooks/api/<resource>/` that accepts `ProviderParams` and returns `ProviderOptions`.
+1. Create a `useXxxOptions` hook in `api-providers/<resource>/` that accepts `ProviderParams` and returns `ProviderOptions`. It adapts the resource's query hook from `hooks/api/<resource>/` to the provider contract; the query itself stays in `hooks/api`.
 2. If the resource can be user-created, create a fallback component in `api-providers/fallbacks/` that offers creating it (e.g. an `ActionableAlert` opening a create modal) and export it from `api-providers/fallbacks/index.ts`. After creating the resource, await the options refetch and call `onCreated(value)` so the field selects it.
 3. Register it in `api-providers/providers.ts`:
 
    ```ts
-   import { useXxxOptions } from "hooks/api/<resource>/useXxxOptions";
+   import { useXxxOptions } from "./<resource>/useXxxOptions";
    import { XxxEmptyFallback } from "./fallbacks";
 
    providerRegistry.register("xxx", {

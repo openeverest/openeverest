@@ -13,13 +13,10 @@
 // limitations under the License.
 
 import { useMemo } from 'react';
-import type {
-  ProviderOptions,
-  ProviderParams,
-} from 'components/ui-generator/api-providers/types';
-import { Messages } from 'components/ui-generator/api-providers/providers.messages';
+import { useStorageClassesList } from 'hooks/api/storage-classes/useStorageClasses';
 import { useRBACPermissions } from 'hooks/rbac';
-import { useStorageClassesList } from './useStorageClasses';
+import { Messages } from '../providers.messages';
+import type { ProviderOptions, ProviderParams } from '../types';
 
 export const useStorageClassesOptions = ({
   cluster,

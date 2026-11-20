@@ -98,13 +98,18 @@ const renderField = (patched: Component) =>
     </>
   ) : null;
 
-const renderStorageClassField = () => {
+const renderStorageClassField = ({
+  formMode = FormMode.New,
+  storedStorageClass = '',
+} = {}) => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
 
   const Harness = () => {
-    const methods = useForm({ defaultValues: { spec: { storageClass: '' } } });
+    const methods = useForm({
+      defaultValues: { spec: { storageClass: storedStorageClass } },
+    });
     return (
       <FormProvider {...methods}>
         <DataSourceField item={ITEM} name={FIELD}>
@@ -118,7 +123,7 @@ const renderStorageClassField = () => {
   render(
     <TestWrapper>
       <QueryClientProvider client={queryClient}>
-        <UiGeneratorProvider namespace="ns" formMode={FormMode.New}>
+        <UiGeneratorProvider namespace="ns" formMode={formMode}>
           <Harness />
         </UiGeneratorProvider>
       </QueryClientProvider>
@@ -168,6 +173,30 @@ describe('storageClasses data source', () => {
       )
     );
   });
+
+  // The role can't list classes, but an existing Instance keeps the class its
+  // spec holds (or none), so the "default will be used" hint would be wrong.
+  it.each([
+    ['a stored class', 'standard', DataSourceMessages.unavailableValueHint],
+    ['an unset class', '', Messages.storageClassesUnsetValueHint],
+  ])(
+    'explains %s in edit instead of the missing storage-classes read',
+    async (_case, storedStorageClass, expectedHint) => {
+      await givenPolicies(true, [['instances', '*', 'main/*/*']]);
+      mockGetStorageClasses.mockResolvedValue({ items: [] });
+
+      renderStorageClassField({
+        formMode: FormMode.Edit,
+        storedStorageClass,
+      });
+
+      await waitFor(() =>
+        expect(screen.getByTestId('helper-text')).toHaveTextContent(
+          expectedHint
+        )
+      );
+    }
+  );
 
   it('does not blame permissions when the role may read but the cluster has no classes', async () => {
     await givenPolicies(true, [['storage-classes', 'read', 'main/*']]);
