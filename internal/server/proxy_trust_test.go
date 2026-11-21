@@ -17,12 +17,15 @@ package server
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	echomiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 const (
@@ -70,6 +73,36 @@ func TestConfigureProxyTrustRateLimitsPerClient(t *testing.T) {
 	assert.Equal(t, http.StatusTooManyRequests, status(clientA))
 	// A second client behind the same ingress must not inherit the first client's bucket.
 	assert.Equal(t, http.StatusOK, status(clientB))
+}
+
+func TestSSOGrantThrottlesPerClientBehindProxy(t *testing.T) {
+	t.Parallel()
+
+	const exchangeBody = `{"grant_type":"urn:ietf:params:oauth:grant-type:token-exchange",` +
+		`"subject_token_type":"urn:ietf:params:oauth:token-type:id_token","subject_token":"not-an-id-token"}`
+
+	e := newProxyTrustEcho(t)
+	srv := &EverestServer{
+		l:                zap.NewNop().Sugar(),
+		ssoAttemptsStore: newGrantTestStore(time.Now()),
+		ssoTokenVerifier: newTestSSOVerifier(t),
+	}
+
+	status := func(forwardedFor string) int {
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/v1/auth/token", strings.NewReader(exchangeBody))
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		req.Header.Set(echo.HeaderXForwardedFor, forwardedFor)
+		req.RemoteAddr = privateProxyAddr
+		rec := httptest.NewRecorder()
+		require.NoError(t, srv.CreateAuthToken(e.NewContext(req, rec)))
+		return rec.Code
+	}
+
+	assert.Equal(t, http.StatusUnauthorized, status(clientA))
+	// The frozen clock keeps the retry inside the post-failure backoff window.
+	assert.Equal(t, http.StatusTooManyRequests, status(clientA))
+	// A second client behind the same ingress must not inherit the first client's backoff.
+	assert.Equal(t, http.StatusUnauthorized, status(clientB))
 }
 
 func TestConfigureProxyTrust(t *testing.T) {
