@@ -150,6 +150,9 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 	}
 
 	echoServer := echo.New()
+	if err := configureProxyTrust(echoServer, c.TrustedProxies); err != nil {
+		return nil, err
+	}
 	// Pre() so it also wraps the Pre() middlewares; the bare HTTPError keeps the
 	// panic text out of the response body.
 	echoServer.Pre(echomiddleware.RecoverWithConfig(echomiddleware.RecoverConfig{
