@@ -1,3 +1,5 @@
+// everest
+// Copyright (C) 2023 Percona LLC
 // Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,10 +17,63 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"testing"
 
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+
+	"github.com/openeverest/openeverest/v2/pkg/accounts"
+	"github.com/openeverest/openeverest/v2/pkg/common"
 )
+
+type mockAccountManager struct {
+	mock.Mock
+}
+
+func (m *mockAccountManager) Create(ctx context.Context, username, password string) error {
+	return m.Called(ctx, username, password).Error(0)
+}
+
+func (m *mockAccountManager) Get(ctx context.Context, username string) (*accounts.Account, error) {
+	args := m.Called(ctx, username)
+	acc, _ := args.Get(0).(*accounts.Account)
+	return acc, args.Error(1)
+}
+
+func (m *mockAccountManager) List(ctx context.Context) (map[string]*accounts.Account, error) {
+	args := m.Called(ctx)
+	list, _ := args.Get(0).(map[string]*accounts.Account)
+	return list, args.Error(1)
+}
+
+func (m *mockAccountManager) Delete(ctx context.Context, username string) error {
+	return m.Called(ctx, username).Error(0)
+}
+
+func (m *mockAccountManager) SetPassword(ctx context.Context, username, newPassword string, secure bool) error {
+	return m.Called(ctx, username, newPassword, secure).Error(0)
+}
+
+func (m *mockAccountManager) Verify(ctx context.Context, username, password string) error {
+	return m.Called(ctx, username, password).Error(0)
+}
+
+func (m *mockAccountManager) IsSecure(ctx context.Context, username string) (bool, error) {
+	args := m.Called(ctx, username)
+	return args.Bool(0), args.Error(1)
+}
+
+// newTestAccounts bypasses NewAccounts (which needs a real k8s cluster).
+func newTestAccounts(mgr accounts.Interface, pretty bool) *Accounts {
+	return &Accounts{
+		accountManager: mgr,
+		l:              zap.NewNop().Sugar(),
+		config:         Config{Pretty: pretty},
+	}
+}
 
 func TestUsernamePasswordSanitation(t *testing.T) {
 	t.Parallel()
@@ -41,8 +96,10 @@ func TestUsernamePasswordSanitation(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
 				err := ValidateUsername(tc.username)
-				if tc.expectedErr == nil {
+				if tc.expectedErr != nil {
 					require.ErrorIs(t, err, tc.expectedErr)
+				} else {
+					require.NoError(t, err)
 				}
 			})
 		}
@@ -72,10 +129,264 @@ func TestUsernamePasswordSanitation(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
 				err := ValidatePassword(tc.password)
-				if tc.expectedErr == nil {
+				if tc.expectedErr != nil {
 					require.ErrorIs(t, err, tc.expectedErr)
+				} else {
+					require.NoError(t, err)
 				}
 			})
 		}
+	})
+}
+
+func TestWithAccountManager(t *testing.T) {
+	t.Parallel()
+	a := newTestAccounts(nil, false)
+	mgr := &mockAccountManager{}
+	a.WithAccountManager(mgr)
+	require.Equal(t, mgr, a.accountManager)
+}
+
+func TestCreate(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	t.Run("invalid_username", func(t *testing.T) {
+		t.Parallel()
+		a := newTestAccounts(nil, false)
+		err := a.Create(ctx, CreateOptions{Username: "x", Password: "validpassword"})
+		require.ErrorIs(t, err, ErrInvalidUsername)
+	})
+
+	t.Run("invalid_password", func(t *testing.T) {
+		t.Parallel()
+		a := newTestAccounts(nil, false)
+		err := a.Create(ctx, CreateOptions{Username: "validuser", Password: "bad"})
+		require.ErrorIs(t, err, ErrInvalidNewPassword)
+	})
+
+	t.Run("manager_error", func(t *testing.T) {
+		t.Parallel()
+		mgr := &mockAccountManager{}
+		managerErr := errors.New("create failed")
+		mgr.On("Create", ctx, "validuser", "validpassword").Return(managerErr)
+		a := newTestAccounts(mgr, false)
+		err := a.Create(ctx, CreateOptions{Username: "validuser", Password: "validpassword"})
+		require.ErrorIs(t, err, managerErr)
+		mgr.AssertExpectations(t)
+	})
+
+	t.Run("success_not_pretty", func(t *testing.T) {
+		t.Parallel()
+		mgr := &mockAccountManager{}
+		mgr.On("Create", ctx, "validuser", "validpassword").Return(nil)
+		a := newTestAccounts(mgr, false)
+		err := a.Create(ctx, CreateOptions{Username: "validuser", Password: "validpassword"})
+		require.NoError(t, err)
+		mgr.AssertExpectations(t)
+	})
+
+	t.Run("success_pretty", func(t *testing.T) {
+		t.Parallel()
+		mgr := &mockAccountManager{}
+		mgr.On("Create", ctx, "validuser", "validpassword").Return(nil)
+		a := newTestAccounts(mgr, true)
+		err := a.Create(ctx, CreateOptions{Username: "validuser", Password: "validpassword"})
+		require.NoError(t, err)
+		mgr.AssertExpectations(t)
+	})
+}
+
+func TestDelete(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	t.Run("invalid_username", func(t *testing.T) {
+		t.Parallel()
+		a := newTestAccounts(nil, false)
+		err := a.Delete(ctx, "x")
+		require.ErrorIs(t, err, ErrInvalidUsername)
+	})
+
+	t.Run("manager_error", func(t *testing.T) {
+		t.Parallel()
+		mgr := &mockAccountManager{}
+		deleteErr := errors.New("delete failed")
+		mgr.On("Delete", ctx, "validuser").Return(deleteErr)
+		a := newTestAccounts(mgr, false)
+		err := a.Delete(ctx, "validuser")
+		require.ErrorIs(t, err, deleteErr)
+		mgr.AssertExpectations(t)
+	})
+
+	t.Run("success_not_pretty", func(t *testing.T) {
+		t.Parallel()
+		mgr := &mockAccountManager{}
+		mgr.On("Delete", ctx, "validuser").Return(nil)
+		a := newTestAccounts(mgr, false)
+		err := a.Delete(ctx, "validuser")
+		require.NoError(t, err)
+		mgr.AssertExpectations(t)
+	})
+
+	t.Run("success_pretty", func(t *testing.T) {
+		t.Parallel()
+		mgr := &mockAccountManager{}
+		mgr.On("Delete", ctx, "validuser").Return(nil)
+		a := newTestAccounts(mgr, true)
+		err := a.Delete(ctx, "validuser")
+		require.NoError(t, err)
+		mgr.AssertExpectations(t)
+	})
+}
+
+func TestSetPassword(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	t.Run("invalid_username", func(t *testing.T) {
+		t.Parallel()
+		a := newTestAccounts(nil, false)
+		err := a.SetPassword(ctx, SetPasswordOptions{Username: "x", NewPassword: "validpassword"})
+		require.ErrorIs(t, err, ErrInvalidUsername)
+	})
+
+	t.Run("invalid_password", func(t *testing.T) {
+		t.Parallel()
+		a := newTestAccounts(nil, false)
+		err := a.SetPassword(ctx, SetPasswordOptions{Username: "validuser", NewPassword: "bad"})
+		require.ErrorIs(t, err, ErrInvalidNewPassword)
+	})
+
+	t.Run("manager_error", func(t *testing.T) {
+		t.Parallel()
+		mgr := &mockAccountManager{}
+		setErr := errors.New("set password failed")
+		mgr.On("SetPassword", ctx, "validuser", "validpassword", true).Return(setErr)
+		a := newTestAccounts(mgr, false)
+		err := a.SetPassword(ctx, SetPasswordOptions{Username: "validuser", NewPassword: "validpassword"})
+		require.ErrorIs(t, err, setErr)
+		mgr.AssertExpectations(t)
+	})
+
+	t.Run("success_not_pretty", func(t *testing.T) {
+		t.Parallel()
+		mgr := &mockAccountManager{}
+		mgr.On("SetPassword", ctx, "validuser", "validpassword", true).Return(nil)
+		a := newTestAccounts(mgr, false)
+		err := a.SetPassword(ctx, SetPasswordOptions{Username: "validuser", NewPassword: "validpassword"})
+		require.NoError(t, err)
+		mgr.AssertExpectations(t)
+	})
+
+	t.Run("success_pretty", func(t *testing.T) {
+		t.Parallel()
+		mgr := &mockAccountManager{}
+		mgr.On("SetPassword", ctx, "validuser", "validpassword", true).Return(nil)
+		a := newTestAccounts(mgr, true)
+		err := a.SetPassword(ctx, SetPasswordOptions{Username: "validuser", NewPassword: "validpassword"})
+		require.NoError(t, err)
+		mgr.AssertExpectations(t)
+	})
+}
+
+func TestList(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	accountsList := map[string]*accounts.Account{
+		"alice": {Enabled: true, Capabilities: []accounts.AccountCapability{accounts.AccountCapabilityLogin}},
+	}
+
+	t.Run("manager_error", func(t *testing.T) {
+		t.Parallel()
+		mgr := &mockAccountManager{}
+		listErr := errors.New("list failed")
+		mgr.On("List", ctx).Return(nil, listErr)
+		a := newTestAccounts(mgr, false)
+		err := a.List(ctx, ListOptions{})
+		require.ErrorIs(t, err, listErr)
+		mgr.AssertExpectations(t)
+	})
+
+	t.Run("default_columns_with_headers", func(t *testing.T) {
+		t.Parallel()
+		mgr := &mockAccountManager{}
+		mgr.On("List", ctx).Return(accountsList, nil)
+		a := newTestAccounts(mgr, false)
+		err := a.List(ctx, ListOptions{})
+		require.NoError(t, err)
+		mgr.AssertExpectations(t)
+	})
+
+	t.Run("no_headers", func(t *testing.T) {
+		t.Parallel()
+		mgr := &mockAccountManager{}
+		mgr.On("List", ctx).Return(accountsList, nil)
+		a := newTestAccounts(mgr, false)
+		err := a.List(ctx, ListOptions{NoHeaders: true})
+		require.NoError(t, err)
+		mgr.AssertExpectations(t)
+	})
+
+	t.Run("custom_columns", func(t *testing.T) {
+		t.Parallel()
+		mgr := &mockAccountManager{}
+		mgr.On("List", ctx).Return(accountsList, nil)
+		a := newTestAccounts(mgr, false)
+		err := a.List(ctx, ListOptions{Columns: []string{ColumnUser, ColumnEnabled}})
+		require.NoError(t, err)
+		mgr.AssertExpectations(t)
+	})
+}
+
+func TestGetInitAdminPassword(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	t.Run("is_secure_error", func(t *testing.T) {
+		t.Parallel()
+		mgr := &mockAccountManager{}
+		secureErr := errors.New("is-secure failed")
+		mgr.On("IsSecure", ctx, common.EverestAdminUser).Return(false, secureErr)
+		a := newTestAccounts(mgr, false)
+		_, err := a.GetInitAdminPassword(ctx)
+		require.ErrorIs(t, err, secureErr)
+		mgr.AssertExpectations(t)
+	})
+
+	t.Run("already_secure", func(t *testing.T) {
+		t.Parallel()
+		mgr := &mockAccountManager{}
+		mgr.On("IsSecure", ctx, common.EverestAdminUser).Return(true, nil)
+		a := newTestAccounts(mgr, false)
+		_, err := a.GetInitAdminPassword(ctx)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "cannot retrieve admin password")
+		mgr.AssertExpectations(t)
+	})
+
+	t.Run("get_error", func(t *testing.T) {
+		t.Parallel()
+		mgr := &mockAccountManager{}
+		getErr := errors.New("get failed")
+		mgr.On("IsSecure", ctx, common.EverestAdminUser).Return(false, nil)
+		mgr.On("Get", ctx, common.EverestAdminUser).Return(nil, getErr)
+		a := newTestAccounts(mgr, false)
+		_, err := a.GetInitAdminPassword(ctx)
+		require.ErrorIs(t, err, getErr)
+		mgr.AssertExpectations(t)
+	})
+
+	t.Run("success", func(t *testing.T) {
+		t.Parallel()
+		mgr := &mockAccountManager{}
+		mgr.On("IsSecure", ctx, common.EverestAdminUser).Return(false, nil)
+		mgr.On("Get", ctx, common.EverestAdminUser).Return(&accounts.Account{PasswordHash: "hash123"}, nil)
+		a := newTestAccounts(mgr, false)
+		hash, err := a.GetInitAdminPassword(ctx)
+		require.NoError(t, err)
+		require.Equal(t, "hash123", hash)
+		mgr.AssertExpectations(t)
 	})
 }
