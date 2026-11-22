@@ -58,8 +58,9 @@ func TestConfigureProxyTrustRateLimitsPerClient(t *testing.T) {
 	t.Parallel()
 
 	e := newProxyTrustEcho(t)
+	// Rate 0 never refills the single-token bucket, so the result does not depend on timing.
 	e.Use(echomiddleware.RateLimiter(echomiddleware.NewRateLimiterMemoryStoreWithConfig(
-		echomiddleware.RateLimiterMemoryStoreConfig{Rate: 1, Burst: 1},
+		echomiddleware.RateLimiterMemoryStoreConfig{Rate: 0, Burst: 1},
 	)))
 	e.GET("/", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
 
