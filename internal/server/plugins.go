@@ -24,13 +24,17 @@ import (
 	"strings"
 
 	"github.com/casbin/casbin/v2"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	pluginv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
+	"github.com/openeverest/openeverest/v2/pkg/plugintoken"
 	"github.com/openeverest/openeverest/v2/pkg/rbac"
+	"github.com/openeverest/openeverest/v2/pkg/session"
 )
 
 // pluginProxy handles plugin discovery and reverse-proxying.
@@ -183,4 +187,24 @@ func (pp *pluginProxy) resolveBackendURL(backend *pluginv1alpha1.PluginBackend) 
 
 func pluginKey(name string) ctrlclient.ObjectKey {
 	return ctrlclient.ObjectKey{Name: name}
+}
+
+// pluginTokenValidator checks plugin service tokens against the Plugin they
+// were issued to, so deleting or disabling a plugin, or dropping a permission
+// it declares, revokes its token at once.
+func pluginTokenValidator(kc kubernetes.KubernetesConnector) session.PluginTokenValidator {
+	return func(ctx context.Context, token *jwt.Token) (bool, error) {
+		claims, err := plugintoken.ClaimsOf(token)
+		if err != nil {
+			return false, nil //nolint:nilerr // a malformed plugin token is invalid, not an internal error
+		}
+		plugin, err := kc.GetPlugin(ctx, pluginKey(claims.PluginName()))
+		if apierrors.IsNotFound(err) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		return claims.ValidFor(plugin), nil
+	}
 }

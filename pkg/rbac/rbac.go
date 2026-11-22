@@ -35,10 +35,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 	"github.com/openeverest/openeverest/v2/data"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes/informer"
+	"github.com/openeverest/openeverest/v2/pkg/plugintoken"
 	configmapadapter "github.com/openeverest/openeverest/v2/pkg/rbac/configmap-adapter"
 	readeradapter "github.com/openeverest/openeverest/v2/pkg/rbac/io-reader-adapter"
 	"github.com/openeverest/openeverest/v2/pkg/session"
@@ -216,6 +218,9 @@ var SupportedActions = []string{
 type User struct {
 	Subject string
 	Groups  []string
+	// Permissions are granted by a plugin service token on top of the RBAC
+	// policy. Empty for users.
+	Permissions []extensionsv1alpha1.PluginPermission
 }
 
 // Setup a new informer that watches our RBAC ConfigMap.
@@ -371,6 +376,14 @@ func GetUser(ctx context.Context) (User, error) {
 	issuer, err := claims.GetIssuer()
 	if err != nil {
 		return User{}, errors.Join(err, errors.New("failed to get issuer from claims"))
+	}
+
+	if issuer == session.SessionManagerClaimsIssuer && plugintoken.IsSubjectPluginToken(subject) {
+		pluginClaims, err := plugintoken.ClaimsOf(token)
+		if err != nil {
+			return User{}, errors.Join(err, errors.New("failed to get plugin token claims"))
+		}
+		return User{Subject: subject, Permissions: pluginClaims.Permissions}, nil
 	}
 
 	// Built-in tokens carry sub="<user>:<capability>". SSO tokens carry the raw OIDC subject,

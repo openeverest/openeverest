@@ -174,6 +174,7 @@ func NewEverestServer(ctx context.Context, c *config.EverestConfig, l *zap.Sugar
 	sessMgr, err := session.New(
 		ctx, l, kubeConnector.Namespace(),
 		session.WithAccountManager(sessionManagerClient),
+		session.WithPluginTokenValidator(pluginTokenValidator(kubeConnector)),
 	)
 	if err != nil {
 		return nil, errors.Join(err, errors.New("failed to create session manager"))

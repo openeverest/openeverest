@@ -283,3 +283,55 @@ func TestEventResourcesCoverRecordedKinds(t *testing.T) {
 		}
 	}
 }
+
+func TestRBAC_ListEventsWithPluginServiceToken(t *testing.T) {
+	t.Parallel()
+
+	events := []eventsv1.Event{
+		lifecycleEvent("team-a", "db1"),
+		{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "prod-provider.created"},
+			Regarding: corev1.ObjectReference{
+				APIVersion: corev1alpha1.GroupVersion.String(), Kind: "Provider", Name: "prod-provider",
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "everest-system", Name: "alice.login"},
+			Regarding:  corev1.ObjectReference{Kind: "User", Namespace: "everest-system", Name: "alice"},
+		},
+	}
+	// The plugin is in no RBAC policy: only the permissions its token carries apply.
+	ctx := testUserContext(rbac.User{
+		Subject: "plugin:audit",
+		Permissions: []extensionsv1alpha1.PluginPermission{
+			{Verb: rbac.ActionReadEvents, Resource: rbac.ResourceInstances},
+			{Verb: rbac.ActionRead, Resource: rbac.ResourcePlatformEvents},
+		},
+	})
+	enf, err := rbac.NewEnforcer(ctx, newConfigMapMock(newPolicy()), zap.NewNop().Sugar())
+	require.NoError(t, err)
+	next := &handlers.MockHandler{}
+	next.On("ListEvents", mock.Anything, "prod", mock.Anything, int64(100), "").
+		Return(&eventsv1.EventList{Items: events}, nil)
+	h := &rbacHandler{next: next, log: zap.NewNop().Sugar(), enforcer: enf, userGetter: testUserGetter}
+
+	list, err := h.ListEvents(ctx, "prod", nil, 100, "")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"db1.created", "alice.login"}, eventNames(list.Items))
+}
+
+func TestRBAC_PluginServiceTokenCannotWriteSpec001Resources(t *testing.T) {
+	t.Parallel()
+
+	ctx := testUserContext(rbac.User{
+		Subject:     "plugin:pmm",
+		Permissions: []extensionsv1alpha1.PluginPermission{{Verb: "*", Resource: "*"}},
+	})
+	enf, err := rbac.NewEnforcer(ctx, newConfigMapMock(newPolicy()), zap.NewNop().Sugar())
+	require.NoError(t, err)
+	h := &rbacHandler{log: zap.NewNop().Sugar(), enforcer: enf, userGetter: testUserGetter}
+
+	require.NoError(t, h.enforce(ctx, rbac.ResourceMonitoringDestinations, rbac.ActionRead, "prod/ns/dest"))
+	require.ErrorIs(t, h.enforce(ctx, rbac.ResourceMonitoringDestinations, rbac.ActionCreate, "prod/ns/dest"),
+		ErrInsufficientPermissions)
+}

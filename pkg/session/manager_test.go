@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -386,5 +387,30 @@ func userSecret(file string) *corev1.Secret {
 		Data: map[string][]byte{
 			common.EverestAccountsFileName: []byte(file),
 		},
+	}
+}
+
+func TestIsBlockedPluginToken(t *testing.T) {
+	t.Parallel()
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"jti": "9d1c1f98-a479-41e3-8939-c7cb3edefa33",
+		"exp": float64(1847058325),
+		"iat": float64(1747058325),
+		"sub": "plugin:audit",
+		"iss": SessionManagerClaimsIssuer,
+	})
+	for _, valid := range []bool{true, false} {
+		t.Run(fmt.Sprintf("valid=%v", valid), func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			manager, err := mockManager(ctx, "", "")
+			require.NoError(t, err)
+			manager.pluginTokenValidator = func(context.Context, *jwt.Token) (bool, error) { return valid, nil }
+
+			isBlocked, err := manager.IsBlocked(ctx, token)
+			require.NoError(t, err)
+			assert.Equal(t, !valid, isBlocked)
+		})
 	}
 }

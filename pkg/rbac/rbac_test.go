@@ -31,6 +31,7 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	extensionsv1alpha1 "github.com/openeverest/openeverest/v2/api/extensions/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 	configmapadapter "github.com/openeverest/openeverest/v2/pkg/rbac/configmap-adapter"
@@ -111,6 +112,21 @@ func TestGetUserSubject(t *testing.T) {
 			assert.Equal(t, tc.expected, user.Subject)
 		})
 	}
+}
+
+func TestGetUserOfPluginToken(t *testing.T) {
+	t.Parallel()
+
+	claims := jwt.MapClaims{
+		"iss":         session.SessionManagerClaimsIssuer,
+		"sub":         "plugin:audit",
+		"permissions": []any{map[string]any{"verb": "read-events", "resource": "instances"}},
+	}
+	ctx := context.WithValue(context.Background(), common.UserCtxKey, &jwt.Token{Claims: claims}) //nolint:staticcheck // mirrors how the JWT middleware stores the token
+	user, err := GetUser(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "plugin:audit", user.Subject)
+	assert.Equal(t, []extensionsv1alpha1.PluginPermission{{Verb: "read-events", Resource: "instances"}}, user.Permissions)
 }
 
 func TestGetScopeValues(t *testing.T) {

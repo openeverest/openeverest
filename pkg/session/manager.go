@@ -64,11 +64,15 @@ var (
 type Manager struct {
 	Blocklist
 
-	accountManager accounts.Interface
-	signingKey     *rsa.PrivateKey
-	l              *zap.SugaredLogger
-	namespace      string
+	accountManager       accounts.Interface
+	pluginTokenValidator PluginTokenValidator
+	signingKey           *rsa.PrivateKey
+	l                    *zap.SugaredLogger
+	namespace            string
 }
+
+// PluginTokenValidator reports whether a plugin service token is still valid.
+type PluginTokenValidator func(ctx context.Context, token *jwt.Token) (bool, error)
 
 // Option is a function that modifies a SessionManager.
 type Option func(*Manager)
@@ -83,8 +87,17 @@ func (mgr *Manager) IsBlocked(ctx context.Context, token *jwt.Token) (bool, erro
 	}
 
 	// Plugin service tokens (sub starts with "plugin:") are not user accounts.
-	// They are validated by expiry only, not against the account manager.
+	// They are valid only while the Plugin they were issued to allows them.
 	if strings.HasPrefix(username, "plugin:") {
+		if mgr.pluginTokenValidator != nil {
+			valid, err := mgr.pluginTokenValidator(ctx, token)
+			if err != nil {
+				return false, fmt.Errorf("failed to validate plugin token: %w", err)
+			}
+			if !valid {
+				return true, nil
+			}
+		}
 		return mgr.Blocklist.IsBlocked(ctx, token)
 	}
 
@@ -122,6 +135,13 @@ func New(ctx context.Context, l *zap.SugaredLogger, namespace string, options ..
 
 	m.Blocklist = blockList
 	return m, nil
+}
+
+// WithPluginTokenValidator sets the check plugin service tokens must pass.
+func WithPluginTokenValidator(v PluginTokenValidator) Option {
+	return func(m *Manager) {
+		m.pluginTokenValidator = v
+	}
 }
 
 // WithAccountManager sets the account manager to use for verifying user credentials.

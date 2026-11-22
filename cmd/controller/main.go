@@ -48,6 +48,7 @@ import (
 	"github.com/openeverest/openeverest/v2/internal/controller/secretusage"
 	webhookbackupv1alpha1 "github.com/openeverest/openeverest/v2/internal/webhook/backup/v1alpha1"
 	"github.com/openeverest/openeverest/v2/pkg/events"
+	"github.com/openeverest/openeverest/v2/pkg/plugintoken"
 )
 
 var (
@@ -273,9 +274,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	pluginTokens, err := plugintoken.NewService()
+	if err != nil {
+		setupLog.Info("Plugin service tokens are disabled: the JWT signing key is unavailable", "error", err.Error())
+	}
 	if err := (&plugincontroller.PluginReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Tokens: pluginTokens,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "Plugin")
 		os.Exit(1)
