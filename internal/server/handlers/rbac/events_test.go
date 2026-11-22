@@ -332,6 +332,6 @@ func TestRBAC_PluginServiceTokenCannotWriteSpec001Resources(t *testing.T) {
 	h := &rbacHandler{log: zap.NewNop().Sugar(), enforcer: enf, userGetter: testUserGetter}
 
 	require.NoError(t, h.enforce(ctx, rbac.ResourceMonitoringDestinations, rbac.ActionRead, "prod/ns/dest"))
-	require.ErrorIs(t, h.enforce(ctx, rbac.ResourceMonitoringDestinations, rbac.ActionCreate, "prod/ns/dest"),
-		ErrInsufficientPermissions)
+	err = h.enforce(ctx, rbac.ResourceMonitoringDestinations, rbac.ActionCreate, "prod/ns/dest")
+	require.ErrorIs(t, err, ErrInsufficientPermissions)
 }
