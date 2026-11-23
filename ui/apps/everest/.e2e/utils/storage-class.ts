@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,15 +16,24 @@
 
 import { APIRequestContext, expect } from '@playwright/test';
 
+type StorageClassItem = { metadata?: { name?: string } };
+
+// Keep the existing helper response shape for release E2E callers.
 export const getClusterDetailedInfo = async (
   token: string,
   request: APIRequestContext
-) => {
-  const clusterInfo = await request.get('/v1/cluster-info', {
+): Promise<{ storageClassNames: string[] }> => {
+  const response = await request.get('/v1/clusters/main/storage-classes', {
     headers: {
       Authorization: `Bearer ${token}`,
     },
   });
-  expect(clusterInfo.ok()).toBeTruthy();
-  return clusterInfo.json();
+  expect(response.ok()).toBeTruthy();
+  const { items = [] }: { items?: StorageClassItem[] } = await response.json();
+
+  return {
+    storageClassNames: items.flatMap(({ metadata }) =>
+      metadata?.name ? [metadata.name] : []
+    ),
+  };
 };

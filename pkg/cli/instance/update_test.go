@@ -51,7 +51,7 @@ func newUpdateServerWithProvider(t *testing.T, providerHandler http.HandlerFunc,
 	mux.HandleFunc("/v1/clusters/main/namespaces/everest/instances/my-db", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			writeInstance(w, currentSpec)
+			writeInstanceResponse(w, currentSpec)
 		case http.MethodPatch:
 			if patchHandler == nil {
 				assert.Fail(t, "PATCH should not have been called")
@@ -65,7 +65,7 @@ func newUpdateServerWithProvider(t *testing.T, providerHandler http.HandlerFunc,
 	return httptest.NewServer(mux)
 }
 
-func writeInstance(w http.ResponseWriter, spec map[string]any) {
+func writeInstanceResponse(w http.ResponseWriter, spec map[string]any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(map[string]any{ //nolint:errchkjson
@@ -129,7 +129,7 @@ func TestUpdate_PatchCarriesOnlyTheNamedFields(t *testing.T) {
 		assert.Equal(t, map[string]any{
 			"components": map[string]any{"engine": map[string]any{"replicas": float64(5)}},
 		}, spec)
-		writeInstance(w, psmdbSpec())
+		writeInstanceResponse(w, psmdbSpec())
 	})
 	defer srv.Close()
 
@@ -169,7 +169,7 @@ func TestUpdate_SetNullSendsJSONNull(t *testing.T) {
 		value, present := spec["version"]
 		assert.True(t, present, "null must be sent, not dropped: it is what removes the member")
 		assert.Nil(t, value)
-		writeInstance(w, psmdbSpec())
+		writeInstanceResponse(w, psmdbSpec())
 	})
 	defer srv.Close()
 
@@ -191,7 +191,7 @@ func TestUpdate_SetWinsOverValuesFile(t *testing.T) {
 		assert.InDelta(t, 7, engine["replicas"], 0, "--set must win over -f")
 		backup, _ := spec["backup"].(map[string]any)
 		assert.Equal(t, true, backup["enabled"], "-f fields not named by --set must still be sent")
-		writeInstance(w, psmdbSpec())
+		writeInstanceResponse(w, psmdbSpec())
 	})
 	defer srv.Close()
 
@@ -269,7 +269,7 @@ func TestUpdate_ProviderLookupFails_UpdateStillProceeds(t *testing.T) {
 			assert.Equal(t, map[string]any{
 				"components": map[string]any{"engine": map[string]any{"replicas": float64(5)}},
 			}, decodePatch(t, r))
-			writeInstance(w, psmdbSpec())
+			writeInstanceResponse(w, psmdbSpec())
 		},
 	)
 	defer srv.Close()
@@ -308,7 +308,7 @@ func TestUpdate_NoGetWhenNothingNeedsIt(t *testing.T) {
 		if !assert.Equal(t, http.MethodPatch, r.Method, "only the PATCH should be sent") {
 			return
 		}
-		writeInstance(w, psmdbSpec())
+		writeInstanceResponse(w, psmdbSpec())
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -337,7 +337,7 @@ func TestUpdate_ServerDryRunSendsDryRunAll(t *testing.T) {
 	srv := newUpdateServer(t, psmdbSpec(), func(w http.ResponseWriter, r *http.Request) {
 		patched.Store(true)
 		assert.Equal(t, "All", r.URL.Query().Get("dryRun"))
-		writeInstance(w, psmdbSpec())
+		writeInstanceResponse(w, psmdbSpec())
 	})
 	defer srv.Close()
 

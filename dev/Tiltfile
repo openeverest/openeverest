@@ -224,6 +224,9 @@ everest_yaml = helm(
 )
 # Helm hooks (upgrade preflight checks) are not needed in a dev environment.
 hooks_yaml, everest_yaml = filter_yaml(everest_yaml, kind='Job', namespace=EVEREST_NAMESPACE)
+# Built-in BackupStorageClasses are deployed from this repo's config/backupstorageclasses
+# (see backup-storage-classes below) so local changes apply without regenerating the chart.
+chart_backup_storage_classes_yaml, everest_yaml = filter_yaml(everest_yaml, kind='BackupStorageClass')
 
 # Patch Everest Server deployment for running with debugger
 def patch_everest_debug(in_yaml):

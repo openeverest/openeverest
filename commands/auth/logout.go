@@ -42,7 +42,7 @@ from the local config (~/.config/everest/config.yaml).`,
 )
 
 func logoutPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
-	logoutCfg.Pretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	logoutCfg.Pretty = cli.IsPretty(cmd)
 }
 
 func logoutRun(cmd *cobra.Command, _ []string) { //nolint:revive

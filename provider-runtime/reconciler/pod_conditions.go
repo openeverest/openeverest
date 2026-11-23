@@ -29,6 +29,25 @@ import (
 // being provisioned, off the PodsScheduled condition.
 const unschedulableGrace = time.Minute
 
+const (
+	// crashLoopRestarts is how often a container must have restarted before
+	// its pod counts as crash-looping. Fewer restarts are part of starting:
+	// a member that exits until its peers are up is not a problem.
+	crashLoopRestarts = 3
+
+	// crashLoopQuiet is how long a container that has restarted that often
+	// must stay up before its pod no longer counts as crash-looping. The
+	// kubelet waits at most this long before it restarts a container, so a
+	// looping container is never quiet for longer, while one that recovered
+	// stops being reported after this time.
+	crashLoopQuiet = 5 * time.Minute
+
+	// backOffGrace is how long a pod may be unable to pull an image or to
+	// create a container before that is a problem. Nothing restarts in these
+	// back-offs, so there is no restart count to wait for.
+	backOffGrace = 3 * time.Minute
+)
+
 // notReadyRank orders the PodsReady reasons from least to most severe.
 func notReadyRank(reason string) int {
 	switch reason {
@@ -45,21 +64,30 @@ func notReadyRank(reason string) int {
 	return 0
 }
 
-// podState is what the pod conditions and counts are computed from.
+// podState is what decides whether a pod's Instance is reconciled again: the
+// pod conditions and counts are computed from it.
 type podState struct {
 	counted, ready, unschedulable bool
-	failure                       string
+	restarts                      int32
+	waiting                       string
 }
 
 func observePod(pod *corev1.Pod) podState {
-	failure, _ := podFailure(pod)
-
-	return podState{
+	state := podState{
 		counted:       podCounted(pod),
 		ready:         podReady(pod),
 		unschedulable: unschedulableCondition(pod) != nil,
-		failure:       failure,
 	}
+	for _, statuses := range [][]corev1.ContainerStatus{pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses} {
+		for i := range statuses {
+			state.restarts += statuses[i].RestartCount
+			if waiting := statuses[i].State.Waiting; waiting != nil {
+				state.waiting += statuses[i].Name + "=" + waiting.Reason + ";"
+			}
+		}
+	}
+
+	return state
 }
 
 // podsScheduled reports the components whose pods no node has accepted for
@@ -107,14 +135,20 @@ func podsScheduled(components []string, pods map[string][]corev1.Pod, now time.T
 }
 
 // podsReady reports the components with pods that are not Ready, each with its
-// most severe problem. The condition's reason is the most severe of them all.
-func podsReady(components []string, pods map[string][]corev1.Pod) metav1.Condition {
+// most severe problem. It is False while a pod is in a back-off, with the most
+// severe of the back-offs as its reason, and Unknown while pods are merely not
+// Ready yet. It also returns how long until a pod's verdict changes with no
+// change to the pod: a back-off that becomes a problem, or a crash loop that
+// has been quiet for long enough.
+func podsReady(components []string, pods map[string][]corev1.Pod, now time.Time) (metav1.Condition, time.Duration) {
 	worst := ""
 	var problems []string
+	var recheck time.Duration
 	for _, component := range components {
 		reason, count, detail := "", 0, ""
 		for i := range pods[component] {
-			failure, failureDetail := podFailure(&pods[component][i])
+			failure, failureDetail, again := podFailure(&pods[component][i], now)
+			recheck = soonest(recheck, again)
 			switch {
 			case failure == "":
 			case notReadyRank(failure) > notReadyRank(reason):
@@ -132,15 +166,19 @@ func podsReady(components []string, pods map[string][]corev1.Pod) metav1.Conditi
 		problems = append(problems, notReadyMessage(component, reason, count, len(pods[component]), detail))
 	}
 
-	if len(problems) == 0 {
-		return metav1.Condition{Status: metav1.ConditionTrue, Reason: v1alpha1.ReasonReady}
+	status := metav1.ConditionFalse
+	switch worst {
+	case "":
+		return metav1.Condition{Status: metav1.ConditionTrue, Reason: v1alpha1.ReasonReady}, recheck
+	case v1alpha1.ReasonNotReady:
+		status = metav1.ConditionUnknown
 	}
 
 	return metav1.Condition{
-		Status:  metav1.ConditionFalse,
+		Status:  status,
 		Reason:  worst,
 		Message: strings.Join(problems, "\n"),
-	}
+	}, recheck
 }
 
 func notReadyMessage(component, reason string, count, total int, detail string) string {
@@ -161,43 +199,139 @@ func notReadyMessage(component, reason string, count, total int, detail string) 
 	return message
 }
 
-// podFailure returns the PodsReady reason of a pod that is not Ready, with the
-// detail that explains it, or "" for a Ready pod.
-func podFailure(pod *corev1.Pod) (string, string) {
-	if podReady(pod) {
-		return "", ""
-	}
-	reason, detail := v1alpha1.ReasonNotReady, ""
+// podFailure returns the PodsReady reason of a pod, with the detail that
+// explains it, or "" for a Ready pod with no container in a back-off. It also
+// returns how long until the answer changes with no change to the pod.
+//
+// The back-offs are looked for first: a container that keeps crashing makes
+// its pod Ready for a moment after each restart, which must not read as
+// recovered.
+func podFailure(pod *corev1.Pod, now time.Time) (string, string, time.Duration) {
+	reason, detail := "", ""
+	var recheck time.Duration
 	for _, statuses := range [][]corev1.ContainerStatus{pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses} {
 		for i := range statuses {
-			failure, failureDetail := containerFailure(&statuses[i])
+			failure, failureDetail, again := containerBackOff(pod, &statuses[i], now)
+			recheck = soonest(recheck, again)
 			if notReadyRank(failure) > notReadyRank(reason) {
 				reason, detail = failure, failureDetail
 			}
 		}
 	}
+	if reason == "" && !podReady(pod) {
+		reason = v1alpha1.ReasonNotReady
+	}
 
-	return reason, detail
+	return reason, detail, recheck
 }
 
-func containerFailure(status *corev1.ContainerStatus) (string, string) {
-	waiting := status.State.Waiting
-	if waiting == nil {
-		return "", ""
-	}
-	switch waiting.Reason {
-	case v1alpha1.ReasonCrashLoopBackOff:
-		if last := status.LastTerminationState.Terminated; last != nil {
-			return v1alpha1.ReasonCrashLoopBackOff, fmt.Sprintf("container %s last exited with %s (exit code %d)", status.Name, last.Reason, last.ExitCode)
-		}
-		return v1alpha1.ReasonCrashLoopBackOff, waiting.Message
-	case v1alpha1.ReasonImagePullBackOff, "ErrImagePull":
-		return v1alpha1.ReasonImagePullBackOff, waiting.Message
-	case v1alpha1.ReasonCreateContainerConfigError:
-		return v1alpha1.ReasonCreateContainerConfigError, waiting.Message
+// containerBackOff returns the back-off a container is in, if it is one to
+// report yet, and how long until that changes with no change to the pod.
+func containerBackOff(pod *corev1.Pod, status *corev1.ContainerStatus, now time.Time) (string, string, time.Duration) {
+	if looping, clears := crashLooping(status, now); looping {
+		return v1alpha1.ReasonCrashLoopBackOff, crashDetail(status), clears
 	}
 
-	return "", ""
+	waiting := status.State.Waiting
+	if waiting == nil {
+		return "", "", 0
+	}
+	var reason string
+	switch waiting.Reason {
+	case v1alpha1.ReasonImagePullBackOff, "ErrImagePull":
+		reason = v1alpha1.ReasonImagePullBackOff
+	case v1alpha1.ReasonCreateContainerConfigError:
+		reason = v1alpha1.ReasonCreateContainerConfigError
+	default:
+		return "", "", 0
+	}
+	if remaining := backOffGrace - now.Sub(notReadySince(pod)); remaining > 0 {
+		return "", "", remaining
+	}
+
+	return reason, waiting.Message, 0
+}
+
+// crashLooping reports whether the container is crash-looping, read from its
+// status alone: it has restarted at least crashLoopRestarts times, and is
+// either waiting to be restarted or was last started or stopped less than
+// crashLoopQuiet ago. The second half is what keeps the answer from flipping
+// each time the container comes up between two crashes. It also returns how
+// long until a container that stays up stops being reported.
+func crashLooping(status *corev1.ContainerStatus, now time.Time) (bool, time.Duration) {
+	if status.RestartCount < crashLoopRestarts {
+		return false, 0
+	}
+	if done := status.State.Terminated; done != nil && done.ExitCode == 0 {
+		// An init container that finished, however many attempts it took.
+		return false, 0
+	}
+	if waiting := status.State.Waiting; waiting != nil && waiting.Reason == v1alpha1.ReasonCrashLoopBackOff {
+		return true, 0
+	}
+	last := lastStartOrExit(status)
+	if last.IsZero() {
+		return false, 0
+	}
+	if quiet := now.Sub(last); quiet < crashLoopQuiet {
+		return true, crashLoopQuiet - quiet
+	}
+
+	return false, 0
+}
+
+// lastStartOrExit returns when a running container started, and when any
+// other last stopped.
+func lastStartOrExit(status *corev1.ContainerStatus) time.Time {
+	switch {
+	case status.State.Running != nil:
+		return status.State.Running.StartedAt.Time
+	case status.State.Terminated != nil:
+		return status.State.Terminated.FinishedAt.Time
+	case status.LastTerminationState.Terminated != nil:
+		return status.LastTerminationState.Terminated.FinishedAt.Time
+	}
+
+	return time.Time{}
+}
+
+func crashDetail(status *corev1.ContainerStatus) string {
+	last := status.LastTerminationState.Terminated
+	if last == nil {
+		last = status.State.Terminated
+	}
+	if last != nil {
+		return fmt.Sprintf("container %s last exited with %s (exit code %d)", status.Name, last.Reason, last.ExitCode)
+	}
+	if waiting := status.State.Waiting; waiting != nil && waiting.Message != "" {
+		return waiting.Message
+	}
+
+	return fmt.Sprintf("container %s restarted %d times", status.Name, status.RestartCount)
+}
+
+// notReadySince returns when the pod last stopped being Ready, or when it
+// started if it has never been.
+func notReadySince(pod *corev1.Pod) time.Time {
+	for _, c := range pod.Status.Conditions {
+		if c.Type == corev1.PodReady && !c.LastTransitionTime.IsZero() {
+			return c.LastTransitionTime.Time
+		}
+	}
+	if pod.Status.StartTime != nil {
+		return pod.Status.StartTime.Time
+	}
+
+	return pod.CreationTimestamp.Time
+}
+
+// soonest returns the shorter of two waits, where zero means no wait.
+func soonest(a, b time.Duration) time.Duration {
+	if a <= 0 || (b > 0 && b < a) {
+		return b
+	}
+
+	return a
 }
 
 func unschedulableCondition(pod *corev1.Pod) *corev1.PodCondition {

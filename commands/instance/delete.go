@@ -44,7 +44,7 @@ delete with --deletion-policy.
 
 Interactively (a terminal, no --yes), you'll be asked to type the instance
 name back to confirm — this is irreversible. Pass --yes/-y to skip the
-prompt; in a non-interactive context (no terminal, or --json) omitting --yes
+prompt; in a non-interactive context (no terminal, or -o json|yaml) omitting --yes
 fails immediately instead of hanging on a prompt nobody can answer.
 
 --ignore-not-found treats an already-absent instance as success and skips
@@ -88,8 +88,9 @@ func init() {
 }
 
 func deletePreRun(cmd *cobra.Command, _ []string) {
-	deleteCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
-	deleteOpts.JSON = cmd.Flag(cli.FlagJSON).Changed
+	deleteCfg.Pretty = cli.IsPretty(cmd)
+	deleteCfg.YAML = cli.IsYAML(cmd)
+	deleteOpts.MachineReadable = cli.IsMachineReadable(cmd)
 }
 
 func deleteRun(cmd *cobra.Command, _ []string) {

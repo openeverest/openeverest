@@ -3349,7 +3349,9 @@ components:
             providerRef:
               description: |-
                 ProviderRef references the cluster-scoped Provider that manages this
-                Instance (e.g., "percona-server-mongodb", "postgresql").
+                Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                providerRef cannot be changed: the provider that picked it up owns its
+                finalizer and engine resources, and only that provider cleans them up.
               properties:
                 name:
                   description: Name of the referenced object.
@@ -5563,7 +5565,9 @@ components:
             providerRef:
               description: |-
                 ProviderRef references the cluster-scoped Provider that manages this
-                Instance (e.g., "percona-server-mongodb", "postgresql").
+                Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                providerRef cannot be changed: the provider that picked it up owns its
+                finalizer and engine resources, and only that provider cleans them up.
               properties:
                 name:
                   description: Name of the referenced object.
@@ -5625,6 +5629,9 @@ components:
           - providerRef
           type: object
           x-kubernetes-validations:
+          - message: 'spec.providerRef is immutable: delete the Instance and create
+              it again with the provider you want'
+            rule: self.providerRef == oldSelf.providerRef
           - message: spec.dataSource requires spec.backup.enabled=true with at least
               one storage so the provider can read the source backup
             rule: '!has(self.dataSource) || (has(self.backup) && self.backup.enabled)'
@@ -5640,6 +5647,7 @@ components:
             rule: '!has(oldSelf.userSecretRef) || (has(self.userSecretRef) && self.userSecretRef
               == oldSelf.userSecretRef)'
         status:
+          default: {}
           description: InstanceStatus defines the observed state of Instance.
           properties:
             backup:
@@ -5723,6 +5731,23 @@ components:
               items:
                 description: ComponentStatus counts the pods of one component.
                 properties:
+                  desiredReplicas:
+                    description: |-
+                      DesiredReplicas is how many pods the component will have once the
+                      current generation has converged, as the provider reports it. It
+                      describes status.observedGeneration: it is absent until the provider
+                      reports for that generation, during deletion, and for providers that
+                      don't report it; clients then show readyReplicas over replicas. Zero is
+                      a real target, for example a model scaled to zero. A cluster paused
+                      outside OpenEverest keeps its target, so it reads 0 of N; one stopped
+                      through its spec has a target of zero.
+
+                      It is meant for display. When a component sums several groups, such as
+                      the replica sets of every shard, it cannot tell whether each group has
+                      a majority.
+                    format: int32
+                    minimum: 0
+                    type: integer
                   name:
                     description: Name is a key of spec.components.
                     type: string
@@ -5832,10 +5857,6 @@ components:
               - name
               type: object
               x-kubernetes-map-type: atomic
-            message:
-              description: Message is a custom user-facing message describing the
-                current state of the instance.
-              type: string
             monitoring:
               description: |-
                 Monitoring is what the Instance exposes to monitoring (sources) and
@@ -6238,10 +6259,12 @@ components:
                   type: object
               type: object
             observedGeneration:
+              default: -1
               description: |-
                 ObservedGeneration is the metadata.generation the provider-runtime last
                 reconciled. Status describes an older spec while it is lower than
-                metadata.generation.
+                metadata.generation. It defaults to -1, so an Instance no provider has
+                reconciled reads as in progress, never as current.
               format: int64
               type: integer
             pendingMaintenance:
@@ -6281,19 +6304,16 @@ components:
                 type: object
               type: array
             phase:
-              description: Phase of the database cluster.
+              default: Pending
+              description: |-
+                Phase is where the Instance is in its life: Pending until the database
+                is first available, Provisioned afterwards, Terminating once deletion
+                is requested. The CRD sets Pending at creation; only provider-runtime
+                changes it. Read the conditions for everything else.
               enum:
               - Pending
-              - Provisioning
-              - Initializing
-              - Ready
-              - Updating
+              - Provisioned
               - Terminating
-              - Failed
-              - Restoring
-              - Suspending
-              - Suspended
-              - Resuming
               type: string
             version:
               description: |-
@@ -8196,7 +8216,9 @@ components:
             providerRef:
               description: |-
                 ProviderRef references the cluster-scoped Provider that manages this
-                Instance (e.g., "percona-server-mongodb", "postgresql").
+                Instance (e.g., "percona-server-mongodb", "postgresql"). An Instance's
+                providerRef cannot be changed: the provider that picked it up owns its
+                finalizer and engine resources, and only that provider cleans them up.
               properties:
                 name:
                   description: Name of the referenced object.
@@ -9298,6 +9320,11 @@ components:
           description: GenerateName is an optional prefix, used by the server, to
             generate a unique name ONLY IF the Name field has not been provided.
           type: string
+        generation:
+          description: A sequence number representing a specific generation of the
+            desired state. Populated by the system. Read-only.
+          format: int64
+          type: integer
         labels:
           additionalProperties:
             type: string

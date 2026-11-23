@@ -42,6 +42,7 @@ import (
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
 	backupcontroller "github.com/openeverest/openeverest/v2/internal/controller/backup"
 	plugincontroller "github.com/openeverest/openeverest/v2/internal/controller/extension"
+	instancecontroller "github.com/openeverest/openeverest/v2/internal/controller/instance"
 	"github.com/openeverest/openeverest/v2/internal/controller/lifecycleevents"
 	monitoringcontroller "github.com/openeverest/openeverest/v2/internal/controller/monitoring"
 	"github.com/openeverest/openeverest/v2/internal/controller/secretusage"
@@ -285,6 +286,13 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "Failed to create controller", "controller", "InstalledExtension")
+		os.Exit(1)
+	}
+
+	if err := (&instancecontroller.UnattendedReconciler{
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "Failed to create controller", "controller", "InstanceUnattended")
 		os.Exit(1)
 	}
 

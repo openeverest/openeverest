@@ -93,7 +93,8 @@ func init() {
 }
 
 func updatePreRun(cmd *cobra.Command, _ []string) {
-	updateCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
+	updateCfg.Pretty = cli.IsPretty(cmd)
+	updateCfg.YAML = cli.IsYAML(cmd)
 }
 
 func updateRun(cmd *cobra.Command, _ []string) {

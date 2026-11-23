@@ -37,7 +37,7 @@ var (
 		Long: `List BackupClass resources via the Everest API.
 
 Displays a table with NAME, PROVIDER, EXECUTION MODE, and AGE. Details such
-as job specs, config schemas, and UI hints remain available via --json / --verbose.`,
+as job specs, config schemas, and UI hints remain available via -o json / --verbose.`,
 		Example: `  # List all backup classes
   everestctl backup-class list
 
@@ -45,7 +45,7 @@ as job specs, config schemas, and UI hints remain available via --json / --verbo
   everestctl bc ls
 
   # JSON output for scripting
-  everestctl backup-class list --json | jq '.[].metadata.name'
+  everestctl backup-class list -o json | jq '.[].metadata.name'
 
   # Specific cluster and context
   everestctl backup-class list --cluster staging --context staging-ctx`,
@@ -62,7 +62,8 @@ func init() {
 }
 
 func listPreRun(cmd *cobra.Command, _ []string) {
-	listCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
+	listCfg.Pretty = cli.IsPretty(cmd)
+	listCfg.YAML = cli.IsYAML(cmd)
 }
 
 func listRun(cmd *cobra.Command, _ []string) {

@@ -56,7 +56,7 @@ func init() {
 }
 
 func loginPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
-	loginCfg.Pretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	loginCfg.Pretty = cli.IsPretty(cmd)
 
 	if loginOpts.Server == "" {
 		server, err := tui.NewInput(cmd.Context(), "Everest server URL").Run()
