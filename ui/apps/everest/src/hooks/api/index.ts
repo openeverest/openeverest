@@ -18,7 +18,6 @@ export * from './db-cluster';
 export * from './db-clusters';
 export * from './db-engines';
 export * from './restores';
-export * from './kubernetesClusters';
 export * from './namespaces';
 export * from './version';
 export * from './pod-scheduling-policies';

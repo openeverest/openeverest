@@ -24,8 +24,8 @@ const (
 	FlagKubeconfig = "kubeconfig"
 	// FlagVerbose is the name of the verbose flag.
 	FlagVerbose = "verbose"
-	// FlagJSON is the name of the json flag.
-	FlagJSON = "json"
+	// FlagOutput is the name of the -o/--output flag (json|yaml).
+	FlagOutput = "output"
 
 	// `install` flags.
 
@@ -120,7 +120,7 @@ const (
 	FlagInstanceInterval = "interval"
 	// FlagInstanceAllNamespaces lists instances across all namespaces.
 	FlagInstanceAllNamespaces = "all-namespaces"
-	// FlagInstanceWait blocks create until the instance reaches the Ready phase.
+	// FlagInstanceWait blocks create until the instance is ready.
 	FlagInstanceWait = "wait"
 	// FlagInstanceTimeout bounds --wait; only valid together with --wait.
 	FlagInstanceTimeout = "timeout"

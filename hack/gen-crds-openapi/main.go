@@ -138,6 +138,13 @@ func objectMetaSchema() *openapi3.SchemaRef {
 			Description: desc,
 		})
 	}
+	int64Schema := func(desc string) *openapi3.SchemaRef {
+		return openapi3.NewSchemaRef("", &openapi3.Schema{
+			Type:        &openapi3.Types{openapi3.TypeInteger},
+			Format:      "int64",
+			Description: desc,
+		})
+	}
 	stringMap := func(desc string) *openapi3.SchemaRef {
 		return openapi3.NewSchemaRef("", &openapi3.Schema{
 			Type:        &openapi3.Types{openapi3.TypeObject},
@@ -159,6 +166,7 @@ func objectMetaSchema() *openapi3.SchemaRef {
 			"annotations":       stringMap("Annotations is an unstructured key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations"),
 			"creationTimestamp": dateTime("CreationTimestamp is a timestamp representing the server time when this object was created. Populated by the system. Read-only."),
 			"deletionTimestamp": dateTime("DeletionTimestamp is the RFC 3339 date and time at which this resource will be deleted. Populated by the system when a graceful deletion is requested. Read-only."),
+			"generation":        int64Schema("A sequence number representing a specific generation of the desired state. Populated by the system. Read-only."),
 			"resourceVersion":   str("An opaque value that represents the internal version of this object that can be used by clients to determine when objects have changed. Populated by the system. Read-only."),
 			"uid":               str("UID is the unique in time and space value for this object. Populated by the system. Read-only."),
 		},

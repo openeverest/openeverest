@@ -560,6 +560,25 @@ export const mockBackupClasses = {
   ],
 };
 
+// StorageClassList (see src/api/storageClassesApi.ts ->
+// clusters/{cluster}/storage-classes). Feeds the `storageClasses` data source.
+export const mockStorageClasses = {
+  apiVersion: 'storage.k8s.io/v1',
+  kind: 'StorageClassList',
+  items: [
+    {
+      metadata: {
+        name: 'local-path',
+        annotations: { 'storageclass.kubernetes.io/is-default-class': 'true' },
+      },
+      provisioner: 'rancher.io/local-path',
+      reclaimPolicy: 'Delete',
+      volumeBindingMode: 'WaitForFirstConsumer',
+      allowVolumeExpansion: false,
+    },
+  ],
+};
+
 // GetRestorePayload = { items: [...] } (see src/api/restores.ts). Empty by
 // default so the restores tab renders the deterministic "no restores" state.
 export const mockRestores = { items: [] as unknown[] };

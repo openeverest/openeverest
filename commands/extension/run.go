@@ -47,7 +47,7 @@ func init() {
 }
 
 func pluginRunPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
-	pluginRunCfg.Pretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	pluginRunCfg.Pretty = cli.IsPretty(cmd)
 	pluginRunCfg.KubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 }
 

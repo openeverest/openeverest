@@ -22,6 +22,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	eventsv1 "k8s.io/api/events/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/watch"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
@@ -60,9 +61,8 @@ type Handler interface {
 	ConfigMapHandler
 	SecretHandler
 	EventHandler
+	StorageClassHandler
 
-	GetKubernetesClusterResources(ctx context.Context) (*api.KubernetesClusterResources, error)
-	GetKubernetesClusterInfo(ctx context.Context) (*api.KubernetesClusterInfo, error)
 	GetUserPermissions(ctx context.Context) (*api.UserPermissions, error)
 	GetSettings(ctx context.Context) (*api.Settings, error)
 }
@@ -171,6 +171,12 @@ type RestoreHandler interface {
 // InstanceBackupHandler provides methods for handling operations on instance backups.
 type InstanceBackupHandler interface {
 	ListInstanceBackups(ctx context.Context, cluster, namespace, instance string) (*backupv1alpha1.BackupList, error)
+}
+
+// StorageClassHandler provides methods for handling operations on Kubernetes storage classes.
+type StorageClassHandler interface {
+	ListStorageClasses(ctx context.Context, cluster string) (*storagev1.StorageClassList, error)
+	GetStorageClass(ctx context.Context, cluster, name string) (*storagev1.StorageClass, error)
 }
 
 // MonitoringClassHandler provides methods for handling operations on monitoring classes.
