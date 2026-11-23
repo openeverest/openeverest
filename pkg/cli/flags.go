@@ -24,8 +24,8 @@ const (
 	FlagKubeconfig = "kubeconfig"
 	// FlagVerbose is the name of the verbose flag.
 	FlagVerbose = "verbose"
-	// FlagJSON is the name of the json flag.
-	FlagJSON = "json"
+	// FlagOutput is the name of the -o/--output flag (json|yaml).
+	FlagOutput = "output"
 
 	// `install` flags.
 

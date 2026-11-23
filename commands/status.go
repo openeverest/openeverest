@@ -20,6 +20,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	"github.com/openeverest/openeverest/v2/pkg/cli/status"
 	"github.com/openeverest/openeverest/v2/pkg/logger"
 	"github.com/openeverest/openeverest/v2/pkg/output"
@@ -44,7 +45,8 @@ func init() {
 
 func statusRun(cmd *cobra.Command, _ []string) {
 	statusCfg.Pretty = rootCmdFlags.Pretty
-	statusCfg.JSON = rootCmdFlags.JSON
+	statusCfg.JSON = rootCmdFlags.Output == cli.OutputJSON
+	statusCfg.YAML = rootCmdFlags.Output == cli.OutputYAML
 	statusCfg.KubeconfigPath = rootCmdFlags.KubeconfigPath
 
 	op, err := status.NewStatus(statusCfg, logger.GetLogger())

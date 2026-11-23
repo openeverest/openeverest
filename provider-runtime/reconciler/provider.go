@@ -490,6 +490,15 @@ func (r *ProviderReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
+	// Watches that map other objects to Instances can queue another
+	// provider's Instance. Every provider shares the finalizer, so leave it
+	// to its owner.
+	if in.Spec.ProviderRef.Name != r.provider.Name() {
+		logger.V(1).Info("Ignoring an Instance of another provider", "providerRef", in.Spec.ProviderRef.Name)
+
+		return reconcile.Result{}, nil
+	}
+
 	// Create the Context handle
 	inCtx := newContext(ctx, r.Client, in, r.provider, r.provider.Name())
 

@@ -19,7 +19,6 @@ package namespaces
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"slices"
@@ -33,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	cliutils "github.com/openeverest/openeverest/v2/pkg/cli/utils"
 	"github.com/openeverest/openeverest/v2/pkg/common"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
@@ -51,6 +51,8 @@ type (
 		KubeconfigPath string
 		// Pretty if set print the output in pretty mode.
 		Pretty bool
+		// YAML selects YAML over JSON when Pretty is false.
+		YAML bool
 		// ListAllNamespaces if set, list all namespaces.
 		// Note: this flag skips namespaces that cannot be added to Everest management
 		// (i.e. Kubernetes system, specific to cloud providers and Everest Core namespaces).
@@ -136,7 +138,7 @@ func (nsL *NamespaceLister) Render(w io.Writer, nsList []NamespaceInfo) {
 		if nsList == nil {
 			nsList = []NamespaceInfo{}
 		}
-		_ = json.NewEncoder(w).Encode(nsList) //nolint:errchkjson
+		_ = cli.Encode(w, nsList, nsL.cfg.YAML)
 		return
 	}
 	printNamespacesTable(w, nsList)

@@ -39,16 +39,16 @@ import (
 
 // DeleteOptions configures `backup-storage delete`.
 type DeleteOptions struct {
-	Name           string
-	Namespace      string
-	Cluster        string
-	Context        string        // overrides the active context when set
-	Yes            bool          // skip the confirmation prompt
-	JSON           bool          // --json was passed; forces non-interactive regardless of --verbose
-	IgnoreNotFound bool          // treat "backup storage already gone" (404) as a successful delete
-	Wait           bool          // block until the backup storage is fully deleted
-	Timeout        time.Duration // bounds --wait; must be positive
-	DryRun         string        // cli.DryRunClient sends nothing, cli.DryRunServer sends the delete with dryRun=All; neither prompts
+	Name            string
+	Namespace       string
+	Cluster         string
+	Context         string        // overrides the active context when set
+	Yes             bool          // skip the confirmation prompt
+	MachineReadable bool          // -o json|yaml was passed; forces non-interactive regardless of --verbose
+	IgnoreNotFound  bool          // treat "backup storage already gone" (404) as a successful delete
+	Wait            bool          // block until the backup storage is fully deleted
+	Timeout         time.Duration // bounds --wait; must be positive
+	DryRun          string        // cli.DryRunClient sends nothing, cli.DryRunServer sends the delete with dryRun=All; neither prompts
 
 	// IsTerminal overrides the TTY check for the prompt. Set in tests.
 	IsTerminal func() bool
@@ -81,7 +81,7 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 		return fmt.Errorf("--dry-run cannot be combined with --wait")
 	}
 	if opts.DryRun == cli.DryRunClient {
-		return deletion.EmitDryRun(bd.config.Pretty, opts.DryRun, "backup storage", opts.Name, opts.Namespace)
+		return deletion.EmitDryRun(bd.config.Pretty, bd.config.YAML, opts.DryRun, "backup storage", opts.Name, opts.Namespace)
 	}
 
 	c, err := authcli.NewAPIClient(authcli.Config{Pretty: bd.config.Pretty}, bd.l.Desugar().Sugar(), cfgPath, opts.Context)
@@ -98,7 +98,7 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 		dryRun := client.DeleteBackupStorageParamsDryRunAll
 		params = &client.DeleteBackupStorageParams{DryRun: &dryRun}
 	} else {
-		confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.JSON, IsTerminal: opts.IsTerminal}
+		confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.MachineReadable, IsTerminal: opts.IsTerminal}
 		msg := fmt.Sprintf("Delete backup storage %q in namespace %q?", opts.Name, opts.Namespace)
 		if err := confirm.YesNo(ctx, confirmOpts, msg); err != nil {
 			return err
@@ -119,7 +119,7 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 		return bd.emitAlreadyGone(opts)
 	}
 	if opts.DryRun == cli.DryRunServer {
-		return deletion.EmitDryRun(bd.config.Pretty, opts.DryRun, "backup storage", opts.Name, opts.Namespace)
+		return deletion.EmitDryRun(bd.config.Pretty, bd.config.YAML, opts.DryRun, "backup storage", opts.Name, opts.Namespace)
 	}
 	bd.l.Infof("deleted backup storage %q in namespace %q", opts.Name, opts.Namespace)
 
@@ -161,14 +161,14 @@ func checkDeleteResponse(resp *client.DeleteBackupStorageResponse, opts DeleteOp
 
 // emitDeleted prints success: a line in pretty mode, JSON otherwise.
 func (bd *Deleter) emitDeleted(opts DeleteOptions) error {
-	return deletion.EmitDeleted(bd.config.Pretty, "backup storage", opts.Name, opts.Namespace)
+	return deletion.EmitDeleted(bd.config.Pretty, bd.config.YAML, "backup storage", opts.Name, opts.Namespace)
 }
 
 // emitAlreadyGone reports the --ignore-not-found short-circuit: nothing was
 // deleted, so "deleted" must stay false, it should only mean this run
 // actually deleted something.
 func (bd *Deleter) emitAlreadyGone(opts DeleteOptions) error {
-	return deletion.EmitAlreadyGone(bd.config.Pretty, "backup storage", opts.Name, opts.Namespace)
+	return deletion.EmitAlreadyGone(bd.config.Pretty, bd.config.YAML, "backup storage", opts.Name, opts.Namespace)
 }
 
 // waitForDeletion blocks until the backup storage is gone, like instance
@@ -197,7 +197,7 @@ func (bd *Deleter) waitForDeletion(ctx context.Context, c *client.ClientWithResp
 		return err
 	}
 
-	return deletion.EmitWaitSucceeded(bd.config.Pretty, "backup storage", opts.Name, opts.Namespace)
+	return deletion.EmitWaitSucceeded(bd.config.Pretty, bd.config.YAML, "backup storage", opts.Name, opts.Namespace)
 }
 
 // newBackupStorageDeletePoll checks if the backup storage still exists. A 404
