@@ -255,6 +255,8 @@ const (
 
 	// `backup-class` flags.
 
+	// FlagBackupClassName is the name of the backup class name flag.
+	FlagBackupClassName = "name"
 	// FlagBackupClassCluster is the name of the cluster flag.
 	FlagBackupClassCluster = "cluster"
 	// FlagBackupClassContext overrides the active context for this command.
