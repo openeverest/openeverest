@@ -43,8 +43,9 @@ Kubernetes conditions reported by the Everest API come last. Pass --json /
 --verbose to get the raw API response instead of the formatted output.
 
 With --watch / -w the command polls continuously until Ctrl-C, token expiry,
-or the instance is deleted. Each tick appends a --- separator in pretty mode,
-or emits one JSON object per line (NDJSON) in --json mode.`,
+or the instance is deleted. Each tick appends a --- separator in pretty and
+--yaml modes (a YAML multi-document stream), or emits one JSON object per
+line (NDJSON) in --json mode.`,
 		Example: `  # Single fetch
   everestctl instance status --name my-mongo --namespace everest
 

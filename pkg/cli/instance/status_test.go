@@ -19,10 +19,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -30,6 +33,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 
 	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
@@ -579,6 +583,84 @@ func TestWatch_StopsOnContextCancel(t *testing.T) {
 	}, cfgPath)
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, calls.Load(), int32(2), "expected the watch to poll before the cancel")
+}
+
+// TestWatch_YAMLOutputMultiDocument proves --watch --yaml emits a YAML
+// multi-document stream (--- between updates) that a decoder can read.
+//
+//nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
+func TestWatch_YAMLOutputMultiDocument(t *testing.T) {
+	var calls atomic.Int32
+	changed := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		n := calls.Add(1)
+		phase := "Pending"
+		if n >= 2 {
+			phase = "Provisioned"
+			select {
+			case <-changed:
+			default:
+				close(changed)
+			}
+		}
+		inst := instanceFromJSON(fmt.Sprintf(
+			`{"metadata":{"name":"my-mongo","generation":1},"status":{"observedGeneration":1,"phase":%q}}`,
+			phase,
+		))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(inst)
+	}))
+	defer srv.Close()
+
+	cfg := newTestConfig(srv.URL)
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, cfg.Save(cfgPath))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		select {
+		case <-changed:
+		case <-time.After(30 * time.Second):
+		}
+		// Let the watch print the second document before cancelling.
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	runner := NewInstanceStatusRunner(Config{Pretty: false, YAML: true}, zap.NewNop().Sugar())
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = runner.Run(ctx, StatusOptions{
+			Name:      "my-mongo",
+			Namespace: "everest",
+			Cluster:   "main",
+			Watch:     true,
+			Interval:  30 * time.Millisecond,
+		}, cfgPath)
+	})
+	require.NoError(t, runErr)
+
+	dec := yaml.NewDecoder(strings.NewReader(out))
+	var docs []map[string]any
+	for {
+		var doc map[string]any
+		err := dec.Decode(&doc)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		require.NoError(t, err, "YAML watch stream must be a valid multi-document stream; got:\n%s", out)
+		docs = append(docs, doc)
+	}
+	require.GreaterOrEqual(t, len(docs), 2, "expected at least two YAML documents separated by ---; got:\n%s", out)
+
+	phaseOf := func(doc map[string]any) string {
+		status, _ := doc["status"].(map[string]any)
+		phase, _ := status["phase"].(string)
+		return phase
+	}
+	assert.Equal(t, "Pending", phaseOf(docs[0]))
+	assert.Equal(t, "Provisioned", phaseOf(docs[1]))
 }
 
 func TestWatch_StopsOnTokenExpiry(t *testing.T) {

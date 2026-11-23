@@ -134,7 +134,7 @@ func (is *InstanceStatusRunner) watch(
 			lastKey = key
 			var buf bytes.Buffer
 			is.render(&buf, inst, opts.Namespace, now)
-			if is.config.Pretty {
+			if is.config.Pretty || is.config.YAML {
 				fmt.Fprintln(os.Stdout, "---")
 			}
 			fmt.Fprint(os.Stdout, buf.String())
