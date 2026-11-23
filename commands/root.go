@@ -53,6 +53,7 @@ var (
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&rootCmdFlags.Verbose, cli.FlagVerbose, "v", false, "Enable Verbose mode")
 	rootCmd.PersistentFlags().VarP(&rootCmdFlags.Output, cli.FlagOutput, "o", `Output format. One of: json|yaml`)
+	_ = rootCmd.RegisterFlagCompletionFunc(cli.FlagOutput, cobra.FixedCompletions([]string{"json", "yaml"}, cobra.ShellCompDirectiveNoFileComp))
 
 	// Read KUBECONFIG ENV var first.
 	_ = envconfig.Process("", rootCmdFlags)
