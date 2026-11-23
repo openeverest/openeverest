@@ -25,7 +25,8 @@
 // once one differs it is the development value after that release. The
 // minimum moves only at a release. It fails, rather than guess, when the
 // latest record has no digests under the current scheme; the seed record
-// is exempt by name.
+// is exempt by name. It then stamps the window on the manifests core ships
+// (see stamps), after the generators that write them.
 //
 // With -check-release it only checks that a release of the line it is
 // given keeps the contract, when that release is a patch release of the

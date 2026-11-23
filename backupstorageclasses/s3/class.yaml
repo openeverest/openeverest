@@ -2,6 +2,8 @@
 apiVersion: backup.openeverest.io/v1alpha1
 kind: BackupStorageClass
 metadata:
+  annotations:
+    openeverest.io/contract-version: 2.0.0-alpha.1.dev
   name: s3
 spec:
   authModes:

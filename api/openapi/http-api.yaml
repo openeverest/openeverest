@@ -4644,10 +4644,35 @@ components:
         fullCommit:
           type: string
           x-go-type-skip-optional-pointer: true
+        contractVersion:
+          type: string
+          description: |
+            The contract version of this OpenEverest: the top of the window of contract versions it serves.
+            An extension stamped with a later contract version needs a newer OpenEverest.
+            The core CRDs carry the same value in the `openeverest.io/contract-version` annotation.
+          x-go-type-skip-optional-pointer: true
+        minContractVersion:
+          type: string
+          description: |
+            The oldest contract version this OpenEverest serves: the bottom of the window.
+            An extension stamped with an earlier contract version needs updating.
+            The core CRDs carry the same value in the `openeverest.io/min-contract-version` annotation.
+          x-go-type-skip-optional-pointer: true
+        upgradableFrom:
+          type: array
+          items:
+            type: string
+          description: |
+            The OpenEverest releases this one can be upgraded from in place.
+            It is empty when this OpenEverest can only be installed fresh, as every development build can.
+          x-go-type-skip-optional-pointer: true
       required:
         - projectName
         - version
         - fullCommit
+        - contractVersion
+        - minContractVersion
+        - upgradableFrom
     Settings:
       type: object
       description: Everest global settings

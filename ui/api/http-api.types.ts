@@ -1630,6 +1630,23 @@ export interface components {
             projectName: string;
             version: string;
             fullCommit: string;
+            /**
+             * @description The contract version of this OpenEverest: the top of the window of contract versions it serves.
+             *     An extension stamped with a later contract version needs a newer OpenEverest.
+             *     The core CRDs carry the same value in the `openeverest.io/contract-version` annotation.
+             */
+            contractVersion: string;
+            /**
+             * @description The oldest contract version this OpenEverest serves: the bottom of the window.
+             *     An extension stamped with an earlier contract version needs updating.
+             *     The core CRDs carry the same value in the `openeverest.io/min-contract-version` annotation.
+             */
+            minContractVersion: string;
+            /**
+             * @description The OpenEverest releases this one can be upgraded from in place.
+             *     It is empty when this OpenEverest can only be installed fresh, as every development build can.
+             */
+            upgradableFrom: string[];
         };
         /** @description Everest global settings */
         Settings: {

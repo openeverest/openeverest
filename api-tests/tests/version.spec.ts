@@ -28,5 +28,14 @@ test.describe.parallel('Everest version tests', () => {
 
     expect(versionJSON.projectName).toEqual('Everest API Server')
     expect(versionJSON.version).toEqual('v0.0.0-' + gitVersion.getStdOutLines()[0])
+
+    // The window of contract versions the server was built with.
+    const contractVersion = await cli.exec('git show HEAD:contract/VERSION'),
+      minContractVersion = await cli.exec('git show HEAD:contract/MIN_VERSION')
+    await contractVersion.assertSuccess()
+    await minContractVersion.assertSuccess()
+    expect(versionJSON.contractVersion).toEqual(contractVersion.getStdOutLines()[0])
+    expect(versionJSON.minContractVersion).toEqual(minContractVersion.getStdOutLines()[0])
+    expect(Array.isArray(versionJSON.upgradableFrom)).toBe(true)
   })
 });
