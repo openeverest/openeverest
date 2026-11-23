@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -39,7 +40,8 @@ import (
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
-	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
+	contractmonitoring "github.com/openeverest/openeverest/v2/contract/monitoring"
+	"github.com/openeverest/openeverest/v2/internal/controller/ssa"
 )
 
 // BindingReconciler materialises one MonitoringBinding per
@@ -64,7 +66,7 @@ func (r *BindingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		)).
 		Watches(&monitoringv1alpha1.MonitoringDestination{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueInstancesForDestination),
-			builder.WithPredicates(predicate.Or(predicate.GenerationChangedPredicate{}, rtmonitoring.DestinationReadinessChanged())),
+			builder.WithPredicates(predicate.Or(predicate.GenerationChangedPredicate{}, destinationReadinessChanged())),
 		).
 		Watches(&monitoringv1alpha1.MonitoringClass{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueInstancesForClass),
@@ -97,7 +99,7 @@ func (r *BindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	existing, err := rtmonitoring.ListBindingsForInstance(ctx, r.Client, in)
+	existing, err := listBindingsForInstance(ctx, r.Client, in)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -333,7 +335,7 @@ func (r *BindingReconciler) resolveClass(
 			fmt.Sprintf("MonitoringClass %q not found", dst.Spec.ClassRef.Name),
 		), nil
 	}
-	if !rtmonitoring.ClassIsAccepted(class) {
+	if !contractmonitoring.ClassIsAccepted(class) {
 		return nil, nil, rejection(existing, &common.ObjectRef{Name: class.Name}, monitoringv1alpha1.ReasonClassNotAccepted,
 			fmt.Sprintf("no controller has claimed MonitoringClass %q", class.Name),
 		), nil
@@ -398,7 +400,7 @@ func (r *BindingReconciler) materialise(
 	if res.classRef != nil {
 		className = res.classRef.Name
 	}
-	labels := rtmonitoring.BindingLabels(in.Name, entry.Name, entry.DestinationRef.Name, className)
+	labels := contractmonitoring.BindingLabels(in.Name, entry.Name, entry.DestinationRef.Name, className)
 
 	b := existing
 	if b == nil {
@@ -414,7 +416,7 @@ func (r *BindingReconciler) materialise(
 	cond := res.accepted
 	cond.ObservedGeneration = b.Generation
 	if !sameCondition(b.Status.Conditions, cond) {
-		if err := rtmonitoring.ApplyCondition(ctx, r.Client, b, b.Status.Conditions, rtmonitoring.MaterializerFieldOwner, cond); err != nil {
+		if err := ssa.ApplyCondition(ctx, r.Client, b, b.Status.Conditions, contractmonitoring.MaterializerFieldOwner, cond); err != nil {
 			return err
 		}
 	}
@@ -435,11 +437,11 @@ func (r *BindingReconciler) applyReady(
 		c.ObservedGeneration == b.Generation {
 		configured = *c
 	}
-	ready := rtmonitoring.BindingReady(b, accepted, configured, dst)
+	ready := contractmonitoring.BindingReady(b, accepted, configured, dst)
 	if sameCondition(b.Status.Conditions, ready) {
 		return nil
 	}
-	return rtmonitoring.ApplyCondition(ctx, r.Client, b, b.Status.Conditions, rtmonitoring.ReadinessFieldOwner, ready)
+	return ssa.ApplyCondition(ctx, r.Client, b, b.Status.Conditions, contractmonitoring.ReadinessFieldOwner, ready)
 }
 
 // sameCondition reports whether conditions already hold cond, ignoring its
@@ -468,6 +470,38 @@ func bindingConfiguredChanged() predicate.Funcs {
 	}}
 }
 
+// destinationReadinessChanged passes MonitoringDestination updates that
+// change what contractmonitoring.BindingReady quotes: the status and reason
+// of the destination's Ready condition at its current generation.
+func destinationReadinessChanged() predicate.Funcs {
+	return predicate.Funcs{UpdateFunc: func(e event.UpdateEvent) bool {
+		before, okOld := e.ObjectOld.(*monitoringv1alpha1.MonitoringDestination)
+		after, okNew := e.ObjectNew.(*monitoringv1alpha1.MonitoringDestination)
+		if !okOld || !okNew {
+			return false
+		}
+		beforeStatus, beforeReason := contractmonitoring.DestinationReadiness(before)
+		afterStatus, afterReason := contractmonitoring.DestinationReadiness(after)
+		return beforeStatus != afterStatus || beforeReason != afterReason
+	}}
+}
+
+// listBindingsForInstance lists the bindings controlled by the Instance.
+// Bindings of a deleted Instance with the same name, still awaiting garbage
+// collection, are skipped.
+func listBindingsForInstance(ctx context.Context, c client.Client, in *corev1alpha1.Instance) ([]monitoringv1alpha1.MonitoringBinding, error) {
+	list := &monitoringv1alpha1.MonitoringBindingList{}
+	if err := c.List(ctx, list,
+		client.InNamespace(in.Namespace),
+		client.MatchingLabels{monitoringv1alpha1.BindingInstanceLabel: in.Name},
+	); err != nil {
+		return nil, fmt.Errorf("list monitoring bindings for instance %q: %w", in.Name, err)
+	}
+	return slices.DeleteFunc(list.Items, func(b monitoringv1alpha1.MonitoringBinding) bool {
+		return !metav1.IsControlledBy(&b, in)
+	}), nil
+}
+
 func (r *BindingReconciler) createBinding(
 	ctx context.Context,
 	in *corev1alpha1.Instance,
@@ -477,7 +511,7 @@ func (r *BindingReconciler) createBinding(
 ) (*monitoringv1alpha1.MonitoringBinding, error) {
 	b := &monitoringv1alpha1.MonitoringBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      rtmonitoring.BindingName(in.Name, entry.Name),
+			Name:      contractmonitoring.BindingName(in.Name, entry.Name),
 			Namespace: in.Namespace,
 			Labels:    labels,
 		},
@@ -492,7 +526,7 @@ func (r *BindingReconciler) createBinding(
 	if err := controllerutil.SetControllerReference(in, b, r.Scheme); err != nil {
 		return nil, fmt.Errorf("set owner: %w", err)
 	}
-	if err := r.Create(ctx, b, client.FieldOwner(rtmonitoring.MaterializerFieldOwner)); err != nil {
+	if err := r.Create(ctx, b, client.FieldOwner(contractmonitoring.MaterializerFieldOwner)); err != nil {
 		return nil, fmt.Errorf("create binding: %w", err)
 	}
 	return b, nil
@@ -532,7 +566,7 @@ func (r *BindingReconciler) updateBinding(
 	if !changed {
 		return nil
 	}
-	if err := r.Update(ctx, b, client.FieldOwner(rtmonitoring.MaterializerFieldOwner)); err != nil {
+	if err := r.Update(ctx, b, client.FieldOwner(contractmonitoring.MaterializerFieldOwner)); err != nil {
 		return fmt.Errorf("update binding: %w", err)
 	}
 	return nil

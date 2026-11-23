@@ -39,7 +39,7 @@ import (
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/contract"
-	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
+	"github.com/openeverest/openeverest/v2/internal/controller/ssa"
 )
 
 // The tests in this file run against a real API server, as server-side
@@ -116,7 +116,7 @@ func (s standIn) report(in *corev1alpha1.Instance, generation int64, message str
 		Message: message, ObservedGeneration: generation, LastTransitionTime: metav1.Now(),
 	})
 	require.NoError(s.t, err)
-	require.NoError(s.t, rtmonitoring.ApplyStatus(s.t.Context(), s.c, in, contract.ProviderStatusFieldOwner(s.name), map[string]any{
+	require.NoError(s.t, ssa.ApplyStatus(s.t.Context(), s.c, in, contract.ProviderStatusFieldOwner(s.name), map[string]any{
 		"observedGeneration": generation,
 		"phase":              string(corev1alpha1.InstancePhasePending),
 		"conditions":         []any{ready},

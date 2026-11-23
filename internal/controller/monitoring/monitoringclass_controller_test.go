@@ -28,7 +28,7 @@ import (
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	monitoringv1alpha1 "github.com/openeverest/openeverest/v2/api/monitoring/v1alpha1"
-	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
+	"github.com/openeverest/openeverest/v2/internal/controller/ssa"
 )
 
 func reconcileClass(t *testing.T, c client.Client, name string) *monitoringv1alpha1.MonitoringClass {
@@ -234,10 +234,15 @@ func TestClassCompatibilityKeepsClassControllerCondition(t *testing.T) {
 	unclaimed := pmmClass()
 	unclaimed.Status = monitoringv1alpha1.MonitoringClassStatus{}
 	c := newFakeClient(t, unclaimed, pxcProvider())
-	pmmController := rtmonitoring.ClassController{Client: c, FieldOwner: "openeverest.io/monitoring-pmm", ControllerName: "openeverest.io/monitoring-pmm"}
 
-	reconcileClass(t, c, "pmm")
-	require.NoError(t, pmmController.Claim(t.Context()))
+	// The PMM extension claims the class under its own field manager, as
+	// its class controller does.
+	claimed := reconcileClass(t, c, "pmm")
+	require.NoError(t, ssa.ApplyCondition(t.Context(), c, claimed, claimed.Status.Conditions, "openeverest.io/monitoring-pmm",
+		ssa.NewCondition(claimed, monitoringv1alpha1.MonitoringClassConditionAccepted, metav1.ConditionTrue,
+			monitoringv1alpha1.ReasonAccepted, "claimed by openeverest.io/monitoring-pmm",
+		),
+	))
 
 	require.NoError(t, c.Create(t.Context(), kserveProvider()))
 	class := reconcileClass(t, c, "pmm")

@@ -43,7 +43,7 @@ import (
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/config/crd/bases"
 	"github.com/openeverest/openeverest/v2/contract"
-	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
+	"github.com/openeverest/openeverest/v2/internal/controller/ssa"
 )
 
 //nolint:gochecknoglobals // fixed reference time
@@ -196,7 +196,7 @@ func (h *harness) catchUp() {
 	h.t.Helper()
 	in := &corev1alpha1.Instance{}
 	require.NoError(h.t, h.c.Get(h.t.Context(), h.key(), in))
-	require.NoError(h.t, rtmonitoring.ApplyStatus(h.t.Context(), h.c, in, contract.ProviderStatusFieldOwner(testProvider),
+	require.NoError(h.t, ssa.ApplyStatus(h.t.Context(), h.c, in, contract.ProviderStatusFieldOwner(testProvider),
 		map[string]any{"observedGeneration": in.Generation, "phase": string(corev1alpha1.InstancePhasePending)},
 	))
 }
@@ -218,7 +218,7 @@ func (h *harness) seed(status metav1.ConditionStatus, reason string) {
 	withCondition(status, reason)(in)
 	raw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&in.Status.Conditions[len(in.Status.Conditions)-1])
 	require.NoError(h.t, err)
-	require.NoError(h.t, rtmonitoring.ApplyStatus(h.t.Context(), h.c, in, UnattendedFieldOwner,
+	require.NoError(h.t, ssa.ApplyStatus(h.t.Context(), h.c, in, UnattendedFieldOwner,
 		map[string]any{"conditions": []any{raw}},
 	))
 }
