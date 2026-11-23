@@ -1,0 +1,78 @@
+---
+# While the contract between core and its extensions is unchanged since the
+# last release, asks every pull request that touches code next to it whether
+# it changes it. The contract version moves by itself when a contract
+# artifact changes (hack/gen-contract), but code such as API middleware can
+# impose a new requirement on extensions without changing any artifact. The
+# paths are listed once, in the contract-adjacent block of
+# .github/CODEOWNERS; the logic is hack/contract-decision, which runs
+# locally too. See contract/README.md.
+#
+# Label events re-run it, so adding the label updates the check. It reads
+# only the event, the pull request's file list and contract/VERSION on both
+# sides, so a run takes seconds.
+name: Contract decision
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    branches:
+      - main
+      - 'release-*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  decide:
+    name: Contract decision
+    runs-on: cncf-ubuntu-8-32-x86
+    timeout-minutes: 10
+    steps:
+      - name: Check out code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Set up Go release
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+          # The check imports only the standard library: nothing to cache.
+          cache: false
+
+      - name: Check the decision
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
+        run: |
+          set -euo pipefail
+
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          # A base branch without the file predates the contract: nothing to decide.
+          base_version=$(git show "$BASE_SHA:contract/VERSION" 2>/dev/null || true)
+          head_version=$(cat contract/VERSION 2>/dev/null || true)
+
+          args=(-base-version "$base_version" -head-version "$head_version")
+          while IFS= read -r label; do
+            args+=(-label "$label")
+          done < <(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")
+
+          # The files API lists at most 3000 files. Beyond that the list would
+          # be incomplete, so every path counts as contract-adjacent.
+          if [ "$CHANGED_FILES" -gt 3000 ]; then
+            go run ./hack/contract-decision "${args[@]}" -all-adjacent
+          else
+            gh api "repos/$REPO/pulls/$PR_NUMBER/files" --paginate \
+              --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/changed-files.txt"
+            go run ./hack/contract-decision "${args[@]}" -files "$RUNNER_TEMP/changed-files.txt"
+          fi

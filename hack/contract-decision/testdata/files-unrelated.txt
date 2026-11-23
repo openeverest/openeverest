@@ -1,0 +1,2 @@
+docs/contract.md
+ui/apps/everest/src/main.tsx

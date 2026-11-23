@@ -16,8 +16,9 @@
 
 package contract
 
-// The window of contract versions this core serves, from the VERSION and
-// MIN_VERSION files of this package.
+// The contract version of this core and the window of contract versions it
+// serves, worked out by hack/gen-contract from the fingerprint of the
+// contract and the release records in releases/.
 const (
 	// Version is the contract version of this core: the core release that
 	// last changed the contract, or the development value that follows the
@@ -27,4 +28,15 @@ const (
 	// MinVersion is the oldest contract version this core serves.
 	// Extensions stamped with an older one are ExtensionTooOld.
 	MinVersion = "2.0.0-alpha.1"
+
+	// Fingerprint is the SHA-256 of the contract artifacts this core was
+	// built from, normalised so that only changes to the contract count.
+	// Version is the contract version of the latest release while
+	// Fingerprint is the one recorded for that release.
+	Fingerprint = "sha256:2ba4615343d43e4cc2bd27e54176aae27d1dc4f378758873231fa588d38e5723"
 )
+
+// UpgradableFrom lists the core releases this core can be upgraded from in
+// place. It is empty for a release that can only be installed fresh, and
+// for a development build.
+var UpgradableFrom = []string{}

@@ -12,11 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Command gen-contract writes zz_generated.version.go in the contract
-// package from its VERSION and MIN_VERSION files, which hold the window of
-// contract versions this core serves. Keeping the versions in plain files
-// lets tools that do not build Go, such as release workflows, read them
-// from any git ref.
 package main
 
 import (
@@ -29,14 +24,14 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
-
-	"github.com/openeverest/openeverest/v2/contract"
 )
 
 const (
-	versionFile    = "VERSION"
-	minVersionFile = "MIN_VERSION"
+	versionFile    = "contract/VERSION"
+	minVersionFile = "contract/MIN_VERSION"
 	outputFile     = "zz_generated.version.go"
+	outputPath     = "contract/" + outputFile
+	headerFile     = "hack/boilerplate.go.txt"
 )
 
 const generatedText = `{{.Header}}
@@ -45,8 +40,9 @@ const generatedText = `{{.Header}}
 
 package contract
 
-// The window of contract versions this core serves, from the ` + versionFile + ` and
-// ` + minVersionFile + ` files of this package.
+// The contract version of this core and the window of contract versions it
+// serves, worked out by hack/gen-contract from the fingerprint of the
+// contract and the release records in releases/.
 const (
 	// Version is the contract version of this core: the core release that
 	// last changed the contract, or the development value that follows the
@@ -56,43 +52,98 @@ const (
 	// MinVersion is the oldest contract version this core serves.
 	// Extensions stamped with an older one are ExtensionTooOld.
 	MinVersion = {{printf "%q" .MinVersion}}
+
+	// Fingerprint is the SHA-256 of the contract artifacts this core was
+	// built from, normalised so that only changes to the contract count.
+	// Version is the contract version of the latest release while
+	// Fingerprint is the one recorded for that release.
+	Fingerprint = {{printf "%q" .Fingerprint}}
 )
+
+// UpgradableFrom lists the core releases this core can be upgraded from in
+// place. It is empty for a release that can only be installed fresh, and
+// for a development build.
+var UpgradableFrom = []string{ {{- range .UpgradableFrom}}{{printf "%q" .}}, {{end -}} }
 `
 
 func main() {
-	dir := flag.String("dir", "contract", "directory of the contract package")
-	header := flag.String("header", "hack/boilerplate.go.txt", "file whose content heads the generated file")
+	root := flag.String("root", ".", "root directory of the repository")
+	release := flag.Bool("check-release", false, "only check that the contract is the one the latest release was cut with")
 	flag.Parse()
-	if err := run(*dir, *header); err != nil {
+	if *release {
+		msg, err := runCheckRelease(*root)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Fprintln(os.Stdout, msg)
+		return
+	}
+	if err := run(*root); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func run(dir, headerFile string) error {
-	src, err := render(dir, headerFile)
+// run writes the window of the core at root to the contract package.
+func run(root string) error {
+	w, err := compute(root)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, outputFile), src, 0o600)
+	src, err := render(root, w)
+	if err != nil {
+		return err
+	}
+	for file, data := range map[string][]byte{
+		versionFile:    []byte(w.version + "\n"),
+		minVersionFile: []byte(w.minVersion + "\n"),
+		outputPath:     src,
+	} {
+		if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(file)), data, 0o600); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-// render returns the content of zz_generated.version.go for the contract
-// package in dir.
-func render(dir, headerFile string) ([]byte, error) {
-	version, err := readVersion(filepath.Join(dir, versionFile))
+// load returns the release records and the contract fingerprint of the
+// core at root.
+func load(root string) ([]release, string, error) {
+	releases, err := readReleases(filepath.Join(root, filepath.FromSlash(releasesDir)))
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	minVersion, err := readVersion(filepath.Join(dir, minVersionFile))
+	fp, err := fingerprint(root, inputs)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	if contract.Compare(minVersion, version) > 0 {
-		return nil, fmt.Errorf("%s %s is above %s %s: a core must serve its own version",
-			minVersionFile, minVersion, versionFile, version,
-		)
+	return releases, fp, nil
+}
+
+// compute returns the window of the core at root.
+func compute(root string) (window, error) {
+	releases, fp, err := load(root)
+	if err != nil {
+		return window{}, err
 	}
-	header, err := os.ReadFile(headerFile) //nolint:gosec // a file of this repository named on the command line
+	return decide(releases, fp), nil
+}
+
+// runCheckRelease checks that the contract of the core at root is the one
+// its latest release was cut with.
+func runCheckRelease(root string) (string, error) {
+	releases, fp, err := load(root)
+	if err != nil {
+		return "", err
+	}
+	if err := checkRelease(releases, fp); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("the contract is the one release %s was cut with (%s)", releases[len(releases)-1].Version, fp), nil
+}
+
+// render returns the content of zz_generated.version.go.
+func render(root string, w window) ([]byte, error) {
+	header, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(headerFile))) //nolint:gosec // a file of this repository
 	if err != nil {
 		return nil, fmt.Errorf("read header: %w", err)
 	}
@@ -101,28 +152,14 @@ func render(dir, headerFile string) ([]byte, error) {
 		return nil, err
 	}
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, map[string]string{
-		"Header":     strings.TrimSpace(string(header)),
-		"Version":    version,
-		"MinVersion": minVersion,
+	if err := tmpl.Execute(&buf, map[string]any{
+		"Header":         strings.TrimSpace(string(header)),
+		"Version":        w.version,
+		"MinVersion":     w.minVersion,
+		"Fingerprint":    w.fingerprint,
+		"UpgradableFrom": w.upgradableFrom,
 	}); err != nil {
 		return nil, err
 	}
 	return format.Source(buf.Bytes())
-}
-
-// readVersion returns the version a file holds on its single line.
-func readVersion(file string) (string, error) {
-	data, err := os.ReadFile(file) //nolint:gosec // a file of the contract package
-	if err != nil {
-		return "", err
-	}
-	v := strings.TrimSuffix(string(data), "\n")
-	if strings.Contains(v, "\n") {
-		return "", fmt.Errorf("%s: must hold a single line", file)
-	}
-	if !contract.Valid(v) {
-		return "", fmt.Errorf("%s: %q is not a SemVer 2.0.0 version such as 2.1.0 or 2.1.0-alpha.1", file, v)
-	}
-	return v, nil
 }

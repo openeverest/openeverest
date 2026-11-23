@@ -1,0 +1,6 @@
+version: 2.0.0-alpha.1          # the core release
+contractVersion: 2.0.0-alpha.1  # last release that changed the contract
+minContractVersion: 2.0.0-alpha.1
+type: fresh-install             # fresh-install | upgradable
+upgradableFrom: []              # core releases; empty for fresh-install
+fingerprint: ""                 # empty: release predates fingerprinting

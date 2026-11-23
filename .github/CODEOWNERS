@@ -1,1 +1,49 @@
 *	@openeverest/maintainers
+
+# BEGIN contract-adjacent
+# Paths where a change can alter what core and its extensions rely on. While
+# the contract is unchanged since the last release, a pull request touching
+# any of them needs the label contract-change or no-contract-change: see
+# contract/README.md. .github/workflows/contract-decision.yaml reads this
+# block; list one path per line, anchored at the root.
+#
+# The contract, and the artifacts its fingerprint covers.
+/contract/                                 @openeverest/maintainers
+/hack/gen-contract/                        @openeverest/maintainers
+/api/                                      @openeverest/maintainers
+/config/crd/                               @openeverest/maintainers
+/backupstorageclasses/                     @openeverest/maintainers
+/config/backupstorageclasses/              @openeverest/maintainers
+# The SDK extensions link, and the schema generator they run.
+/provider-runtime/                         @openeverest/maintainers
+/pkg/classgen/                             @openeverest/maintainers
+# Middleware every API request goes through: it decides, for example,
+# which writes reach the webhooks of extensions as a dry run.
+/internal/server/middlewares.go            @openeverest/maintainers
+# Admission: core's webhooks and admission policies, the API's validation
+# handler, and the packages both decide through, which read the class
+# validations and Secret definitions extensions declare.
+/internal/webhook/                         @openeverest/maintainers
+/config/webhook/                           @openeverest/maintainers
+/config/policy/                            @openeverest/maintainers
+/internal/server/handlers/validation/      @openeverest/maintainers
+/internal/backupadmission/                 @openeverest/maintainers
+/internal/classvalidation/                 @openeverest/maintainers
+/internal/secretdefinition/                @openeverest/maintainers
+# Readers of the status extensions write. backup: the Accepted condition
+# providers set on BackupClasses, and the status of provider-managed
+# Backups, Restores and BackupImports. monitoring: the Accepted condition
+# monitoring extensions set on MonitoringClasses, and their conditions on
+# MonitoringBindings and MonitoringDestinations. instance, lifecycleevents
+# and instancestatus: the Instance status the provider runtime writes.
+/internal/controller/backup/               @openeverest/maintainers
+/internal/controller/monitoring/           @openeverest/maintainers
+/internal/controller/instance/             @openeverest/maintainers
+/internal/controller/lifecycleevents/      @openeverest/maintainers
+/pkg/instancestatus/                       @openeverest/maintainers
+# The connection details Secret the provider runtime writes.
+/internal/server/handlers/k8s/instance.go  @openeverest/maintainers
+# The in-use finalizers core holds on the objects extensions install.
+/internal/controller/inuse/                @openeverest/maintainers
+/pkg/inuse/                                @openeverest/maintainers
+# END contract-adjacent

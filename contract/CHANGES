@@ -1,0 +1,9 @@
+Changes to the contract that no artifact shows, one line each, oldest first.
+
+Some changes reach extensions without changing a CRD, the HTTP API or the
+Go API of the contract packages: code that imposes a new requirement on
+extensions, or gives a field they already write a new meaning. Record such
+a change on a line of its own below, naming its pull request, then run
+make gen-contract: every line of this file is part of the contract's
+fingerprint, so the contract version moves as it does for any other
+contract change. See README.md.
