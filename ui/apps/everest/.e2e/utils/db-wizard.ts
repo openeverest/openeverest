@@ -24,6 +24,11 @@ export type CreateEntryPoint =
   | { mode: 'toolbar'; toolbarBtn: Locator }
   | { mode: 'tiles'; tiles: Locator };
 
+const MAX_WIZARD_STEPS = 10;
+
+const getConfigureMoreButton = (page: Page) =>
+  page.getByRole('button', { name: /configure more options/i });
+
 // Waits until either the toolbar button or the tiles grid becomes visible on
 // the /databases page and reports which entry point is active. Consolidates
 // the previously duplicated `if toolbar.isVisible … else tile` probe.
@@ -172,9 +177,7 @@ export const moveForward = async (page: Page) => {
   const continueButton = page.getByTestId('db-wizard-continue-button');
 
   if (!(await continueButton.isVisible().catch(() => false))) {
-    const configureMoreButton = page.getByRole('button', {
-      name: /configure more options/i,
-    });
+    const configureMoreButton = getConfigureMoreButton(page);
 
     if (await configureMoreButton.isVisible().catch(() => false)) {
       await configureMoreButton.click();
@@ -187,6 +190,29 @@ export const moveForward = async (page: Page) => {
 
   await waitForStepHeaderToChange(page, 'db-wizard-continue-button');
   await page.waitForLoadState('load', { timeout: TIMEOUTS.ThirtySeconds });
+};
+
+// Moves forward step by step until `target` is shown, at most to the last step.
+export const moveForwardTo = async (page: Page, target: Locator) => {
+  const continueButton = page.getByTestId('db-wizard-continue-button');
+  const configureMoreButton = getConfigureMoreButton(page);
+
+  for (let step = 0; step < MAX_WIZARD_STEPS; step += 1) {
+    if (await target.isVisible().catch(() => false)) {
+      return;
+    }
+    const isLastStep = !(
+      (await continueButton.isVisible().catch(() => false)) ||
+      (await configureMoreButton.isVisible().catch(() => false))
+    );
+    if (isLastStep) {
+      break;
+    }
+    await moveForward(page);
+  }
+  await expect(target, `${target} is not on any wizard step`).toBeVisible({
+    timeout: TIMEOUTS.FiveSeconds,
+  });
 };
 
 export const moveBack = async (page: Page) => {
