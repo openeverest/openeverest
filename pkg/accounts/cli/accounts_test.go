@@ -296,6 +296,9 @@ func TestSetPassword(t *testing.T) {
 		secure, err := mgr.IsSecure(ctx, "validuser")
 		require.NoError(t, err)
 		assert.True(t, secure)
+		acc, err := mgr.Get(ctx, "validuser")
+		require.NoError(t, err)
+		assert.Equal(t, "newpassword", acc.PasswordHash)
 	})
 }
 
