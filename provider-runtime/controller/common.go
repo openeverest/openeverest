@@ -43,6 +43,7 @@ import (
 	"github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	s3class "github.com/openeverest/openeverest/v2/backupstorageclasses/s3"
 	"github.com/openeverest/openeverest/v2/contract"
+	"github.com/openeverest/openeverest/v2/contract/referents"
 	"github.com/openeverest/openeverest/v2/provider-runtime/internal/backupclass"
 )
 
@@ -1465,7 +1466,7 @@ func (c *Context) resolveBackupOrigin(
 		return nil, nil, fmt.Errorf("get source Backup %q: %w", backupName, err)
 	}
 
-	if vErr := ValidateBackupSucceeded(src); vErr != nil {
+	if vErr := referents.ValidateBackupSucceeded(src); vErr != nil {
 		// A backup that has not Succeeded is a state to wait in, not a
 		// reconcile failure, so the validation error becomes status. One
 		// that is still running finishes by itself; one that failed or is
@@ -1524,7 +1525,7 @@ func (c *Context) resolvePointInTimeOrigin(
 		}, nil
 	}
 
-	if vErr := ValidatePITRStorage(ds.PointInTime, srcInstance); vErr != nil {
+	if vErr := referents.ValidatePITRStorage(ds.PointInTime, srcInstance); vErr != nil {
 		// Terminal rather than a wait: requeueing cannot turn a storage that
 		// is not archiving into one that is, so this is reported as status.
 		failed := &DataSourceStatus{

@@ -26,7 +26,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
+	"github.com/openeverest/openeverest/v2/contract/referents"
 )
 
 // BackupImportReconciler reconciles BackupImport resources.
@@ -97,7 +97,7 @@ func (r *BackupImportReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// The class does not support import, record failure.
-	if err := controller.ValidateBackupImportSupported(bc); err != nil {
+	if err := referents.ValidateBackupImportSupported(bc); err != nil {
 		imp.Status.State = backupv1alpha1.BackupImportStateFailed
 		imp.Status.Message = err.Error()
 		imp.Status.LastObservedGeneration = imp.GetGeneration()

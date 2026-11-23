@@ -15,7 +15,10 @@
 package controller
 
 import (
+	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
+	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/contract"
+	"github.com/openeverest/openeverest/v2/contract/referents"
 )
 
 // The identifiers below moved to the contract packages, which core and the
@@ -43,4 +46,116 @@ const ProviderFinalizer = contract.ProviderFinalizer
 // release.
 func StatusFieldOwner(provider string) string {
 	return contract.ProviderStatusFieldOwner(provider)
+}
+
+// ErrInvalidReference is the umbrella sentinel every reference-validation
+// error satisfies via errors.Is.
+//
+// Deprecated: use contract/referents.ErrInvalidReference; removed in the next
+// release.
+var ErrInvalidReference = referents.ErrInvalidReference
+
+// Reference-validation sentinels. Each is the very value its replacement in
+// contract/referents is, so errors.Is matches either.
+const (
+	// ErrBackupNotFound is referents.ErrBackupNotFound.
+	//
+	// Deprecated: use contract/referents.ErrBackupNotFound; removed in the next
+	// release.
+	ErrBackupNotFound = referents.ErrBackupNotFound
+	// ErrBackupClassNotFound is referents.ErrBackupClassNotFound.
+	//
+	// Deprecated: use contract/referents.ErrBackupClassNotFound; removed in the
+	// next release.
+	ErrBackupClassNotFound = referents.ErrBackupClassNotFound
+	// ErrInstanceNotFound is referents.ErrInstanceNotFound.
+	//
+	// Deprecated: use contract/referents.ErrInstanceNotFound; removed in the
+	// next release.
+	ErrInstanceNotFound = referents.ErrInstanceNotFound
+	// ErrBackupStorageNotFound is referents.ErrBackupStorageNotFound.
+	//
+	// Deprecated: use contract/referents.ErrBackupStorageNotFound; removed in
+	// the next release.
+	ErrBackupStorageNotFound = referents.ErrBackupStorageNotFound
+	// ErrBackupNotSucceeded is referents.ErrBackupNotSucceeded.
+	//
+	// Deprecated: use contract/referents.ErrBackupNotSucceeded; removed in the
+	// next release.
+	ErrBackupNotSucceeded = referents.ErrBackupNotSucceeded
+	// ErrProviderUnsupported is referents.ErrProviderUnsupported.
+	//
+	// Deprecated: use contract/referents.ErrProviderUnsupported; removed in the
+	// next release.
+	ErrProviderUnsupported = referents.ErrProviderUnsupported
+	// ErrRestorePITRUnsupported is referents.ErrRestorePITRUnsupported.
+	//
+	// Deprecated: use contract/referents.ErrRestorePITRUnsupported; removed in
+	// the next release.
+	ErrRestorePITRUnsupported = referents.ErrRestorePITRUnsupported
+	// ErrRestorePITRDateRequired is referents.ErrRestorePITRDateRequired.
+	//
+	// Deprecated: use contract/referents.ErrRestorePITRDateRequired; removed in
+	// the next release.
+	ErrRestorePITRDateRequired = referents.ErrRestorePITRDateRequired
+	// ErrBackupImportUnsupported is referents.ErrBackupImportUnsupported.
+	//
+	// Deprecated: use contract/referents.ErrBackupImportUnsupported; removed in
+	// the next release.
+	ErrBackupImportUnsupported = referents.ErrBackupImportUnsupported
+	// ErrBackupClassIncompatible is referents.ErrBackupClassIncompatible.
+	//
+	// Deprecated: use contract/referents.ErrBackupClassIncompatible; removed in
+	// the next release.
+	ErrBackupClassIncompatible = referents.ErrBackupClassIncompatible
+	// ErrBackupStorageIncompatible is referents.ErrBackupStorageIncompatible.
+	//
+	// Deprecated: use contract/referents.ErrBackupStorageIncompatible; removed
+	// in the next release.
+	ErrBackupStorageIncompatible = referents.ErrBackupStorageIncompatible
+)
+
+// RestoreStreamInstanceName returns the name of the Instance that owns the
+// backup stream a point-in-time Restore reads from.
+//
+// Deprecated: use contract/referents.RestoreStreamInstanceName; removed in the
+// next release.
+func RestoreStreamInstanceName(restore *backupv1alpha1.Restore) string {
+	return referents.RestoreStreamInstanceName(restore)
+}
+
+// ValidateBackupSucceeded returns ErrBackupNotSucceeded if the Backup has not
+// reached the Succeeded state.
+//
+// Deprecated: use contract/referents.ValidateBackupSucceeded; removed in the
+// next release.
+func ValidateBackupSucceeded(backup *backupv1alpha1.Backup) error {
+	return referents.ValidateBackupSucceeded(backup)
+}
+
+// ValidateBackupImportSupported returns ErrBackupImportUnsupported if the
+// BackupClass does not advertise spec.supportsImport.
+//
+// Deprecated: use contract/referents.ValidateBackupImportSupported; removed in
+// the next release.
+func ValidateBackupImportSupported(bc *backupv1alpha1.BackupClass) error {
+	return referents.ValidateBackupImportSupported(bc)
+}
+
+// ValidateRestorePITR checks whether the point-in-time recovery options on a
+// Restore are acceptable for the given BackupClass.
+//
+// Deprecated: use contract/referents.ValidateRestorePITR; removed in the next
+// release.
+func ValidateRestorePITR(restore *backupv1alpha1.Restore, bc *backupv1alpha1.BackupClass) error {
+	return referents.ValidateRestorePITR(restore, bc)
+}
+
+// ValidatePITRStorage checks that the storage a point-in-time Restore names
+// is carrying a stream on the Instance that owns it.
+//
+// Deprecated: use contract/referents.ValidatePITRStorage; removed in the next
+// release.
+func ValidatePITRStorage(pitr *backupv1alpha1.DataSourcePointInTime, instance *corev1alpha1.Instance) error {
+	return referents.ValidatePITRStorage(pitr, instance)
 }

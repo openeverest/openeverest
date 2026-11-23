@@ -36,6 +36,9 @@ const (
 	// runtimePath prefixes every package of provider-runtime; the functions
 	// in an allowlist are named relative to it.
 	runtimePath = "github.com/openeverest/openeverest/v2/provider-runtime/"
+	// modulePath prefixes the contract packages, whose rules provider-runtime
+	// runs as much as its own code; their functions are named relative to it.
+	modulePath = "github.com/openeverest/openeverest/v2/"
 	// backupAPIPath declares the execution union of a BackupClass.
 	backupAPIPath = "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 )
@@ -59,9 +62,11 @@ type sanction struct {
 	why  string
 }
 
-// executionUnionReaders returns the functions of provider-runtime that may
-// use the execution union of a BackupClass, keyed by package and function as
-// types.Func.FullName spells them, relative to provider-runtime. Each either
+// executionUnionReaders returns the functions of provider-runtime, and of
+// the contract packages it runs, that may use the execution union of a
+// BackupClass, keyed by package and function as types.Func.FullName spells
+// them, relative to provider-runtime or, for the contract packages, to the
+// module. Each either
 // decides which classes this provider claims and executes, or reads the
 // per-mode configuration of a class it executes. None decides whether a class
 // suits a provider or a storage: that is the verdict core publishes.
@@ -128,7 +133,7 @@ func executionUnionReaders() map[string]sanction {
 			uses: []member{providerManaged},
 			why:  "reads providerManaged.supportsPITR once the published verdict is Compatible",
 		},
-		"controller.ValidateRestorePITR": {
+		"contract/referents.ValidateRestorePITR": {
 			uses: []member{executionMode, providerManaged},
 			why:  "gates point-in-time Restores on providerManaged.supportsPITR; classes of other modes are not gated",
 		},
@@ -140,7 +145,8 @@ const guidance = `Outside its claim path, provider-runtime decides whether a Bac
   - If the function decides which classes this provider claims and executes ("is the executor me?"), or reads the per-mode configuration of a class this provider executes (providerManaged.limits, supportsPITR, pitrParametersSchema), add it to executionUnionReaders in provider-runtime/invariants_test.go with the members it uses and a one-line reason.`
 
 // TestOnlyTheClaimPathReadsTheExecutionMode fails when the non-test code of
-// provider-runtime uses the execution union of a BackupClass outside
+// provider-runtime, or of the contract packages it runs, uses the execution
+// union of a BackupClass outside
 // executionUnionReaders, or when an entry there sanctions a use no longer
 // made.
 func TestOnlyTheClaimPathReadsTheExecutionMode(t *testing.T) {
@@ -152,7 +158,7 @@ func TestOnlyTheClaimPathReadsTheExecutionMode(t *testing.T) {
 		assert.NotEmpty(t, s.why, "executionUnionReaders[%q] gives no reason", fn)
 	}
 
-	violations, stale := checkUses(executionUnionUses(t, loadPackages(t, "./...")), readers)
+	violations, stale := checkUses(executionUnionUses(t, loadPackages(t, "./...", "../contract/...")), readers)
 	assert.Empty(t, lines(violations), guidance)
 	assert.Empty(t, lines(stale),
 		"executionUnionReaders in provider-runtime/invariants_test.go sanctions uses that are no longer made: "+
@@ -215,6 +221,12 @@ func (u use) String() string { return fmt.Sprintf("%s: %s", u.pos, u.what()) }
 
 func (u use) what() string { return fmt.Sprintf("%s uses %s", u.fn, u.member) }
 
+// relativeName names a package, or a function as types.Func.FullName spells
+// it, relative to provider-runtime or, outside it, to the module.
+func relativeName(name string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(name, runtimePath, ""), modulePath, "")
+}
+
 // loadPackages loads and type-checks the non-test packages matching patterns,
 // relative to provider-runtime.
 func loadPackages(t *testing.T, patterns ...string) []*packages.Package {
@@ -271,14 +283,14 @@ func executionUnionUses(t *testing.T, pkgs []*packages.Package) []use {
 			})
 		}
 
-		pkg := strings.TrimPrefix(p.PkgPath, runtimePath)
+		pkg := relativeName(p.PkgPath)
 		for _, f := range p.Syntax {
 			for _, decl := range f.Decls {
 				switch d := decl.(type) {
 				case *ast.FuncDecl:
 					fn, ok := p.TypesInfo.Defs[d.Name].(*types.Func)
 					require.True(t, ok, "%s declares no function", p.Fset.Position(d.Pos()))
-					inspect(strings.ReplaceAll(fn.FullName(), runtimePath, ""), d)
+					inspect(relativeName(fn.FullName()), d)
 				case *ast.GenDecl:
 					for _, spec := range d.Specs {
 						switch s := spec.(type) {

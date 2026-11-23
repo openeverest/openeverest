@@ -31,9 +31,9 @@ import (
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/contract/referents"
 	"github.com/openeverest/openeverest/v2/internal/server/handlers"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 func TestCreateRestore_Validation(t *testing.T) {
@@ -156,7 +156,7 @@ func TestCreateRestore_Validation(t *testing.T) {
 			restore:            newRestore("missing-backup"),
 			objects:            nil,
 			err:                "backup not found: 'missing-backup' in namespace 'test-namespace'",
-			wantSentinel:       controller.ErrBackupNotFound,
+			wantSentinel:       referents.ErrBackupNotFound,
 			wantInvalidRequest: true,
 		},
 		{
@@ -164,7 +164,7 @@ func TestCreateRestore_Validation(t *testing.T) {
 			restore:            newRestore("running-backup"),
 			objects:            []ctrlclient.Object{runningBackup},
 			err:                "backup not succeeded: 'running-backup' is in state 'Running'",
-			wantSentinel:       controller.ErrBackupNotSucceeded,
+			wantSentinel:       referents.ErrBackupNotSucceeded,
 			wantInvalidRequest: true,
 		},
 		{
@@ -187,7 +187,7 @@ func TestCreateRestore_Validation(t *testing.T) {
 			restore:            newRestore("succeeded-backup-no-pitr"),
 			objects:            []ctrlclient.Object{succeededBackupNoPitr, noPitrClass},
 			err:                "instance 'test-instance' does not exist",
-			wantSentinel:       controller.ErrInstanceNotFound,
+			wantSentinel:       referents.ErrInstanceNotFound,
 			wantInvalidRequest: true,
 		},
 		{
@@ -195,7 +195,7 @@ func TestCreateRestore_Validation(t *testing.T) {
 			restore:            newRestore("succeeded-backup-unsupported-provider"),
 			objects:            []ctrlclient.Object{succeededBackupUnsupportedProvider, unsupportedProviderClass, instance},
 			err:                `backup class incompatible: BackupClass "unsupported-provider-class" is Incompatible with Provider "test-provider" (ProviderUnsupported)`,
-			wantSentinel:       controller.ErrBackupClassIncompatible,
+			wantSentinel:       referents.ErrBackupClassIncompatible,
 			wantInvalidRequest: true,
 		},
 		{
@@ -215,7 +215,7 @@ func TestCreateRestore_Validation(t *testing.T) {
 			restore:            newPITRRestore(backupv1alpha1.RecoveryTargetLatest, "s1"),
 			objects:            []ctrlclient.Object{noPitrClass, streamInstanceNoPITR},
 			err:                "point-in-time recovery is not supported",
-			wantSentinel:       controller.ErrRestorePITRUnsupported,
+			wantSentinel:       referents.ErrRestorePITRUnsupported,
 			wantInvalidRequest: true,
 		},
 		{
@@ -223,7 +223,7 @@ func TestCreateRestore_Validation(t *testing.T) {
 			restore:            newPITRRestore(backupv1alpha1.RecoveryTargetDate, "s1"),
 			objects:            []ctrlclient.Object{pitrClass, streamInstancePITR},
 			err:                "point-in-time recovery date is required",
-			wantSentinel:       controller.ErrRestorePITRDateRequired,
+			wantSentinel:       referents.ErrRestorePITRDateRequired,
 			wantInvalidRequest: true,
 		},
 		{
@@ -237,7 +237,7 @@ func TestCreateRestore_Validation(t *testing.T) {
 			restore:            newPITRRestore(backupv1alpha1.RecoveryTargetLatest, "s1"),
 			objects:            []ctrlclient.Object{pitrClass, streamInstancePITR, incompatibleStreamStorage, s3StorageClass},
 			err:                `backup storage incompatible: BackupStorage "s1" is Incompatible with BackupClass "pitr-class" (TLSOptionUnsupported)`,
-			wantSentinel:       controller.ErrBackupStorageIncompatible,
+			wantSentinel:       referents.ErrBackupStorageIncompatible,
 			wantInvalidRequest: true,
 		},
 		{
@@ -245,7 +245,7 @@ func TestCreateRestore_Validation(t *testing.T) {
 			restore:            newPITRRestore(backupv1alpha1.RecoveryTargetLatest, "s1"),
 			objects:            []ctrlclient.Object{pitrClass, streamInstancePITR},
 			err:                "backup storage 's1' does not exist",
-			wantSentinel:       controller.ErrBackupStorageNotFound,
+			wantSentinel:       referents.ErrBackupStorageNotFound,
 			wantInvalidRequest: true,
 		},
 		{
@@ -253,7 +253,7 @@ func TestCreateRestore_Validation(t *testing.T) {
 			restore:            newPITRRestore(backupv1alpha1.RecoveryTargetLatest, "not-archiving"),
 			objects:            []ctrlclient.Object{pitrClass, streamInstancePITR},
 			err:                "point-in-time recovery is not supported",
-			wantSentinel:       controller.ErrRestorePITRUnsupported,
+			wantSentinel:       referents.ErrRestorePITRUnsupported,
 			wantInvalidRequest: true,
 		},
 	}

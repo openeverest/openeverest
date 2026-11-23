@@ -27,8 +27,8 @@ import (
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
+	"github.com/openeverest/openeverest/v2/contract/referents"
 	"github.com/openeverest/openeverest/v2/pkg/common"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
 )
 
 // RestoreReconciler reconciles Restore resources. The provider that executes
@@ -177,7 +177,7 @@ func (r *RestoreReconciler) resolveBackupClass(
 		backupClassName = backup.Spec.ClassRef.Name
 
 	case backupv1alpha1.DataSourceTypePointInTime:
-		name := controller.RestoreStreamInstanceName(restore)
+		name := referents.RestoreStreamInstanceName(restore)
 		instance := &corev1alpha1.Instance{}
 		if err := r.Client.Get(ctx, client.ObjectKey{
 			Name:      name,
