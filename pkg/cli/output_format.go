@@ -26,6 +26,7 @@ const (
 	OutputYAML OutputFormat = "yaml"
 )
 
+// String returns the format, or "" when unset (pretty mode).
 func (o *OutputFormat) String() string {
 	if o == nil {
 		return ""
@@ -33,6 +34,7 @@ func (o *OutputFormat) String() string {
 	return string(*o)
 }
 
+// Set parses s as an OutputFormat for pflag. Only "json" and "yaml" are valid.
 func (o *OutputFormat) Set(s string) error {
 	switch OutputFormat(s) {
 	case OutputJSON, OutputYAML:
@@ -43,6 +45,7 @@ func (o *OutputFormat) Set(s string) error {
 	}
 }
 
+// Type is the pflag type name shown in help.
 func (*OutputFormat) Type() string {
 	return "string"
 }
