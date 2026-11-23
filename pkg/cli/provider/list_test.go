@@ -170,3 +170,25 @@ func TestProviderList_JSONOutput(t *testing.T) {
 	err := runner.Run(t.Context(), ListOptions{Cluster: "main"}, cfgPath)
 	require.NoError(t, err)
 }
+
+func TestProviderList_YAMLOutput(t *testing.T) {
+	t.Parallel()
+
+	items := []testProvider{newTestProvider("postgresql")}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
+	}))
+	defer srv.Close()
+
+	cfg := newTestConfig(srv.URL)
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, cfg.Save(cfgPath))
+
+	// Pretty=false, YAML=true → YAML path
+	runner := NewListRunner(Config{Pretty: false, YAML: true}, zap.NewNop().Sugar())
+	err := runner.Run(t.Context(), ListOptions{Cluster: "main"}, cfgPath)
+	require.NoError(t, err)
+}

@@ -525,6 +525,32 @@ func TestInstanceStatus_JSONOutput(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestInstanceStatus_YAMLOutput(t *testing.T) {
+	t.Parallel()
+
+	inst := minimalInst()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(inst)
+	}))
+	defer srv.Close()
+
+	cfg := newTestConfig(srv.URL)
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, cfg.Save(cfgPath))
+
+	// Pretty=false, YAML=true → YAML path
+	runner := NewInstanceStatusRunner(Config{Pretty: false, YAML: true}, zap.NewNop().Sugar())
+	err := runner.Run(t.Context(), StatusOptions{
+		Name:      "my-mongo",
+		Namespace: "everest",
+		Cluster:   "main",
+	}, cfgPath)
+	require.NoError(t, err)
+}
+
 func minimalInst() *client.Instance {
 	return instanceFromJSON(`{"metadata":{"name":"my-mongo","generation":1},"status":{"observedGeneration":1,"phase":"Provisioned"}}`)
 }

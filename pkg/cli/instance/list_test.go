@@ -272,3 +272,30 @@ func TestInstanceList_JSONOutput(t *testing.T) {
 	}, cfgPath)
 	require.NoError(t, err)
 }
+
+func TestInstanceList_YAMLOutput(t *testing.T) {
+	t.Parallel()
+
+	items := []testInstance{
+		newTestInstance("my-mongo", "everest", "percona-server-mongodb", "Provisioned", "8.0.12"),
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
+	}))
+	defer srv.Close()
+
+	cfg := newTestConfig(srv.URL)
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, cfg.Save(cfgPath))
+
+	// Pretty=false, YAML=true → YAML path
+	runner := NewListRunner(Config{Pretty: false, YAML: true}, zap.NewNop().Sugar())
+	err := runner.Run(t.Context(), ListOptions{
+		Namespace: "everest",
+		Cluster:   "main",
+	}, cfgPath)
+	require.NoError(t, err)
+}

@@ -22,16 +22,29 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestEncode_JSON(t *testing.T) {
+func TestEncode(t *testing.T) {
 	t.Parallel()
-	var buf bytes.Buffer
-	require.NoError(t, Encode(&buf, map[string]any{"name": "db"}, false))
-	assert.JSONEq(t, `{"name":"db"}`, buf.String())
-}
 
-func TestEncode_YAML(t *testing.T) {
-	t.Parallel()
-	var buf bytes.Buffer
-	require.NoError(t, Encode(&buf, map[string]any{"name": "db"}, true))
-	assert.Equal(t, "name: db\n", buf.String())
+	type item struct {
+		ProjectName   string  `json:"projectName"`
+		ServerVersion *string `json:"serverVersion,omitempty"`
+	}
+	v := item{ProjectName: "db"}
+
+	tests := []struct {
+		name   string
+		asYAML bool
+		want   string
+	}{
+		{name: "json", asYAML: false, want: "{\"projectName\":\"db\"}\n"},
+		{name: "yaml", asYAML: true, want: "projectName: db\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var buf bytes.Buffer
+			require.NoError(t, Encode(&buf, v, tt.asYAML))
+			assert.Equal(t, tt.want, buf.String())
+		})
+	}
 }

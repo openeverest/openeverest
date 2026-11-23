@@ -389,6 +389,41 @@ func TestDelete_IgnoreNotFound_AlreadyGone_JSONOutput(t *testing.T) {
 	assert.JSONEq(t, `{"name":"my-db","namespace":"everest","deleted":false}`, out)
 }
 
+//nolint:paralleltest // mutates global os.Stdout; must run serially
+func TestDelete_IgnoreNotFound_AlreadyGone_YAMLOutput(t *testing.T) {
+	deleteCalled := false
+	srv := newDeleteServer(t,
+		func(w http.ResponseWriter, _ *http.Request) {
+			deleteCalled = true
+			w.WriteHeader(http.StatusNoContent)
+		},
+		func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		},
+	)
+	defer srv.Close()
+
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
+
+	opts := DeleteOptions{
+		Name:           "my-db",
+		Namespace:      "everest",
+		Cluster:        "main",
+		IgnoreNotFound: true,
+		IsTerminal:     isTerminalFalse,
+	}
+
+	id := NewDeleter(Config{Pretty: false, YAML: true}, zap.NewNop().Sugar())
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = id.Run(context.Background(), opts, cfgPath)
+	})
+	require.NoError(t, runErr)
+	assert.False(t, deleteCalled)
+	assert.Equal(t, "deleted: false\nname: my-db\nnamespace: everest\n", out)
+}
+
 // TestBlastRadiusMessage covers explicit Cascade, explicit Orphan, and the
 // unverified fallback, which must not name a policy as fact.
 func TestBlastRadiusMessage(t *testing.T) {

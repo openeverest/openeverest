@@ -393,6 +393,36 @@ func TestDelete_IgnoreNotFound_AlreadyGone_JSONOutput(t *testing.T) {
 	assert.JSONEq(t, `{"name":"my-mongo-restore-x7k2q","namespace":"everest","deleted":false}`, out)
 }
 
+//nolint:paralleltest // mutates global os.Stdout; must run serially
+func TestDelete_IgnoreNotFound_AlreadyGone_YAMLOutput(t *testing.T) {
+	deleteCalled := false
+	srv := newDeleteServer(t,
+		func(w http.ResponseWriter, _ *http.Request) {
+			deleteCalled = true
+			w.WriteHeader(http.StatusNoContent)
+		},
+		func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) },
+	)
+	defer srv.Close()
+
+	opts := DeleteOptions{
+		Name:           "my-mongo-restore-x7k2q",
+		Namespace:      "everest",
+		Cluster:        "main",
+		IgnoreNotFound: true,
+		IsTerminal:     isTerminalFalse,
+	}
+
+	rd := NewDeleter(Config{Pretty: false, YAML: true}, zap.NewNop().Sugar())
+	var runErr error
+	out := captureStdout(t, func() {
+		runErr = rd.Run(context.Background(), opts, newConfigPath(t, srv.URL))
+	})
+	require.NoError(t, runErr)
+	assert.False(t, deleteCalled)
+	assert.Equal(t, "deleted: false\nname: my-mongo-restore-x7k2q\nnamespace: everest\n", out)
+}
+
 // TestDelete_InFlight_ForceWithoutYes_StillRequiresConfirmation pins the
 // #2658 rule that --force is never a --yes synonym: overriding the guard
 // must still go through the confirmation gate.
