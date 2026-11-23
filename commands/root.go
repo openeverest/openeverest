@@ -31,7 +31,7 @@ type (
 	globalFlags struct {
 		Verbose bool // Enable Verbose mode
 		// Output is set by -o/--output to json or yaml; empty means pretty (unless --verbose).
-		Output cli.OutputFormat
+		Output cli.OutputFormat `ignored:"true"`
 		// If set, we will print the Pretty output.
 		Pretty bool
 		// Path to a kubeconfig
