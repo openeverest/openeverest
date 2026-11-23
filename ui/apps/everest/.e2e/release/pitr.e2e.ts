@@ -43,6 +43,7 @@ import {
 } from '@e2e/constants';
 import {
   waitForStatus,
+  waitForInstanceStatus,
   waitForDelete,
   findRowAndClickActions,
   waitForDbListLoad,
@@ -391,12 +392,7 @@ test.describe.serial(
         await page.waitForURL('**/databases', {
           timeout: TIMEOUTS.ThirtySeconds,
         });
-        try {
-          await waitForStatus(page, clusterName, 'Provisioning', 30000);
-        } catch {
-          // Transitional status can be short-lived; continue with readiness checks.
-        }
-        await waitForStatus(page, clusterName, 'Ready', 900000);
+        await waitForInstanceStatus(page, clusterName, 'Ready', 900000);
       });
 
       await test.step('Verify PITR is enabled on the created cluster', async () => {
@@ -579,8 +575,8 @@ test.describe.serial(
       await submitRestoreDialog(page, namespace);
 
       await page.goto('/databases');
-      await waitForStatus(page, clusterName, 'Restoring', 30000);
-      await waitForStatus(page, clusterName, 'Ready', 900000);
+      await waitForInstanceStatus(page, clusterName, 'Restoring', 30000);
+      await waitForInstanceStatus(page, clusterName, 'Ready', 900000);
 
       await gotoDbClusterRestores(page, clusterName);
       await waitForStatus(page, 'restore-', 'Succeeded', 120000);
@@ -665,8 +661,8 @@ test.describe.serial(
       await submitRestoreDialog(page, namespace);
 
       await page.goto('/databases');
-      await waitForStatus(page, clusterName, 'Restoring', 30000);
-      await waitForStatus(page, clusterName, 'Ready', 900000);
+      await waitForInstanceStatus(page, clusterName, 'Restoring', 30000);
+      await waitForInstanceStatus(page, clusterName, 'Ready', 900000);
 
       await gotoDbClusterRestores(page, clusterName);
       await waitForStatus(page, 'restore-', 'Succeeded', 120000);
