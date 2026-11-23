@@ -16,6 +16,7 @@
 package provider
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -27,6 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 )
 
@@ -169,4 +171,14 @@ func TestProviderList_JSONOutput(t *testing.T) {
 	runner := NewListRunner(Config{Pretty: false}, zap.NewNop().Sugar())
 	err := runner.Run(t.Context(), ListOptions{Cluster: "main"}, cfgPath)
 	require.NoError(t, err)
+}
+
+func TestProviderList_YAMLOutput(t *testing.T) {
+	t.Parallel()
+
+	var p client.Provider
+	require.NoError(t, json.Unmarshal([]byte(`{"metadata":{"name":"postgresql"}}`), &p))
+	var buf bytes.Buffer
+	NewListRunner(Config{YAML: true}, zap.NewNop().Sugar()).render(&buf, []client.Provider{p})
+	assert.Contains(t, buf.String(), "- metadata:\n    name: postgresql\n")
 }

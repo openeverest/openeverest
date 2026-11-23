@@ -39,7 +39,7 @@ var (
 Displays a table with NAME, NAMESPACE, CLASS (the BackupStorageClass),
 BUCKET (bucket/prefix), AUTH (the authentication mode), ACCEPTED (whether
 the storage is valid for its class) and AGE. Parameters, TLS settings and
-the reason a storage is not accepted remain available via --json /
+the reason a storage is not accepted remain available via -o json /
 --verbose. Credentials are never included in the output.
 
 --backup-class keeps only the storages that BackupClass can write to, and
@@ -54,7 +54,7 @@ the reason a storage is not accepted remain available via --json /
   everestctl backup-storage list --namespace everest --backup-class pbm
 
   # JSON output — inspect connection parameters and conditions
-  everestctl backup-storage list --namespace everest --json | jq '.[] | {name: .metadata.name, parameters: .spec.parameters, conditions: .status.conditions}'
+  everestctl backup-storage list --namespace everest -o json | jq '.[] | {name: .metadata.name, parameters: .spec.parameters, conditions: .status.conditions}'
 
   # Specific cluster and context
   everestctl backup-storage list --namespace everest --cluster staging --context staging-ctx`,
@@ -78,7 +78,8 @@ func init() {
 }
 
 func listPreRun(cmd *cobra.Command, _ []string) {
-	listCfg.Pretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
+	listCfg.Pretty = cli.IsPretty(cmd)
+	listCfg.YAML = cli.IsYAML(cmd)
 }
 
 func listRun(cmd *cobra.Command, _ []string) {

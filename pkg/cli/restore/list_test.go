@@ -16,6 +16,7 @@
 package restore
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -195,6 +196,15 @@ func TestRestoreList_JSONOutput(t *testing.T) {
 	runner := NewListRunner(Config{Pretty: false}, zap.NewNop().Sugar())
 	err := runner.Run(t.Context(), ListOptions{Cluster: "main", Namespace: "everest", Instance: "my-mongo"}, cfgPath)
 	require.NoError(t, err)
+}
+
+func TestRestoreList_YAMLOutput(t *testing.T) {
+	t.Parallel()
+
+	r := restoreFromJSON(t, `{"metadata":{"name":"my-mongo-restore-1"}}`)
+	var buf bytes.Buffer
+	NewListRunner(Config{YAML: true}, zap.NewNop().Sugar()).render(&buf, []client.Restore{*r})
+	assert.Contains(t, buf.String(), "- metadata:\n    name: my-mongo-restore-1\n")
 }
 
 func TestRestoreBackup_NilDataSource(t *testing.T) {

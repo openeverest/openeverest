@@ -44,7 +44,7 @@ func init() {
 }
 
 func pluginUninstallPreRun(cmd *cobra.Command, _ []string) { //nolint:revive
-	pluginUninstallCfg.Pretty = !(cmd.Flag(cli.FlagVerbose).Changed || cmd.Flag(cli.FlagJSON).Changed)
+	pluginUninstallCfg.Pretty = cli.IsPretty(cmd)
 	pluginUninstallCfg.KubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 }
 

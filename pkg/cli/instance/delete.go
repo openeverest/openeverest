@@ -37,16 +37,16 @@ import (
 
 // DeleteOptions configures `instance delete`.
 type DeleteOptions struct {
-	Name           string
-	Namespace      string
-	Cluster        string
-	Context        string        // overrides the active context when set
-	DeletionPolicy string        // "", "Cascade", or "Orphan"; "" leaves the Instance's own spec.deletionPolicy in effect
-	Yes            bool          // skip the confirmation prompt
-	JSON           bool          // --json was passed; forces non-interactive regardless of --verbose
-	IgnoreNotFound bool          // treat "instance already gone" (404) as a successful delete
-	Wait           bool          // block until the instance is fully deleted
-	Timeout        time.Duration // bounds --wait; must be positive
+	Name            string
+	Namespace       string
+	Cluster         string
+	Context         string        // overrides the active context when set
+	DeletionPolicy  string        // "", "Cascade", or "Orphan"; "" leaves the Instance's own spec.deletionPolicy in effect
+	Yes             bool          // skip the confirmation prompt
+	MachineReadable bool          // -o json|yaml was passed; forces non-interactive regardless of --verbose
+	IgnoreNotFound  bool          // treat "instance already gone" (404) as a successful delete
+	Wait            bool          // block until the instance is fully deleted
+	Timeout         time.Duration // bounds --wait; must be positive
 
 	// IsTerminal overrides the TTY check for the prompt. Set in tests.
 	IsTerminal func() bool
@@ -91,7 +91,7 @@ func (id *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 		preFetched = inst
 	}
 
-	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.JSON, IsTerminal: opts.IsTerminal}
+	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.MachineReadable, IsTerminal: opts.IsTerminal}
 	if err := id.confirmDeletion(ctx, c, confirmOpts, opts, preFetched); err != nil {
 		return err
 	}
@@ -217,12 +217,12 @@ func blastRadiusMessage(name, namespace, policy string, verified bool) string {
 
 // emitDeleted prints success: a line in pretty mode, JSON otherwise.
 func (id *Deleter) emitDeleted(opts DeleteOptions) error {
-	return deletion.EmitDeleted(id.config.Pretty, "instance", opts.Name, opts.Namespace)
+	return deletion.EmitDeleted(id.config.Pretty, id.config.YAML, "instance", opts.Name, opts.Namespace)
 }
 
 // emitAlreadyGone reports the --ignore-not-found short-circuit.
 func (id *Deleter) emitAlreadyGone(opts DeleteOptions) error {
-	return deletion.EmitAlreadyGone(id.config.Pretty, "instance", opts.Name, opts.Namespace)
+	return deletion.EmitAlreadyGone(id.config.Pretty, id.config.YAML, "instance", opts.Name, opts.Namespace)
 }
 
 // waitForDeletion blocks until the instance is gone, like instance create
@@ -250,5 +250,5 @@ func (id *Deleter) waitForDeletion(ctx context.Context, c *client.ClientWithResp
 		return err
 	}
 
-	return deletion.EmitWaitSucceeded(id.config.Pretty, "instance", opts.Name, opts.Namespace)
+	return deletion.EmitWaitSucceeded(id.config.Pretty, id.config.YAML, "instance", opts.Name, opts.Namespace)
 }

@@ -19,7 +19,6 @@ package backupclass
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -32,12 +31,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 )
 
 // Config holds the shared configuration for backup class CLI runners.
 type Config struct {
 	Pretty bool
+	YAML   bool // -o yaml: machine-readable YAML instead of JSON when Pretty is false
 }
 
 // ListOptions holds the inputs for the list command.
@@ -100,7 +101,7 @@ func (bl *ListRunner) listBackupClasses(ctx context.Context, c *client.ClientWit
 
 func (bl *ListRunner) render(w io.Writer, backupClasses []client.BackupClass) {
 	if !bl.config.Pretty {
-		_ = json.NewEncoder(w).Encode(backupClasses) //nolint:errchkjson
+		_ = cli.Encode(w, backupClasses, bl.config.YAML)
 		return
 	}
 	printBackupClassTable(w, backupClasses)

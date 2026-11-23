@@ -261,7 +261,7 @@ func specToMap(spec any) (map[string]any, error) {
 // of a client dry run, or the instance the server would have stored.
 func (iu *Updater) emitDryRun(inst *client.Instance, overrides map[string]any, result any, opts UpdateOptions) error {
 	if !iu.config.Pretty {
-		if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
+		if err := cli.Encode(os.Stdout, result, iu.config.YAML); err != nil {
 			return fmt.Errorf("failed to encode dry run result: %w", err)
 		}
 		return nil
@@ -310,5 +310,5 @@ func (iu *Updater) emitUpdated(updated *client.Instance, opts UpdateOptions) err
 	if updated == nil {
 		return fmt.Errorf("instance %q was updated but the server returned an unreadable response body", opts.Name)
 	}
-	return writeInstanceJSON(updated)
+	return writeInstance(updated, iu.config.YAML)
 }
