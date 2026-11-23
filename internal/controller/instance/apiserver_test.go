@@ -38,7 +38,7 @@ import (
 
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
+	"github.com/openeverest/openeverest/v2/contract"
 	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
 )
 
@@ -116,7 +116,7 @@ func (s standIn) report(in *corev1alpha1.Instance, generation int64, message str
 		Message: message, ObservedGeneration: generation, LastTransitionTime: metav1.Now(),
 	})
 	require.NoError(s.t, err)
-	require.NoError(s.t, rtmonitoring.ApplyStatus(s.t.Context(), s.c, in, controller.StatusFieldOwner(s.name), map[string]any{
+	require.NoError(s.t, rtmonitoring.ApplyStatus(s.t.Context(), s.c, in, contract.ProviderStatusFieldOwner(s.name), map[string]any{
 		"observedGeneration": generation,
 		"phase":              string(corev1alpha1.InstancePhasePending),
 		"conditions":         []any{ready},
@@ -153,7 +153,7 @@ func TestAPIServer_Unattended(t *testing.T) {
 	}
 	require.NoError(t, c.Create(t.Context(), provider))
 	t.Cleanup(func() { _ = c.Delete(context.Background(), provider) })
-	runtimeOwner := controller.StatusFieldOwner(provider.Name)
+	runtimeOwner := contract.ProviderStatusFieldOwner(provider.Name)
 	stand := standIn{t: t, c: c, name: provider.Name}
 
 	in := apiServerInstance(ns, provider.Name)
@@ -170,8 +170,8 @@ func TestAPIServer_Unattended(t *testing.T) {
 	// is edited and the stand-in stops reporting.
 	base := get()
 	pickedUp := base.DeepCopy()
-	pickedUp.Labels = map[string]string{controller.ProviderLabel: provider.Name}
-	pickedUp.Finalizers = []string{controller.ProviderFinalizer}
+	pickedUp.Labels = map[string]string{contract.ProviderLabel: provider.Name}
+	pickedUp.Finalizers = []string{contract.ProviderFinalizer}
 	require.NoError(t, c.Patch(t.Context(), pickedUp, client.MergeFrom(base)))
 	stand.report(pickedUp, 1, "waiting for the replica set")
 	edited := get()

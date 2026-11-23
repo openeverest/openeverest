@@ -42,7 +42,7 @@ import (
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
 	corev1alpha1 "github.com/openeverest/openeverest/v2/api/core/v1alpha1"
 	"github.com/openeverest/openeverest/v2/config/crd/bases"
-	"github.com/openeverest/openeverest/v2/provider-runtime/controller"
+	"github.com/openeverest/openeverest/v2/contract"
 	rtmonitoring "github.com/openeverest/openeverest/v2/provider-runtime/monitoring"
 )
 
@@ -73,8 +73,8 @@ func testProviderObject(name string, created time.Time) *corev1alpha1.Provider {
 // pickedUp marks an Instance as a provider-runtime marks the Instances it
 // reconciles.
 func pickedUp(in *corev1alpha1.Instance) {
-	in.Finalizers = []string{controller.ProviderFinalizer}
-	in.Labels = map[string]string{controller.ProviderLabel: testProvider}
+	in.Finalizers = []string{contract.ProviderFinalizer}
+	in.Labels = map[string]string{contract.ProviderLabel: testProvider}
 }
 
 // observed says that a provider reported on generation, and that the spec
@@ -196,7 +196,7 @@ func (h *harness) catchUp() {
 	h.t.Helper()
 	in := &corev1alpha1.Instance{}
 	require.NoError(h.t, h.c.Get(h.t.Context(), h.key(), in))
-	require.NoError(h.t, rtmonitoring.ApplyStatus(h.t.Context(), h.c, in, controller.StatusFieldOwner(testProvider),
+	require.NoError(h.t, rtmonitoring.ApplyStatus(h.t.Context(), h.c, in, contract.ProviderStatusFieldOwner(testProvider),
 		map[string]any{"observedGeneration": in.Generation, "phase": string(corev1alpha1.InstancePhasePending)},
 	))
 }
@@ -535,12 +535,12 @@ func TestNotRespondingMessage(t *testing.T) {
 		{name: "finalizer and label", mutate: pickedUp, want: pickedUpMessage},
 		{
 			name:   "finalizer only",
-			mutate: func(in *corev1alpha1.Instance) { in.Finalizers = []string{controller.ProviderFinalizer} },
+			mutate: func(in *corev1alpha1.Instance) { in.Finalizers = []string{contract.ProviderFinalizer} },
 			want:   pickedUpMessage,
 		},
 		{
 			name:   "label only",
-			mutate: func(in *corev1alpha1.Instance) { in.Labels = map[string]string{controller.ProviderLabel: testProvider} },
+			mutate: func(in *corev1alpha1.Instance) { in.Labels = map[string]string{contract.ProviderLabel: testProvider} },
 			want:   pickedUpMessage,
 		},
 		{
