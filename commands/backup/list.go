@@ -38,7 +38,7 @@ var (
 
 Displays a table with NAME, NAMESPACE, INSTANCE, STORAGE, STATE, SIZE, and
 AGE. Scheduled backups (those with spec.scheduleName set) appear alongside
-on-demand ones. Pass --json / --verbose to get the raw API response instead
+on-demand ones. Pass -o json / --verbose to get the raw API response instead
 of the formatted table.
 
 There is currently no API to list backups across an entire namespace, so
@@ -50,7 +50,7 @@ There is currently no API to list backups across an entire namespace, so
   everestctl backup ls --namespace everest --instance my-mongo
 
   # JSON output — check the latest completed backup
-  everestctl backup list --namespace everest --instance my-mongo --json \
+  everestctl backup list --namespace everest --instance my-mongo -o json \
     | jq '[.[] | select(.status.state == "Succeeded")] | last'
 
   # Specific cluster and context

@@ -51,7 +51,7 @@ const (
 
 type Config struct {
 	Pretty bool
-	YAML   bool // --yaml: machine-readable YAML instead of JSON when Pretty is false
+	YAML   bool // -o yaml: machine-readable YAML instead of JSON when Pretty is false
 }
 
 type CreateOptions struct {
@@ -265,11 +265,11 @@ func (ic *InstanceCreator) emitServerDryRun(created *client.Instance, opts Creat
 	if created == nil {
 		return fmt.Errorf("the server accepted instance %q but returned an unreadable response body", opts.Name)
 	}
-	return writeInstanceJSON(created, ic.config.YAML)
+	return writeInstance(created, ic.config.YAML)
 }
 
 // emitCreated reports a non-waiting create: a success line in pretty mode, or
-// the created instance in JSON/YAML mode (so `create --json`/`--yaml` is parseable).
+// the created instance in JSON/YAML mode (so `create -o json`/`-o yaml` is parseable).
 func (ic *InstanceCreator) emitCreated(created *client.Instance, opts CreateOptions) error {
 	if ic.config.Pretty {
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Instance %q created in namespace %q", opts.Name, opts.Namespace))
@@ -279,7 +279,7 @@ func (ic *InstanceCreator) emitCreated(created *client.Instance, opts CreateOpti
 	if created == nil {
 		return fmt.Errorf("instance %q was created but the server returned an unreadable response body", opts.Name)
 	}
-	return writeInstanceJSON(created, ic.config.YAML)
+	return writeInstance(created, ic.config.YAML)
 }
 
 // waitForInstance blocks until the instance is ready or will not become
@@ -335,10 +335,10 @@ func (ic *InstanceCreator) waitForInstance(
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Instance %q is ready", opts.Name))
 		return nil
 	}
-	return writeInstanceJSON(final, ic.config.YAML)
+	return writeInstance(final, ic.config.YAML)
 }
 
-func writeInstanceJSON(inst *client.Instance, asYAML bool) error {
+func writeInstance(inst *client.Instance, asYAML bool) error {
 	if inst == nil {
 		return nil
 	}

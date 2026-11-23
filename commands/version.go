@@ -75,13 +75,14 @@ func versionRunE(cmd *cobra.Command, _ []string) error {
 		v.ServerVersion = &sv
 	}
 
-	if rootCmdFlags.JSON {
+	switch rootCmdFlags.Output {
+	case cli.OutputJSON:
 		_, _ = fmt.Fprintln(os.Stdout, v.JSONString())
 		return nil
-	}
-	if rootCmdFlags.YAML {
+	case cli.OutputYAML:
 		return cli.Encode(os.Stdout, v, true)
+	default:
+		_, _ = fmt.Fprintln(os.Stdout, v)
+		return nil
 	}
-	_, _ = fmt.Fprintln(os.Stdout, v)
-	return nil
 }

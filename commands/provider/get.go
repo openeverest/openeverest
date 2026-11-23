@@ -35,15 +35,15 @@ var (
 		Short:   "Get a provider",
 		Long: `Fetch a single Provider resource via the Everest API.
 
-Prints the full API object as JSON (default) or YAML (--yaml).`,
+Prints the full API object as JSON (default) or YAML (-o yaml).`,
 		Example: `  # Fetch a provider
   everestctl provider get --name percona-server-mongodb
 
   # YAML output
-  everestctl provider get --name percona-server-mongodb --yaml
+  everestctl provider get --name percona-server-mongodb -o yaml
 
   # Scripting — inspect the version catalog
-  everestctl provider get --name percona-server-mongodb --json \
+  everestctl provider get --name percona-server-mongodb -o json \
     | jq '.spec.versions'`,
 		PreRun: getPreRun,
 		Run:    getRun,

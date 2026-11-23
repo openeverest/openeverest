@@ -35,16 +35,16 @@ var (
 		Short:   "Get a restore",
 		Long: `Fetch a single Restore resource via the Everest API.
 
-Prints the full API object as JSON (default) or YAML (--yaml). The restore is
+Prints the full API object as JSON (default) or YAML (-o yaml). The restore is
 addressed by name and namespace; --instance is not required.`,
 		Example: `  # Fetch a restore
   everestctl restore get --name restore-1 --namespace everest
 
   # YAML output
-  everestctl restore get --name restore-1 --namespace everest --yaml
+  everestctl restore get --name restore-1 --namespace everest -o yaml
 
   # Scripting — check state
-  everestctl restore get --name restore-1 --namespace everest --json \
+  everestctl restore get --name restore-1 --namespace everest -o json \
     | jq -r '.status.state'`,
 		PreRun: getPreRun,
 		Run:    getRun,

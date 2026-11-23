@@ -170,6 +170,15 @@ func TestEmitDeleted_JSON(t *testing.T) {
 }
 
 //nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
+func TestEmitDeleted_YAML(t *testing.T) {
+	out := captureStdout(t, func() {
+		err := EmitDeleted(false, true, "instance", "my-db", "everest")
+		require.NoError(t, err)
+	})
+	assert.Equal(t, "deleted: true\nname: my-db\nnamespace: everest\n", out)
+}
+
+//nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
 func TestEmitAlreadyGone_Pretty(t *testing.T) {
 	out := captureStdout(t, func() {
 		err := EmitAlreadyGone(true, false, "instance", "my-db", "everest")
@@ -188,6 +197,15 @@ func TestEmitAlreadyGone_JSON(t *testing.T) {
 }
 
 //nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
+func TestEmitAlreadyGone_YAML(t *testing.T) {
+	out := captureStdout(t, func() {
+		err := EmitAlreadyGone(false, true, "backup storage", "my-s3", "everest")
+		require.NoError(t, err)
+	})
+	assert.Equal(t, "deleted: false\nname: my-s3\nnamespace: everest\n", out)
+}
+
+//nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
 func TestEmitWaitSucceeded_Pretty(t *testing.T) {
 	out := captureStdout(t, func() {
 		err := EmitWaitSucceeded(true, false, "backup storage", "my-s3", "everest")
@@ -203,6 +221,15 @@ func TestEmitWaitSucceeded_JSON(t *testing.T) {
 		require.NoError(t, err)
 	})
 	assert.JSONEq(t, `{"name":"my-db","namespace":"everest","deleted":true}`, out)
+}
+
+//nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
+func TestEmitWaitSucceeded_YAML(t *testing.T) {
+	out := captureStdout(t, func() {
+		err := EmitWaitSucceeded(false, true, "instance", "my-db", "everest")
+		require.NoError(t, err)
+	})
+	assert.Equal(t, "deleted: true\nname: my-db\nnamespace: everest\n", out)
 }
 
 func TestTitleFirst(t *testing.T) {
@@ -238,4 +265,12 @@ func TestWriteResult_JSONShape(t *testing.T) {
 	assert.Equal(t, "my-s3", decoded.Name)
 	assert.Equal(t, "everest", decoded.Namespace)
 	assert.True(t, decoded.Deleted)
+}
+
+//nolint:paralleltest // captureStdout mutates global os.Stdout; must run serially
+func TestWriteResult_YAMLShape(t *testing.T) {
+	out := captureStdout(t, func() {
+		require.NoError(t, writeResult("my-s3", "everest", true, true))
+	})
+	assert.Equal(t, "deleted: true\nname: my-s3\nnamespace: everest\n", out)
 }

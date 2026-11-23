@@ -39,12 +39,13 @@ Shows the status in one line ("Up · Upgrading"), the message that explains it,
 the version and the per-component ready/total counts. Then, when there are
 any: the problems observed, the checks that pass, fail or are still pending,
 the operations in progress and the notices that want a decision. The
-Kubernetes conditions reported by the Everest API come last. Pass --json /
+Kubernetes conditions reported by the Everest API come last. Pass -o json /
 --verbose to get the raw API response instead of the formatted output.
 
 With --watch / -w the command polls continuously until Ctrl-C, token expiry,
-or the instance is deleted. Each tick appends a --- separator in pretty mode,
-or emits one JSON object per line (NDJSON) in --json mode.`,
+or the instance is deleted. Each tick appends a --- separator in pretty and
+-o yaml modes (a YAML multi-document stream), or emits one JSON object per
+line (NDJSON) in -o json mode.`,
 		Example: `  # Single fetch
   everestctl instance status --name my-mongo --namespace everest
 
@@ -55,7 +56,7 @@ or emits one JSON object per line (NDJSON) in --json mode.`,
   everestctl instance status --name my-mongo --namespace everest -w --interval 5s
 
   # Stream NDJSON — pipe to jq
-  everestctl instance status --name my-mongo --namespace everest --watch --json \
+  everestctl instance status --name my-mongo --namespace everest --watch -o json \
     | jq -r '.status.conditions[]? | select(.type == "Ready") | .reason'
 
   # Specific cluster and context

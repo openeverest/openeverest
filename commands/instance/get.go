@@ -35,16 +35,16 @@ var (
 		Short:   "Get an instance",
 		Long: `Fetch a single Instance resource via the Everest API.
 
-Prints the full API object as JSON (default) or YAML (--yaml). For a
+Prints the full API object as JSON (default) or YAML (-o yaml). For a
 human-readable status summary, use "instance status" instead.`,
 		Example: `  # Fetch an instance
   everestctl instance get --name my-mongo --namespace everest
 
   # YAML output
-  everestctl instance get --name my-mongo --namespace everest --yaml
+  everestctl instance get --name my-mongo --namespace everest -o yaml
 
   # Scripting — pick a field
-  everestctl instance get --name my-mongo --namespace everest --json \
+  everestctl instance get --name my-mongo --namespace everest -o json \
     | jq -r '.status.phase'`,
 		PreRun: getPreRun,
 		Run:    getRun,

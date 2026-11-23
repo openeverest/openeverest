@@ -115,13 +115,13 @@ func (cr *CreateRunner) Run(ctx context.Context, opts CreateOptions, cfgPath str
 }
 
 // emitCreated reports a non-waiting create: a success line in pretty mode, or
-// the created backup in JSON mode (so `create --json` is parseable either way).
+// the created backup in JSON mode (so `create -o json` is parseable either way).
 func (cr *CreateRunner) emitCreated(created *client.Backup, name string) error {
 	if cr.config.Pretty {
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup %q created", name))
 		return nil
 	}
-	return writeBackupJSON(created, cr.config.YAML)
+	return writeBackup(created, cr.config.YAML)
 }
 
 // waitForBackup blocks until the backup reaches a terminal state, streaming
@@ -168,10 +168,10 @@ func (cr *CreateRunner) waitForBackup(
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup %q completed", name))
 		return nil
 	}
-	return writeBackupJSON(final, cr.config.YAML)
+	return writeBackup(final, cr.config.YAML)
 }
 
-func writeBackupJSON(b *client.Backup, asYAML bool) error {
+func writeBackup(b *client.Backup, asYAML bool) error {
 	if err := cli.Encode(os.Stdout, b, asYAML); err != nil {
 		return fmt.Errorf("failed to encode backup: %w", err)
 	}

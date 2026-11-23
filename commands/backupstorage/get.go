@@ -35,17 +35,17 @@ var (
 		Short:   "Get a backup storage",
 		Long: `Fetch a single BackupStorage resource via the Everest API.
 
-Prints the full API object as JSON (default) or YAML (--yaml). Credentials are
+Prints the full API object as JSON (default) or YAML (-o yaml). Credentials are
 never part of the response: a BackupStorage only names the Secret that holds
 them.`,
 		Example: `  # Fetch a backup storage
   everestctl backup-storage get --name s3-primary --namespace everest
 
   # YAML output
-  everestctl backup-storage get --name s3-primary --namespace everest --yaml
+  everestctl backup-storage get --name s3-primary --namespace everest -o yaml
 
   # Scripting — check the bucket
-  everestctl backup-storage get --name s3-primary --namespace everest --json \
+  everestctl backup-storage get --name s3-primary --namespace everest -o json \
     | jq -r '.spec.location.objectStore.bucket'`,
 		PreRun: getPreRun,
 		Run:    getRun,

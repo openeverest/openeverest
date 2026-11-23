@@ -16,19 +16,17 @@ package cli
 
 import "github.com/spf13/cobra"
 
-// IsPretty is true when neither --verbose, --json, nor --yaml was passed.
+// IsPretty is true when neither --verbose nor -o/--output was passed.
 func IsPretty(cmd *cobra.Command) bool {
-	return !cmd.Flag(FlagVerbose).Changed &&
-		!cmd.Flag(FlagJSON).Changed &&
-		!cmd.Flag(FlagYAML).Changed
+	return !cmd.Flag(FlagVerbose).Changed && !cmd.Flag(FlagOutput).Changed
 }
 
-// IsYAML is true when --yaml was passed.
+// IsYAML is true when -o/--output yaml was passed.
 func IsYAML(cmd *cobra.Command) bool {
-	return cmd.Flag(FlagYAML).Changed
+	return cmd.Flag(FlagOutput).Changed && cmd.Flag(FlagOutput).Value.String() == string(OutputYAML)
 }
 
-// IsMachineReadable is true when --json or --yaml was passed.
+// IsMachineReadable is true when -o/--output was passed (json or yaml).
 func IsMachineReadable(cmd *cobra.Command) bool {
-	return cmd.Flag(FlagJSON).Changed || cmd.Flag(FlagYAML).Changed
+	return cmd.Flag(FlagOutput).Changed
 }

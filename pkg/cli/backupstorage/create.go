@@ -343,7 +343,7 @@ func createStorageError(resp *client.CreateBackupStorageResponse) error {
 }
 
 // emitCreated reports a successful create: success lines in pretty mode, or the
-// created backup storage in JSON mode (so `create --json` is parseable either way).
+// created backup storage in JSON mode (so `create -o json` is parseable either way).
 func (cr *CreateRunner) emitCreated(created *client.BackupStorage, name string, secrets []string) error {
 	if cr.config.Pretty {
 		for _, secret := range secrets {
@@ -352,7 +352,7 @@ func (cr *CreateRunner) emitCreated(created *client.BackupStorage, name string, 
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Backup storage %q created", name))
 		return nil
 	}
-	return writeBackupStorageJSON(created, cr.config.YAML)
+	return writeBackupStorage(created, cr.config.YAML)
 }
 
 // emitClientDryRun prints what create would send: the backup storage, as
@@ -360,7 +360,7 @@ func (cr *CreateRunner) emitCreated(created *client.BackupStorage, name string, 
 // values) in pretty mode, as JSON/YAML otherwise.
 func (cr *CreateRunner) emitClientDryRun(opts CreateOptions, req createRequest) error {
 	if !cr.config.Pretty {
-		return writeBackupStorageJSON(&req.storage, cr.config.YAML)
+		return writeBackupStorage(&req.storage, cr.config.YAML)
 	}
 	out, err := yaml.Marshal(req.storage)
 	if err != nil {
@@ -389,10 +389,10 @@ func (cr *CreateRunner) emitServerDryRun(created *client.BackupStorage, name str
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Dry run for backup storage %q accepted by the server, nothing created", name))
 		return nil
 	}
-	return writeBackupStorageJSON(created, cr.config.YAML)
+	return writeBackupStorage(created, cr.config.YAML)
 }
 
-func writeBackupStorageJSON(bs *client.BackupStorage, asYAML bool) error {
+func writeBackupStorage(bs *client.BackupStorage, asYAML bool) error {
 	if err := cli.Encode(os.Stdout, bs, asYAML); err != nil {
 		return fmt.Errorf("failed to encode backup storage: %w", err)
 	}

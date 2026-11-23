@@ -268,6 +268,15 @@ func TestBackupStorageList_JSONOutput(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestBackupStorageList_YAMLOutput(t *testing.T) {
+	t.Parallel()
+
+	bs := backupStorageFromJSON(t, `{"metadata":{"name":"s3-primary"}}`)
+	var buf bytes.Buffer
+	NewListRunner(Config{YAML: true}, zap.NewNop().Sugar()).render(&buf, []client.BackupStorage{*bs})
+	assert.Contains(t, buf.String(), "- metadata:\n    name: s3-primary\n")
+}
+
 func TestBackupStorageList_Filters(t *testing.T) {
 	t.Parallel()
 

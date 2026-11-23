@@ -35,16 +35,16 @@ var (
 		Short:   "Get a backup",
 		Long: `Fetch a single Backup resource via the Everest API.
 
-Prints the full API object as JSON (default) or YAML (--yaml). The backup is
+Prints the full API object as JSON (default) or YAML (-o yaml). The backup is
 addressed by name and namespace; --instance is not required.`,
 		Example: `  # Fetch a backup
   everestctl backup get --name pre-upgrade --namespace everest
 
   # YAML output
-  everestctl backup get --name pre-upgrade --namespace everest --yaml
+  everestctl backup get --name pre-upgrade --namespace everest -o yaml
 
   # Scripting — check state
-  everestctl backup get --name pre-upgrade --namespace everest --json \
+  everestctl backup get --name pre-upgrade --namespace everest -o json \
     | jq -r '.status.state'`,
 		PreRun: getPreRun,
 		Run:    getRun,

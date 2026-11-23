@@ -35,15 +35,15 @@ var (
 		Short:   "Get a backup class",
 		Long: `Fetch a single BackupClass resource via the Everest API.
 
-Prints the full API object as JSON (default) or YAML (--yaml).`,
+Prints the full API object as JSON (default) or YAML (-o yaml).`,
 		Example: `  # Fetch a backup class
   everestctl backup-class get --name pg-backup
 
   # YAML output
-  everestctl backup-class get --name pg-backup --yaml
+  everestctl backup-class get --name pg-backup -o yaml
 
   # Scripting — inspect execution mode
-  everestctl backup-class get --name pg-backup --json \
+  everestctl backup-class get --name pg-backup -o json \
     | jq -r '.spec.executionMode'`,
 		PreRun: getPreRun,
 		Run:    getRun,
