@@ -158,4 +158,42 @@ describe('mergeSectionEdit', () => {
       expect(mergeWidget({})).toEqual({ replicas: 3 });
     });
   });
+  describe('cleared optional fields', () => {
+    const textSections = {
+      engine: {
+        components: {
+          configuration: {
+            uiType: FieldType.Text,
+            path: 'spec.engine.configuration',
+            fieldParams: { label: 'Configuration' },
+          },
+        },
+      },
+    };
+
+    it('deletes the saved value when an optional field is cleared', () => {
+      const result = mergeSectionEdit({
+        spec: { replicas: 3, engine: { configuration: 'max_connections=100' } },
+        sections: textSections,
+        sectionKey: 'engine',
+        formData: { spec: { engine: { configuration: '' } } },
+      });
+
+      expect(result).toEqual({ replicas: 3 });
+    });
+
+    it('keeps a saved value the form did not submit', () => {
+      const result = mergeSectionEdit({
+        spec: { replicas: 3, engine: { configuration: 'max_connections=100' } },
+        sections: textSections,
+        sectionKey: 'engine',
+        formData: { spec: {} },
+      });
+
+      expect(result).toEqual({
+        replicas: 3,
+        engine: { configuration: 'max_connections=100' },
+      });
+    });
+  });
 });
