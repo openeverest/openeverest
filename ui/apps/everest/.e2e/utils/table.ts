@@ -58,10 +58,12 @@ export const waitForInitializingState = async (page: Page, name: string) => {
 };
 
 /**
- * Waits for specific object status in the table list
+ * Waits for a table row whose status is a single fixed word, such as a backup
+ * or a restore ('Succeeded'). For instances use waitForInstanceStatus: their
+ * status can carry a " · <detail>" suffix.
  * @param page Page object
- * @param name Name of the object to look for (database, backup)
- * @param status Desired status of the cluster
+ * @param name Name of the object to look for (backup, restore)
+ * @param status Status word to wait for
  * @param timeout How long to wait until error thrown
  */
 export const waitForStatus = async (
@@ -83,8 +85,9 @@ const escapeRegExp = (text: string) =>
 /**
  * Waits for an instance row in the instances list to show a status word.
  * During an operation the list appends what the word alone leaves out, e.g.
- * "Restoring · unavailable" or "Deleting · Crash loop", and which detail
- * appears depends on timing, so only the word itself is matched.
+ * "Restoring · unavailable" or "Deleting · Crash loop" (Messages.withDetail in
+ * src/utils/instance-status.messages.ts), and which detail appears depends on
+ * timing, so only the word itself is matched.
  * @param page Page object
  * @param instanceName Name of the instance
  * @param statusWord Status word as shown in the list, e.g. 'Ready', 'Restoring', 'Deleting'
