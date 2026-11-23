@@ -77,6 +77,34 @@ export const waitForStatus = async (
   });
 };
 
+const escapeRegExp = (text: string) =>
+  text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Waits for an instance row in the instances list to show a status word.
+ * During an operation the list appends what the word alone leaves out, e.g.
+ * "Restoring · unavailable" or "Deleting · Crash loop", and which detail
+ * appears depends on timing, so only the word itself is matched.
+ * @param page Page object
+ * @param instanceName Name of the instance
+ * @param statusWord Status word as shown in the list, e.g. 'Ready', 'Restoring', 'Deleting'
+ * @param timeout How long to wait until error thrown
+ */
+export const waitForInstanceStatus = async (
+  page: Page,
+  instanceName: string,
+  statusWord: string,
+  timeout: number
+) => {
+  const instanceRow = page.getByRole('row').filter({ hasText: instanceName });
+  await expect(instanceRow).toBeVisible({ timeout: 15000 });
+  await expect(
+    instanceRow.getByText(
+      new RegExp(`^${escapeRegExp(statusWord)}( \u00b7 .+)?$`)
+    )
+  ).toBeVisible({ timeout });
+};
+
 /**
  * Clicks a delete dialog's confirm button and waits for the DELETE request to
  * succeed, so a following page reload (waitForDelete) cannot abort it in flight.
