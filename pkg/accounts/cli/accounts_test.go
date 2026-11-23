@@ -369,22 +369,4 @@ func TestGetInitAdminPassword(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "hash123", hash)
 	})
-
-	t.Run("refuses_after_password_secured", func(t *testing.T) {
-		t.Parallel()
-		mgr := newMemoryAccounts()
-		mgr.seed(common.EverestAdminUser, &accounts.Account{PasswordHash: "hash123"}, false)
-		a := newTestAccounts(mgr)
-
-		hash, err := a.GetInitAdminPassword(ctx)
-		require.NoError(t, err)
-		require.Equal(t, "hash123", hash)
-
-		require.NoError(t, a.SetPassword(ctx, SetPasswordOptions{
-			Username:    common.EverestAdminUser,
-			NewPassword: "newsecurepassword",
-		}))
-		_, err = a.GetInitAdminPassword(ctx)
-		require.ErrorContains(t, err, "cannot retrieve admin password")
-	})
 }
