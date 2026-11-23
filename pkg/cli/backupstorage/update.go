@@ -183,7 +183,7 @@ func (u *Updater) emitUpdated(updated *client.BackupStorage, opts UpdateOptions)
 	if updated == nil {
 		return fmt.Errorf("backup storage %q was updated but the server returned an unreadable response body", opts.Name)
 	}
-	return writeBackupStorageJSON(updated, u.config.YAML)
+	return writeBackupStorage(updated, u.config.YAML)
 }
 
 // emitClientDryRun prints the merge patch update would send: as YAML under a
@@ -215,5 +215,5 @@ func (u *Updater) emitServerDryRun(updated *client.BackupStorage, opts UpdateOpt
 	if updated == nil {
 		return fmt.Errorf("the server accepted the update of backup storage %q but returned an unreadable response body", opts.Name)
 	}
-	return writeBackupStorageJSON(updated, u.config.YAML)
+	return writeBackupStorage(updated, u.config.YAML)
 }

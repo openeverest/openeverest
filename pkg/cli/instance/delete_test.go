@@ -247,12 +247,12 @@ func TestDelete_JSONMode_NonInteractiveWithoutYes_FailsFast(t *testing.T) {
 	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
 
 	opts := DeleteOptions{
-		Name:      "my-db",
-		Namespace: "everest",
-		Cluster:   "main",
-		JSON:      true,
-		// IsTerminal is true here to prove --json alone forces non-interactive,
-		// independent of whether stdin is actually a real terminal.
+		Name:            "my-db",
+		Namespace:       "everest",
+		Cluster:         "main",
+		MachineReadable: true,
+		// IsTerminal is true here to prove machine-readable output alone forces
+		// non-interactive, independent of whether stdin is actually a real terminal.
 		IsTerminal: func() bool { return true },
 	}
 
@@ -263,12 +263,12 @@ func TestDelete_JSONMode_NonInteractiveWithoutYes_FailsFast(t *testing.T) {
 }
 
 // TestDelete_VerboseAloneDoesNotForceNonInteractive proves --verbose alone
-// (Config.Pretty false, JSON false) does not force non-interactive mode on a
-// real TTY, only --json should. It runs Run itself rather than restating the
-// gating rule against a hand-built confirm.Options, since that would pass
-// even if Run went back to deriving JSON from Pretty. Without a real
-// terminal, the prompt itself fails, so this only asserts we got past the
-// gate, not that the prompt succeeded.
+// (Config.Pretty false, MachineReadable false) does not force non-interactive
+// mode on a real TTY, only --json/--yaml should. It runs Run itself rather
+// than restating the gating rule against a hand-built confirm.Options, since
+// that would pass even if Run went back to deriving MachineReadable from
+// Pretty. Without a real terminal, the prompt itself fails, so this only
+// asserts we got past the gate, not that the prompt succeeded.
 func TestDelete_VerboseAloneDoesNotForceNonInteractive(t *testing.T) {
 	t.Parallel()
 
@@ -281,12 +281,12 @@ func TestDelete_VerboseAloneDoesNotForceNonInteractive(t *testing.T) {
 	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
 
 	opts := DeleteOptions{
-		Name:       "my-db",
-		Namespace:  "everest",
-		Cluster:    "main",
-		JSON:       false,
-		IsTerminal: func() bool { return true },
-		Yes:        true,
+		Name:            "my-db",
+		Namespace:       "everest",
+		Cluster:         "main",
+		MachineReadable: false,
+		IsTerminal:      func() bool { return true },
+		Yes:             true,
 	}
 
 	id := NewDeleter(Config{Pretty: false}, zap.NewNop().Sugar())

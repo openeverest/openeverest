@@ -120,7 +120,7 @@ func (cr *CreateRunner) emitCreated(created *client.Restore, name string) error 
 	if created == nil {
 		return fmt.Errorf("restore %q was created but the server returned an unreadable response body", name)
 	}
-	return writeRestoreJSON(created, cr.config.YAML)
+	return writeRestore(created, cr.config.YAML)
 }
 
 // waitForRestore blocks until the restore reaches a terminal state, streaming
@@ -161,10 +161,10 @@ func (cr *CreateRunner) waitForRestore(ctx context.Context, c *client.ClientWith
 		_, _ = fmt.Fprint(os.Stdout, output.Success("Restore %q completed", name))
 		return nil
 	}
-	return writeRestoreJSON(final, cr.config.YAML)
+	return writeRestore(final, cr.config.YAML)
 }
 
-func writeRestoreJSON(r *client.Restore, asYAML bool) error {
+func writeRestore(r *client.Restore, asYAML bool) error {
 	if r == nil {
 		return nil
 	}

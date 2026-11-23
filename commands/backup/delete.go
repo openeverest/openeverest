@@ -47,7 +47,7 @@ Backup first if you need a different outcome for this delete.
 The confirmation tier follows the effective policy: Delete asks you to type
 the backup name back (irreversible data loss); Retain asks y/N (the data
 survives). Pass --yes/-y to skip the prompt; in a non-interactive context (no
-terminal, or --json) omitting --yes fails immediately instead of hanging on a
+terminal, or --json/--yaml) omitting --yes fails immediately instead of hanging on a
 prompt nobody can answer.
 
 If the backup is still Pending or Running, has no status yet, or is in the
@@ -98,7 +98,7 @@ func init() {
 func deletePreRun(cmd *cobra.Command, _ []string) {
 	deleteCfg.Pretty = cli.IsPretty(cmd)
 	deleteCfg.YAML = cli.IsYAML(cmd)
-	deleteOpts.JSON = cli.IsMachineReadable(cmd)
+	deleteOpts.MachineReadable = cli.IsMachineReadable(cmd)
 }
 
 func deleteRun(cmd *cobra.Command, _ []string) {

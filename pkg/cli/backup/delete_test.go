@@ -332,12 +332,12 @@ func TestDelete_JSONMode_NonInteractiveWithoutYes_FailsFast(t *testing.T) {
 	defer srv.Close()
 
 	opts := DeleteOptions{
-		Name:      "pre-upgrade",
-		Namespace: "everest",
-		Cluster:   "main",
-		JSON:      true,
-		// IsTerminal is true here to prove --json alone forces non-interactive,
-		// independent of whether stdin is actually a real terminal.
+		Name:            "pre-upgrade",
+		Namespace:       "everest",
+		Cluster:         "main",
+		MachineReadable: true,
+		// IsTerminal is true here to prove machine-readable output alone forces
+		// non-interactive, independent of whether stdin is actually a real terminal.
 		IsTerminal: func() bool { return true },
 	}
 
@@ -348,7 +348,7 @@ func TestDelete_JSONMode_NonInteractiveWithoutYes_FailsFast(t *testing.T) {
 }
 
 // TestDelete_VerboseAloneDoesNotForceNonInteractive proves --verbose alone
-// does not force non-interactive mode on a real TTY, only --json should.
+// does not force non-interactive mode on a real TTY, only --json/--yaml should.
 func TestDelete_VerboseAloneDoesNotForceNonInteractive(t *testing.T) {
 	t.Parallel()
 
@@ -358,12 +358,12 @@ func TestDelete_VerboseAloneDoesNotForceNonInteractive(t *testing.T) {
 	defer srv.Close()
 
 	opts := DeleteOptions{
-		Name:       "pre-upgrade",
-		Namespace:  "everest",
-		Cluster:    "main",
-		JSON:       false,
-		IsTerminal: func() bool { return true },
-		Yes:        true,
+		Name:            "pre-upgrade",
+		Namespace:       "everest",
+		Cluster:         "main",
+		MachineReadable: false,
+		IsTerminal:      func() bool { return true },
+		Yes:             true,
 	}
 
 	bd := NewDeleter(Config{Pretty: false}, zap.NewNop().Sugar())

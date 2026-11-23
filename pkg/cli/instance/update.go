@@ -310,5 +310,5 @@ func (iu *Updater) emitUpdated(updated *client.Instance, opts UpdateOptions) err
 	if updated == nil {
 		return fmt.Errorf("instance %q was updated but the server returned an unreadable response body", opts.Name)
 	}
-	return writeInstanceJSON(updated, iu.config.YAML)
+	return writeInstance(updated, iu.config.YAML)
 }

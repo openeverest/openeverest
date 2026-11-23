@@ -269,12 +269,12 @@ func TestDelete_JSONMode_NonInteractiveWithoutYes_FailsFast(t *testing.T) {
 	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
 
 	opts := DeleteOptions{
-		Name:      "my-s3",
-		Namespace: "everest",
-		Cluster:   "main",
-		JSON:      true,
-		// IsTerminal is true here to prove --json alone forces non-interactive,
-		// independent of whether stdin is actually a real terminal.
+		Name:            "my-s3",
+		Namespace:       "everest",
+		Cluster:         "main",
+		MachineReadable: true,
+		// IsTerminal is true here to prove machine-readable output alone forces
+		// non-interactive, independent of whether stdin is actually a real terminal.
 		IsTerminal: func() bool { return true },
 	}
 
@@ -296,12 +296,12 @@ func TestDelete_VerboseAloneDoesNotForceNonInteractive(t *testing.T) {
 	require.NoError(t, newTestConfig(srv.URL).Save(cfgPath))
 
 	opts := DeleteOptions{
-		Name:       "my-s3",
-		Namespace:  "everest",
-		Cluster:    "main",
-		JSON:       false,
-		IsTerminal: func() bool { return true },
-		Yes:        true,
+		Name:            "my-s3",
+		Namespace:       "everest",
+		Cluster:         "main",
+		MachineReadable: false,
+		IsTerminal:      func() bool { return true },
+		Yes:             true,
 	}
 
 	d := NewDeleter(Config{Pretty: false}, zap.NewNop().Sugar())

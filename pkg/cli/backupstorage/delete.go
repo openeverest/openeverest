@@ -39,16 +39,16 @@ import (
 
 // DeleteOptions configures `backup-storage delete`.
 type DeleteOptions struct {
-	Name           string
-	Namespace      string
-	Cluster        string
-	Context        string        // overrides the active context when set
-	Yes            bool          // skip the confirmation prompt
-	JSON           bool          // --json was passed; forces non-interactive regardless of --verbose
-	IgnoreNotFound bool          // treat "backup storage already gone" (404) as a successful delete
-	Wait           bool          // block until the backup storage is fully deleted
-	Timeout        time.Duration // bounds --wait; must be positive
-	DryRun         string        // cli.DryRunClient sends nothing, cli.DryRunServer sends the delete with dryRun=All; neither prompts
+	Name            string
+	Namespace       string
+	Cluster         string
+	Context         string        // overrides the active context when set
+	Yes             bool          // skip the confirmation prompt
+	MachineReadable bool          // --json or --yaml was passed; forces non-interactive regardless of --verbose
+	IgnoreNotFound  bool          // treat "backup storage already gone" (404) as a successful delete
+	Wait            bool          // block until the backup storage is fully deleted
+	Timeout         time.Duration // bounds --wait; must be positive
+	DryRun          string        // cli.DryRunClient sends nothing, cli.DryRunServer sends the delete with dryRun=All; neither prompts
 
 	// IsTerminal overrides the TTY check for the prompt. Set in tests.
 	IsTerminal func() bool
@@ -98,7 +98,7 @@ func (bd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 		dryRun := client.DeleteBackupStorageParamsDryRunAll
 		params = &client.DeleteBackupStorageParams{DryRun: &dryRun}
 	} else {
-		confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.JSON, IsTerminal: opts.IsTerminal}
+		confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.MachineReadable, IsTerminal: opts.IsTerminal}
 		msg := fmt.Sprintf("Delete backup storage %q in namespace %q?", opts.Name, opts.Namespace)
 		if err := confirm.YesNo(ctx, confirmOpts, msg); err != nil {
 			return err

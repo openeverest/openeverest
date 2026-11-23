@@ -37,16 +37,16 @@ import (
 
 // DeleteOptions configures `restore delete`.
 type DeleteOptions struct {
-	Name           string
-	Namespace      string
-	Cluster        string
-	Context        string        // overrides the active context when set
-	Yes            bool          // skip the confirmation prompt
-	JSON           bool          // --json was passed; forces non-interactive regardless of --verbose
-	Force          bool          // override the in-flight (Pending/Running/no status yet) guard; orthogonal to Yes
-	IgnoreNotFound bool          // treat "restore already gone" (404) as a successful delete
-	Wait           bool          // block until the restore is fully deleted
-	Timeout        time.Duration // bounds --wait; must be positive
+	Name            string
+	Namespace       string
+	Cluster         string
+	Context         string        // overrides the active context when set
+	Yes             bool          // skip the confirmation prompt
+	MachineReadable bool          // --json or --yaml was passed; forces non-interactive regardless of --verbose
+	Force           bool          // override the in-flight (Pending/Running/no status yet) guard; orthogonal to Yes
+	IgnoreNotFound  bool          // treat "restore already gone" (404) as a successful delete
+	Wait            bool          // block until the restore is fully deleted
+	Timeout         time.Duration // bounds --wait; must be positive
 
 	// IsTerminal overrides the TTY check for the prompt. Set in tests.
 	IsTerminal func() bool
@@ -94,7 +94,7 @@ func (rd *Deleter) Run(ctx context.Context, opts DeleteOptions, cfgPath string) 
 		return fmt.Errorf("restore %q is still running; wait for it to finish or re-run with --force", opts.Name)
 	}
 
-	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.JSON, IsTerminal: opts.IsTerminal}
+	confirmOpts := confirm.Options{Yes: opts.Yes, JSON: opts.MachineReadable, IsTerminal: opts.IsTerminal}
 	msg := deleteConfirmMessage(opts.Name, opts.Namespace, state, forcingInFlight)
 	if err := confirm.YesNo(ctx, confirmOpts, msg); err != nil {
 		return err
