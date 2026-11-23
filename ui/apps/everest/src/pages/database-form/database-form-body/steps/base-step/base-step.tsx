@@ -104,24 +104,6 @@ export const BaseInfoStep = ({ loadingDefaultsForEdition }: StepProps) => {
   //   )
   // );
 
-  // setting the dbnamespace default value
-  useEffect(() => {
-    const { isTouched: k8sNamespaceTouched } = getFieldState(
-      DbWizardFormFields.k8sNamespace
-    );
-    if (
-      !k8sNamespaceTouched &&
-      mode === FormMode.New &&
-      namespaces.length > 0 &&
-      !isLoading
-    ) {
-      setValue(DbWizardFormFields.k8sNamespace, namespaces[0], {
-        shouldValidate: true,
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, isLoading, namespaces.length]);
-
   // setting the topology default value
   useEffect(() => {
     const { isTouched: topologyTouched } = getFieldState(
