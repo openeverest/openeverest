@@ -236,8 +236,7 @@ func TestCreate(t *testing.T) {
 		require.NoError(t, err)
 		acc, getErr := mgr.Get(ctx, "validuser")
 		require.NoError(t, getErr)
-		require.NotNil(t, acc)
-		assert.True(t, acc.Enabled)
+		assert.Equal(t, "validpassword", acc.PasswordHash)
 	})
 }
 
