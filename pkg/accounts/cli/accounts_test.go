@@ -361,8 +361,7 @@ func TestGetInitAdminPassword(t *testing.T) {
 		mgr.On("IsSecure", ctx, common.EverestAdminUser).Return(true, nil)
 		a := newTestAccounts(mgr, false)
 		_, err := a.GetInitAdminPassword(ctx)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "cannot retrieve admin password")
+		require.ErrorContains(t, err, "cannot retrieve admin password")
 		mgr.AssertExpectations(t)
 	})
 
