@@ -16,6 +16,7 @@
 package backupclass
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -27,6 +28,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 )
 
@@ -36,12 +38,16 @@ import (
 type testBackupClass struct {
 	Metadata map[string]any `json:"metadata"`
 	Spec     struct {
-		ExecutionMode      string   `json:"executionMode"`
-		SupportedProviders []string `json:"supportedProviders,omitempty"`
+		ExecutionMode   string `json:"executionMode"`
+		ProviderManaged *struct {
+			ProviderRef struct {
+				Name string `json:"name"`
+			} `json:"providerRef"`
+		} `json:"providerManaged,omitempty"`
 	} `json:"spec"`
 }
 
-func newTestBackupClass(name, executionMode string, providers ...string) testBackupClass {
+func newTestBackupClass(name, executionMode, provider string) testBackupClass {
 	tbc := testBackupClass{
 		Metadata: map[string]any{
 			"name":              name,
@@ -49,7 +55,14 @@ func newTestBackupClass(name, executionMode string, providers ...string) testBac
 		},
 	}
 	tbc.Spec.ExecutionMode = executionMode
-	tbc.Spec.SupportedProviders = providers
+	if provider != "" {
+		tbc.Spec.ProviderManaged = &struct {
+			ProviderRef struct {
+				Name string `json:"name"`
+			} `json:"providerRef"`
+		}{}
+		tbc.Spec.ProviderManaged.ProviderRef.Name = provider
+	}
 	return tbc
 }
 
@@ -175,4 +188,14 @@ func TestBackupClassList_JSONOutput(t *testing.T) {
 	runner := NewListRunner(Config{Pretty: false}, zap.NewNop().Sugar())
 	err := runner.Run(t.Context(), ListOptions{Cluster: "main"}, cfgPath)
 	require.NoError(t, err)
+}
+
+func TestBackupClassList_YAMLOutput(t *testing.T) {
+	t.Parallel()
+
+	var bc client.BackupClass
+	require.NoError(t, json.Unmarshal([]byte(`{"metadata":{"name":"pg-backup"}}`), &bc))
+	var buf bytes.Buffer
+	NewListRunner(Config{YAML: true}, zap.NewNop().Sugar()).render(&buf, []client.BackupClass{bc})
+	assert.Contains(t, buf.String(), "- metadata:\n    name: pg-backup\n")
 }

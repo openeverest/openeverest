@@ -18,136 +18,154 @@ import (
 	"context"
 	"testing"
 
+	"github.com/AlekSi/pointer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/runtime"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	backupv1alpha1 "github.com/openeverest/openeverest/v2/api/backup/v1alpha1"
 	common "github.com/openeverest/openeverest/v2/api/common/v1alpha1"
+	api "github.com/openeverest/openeverest/v2/internal/server/api"
 	"github.com/openeverest/openeverest/v2/pkg/kubernetes"
 )
 
-// TestK8s_PatchBackupStorage pins the merge semantics and the write-only
-// credential flow. The fake client does no strict decoding, so fieldValidation
-// is not observable here and is covered by api-tests/tests/backup-storage.spec.ts
-// instead.
+func testBackupStorage(name, class, mode string) *backupv1alpha1.BackupStorage {
+	return &backupv1alpha1.BackupStorage{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns1"},
+		Spec: backupv1alpha1.BackupStorageSpec{
+			BackupStorageClassRef: common.ObjectRef{Name: class},
+			Location:              backupv1alpha1.BackupStorageLocation{ObjectStore: &backupv1alpha1.ObjectStoreLocation{Bucket: "bucket-1"}},
+			Parameters:            &runtime.RawExtension{Raw: []byte(`{"region":"us-east-1"}`)},
+			Authentication: common.Authentication{
+				Mode:                 mode,
+				CredentialsSecretRef: &common.SecretRef{Name: name + "-creds"},
+			},
+		},
+	}
+}
+
+// newBackupStorageHandler serves objs through a fake client that indexes the
+// BackupStorage selectable fields, as the API server does.
+func newBackupStorageHandler(objs ...ctrlclient.Object) *k8sHandler {
+	storage := &backupv1alpha1.BackupStorage{}
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(kubernetes.CreateScheme()).
+		WithObjects(objs...).
+		WithIndex(storage, backupv1alpha1.BackupStorageClassField, func(o ctrlclient.Object) []string {
+			bs, _ := o.(*backupv1alpha1.BackupStorage)
+			return []string{bs.Spec.BackupStorageClassRef.Name}
+		}).
+		WithIndex(storage, backupv1alpha1.BackupStorageCredentialsSecretField, func(o ctrlclient.Object) []string {
+			bs, _ := o.(*backupv1alpha1.BackupStorage)
+			if ref := bs.Spec.Authentication.CredentialsSecretRef; ref != nil {
+				return []string{ref.Name}
+			}
+			return []string{""}
+		}).
+		WithIndex(storage, backupv1alpha1.BackupStorageCASecretField, func(o ctrlclient.Object) []string {
+			bs, _ := o.(*backupv1alpha1.BackupStorage)
+			if bs.Spec.TLS != nil && bs.Spec.TLS.CA != nil && bs.Spec.TLS.CA.SecretKeyRef != nil {
+				return []string{bs.Spec.TLS.CA.SecretKeyRef.Name}
+			}
+			return []string{""}
+		}).
+		Build()
+	return &k8sHandler{
+		kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), "ns1").WithKubernetesClient(fakeClient),
+		log:           zap.NewNop().Sugar(),
+	}
+}
+
+// withCA returns bs with its CA bundle in the Secret named name.
+func withCA(bs *backupv1alpha1.BackupStorage, name string) *backupv1alpha1.BackupStorage {
+	bs.Spec.TLS = &common.TLSConfig{CA: &common.CABundleSource{SecretKeyRef: &common.SecretKeyRef{Name: name, Key: "ca.crt"}}}
+	return bs
+}
+
+func TestK8s_ListBackupStorages(t *testing.T) {
+	t.Parallel()
+
+	inOtherNamespace := testBackupStorage("other-namespace", "s3", "AccessKey")
+	inOtherNamespace.Namespace = "ns2"
+	inOtherNamespace.Spec.Authentication.CredentialsSecretRef.Name = "shared-ca"
+
+	// The class verifies a store against a custom CA, which most storages
+	// here name.
+	customCA := &backupv1alpha1.BackupStorageTLSSupport{CustomCA: backupv1alpha1.TLSOptionSupported}
+	handler := newBackupStorageHandler(
+		&backupv1alpha1.BackupClass{
+			ObjectMeta: metav1.ObjectMeta{Name: "pbm"},
+			Spec: backupv1alpha1.BackupClassSpec{BackupStorageClasses: []backupv1alpha1.BackupStorageClassSupport{
+				{Name: "s3", AuthModes: []string{"AccessKey"}, TLS: customCA},
+				{Name: "gcs", AuthModes: []string{"AccessKey"}, TLS: customCA},
+			}},
+		},
+		withCA(testBackupStorage("writable", "s3", "AccessKey"), "shared-ca"),
+		testBackupStorage("refused", "s3", "WorkloadIdentity"),
+		withCA(testBackupStorage("other-class", "gcs", "AccessKey"), "shared-ca"),
+		// Its own CA as credentials too: listed once.
+		withCA(testBackupStorage("self", "s3", "AccessKey"), "self-creds"),
+		inOtherNamespace,
+	)
+
+	tests := []struct {
+		name   string
+		params *api.ListBackupStoragesParams
+		want   []string
+	}{
+		{name: "nil params", want: []string{"other-class", "refused", "self", "writable"}},
+		{name: "empty filters are ignored", params: &api.ListBackupStoragesParams{BackupClass: new(""), BackupStorageClass: new(""), Secret: new("")}, want: []string{"other-class", "refused", "self", "writable"}},
+		{name: "by backup class", params: &api.ListBackupStoragesParams{BackupClass: new("pbm")}, want: []string{"other-class", "self", "writable"}},
+		{name: "by backup storage class", params: &api.ListBackupStoragesParams{BackupStorageClass: new("s3")}, want: []string{"refused", "self", "writable"}},
+		{name: "by both classes", params: &api.ListBackupStoragesParams{BackupClass: new("pbm"), BackupStorageClass: new("s3")}, want: []string{"self", "writable"}},
+		{name: "unknown backup class", params: &api.ListBackupStoragesParams{BackupClass: new("nope")}, want: []string{}},
+		{name: "by credentials Secret", params: &api.ListBackupStoragesParams{Secret: new("refused-creds")}, want: []string{"refused"}},
+		{name: "by CA Secret", params: &api.ListBackupStoragesParams{Secret: new("shared-ca")}, want: []string{"other-class", "writable"}},
+		{name: "by a Secret used as both", params: &api.ListBackupStoragesParams{Secret: new("self-creds")}, want: []string{"self"}},
+		{name: "by Secret and backup storage class", params: &api.ListBackupStoragesParams{Secret: new("shared-ca"), BackupStorageClass: new("s3")}, want: []string{"writable"}},
+		{name: "by Secret and backup class", params: &api.ListBackupStoragesParams{Secret: new("refused-creds"), BackupClass: new("pbm")}, want: []string{}},
+		{name: "by an unused Secret", params: &api.ListBackupStoragesParams{Secret: new("nope")}, want: []string{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			list, err := handler.ListBackupStorages(context.Background(), "prod", "ns1", tt.params)
+			require.NoError(t, err)
+			names := make([]string, 0, len(list.Items))
+			for _, bs := range list.Items {
+				names = append(names, bs.Name)
+			}
+			if tt.params != nil && pointer.Get(tt.params.Secret) != "" {
+				// Merged lists come back sorted, like a single list, and
+				// without the resourceVersion neither read has alone.
+				assert.Equal(t, tt.want, names)
+				assert.Empty(t, list.ResourceVersion)
+				return
+			}
+			assert.ElementsMatch(t, tt.want, names)
+		})
+	}
+}
+
+// TestK8s_PatchBackupStorage pins the merge semantics. The fake client does no
+// strict decoding, so fieldValidation is not observable here and is covered by
+// api-tests/tests/backup-storage.spec.ts instead.
 func TestK8s_PatchBackupStorage(t *testing.T) {
 	t.Parallel()
 
-	verifyTLS := false
-	seed := func() *backupv1alpha1.BackupStorage {
-		return &backupv1alpha1.BackupStorage{
-			ObjectMeta: metav1.ObjectMeta{Name: "bs1", Namespace: "ns1"},
-			Spec: backupv1alpha1.BackupStorageSpec{
-				Type: backupv1alpha1.BackupStorageTypeS3,
-				S3: &backupv1alpha1.BackupStorageS3Spec{
-					Bucket:               "bucket-1",
-					Region:               "us-east-1",
-					EndpointURL:          "https://minio.minio.svc",
-					VerifyTLS:            &verifyTLS,
-					CredentialsSecretRef: common.SecretRef{Name: "bs1-creds"},
-				},
-			},
-		}
-	}
+	handler := newBackupStorageHandler(testBackupStorage("bs1", "s3", "AccessKey"))
+	result, err := handler.PatchBackupStorage(context.Background(), "prod", "ns1", "bs1",
+		[]byte(`{"spec":{"authentication":{"credentialsSecretRef":{"name":"rotated"}}}}`),
+	)
+	require.NoError(t, err)
 
-	newHandler := func() *k8sHandler {
-		fakeClient := fake.NewClientBuilder().
-			WithScheme(kubernetes.CreateScheme()).
-			WithObjects(seed()).
-			Build()
-		return &k8sHandler{
-			kubeConnector: kubernetes.NewEmpty(zap.NewNop().Sugar(), "ns1").WithKubernetesClient(fakeClient),
-			log:           zap.NewNop().Sugar(),
-		}
-	}
-
-	ctx := context.Background()
-
-	t.Run("named member changes and the rest survives", func(t *testing.T) {
-		t.Parallel()
-
-		result, err := newHandler().PatchBackupStorage(ctx, "prod", "ns1", "bs1",
-			[]byte(`{"spec":{"s3":{"bucket":"bucket-2"}}}`))
-		require.NoError(t, err)
-
-		assert.Equal(t, "bucket-2", result.Spec.S3.Bucket)
-		assert.Equal(t, "us-east-1", result.Spec.S3.Region)
-		assert.Equal(t, "bs1-creds", result.Spec.S3.CredentialsSecretRef.Name)
-	})
-
-	t.Run("credentials land in the stored object's secret and not on the object", func(t *testing.T) {
-		t.Parallel()
-
-		handler := newHandler()
-		result, err := handler.PatchBackupStorage(ctx, "prod", "ns1", "bs1",
-			[]byte(`{"spec":{"s3":{"accessKeyId":"key","secretAccessKey":"secret"}}}`))
-		require.NoError(t, err)
-
-		assert.Empty(t, result.Spec.S3.AccessKeyID)
-		assert.Empty(t, result.Spec.S3.SecretAccessKey)
-
-		secret, err := handler.kubeConnector.GetSecret(ctx, types.NamespacedName{Namespace: "ns1", Name: "bs1-creds"})
-		require.NoError(t, err)
-		assert.Equal(t, "key", secret.StringData["AWS_ACCESS_KEY_ID"])
-		assert.Equal(t, "secret", secret.StringData["AWS_SECRET_ACCESS_KEY"])
-	})
-
-	t.Run("a secret reference in the patch wins over the stored one", func(t *testing.T) {
-		t.Parallel()
-
-		handler := newHandler()
-		result, err := handler.PatchBackupStorage(ctx, "prod", "ns1", "bs1",
-			[]byte(`{"spec":{"s3":{"credentialsSecretRef":{"name":"rotated"},"accessKeyId":"key","secretAccessKey":"secret"}}}`))
-		require.NoError(t, err)
-
-		assert.Equal(t, "rotated", result.Spec.S3.CredentialsSecretRef.Name)
-
-		secret, err := handler.kubeConnector.GetSecret(ctx, types.NamespacedName{Namespace: "ns1", Name: "rotated"})
-		require.NoError(t, err)
-		assert.Equal(t, "key", secret.StringData["AWS_ACCESS_KEY_ID"])
-	})
-
-	t.Run("half a credential pair is a bad request and changes nothing", func(t *testing.T) {
-		t.Parallel()
-
-		handler := newHandler()
-		_, err := handler.PatchBackupStorage(ctx, "prod", "ns1", "bs1",
-			[]byte(`{"spec":{"s3":{"bucket":"bucket-2","accessKeyId":"key"}}}`))
-		require.ErrorIs(t, err, ErrInvalidRequest)
-		require.ErrorContains(t, err, "secretAccessKey is not provided")
-
-		stored, err := handler.kubeConnector.GetBackupStorage(ctx, types.NamespacedName{Namespace: "ns1", Name: "bs1"})
-		require.NoError(t, err)
-		assert.Equal(t, "bucket-1", stored.Spec.S3.Bucket, "the patch must not be applied when the pair is rejected")
-	})
-
-	t.Run("a rejected patch does not rotate the Secret", func(t *testing.T) {
-		t.Parallel()
-
-		handler := newHandler()
-		// The bucket's type is wrong, so the write fails after the credentials
-		// were taken out of the document.
-		_, err := handler.PatchBackupStorage(ctx, "prod", "ns1", "bs1",
-			[]byte(`{"spec":{"s3":{"bucket":7,"accessKeyId":"key","secretAccessKey":"secret"}}}`))
-		require.Error(t, err)
-
-		_, err = handler.kubeConnector.GetSecret(ctx, types.NamespacedName{Namespace: "ns1", Name: "bs1-creds"})
-		require.Error(t, err, "no Secret should be written for a patch the API server refused")
-	})
-
-	t.Run("a credential that is not a string is left for the API server", func(t *testing.T) {
-		t.Parallel()
-
-		handler := newHandler()
-		_, err := handler.PatchBackupStorage(ctx, "prod", "ns1", "bs1",
-			[]byte(`{"spec":{"s3":{"accessKeyId":7,"secretAccessKey":"secret"}}}`))
-		require.ErrorContains(t, err, "accessKeyId", "the type complaint comes from Kubernetes, not from this handler")
-
-		_, err = handler.kubeConnector.GetSecret(ctx, types.NamespacedName{Namespace: "ns1", Name: "bs1-creds"})
-		require.Error(t, err, "no Secret should be written for a credential this handler cannot read")
-	})
+	assert.Equal(t, "rotated", result.Spec.Authentication.CredentialsSecretRef.Name)
+	assert.Equal(t, "AccessKey", result.Spec.Authentication.Mode)
+	assert.Equal(t, "bucket-1", result.Spec.Location.ObjectStore.Bucket)
+	assert.JSONEq(t, `{"region":"us-east-1"}`, string(result.Spec.Parameters.Raw))
 }

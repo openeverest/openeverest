@@ -19,12 +19,12 @@ package deletion
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"strings"
 
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	"github.com/openeverest/openeverest/v2/pkg/cli/wait"
 	"github.com/openeverest/openeverest/v2/pkg/output"
 )
@@ -71,45 +71,59 @@ func CheckDeleteResponse(status int, statusText, kind, name, namespace string, i
 	}
 }
 
-// EmitDeleted prints success: a line in pretty mode, JSON otherwise.
-func EmitDeleted(pretty bool, kind, name, namespace string) error {
+// EmitDeleted prints success: a line in pretty mode, JSON/YAML otherwise.
+func EmitDeleted(pretty, asYAML bool, kind, name, namespace string) error {
 	if pretty {
 		_, _ = fmt.Fprint(os.Stdout, output.Success("%s %q deleted", titleFirst(kind), name))
 		return nil
 	}
-	return writeResultJSON(name, namespace, true)
+	return writeResult(name, namespace, true, asYAML)
 }
 
 // EmitAlreadyGone reports a --ignore-not-found short-circuit: nothing was
 // deleted, so "deleted" must stay false — it should only ever mean this
 // run actually deleted something.
-func EmitAlreadyGone(pretty bool, kind, name, namespace string) error {
+func EmitAlreadyGone(pretty, asYAML bool, kind, name, namespace string) error {
 	if pretty {
 		_, _ = fmt.Fprint(os.Stdout, output.Info("%s %q not found in namespace %q; nothing to delete", titleFirst(kind), name, namespace))
 		return nil
 	}
-	return writeResultJSON(name, namespace, false)
+	return writeResult(name, namespace, false, asYAML)
 }
 
 // EmitWaitSucceeded prints the --wait completion line: a line in pretty
-// mode, JSON otherwise. Wording ("is deleted") deliberately differs from
+// mode, JSON/YAML otherwise. Wording ("is deleted") deliberately differs from
 // EmitDeleted's ("deleted") — this is reported after waiting *for* the
 // resource to become gone, not immediately after issuing the delete.
-func EmitWaitSucceeded(pretty bool, kind, name, namespace string) error {
+func EmitWaitSucceeded(pretty, asYAML bool, kind, name, namespace string) error {
 	if pretty {
 		_, _ = fmt.Fprint(os.Stdout, output.Success("%s %q is deleted", titleFirst(kind), name))
 		return nil
 	}
-	return writeResultJSON(name, namespace, true)
+	return writeResult(name, namespace, true, asYAML)
 }
 
-func writeResultJSON(name, namespace string, deleted bool) error {
+// EmitDryRun reports a delete previewed with --dry-run (mode is client or
+// server): nothing was deleted, so "deleted" stays false.
+func EmitDryRun(pretty, asYAML bool, mode, kind, name, namespace string) error {
+	if pretty {
+		if mode == cli.DryRunServer {
+			_, _ = fmt.Fprint(os.Stdout, output.Success("Dry run for deleting %s %q accepted by the server, nothing deleted", kind, name))
+		} else {
+			_, _ = fmt.Fprint(os.Stdout, output.Info("Dry run for deleting %s %q in namespace %q, nothing sent", kind, name, namespace))
+		}
+		return nil
+	}
+	return writeResult(name, namespace, false, asYAML)
+}
+
+func writeResult(name, namespace string, deleted, asYAML bool) error {
 	result := struct {
 		Name      string `json:"name"`
 		Namespace string `json:"namespace"`
 		Deleted   bool   `json:"deleted"`
 	}{Name: name, Namespace: namespace, Deleted: deleted}
-	if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
+	if err := cli.Encode(os.Stdout, result, asYAML); err != nil {
 		return fmt.Errorf("failed to encode delete result: %w", err)
 	}
 	return nil

@@ -19,7 +19,6 @@ package backup
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -32,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 	"github.com/openeverest/openeverest/v2/pkg/cli/clientmeta"
 )
@@ -39,6 +39,7 @@ import (
 // Config holds the shared configuration for backup CLI runners.
 type Config struct {
 	Pretty bool
+	YAML   bool // -o yaml: machine-readable YAML instead of JSON when Pretty is false
 }
 
 // ListOptions holds the inputs for the list command.
@@ -103,7 +104,7 @@ func (bl *ListRunner) listInstanceBackups(
 
 func (bl *ListRunner) render(w io.Writer, backups []client.Backup) {
 	if !bl.config.Pretty {
-		_ = json.NewEncoder(w).Encode(backups) //nolint:errchkjson
+		_ = cli.Encode(w, backups, bl.config.YAML)
 		return
 	}
 	printBackupTable(w, backups)

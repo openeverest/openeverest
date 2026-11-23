@@ -31,9 +31,8 @@ func class(limits *backupv1alpha1.BackupClassLimits) *backupv1alpha1.BackupClass
 	return &backupv1alpha1.BackupClass{
 		ObjectMeta: metav1.ObjectMeta{Name: "pbm"},
 		Spec: backupv1alpha1.BackupClassSpec{
-			ExecutionMode:      backupv1alpha1.BackupExecutionModeProviderManaged,
-			SupportedProviders: backupv1alpha1.ProviderNameList{"mongo"},
-			ProviderManaged:    &backupv1alpha1.ProviderManagedSpec{Limits: limits},
+			ExecutionMode:   backupv1alpha1.BackupExecutionModeProviderManaged,
+			ProviderManaged: &backupv1alpha1.ProviderManagedSpec{ProviderRef: apicommon.ObjectRef{Name: "mongo"}, Limits: limits},
 		},
 	}
 }
@@ -64,20 +63,53 @@ func fields(errs field.ErrorList) []string {
 	return out
 }
 
-func TestIncompatibility(t *testing.T) {
+func TestProviderVerdict(t *testing.T) {
 	t.Parallel()
-	assert.Nil(t, Incompatibility(class(nil), "mongo"))
-
-	err := Incompatibility(class(nil), "postgres")
-	assert.Equal(t, `spec.backup.classRef.name: Invalid value: "pbm": does not support provider postgres`, err.Error())
-
-	other := class(nil)
-	other.Spec.ExecutionMode = otherMode
-	assert.Equal(t, "spec.backup.classRef.name", Incompatibility(other, "mongo").Field)
+	tests := []struct {
+		name   string
+		entry  backupv1alpha1.BackupClassProviderCompatibility
+		want   backupv1alpha1.Compatibility
+		detail string
+	}{
+		{
+			name:  "compatible",
+			entry: backupv1alpha1.BackupClassProviderCompatibility{Compatibility: backupv1alpha1.CompatibilityCompatible},
+			want:  backupv1alpha1.CompatibilityCompatible,
+		},
+		{
+			name: "incompatible",
+			entry: backupv1alpha1.BackupClassProviderCompatibility{
+				Compatibility: backupv1alpha1.CompatibilityIncompatible, Reason: backupv1alpha1.ReasonSpecDrift, Message: "spec.supportsImport",
+			},
+			want:   backupv1alpha1.CompatibilityIncompatible,
+			detail: "SpecDrift: spec.supportsImport",
+		},
+		{
+			name:   "pending",
+			entry:  backupv1alpha1.BackupClassProviderCompatibility{Compatibility: backupv1alpha1.CompatibilityPending, Reason: backupv1alpha1.ReasonClassNotAccepted},
+			want:   backupv1alpha1.CompatibilityPending,
+			detail: backupv1alpha1.ReasonClassNotAccepted,
+		},
+		{
+			name:   "a level this release does not know",
+			entry:  backupv1alpha1.BackupClassProviderCompatibility{Compatibility: "BackupOnly", Reason: "RestoreUnsupported"},
+			want:   backupv1alpha1.CompatibilityPending,
+			detail: "RestoreUnsupported",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			bc := class(nil)
+			bc.Generation = 3
+			tc.entry.Name, tc.entry.ClassGeneration = "mongo", 3
+			bc.Status.Providers = []backupv1alpha1.BackupClassProviderCompatibility{tc.entry}
+			v := ProviderVerdict(bc, "mongo")
+			assert.Equal(t, tc.want, v.Compatibility)
+			assert.Equal(t, tc.detail, VerdictDetail(v))
+		})
+	}
 }
-
-// otherMode is an execution mode the provider runtime does not execute.
-const otherMode = backupv1alpha1.BackupExecutionMode("Other")
 
 func TestLimitErrors(t *testing.T) {
 	t.Parallel()

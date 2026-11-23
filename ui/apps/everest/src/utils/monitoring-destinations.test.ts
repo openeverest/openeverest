@@ -13,18 +13,15 @@
 // limitations under the License.
 
 import { AxiosError, AxiosHeaders } from 'axios';
-import { Secret } from 'shared-types/api.types';
 import {
   MonitoringClass,
   MonitoringDestination,
   MonitoringDestinationState,
 } from 'shared-types/monitoring-destinations.types';
 import {
-  getCredentialsSecretLabels,
   getDefaultCredentialsSecretName,
   getDestinationAddress,
   getDestinationStatus,
-  isCredentialsSecretFor,
   isDestinationInUseError,
 } from './monitoring-destinations';
 
@@ -220,35 +217,6 @@ describe('credentials Secret names', () => {
   it('names the Secret after the kind and the destination', () => {
     expect(getDefaultCredentialsSecretName('pmm')).toBe(
       'monitoring-destination-pmm-credentials'
-    );
-  });
-});
-
-describe('credentials Secret labels', () => {
-  it('labels the Secret with the class and the authentication mode', () => {
-    expect(getCredentialsSecretLabels('pmm', 'ServiceAccountToken')).toEqual({
-      'openeverest.io/monitoring-class': 'pmm',
-      'openeverest.io/definition': 'ServiceAccountToken',
-    });
-  });
-
-  it('reuses only a Secret labelled for the same class and mode', () => {
-    const secret = (labels?: Record<string, string>): Secret => ({
-      metadata: { name: 'monitoring-destination-pmm-credentials', labels },
-    });
-    const labels = getCredentialsSecretLabels('pmm', 'ServiceAccountToken');
-
-    expect(
-      isCredentialsSecretFor(secret(labels), 'pmm', 'ServiceAccountToken')
-    ).toBe(true);
-    expect(
-      isCredentialsSecretFor(secret(labels), 'grafana', 'ServiceAccountToken')
-    ).toBe(false);
-    expect(isCredentialsSecretFor(secret(labels), 'pmm', 'BasicAuth')).toBe(
-      false
-    );
-    expect(isCredentialsSecretFor(secret(), 'pmm', 'ServiceAccountToken')).toBe(
-      false
     );
   });
 });

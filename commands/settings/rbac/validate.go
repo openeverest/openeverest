@@ -55,7 +55,7 @@ func init() {
 
 func settingsRBACValidatePreRun(cmd *cobra.Command, _ []string) {
 	// Copy global flags to config
-	rbacValidatePretty = !cmd.Flag(cli.FlagVerbose).Changed && !cmd.Flag(cli.FlagJSON).Changed
+	rbacValidatePretty = cli.IsPretty(cmd)
 	rbacValidateKubeconfigPath = cmd.Flag(cli.FlagKubeconfig).Value.String()
 }
 

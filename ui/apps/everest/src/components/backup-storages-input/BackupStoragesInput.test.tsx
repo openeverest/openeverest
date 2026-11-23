@@ -12,29 +12,100 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { render, screen, fireEvent } from '@testing-library/react';
+import {
+  act,
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { FormProvider, useForm } from 'react-hook-form';
+import { FormProvider, useForm, useFormState, useWatch } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { storageLocationZodObject } from 'components/schedule-form-dialog/schedule-form/schedule-form-schema';
+import { BackupStorageCRD } from 'shared-types/backupStorages.types';
+import { Messages as StatusMessages } from 'utils/backup-storages.messages';
+import { Messages } from './backup-storages-input.messages';
 import BackupStoragesInput from '.';
 
 const queryClient = new QueryClient();
 
-vi.mock('hooks/api/backup-storages/useBackupStorages', () => ({
-  useBackupStoragesByNamespace: () => ({
-    data: [
-      { metadata: { name: 'storage1' } },
-      { metadata: { name: 'storage2' } },
-      { metadata: { name: 'storage3' } },
-      { metadata: { name: 'storage4' } },
-    ],
+// The namespace's storages, and those each backup class can use.
+const mocks = vi.hoisted(() => {
+  const condition = (
+    type: string,
+    status: 'True' | 'False',
+    reason: string
+  ) => ({
+    type,
+    status,
+    reason,
+    message: '',
+    lastTransitionTime: '',
+  });
+  const storage = (
+    name: string,
+    accepted = condition('Accepted', 'True', 'Accepted'),
+    deletionTimestamp?: string
+  ): BackupStorageCRD => ({
+    metadata: { name, deletionTimestamp },
+    spec: {
+      backupStorageClassRef: { name: 's3' },
+      authentication: { mode: 'AccessKey' },
+      location: { objectStore: { bucket: name } },
+    },
+    status: { conditions: [accepted] },
+  });
+  const list = (data: BackupStorageCRD[]) => ({
+    data,
     isFetching: false,
-  }),
+    isSuccess: true,
+  });
+  const lists: Record<string, ReturnType<typeof list>> = {
+    namespace: list(
+      ['storage1', 'storage2', 'storage3', 'storage4'].map((name) =>
+        storage(name)
+      )
+    ),
+    'pg-class': list([storage('s3-pg')]),
+    'empty-class': list([]),
+    'broken-class': list([
+      storage(
+        's3-broken',
+        condition('Accepted', 'False', 'CredentialsNotFound')
+      ),
+    ]),
+    'mongo-class': list([
+      storage(
+        's3-broken',
+        condition('Accepted', 'False', 'CredentialsNotFound')
+      ),
+      storage('s3-mongo'),
+      storage('s3-going', undefined, '2026-11-16T10:00:00Z'),
+    ]),
+  };
+  return { lists, storage };
+});
+
+vi.mock('hooks/api/backup-storages/useBackupStorages', () => ({
+  useBackupStoragesByNamespace: (
+    _namespace: string,
+    filter?: { backupClass?: string }
+  ) => mocks.lists[filter?.backupClass ?? 'namespace'],
 }));
 
-const FormProviderWrapper = ({ children }: { children: React.ReactNode }) => {
+const FormProviderWrapper = ({
+  children,
+  storageLocation = null,
+}: {
+  children: React.ReactNode;
+  storageLocation?: BackupStorageCRD | null;
+}) => {
   const methods = useForm({
     defaultValues: {
-      storageLocation: null,
+      storageLocation,
     },
   });
   return (
@@ -43,6 +114,11 @@ const FormProviderWrapper = ({ children }: { children: React.ReactNode }) => {
     </FormProvider>
   );
 };
+
+const openOptions = () =>
+  fireEvent.click(
+    screen.getAllByRole('button').find((el) => el.title === 'Open')!
+  );
 
 // --- Unit tests for getAvailableStorages utility ---
 
@@ -78,6 +154,27 @@ describe('BackupStoragesInput (on-demand context)', () => {
       expect(screen.getAllByRole('option').length).toBe(4);
     }
   );
+
+  it('leaves the field empty once the user clears it', async () => {
+    const picker = () => (
+      <FormProviderWrapper>
+        <QueryClientProvider client={queryClient}>
+          <BackupStoragesInput namespace="test" schedules={[]} />
+        </QueryClientProvider>
+      </FormProviderWrapper>
+    );
+    const { rerender } = render(picker());
+    const field = screen.getByRole('combobox');
+    await waitFor(() => expect(field).toHaveValue('storage1'));
+
+    fireEvent.click(screen.getByTitle('Clear'));
+    // The form around the picker renders again on any change of its values.
+    rerender(picker());
+
+    await waitFor(() => expect(field).toHaveValue(''));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(field).toHaveValue('');
+  });
 
   it('shows "(in use)" highlight for instance storages when limit not reached', () => {
     render(
@@ -153,6 +250,7 @@ describe('BackupStoragesInput (on-demand context)', () => {
     // Field should be disabled
     const input = screen.getByRole('combobox');
     expect(input).toBeDisabled();
+    expect(input).toHaveValue('storage2');
   });
 
   it('shows all storages when active == 0 and limit == 1', () => {
@@ -198,5 +296,222 @@ describe('BackupStoragesInput (on-demand context)', () => {
       screen.getAllByRole('button').find((el) => el.title === 'Open')!
     );
     expect(screen.getAllByRole('option').length).toBe(4);
+  });
+});
+
+describe('BackupStoragesInput (backup class)', () => {
+  const renderForClass = (backupClass: string) =>
+    render(
+      <FormProviderWrapper>
+        <QueryClientProvider client={queryClient}>
+          <BackupStoragesInput
+            namespace="test"
+            backupClass={backupClass}
+            schedules={[]}
+          />
+        </QueryClientProvider>
+      </FormProviderWrapper>
+    );
+
+  it('offers only the storages the backup class can use', () => {
+    renderForClass('pg-class');
+
+    openOptions();
+    expect(
+      screen.getAllByRole('option').map((option) => option.textContent)
+    ).toEqual(['s3-pg']);
+  });
+
+  it("offers a storage that isn't valid as unavailable, saying why, and picks a valid one", () => {
+    renderForClass('mongo-class');
+
+    expect(screen.getByRole('combobox')).toHaveValue('s3-mongo');
+    openOptions();
+    const broken = screen.getByRole('option', { name: /s3-broken/ });
+    expect(broken).toHaveAttribute('aria-disabled', 'true');
+    expect(
+      within(broken).getByText(StatusMessages.reasons.CredentialsNotFound)
+    ).toBeInTheDocument();
+  });
+
+  it('offers a storage being deleted only to an instance that uses it', () => {
+    const { unmount } = renderForClass('mongo-class');
+    openOptions();
+    expect(
+      screen.queryByRole('option', { name: /s3-going/ })
+    ).not.toBeInTheDocument();
+    unmount();
+
+    render(
+      <FormProviderWrapper>
+        <QueryClientProvider client={queryClient}>
+          <BackupStoragesInput
+            namespace="test"
+            backupClass="mongo-class"
+            schedules={[]}
+            instanceStorageNames={['s3-going']}
+          />
+        </QueryClientProvider>
+      </FormProviderWrapper>
+    );
+    openOptions();
+    expect(screen.getByRole('option', { name: /s3-going/ })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    );
+  });
+
+  it("swaps a picked storage the new backup class can't use", () => {
+    const picker = (backupClass: string) => (
+      <FormProviderWrapper>
+        <QueryClientProvider client={queryClient}>
+          <BackupStoragesInput
+            namespace="test"
+            backupClass={backupClass}
+            schedules={[]}
+          />
+        </QueryClientProvider>
+      </FormProviderWrapper>
+    );
+    const { rerender } = render(picker('pg-class'));
+    expect(screen.getByRole('combobox')).toHaveValue('s3-pg');
+
+    rerender(picker('mongo-class'));
+
+    expect(screen.getByRole('combobox')).toHaveValue('s3-mongo');
+  });
+
+  it('keeps the storage of an existing schedule the class list lacks', () => {
+    render(
+      <FormProviderWrapper storageLocation={mocks.storage('s3-pg')}>
+        <QueryClientProvider client={queryClient}>
+          <BackupStoragesInput
+            namespace="test"
+            backupClass="mongo-class"
+            schedules={[]}
+            autoFillProps={{ disabled: true }}
+          />
+        </QueryClientProvider>
+      </FormProviderWrapper>
+    );
+
+    expect(screen.getByRole('combobox')).toHaveValue('s3-pg');
+  });
+
+  const ClassAndStorageForm = ({ initialClass }: { initialClass: string }) => {
+    const methods = useForm({
+      mode: 'onChange',
+      resolver: zodResolver(
+        z.object({
+          backupClass: z.string(),
+          // A union, as in the schedule and on-demand forms, validates the
+          // old pick slowly enough to settle after the field is cleared.
+          storageLocation: storageLocationZodObject.refine(
+            (storage) => !!storage,
+            'Select a storage'
+          ),
+        })
+      ),
+      defaultValues: { backupClass: initialClass, storageLocation: null },
+    });
+    const backupClass = useWatch({
+      control: methods.control,
+      name: 'backupClass',
+    });
+    return (
+      <FormProvider {...methods}>
+        <select data-testid="class" {...methods.register('backupClass')}>
+          <option value="pg-class">pg-class</option>
+          <option value="empty-class">empty-class</option>
+          <option value="broken-class">broken-class</option>
+        </select>
+        <QueryClientProvider client={queryClient}>
+          <BackupStoragesInput
+            namespace="test"
+            backupClass={backupClass}
+            schedules={[]}
+          />
+        </QueryClientProvider>
+        <FormValidity />
+      </FormProvider>
+    );
+  };
+  const FormValidity = () => {
+    const { isValid } = useFormState();
+    return <span data-testid="form-valid">{String(isValid)}</span>;
+  };
+  const storageField = () =>
+    screen.getByRole('combobox', { name: /backup storage/i });
+  const pickClass = (backupClass: string) =>
+    fireEvent.change(screen.getByTestId('class'), {
+      target: { value: backupClass },
+    });
+  const expectFormValid = (isValid: boolean) =>
+    waitFor(() =>
+      expect(screen.getByTestId('form-valid')).toHaveTextContent(
+        String(isValid)
+      )
+    );
+
+  // Lets every validation a class change started settle, so a test sees
+  // where the form ends up rather than a state it passes through.
+  const settle = () =>
+    act(() => new Promise<void>((resolve) => setTimeout(resolve)));
+  const expectSettledForm = (
+    isValid: boolean,
+    storage: string,
+    explained: boolean
+  ) => {
+    expect(screen.getByTestId('form-valid')).toHaveTextContent(String(isValid));
+    expect(storageField()).toHaveValue(storage);
+    const explanation = screen.queryByText(Messages.noCompatibleStorages);
+    if (explained) {
+      expect(explanation).toBeInTheDocument();
+    } else {
+      expect(explanation).not.toBeInTheDocument();
+    }
+  };
+
+  it('keeps a form invalid once the picked backup class can use no storage, saying why', async () => {
+    render(<ClassAndStorageForm initialClass="pg-class" />);
+    await expectFormValid(true);
+
+    pickClass('empty-class');
+    await settle();
+
+    expectSettledForm(false, '', true);
+  });
+
+  it('keeps a form invalid once the picked backup class offers only unavailable storages', async () => {
+    render(<ClassAndStorageForm initialClass="pg-class" />);
+    await expectFormValid(true);
+
+    pickClass('broken-class');
+    await settle();
+
+    expectSettledForm(false, '', false);
+  });
+
+  it('makes a form valid again once a backup class with storages is picked back', async () => {
+    render(<ClassAndStorageForm initialClass="pg-class" />);
+    await expectFormValid(true);
+    pickClass('empty-class');
+    await settle();
+
+    pickClass('pg-class');
+    await settle();
+
+    expectSettledForm(true, 's3-pg', false);
+  });
+
+  it("doesn't explain an empty field once a backup class with storages was picked meanwhile", async () => {
+    render(<ClassAndStorageForm initialClass="pg-class" />);
+    await expectFormValid(true);
+
+    pickClass('empty-class');
+    pickClass('pg-class');
+    await settle();
+
+    expectSettledForm(true, 's3-pg', false);
   });
 });

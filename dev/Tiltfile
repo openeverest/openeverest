@@ -32,6 +32,11 @@ if os.path.exists(local_env_file):
     print ('Loading local .env file={0}'.format(local_env_file))
     dotenv(fn=local_env_file)
 
+k8s_context = os.getenv('K8S_CONTEXT', '')
+if k8s_context:
+    print('Using Kubernetes context: {0}'.format(k8s_context))
+    allow_k8s_contexts(k8s_context)
+
 cache_dir='{0}/.cache'.format(config.main_dir)
 local('mkdir -p "{0}"'.format(cache_dir), quiet=True)
 
@@ -69,10 +74,6 @@ everest_backend_build_env = os.getenv('EVEREST_BACKEND_BUILD_ENV', go_default_bu
 print('Using Everest server backend build ENV vars: {0}'.format(everest_backend_build_env))
 
 # External resources set up
-k8s_context = os.getenv('K8S_CONTEXT', '')
-if k8s_context:
-    print('Using Kubernetes context: {0}'.format(k8s_context))
-    allow_k8s_contexts(k8s_context)
 
 docker_registry_url = os.getenv('DOCKER_REGISTRY_URL', '')
 if docker_registry_url:
@@ -223,6 +224,9 @@ everest_yaml = helm(
 )
 # Helm hooks (upgrade preflight checks) are not needed in a dev environment.
 hooks_yaml, everest_yaml = filter_yaml(everest_yaml, kind='Job', namespace=EVEREST_NAMESPACE)
+# Built-in BackupStorageClasses are deployed from this repo's config/backupstorageclasses
+# (see backup-storage-classes below) so local changes apply without regenerating the chart.
+chart_backup_storage_classes_yaml, everest_yaml = filter_yaml(everest_yaml, kind='BackupStorageClass')
 
 # Patch Everest Server deployment for running with debugger
 def patch_everest_debug(in_yaml):
@@ -494,13 +498,14 @@ if need_backup_storage:
     for namespace in config_yaml['namespaces']:
         ns_name = namespace['name']
         for storage_name in namespace.get('backupStorages', []):
+            secret_name = 'backup-storage-{0}-credentials'.format(storage_name)
             bs_objs=read_yaml_stream(bs_crd_path)
             for obj in bs_objs:
                 if obj['kind'] == 'Secret':
                     obj.update({
                         'metadata': {
                             'namespace': ns_name,
-                            'name': storage_name
+                            'name': secret_name
                         }
                     })
                 elif obj['kind'] == 'BackupStorage':
@@ -510,16 +515,14 @@ if need_backup_storage:
                             'name': storage_name
                         }
                     })
-                    obj['spec']['s3'].update({
-                            'bucket': '{0}'.format(storage_name),
-                            'credentialsSecretRef': {
-                                'name': storage_name,
-                            },
-                    })
+                    obj['spec']['location']['objectStore']['bucket'] = storage_name
+                    obj['spec']['authentication']['credentialsSecretRef'] = {
+                        'name': secret_name,
+                    }
             k8s_yaml(encode_yaml_stream(bs_objs))
             k8s_resource(
                 objects=[
-                    '{0}:Secret:{1}'.format(storage_name, ns_name),
+                    '{0}:Secret:{1}'.format(secret_name, ns_name),
                     '{0}:BackupStorage:{1}'.format(storage_name, ns_name),
                 ],
                 new_name='bs-{0}-{1}'.format(ns_name, storage_name),
@@ -539,6 +542,7 @@ k8s_resource(
   objects=[
     'backupclasses.backup.openeverest.io:customresourcedefinition',
     'backups.backup.openeverest.io:customresourcedefinition',
+    'backupstorageclasses.backup.openeverest.io:customresourcedefinition',
     'backupstorages.backup.openeverest.io:customresourcedefinition',
     'instances.core.openeverest.io:customresourcedefinition',
     'monitoringclasses.monitoring.openeverest.io:customresourcedefinition',
@@ -551,6 +555,18 @@ k8s_resource(
     'instancepresets.core.openeverest.io:customresourcedefinition'
   ],
   new_name='crds',
+  labels=["everest"]
+)
+
+k8s_yaml(kustomize('{0}/config/backupstorageclasses/'.format(backend_dir)))
+k8s_resource(
+  objects=[
+    's3:backupstorageclass',
+  ],
+  new_name='backup-storage-classes',
+  resource_deps=[
+    'crds',
+  ],
   labels=["everest"]
 )
 

@@ -1,5 +1,6 @@
 // everest
 // Copyright (C) 2023 Percona LLC
+// Copyright (C) 2026 The OpenEverest Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,29 +18,26 @@ import {test, expect} from '@fixtures'
 import {checkError} from '@tests/utils/api';
 
 test.describe.parallel('K8S cluster tests', () => {
-
-  test('get resource usage', async ({request}) => {
-    const r = await request.get(`/v1/resources`),
-      resources = await r.json()
+  test('list and get storage classes', async ({request}) => {
+    const r = await request.get(`/v1/clusters/main/storage-classes`),
+      list = await r.json(),
+      name = list?.items?.[0]?.metadata?.name,
+      g = await request.get(`/v1/clusters/main/storage-classes/${name}`),
+      got = await g.json()
 
     await checkError(r)
+    await checkError(g)
 
-    expect(resources).toBeTruthy()
-    expect(resources?.capacity).toBeTruthy()
-    expect(resources?.available).toBeTruthy()
+    expect(list?.items).toHaveLength(1)
+    expect(name).toBeTruthy()
+    expect(list.items[0]?.provisioner).toBeTruthy()
+    expect(got.metadata.name).toBe(name)
+    expect(got.provisioner).toBe(list.items[0].provisioner)
   })
 
-  test('get cluster info', async ({request}) => {
-    const r = await request.get(`/v1/cluster-info`),
-      info = await r.json()
+  test('get missing storage class', async ({request}) => {
+    const r = await request.get(`/v1/clusters/main/storage-classes/does-not-exist`)
 
-    await checkError(r)
-
-    expect(info).toBeTruthy()
-    expect(info?.clusterType).toBeTruthy()
-    expect(info?.storageClassNames).toBeTruthy()
-    expect(info?.storageClassNames).toHaveLength(1)
-    expect(info?.storageClasses).toBeTruthy()
-    expect(info?.storageClasses).toHaveLength(1)
+    expect(r.status()).toBe(404)
   })
 });

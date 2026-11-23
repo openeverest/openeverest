@@ -55,6 +55,7 @@ Read the whole file; apply Frontend rules only when touching files under `ui/`.
 ### UI conventions
 
 - User-facing strings live in `.messages.ts` (a `Messages` object) — never hardcoded in JSX.
+- **The product noun is "instance", not "database".** The API resource is `Instance`; UI copy, test names and comments call it an instance ("Edit the instance", not "Edit the database"). "Database" only names what runs inside it: database version, database users, database engine.
 - **Theme-first styling.** Design tokens and any recurring look (card/heading/surface border, background, radius, selection ring) live in the MUI theme as component `variants` (see `MuiCard` `grey`/`selectable`), inherited everywhere — not re-written inline per call site. `sx` is only for one-off layout/composition (`display`, `gap`, padding, grid), and reads theme values (`theme.spacing`, `theme.palette`). Breakpoints via `useActiveBreakpoint()`.
 - **Don't duplicate styles, don't re-declare defaults.** If the same style block appears in more than one component, hoist it (theme variant, ui-lib primitive, or a shared `.constants.ts`) — no copy-paste. Never re-state a value the theme already provides (e.g. `borderRadius: theme.shape.borderRadius` — `Card`/`Paper` already apply it).
 - Forms: `react-hook-form` + `useFormContext()` + zod `-schema.ts`; inputs from `@percona/ui-lib`.
@@ -80,7 +81,7 @@ Read the whole file; apply Frontend rules only when touching files under `ui/`.
 ### UI Generator (`components/ui-generator/`)
 
 Schema-driven form renderer. Layers: preprocess → schema-build (zod) → render → postprocess.
-Runtime field behavior goes through the `fieldOverrides` map on `UiGeneratorContext` (keyed by path), computed in the consumer — never hardcode path checks or add queries inside render internals.
+Runtime field behavior (e.g. a field the cluster's state makes read-only) is computed in the consumer as `FieldOverrides` keyed by path and applied to the preprocessed sections with `applyFieldOverrides` (`utils/field-overrides/`) — never hardcode path checks or add queries inside render internals.
 **Keep docs in sync (required):** any change to the UI Generator architecture or its schema props (adding/renaming/removing a prop, `uiType`, `groupType`, validation rule, mode behavior, etc.) must update the architecture docs in `docs/ui/architecture/ui-generator/` and the user-facing docs in `docs/ui/ui-generator/` in the same PR, and bump the `Last updated` date in the touched docs.
 
 ### Don'ts

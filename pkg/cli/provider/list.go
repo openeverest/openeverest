@@ -19,7 +19,6 @@ package provider
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -32,12 +31,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/openeverest/openeverest/v2/client"
+	"github.com/openeverest/openeverest/v2/pkg/cli"
 	authcli "github.com/openeverest/openeverest/v2/pkg/cli/auth"
 )
 
 // Config holds the shared configuration for provider CLI runners.
 type Config struct {
 	Pretty bool
+	YAML   bool // -o yaml: machine-readable YAML instead of JSON when Pretty is false
 }
 
 // ListOptions holds the inputs for the list command.
@@ -100,7 +101,7 @@ func (pl *ListRunner) listProviders(ctx context.Context, c *client.ClientWithRes
 
 func (pl *ListRunner) render(w io.Writer, providers []client.Provider) {
 	if !pl.config.Pretty {
-		_ = json.NewEncoder(w).Encode(providers) //nolint:errchkjson
+		_ = cli.Encode(w, providers, pl.config.YAML)
 		return
 	}
 	printProviderTable(w, providers)

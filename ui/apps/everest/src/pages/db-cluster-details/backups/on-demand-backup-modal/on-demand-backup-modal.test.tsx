@@ -64,8 +64,10 @@ vi.mock('hooks/api/backup-classes/useBackupClasses.ts', () => ({
         metadata: { name: 'standard-class' },
         spec: {
           displayName: 'Standard',
-          supportedProviders: [],
-          providerManaged: { limits: { maxStorages: 3 } },
+          providerManaged: {
+            providerRef: { name: 'test-provider' },
+            limits: { maxStorages: 3 },
+          },
         },
       },
     ],
