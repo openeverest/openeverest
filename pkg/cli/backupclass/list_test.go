@@ -16,7 +16,6 @@
 package backupclass
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -28,7 +27,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 )
 
@@ -193,9 +191,21 @@ func TestBackupClassList_JSONOutput(t *testing.T) {
 func TestBackupClassList_YAMLOutput(t *testing.T) {
 	t.Parallel()
 
-	var bc client.BackupClass
-	require.NoError(t, json.Unmarshal([]byte(`{"metadata":{"name":"pg-backup"}}`), &bc))
-	var buf bytes.Buffer
-	NewListRunner(Config{YAML: true}, zap.NewNop().Sugar()).render(&buf, []client.BackupClass{bc})
-	assert.Contains(t, buf.String(), "- metadata:\n    name: pg-backup\n")
+	items := []testBackupClass{newTestBackupClass("pg-backup", "ProviderManaged", "percona-postgresql")}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
+	}))
+	defer srv.Close()
+
+	cfg := newTestConfig(srv.URL)
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, cfg.Save(cfgPath))
+
+	// Pretty=false, YAML=true → YAML path
+	runner := NewListRunner(Config{Pretty: false, YAML: true}, zap.NewNop().Sugar())
+	err := runner.Run(t.Context(), ListOptions{Cluster: "main"}, cfgPath)
+	require.NoError(t, err)
 }

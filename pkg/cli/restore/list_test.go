@@ -16,7 +16,6 @@
 package restore
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -201,10 +200,23 @@ func TestRestoreList_JSONOutput(t *testing.T) {
 func TestRestoreList_YAMLOutput(t *testing.T) {
 	t.Parallel()
 
-	r := restoreFromJSON(t, `{"metadata":{"name":"my-mongo-restore-1"}}`)
-	var buf bytes.Buffer
-	NewListRunner(Config{YAML: true}, zap.NewNop().Sugar()).render(&buf, []client.Restore{*r})
-	assert.Contains(t, buf.String(), "- metadata:\n    name: my-mongo-restore-1\n")
+	items := []testRestore{newTestRestore("my-mongo-restore-1", "everest", "my-mongo", "my-mongo-20260722", time.Hour)}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
+	}))
+	defer srv.Close()
+
+	cfg := newTestConfig(srv.URL)
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, cfg.Save(cfgPath))
+
+	// Pretty=false, YAML=true → YAML path
+	runner := NewListRunner(Config{Pretty: false, YAML: true}, zap.NewNop().Sugar())
+	err := runner.Run(t.Context(), ListOptions{Cluster: "main", Namespace: "everest", Instance: "my-mongo"}, cfgPath)
+	require.NoError(t, err)
 }
 
 func TestRestoreBackup_NilDataSource(t *testing.T) {

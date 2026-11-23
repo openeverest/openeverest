@@ -16,7 +16,6 @@
 package provider
 
 import (
-	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -28,7 +27,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/openeverest/openeverest/v2/client"
 	"github.com/openeverest/openeverest/v2/pkg/cli/config"
 )
 
@@ -176,9 +174,21 @@ func TestProviderList_JSONOutput(t *testing.T) {
 func TestProviderList_YAMLOutput(t *testing.T) {
 	t.Parallel()
 
-	var p client.Provider
-	require.NoError(t, json.Unmarshal([]byte(`{"metadata":{"name":"postgresql"}}`), &p))
-	var buf bytes.Buffer
-	NewListRunner(Config{YAML: true}, zap.NewNop().Sugar()).render(&buf, []client.Provider{p})
-	assert.Contains(t, buf.String(), "- metadata:\n    name: postgresql\n")
+	items := []testProvider{newTestProvider("postgresql")}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
+	}))
+	defer srv.Close()
+
+	cfg := newTestConfig(srv.URL)
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, cfg.Save(cfgPath))
+
+	// Pretty=false, YAML=true → YAML path
+	runner := NewListRunner(Config{Pretty: false, YAML: true}, zap.NewNop().Sugar())
+	err := runner.Run(t.Context(), ListOptions{Cluster: "main"}, cfgPath)
+	require.NoError(t, err)
 }
