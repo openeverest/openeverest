@@ -223,8 +223,8 @@ type facts struct {
 // Stalled may instead say that progress stopped. One that is False says why,
 // with no message: Reconciling and Stalled are Converged while Ready,
 // Reconciling is Stalled while stalled, Stalled is Reconciling while the
-// Instance is worked on, and NeedsAttention is NoProblems. CheckConditions
-// holds a status to these rules.
+// Instance is worked on, and NeedsAttention is NoProblems.
+// CheckConditions in contract/summary holds a status to these rules.
 func Compute(o Observation) Result {
 	if o.ProblemDeadline <= 0 {
 		o.ProblemDeadline = DefaultProblemDeadline
